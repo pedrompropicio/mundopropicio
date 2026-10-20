@@ -12,24 +12,39 @@ import {
   useCacheContractContext, useInvalidateCacheContracts,
   type CacheContextContract, type CacheContractContext,
 } from "@/hooks/useCacheContractContext";
-import { MAX_CACHE_CONTRACTS, previewContract, remainingToContract } from "@/lib/cache-contracts";
+import { MAX_CACHE_CONTRACTS, previewContract, remainingToContract, cacheErrorMessage, cachePaymentGates, type CacheStatus } from "@/lib/cache-contracts";
 
 interface Props {
   eventId: string;
   config: any;
   canEdit: boolean;
+  /** Escolha inicial de linha de cachê por cidade ({event_id: forecast_id}), ex.: a linha clicada no BP. */
+  initialLineChoices?: Record<string, string>;
 }
 
 const newKey = () => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
-const errText = (e: any) => String(e?.message ?? e).replace(/^[a-z_]+: /, "");
+const errText = (e: any) => cacheErrorMessage(e);
 
 /**
  * Contratos de pagamento do cachê (revê D15). Âncora: turnê/evento + artista; até 4 contratos que
  * dividem o cachê total por todas as cidades. Toda a gravação é feita pelas RPCs atómicas.
  */
-export function CacheContractsPanel({ eventId, config, canEdit }: Props) {
+export function CacheContractsPanel({ eventId, config, canEdit, initialLineChoices }: Props) {
   const artistId: string | null = config.supplier_id ?? null;
   const { data: ctx, isLoading, error } = useCacheContractContext(eventId, artistId);
+  const [lineChoices, setLineChoices] = useState<Record<string, string>>(initialLineChoices ?? {});
+  const choicesArg = Object.keys(lineChoices).length ? lineChoices : null;
+  const { data: status, error: statusError } = useQuery({
+    queryKey: ["cache_contract_context", "status", eventId, artistId ?? "", JSON.stringify(lineChoices)],
+    enabled: !!eventId && !!artistId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("cache_contract_status" as any, {
+        p_event_id: eventId, p_artist_supplier_id: artistId, p_line_choices: choicesArg,
+      });
+      if (error) throw error;
+      return data as unknown as CacheStatus;
+    },
+  });
   const invalidate = useInvalidateCacheContracts();
   const [dialog, setDialog] = useState<null | { kind: "contract"; edit?: CacheContextContract } | { kind: "advance"; contract?: CacheContextContract }>(null);
 
@@ -49,10 +64,18 @@ export function CacheContractsPanel({ eventId, config, canEdit }: Props) {
       </div>
     );
   }
-  if (isLoading) return <div className="px-3 pb-3 text-xs text-muted-foreground">A carregar contratos…</div>;
-  if (error || !ctx) return <div className="px-3 pb-3 text-xs text-destructive">Erro ao ler os contratos: {errText(error)}</div>;
+  if (isLoading || (!status && !statusError)) return <div className="px-3 pb-3 text-xs text-muted-foreground">A carregar contratos…</div>;
+  if (error || !ctx || statusError || !status) return <div className="px-3 pb-3 text-xs text-destructive">Erro ao ler os contratos: {errText(error ?? statusError)}</div>;
 
-  const totalCap = ctx.cities.reduce((s, c) => s + Number(c.cap), 0);
+  const gates = cachePaymentGates(status);
+  // Cidades/tetos resolvidos com as escolhas atuais (a linha de BP de cachê de cada cidade).
+  const resolved = status.cities.filter((c) => c.forecast_id);
+  const maxCap = Math.max(0, ...resolved.map((c) => Number(c.cap)));
+  const absorberId = resolved.find((c) => Number(c.cap) === maxCap)?.event_id;
+  const ctxCities = resolved.map((c) => ({ event_id: c.event_id, name: c.name, cap: Number(c.cap), is_absorber: c.event_id === absorberId }));
+  const ctxView = { ...ctx, cities: ctxCities.map((c) => ({ ...c, date: null, forecast_id: "", by_role: {} })) } as CacheContractContext;
+
+  const totalCap = ctxCities.reduce((s, c) => s + Number(c.cap), 0);
   const contracted = ctx.contracts.reduce((s, c) => s + Number(c.gross), 0);
   const freeAdv = ctx.free_advances.reduce((s, a) => s + Number(a.amount), 0);
   const remaining = remainingToContract({ totalCap, otherContractsGross: contracted, freeAdvancesNotChosen: freeAdv });
@@ -64,23 +87,23 @@ export function CacheContractsPanel({ eventId, config, canEdit }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
         <div className="flex items-center gap-2">
           <FileSignature className="h-4 w-4 text-primary" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contratos de pagamento</span>
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Passo 2 · Pagamento do cachê</span>
           <span className="text-[10px] text-muted-foreground">{ctx.contracts.length}/{MAX_CACHE_CONTRACTS}</span>
         </div>
         {canEdit && (
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setDialog({ kind: "advance" })}
-              disabled={remaining <= 0}
-              title={remaining <= 0 ? "Não há valor por contratar: lance o adiantamento dentro de um contrato" : undefined}
+              disabled={remaining <= 0 || !gates.canFreeAdvance}
+              title={!gates.canFreeAdvance && status.frozen ? "O cachê já está congelado: lance o adiantamento dentro de um contrato." : remaining <= 0 ? "Não há valor por contratar: lance o adiantamento dentro de um contrato" : undefined}
               className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
             >
               <Wallet className="h-3.5 w-3.5" /> Adiantamento
             </button>
             <button
               onClick={() => setDialog({ kind: "contract" })}
-              disabled={atLimit || remaining <= 0 && ctx.free_advances.length === 0}
-              title={atLimit ? `Máximo de ${MAX_CACHE_CONTRACTS} contratos` : undefined}
+              disabled={atLimit || !gates.canCreateContract || remaining <= 0 && ctx.free_advances.length === 0}
+              title={gates.needsFreeze ? "Congele primeiro o cachê no modal; só depois pode criar o contrato de pagamento." : atLimit ? `Máximo de ${MAX_CACHE_CONTRACTS} contratos` : undefined}
               className="flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-2 py-1 text-xs text-primary hover:bg-primary/10 disabled:opacity-50"
             >
               <Plus className="h-3.5 w-3.5" /> Novo contrato
@@ -96,8 +119,29 @@ export function CacheContractsPanel({ eventId, config, canEdit }: Props) {
             Existe uma linha do cachê no BP do Master da turnê. Os pagamentos usam só as linhas das cidades; essa linha não é usada.
           </div>
         )}
-        {ctx.cities.length === 0 && (
-          <p className="text-xs text-warning">Falta a linha do cachê no BP das cidades. Sincronize o cachê antes de definir contratos.</p>
+        {gates.needsFreeze && (
+          <p className="rounded-md border border-warning/30 bg-warning/5 p-2 text-[11px] text-warning">
+            Congele primeiro o cachê no modal; só depois pode criar o contrato de pagamento.
+          </p>
+        )}
+        {gates.pending.map((c) => (
+          <div key={c.event_id} className="rounded-md border border-border p-2 text-[11px]">
+            <p className="mb-1 text-muted-foreground">{c.name}: há várias linhas de cachê (2.1.01). Escolha a do artista.</p>
+            <select
+              aria-label={`Linha de cachê em ${c.name}`}
+              className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs"
+              value={lineChoices[c.event_id] ?? ""}
+              onChange={(e) => setLineChoices((prev) => ({ ...prev, [c.event_id]: e.target.value }))}
+            >
+              <option value="">— escolher —</option>
+              {(c.candidates ?? []).map((o) => (
+                <option key={o.forecast_id} value={o.forecast_id}>{o.description ?? "Linha"} · {formatCurrency(Number(o.amount))}</option>
+              ))}
+            </select>
+          </div>
+        ))}
+        {resolved.length === 0 && gates.pending.length === 0 && (
+          <p className="text-xs text-warning">Não há linha de cachê (2.1.01) no BP desta cidade. Crie-a no BP ou configure o cachê.</p>
         )}
 
         <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
@@ -170,11 +214,11 @@ export function CacheContractsPanel({ eventId, config, canEdit }: Props) {
       </div>
 
       {dialog?.kind === "contract" && (
-        <ContractDialog ctx={ctx} eventId={eventId} config={config} edit={dialog.edit}
+        <ContractDialog ctx={ctxView} eventId={eventId} config={config} edit={dialog.edit} lineChoices={choicesArg}
           onClose={() => setDialog(null)} onDone={() => { setDialog(null); invalidate(); }} />
       )}
       {dialog?.kind === "advance" && (
-        <AdvanceDialog eventId={eventId} config={config} contract={dialog.contract} remaining={remaining}
+        <AdvanceDialog eventId={eventId} config={config} contract={dialog.contract} remaining={remaining} lineChoices={choicesArg}
           onClose={() => setDialog(null)} onDone={() => { setDialog(null); invalidate(); }} />
       )}
     </div>
@@ -208,8 +252,8 @@ function useSupplierOptions() {
   return useMemo(() => data.map((s: any) => ({ value: s.id, label: s.name })), [data]);
 }
 
-function ContractDialog({ ctx, eventId, config, edit, onClose, onDone }: {
-  ctx: CacheContractContext; eventId: string; config: any; edit?: CacheContextContract; onClose: () => void; onDone: () => void;
+function ContractDialog({ ctx, eventId, config, edit, lineChoices, onClose, onDone }: {
+  ctx: CacheContractContext; eventId: string; config: any; edit?: CacheContextContract; lineChoices: Record<string, string> | null; onClose: () => void; onDone: () => void;
 }) {
   const supplierOptions = useSupplierOptions();
   const [key] = useState(newKey);
@@ -295,7 +339,7 @@ function ContractDialog({ ctx, eventId, config, edit, onClose, onDone }: {
       };
       const { error } = edit
         ? await supabase.rpc("update_cache_payment_contract" as any, { p_contract_id: edit.id, ...common })
-        : await supabase.rpc("create_cache_payment_contract" as any, { p_event_id: eventId, p_artist_supplier_id: config.supplier_id, ...common, p_idempotency_key: key });
+        : await supabase.rpc("create_cache_payment_contract" as any, { p_event_id: eventId, p_artist_supplier_id: config.supplier_id, ...common, p_idempotency_key: key, p_line_choices: lineChoices });
       if (error) throw error;
     },
     onSuccess: () => { toast({ title: edit ? "Contrato alterado" : "Contrato criado" }); onDone(); },
@@ -412,8 +456,8 @@ function ContractDialog({ ctx, eventId, config, edit, onClose, onDone }: {
   );
 }
 
-function AdvanceDialog({ eventId, config, contract, remaining, onClose, onDone }: {
-  eventId: string; config: any; contract?: CacheContextContract; remaining: number; onClose: () => void; onDone: () => void;
+function AdvanceDialog({ eventId, config, contract, remaining, lineChoices, onClose, onDone }: {
+  eventId: string; config: any; contract?: CacheContextContract; remaining: number; lineChoices: Record<string, string> | null; onClose: () => void; onDone: () => void;
 }) {
   const [key] = useState(newKey);
   const [amount, setAmount] = useState("");
@@ -427,7 +471,7 @@ function AdvanceDialog({ eventId, config, contract, remaining, onClose, onDone }
     mutationFn: async () => {
       const { error } = contract
         ? await supabase.rpc("add_cache_contract_advance" as any, { p_contract_id: contract.id, p_amount: n, p_due_date: due || null, p_description: desc || null, p_idempotency_key: key })
-        : await supabase.rpc("create_cache_advance" as any, { p_event_id: eventId, p_artist_supplier_id: config.supplier_id, p_supplier_id: config.supplier_id, p_amount: n, p_due_date: due || null, p_description: desc || null, p_idempotency_key: key });
+        : await supabase.rpc("create_cache_advance" as any, { p_event_id: eventId, p_artist_supplier_id: config.supplier_id, p_supplier_id: config.supplier_id, p_amount: n, p_due_date: due || null, p_description: desc || null, p_idempotency_key: key, p_line_choices: lineChoices });
       if (error) throw error;
     },
     onSuccess: () => { toast({ title: "Adiantamento lançado", description: "Pague-o pelo fluxo normal, com a conta." }); onDone(); },
