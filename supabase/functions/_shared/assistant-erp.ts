@@ -1,5 +1,6 @@
 /** Caller-JWT reads only. No privileged client, financial writes or generic model queries. */
 import { z } from "npm:zod@3";
+import type { SaleRow, TxRow, ClosingReads } from "./assistant-settlement-plan.ts";
 import type { ErpContext } from "./assistant-ticketline-proposal.ts";
 export const ERP_LIMITS = { events: 20, settlements: 40, statements: 100, accounts: 100 } as const;
 const event = z.object({ id: z.string().uuid(), company_id: z.string().uuid(), name: z.string(), date: z.string().nullable() });
