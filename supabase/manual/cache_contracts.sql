@@ -180,7 +180,9 @@ BEGIN
   IF p_wh_applies AND (p_wh_rate IS NULL OR p_wh_rate <= 0 OR p_wh_rate >= 100) THEN RAISE EXCEPTION 'taxa_invalida: taxa de retenção inválida'; END IF;
   IF p_wh_applies AND p_wh_due IS NULL THEN RAISE EXCEPTION 'vencimento_retencao_obrigatorio: indique o vencimento da retenção'; END IF;
   IF p_gross IS NULL OR p_gross <= 0 OR p_gross <> round(p_gross,2) THEN RAISE EXCEPTION 'bruto_invalido: valor bruto inválido'; END IF;
-  IF p_beneficiary IS NULL THEN RAISE EXCEPTION 'beneficiario_obrigatorio'; END IF;
+  IF p_beneficiary IS NULL OR NOT EXISTS (SELECT 1 FROM public.suppliers WHERE id = p_beneficiary AND company_id = v_company) THEN
+    RAISE EXCEPTION 'beneficiario_invalido: escolha o beneficiário desta empresa';
+  END IF;
 
   SELECT count(*) INTO v_n FROM public.cache_payment_contracts
    WHERE root_event_id = p_root AND artist_supplier_id = p_artist AND cancelled_at IS NULL;
