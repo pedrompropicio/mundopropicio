@@ -22,7 +22,8 @@ describe("#333 fase12d preparar vs liquidar", () => {
     expect(await authorizationMatches(auth(p, ["a1"]), p, ctx)).toBe(false);
   });
   it("revisão confirmada: subconjunto de preparação fechado por dependências; liquidação continua bloqueada", async () => {
-    const p = await buildTicketlineProposal(st, open, { human_reviewed: true });
+    // fase12e: a bilheteira do apuramento passa a ser escolha humana obrigatória para preparar.
+    const p = await buildTicketlineProposal(st, open, { human_reviewed: true, office_account_id: account });
     expect(p.actions.filter(a => !a.blocked_reason).map(a => a.id).sort()).toEqual(["a1", "a2", "a3", "a4"]);
     expect(p.actions.find(a => a.id === "a5")).toMatchObject({ stage: "liquidate", depends_on: ["a3"] });
     expect(await authorizationMatches(auth(p, ["a1"]), p, ctx)).toBe(true);

@@ -1,0 +1,91 @@
+NOTICE:  database "x12e" does not exist, skipping
+0a review12d OK
+0b executor12e OK
+1 probe:
+{"schema": "333-12e", "enabled": false}
+2 gate do executor fechado:
+ERROR:  #333: executor_closed
+3 service_role / anon não executam (identidade só da sessão):
+permission denied for function data_entry_assistant_execute_333
+permission denied for function data_entry_assistant_execute_333
+4 sem sessão / outro utilizador / outra empresa:
+ERROR:  #333: context_mismatch
+ERROR:  #333: context_mismatch
+ERROR:  #333: context_mismatch
+5 a2 antes de a1 (dependência):
+ERROR:  #333: dependency_pending
+6 a3 não autorizada (subconjunto {a1,a2}):
+ERROR:  #333: action_not_authorized
+7 a1 executa (writer de apuramento):
+succeeded False 2 57950
+AP-1|draft|579.5000000000000000|2
+8 replay a1 (resposta perdida → mesma execução, sem duplicar):
+succeeded True
+1
+9 a2 executa confirm_ticket_office_statement real:
+succeeded confirmed
+confirmed|t
+10 status (recuperação só leitura):
+['a1', 'a2']
+11 dados alterados após a1 (linha editada) → a2 recusada, nada confirmado:
+ERROR:  #333: data_changed
+draft
+12 a4 só leitura; a3 aguarda modal humano (sem registo):
+0
+ERROR:  #333: awaiting_human_modal
+0
+13 a3 depois do fecho confirmado no modal (simulado como gravação humana):
+succeeded None
+14 evento fechado depois da autorização → a1 recusada:
+ERROR:  #333: event_sealed
+0
+15 duplicado criado por outro caminho após a autorização:
+ERROR:  #333: duplicate_statement
+16 versão nova invalida a autorização anterior:
+ERROR:  #333: stale_version
+17 hash adulterado na versão persistida:
+ERROR:  #333: hash_mismatch
+18 resultado perdido antes do commit (crash) → nada gravado; status vazio; reexecução segura:
+succeeded
+0
+0
+19 concorrência (2 ligações na mesma ação):
+   A: false
+   A: 
+   B: True
+1
+20 a5 liquidação (fecho confirmado com transferência a receber):
+False 2
+expense|paid|579.50|2026-10-16
+income|paid|579.50|2026-10-16
+21 replay a5 → sem segunda liquidação:
+True
+4
+22 a5 já creditado → conferência, 0 escritas:
+True 0
+23 a5 com fecho alterado após autorização (valor transferido) → recusa:
+ERROR:  #333: data_changed
+pending,pending
+24 imutabilidade das execuções (dono):
+immutable_record
+immutable_record
+25 readback:
+t
+a1|3
+a2|2
+a3|1
+a4|1
+a5|2
+data_entry_assistant_executions_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f|f
+data_entry_assistant_executor_settings_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f|f
+data_entry_assistant_execute_333(text,uuid,text)|t|{"search_path=public, pg_temp"}|{postgres=X/postgres,authenticated=X/postgres}|6abdf666f9df85bf0fbffb481620bcfe|f|t|f
+de333_exec_immutable
+de333_exec_no_truncate
+2e868bc2a28ec291581028f6dc579c6a
+26 rollback com execuções:
+executions_present_retain_before_rollback
+27 rollback OK
+28 esquema/ACL igual ao anterior ao executor
+29 reaplicar / deriva:
+OK
+executor_absent_objects_drift

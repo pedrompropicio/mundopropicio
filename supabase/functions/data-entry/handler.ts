@@ -16,6 +16,7 @@ import { signContinuation, verifyContinuation, requestHash, signServerPayload, v
 import { candidateFromBody, candidateFromModel, verifyAttachmentSource, mergeScanner, applyHumanEdits, candidateToStatement, validateSettlementConfirmation, type TicketlineCandidate, type ReviewEdits, type AccountReader } from "../_shared/assistant-ticketline-candidate.ts";
 import { buildTicketlineProposal, LINE_TYPES, type Proposal } from "../_shared/assistant-ticketline-proposal.ts";
 import { ReviewUnavailable, ReviewConflict, type ReviewStore } from "../_shared/assistant-review-store.ts";
+import { ExecutorUnavailable, ExecutionRefused, ExecutionUncertain, executionLinks, type Executor } from "../_shared/assistant-executor.ts";
 import type { AnalysisWire } from "../_shared/data-entry-analysis.ts";
 import { boundedAnalysis } from "./analysis-deadline.ts";
 import { GmailUnavailable, gmailFilterSchema, gmailOrigin, gmailSelectionSchema, type GmailReader as _GmailReader } from "../_shared/gmail-readonly.ts";
@@ -55,7 +56,9 @@ export interface Deps {
   scanAttachment?(bytes: Uint8Array, mime: DocumentType, signal: AbortSignal): Promise<AnalysisWire>;
   /** Leitura ERP com o JWT do chamador (eventos/selagem/apuramentos e contas). Ausente = indisponível. */
   ticketlineErp?: { context(token: string, company: string, text: string, signal: AbortSignal, number?: string, eventId?: string): Promise<ErpContext>; account(token: string): AccountReader;
-    accounts(token: string, company: string, signal: AbortSignal): Promise<{ id: string; name: string }[]> };
+    accounts(token: string, company: string, signal: AbortSignal): Promise<{ id: string; name: string; type?: string | null }[]> };
+  /** #333 fase12e: executor SQL com o JWT do chamador. Ausente = 503; nunca simulado. */
+  executor?: Executor;
   /** Persistência revista (RPC). Ausente = 503 explícito; nunca memória. */
   reviewStore?: ReviewStore;
   today?(): string;
@@ -93,11 +96,13 @@ export const commandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("ticketline_preview"), candidate_token: z.string().max(120000),
     edits: z.object({ number: z.string().max(60).nullable().optional(), date: z.string().max(10).nullable().optional(), total_cents: z.number().int().nullable().optional(), event_id: z.string().uuid().nullable().optional(),
       lines: z.array(z.object({ line_type: z.enum(LINE_TYPES), description: z.string().max(160), amount_cents: z.number().int().min(-1000000000).max(1000000000), event_hint: z.string().max(120).nullable() }).strict()).max(40).optional(),
-      confirm_review: z.boolean().optional() }).strict(),
+      confirm_review: z.boolean().optional(), office_account_id: z.string().uuid().nullable().optional() }).strict(),
     settlement: z.object({ financial_account_id: z.string().uuid(), date: z.string().max(10), amount_cents: z.number().int(), confirm: z.literal(true) }).strict().optional(),
     save: z.object({ review_id: z.string().uuid().nullable(), expected_version: z.number().int().positive().nullable() }).strict().optional() }).strict(),
   z.object({ action: z.literal("ticketline_authorize"), review_id: z.string().uuid(), version: z.number().int().positive(), effects_hash: z.string().regex(/^[a-f0-9]{64}$/), action_ids: z.array(z.string().regex(/^a[1-5]$/)).min(1).max(5), replay_key: z.string().uuid() }).strict(),
   z.object({ action: z.literal("ticketline_accounts") }).strict(),
+  z.object({ action: z.literal("ticketline_execute"), authorization_id: z.string().uuid(), action_id: z.enum(["a1", "a2", "a3", "a4", "a5"]) }).strict(),
+  z.object({ action: z.literal("ticketline_execution_status"), authorization_id: z.string().uuid() }).strict(),
   z.object({ action: z.literal("ticketline_attachments"), message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/) }).strict(),
   z.object({ action: z.literal("gmail_read"), message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/) }).strict(),
   z.object({ action: z.literal("gmail_connection") }).strict(),
@@ -335,7 +340,8 @@ export function createHandler(d: Deps) {
         try { cand = await verifyServerPayload<TicketlineCandidate>("ticketline_candidate", body.candidate_token, d.continuationSecret, { user: user.id, company }); }
         catch { throw new SafeError("Candidato expirado ou de outro contexto; volta a ler o email.", 409); }
         let reviewed: TicketlineCandidate;
-        try { reviewed = applyHumanEdits(cand, body.edits as ReviewEdits, user.id); } catch (e) { throw new SafeError((e as Error).message, 422); }
+        const { office_account_id: officeChoice, ...humanEdits } = body.edits;
+        try { reviewed = applyHumanEdits(cand, humanEdits as ReviewEdits, user.id); } catch (e) { throw new SafeError((e as Error).message, 422); }
         const st = await candidateToStatement(reviewed);
         const eventChoice = reviewed.event_id?.value ?? undefined;
         const erp = await d.ticketlineErp.context(token, company, st.lines.find(l => l.event_hint)?.event_hint ?? st.number ?? "ticketline", req.signal, st.number ?? undefined, eventChoice);
@@ -348,7 +354,15 @@ export function createHandler(d: Deps) {
         catch (e) { throw new SafeError((e as Error).message, 422); }
         await canonicalStorageContext();
         // confirm_review comes only from the authenticated human request; the model can never set it.
-        const proposal: Proposal = await buildTicketlineProposal(st, erp, { event_id: eventId, settlement, human_reviewed: body.edits.confirm_review === true });
+        let office: string | null = null;
+        if (officeChoice) {
+          // Bilheteira escolhida por pessoa; revalidada com o JWT do chamador (empresa canónica, ativa, tipo bilheteira).
+          const offices = await d.ticketlineErp.accounts(token, company, req.signal);
+          await canonicalStorageContext();
+          if (!offices.some(a => a.id === officeChoice && a.type === "ticket_office")) throw new SafeError("Bilheteira indisponível para esta empresa.", 403);
+          office = officeChoice;
+        }
+        const proposal: Proposal = await buildTicketlineProposal(st, erp, { event_id: eventId, settlement, human_reviewed: body.edits.confirm_review === true, office_account_id: office });
         const events = erp.events.map(e => ({ id: e.id, label: `${e.name}${e.date ? ` · ${e.date}` : ""}${e.sealed ? " · fechado" : ""}` }));
         if (!body.save) return reply({ candidate: reviewed, proposal, events, persisted: false, notice: "Prévia calculada no servidor, não guardada." });
         if (!d.reviewStore) throw new ReviewUnavailable();
@@ -363,7 +377,18 @@ export function createHandler(d: Deps) {
         await canonicalStorageContext();
         if (new Set(body.action_ids).size !== body.action_ids.length) throw new SafeError("Ações repetidas.", 422);
         const rec = await d.reviewStore.authorize({ user: user.id, company }, { review_id: body.review_id!, version: body.version!, effects_hash: body.effects_hash!, action_ids: body.action_ids!, replay_key: body.replay_key! });
-        return reply({ ...rec, executor: "indisponível", notice: "Autorização registada sem execução: executor financeiro desativado." });
+        return reply({ ...rec, executor: d.executor ? "disponível" : "indisponível", notice: d.executor ? "Autorização registada. Execute cada ação; o resultado só aparece depois de conferido." : "Autorização registada sem execução: executor desativado neste ambiente." });
+      }
+      if (body.action === "ticketline_execute" || body.action === "ticketline_execution_status") {
+        if (!d.executor) throw new ExecutorUnavailable();
+        await canonicalStorageContext();
+        if (body.action === "ticketline_execution_status") {
+          const st = await d.executor.status(token, body.authorization_id!);
+          return reply({ ...st, executions: st.executions.map(x => ({ ...x, links: executionLinks(x) })) });
+        }
+        await d.executor.probe(token);
+        const r = await d.executor.execute(token, body.authorization_id!, body.action_id!);
+        return reply({ ...r, links: executionLinks(r) });
       }
       // Leitura do corpo da mensagem escolhida: só leitura, independente do envio documental fechado.
       if (body.action === "gmail_read") {
@@ -457,6 +482,8 @@ export function createHandler(d: Deps) {
       if (error instanceof GmailUnavailable) return reply({ error: error.message }, 503);
       if (error instanceof SafeError) return reply({ error: error.message }, error.status);
       if (error instanceof ReviewUnavailable || error instanceof ReviewConflict) return reply({ error: error.message }, error.status);
+      if (error instanceof ExecutorUnavailable || error instanceof ExecutionUncertain) return reply({ error: error.message, ...(error instanceof ExecutionUncertain ? { uncertain: true } : {}) }, error.status);
+      if (error instanceof ExecutionRefused) return reply({ error: error.message, code: error.code }, error.status);
       if (error instanceof z.ZodError || error instanceof SyntaxError) return reply({ error: "Pedido inválido; confirma os campos." }, 400);
       return reply({ error: "Operação interrompida. Não repitas um lançamento; consulta o resultado do lote." }, 503);
     }

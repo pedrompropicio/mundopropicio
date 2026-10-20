@@ -11,6 +11,7 @@ import { createGmailConnection, type GmailConnectionStore } from "../_shared/gma
 import { createAssistantModel } from "../_shared/issue333-ai/assistant-model.ts";
 import { readAssistantErp, readAssistantAccounts, type ErpReader } from "../_shared/assistant-erp.ts";
 import { rpcReviewStore } from "../_shared/assistant-review-store.ts";
+import { rpcExecutor } from "../_shared/assistant-executor.ts";
 
 const url = Deno.env.get("SUPABASE_URL") ?? "";
 const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -26,6 +27,8 @@ const ANALYSIS_PROVIDER_REVIEWED = false; // #333 fecho96: closed after manual w
 // #333 fase12d: review persistence wired but closed until the INERTE SQL (schema '333-12d') is reviewed/applied with Pedro's "Sim".
 // Even when true, every call probes schema+gate in SQL and answers 503 on absence/mismatch.
 const REVIEW_SCHEMA_REVIEWED = false;
+/** #333 fase12e: executor SQL INERTE por aplicar; só com revisão e "Sim" do Pedro. */
+const EXECUTOR_SCHEMA_REVIEWED = false;
 const erpReader = (token: string): ErpReader => {
   const client = asUser(token); // Caller JWT/RLS; never privileged financial reads.
   return async query => {
@@ -100,6 +103,8 @@ Deno.serve(createHandler({
       return error || !data ? null : data as { id: string; company_id: string; is_active: boolean; is_hidden: boolean };
     },
   },
+  // Executor: JWT do chamador (auth.uid()/current_company_id() no SQL); nunca service_role.
+  ...(REVIEW_SCHEMA_REVIEWED && EXECUTOR_SCHEMA_REVIEWED ? { executor: rpcExecutor(async (token, name, args) => { const r = await asUser(token).rpc(name, args); return { data: r.data, error: r.error }; }) } : {}),
   ...(REVIEW_SCHEMA_REVIEWED ? { reviewStore: rpcReviewStore(async (name, args) => { const r = await admin.rpc(name, args); return { data: r.data, error: r.error }; }) } : {}),
   // Existing scanner (scanner-analysis + durable provider control); only reachable when analysisEnabled is true.
   ...(ANALYSIS_ENABLED && ANALYSIS_PROVIDER_REVIEWED ? { async scanAttachment(bytes: Uint8Array, mime: Parameters<typeof generateScannerAnalysis>[0]["mime"], signal: AbortSignal) {

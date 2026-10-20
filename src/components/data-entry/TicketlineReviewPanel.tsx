@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { DataEntryAdapter, DataEntryContext, TicketlineCandidate, TicketlineEdits, TicketlineLineType, TicketlinePreviewResult, CandidateProvenance, TicketlineAttachment } from "@/lib/data-entry-client";
+import TicketlineExecutionPanel from "./TicketlineExecutionPanel";
 
 const TYPES: [TicketlineLineType, string][] = [["event_right", "Direito do evento"], ["ticketline_invoice", "Fatura Ticketline"], ["venue_settlement", "Acerto da sala"], ["advance", "Repasse"], ["carry_over", "Transitado"]];
 const eur = (c: number | null | undefined) => c == null ? "—" : (c / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
@@ -24,13 +25,14 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
 }) {
   const [token, setToken] = useState<string | null>(null);
   const [cand, setCand] = useState<TicketlineCandidate | null>(null);
-  const [form, setForm] = useState({ number: "", date: "", total: "", event_id: "" });
+  const [form, setForm] = useState({ number: "", date: "", total: "", event_id: "", office: "" });
   const [lines, setLines] = useState<Line[]>([]);
   const [settle, setSettle] = useState({ account: "", date: "", amount: "", confirm: false });
   const [confirmed, setConfirmed] = useState(false);
   const [attachments, setAttachments] = useState<TicketlineAttachment[] | null>(null);
   const [part, setPart] = useState(partId ?? "");
-  const [accounts, setAccounts] = useState<{ id: string; name: string }[] | null>(null);
+  const [accounts, setAccounts] = useState<{ id: string; name: string; type?: string | null }[] | null>(null);
+  const [auth, setAuth] = useState<{ id: string; action_ids: string[]; executor: boolean } | null>(null);
   const [eventOptions, setEventOptions] = useState(events);
   const [preview, setPreview] = useState<TicketlinePreviewResult | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -40,8 +42,8 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   const [notice, setNotice] = useState<string | null>(null);
   const run = async (f: () => Promise<void>) => { setBusy(true); setError(null); setNotice(null); try { await f(); } catch (e) { setError(e instanceof Error ? e.message : "Indisponível."); } finally { setBusy(false); } };
   const apply = (r: Initial) => {
-    setToken(r.candidate_token); setCand(r.candidate); setPreview(null); setStale(false); setConfirmed(false); setSelected([]);
-    setForm({ number: r.candidate.number?.value ?? "", date: r.candidate.date?.value ?? "", total: r.candidate.total_cents ? fmt(r.candidate.total_cents.value) : "", event_id: r.candidate.event_id?.value ?? "" });
+    setToken(r.candidate_token); setCand(r.candidate); setPreview(null); setStale(false); setConfirmed(false); setSelected([]); setAuth(null);
+    setForm({ office: "", number: r.candidate.number?.value ?? "", date: r.candidate.date?.value ?? "", total: r.candidate.total_cents ? fmt(r.candidate.total_cents.value) : "", event_id: r.candidate.event_id?.value ?? "" });
     setLines(r.candidate.lines.map(l => ({ line_type: l.line_type, description: l.description, amount: fmt(l.amount_cents), event_hint: l.event_hint })));
   };
   useEffect(() => { if (initial) apply(initial); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [initial?.candidate_token]);
@@ -57,13 +59,13 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
     if (!cand || accounts || !adapter.ticketlineAccounts) return;
     adapter.ticketlineAccounts(context).then(r => setAccounts(r.accounts)).catch(() => setAccounts([]));
   }, [cand, accounts, adapter, context]);
-  const edit = (f: () => void) => { f(); setStale(true); setSelected([]); };
+  const edit = (f: () => void) => { f(); setStale(true); setSelected([]); setAuth(null); };
   const edits = (): TicketlineEdits => {
     const parsed = lines.map(l => ({ line_type: l.line_type, description: l.description, amount_cents: toCents(l.amount), event_hint: l.event_hint }));
     if (parsed.some(l => l.amount_cents === null)) throw new Error("Valor de linha inválido.");
     const total = form.total ? toCents(form.total) : null;
     if (form.total && total === null) throw new Error("Total inválido.");
-    return { number: form.number.trim() || null, date: form.date || null, total_cents: total, event_id: form.event_id || null,
+    return { number: form.number.trim() || null, date: form.date || null, total_cents: total, event_id: form.event_id || null, office_account_id: form.office || null,
       lines: parsed as NonNullable<TicketlineEdits["lines"]>, confirm_review: confirmed };
   };
   const settlement = () => {
@@ -92,7 +94,9 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
     const r = await adapter.ticketlineAuthorize({ review_id: preview.review.review_id, version: preview.review.version, effects_hash: preview.review.effects_hash,
       action_ids: [...selected].sort(), replay_key: crypto.randomUUID() }, context);
     setNotice(r.notice);
+    setAuth({ id: r.authorization_id, action_ids: r.action_ids ?? [...selected].sort(), executor: r.executor === "disponível" });
   });
+  const offices = (accounts ?? []).filter(a => a.type === "ticket_office");
   const input = "w-full min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm";
 
   const sourcePicker = (
@@ -139,6 +143,11 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
         <label className="min-w-0 space-y-0.5"><span className="block">Evento</span>
           <select aria-label="Evento" className={input} value={form.event_id} onChange={e => edit(() => setForm({ ...form, event_id: e.target.value }))}>
             <option value="">{eventOptions.length ? "Por escolher" : "Recalcula para ver eventos possíveis"}</option>{eventOptions.map(ev => <option key={ev.id} value={ev.id}>{ev.label}</option>)}
+          </select></label>
+        <label className="min-w-0 space-y-0.5 sm:col-span-2"><span className="block">Bilheteira do apuramento</span>
+          <select aria-label="Bilheteira" className={input} value={form.office} onChange={e => edit(() => setForm({ ...form, office: e.target.value }))}>
+            <option value="">{accounts === null ? "A carregar…" : offices.length ? "Escolher bilheteira" : "Sem bilheteiras disponíveis"}</option>
+            {offices.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select></label>
       </div>
       <div className="space-y-1">
@@ -201,7 +210,8 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
           {!preview.persisted && <p className="text-muted-foreground">{preview.notice ?? "Prévia não guardada."} Só uma revisão guardada pode ser autorizada.</p>}
         </div>
       )}
-      <p className="text-muted-foreground">Execução financeira desativada: nenhum apuramento, fecho, transação ou liquidação é gravado.</p>
+      {auth && !stale && <TicketlineExecutionPanel adapter={adapter} context={context} authorizationId={auth.id} actions={actions.filter(a => auth.action_ids.includes(a.id))} available={auth.executor} />}
+      {!auth && <p className="text-muted-foreground">Nada é gravado no sistema antes de autorizar e executar cada ação.</p>}
       {notice && <p role="status" className="break-words">{notice}</p>}
       {error && <p role="alert" className="break-words text-destructive">{error}</p>}
     </section>
