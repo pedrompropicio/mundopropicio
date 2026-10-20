@@ -65,6 +65,7 @@ describe("#333 fase12 orquestrador restrito", () => {
     expect(r.status).toBe("select_message");
     expect(r.options).toHaveLength(2);
     expect(t.reads).toHaveLength(0);
+    t.resume = { user: owner, company, expires: Date.now() + 10000, requestHash: "local", filters: search.args, messages: r.known_message_ids, events: [], message: null };
     const r2 = await runAssistantTurn(script([read("msgTKL0001"), read("msgTKL0002"), { type: "final", text: "ok" }]), t, { ...turn, selection: { message_id: "msgTKL0002" }, known_message_ids: r.known_message_ids }, sig());
     expect(t.reads).toEqual(["msgTKL0002"]);
     expect(r2.trace[0].ok).toBe(false);
@@ -113,14 +114,14 @@ describe("#333 fase12 proposta Ticketline (inerte)", () => {
   });
   it("liquidação só com evidência humana e valor igual", async () => {
     const ok = await buildTicketlineProposal({ source_message_id: "m", ...statement() }, erp(), { settlement: { financial_account_id: "acc", date: "2026-10-16", amount_cents: 1000000, confirmed_by_user: true } });
-    expect(ok.actions.find((a) => a.kind === "register_liquidation")?.blocked_reason).toBeNull();
+    expect(ok.actions.find((a) => a.kind === "register_liquidation")?.blocked_reason).toBeTruthy();
     const bad = await buildTicketlineProposal({ source_message_id: "m", ...statement() }, erp(), { settlement: { financial_account_id: "acc", date: "2026-10-16", amount_cents: 999000, confirmed_by_user: true } });
     expect(bad.checks.find((c) => c.code === "liquidation_amount")?.ok).toBe(false);
   });
   it("variação da prévia invalida a autorização; outra empresa/utilizador também", async () => {
     const p = await buildTicketlineProposal({ source_message_id: "m", ...statement() }, erp(), {});
     const a = { user_id: owner, company_id: company, version: 1 as const, effects_hash: p.effects_hash, action_ids: ["a1", "a2"] };
-    expect(authorizationMatches(a, p, { user_id: owner, company_id: company })).toBe(true);
+    expect(authorizationMatches(a, p, { user_id: owner, company_id: company })).toBe(false); // model candidates are not human-reviewed
     const p2 = await buildTicketlineProposal({ source_message_id: "m", ...statement({ document_total_cents: 1000001 }) }, erp(), {});
     expect(authorizationMatches(a, p2, { user_id: owner, company_id: company })).toBe(false);
     expect(authorizationMatches(a, p, { user_id: "outro", company_id: company })).toBe(false);
