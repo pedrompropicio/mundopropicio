@@ -7,7 +7,7 @@
  */
 import { z } from "npm:zod@3";
 import { gmailFilterSchema, type GmailMessageBody, type GmailMessageSummary } from "./gmail-readonly.ts";
-import { buildTicketlineProposal, EXECUTION_GAPS, LINE_TYPES, type ErpContext, type Proposal } from "./assistant-ticketline-proposal.ts";
+import { buildTicketlineProposal, EXECUTION_GAPS, resolveEvent, LINE_TYPES, type ErpContext, type Proposal } from "./assistant-ticketline-proposal.ts";
 
 export const ASSISTANT_LIMITS = { maxSteps: 8, maxToolCalls: 6, maxSearches: 2, maxReads: 2, maxTokens: 40000, deadlineMs: 60000, maxUserChars: 2000 } as const;
 
@@ -133,7 +133,7 @@ export async function runAssistantTurn(model: AssistantModel, tools: AssistantTo
           const p = await buildTicketlineProposal({ source_message_id: id, ...st }, erp, { event_id: input.selection?.event_id ?? null, settlement: null });
           trace.push({ tool: name, ok: true, summary: `Proposta preparada (${p.actions.length} ações, ${p.needs.length} pendência(s))` });
           if (!p.event) {
-            const cands = erp.events.filter((e) => p.needs.some((n) => n.startsWith("Escolher")) ? true : false);
+            const cands = resolveEvent(st.lines.map((l) => l.event_hint), erp.events).candidates;
             if (cands.length > 1) return done({ status: "select_event", text: "Há mais de um evento possível. Escolhe o evento deste fecho.", options: cands.map((e) => ({ id: e.id, label: `${e.name}${e.date ? ` · ${e.date}` : ""}` })), proposal: p });
           }
           return done({ status: "proposal", text: "Preparei uma proposta para revisão. Nada foi gravado: a execução exige autorização expressa e ainda não está disponível.", proposal: p });
