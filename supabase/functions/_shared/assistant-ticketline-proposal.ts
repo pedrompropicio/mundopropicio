@@ -16,6 +16,7 @@ export const LINE_LABEL: Record<LineType, string> = {
 /** Extração do email (dado NÃO confiável; valores em cêntimos inteiros). */
 export type ExtractedStatement = {
   source_message_id: string;
+  source_content_hash?: string;
   number: string | null;
   statement_date: string | null;
   document_total_cents: number | null;
@@ -107,7 +108,7 @@ export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpCon
     { id: "a4", kind: "create_transactions", label: "Rever transações existentes e documentos em falta antes do fecho", existing_flow: "Fluxos documentais existentes → despesas pendentes vinculadas no modal (não cria despesas automaticamente)", depends_on: ["a3"], blocked_reason: base ?? "Prévia documental e vínculos das transações por confirmar." },
     { id: "a5", kind: "register_liquidation", label: "Liquidar com a entrada bancária confirmada", existing_flow: "transaction_payments (Registar pagamento)", depends_on: ["a4"], blocked_reason: "Sem evidência de recebimento vinculada no servidor: conta/data/valor por confirmar." },
   ];
-  const effects = { company: erp.company_id, source: x.source_message_id, number: x.number, date: x.statement_date, total: x.document_total_cents, lines: x.lines, event: ev.match?.id ?? null, settlement };
+  const effects = { company: erp.company_id, source: x.source_message_id, source_content_hash: x.source_content_hash ?? null, number: x.number, date: x.statement_date, total: x.document_total_cents, lines: x.lines, event: ev.match?.id ?? null, settlement: null };
   return {
     version: 1, company_id: erp.company_id, source_message_id: x.source_message_id, statement_number: x.number,
     event: ev.match ? { id: ev.match.id, name: ev.match.name } : null, totals_cents: totals, sum_cents: sum,
@@ -118,7 +119,7 @@ export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpCon
 
 /** Autorização futura: vinculada a user+empresa+versão+hash; qualquer variação da prévia a invalida. */
 export type Authorization = { user_id: string; company_id: string; version: 1; effects_hash: string; action_ids: string[] };
-export function authorizationMatches(a: Authorization, p: Proposal, ctx: { user_id: string; company_id: string }): boolean {
+export async function authorizationMatches(a: Authorization, p: Proposal, ctx: { user_id: string; company_id: string }): Promise<boolean> {
   const expected: Record<string, { kind: ProposedAction["kind"]; deps: string[] }> = {
     a1: { kind: "create_statement", deps: [] }, a2: { kind: "confirm_statement", deps: ["a1"] },
     a3: { kind: "settlement_in_modal", deps: ["a2"] }, a4: { kind: "create_transactions", deps: ["a3"] }, a5: { kind: "register_liquidation", deps: ["a4"] },
@@ -126,6 +127,7 @@ export function authorizationMatches(a: Authorization, p: Proposal, ctx: { user_
   if (!a.action_ids.length || new Set(a.action_ids).size !== a.action_ids.length || new Set(p.actions.map(x => x.id)).size !== p.actions.length || p.actions.length !== 5) return false;
   if (p.actions.some(x => !expected[x.id] || x.kind !== expected[x.id].kind || canon(x.depends_on) !== canon(expected[x.id].deps))) return false;
   const selected = new Set(a.action_ids);
+  if (p.effects_hash !== await sha256Hex(canon({ effects: p.effects, actions: p.actions }))) return false;
   return a.user_id === ctx.user_id && a.company_id === ctx.company_id && a.company_id === p.company_id
     && a.version === p.version && a.effects_hash === p.effects_hash
     && a.action_ids.every((id) => p.actions.some((x) => x.id === id && !x.blocked_reason && x.depends_on.every(dep => selected.has(dep))))
