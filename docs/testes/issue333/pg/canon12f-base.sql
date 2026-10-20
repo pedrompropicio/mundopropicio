@@ -1,6 +1,6 @@
 -- #333 fase12f — base canónica para prova PG descartável. Gerada por SELECT só-leitura (pg_get_functiondef/pg_get_triggerdef/
 -- information_schema) às funções, tabelas, constraints, índices e triggers reais do projeto (20/10/2026). Sem dados.
--- md5(prosrc) por função listado em canon12f-functions.md5.txt. FKs omitidas (apenas p/u/c); RLS não reproduzida (executor é SECURITY DEFINER do dono).
+-- md5(prosrc) por função em canon12f-functions.md5.txt. FKs omitidas (apenas p/u/c); RLS não reproduzida (executor é SECURITY DEFINER do dono).
 DO $$ BEGIN CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; CREATE ROLE sandbox_exec; CREATE ROLE sandbox_exec_x; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT ON TABLES TO sandbox_exec, sandbox_exec_x;
@@ -26,7 +26,7 @@ $function$;
 
 CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
--- 1.ª passagem de funções (defaults das tabelas usam current_company_id/auth.uid); 2.ª após as tabelas.
+-- 1.ª passagem de funções (defaults usam current_company_id/auth.uid)
 CREATE OR REPLACE FUNCTION public._apply_transaction_offset(p_offset_id uuid, p_origin_payment_id uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -134,7 +134,6 @@ BEGIN
   END IF;
 END;
 $function$;
--- _paid_guard_is_exempt(transactions) só na 2.ª passagem (depende do tipo de linha)
 CREATE OR REPLACE FUNCTION public._reverse_transaction_offsets_for(p_tx_id uuid)
  RETURNS void
  LANGUAGE plpgsql
@@ -2215,6 +2214,232 @@ BEGIN
 
   RETURN NULL;
 END $function$;
+CREATE OR REPLACE FUNCTION public._account_true_balance_raw(_account_id uuid)
+ RETURNS numeric
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  WITH acc AS (
+    SELECT id, COALESCE(initial_balance, 0) AS initial_balance, initial_balance_date
+    FROM public.financial_accounts
+    WHERE id = _account_id
+  ),
+  mov AS (
+    SELECT COALESCE(SUM(
+      CASE WHEN t.type = 'income' THEN COALESCE(t.paid_amount, 0)
+           ELSE -COALESCE(t.paid_amount, 0) END
+    ), 0) AS total
+    FROM public.transactions t, acc
+    WHERE t.account_id = acc.id
+      AND (
+        acc.initial_balance_date IS NULL
+        OR COALESCE(t.payment_date, t.date) IS NULL
+        OR COALESCE(t.payment_date, t.date) > acc.initial_balance_date
+      )
+  ),
+  adj AS (
+    SELECT COALESCE(SUM(COALESCE(p.withholding_amount, 0) + COALESCE(p.credit_amount, 0)), 0) AS total
+    FROM public.transaction_payments p, acc
+    WHERE p.account_id = acc.id AND p.status = 'paid' AND p.reversed_at IS NULL
+      AND (
+        acc.initial_balance_date IS NULL
+        OR p.payment_date IS NULL
+        OR p.payment_date > acc.initial_balance_date
+      )
+  )
+  SELECT acc.initial_balance + mov.total + adj.total
+  FROM acc, mov, adj;
+$function$;
+CREATE OR REPLACE FUNCTION public.admin_window_event_for(p_company_id uuid, p_date date)
+ RETURNS uuid
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT e.id
+    FROM public.events e
+   WHERE e.company_id = p_company_id
+     AND e.absorbs_admin_costs = true
+     AND e.parent_event_id IS NULL
+     AND e.admin_window_start IS NOT NULL
+     AND p_date >= e.admin_window_start
+     AND (e.admin_window_end IS NULL OR p_date <= e.admin_window_end)
+   ORDER BY e.admin_window_start DESC
+   LIMIT 1
+$function$;
+CREATE OR REPLACE FUNCTION public.bp_tx_link_allowed(_tx_event uuid, _tx_company uuid, _fc_event uuid, _fc_company uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT CASE
+    WHEN _tx_company IS NOT NULL AND _fc_company IS NOT NULL AND _tx_company <> _fc_company THEN false
+    WHEN _tx_event IS NULL THEN true
+    WHEN _fc_event IS NULL THEN true
+    WHEN _tx_event = _fc_event THEN true
+    ELSE false
+  END
+$function$;
+CREATE OR REPLACE FUNCTION public.camarim_sync_session_leg_payment(p_tx uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  r record; v_sum numeric; v_date date; v_gross numeric; v_acc uuid; v_company uuid; v_cur text;
+BEGIN
+  FOR r IN
+    SELECT l.bank_tx, l.session_tx
+      FROM public.camarim_fund_moves m
+      CROSS JOIN LATERAL public._camarim_fund_move_legs(m.id) l
+     WHERE m.transaction_id = p_tx
+        OR (m.move_type = 'refund' AND EXISTS (
+              SELECT 1 FROM public.transactions a, public.transactions b
+               WHERE a.id = m.transaction_id AND b.id = p_tx AND b.id <> a.id
+                 AND b.description = a.description AND b.date = a.date AND b.amount = a.amount))
+  LOOP
+    CONTINUE WHEN r.bank_tx IS DISTINCT FROM p_tx;
+    -- Pagamentos manuais na perna da sessão (ex.: correções de 09/10) mandam: não tocar.
+    CONTINUE WHEN EXISTS (SELECT 1 FROM public.transaction_payments p
+                           WHERE p.transaction_id = r.session_tx AND p.status = 'paid'
+                             AND p.created_by <> 'base #287');
+
+    SELECT COALESCE(SUM(p.amount), 0), MAX(p.payment_date)
+      INTO v_sum, v_date
+      FROM public.transaction_payments p
+     WHERE p.transaction_id = r.bank_tx AND p.status = 'paid';
+
+    SELECT t.amount * (1 + COALESCE(t.iva_rate, 0) / 100.0), t.account_id, t.company_id, COALESCE(t.currency,'EUR')
+      INTO v_gross, v_acc, v_company, v_cur
+      FROM public.transactions t WHERE t.id = r.session_tx;
+
+    -- Idempotente: a linha da base é recalculada a partir da perna do banco.
+    IF EXISTS (SELECT 1 FROM public.transaction_payments p
+                WHERE p.transaction_id = r.session_tx AND p.created_by = 'base #287'
+                  AND p.status = 'paid' AND p.amount = LEAST(v_sum, v_gross)
+                  AND p.payment_date = v_date)
+       AND (SELECT count(*) FROM public.transaction_payments p
+             WHERE p.transaction_id = r.session_tx AND p.created_by = 'base #287') = 1 THEN
+      CONTINUE;
+    END IF;
+
+    DELETE FROM public.transaction_payments
+     WHERE transaction_id = r.session_tx AND created_by = 'base #287';
+
+    IF v_sum > 0.01 THEN
+      INSERT INTO public.transaction_payments
+        (transaction_id, amount, payment_date, account_id, payment_method, status,
+         created_by, company_id, currency, notes)
+      VALUES (r.session_tx, LEAST(v_sum, v_gross), v_date, v_acc, 'transfer', 'paid',
+              'base #287', v_company, v_cur, 'Entrada na conta da sessão (espelho da perna do banco)');
+    END IF;
+
+    PERFORM public._derive_paid_amount(r.session_tx);
+  END LOOP;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.event_budget_mode(_event_id uuid)
+ RETURNS text
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_company uuid;
+  v_mode text;
+BEGIN
+  SELECT e.company_id, COALESCE(e.budget_mode, c.default_budget_mode, 'with_bp')
+    INTO v_company, v_mode
+  FROM public.events e
+  JOIN public.companies c ON c.id = e.company_id
+  WHERE e.id = _event_id;
+
+  IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+
+  -- Isenção deliberada: sem identidade de utilizador (service_role, crons,
+  -- edge functions, syncs) passa sem verificar. Não "corrigir" isto.
+  IF v_uid IS NOT NULL
+     AND NOT public.is_platform_admin(v_uid)
+     AND v_company IS DISTINCT FROM public.current_company_id() THEN
+    RAISE EXCEPTION 'Evento de outra empresa.' USING ERRCODE = '42501';
+  END IF;
+
+  RETURN v_mode;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.has_permission_in(_user_id uuid, _permission text, _company_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT COALESCE(
+    (SELECT granted FROM public.user_permissions
+       WHERE user_id = _user_id AND permission = _permission AND company_id = _company_id LIMIT 1),
+    public.is_platform_admin(_user_id)
+    OR EXISTS (SELECT 1 FROM public.user_roles ur
+       JOIN public.role_permissions rp ON rp.role = ur.role
+       WHERE ur.user_id = _user_id AND rp.permission = _permission AND ur.company_id = _company_id)
+  )
+$function$;
+CREATE OR REPLACE FUNCTION public.norm_coala_desc(s text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE PARALLEL SAFE
+ SET search_path TO 'public', 'extensions'
+AS $function$
+  SELECT NULLIF(
+    btrim(
+      regexp_replace(
+        regexp_replace(
+          lower(unaccent(COALESCE(s, ''))),
+          '[[:cntrl:][:punct:]•·●○◦‣⁃▪▫■□◆◇★☆]+', ' ', 'g'
+        ),
+        '\s+', ' ', 'g'
+      )
+    ),
+    ''
+  )
+$function$;
+CREATE OR REPLACE FUNCTION public._camarim_fund_move_legs(p_move_id uuid)
+ RETURNS TABLE(bank_tx uuid, session_tx uuid)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  WITH fm AS (
+    SELECT m.move_type, m.transaction_id, s.advance_account_id AS sess_acc
+      FROM public.camarim_fund_moves m
+      JOIN public.camarim_sessions s ON s.id = m.session_id
+     WHERE m.id = p_move_id AND m.transaction_id IS NOT NULL
+       AND m.move_type IN ('advance','reinforcement','refund')
+  ), linked AS (
+    SELECT fm.*, t.* FROM fm JOIN public.transactions t ON t.id = fm.transaction_id
+  ), twin AS (
+    SELECT l.move_type, l.transaction_id, l.sess_acc,
+           (SELECT t2.id FROM public.transactions t2
+             WHERE t2.id <> l.id AND t2.company_id = l.company_id
+               AND t2.description = l.description AND t2.date = l.date
+               AND t2.amount = l.amount AND t2.category_id IS NOT DISTINCT FROM l.category_id
+               AND t2.type <> l.type
+               AND CASE WHEN l.move_type = 'refund'
+                        THEN t2.account_id IS DISTINCT FROM l.sess_acc
+                        ELSE t2.account_id = l.sess_acc END
+             ORDER BY abs(extract(epoch FROM t2.created_at - l.created_at)) LIMIT 1) AS other
+      FROM linked l
+     WHERE CASE WHEN l.move_type = 'refund' THEN l.account_id = l.sess_acc
+                ELSE l.account_id IS DISTINCT FROM l.sess_acc END
+  )
+  SELECT CASE WHEN move_type = 'refund' THEN other ELSE transaction_id END,
+         CASE WHEN move_type = 'refund' THEN transaction_id ELSE other END
+    FROM twin WHERE other IS NOT NULL;
+$function$;
 CREATE TABLE public.account_categories (id uuid NOT NULL DEFAULT gen_random_uuid(), code text NOT NULL, name text NOT NULL, type text NOT NULL, parent_id uuid, is_active boolean NOT NULL DEFAULT true, created_at timestamp with time zone NOT NULL DEFAULT now(), updated_at timestamp with time zone NOT NULL DEFAULT now(), event_required boolean NOT NULL DEFAULT true, company_id uuid NOT NULL DEFAULT current_company_id(), allocate_to_active_event boolean NOT NULL DEFAULT false, ebitda_class text);
 CREATE TABLE public.events (id uuid NOT NULL DEFAULT gen_random_uuid(), name text NOT NULL, date date NOT NULL, location text, status text NOT NULL DEFAULT 'planning'::text, budget numeric NOT NULL DEFAULT 0, tickets_sold integer NOT NULL DEFAULT 0, tickets_total integer NOT NULL DEFAULT 0, created_at timestamp with time zone NOT NULL DEFAULT now(), updated_at timestamp with time zone NOT NULL DEFAULT now(), event_type text NOT NULL DEFAULT 'simple'::text, parent_event_id uuid, city_id uuid, venue_id uuid, pl_mode text NOT NULL DEFAULT 'passive'::text, partner_calc_basis text NOT NULL DEFAULT 'net_result'::text, last_sales_date date, company_id uuid NOT NULL DEFAULT current_company_id(), absorbs_admin_costs boolean NOT NULL DEFAULT false, admin_window_end date, admin_window_start date, import_template text, ticketing_url text, ticketing_provider text, operacao_mode text DEFAULT 'planning'::text, ticketline_event_id text, description_en text, description_pt text, hero_image_url text, location_en text, location_pt text, meta_pixel_id text, portal_featured boolean NOT NULL DEFAULT false, portal_visible boolean NOT NULL DEFAULT false, poster_image_url text, slug text, title_en text, title_pt text, venue_directions_url text, venue_map_url text, management_type text NOT NULL DEFAULT 'own'::text, partner_name text, vip_coupon_code text, vip_coupon_discount_label text, vip_coupon_valid_until timestamp with time zone, meta_audience_id text, meta_audience_name text, ad_destination_url text, target_roas numeric, format text, title_es text, description_es text, location_es text, budget_mode text, ticketing_baseline_net numeric, ticketing_baseline_at timestamp with time zone, ab_baseline_net numeric, ab_baseline_at timestamp with time zone, sponsorship_closed_at timestamp with time zone, ads_allocation_level text NOT NULL DEFAULT 'tour'::text, ads_match_aliases text[] NOT NULL DEFAULT '{}'::text[], cost_expense_source text NOT NULL DEFAULT 'committed'::text, cost_include_overhead boolean NOT NULL DEFAULT true, event_nature text NOT NULL);
 CREATE TABLE public.transactions (id uuid NOT NULL DEFAULT gen_random_uuid(), event_id uuid, type text NOT NULL, category_id uuid, description text NOT NULL, amount numeric NOT NULL, iva_rate integer NOT NULL DEFAULT 23, date date NOT NULL, status text NOT NULL DEFAULT 'pending'::text, supplier_id uuid, created_at timestamp with time zone NOT NULL DEFAULT now(), updated_at timestamp with time zone NOT NULL DEFAULT now(), paid_amount numeric NOT NULL DEFAULT 0, due_date date, specification text, account_id uuid, payment_date date, invoice_ref text, pl_override_note text, parent_transaction_id uuid, split_percentage numeric, is_reimbursement boolean NOT NULL DEFAULT false, reimbursement_to text, is_hidden boolean NOT NULL DEFAULT false, exclude_from_result boolean NOT NULL DEFAULT false, is_transitory boolean NOT NULL DEFAULT false, payment_entity text, payment_method text NOT NULL DEFAULT 'transfer'::text, payment_reference text, split_amount numeric, split_mode text DEFAULT 'percentage'::text, settlement_id uuid, currency text NOT NULL DEFAULT 'EUR'::text, fx_rate numeric, fx_rate_source text, original_amount numeric, invoice_group_id uuid, declared_withholding_amount numeric, declared_withholding_rate numeric, company_id uuid NOT NULL DEFAULT current_company_id(), iban_override text, reversal_kind text, reversal_reason text, reversed_at timestamp with time zone, reversed_by uuid, supplier_credit_id uuid, card_session_id uuid, ordering_partner_id uuid, paying_partner_id uuid, forecast_id uuid, installment_group_id uuid, installment_number integer, installment_total integer, is_confidential boolean NOT NULL DEFAULT false, operation_key text, event_settlement_id uuid, held_by_supplier_id uuid, shared_cost_account_id uuid, shared_cost_counterparty_id uuid, transitory_reason text);
@@ -2251,6 +2476,24 @@ ALTER TABLE public.ticket_sales ADD CONSTRAINT ticket_sales_lot_or_zone CHECK ((
 CREATE TABLE public.event_ticket_office_advances (id uuid NOT NULL DEFAULT gen_random_uuid(), event_id uuid NOT NULL, financial_account_id uuid NOT NULL, target_account_id uuid, transaction_id uuid, amount numeric NOT NULL DEFAULT 0, advance_date date NOT NULL DEFAULT CURRENT_DATE, notes text, settlement_id uuid, created_at timestamp with time zone NOT NULL DEFAULT now(), updated_at timestamp with time zone NOT NULL DEFAULT now(), created_by text NOT NULL DEFAULT 'system'::text, company_id uuid NOT NULL DEFAULT current_company_id());
 ALTER TABLE public.event_ticket_office_advances ADD CONSTRAINT event_ticket_office_advances_pkey PRIMARY KEY (id);
 ALTER TABLE public.event_ticket_office_advances ADD CONSTRAINT etoa_never_open_chk CHECK (((transaction_id IS NOT NULL) OR (settlement_id IS NOT NULL)));
+CREATE TABLE public.event_partners (id uuid NOT NULL DEFAULT gen_random_uuid(), event_id uuid NOT NULL, supplier_id uuid NOT NULL, percentage numeric NOT NULL DEFAULT 0, expense_includes_iva boolean, notes text, created_at timestamp with time zone NOT NULL DEFAULT now(), updated_at timestamp with time zone NOT NULL DEFAULT now(), loss_percentage numeric, company_id uuid NOT NULL DEFAULT current_company_id(), can_order boolean NOT NULL DEFAULT false, can_pay boolean NOT NULL DEFAULT false);
+ALTER TABLE public.event_partners ADD CONSTRAINT event_partners_event_id_supplier_id_key UNIQUE (event_id, supplier_id);
+ALTER TABLE public.event_partners ADD CONSTRAINT event_partners_pkey PRIMARY KEY (id);
+ALTER TABLE public.event_partners ADD CONSTRAINT percentage_range CHECK (((percentage >= (0)::numeric) AND (percentage <= (100)::numeric)));
+CREATE TABLE public.partner_capital_moves (id uuid NOT NULL DEFAULT gen_random_uuid(), company_id uuid NOT NULL DEFAULT current_company_id(), event_id uuid NOT NULL, partner_id uuid NOT NULL, transaction_id uuid NOT NULL, kind text NOT NULL, created_at timestamp with time zone NOT NULL DEFAULT now(), updated_at timestamp with time zone NOT NULL DEFAULT now(), flow text NOT NULL DEFAULT 'event_cash'::text);
+ALTER TABLE public.partner_capital_moves ADD CONSTRAINT partner_capital_moves_flow_check CHECK ((flow = ANY (ARRAY['event_cash'::text, 'partner_settlement'::text])));
+ALTER TABLE public.partner_capital_moves ADD CONSTRAINT partner_capital_moves_kind_check CHECK ((kind = ANY (ARRAY['aporte'::text, 'devolucao'::text, 'distribuicao'::text])));
+ALTER TABLE public.partner_capital_moves ADD CONSTRAINT partner_capital_moves_pkey PRIMARY KEY (id);
+ALTER TABLE public.partner_capital_moves ADD CONSTRAINT partner_capital_moves_transaction_id_key UNIQUE (transaction_id);
+CREATE TABLE public.partner_aporte_mirror (id uuid NOT NULL DEFAULT gen_random_uuid(), company_id uuid NOT NULL, account_id uuid NOT NULL, source_transaction_id uuid NOT NULL, aporte_transaction_id uuid NOT NULL, created_at timestamp with time zone NOT NULL DEFAULT now(), updated_at timestamp with time zone NOT NULL DEFAULT now());
+ALTER TABLE public.partner_aporte_mirror ADD CONSTRAINT partner_aporte_mirror_aporte_transaction_id_key UNIQUE (aporte_transaction_id);
+ALTER TABLE public.partner_aporte_mirror ADD CONSTRAINT partner_aporte_mirror_pkey PRIMARY KEY (id);
+ALTER TABLE public.partner_aporte_mirror ADD CONSTRAINT partner_aporte_mirror_source_transaction_id_key UNIQUE (source_transaction_id);
+CREATE TABLE public.shared_cost_mirror (id uuid NOT NULL DEFAULT gen_random_uuid(), company_id uuid NOT NULL, account_id uuid NOT NULL, source_transaction_id uuid NOT NULL, mirror_transaction_id uuid NOT NULL, created_at timestamp with time zone NOT NULL DEFAULT now(), updated_at timestamp with time zone NOT NULL DEFAULT now());
+ALTER TABLE public.shared_cost_mirror ADD CONSTRAINT shared_cost_mirror_mirror_transaction_id_key UNIQUE (mirror_transaction_id);
+ALTER TABLE public.shared_cost_mirror ADD CONSTRAINT shared_cost_mirror_pkey PRIMARY KEY (id);
+ALTER TABLE public.shared_cost_mirror ADD CONSTRAINT shared_cost_mirror_source_transaction_id_key UNIQUE (source_transaction_id);
+CREATE TABLE public.camarim_fund_moves (id uuid NOT NULL DEFAULT gen_random_uuid(), session_id uuid NOT NULL, event_id uuid, move_type text NOT NULL, amount numeric NOT NULL DEFAULT 0, currency text NOT NULL DEFAULT 'EUR'::text, financial_account_id uuid, notes text, move_date date NOT NULL DEFAULT CURRENT_DATE, created_by uuid, created_at timestamp with time zone NOT NULL DEFAULT now(), updated_at timestamp with time zone NOT NULL DEFAULT now(), company_id uuid NOT NULL DEFAULT current_company_id(), transaction_id uuid);
 ALTER TABLE public.account_categories ADD CONSTRAINT account_categories_company_code_key UNIQUE (company_id, code);
 ALTER TABLE public.account_categories ADD CONSTRAINT account_categories_pkey PRIMARY KEY (id);
 ALTER TABLE public.account_categories ADD CONSTRAINT account_categories_ebitda_class_check CHECK (((ebitda_class IS NULL) OR (ebitda_class = ANY (ARRAY['financeiro'::text, 'imposto_rendimento'::text, 'amortizacao'::text]))));
@@ -2461,6 +2704,7 @@ ALTER TABLE public.ticket_office_statement_lines ADD CONSTRAINT ticket_office_st
 ALTER TABLE public.ticket_office_statement_lines ADD CONSTRAINT tosl_amount_or_pending CHECK (((amount IS NOT NULL) OR pending_document));
 CREATE INDEX tosl_statement_idx ON public.ticket_office_statement_lines USING btree (statement_id);
 CREATE UNIQUE INDEX tosl_transaction_once ON public.ticket_office_statement_lines USING btree (transaction_id) WHERE (transaction_id IS NOT NULL);
+-- 2.ª passagem (inclui funções com tipo de linha)
 CREATE OR REPLACE FUNCTION public._apply_transaction_offset(p_offset_id uuid, p_origin_payment_id uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -4658,6 +4902,232 @@ BEGIN
 
   RETURN NULL;
 END $function$;
+CREATE OR REPLACE FUNCTION public._account_true_balance_raw(_account_id uuid)
+ RETURNS numeric
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  WITH acc AS (
+    SELECT id, COALESCE(initial_balance, 0) AS initial_balance, initial_balance_date
+    FROM public.financial_accounts
+    WHERE id = _account_id
+  ),
+  mov AS (
+    SELECT COALESCE(SUM(
+      CASE WHEN t.type = 'income' THEN COALESCE(t.paid_amount, 0)
+           ELSE -COALESCE(t.paid_amount, 0) END
+    ), 0) AS total
+    FROM public.transactions t, acc
+    WHERE t.account_id = acc.id
+      AND (
+        acc.initial_balance_date IS NULL
+        OR COALESCE(t.payment_date, t.date) IS NULL
+        OR COALESCE(t.payment_date, t.date) > acc.initial_balance_date
+      )
+  ),
+  adj AS (
+    SELECT COALESCE(SUM(COALESCE(p.withholding_amount, 0) + COALESCE(p.credit_amount, 0)), 0) AS total
+    FROM public.transaction_payments p, acc
+    WHERE p.account_id = acc.id AND p.status = 'paid' AND p.reversed_at IS NULL
+      AND (
+        acc.initial_balance_date IS NULL
+        OR p.payment_date IS NULL
+        OR p.payment_date > acc.initial_balance_date
+      )
+  )
+  SELECT acc.initial_balance + mov.total + adj.total
+  FROM acc, mov, adj;
+$function$;
+CREATE OR REPLACE FUNCTION public.admin_window_event_for(p_company_id uuid, p_date date)
+ RETURNS uuid
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT e.id
+    FROM public.events e
+   WHERE e.company_id = p_company_id
+     AND e.absorbs_admin_costs = true
+     AND e.parent_event_id IS NULL
+     AND e.admin_window_start IS NOT NULL
+     AND p_date >= e.admin_window_start
+     AND (e.admin_window_end IS NULL OR p_date <= e.admin_window_end)
+   ORDER BY e.admin_window_start DESC
+   LIMIT 1
+$function$;
+CREATE OR REPLACE FUNCTION public.bp_tx_link_allowed(_tx_event uuid, _tx_company uuid, _fc_event uuid, _fc_company uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT CASE
+    WHEN _tx_company IS NOT NULL AND _fc_company IS NOT NULL AND _tx_company <> _fc_company THEN false
+    WHEN _tx_event IS NULL THEN true
+    WHEN _fc_event IS NULL THEN true
+    WHEN _tx_event = _fc_event THEN true
+    ELSE false
+  END
+$function$;
+CREATE OR REPLACE FUNCTION public.camarim_sync_session_leg_payment(p_tx uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  r record; v_sum numeric; v_date date; v_gross numeric; v_acc uuid; v_company uuid; v_cur text;
+BEGIN
+  FOR r IN
+    SELECT l.bank_tx, l.session_tx
+      FROM public.camarim_fund_moves m
+      CROSS JOIN LATERAL public._camarim_fund_move_legs(m.id) l
+     WHERE m.transaction_id = p_tx
+        OR (m.move_type = 'refund' AND EXISTS (
+              SELECT 1 FROM public.transactions a, public.transactions b
+               WHERE a.id = m.transaction_id AND b.id = p_tx AND b.id <> a.id
+                 AND b.description = a.description AND b.date = a.date AND b.amount = a.amount))
+  LOOP
+    CONTINUE WHEN r.bank_tx IS DISTINCT FROM p_tx;
+    -- Pagamentos manuais na perna da sessão (ex.: correções de 09/10) mandam: não tocar.
+    CONTINUE WHEN EXISTS (SELECT 1 FROM public.transaction_payments p
+                           WHERE p.transaction_id = r.session_tx AND p.status = 'paid'
+                             AND p.created_by <> 'base #287');
+
+    SELECT COALESCE(SUM(p.amount), 0), MAX(p.payment_date)
+      INTO v_sum, v_date
+      FROM public.transaction_payments p
+     WHERE p.transaction_id = r.bank_tx AND p.status = 'paid';
+
+    SELECT t.amount * (1 + COALESCE(t.iva_rate, 0) / 100.0), t.account_id, t.company_id, COALESCE(t.currency,'EUR')
+      INTO v_gross, v_acc, v_company, v_cur
+      FROM public.transactions t WHERE t.id = r.session_tx;
+
+    -- Idempotente: a linha da base é recalculada a partir da perna do banco.
+    IF EXISTS (SELECT 1 FROM public.transaction_payments p
+                WHERE p.transaction_id = r.session_tx AND p.created_by = 'base #287'
+                  AND p.status = 'paid' AND p.amount = LEAST(v_sum, v_gross)
+                  AND p.payment_date = v_date)
+       AND (SELECT count(*) FROM public.transaction_payments p
+             WHERE p.transaction_id = r.session_tx AND p.created_by = 'base #287') = 1 THEN
+      CONTINUE;
+    END IF;
+
+    DELETE FROM public.transaction_payments
+     WHERE transaction_id = r.session_tx AND created_by = 'base #287';
+
+    IF v_sum > 0.01 THEN
+      INSERT INTO public.transaction_payments
+        (transaction_id, amount, payment_date, account_id, payment_method, status,
+         created_by, company_id, currency, notes)
+      VALUES (r.session_tx, LEAST(v_sum, v_gross), v_date, v_acc, 'transfer', 'paid',
+              'base #287', v_company, v_cur, 'Entrada na conta da sessão (espelho da perna do banco)');
+    END IF;
+
+    PERFORM public._derive_paid_amount(r.session_tx);
+  END LOOP;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.event_budget_mode(_event_id uuid)
+ RETURNS text
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_company uuid;
+  v_mode text;
+BEGIN
+  SELECT e.company_id, COALESCE(e.budget_mode, c.default_budget_mode, 'with_bp')
+    INTO v_company, v_mode
+  FROM public.events e
+  JOIN public.companies c ON c.id = e.company_id
+  WHERE e.id = _event_id;
+
+  IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+
+  -- Isenção deliberada: sem identidade de utilizador (service_role, crons,
+  -- edge functions, syncs) passa sem verificar. Não "corrigir" isto.
+  IF v_uid IS NOT NULL
+     AND NOT public.is_platform_admin(v_uid)
+     AND v_company IS DISTINCT FROM public.current_company_id() THEN
+    RAISE EXCEPTION 'Evento de outra empresa.' USING ERRCODE = '42501';
+  END IF;
+
+  RETURN v_mode;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.has_permission_in(_user_id uuid, _permission text, _company_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT COALESCE(
+    (SELECT granted FROM public.user_permissions
+       WHERE user_id = _user_id AND permission = _permission AND company_id = _company_id LIMIT 1),
+    public.is_platform_admin(_user_id)
+    OR EXISTS (SELECT 1 FROM public.user_roles ur
+       JOIN public.role_permissions rp ON rp.role = ur.role
+       WHERE ur.user_id = _user_id AND rp.permission = _permission AND ur.company_id = _company_id)
+  )
+$function$;
+CREATE OR REPLACE FUNCTION public.norm_coala_desc(s text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE PARALLEL SAFE
+ SET search_path TO 'public', 'extensions'
+AS $function$
+  SELECT NULLIF(
+    btrim(
+      regexp_replace(
+        regexp_replace(
+          lower(unaccent(COALESCE(s, ''))),
+          '[[:cntrl:][:punct:]•·●○◦‣⁃▪▫■□◆◇★☆]+', ' ', 'g'
+        ),
+        '\s+', ' ', 'g'
+      )
+    ),
+    ''
+  )
+$function$;
+CREATE OR REPLACE FUNCTION public._camarim_fund_move_legs(p_move_id uuid)
+ RETURNS TABLE(bank_tx uuid, session_tx uuid)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  WITH fm AS (
+    SELECT m.move_type, m.transaction_id, s.advance_account_id AS sess_acc
+      FROM public.camarim_fund_moves m
+      JOIN public.camarim_sessions s ON s.id = m.session_id
+     WHERE m.id = p_move_id AND m.transaction_id IS NOT NULL
+       AND m.move_type IN ('advance','reinforcement','refund')
+  ), linked AS (
+    SELECT fm.*, t.* FROM fm JOIN public.transactions t ON t.id = fm.transaction_id
+  ), twin AS (
+    SELECT l.move_type, l.transaction_id, l.sess_acc,
+           (SELECT t2.id FROM public.transactions t2
+             WHERE t2.id <> l.id AND t2.company_id = l.company_id
+               AND t2.description = l.description AND t2.date = l.date
+               AND t2.amount = l.amount AND t2.category_id IS NOT DISTINCT FROM l.category_id
+               AND t2.type <> l.type
+               AND CASE WHEN l.move_type = 'refund'
+                        THEN t2.account_id IS DISTINCT FROM l.sess_acc
+                        ELSE t2.account_id = l.sess_acc END
+             ORDER BY abs(extract(epoch FROM t2.created_at - l.created_at)) LIMIT 1) AS other
+      FROM linked l
+     WHERE CASE WHEN l.move_type = 'refund' THEN l.account_id = l.sess_acc
+                ELSE l.account_id IS DISTINCT FROM l.sess_acc END
+  )
+  SELECT CASE WHEN move_type = 'refund' THEN other ELSE transaction_id END,
+         CASE WHEN move_type = 'refund' THEN transaction_id ELSE other END
+    FROM twin WHERE other IS NOT NULL;
+$function$;
 CREATE TRIGGER trg_set_company_id BEFORE INSERT ON public.ticket_office_settlements FOR EACH ROW EXECUTE FUNCTION set_company_id_on_insert();
 CREATE TRIGGER trg_settlements_updated_at BEFORE UPDATE ON public.ticket_office_settlements FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER trg_tosl_guard BEFORE INSERT OR DELETE OR UPDATE ON public.ticket_office_statement_lines FOR EACH ROW EXECUTE FUNCTION tosl_guard();
