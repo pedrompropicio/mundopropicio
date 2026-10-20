@@ -1,5 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { invalidateEventFinancials } from "@/lib/invalidate-event-financials";
+import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
 
 export interface CacheRoleTotals { amount: number; paid: number }
 export interface CacheContextCity {
@@ -47,7 +49,7 @@ export function useInvalidateCacheContracts() {
   return () => {
     qc.invalidateQueries({ queryKey: ["cache_contract_context"] });
     qc.invalidateQueries({ queryKey: ["cache_tx_already_booked"] });
-    qc.invalidateQueries({ queryKey: ["transactions"] });
-    qc.invalidateQueries({ queryKey: ["event-financials"] });
+    invalidateTransactionQueries(qc);
+    invalidateEventFinancials(qc);
   };
 }
