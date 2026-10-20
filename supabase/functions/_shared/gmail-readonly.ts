@@ -142,12 +142,20 @@ const LIST = /^\/users\/me\/messages$/;
 const GET = /^\/users\/me\/messages\/[A-Za-z0-9]{6,64}$/;
 const ATT = /^\/users\/me\/messages\/[A-Za-z0-9]{6,64}\/attachments\/[A-Za-z0-9_-]{1,1024}$/;
 const MESSAGE_FIELDS = "id,internalDate,payload(partId,headers,filename,mimeType,body(attachmentId,size),parts(partId,filename,mimeType,body(attachmentId,size),parts(partId,filename,mimeType,body(attachmentId,size),parts(partId,filename,mimeType,body(attachmentId,size)))))";
+/** Leitura do corpo: inclui body(data) das partes de texto (anexos nunca vêm inline). */
+const READ_FIELDS = "id,internalDate,payload(headers,mimeType,body(data,size),parts(mimeType,body(data,size),parts(mimeType,body(data,size),parts(mimeType,body(data,size),parts(mimeType,body(data,size))))))";
 
 export type GmailFetch = (path: string, query: URLSearchParams) => Promise<Response>;
 export class GmailUnavailable extends Error {}
 
 /** Envolve um transporte autenticado (ligação própria do utilizador). Só GET de leitura. */
-export function gmailReadOnly(transport: GmailFetch) {
+export function gmailReadOnly(transport: GmailFetch, opts?: { readTimeoutMs?: number }) {
+  const readTimeoutMs = opts?.readTimeoutMs ?? GMAIL_READ_TIMEOUT_MS;
+  /** Prazo explícito da leitura; a resposta tardia é descartada, nunca usada. */
+  const withTimeout = <T>(p: Promise<T>): Promise<T> => {
+    p.catch(() => undefined); // a promessa que perde a corrida não fica por tratar
+    return Promise.race([p, new Promise<T>((_res, rej) => setTimeout(() => rej(new GmailUnavailable("A leitura do email demorou demasiado. Tenta outra vez.")), readTimeoutMs))]);
+  };
   const get = async (path: string, q: Record<string, string | string[]>) => {
     if (!LIST.test(path) && !GET.test(path) && !ATT.test(path)) throw new Error("Caminho Gmail não permitido");
     const params = new URLSearchParams();
@@ -178,6 +186,23 @@ export function gmailReadOnly(transport: GmailFetch) {
       const bytes = decodeBase64Url(String(data.data ?? ""));
       if (!bytes.length || bytes.length > GMAIL_MAX_ATTACHMENT_BYTES) throw new GmailUnavailable("Anexo vazio ou superior a 20 MB.");
       return { bytes, filename: part.filename, mime: part.mime };
+    },
+    /** Só depois da escolha humana: lê o corpo dessa mensagem como texto (nunca executa nem segue conteúdo). */
+    async read(messageId: string): Promise<GmailMessageBody> {
+      const msg = await withTimeout(get(`/users/me/messages/${messageId}`, { format: "full", fields: READ_FIELDS }));
+      const base = summarizeMessage(msg as never);
+      if (!base) throw new GmailUnavailable("Mensagem indisponível.");
+      const meta = { message_id: base.message_id, from: base.from, subject: base.subject, date: base.date };
+      const payload = (msg as { payload?: BodyPart }).payload;
+      const plain = findBodyPart(payload, "text/plain");
+      const part = plain ?? findBodyPart(payload, "text/html");
+      if (!part || typeof part.body?.data !== "string") return { ...meta, kind: "none", body_text: "", truncated: false };
+      let decoded: { bytes: Uint8Array; truncated: boolean };
+      try { decoded = decodeBase64UrlCapped(part.body.data, GMAIL_READ_MAX_BYTES); }
+      catch { throw new GmailUnavailable("Não foi possível ler o corpo deste email."); }
+      const raw = new TextDecoder("utf-8", { fatal: false }).decode(decoded.bytes);
+      const cleaned = cleanBodyText(plain ? raw : htmlToText(raw));
+      return { ...meta, kind: plain ? "plain" : "html", body_text: cleaned.text, truncated: decoded.truncated || cleaned.truncated };
     },
   };
 }
