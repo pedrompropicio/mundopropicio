@@ -149,7 +149,9 @@ BEGIN
   IF FOUND THEN RETURN jsonb_build_object('action_id', p_action, 'status', ex.status, 'replayed', true, 'result', ex.result); END IF;
   IF p_action IS NULL OR NOT (p_action = ANY (a.action_ids)) THEN RAISE EXCEPTION '#333: action_not_authorized' USING ERRCODE = 'P0001'; END IF;
 
-  SELECT version INTO cur_version FROM public.data_entry_assistant_reviews_333 WHERE id = a.review_id;
+  -- 12h: FOR SHARE conflita com o FOR UPDATE do 'save' (nova versão): o executor espera e vê a versão nova (stale_version),
+  -- em vez de executar uma versão revogada em simultâneo (bug confirmado com 2 ligações, grupo 24f).
+  SELECT version INTO cur_version FROM public.data_entry_assistant_reviews_333 WHERE id = a.review_id FOR SHARE;
   IF cur_version IS DISTINCT FROM a.version THEN RAISE EXCEPTION '#333: stale_version' USING ERRCODE = '40001'; END IF;
   SELECT * INTO v FROM public.data_entry_assistant_review_versions_333 WHERE review_id = a.review_id AND version = a.version;
   IF NOT FOUND OR v.effects_hash IS DISTINCT FROM a.effects_hash
