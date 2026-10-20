@@ -29,6 +29,12 @@ except Exception: print(t.strip())'; }
 q(){ $P -c "$1"; }
 modal(){ $P -c "SET ROLE authenticated; $(claims) select (save_ticket_office_settlement(NULL,'{\"financial_account_id\":\"$O1\",\"event_id\":\"e0000000-0000-4000-8000-00000000000$1\",\"settlement_date\":\"2026-10-15\",\"gross_revenue\":1000,\"total_deductions\":123,\"net_calculated\":877,\"net_transferred\":0,\"venue_retained_amount\":0,\"venue_invoice_remainder_paid\":false,\"venue_invoice_remainder_amount\":0}'::jsonb,true,'[{\"id\":\"d0000000-0000-4000-8000-00000000000$1\",\"paid_amount\":123}]'::jsonb,'{\"amount\":877,\"to_account_id\":\"$B1\",\"credited\":false}'::jsonb,'r','m','u1'))->>'settlement_id' is not null" 2>&1 | clean; }
 legs(){ q "select t.type||':'||t.status||':'||t.paid_amount||':'||coalesce(t.payment_date::text,'-')||':'||(t.account_id='$O1')::text||':pag='||(select count(*) from transaction_payments p where p.transaction_id=t.id)||':'||coalesce((select string_agg(p.status||'/'||p.amount||'/'||p.payment_date||'/'||(p.account_id=t.account_id)::text||'/'||p.payment_method,',') from transaction_payments p where p.transaction_id=t.id),'') from transactions t where t.event_id='e0000000-0000-4000-8000-00000000000$1' and t.operation_key like 'TRF-FECHO-%' order by t.type"; }
+# mk <novo> <origem> <python sobre p>: variante adulterada/alterada com hash recalculado pelo _de333_canon do próprio SQL.
+mk(){ TJ=$(J $2 | python3 -c "import json,sys;p=json.load(sys.stdin);$3;print(json.dumps(p))")
+  TH=$($P -c "select encode(sha256(convert_to(public._de333_canon(jsonb_build_object('effects',(\$j\$$TJ\$j\$::jsonb)->'effects','actions',(\$j\$$TJ\$j\$::jsonb)->'actions')),'UTF8')),'hex')")
+  echo "$TJ" | python3 -c "import json,sys;p=json.load(sys.stdin);p['effects_hash']='$TH';print(json.dumps(p))" > /tmp/pg12ft/$1.json; }
+# tx <sql adulteração> <auth> <ação>: adultera e executa NA MESMA transação, depois ROLLBACK (estado reposto; a recusa é a prova).
+tx(){ $P -c "BEGIN; $1; SET ROLE authenticated; $(claims) select public.data_entry_assistant_execute_333('execute','$2','$3'); ROLLBACK;" 2>&1 | clean | grep -v '^UPDATE\|^DELETE' | grep -o 'ERROR.*\|^{.*' ; }
 open_scope(){ q "insert into data_entry_assistant_scope_333(owner_id,company_id,expires_at) values ('$U1','$C1',now()+interval '30 minutes') on conflict (owner_id,company_id) do update set expires_at=excluded.expires_at, created_at=now()"; }
 
 echo "1 probe (esquema 12f):"; ex 00000000-0000-0000-0000-000000000000 a1 probe
@@ -102,6 +108,56 @@ q "update transactions set account_id='$B2' where event_id='e0000000-0000-4000-8
 echo "24 E9 já creditado no painel → conferência, 0 escritas:"
 modal 9 >/dev/null; $P -c "SET ROLE authenticated; $(claims) update transactions set status='paid', payment_date='2026-10-16', paid_amount=amount where event_id='e0000000-0000-4000-8000-000000000009' and operation_key like 'TRF-FECHO-%'" >/dev/null
 RI=$(save pi null null); AI=$(authz $RI 1 pi '{a5}' 00000000-aaaa-0000-0000-000000000009); ok $AI a5; legs 9
+echo "24b 12g — a2 compara cabeçalho e linhas completas (mesma contagem/soma não basta):"
+mk pj pb "p['effects']['number']='AP-2T'"; RJ=$(save pj null null); AJ=$(authz $RJ 1 pj '{a1,a2}' 00000000-aaaa-0000-0000-0000000000b1); ok $AJ a1
+SJ="(select (result->>'statement_id')::uuid from data_entry_assistant_executions_333 where authorization_id='$AJ' and action_id='a1')"
+echo "  valores trocados entre linhas (contagem e soma iguais):"; tx "update ticket_office_statement_lines set amount=case position when 0 then -42.05 else 877 end where statement_id=$SJ" $AJ a2
+echo "  tipo de linha alterado:"; tx "update ticket_office_statement_lines set line_type='ticketline_invoice' where statement_id=$SJ and position=0" $AJ a2
+echo "  evento da linha alterado:"; tx "update ticket_office_statement_lines set event_id='e0000000-0000-4000-8000-000000000009' where statement_id=$SJ and position=0" $AJ a2
+echo "  descrição alterada:"; tx "update ticket_office_statement_lines set description='Outra' where statement_id=$SJ and position=0" $AJ a2
+echo "  valor de linha NULL (coluna permite):"; tx "update ticket_office_statement_lines set amount=NULL where statement_id=$SJ and position=1" $AJ a2
+echo "  linha extra de valor 0 (soma igual):"; tx "insert into ticket_office_statement_lines(statement_id,company_id,line_type,position,description,amount,event_id) select $SJ,'$C1','ticketline_invoice',2,'x',0,'e0000000-0000-4000-8000-000000000002'" $AJ a2
+echo "  data do apuramento alterada:"; tx "update ticket_office_statements set statement_date='2026-10-11' where id=$SJ" $AJ a2
+echo "  bilheteira do apuramento alterada:"; tx "update ticket_office_statements set financial_account_id='$B1' where id=$SJ" $AJ a2
+echo "  total do documento NULL (coluna permite):"; tx "update ticket_office_statements set document_total=NULL where id=$SJ" $AJ a2
+echo "  estado após recusas (draft, 0 execuções a2):"; q "select status from ticket_office_statements where id=$SJ"; q "select count(*) from data_entry_assistant_executions_333 where authorization_id='$AJ' and action_id='a2'"
+echo "  sem adulteração → confirma:"; ok $AJ a2
+echo "24c 12g — efeitos JSON sem chaves (hash recalculado) → recusa sem efeitos:"
+mk pk pb "p['effects']['number']='AP-2K'; del p['effects']['total']"; RK=$(save pk null null); AK=$(authz $RK 1 pk '{a1}' 00000000-aaaa-0000-0000-0000000000b2); echo "  a1 sem total:"; ex $AK a1
+mk pk2 pb "p['effects']['number']='AP-2L'; del p['effects']['lines'][0]['amount_cents']"; RK2=$(save pk2 null null); AK2=$(authz $RK2 1 pk2 '{a1}' 00000000-aaaa-0000-0000-0000000000b3); echo "  a1 linha sem cêntimos:"; ex $AK2 a1
+q "select count(*) from ticket_office_statements where number in ('AP-2K','AP-2L')"
+echo "  plano de fecho sem cada chave (_de333_closing_check chamado pelo executor em a4/a3):"
+CJ=$(J pb | python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin)["effects"]["closing"]))')
+for k in gross_cents deductions_cents net_cents event_right_cents office event transfer_account settlement_date deductions; do
+  printf "   sem %s: " $k; $P -c "BEGIN; select public._de333_closing_check((\$j\$$CJ\$j\$::jsonb) - '$k', '$C1'); ROLLBACK;" 2>&1 | grep -o '#333: [a-z_]*\|invalid input[^\"]*' | head -1; done
+printf "   dedução sem gross_cents: "; $P -c "BEGIN; select public._de333_closing_check(jsonb_set(\$j\$$CJ\$j\$::jsonb,'{deductions,0}',((\$j\$$CJ\$j\$::jsonb)->'deductions'->0)-'gross_cents'), '$C1'); ROLLBACK;" 2>&1 | grep -o '#333: [a-z_]*' | head -1
+printf "   net_cents null: "; $P -c "BEGIN; select public._de333_closing_check(jsonb_set(\$j\$$CJ\$j\$::jsonb,'{net_cents}','null'), '$C1'); ROLLBACK;" 2>&1 | grep -o '#333: [a-z_]*' | head -1
+printf "   controlo (plano completo): "; $P -c "BEGIN; select public._de333_closing_check(\$j\$$CJ\$j\$::jsonb, '$C1'); ROLLBACK;" 2>&1 | grep -v '^BEGIN\|^ROLLBACK'
+for k in amount_cents date account; do mk pl_$k pi "p['effects']['number']='AP-S9$k'; del p['effects']['settlement']['$k']"; RL=$(save pl_$k null null)
+  AL=$(authz $RL 1 pl_$k '{a5}' 00000000-aaaa-0000-0000-0000000$(printf %05d $RANDOM)); printf "   a5 evidência sem %s: " $k; ex $AL a5; done
+echo "24d 12g — pernas TRF-FECHO com campos NULL/divergentes (E8, adulteração+execução na mesma transação, ROLLBACK):"
+q "update transactions set account_id='$B1' where event_id='e0000000-0000-4000-8000-000000000008' and operation_key like 'TRF-FECHO-%' and type='income'" >/dev/null
+W="event_id='e0000000-0000-4000-8000-000000000008' and operation_key like 'TRF-FECHO-%' and type='income'"
+for col in company_id event_id account_id amount currency exclude_from_result status paid_amount iva_rate payment_method; do
+  printf "   %s NULL: " $col; tx "update transactions set $col=NULL where $W" $AH a5 | head -1; done
+printf "   exclude_from_result false: "; tx "update transactions set exclude_from_result=false where $W" $AH a5 | head -1
+printf "   currency BRL: "; tx "update transactions set currency='BRL' where $W" $AH a5 | head -1
+printf "   bilheteira inativa agora: "; tx "update financial_accounts set is_active=false where id='$O1'" $AH a5 | head -1
+printf "   conta de destino inativa agora: "; tx "update financial_accounts set is_active=false where id='$B1'" $AH a5 | head -1
+printf "   controlo (sem adulteração, ROLLBACK): "; tx "select 1" $AH a5 | head -1
+legs 8; q "select count(*) from data_entry_assistant_executions_333 where authorization_id='$AH'"
+echo "24e 12g — já creditado mas divergente da evidência autorizada → nunca 'conferido':"
+mk pm pi "p['effects']['number']='AP-S9M'; p['effects']['settlement']['date']='2026-10-17'"; RM=$(save pm null null); AM=$(authz $RM 1 pm '{a5}' 00000000-aaaa-0000-0000-0000000000b4)
+printf "   evidência 17/10 vs crédito 16/10: "; ex $AM a5
+mk pn pi "p['effects']['number']='AP-S9N'"; RN=$(save pn null null); AN=$(authz $RN 1 pn '{a5}' 00000000-aaaa-0000-0000-0000000000b5)
+P9="transaction_id in (select id from transactions where event_id='e0000000-0000-4000-8000-000000000009' and operation_key like 'TRF-FECHO-%' and type='income')"
+printf "   pagamento da perna noutra data: "; tx "update transaction_payments set payment_date='2026-10-14' where $P9" $AN a5 | head -1
+printf "   pagamento da perna noutra conta: "; tx "update transaction_payments set account_id='$B2' where $P9" $AN a5 | head -1
+printf "   pagamento da perna sem conta (NULL): "; tx "update transaction_payments set account_id=NULL where $P9" $AN a5 | head -1
+printf "   pagamento da perna estornado: "; tx "update transaction_payments set reversed_at=now() where $P9" $AN a5 | head -1
+printf "   pagamento duplicado na perna: "; tx "insert into transaction_payments(transaction_id,amount,payment_date,account_id,status,company_id,created_by) select transaction_id,0.01,payment_date,account_id,'planned',company_id,'local' from transaction_payments where $P9" $AN a5 | head -1
+printf "   controlo exato (ROLLBACK): "; tx "select 1" $AN a5 | head -1
+legs 9; q "select count(*) from data_entry_assistant_executions_333 where authorization_id in ('$AM','$AN')"
 echo "25 imutabilidade das execuções (dono):"
 $P -c "update data_entry_assistant_executions_333 set result='{}'" 2>&1 | grep -o "immutable_record" | head -1; $P -c "delete from data_entry_assistant_executions_333" 2>&1 | grep -o "immutable_record" | head -1
 echo "26 readback (ACL/defaultACL/SECDEF):"
