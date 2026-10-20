@@ -10,7 +10,7 @@ import {
   validCivilDate, validMoney, validateDocument, type DocumentType,
 } from "./core.ts";
 import { GmailConnectError, type GmailConnection } from "../_shared/gmail-app-user.ts";
-import { runAssistantTurn, type AssistantModel } from "../_shared/assistant-orchestrator.ts";
+import { runAssistantTurn, type AssistantModel, type TurnInput } from "../_shared/assistant-orchestrator.ts";
 import type { ErpContext } from "../_shared/assistant-ticketline-proposal.ts";
 import { GmailUnavailable, gmailFilterSchema, gmailOrigin, gmailSelectionSchema, type GmailReader as _GmailReader } from "../_shared/gmail-readonly.ts";
 
@@ -237,7 +237,7 @@ export function createHandler(d: Deps) {
           gmailSearch: async (f) => (await gmailReader()).search(f),
           gmailRead: async (id) => (await gmailReader()).read(id),
           erpContext: async (text) => { const c = await a.erpContext(token, company, text); if (c.company_id !== company) throw new SafeError("Contexto alterado.", 403); return c; },
-        }, { text: body.text, history: body.history, selection: body.selection, known_message_ids: body.known_message_ids }, req.signal);
+        }, { text: body.text, history: body.history as TurnInput["history"], selection: body.selection, known_message_ids: body.known_message_ids }, req.signal);
         await canonicalStorageContext();
         return reply(result);
       }

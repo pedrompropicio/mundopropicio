@@ -7,7 +7,7 @@
  */
 import { z } from "npm:zod@3";
 import { gmailFilterSchema, type GmailMessageBody, type GmailMessageSummary } from "./gmail-readonly.ts";
-import { buildTicketlineProposal, EXECUTION_GAPS, resolveEvent, LINE_TYPES, type ErpContext, type Proposal } from "./assistant-ticketline-proposal.ts";
+import { buildTicketlineProposal, EXECUTION_GAPS, resolveEvent, LINE_TYPES, type ErpContext, type ExtractedStatement, type Proposal } from "./assistant-ticketline-proposal.ts";
 
 export const ASSISTANT_LIMITS = { maxSteps: 8, maxToolCalls: 6, maxSearches: 2, maxReads: 2, maxTokens: 40000, deadlineMs: 60000, maxUserChars: 2000 } as const;
 
@@ -130,7 +130,7 @@ export async function runAssistantTurn(model: AssistantModel, tools: AssistantTo
           const st = (parsed.data as z.infer<typeof TOOL_SCHEMAS.prepare_ticketline_proposal>).statement;
           const hint = st.lines.map((l) => l.event_hint).find(Boolean) ?? st.number ?? "";
           const erp = await tools.erpContext(hint || "ticketline");
-          const p = await buildTicketlineProposal({ source_message_id: id, ...st }, erp, { event_id: input.selection?.event_id ?? null, settlement: null });
+          const p = await buildTicketlineProposal({ source_message_id: id, ...st } as ExtractedStatement, erp, { event_id: input.selection?.event_id ?? null, settlement: null });
           trace.push({ tool: name, ok: true, summary: `Proposta preparada (${p.actions.length} ações, ${p.needs.length} pendência(s))` });
           if (!p.event) {
             const cands = resolveEvent(st.lines.map((l) => l.event_hint), erp.events).candidates;
