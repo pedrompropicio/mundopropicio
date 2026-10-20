@@ -195,6 +195,8 @@ _(sem pedidos)_
 
 ## 10 · Entrada de Dados
 
+  - **20/10/2026 17:15 UTC — #333 pacote A aplicado (fase12i).** Migrações 0211 review + 0212 executor FECHADO; readback OK (gates false, âmbito 0, registos 0, writers iguais). index.ts flags de esquema true; assistente/análise false. AGUARDA CI no novo SHA → deploy só data-entry (controller). Pacote B não ativado. Relatório: docs/testes/issue333/fase12i-aplicacao-pacote-A.md.
+
 _(sem pedidos)_
 
 ## 11 · Testes
