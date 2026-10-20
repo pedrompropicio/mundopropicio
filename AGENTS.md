@@ -15,7 +15,7 @@
 - Growth summaries use legacy comparisons; campaign joins use platform/account/external ID, never names.
 - Smart-link test markers inherit arrivals, suppress before slots/tokens, log allowlisted Meta receipts.
 - Investment projections reuse the canonical report's spend/classification CTEs unchanged; canonical changes must regenerate and regression-test them to prevent drift.
-- Manual modals separate their header from the scrolling body and use shared viewport/safe-area styles; this keeps dismissal accessible.
+- Manual modals: header apart from scrolling body, shared viewport/safe-area styles, so dismissal stays reachable.
 - Arrival geo uses local DB-IP before paid APIs; monthly Range+inflate parts avoid edge CPU limits. Never store visitor IPs.
 - Camarim cash cards, integration previews and session PDFs share the pure session cash helper; this keeps amounts and reimbursement labels consistent.
 - Calculated cards refresh through the central event-financials invalidation helper plus debounced Realtime subscriptions; panel-local invalidation misses card keys.
