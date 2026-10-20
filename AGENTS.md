@@ -14,7 +14,7 @@
 - Authenticated smart-link SSR treats unusable visitor IP as absent, never falls back to infrastructure IP or a shared no-IP rate quota; arrivals must survive missing metadata without inventing attribution.
 - Growth summaries use legacy comparisons; campaign joins use platform/account/external ID, never names.
 - Smart-link test markers inherit arrivals, suppress before slots/tokens, log allowlisted Meta receipts.
-- Investment source projections reuse the canonical report's spend/classification CTEs without modifying that report; any future canonical change must regenerate and regression-test the projection to prevent drift.
+- Investment projections reuse the canonical report's spend/classification CTEs unchanged; canonical changes must regenerate and regression-test them to prevent drift.
 - Manual modals separate their header from the scrolling body and use shared viewport/safe-area styles; this keeps dismissal accessible.
 - Arrival geo uses local DB-IP before paid APIs; monthly Range+inflate parts avoid edge CPU limits. Never store visitor IPs.
 - Camarim cash cards, integration previews and session PDFs share the pure session cash helper; this keeps amounts and reimbursement labels consistent.
@@ -31,4 +31,4 @@
 - CRM WhatsApp uses crm_whatsapp_eligible/invoker views. Ledger/member-phone triggers share a contact-locked projection; matching-fingerprint phones only fill empty contacts, avoiding leaks/overwrites.
 
 - Cache payments only via cache_* RPCs (eventless mother + per-city children); client never inserts them, keeping caps server-checked.
-- Cache payment line choices ({city: forecast}) travel only as optional RPC parameters, exposed to internal helpers via the transaction-local `cache.line_choices` setting; keeps old internal signatures and server-side validation.
+- Cache line choices: optional RPC param → transaction-local `cache.line_choices`; keeps signatures, server-validated.
