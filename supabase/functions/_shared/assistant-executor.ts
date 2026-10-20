@@ -4,7 +4,7 @@
  * nunca de argumentos. Não envia efeitos nem versão: o SQL carrega-os só da revisão persistida e recalcula o hash.
  * Falha de transporte ou erro desconhecido = resultado INCERTO: nunca repetir às cegas; recuperar por leitura (status).
  */
-export const EXECUTOR_SCHEMA = "333-12e";
+export const EXECUTOR_SCHEMA = "333-12f";
 export class ExecutorUnavailable extends Error { status = 503; constructor() { super("Execução indisponível neste ambiente: executor por rever/aplicar. Nada foi executado."); } }
 export class ExecutionRefused extends Error { constructor(message: string, readonly status = 409, readonly code = "") { super(message); } }
 export class ExecutionUncertain extends Error { status = 502; constructor() { super("Resultado incerto. Não repita: use \"Verificar resultado\" para ler o estado gravado."); } }

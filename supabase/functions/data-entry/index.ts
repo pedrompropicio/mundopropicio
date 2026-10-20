@@ -24,10 +24,10 @@ const ANALYSIS_ENABLED = false; // #333 fecho96: closed after manual window96.
 const ASSISTANT_ENABLED = false; // #333 fase12b: local implementation, activation not authorized.
 const ASSISTANT_REVIEWED_SCOPES = new Set<string>(); // Empty; future controlled authorization names owner+company explicitly.
 const ANALYSIS_PROVIDER_REVIEWED = false; // #333 fecho96: closed after manual window96.
-// #333 fase12d: review persistence wired but closed until the INERTE SQL (schema '333-12d') is reviewed/applied with Pedro's "Sim".
+// #333 fase12d: review persistence wired but closed until the INERTE SQL (schema '333-12f', âmbito nominal com expiração no SQL) is reviewed/applied with Pedro's "Sim".
 // Even when true, every call probes schema+gate in SQL and answers 503 on absence/mismatch.
 const REVIEW_SCHEMA_REVIEWED = false;
-/** #333 fase12e: executor SQL INERTE por aplicar; só com revisão e "Sim" do Pedro. */
+/** #333 fase12f: executor SQL INERTE (a1–a5 sobre writers canónicos) por aplicar; só com revisão e "Sim" do Pedro. */
 const EXECUTOR_SCHEMA_REVIEWED = false;
 const erpReader = (token: string): ErpReader => {
   const client = asUser(token); // Caller JWT/RLS; never privileged financial reads.

@@ -10,12 +10,12 @@ export type SavedReview = { review_id: string; version: number; effects_hash: st
 export type AuthorizationRecord = { authorization_id: string; replayed: boolean; status: "authorized_inert"; action_ids?: string[] };
 export type ReviewScope = { user: string; company: string };
 export interface ReviewStore {
-  /** Confirma esquema revisto ('333-12d') e gate aberto; caso contrário ReviewUnavailable. */
+  /** Confirma esquema revisto ('333-12f') e gate aberto; caso contrário ReviewUnavailable. */
   probe(): Promise<void>;
   save(scope: ReviewScope, input: { review_id: string | null; expected_version: number | null; proposal: Proposal }): Promise<SavedReview>;
   authorize(scope: ReviewScope, input: { review_id: string; version: number; effects_hash: string; action_ids: string[]; replay_key: string }): Promise<AuthorizationRecord>;
 }
-export const REVIEW_SCHEMA = "333-12d";
+export const REVIEW_SCHEMA = "333-12f";
 export const unavailableReviewStore: ReviewStore = {
   probe: () => Promise.reject(new ReviewUnavailable()),
   save: () => Promise.reject(new ReviewUnavailable()),
