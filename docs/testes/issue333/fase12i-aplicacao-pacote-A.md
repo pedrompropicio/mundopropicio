@@ -27,11 +27,33 @@ Autorização: Pedro, 20/10/2026 14:10 Fortaleza ("Sim": instalar pacote no ERP 
 ## A4 código
 `supabase/functions/data-entry/index.ts`: REVIEW_SCHEMA_REVIEWED=true, EXECUTOR_SCHEMA_REVIEWED=true. Mantidos: ASSISTANT_ENABLED=false, ASSISTANT_REVIEWED_SCOPES vazio, ANALYSIS_ENABLED=false, ANALYSIS_PROVIDER_REVIEWED=false, controlo durável fechado. Testes data-entry: 24 ficheiros / 219 PASS.
 
-## Deploy — AGUARDA CI
-Não feito nesta sessão: o CI do SHA com esta alteração só corre depois do commit. Próximo passo (controller): CI verde no novo SHA → deploy SÓ `data-entry`. Efeito esperado: assistente continua 503 (ASSISTANT_ENABLED=false) e SQL recusa (gates false, âmbito vazio).
+## Deploy — CONCLUÍDO 20/10/2026 ~17:34 UTC
+Autorização Pedro 14:10 Fortaleza reiterada 14:32 (“Pode avançar”). Controller confirmou agentFinished=true, main=Lovable=5b29366ebe8a767da03f37c43b93cf168eda2dca e CI run39464824239 quality SUCCESS. HEAD local igual ao informado. Nenhum código funcional editado antes ou depois do deploy; migrações não reaplicadas.
 
-## A5 endpoint (versão atualmente deployada)
-OPTIONS 200; POST sem Authorization 401 `UNAUTHORIZED_NO_AUTH_HEADER`; POST com chave anon 401 `Sessão inválida`. Sem login, provider ou Gmail reais.
+Ferramenta oficial `supabase.deploy_edge_functions`, argumento exato `{"function_names":["data-entry"]}`: `Successfully deployed edge functions: data-entry`.
+- SHA-256 submetido (files and settings): `e5478d0481ed423e3b2938acd2aa1b7c8bf092f0f8f538e04aaa3f488ebb93f9`.
+- SHA-256 do index.ts validado: `68d26d5fd13411cc49c807f5df8398d37d713248175e6502554ca457d81bc2b6`.
+- Deployment ID/versão da edge: não devolvidos pela ferramenta. Consulta oficial de logs mostrou boot às 17:34:45Z/17:34:47Z; analytics não retornou linhas e CLI info não expõe estes campos. Não inventado; hash submetido não é uma prova independente de hash live.
+- Flags fonte: REVIEW_SCHEMA_REVIEWED=true, EXECUTOR_SCHEMA_REVIEWED=true; ASSISTANT_ENABLED=false, scopes vazio, ANALYSIS_ENABLED=false, ANALYSIS_PROVIDER_REVIEWED=false, uploadEnabled=false, pilotScoped=true.
+
+### Readback oficial pós-deploy
+`supabase.read_query`: review_enabled=false, executor_enabled=false; scope/reviews/review_versions/authorizations/executions=0; global_open/scoped_open/attempt_open=0. Controlo durável revision=16, state=closed, enabled=false, reviewed=false, active_claim=NULL, stage=idle. A primeira consulta usou por engano o nome inexistente `data_entry_assistant_versions_333` (42P01); corrigido para o nome instalado `data_entry_assistant_review_versions_333`, sem qualquer escrita.
+
+7 tabelas próprias: owner postgres, RLS=true, ACL `{postgres=arwdDxtm/postgres,service_role=r/postgres}`, ACLs de coluna=0, policies=0. Seis triggers de imutabilidade/no_truncate habilitados (`O`). RPC review e executor contêm versão `333-12f`, owner postgres, SECDEF, search_path public/pg_temp, EXECUTE review só postgres/service_role e executor só postgres/authenticated. Helpers só postgres; anon sem grant.
+
+MD5 prosrc completo pós-deploy:
+- review: `7b77c11ce2dee7e4d72bbb358a3a2799`
+- executor: `8fac87cdc99023cd9302ffae94cbdde8`
+- closing_check: `b854873900780f8879638115d7b9a8da`
+- cents: `632fc48322926f014808931d04744124`
+- req: `5c99de7039f3670527db7c5a561c6273`
+- canon: `d4a7d83ec0f654672c3f2b9f427a15a0`
+- immutable: `8e31b7bc52905a0e46b1814bc3aa2f81`
+
+## A5 endpoint pós-deploy
+OPTIONS 200 (corpo vazio); POST sem Authorization 401 `{"code":"UNAUTHORIZED_NO_AUTH_HEADER","message":"Missing authorization header"}`; POST com chave anon 401 `{"error":"Sessão inválida"}`. Pedidos sem conta/login; nenhuma sessão injetada. Assistente efetivamente fechado por fonte+gates+scope+controlo; resposta autenticada 503/capabilities NÃO testada. Sem provider/Gmail reais, DDL/DML, alteração de flags/controlos ou Publish global. Pacote B não ativado.
+
+Checklist: instalação0211/0212 previamente concluída; deploy somente data-entry concluído; endpoint200/401/401 e readback fechado conferidos; reserva própria333 libertada, #322/#323 preservadas. Única lacuna documental deste deploy: deployment ID não exposto pelos canais consultados. A pendência tosl_guard não foi investigada nem alterada.
 
 ## Reversão A
 Deploy com os dois flags false; `executor.ROLLBACK-INERTE.sql` depois `review.ROLLBACK-INERTE.sql` (recusam se houver registos). Nenhum DROP feito.
