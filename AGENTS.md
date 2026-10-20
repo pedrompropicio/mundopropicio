@@ -8,8 +8,8 @@
 
 - Club CRM editors share the active-config query and fail-closed write policy; versioned points and level identities cannot be overwritten through legacy editors, while ranking delegates protected levels to the canonical RPC.
 
-- Ticket-office cards use canonical balance RPC for retained funds, existing sales RPC plus canonical per-event balance helper for unapportioned events; avoid gross-sales/receivable confusion and truncated reads.
-- Statements aggregate signed lines by type without changing financial records or creating settlement movements.
+- Ticket-office cards use canonical retained-balance RPC and sales RPC + per-event balance for unapportioned events; avoid gross/receivable confusion or truncated reads.
+- Statements sum signed types without financial writes; guards lock OLD/NEW parents in UUID order before status checks to serialize confirmation.
 - Smart-link delivery claims atomically via service-role RPC; a partial unique index prevents browser/SSR duplicates, retaining history.
 - Authenticated smart-link SSR treats unusable visitor IP as absent, never falls back to infrastructure IP or a shared no-IP rate quota; arrivals must survive missing metadata without inventing attribution.
 - Growth summaries use legacy comparisons.
