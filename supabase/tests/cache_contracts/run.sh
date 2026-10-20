@@ -9,5 +9,5 @@ $R pg_ctl -D $D/data -o "-k $D -p 55441 -c listen_addresses=''" -l $D/log -w sta
 trap '$R pg_ctl -D $D/data -m immediate stop >/dev/null' EXIT
 P="env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE psql -X -q -h $D -p 55441 -U postgres -d postgres -v ON_ERROR_STOP=1"
 $P -f $S/stub.sql >/dev/null
-$P -1 -f $ROOT/supabase/manual/cache_contracts.sql >/dev/null
+$P -1 -f $ROOT/drizzle/migrations/0214_cache_payment_contracts.sql >/dev/null
 $P -f $S/scenarios.sql 2>&1
