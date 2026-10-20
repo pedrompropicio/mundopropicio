@@ -20,7 +20,7 @@ import { validSsrKey, prefetchDetail, ssrClientIp, ssrClientGeo } from "./ssr.ts
 import {
   canonicalOpenId, destinationConfigured, isDuplicateArrival, isUuid,
   parseAppOpenBody, validateArrivalForAppOpen, VIEWCONTENT_DEDUP_WINDOW_MS,
-  type AppOpenParsed, testDeliveryPolicy, metaReceipt,
+  type AppOpenParsed, testDeliveryPolicy, metaReceipt, tiktokReceipt,
 } from "./app-open.ts";
 
 const ALLOWED_ORIGINS = new Set<string>([
@@ -615,6 +615,8 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
           });
           const tj: any = await r.json().catch(() => null);
           tiktok_status = r.ok && tj?.code === 0 ? "enviado" : `erro:${tj?.code ?? r.status}`;
+          console.log("[song-link-event] tiktok", JSON.stringify({ status: r.status, row_id: claimedId,
+            event_name: ttEventName, event_id: ttEventId, ...tiktokReceipt(tj, ttTest), test: !!ttTest }));
           if (ttSlot) await finishSlot(admin, arrivalEventId!, "tiktok", ttSlot, tiktok_status === "enviado" ? "delivered" : "failed");
         } catch {
           tiktok_status = "erro:rede";

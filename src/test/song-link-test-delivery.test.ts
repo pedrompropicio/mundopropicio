@@ -41,4 +41,10 @@ it("suppression precedes tokens and reservation; inherited mode is used for clai
   expect(src.indexOf('const testPolicy =')).toBeLessThan(src.indexOf('admin.rpc("song_link_event_claim"'));
   expect(src).toContain('mode: testPolicy.mode');
   expect(src).toContain('event_id: metaEventId, ...metaReceipt(rt)');
+});it("TikTok receipt keeps code/message/request_id only and drops echoed test codes", async () => {
+  const { tiktokReceipt } = await import("../../supabase/functions/song-link-event/app-open");
+  expect(tiktokReceipt({ code: 0, message: "OK", request_id: "r_1", access_token: "x", test_event_code: "SYNTH" }))
+    .toEqual({ code: 0, message: "OK", request_id: "r_1" });
+  expect(tiktokReceipt({ code: 40001, message: "bad SYNTH" }, "SYNTH").message).toBeNull();
+  expect(tiktokReceipt(null)).toEqual({ code: null, message: null, request_id: null });
 });
