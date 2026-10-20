@@ -32,3 +32,6 @@ Pesquisa/leitura Gmail própria ativa no modal com upload fechado: gmail_read l�
 
 ## Fase11f (20/10/2026)
 Pesquisa de assunto flexível por omissão (variações explicáveis, exato primeiro), opção só-exata; recuperação limitada ≤4 consultas fixas em AND com período/remetente, cobertura incompleta sempre sinalizada, nunca "todos". Gmail não tem fuzzy nativo: não prometer. Gates/control inalterados.
+
+## Fase12 (20/10/2026)
+Entrada principal em texto livre com orquestrador restrito (ferramentas fechadas, resultados não confiáveis, seletor humano); proposta Ticketline inerte com hash; fecho recebido não prova recebimento. Inativo até pacote de ativação; LLM só mock; execução bloqueada.

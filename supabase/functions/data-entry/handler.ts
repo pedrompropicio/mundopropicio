@@ -10,6 +10,8 @@ import {
   validCivilDate, validMoney, validateDocument, type DocumentType,
 } from "./core.ts";
 import { GmailConnectError, type GmailConnection } from "../_shared/gmail-app-user.ts";
+import { runAssistantTurn, type AssistantModel, type TurnInput } from "../_shared/assistant-orchestrator.ts";
+import type { ErpContext } from "../_shared/assistant-ticketline-proposal.ts";
 import { GmailUnavailable, gmailFilterSchema, gmailOrigin, gmailSelectionSchema, type GmailReader as _GmailReader } from "../_shared/gmail-readonly.ts";
 
 export type RpcResult = { data: unknown; error: { code?: string; message?: string } | null };
@@ -37,6 +39,8 @@ export interface Deps {
   gmail?: Pick<GmailConnection, "reader"> & Partial<Omit<GmailConnection, "reader">>;
   /** Nome canónico da empresa já resolvida no servidor; null/erro = não mostrar (nunca inventar). */
   companyName?(company: string): Promise<string | null>;
+  /** #333 fase12: orquestrador conversacional. Ausente = não ativado (503). Modelo e leitor ERP injetados. */
+  assistant?: { model: AssistantModel; erpContext(token: string, company: string, text: string): Promise<ErpContext> };
   cors: Record<string, string>;
 }
 
@@ -63,6 +67,10 @@ export const commandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("check"), session_id: id, preview_id: id }).strict(),
   z.object({ action: z.literal("document"), session_id: id, document_id: id }).strict(),
   z.object({ action: z.literal("gmail_search"), filters: z.unknown() }).strict(),
+  z.object({ action: z.literal("assistant_turn"), text: z.string().max(2000),
+    history: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string().max(4000) }).strict()).max(20),
+    selection: z.object({ message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/).optional(), event_id: z.string().uuid().optional() }).strict().optional(),
+    known_message_ids: z.array(z.string().regex(/^[A-Za-z0-9]{6,64}$/)).max(50).optional() }).strict(),
   z.object({ action: z.literal("gmail_read"), message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/) }).strict(),
   z.object({ action: z.literal("gmail_connection") }).strict(),
   z.object({ action: z.literal("gmail_connect_start"), origin: z.string().url().max(200) }).strict(),
@@ -196,7 +204,7 @@ export function createHandler(d: Deps) {
       if (body.action === "status") {
         let companyName: string | null = null;
         try { companyName = d.companyName ? await d.companyName(company) : null; } catch { companyName = null; }
-        return reply({ user_id: user.id, role: eff.role, company_id: company, company_name: companyName, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: d.analysisEnabled === true && uploadEnabled && !!d.analysis, gmail: !!d.gmail, drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
+        return reply({ user_id: user.id, role: eff.role, company_id: company, company_name: companyName, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: d.analysisEnabled === true && uploadEnabled && !!d.analysis, gmail: !!d.gmail, assistant: !!d.assistant, drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
       }
       const gmailReader = async () => {
         if (!d.gmail) throw new SafeError("A ligação ao Gmail ainda não está disponível nesta plataforma. Envia o ficheiro manualmente.", 503);
@@ -218,6 +226,18 @@ export function createHandler(d: Deps) {
         if (!filters.success) throw new SafeError(filters.error.issues[0]?.message ?? "Filtros inválidos.", 400);
         const reader = await gmailReader();
         const result = await reader.search(filters.data);
+        await canonicalStorageContext();
+        return reply(result);
+      }
+      if (body.action === "assistant_turn") {
+        if (!d.assistant) throw new SafeError("O assistente conversacional ainda não está ativado. Podes usar a pesquisa do Gmail abaixo.", 503);
+        await canonicalStorageContext();
+        const a = d.assistant;
+        const result = await runAssistantTurn(a.model, {
+          gmailSearch: async (f) => (await gmailReader()).search(f),
+          gmailRead: async (id) => (await gmailReader()).read(id),
+          erpContext: async (text) => { const c = await a.erpContext(token, company, text); if (c.company_id !== company) throw new SafeError("Contexto alterado.", 403); return c; },
+        }, { text: body.text, history: body.history as TurnInput["history"], selection: body.selection, known_message_ids: body.known_message_ids }, req.signal);
         await canonicalStorageContext();
         return reply(result);
       }
