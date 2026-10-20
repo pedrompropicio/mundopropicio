@@ -32,3 +32,4 @@
 
 - CRM WhatsApp uses crm_whatsapp_eligible/invoker views. Ledger/member-phone triggers share a contact-locked projection; matching-fingerprint phones only fill empty contacts, preventing revocation leaks and overwrites.
 
+- Cache payments go only through the cache_* contract RPCs (mother without event + analytic children per city on the city's cache line); never insert cache transactions from the client, so totals and caps stay server-checked.
