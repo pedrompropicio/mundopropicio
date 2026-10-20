@@ -21,8 +21,18 @@ const admin = createClient(url, service, opts);
 const asUser = (token: string) => createClient(url, anon, { ...opts, global: { headers: { Authorization: `Bearer ${token}` } } });
 const ANALYSIS_ENABLED = false; // #333 fecho96: closed after manual window96.
 // Durable control stays closed until the controller opens the single 600s window with Pedro in the modal.
-const ASSISTANT_ENABLED = false; // #333 fase12b: local implementation, activation not authorized.
-const ASSISTANT_REVIEWED_SCOPES = new Set<string>(); // Empty; future controlled authorization names owner+company explicitly.
+// #333 12j: Pedro "Sim" 20/10 15:08 Fortaleza — conversa+leitura/revisão só para o âmbito nominal abaixo.
+// Efetivo apenas com linha em data_entry_assistant_scope_333 (expires_at > now(), verificada no SQL a cada pedido),
+// controlo durável do serviço aberto e gate de revisão SQL; o executor SQL continua false.
+const ASSISTANT_ENABLED = true;
+const ASSISTANT_REVIEWED_SCOPES = new Set<string>(["d8e502f7-9ceb-4dae-bd73-7291832d0d6f:7c858982-6ccd-47ca-bd65-e0dd3eebf01c"]);
+/** Scanner existente só no candidato de anexo Gmail da revisão (mesmo controlo durável); upload/análise de lote continuam fechados. */
+const REVIEW_SCANNER_ENABLED = true;
+const assistantScopeOpen = async (user: string, company: string): Promise<boolean> => {
+  if (!ASSISTANT_REVIEWED_SCOPES.has(`${user}:${company}`)) return false;
+  const { data, error } = await admin.from("data_entry_assistant_scope_333" as never).select("owner_id").eq("owner_id", user).eq("company_id", company).gt("expires_at", new Date().toISOString()).limit(1);
+  return !error && Array.isArray(data) && data.length === 1; // fail closed
+};
 const ANALYSIS_PROVIDER_REVIEWED = false; // #333 fecho96: closed after manual window96.
 // #333 fase12d: review persistence wired but closed until the INERTE SQL (schema '333-12f', âmbito nominal com expiração no SQL) is reviewed/applied with Pedro's "Sim".
 // Even when true, every call probes schema+gate in SQL and answers 503 on absence/mismatch.
@@ -108,7 +118,7 @@ Deno.serve(createHandler({
   uploadEnabled: false, // Reviewed activation required; no environment flag bypass.
   analysisEnabled: ANALYSIS_ENABLED && ANALYSIS_PROVIDER_REVIEWED,
   assistantEnabled: ASSISTANT_ENABLED,
-  assistantScopeAllowed: (user, company) => ASSISTANT_REVIEWED_SCOPES.has(`${user}:${company}`),
+  assistantScopeAllowed: assistantScopeOpen,
   continuationSecret: Deno.env.get("APP_USER_CONNECTION_KEY_SECRET") ?? "",
   ticketlineErp: {
     context: (token, company, text, signal, number, eventId) => readAssistantErp(erpReader(token), company, text, signal, number, eventId),
@@ -122,8 +132,8 @@ Deno.serve(createHandler({
   // Executor: JWT do chamador (auth.uid()/current_company_id() no SQL); nunca service_role.
   ...(REVIEW_SCHEMA_REVIEWED && EXECUTOR_SCHEMA_REVIEWED ? { executor: rpcExecutor(async (token, name, args) => { const r = await asUser(token).rpc(name, args); return { data: r.data, error: r.error }; }) } : {}),
   ...(REVIEW_SCHEMA_REVIEWED ? { reviewStore: rpcReviewStore(async (name, args) => { const r = await admin.rpc(name, args); return { data: r.data, error: r.error }; }) } : {}),
-  // Existing scanner (scanner-analysis + durable provider control); only reachable when analysisEnabled is true.
-  ...(ANALYSIS_ENABLED && ANALYSIS_PROVIDER_REVIEWED ? { async scanAttachment(bytes: Uint8Array, mime: Parameters<typeof generateScannerAnalysis>[0]["mime"], signal: AbortSignal) {
+  // Existing scanner (scanner-analysis + durable provider control); only in the scoped review path.
+  ...(REVIEW_SCANNER_ENABLED ? { async scanAttachment(bytes: Uint8Array, mime: Parameters<typeof generateScannerAnalysis>[0]["mime"], signal: AbortSignal) {
     const store = rpcControlStore(async (name, args) => { const r = await admin.rpc(name, args); return { data: r.data, error: r.error }; });
     await assertProviderControlAvailable(store);
     const control = durableProviderControl(store);

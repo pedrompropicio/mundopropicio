@@ -128,6 +128,13 @@ describe("#333 fase12d handler", () => {
   it("gates: assistente fechado ou fora do âmbito → 503; persistência ausente/sonda falhada → 503 sem memória", async () => {
     expect((await post(createHandler(deps({ assistantEnabled: false }).d), { action: "ticketline_accounts" })).status).toBe(503);
     expect((await post(createHandler(deps({ assistantScopeAllowed: () => false }).d), { action: "ticketline_attachments", message_id: "msg000001" })).status).toBe(503);
+    // 12j: âmbito assíncrono (expiração SQL por owner+empresa) é aguardado em cada pedido; expirado → 503 sem chamar o modelo.
+    let open12j = true; const sc = deps({ assistantScopeAllowed: async () => open12j }); const h12j = createHandler(sc.d);
+    expect((await post(h12j, { action: "ticketline_attachments", message_id: "msg000001" })).status).toBe(200);
+    open12j = false;
+    expect((await post(h12j, { action: "ticketline_attachments", message_id: "msg000001" })).status).toBe(503);
+    expect((await post(h12j, { action: "assistant_turn", text: "fecho ticketline", history: [] })).status).toBe(503);
+    expect((await (await post(h12j, { action: "status" })).json()).capabilities.assistant).toBe(false);
     const { d, store } = deps(); (store.probe as ReturnType<typeof vi.fn>).mockRejectedValue(new (await import("../../supabase/functions/_shared/assistant-review-store")).ReviewUnavailable());
     const h = createHandler(d);
     const t = await (await post(h, { action: "assistant_turn", text: "fecho ticketline", history: [] })).json();
