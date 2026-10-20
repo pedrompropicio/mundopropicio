@@ -5,6 +5,7 @@
  * Não há send/delete/trash/modify/markread: o cliente recusa qualquer outro método/caminho.
  */
 import { z } from "npm:zod@3";
+import { classifySubject, flexibleSubjectQueries, MATCH_LABEL, matchScore, type MatchKind } from "./gmail-flexible.ts";
 
 /** Único escopo pedido na ligação própria do utilizador. */
 export const GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
@@ -30,6 +31,8 @@ export const gmailFilterSchema = z.object({
   page_token: z.string().regex(/^[A-Za-z0-9_-]{1,256}$/).optional(),
   /** Por omissão só mensagens com anexo (fluxo de importação); false = pesquisa para leitura. */
   attachments_only: z.boolean().optional(),
+  /** Assunto: "flexible" (padrão) recupera variantes limitadas e ordena; "exact" = só a expressão. */
+  match: z.enum(["flexible", "exact"]).optional(),
 }).strict().superRefine((f, ctx) => {
   const a = Date.parse(`${f.from_date}T00:00:00Z`), b = Date.parse(`${f.to_date}T00:00:00Z`);
   if (b < a) ctx.addIssue({ code: "custom", message: "A data final é anterior à inicial." });
@@ -48,6 +51,12 @@ const nextDay = (d: string) => new Date(Date.parse(`${d}T00:00:00Z`) + 86400000)
 export function sanitizeSubjectTerm(s: string): string {
   return s.replace(/[\u0000-\u001f\u007f"(){}\[\]:\\]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
 }
+/** Base obrigatória (período + remetente + anexo), sempre em AND com qualquer termo de assunto. */
+export function baseGmailQuery(f: GmailFilter): string {
+  const parts = [`after:${slash(f.from_date)}`, `before:${slash(nextDay(f.to_date))}`, ...(f.attachments_only === false ? [] : ["has:attachment"])];
+  if (f.sender) parts.push(`from:${f.sender}`);
+  return parts.join(" ");
+}
 export function buildGmailQuery(f: GmailFilter): string {
   const parts = [`after:${slash(f.from_date)}`, `before:${slash(nextDay(f.to_date))}`, ...(f.attachments_only === false ? [] : ["has:attachment"])];
   if (f.sender) parts.push(`from:${f.sender}`);
@@ -63,7 +72,12 @@ export function untrustedText(v: unknown, max = 200): string {
 
 type Part = { partId?: string; filename?: string; mimeType?: string; body?: { attachmentId?: string; size?: number }; parts?: Part[] };
 export type GmailAttachment = { part_id: string; filename: string; mime: string; size_bytes: number };
-export type GmailMessageSummary = { message_id: string; from: string; subject: string; date: string; attachments: GmailAttachment[] };
+export type GmailMessageSummary = { message_id: string; from: string; subject: string; date: string; attachments: GmailAttachment[]; match?: { kind: MatchKind; label: string } };
+export type GmailSearchInfo = { mode: "exact" | "flexible"; searched: string[]; candidates: number; coverage_complete: boolean; note?: string };
+/** Limites da pesquisa flexível por pedido (cada página repete a recuperação — sem estado guardado). */
+export const FLEX_LIST_PER_QUERY = 50;
+export const FLEX_MAX_CANDIDATES = 80;
+export const FLEX_TIME_BUDGET_MS = 20000;
 
 export function listAttachments(payload: Part | undefined, depth = 0): (GmailAttachment & { attachment_id: string })[] {
   if (!payload || depth > 6) return [];
@@ -172,16 +186,67 @@ export function gmailReadOnly(transport: GmailFetch, opts?: { readTimeoutMs?: nu
     return await r.json() as Record<string, unknown>;
   };
   return {
-    async search(f: GmailFilter): Promise<{ messages: GmailMessageSummary[]; next_page_token: string | null }> {
-      const list = await get("/users/me/messages", { q: buildGmailQuery(f), maxResults: String(f.page_size), ...(f.page_token ? { pageToken: f.page_token } : {}) });
-      const ids = (Array.isArray(list.messages) ? list.messages : []).slice(0, f.page_size).map((m) => String((m as { id?: unknown }).id ?? "")).filter((x) => /^[A-Za-z0-9]{6,64}$/.test(x));
-      const messages: GmailMessageSummary[] = [];
-      for (const id of ids) {
-        const s = summarizeMessage(await get(`/users/me/messages/${id}`, { format: "full", fields: MESSAGE_FIELDS }) as never);
-        if (s) messages.push(s);
+    async search(f: GmailFilter): Promise<{ messages: GmailMessageSummary[]; next_page_token: string | null; search_info?: GmailSearchInfo }> {
+      const subject = f.subject ? sanitizeSubjectTerm(f.subject) : "";
+      const queries = subject && f.match !== "exact" ? flexibleSubjectQueries(subject) : [];
+      if (!queries.length) {
+        if (f.page_token && /^f\d+$/.test(f.page_token)) throw new GmailUnavailable("Página de pesquisa inválida. Volta a procurar.");
+        const list = await get("/users/me/messages", { q: buildGmailQuery(f), maxResults: String(f.page_size), ...(f.page_token ? { pageToken: f.page_token } : {}) });
+        const ids = (Array.isArray(list.messages) ? list.messages : []).slice(0, f.page_size).map((m) => String((m as { id?: unknown }).id ?? "")).filter((x) => /^[A-Za-z0-9]{6,64}$/.test(x));
+        const messages: GmailMessageSummary[] = [];
+        for (const id of ids) {
+          const s = summarizeMessage(await get(`/users/me/messages/${id}`, { format: "full", fields: MESSAGE_FIELDS }) as never);
+          if (s) messages.push(subject ? { ...s, match: { kind: "exact", label: MATCH_LABEL.exact } } : s);
+        }
+        const token = typeof list.nextPageToken === "string" && /^[A-Za-z0-9_-]{1,256}$/.test(list.nextPageToken) ? list.nextPageToken : null;
+        return { messages, next_page_token: token, search_info: { mode: "exact", searched: [subject ? `assunto com a expressão exata "${subject}"` : "sem filtro de assunto"], candidates: messages.length, coverage_complete: true } };
       }
-      const token = typeof list.nextPageToken === "string" && /^[A-Za-z0-9_-]{1,256}$/.test(list.nextPageToken) ? list.nextPageToken : null;
-      return { messages, next_page_token: token };
+      // Flexível: offset estável sobre a lista ordenada inteira dos candidatos recuperados.
+      const offset = f.page_token ? (/^f\d{1,4}$/.test(f.page_token) ? Number(f.page_token.slice(1)) : NaN) : 0;
+      if (!Number.isFinite(offset)) throw new GmailUnavailable("Página de pesquisa inválida. Volta a procurar.");
+      const started = Date.now();
+      const base = baseGmailQuery(f);
+      const seen = new Set<string>(); const ids: string[] = [];
+      let complete = true;
+      for (const { q } of queries) {
+        if (Date.now() - started > FLEX_TIME_BUDGET_MS) { complete = false; break; }
+        const list = await get("/users/me/messages", { q: `${base} ${q}`, maxResults: String(FLEX_LIST_PER_QUERY) });
+        if (typeof list.nextPageToken === "string") complete = false;
+        for (const m of Array.isArray(list.messages) ? list.messages : []) {
+          const id = String((m as { id?: unknown }).id ?? "");
+          if (!/^[A-Za-z0-9]{6,64}$/.test(id) || seen.has(id)) continue;
+          if (ids.length >= FLEX_MAX_CANDIDATES) { complete = false; break; }
+          seen.add(id); ids.push(id);
+        }
+      }
+      // Metadados mínimos (assunto/data) para ordenar; em blocos de 10 dentro do prazo.
+      const ranked: { id: string; kind: MatchKind; ms: number }[] = [];
+      for (let i = 0; i < ids.length; i += 10) {
+        if (Date.now() - started > FLEX_TIME_BUDGET_MS) { complete = false; break; }
+        const metas = await Promise.all(ids.slice(i, i + 10).map((id) => get(`/users/me/messages/${id}`, { format: "metadata", metadataHeaders: ["Subject"], fields: "id,internalDate,payload(headers)" })));
+        for (const m of metas) {
+          const id = String(m.id ?? ""); if (!seen.has(id)) continue;
+          const subj = untrustedText(((m.payload as { headers?: { name?: string; value?: string }[] } | undefined)?.headers ?? []).find((h) => h.name?.toLowerCase() === "subject")?.value);
+          const kind = classifySubject(subject, subj);
+          if (kind) ranked.push({ id, kind, ms: Number(m.internalDate) || 0 });
+        }
+      }
+      ranked.sort((a, b) => matchScore(b.kind) - matchScore(a.kind) || b.ms - a.ms || (a.id < b.id ? -1 : 1));
+      const page = ranked.slice(offset, offset + f.page_size);
+      const messages: GmailMessageSummary[] = [];
+      for (const r of page) {
+        const s = summarizeMessage(await get(`/users/me/messages/${r.id}`, { format: "full", fields: MESSAGE_FIELDS }) as never);
+        if (s) messages.push({ ...s, match: { kind: r.kind, label: MATCH_LABEL[r.kind] } });
+      }
+      const nextOffset = offset + f.page_size;
+      return {
+        messages, next_page_token: nextOffset < ranked.length ? `f${nextOffset}` : null,
+        search_info: {
+          mode: "flexible", candidates: ranked.length, coverage_complete: complete,
+          searched: [`assunto parecido com "${subject}": expressão, mesmas palavras em qualquer ordem, palavras juntas e variações de grafia`],
+          ...(complete ? {} : { note: `Pesquisa limitada a ${FLEX_MAX_CANDIDATES} candidatos ou ${FLEX_TIME_BUDGET_MS / 1000} s: podem existir mais emails. Reduz o período ou indica o remetente.` }),
+        },
+      };
     },
     /** Só depois da escolha humana: relê a mensagem, encontra a parte e descarrega esse anexo. */
     async attachment(messageId: string, partId: string): Promise<{ bytes: Uint8Array; filename: string; mime: string }> {
