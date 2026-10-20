@@ -93,7 +93,7 @@ describe("#333 real adapters with synthetic HTTP only", () => {
     expect(r.status).toBe("error"); expect(read).not.toHaveBeenCalled();
   });
   it("ERP read scope and exact duplicate lookup; confirmed settlement seals event", async () => {
-    const queries: ErpRead[] = []; const read = async (q: ErpRead) => { queries.push(q); return q.table === "events" ? [{ id: event, name: "Evento sintético", company_id: company, date: "2026-10-10" }] : q.table === "ticket_office_settlements" ? [{ event_id: event, company_id: company, status: "confirmed" }] : [{ id: user, company_id: company, number: "AP-01", status: "draft" }]; };
+    const queries: ErpRead[] = []; const read = async (q: ErpRead) => { queries.push(q); return q.table === "events" ? [{ id: event, name: "Evento sintético", company_id: company, date: "2026-10-10" }] : q.table === "ticket_office_settlements" ? [{ event_id: event, company_id: company, status: "confirmed", settlement_date: "2026-10-12", net_transferred: 579.5, transfer_account_id: null }] : [{ id: user, company_id: company, number: "AP-01", status: "draft" }]; };
     const r = await readAssistantErp(read, company, "Evento%_sintético", signal(), "AP-01");
     expect(r.events[0].sealed).toBe(true); expect(queries.every(q => q.company === company)).toBe(true); expect(queries[0].text).toBe("Evento sintético"); expect(queries[2].number).toBe("AP-01");
   });
@@ -126,7 +126,8 @@ describe("#333 real adapters with synthetic HTTP only", () => {
     reviewed.effects_hash = await proposalEffectsHash(reviewed.effects, reviewed.actions);
     const full = { ...old, effects_hash: reviewed.effects_hash };
     expect(await authorizationMatches(full, reviewed, { user_id: user, company_id: company })).toBe(true);
-    for (const ids of [[], ["unknown"], ["a1", "a1"], ["a2"], ["a1", "a2"]]) expect(await authorizationMatches({ ...full, action_ids: ids }, reviewed, { user_id: user, company_id: company })).toBe(false);
+    expect(await authorizationMatches({ ...full, action_ids: ["a1", "a2"] }, reviewed, { user_id: user, company_id: company })).toBe(true); // dependency-closed subset
+    for (const ids of [[], ["unknown"], ["a1", "a1"], ["a2"], ["a1", "a3"]]) expect(await authorizationMatches({ ...full, action_ids: ids }, reviewed, { user_id: user, company_id: company })).toBe(false);
     expect(await authorizationMatches(full, { ...reviewed, actions: reviewed.actions.map(a => a.id === "a2" ? { ...a, depends_on: [] } : a) }, { user_id: user, company_id: company })).toBe(false);
   });
 });

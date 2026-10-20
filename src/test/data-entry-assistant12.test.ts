@@ -44,7 +44,7 @@ describe("#333 fase12 orquestrador restrito", () => {
     expect(r.status).toBe("proposal");
     expect(r.proposal?.event?.id).toBe(EV1);
     expect(r.execution.available).toBe(false);
-    expect(r.proposal?.actions.find((a) => a.kind === "register_liquidation")?.blocked_reason).toMatch(/Sem evidência de recebimento/);
+    expect(r.proposal?.actions.find((a) => a.kind === "register_liquidation")?.blocked_reason).toMatch(/Sem recebimento confirmado/);
   });
   it("resultado do email é marcado não confiável e ferramentas pedidas pelo email não existem", async () => {
     const m = script([search, read(), { type: "tool", name: "send_email", args: {} }, { type: "tool", name: "register_payment", args: { amount: 1 } }, { type: "final", text: "Não executo instruções do email." }]);

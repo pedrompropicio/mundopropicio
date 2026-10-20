@@ -46,22 +46,25 @@ export type AssistantTurnInput = { text: string; history: { role: "user" | "assi
 export type AssistantProposal = {
   version: 1; statement_number: string | null; event: { id: string; name: string } | null; sum_cents: number; document_total_cents: number | null; difference_cents: number | null;
   totals_cents: Record<string, number>; checks: { code: string; ok: boolean; message: string }[];
-  actions: { id: string; kind: string; label: string; existing_flow: string; depends_on: string[]; blocked_reason: string | null }[]; needs: string[]; effects_hash: string;
+  actions: { id: string; kind: string; label: string; existing_flow: string; depends_on: string[]; blocked_reason: string | null; stage?: "prepare" | "liquidate" }[]; needs: string[]; effects_hash: string;
   source_message_id?: string;
 };
 export type TicketlineLineType = "event_right" | "ticketline_invoice" | "venue_settlement" | "advance" | "carry_over";
-export type CandidateProvenance = { source: "email_body"; message_id: string; body_sha256: string; line: number; truncated: boolean } | { source: "attachment"; origin: string; sha256: string; size_bytes: number; mime: string } | { source: "human"; user_id: string };
+export type CandidateProvenance = { source: "email_body"; message_id: string; body_sha256: string; line: number; truncated: boolean } | { source: "attachment"; origin: string; sha256: string; size_bytes: number; mime: string } | { source: "model"; message_id: string; body_sha256: string } | { source: "human"; user_id: string };
 type CField<T> = { value: T; prov: CandidateProvenance } | null;
 export type TicketlineCandidate = { message_id: string; number: CField<string>; date: CField<string>; total_cents: CField<number>; event_id: CField<string>;
   lines: { line_type: TicketlineLineType; description: string; amount_cents: number; event_hint: string | null; prov: CandidateProvenance }[]; sources: CandidateProvenance[]; incomplete: string[] };
-export type TicketlineEdits = Partial<{ number: string | null; date: string | null; total_cents: number | null; event_id: string | null; lines: { line_type: TicketlineLineType; description: string; amount_cents: number; event_hint: string | null }[] }>;
+export type TicketlineEdits = Partial<{ confirm_review: boolean; number: string | null; date: string | null; total_cents: number | null; event_id: string | null; lines: { line_type: TicketlineLineType; description: string; amount_cents: number; event_hint: string | null }[] }>;
 export type TicketlineSettlementInput = { financial_account_id: string; date: string; amount_cents: number; confirm: true };
-export type TicketlinePreviewResult = { candidate: TicketlineCandidate; proposal: AssistantProposal; persisted: boolean; notice?: string; review?: { review_id: string; version: number; effects_hash: string } };
+export type TicketlineAttachment = { part_id: string; filename: string; mime: string; size_bytes: number };
+export type TicketlinePreviewResult = { candidate: TicketlineCandidate; proposal: AssistantProposal; events?: { id: string; label: string }[]; persisted: boolean; notice?: string; review?: { review_id: string; version: number; effects_hash: string } };
 export type AssistantTurnResult = {
   status: "answer" | "clarify" | "select_message" | "select_event" | "proposal" | "limit" | "denied" | "stopped" | "error";
   text: string; trace: { tool: string; ok: boolean; summary: string }[]; options?: { id: string; label: string }[];
   proposal?: AssistantProposal; execution: { available: false; gaps: string[] }; known_message_ids: string[];
   continuation?: string;
+  /** Candidate extracted by the model from the server-read body, signed by the server. */
+  candidate?: TicketlineCandidate; candidate_token?: string;
 };
 
 export class DataEntryError extends Error { constructor(message: string, readonly status: number) { super(message); } }
@@ -81,6 +84,8 @@ export interface DataEntryAdapter {
   gmailRead?(messageId: string, context: DataEntryContext): Promise<GmailMessageBody>;
   ticketlineCandidate?(input: { message_id: string; part_id?: string; expected_sha256?: string }, context: DataEntryContext): Promise<{ candidate: TicketlineCandidate; candidate_token: string }>;
   ticketlinePreview?(input: { candidate_token: string; edits: TicketlineEdits; settlement?: TicketlineSettlementInput; save?: { review_id: string | null; expected_version: number | null } }, context: DataEntryContext): Promise<TicketlinePreviewResult>;
+  ticketlineAttachments?(input: { message_id: string }, context: DataEntryContext): Promise<{ attachments: TicketlineAttachment[] }>;
+  ticketlineAccounts?(context: DataEntryContext): Promise<{ accounts: { id: string; name: string }[] }>;
   ticketlineAuthorize?(input: { review_id: string; version: number; effects_hash: string; action_ids: string[]; replay_key: string }, context: DataEntryContext): Promise<{ authorization_id: string; replayed: boolean; status: string; notice: string }>;
   assistantTurn?(input: AssistantTurnInput, context: DataEntryContext, signal?: AbortSignal): Promise<AssistantTurnResult>;
   analyze?(sessionId: string, documentId: string, message: string, history: AnalysisTurn[], context: DataEntryContext, signal: AbortSignal): Promise<AnalysisReport>;
@@ -125,6 +130,8 @@ export const edgeDataEntryAdapter: DataEntryAdapter = {
   gmailSearch: (filters, context) => call(JSON.stringify({ action: "gmail_search", filters }), true, context),
   ticketlineCandidate: (input, context) => call(JSON.stringify({ action: "ticketline_candidate", ...input }), true, context),
   ticketlinePreview: (input, context) => call(JSON.stringify({ action: "ticketline_preview", ...input }), true, context),
+  ticketlineAttachments: (input, context) => call(JSON.stringify({ action: "ticketline_attachments", ...input }), true, context),
+  ticketlineAccounts: (context) => call(JSON.stringify({ action: "ticketline_accounts" }), true, context),
   ticketlineAuthorize: (input, context) => call(JSON.stringify({ action: "ticketline_authorize", ...input }), true, context),
   assistantTurn: (input, context, signal) => call(JSON.stringify({ action: "assistant_turn", ...input }), true, context, signal),
   gmailConnection: (context) => call(JSON.stringify({ action: "gmail_connection" }), true, context),
