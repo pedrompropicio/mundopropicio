@@ -7,6 +7,8 @@ DO $r$ BEGIN
 END $r$;
 DROP FUNCTION public.data_entry_assistant_execute_333(text,uuid,text);
 DROP FUNCTION public._de333_closing_check(jsonb,uuid);
+DROP FUNCTION public._de333_req(jsonb,text);
+DROP FUNCTION public._de333_cents(jsonb,bigint);
 DROP TABLE public.data_entry_assistant_executions_333;
 DROP TABLE public.data_entry_assistant_executor_settings_333;
 COMMIT;
