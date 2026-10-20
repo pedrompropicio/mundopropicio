@@ -54,8 +54,8 @@ ERROR:  #333: hash_mismatch
 17 contrato de ações é do servidor (dependência a3→a4 removida, hash recalculado): recusa:
 ERROR:  #333: actions_blocked
 18 E4 concorrência (2 ligações no mesmo a3) → 1 fecho, 1 execução:
-   A: succeeded replay {"deductions": 1, "net_cents": 87700}
    B: succeeded novo {"deductions": 1, "net_cents": 87700}
+   A: succeeded replay {"deductions": 1, "net_cents": 87700}
 1
 1
 19 E5 estado parcial (pagamento planeado numa perna) → a5 recusa, não adivinha:
@@ -154,7 +154,7 @@ ERROR:  #333: data_incomplete
    currency BRL: ERROR:  #333: data_changed
    bilheteira inativa agora: ERROR:  #333: context_mismatch
    conta de destino inativa agora: ERROR:  #333: context_mismatch
-   controlo (sem adulteração, ROLLBACK): {"result": {"writes": 2, "payments": 2, "amount_cents": 87700, "payment_date": "2026-10-16", "operation_key": "TRF-FECHO-3BAE79BC", "settlement_id": "3bae79bc-d0c7-4994-a513-6cc4311e2db0", "already_liquidated": false, "transfer_transaction_id": "4982bbfe-97aa-4010-a211-556322c1158b"}, "status": "succeeded", "replayed": false, "action_id": "a5"}
+   controlo (sem adulteração, ROLLBACK): {"result": {"writes": 2, "payments": 2, "amount_cents": 87700, "payment_date": "2026-10-16", "operation_key": "TRF-FECHO-1297FDB1", "settlement_id": "1297fdb1-f175-479f-a6ab-ee242fd5f265", "already_liquidated": false, "transfer_transaction_id": "76bf58d3-865c-4a7d-afe7-c1b4a97166ab"}, "status": "succeeded", "replayed": false, "action_id": "a5"}
 expense:pending:0:-:true:pag=0:
 income:pending:0:-:false:pag=0:
 0
@@ -165,17 +165,31 @@ income:pending:0:-:false:pag=0:
    pagamento da perna sem conta (NULL): ERROR:  #333: liquidated_divergent
    pagamento da perna estornado: ERROR:  #333: liquidated_divergent
    pagamento duplicado na perna: ERROR:  #333: liquidated_divergent
-   controlo exato (ROLLBACK): {"result": {"writes": 0, "amount_cents": 87700, "payment_date": "2026-10-16", "operation_key": "TRF-FECHO-7EDF82B1", "settlement_id": "7edf82b1-6f5e-46ea-bfbc-dc0871b4c40e", "already_liquidated": true, "transfer_transaction_id": "7278a6f2-4cae-4cd9-8e58-cf16414e2ce7"}, "status": "succeeded", "replayed": false, "action_id": "a5"}
+   controlo exato (ROLLBACK): {"result": {"writes": 0, "amount_cents": 87700, "payment_date": "2026-10-16", "operation_key": "TRF-FECHO-C19C2AC1", "settlement_id": "c19c2ac1-c3a4-4c7b-8911-9bdad003dce0", "already_liquidated": true, "transfer_transaction_id": "93606771-ec10-4bc3-ab22-f3ba44a64f12"}, "status": "succeeded", "replayed": false, "action_id": "a5"}
 expense:paid:877.00:2026-10-16:true:pag=1:paid/877.00/2026-10-16/true/transfer
 income:paid:877.00:2026-10-16:false:pag=1:paid/877.00/2026-10-16/true/transfer
 0
+24f 12h — concorrência real (2 ligações): nova versão da revisão vs executor:
+   A(save v2): 2
+   A(save v2): 
+   B(executor v1): ERROR:  #333: stale_version
+0
+24g 12h — concorrência real: linha nova (FK statement_id real do Cloud) vs a2:
+  ordem 1: INSERT de linha por outro caminho em curso (não confirmado) → a2 espera pelo lock e depois recusa:
+   B(insert): 
+   A(a2): ERROR:  #333: data_changed
+draft|3
+  ordem 2: a2 em curso (lock FOR UPDATE no cabeçalho) → INSERT concorrente espera; depois corre contra apuramento já confirmado:
+   A(a2): confirmed
+   A(a2): 
+confirmed|3
 25 imutabilidade das execuções (dono):
 immutable_record
 immutable_record
 26 readback (ACL/defaultACL/SECDEF):
 t
-a1|6
-a2|6
+a1|8
+a2|7
 a3|4
 a4|4
 a5|5
@@ -184,7 +198,7 @@ data_entry_assistant_executor_settings_333|t|{postgres=arwdDxtm/postgres,service
 _de333_cents(jsonb,bigint)|f|{"search_path=public, pg_temp"}|{postgres=X/postgres}|632fc48322926f014808931d04744124|f|f|f
 _de333_req(jsonb,text)|f|{"search_path=public, pg_temp"}|{postgres=X/postgres}|5c99de7039f3670527db7c5a561c6273|f|f|f
 _de333_closing_check(jsonb,uuid)|f|{"search_path=public, pg_temp"}|{postgres=X/postgres}|b854873900780f8879638115d7b9a8da|f|f|f
-data_entry_assistant_execute_333(text,uuid,text)|t|{"search_path=public, pg_temp"}|{postgres=X/postgres,authenticated=X/postgres}|2983bdc9d278de713573422a14b4e680|f|t|f
+data_entry_assistant_execute_333(text,uuid,text)|t|{"search_path=public, pg_temp"}|{postgres=X/postgres,authenticated=X/postgres}|8fac87cdc99023cd9302ffae94cbdde8|f|t|f
 de333_exec_immutable
 de333_exec_no_truncate
 _derive_paid_amount(uuid)|18a8b97b75f5451859fba0d91436d4c4
