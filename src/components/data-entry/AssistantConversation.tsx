@@ -31,27 +31,31 @@ function Conversation({ adapter, context }: Props) {
   const [known, setKnown] = useState<string[]>([]);
   const [pendingText, setPendingText] = useState<string | null>(null);
   const generation = useRef(0);
+  const abort = useRef<AbortController | null>(null);
+  const continuation = useRef<string | undefined>();
   const box = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => () => { generation.current += 1; }, []);
+  useEffect(() => () => { generation.current += 1; abort.current?.abort(); }, []);
   useEffect(() => { box.current?.focus(); }, [busy]);
   const persist = (h: Turn[]) => { const v = h.slice(-MAX_TURNS); setHistory(v); try { localStorage.setItem(historyKey(context), JSON.stringify(v)); } catch { /* sem armazenamento */ } };
 
   const send = async (message: string, selection?: { message_id?: string; event_id?: string }) => {
     if (!adapter.assistantTurn || !message.trim()) return;
     const gen = ++generation.current;
+    abort.current?.abort(); const controller = new AbortController(); abort.current = controller;
     setBusy(true); setError(null);
     const base = selection ? history : [...history, { role: "user" as const, text: message.trim() }];
     if (!selection) { persist(base); setText(""); setPendingText(message.trim()); }
     try {
-      const r = await adapter.assistantTurn({ text: message.trim(), history: base.slice(0, selection ? base.length : -1), ...(selection ? { selection } : {}), known_message_ids: known }, context);
+      const r = await adapter.assistantTurn({ text: message.trim(), history: base.slice(0, selection ? base.length : -1), ...(selection ? { selection, continuation: continuation.current } : {}), known_message_ids: known }, context, controller.signal);
       if (gen !== generation.current) return;
       setLast(r); setKnown(r.known_message_ids ?? []);
+      continuation.current = r.continuation;
       persist([...base, { role: "assistant", text: r.text }]);
     } catch (e) {
       if (gen === generation.current) setError(e instanceof Error ? e.message : "Assistente indisponível.");
     } finally { if (gen === generation.current) setBusy(false); }
   };
-  const stop = () => { generation.current += 1; setBusy(false); setError("Parado. Nada foi gravado."); };
+  const stop = () => { generation.current += 1; abort.current?.abort(); setBusy(false); setError("Cancelamento pedido. Nada foi gravado; a cobrança de IA pode ocorrer."); };
   const clear = () => { persist([]); setLast(null); setKnown([]); setPendingText(null); try { localStorage.removeItem(historyKey(context)); } catch { /* */ } };
 
   if (!adapter.assistantTurn) return null;

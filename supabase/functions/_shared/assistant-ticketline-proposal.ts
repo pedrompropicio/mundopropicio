@@ -99,7 +99,7 @@ export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpCon
   if (settlement) checks.push({ code: "liquidation_amount", ok: false, message: "Evidência ainda não vinculada pelo servidor ao recebimento e ao saldo canónico; liquidação bloqueada." });
 
   const hard = checks.some((c) => !c.ok);
-  const base = hard || !ev.match || !x.number ? "Resolver verificações/pendências antes." : null;
+  const base = hard || !ev.match || !x.number ? "Resolver verificações/pendências antes." : "Extração sugerida pela IA; linhas, origem e documentos exigem revisão humana vinculada no servidor.";
   const actions: ProposedAction[] = [
     { id: "a1", kind: "create_statement", label: `Registar apuramento ${x.number ?? "?"} com ${x.lines.length} linha(s)`, existing_flow: "ticket_office_statements + ticket_office_statement_lines (Bilheteiras → Apuramentos)", depends_on: [], blocked_reason: base },
     { id: "a2", kind: "confirm_statement", label: "Confirmar apuramento (Σ linhas = total, sem linhas pendentes)", existing_flow: "RPC confirm_ticket_office_statement (admin/manager)", depends_on: ["a1"], blocked_reason: base ?? "Documentos e linhas ainda não revistos pela pessoa." },
