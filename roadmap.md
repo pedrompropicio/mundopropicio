@@ -9,3 +9,7 @@
 - [x] #333 fase12b: cancelamento, fontes/seleções não confiáveis, regras Ticketline e autorização exata.
 - [x] #333 fase12b: testes HTTP locais, pacote único de ativação, documentação e libertar reserva.
 - [ ] #333 fase12b: novo commit/SHA/CI pelo controller; ativação e chamada real só com autorização concreta de Pedro.
+- [x] Cachê contratos: migração aditiva (tabelas, colunas nulas, RPCs, invariante) aplicada.
+- [x] Cachê contratos: UI (painel, modal contrato, adiantamento, cancelar/alterar), totais "pago" e impacto.
+- [x] Cachê contratos: testes numéricos (TS) + SQL; docs DECISIONS/memória/estado; libertar reserva QUADRO.
+- [ ] Cachê contratos: verificação em Live pelo Pedro (migração, privilégios, cenários, #323 intocada) e CI.

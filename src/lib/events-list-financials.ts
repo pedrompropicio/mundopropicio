@@ -84,7 +84,7 @@ export async function fetchEventsListFinancials(
     fetchAllPagedQuery(supabase
       .from("transactions")
       .select(
-        "id, event_id, type, status, amount, iva_rate, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, parent_transaction_id, split_percentage, event_settlement_id, account_categories(code, name, ebitda_class)",
+        "id, event_id, type, status, amount, iva_rate, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, parent_transaction_id, split_percentage, cache_role, event_settlement_id, account_categories(code, name, ebitda_class)",
       )
       .in("event_id", allIds)),
     fetchAllPagedQuery(supabase

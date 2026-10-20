@@ -32,6 +32,8 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 ## 0 · Cowork (Claude)
 
+  - **20/10/2026 ~21:20 UTC — Cachê/retenção (D-ERP288, revê D15), reserva própria aberta e libertada:** convive com a #323 por âmbito distinto, autorizado pelo Pedro em 20/10/2026. Migrações 0214 (aditiva: tabelas cache_payment_contracts*, 4 colunas nulas em transactions, RPCs, invariantes) e 0215 (ACL). Sem DML sobre transações/pagamentos existentes; lote DNS/TAP/TikTok intocado. Sem Publish.
+
   - **19/10/2026 — Reserva #322 opção A registada.** Passos: (a) Coala Portal e Newgang Portal integram #322 (sem Publish até "Faz Publish" do Pedro); (b) ERP: remetente CAPI com teste em modo teste; (c) verificação em Live. Gate CI #333 por confirmar antes do trabalho no ERP/Publish.
 
 _(sem pedidos)_

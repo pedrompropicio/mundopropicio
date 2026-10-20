@@ -6,6 +6,8 @@ type: feature
 
 # Retenção IRS (despesas)
 
+> Cachês de artista NÃO usam estes campos: ver [contratos de pagamento do cachê](mem://features/cache-payment-contracts) (mãe de retenção própria para a AT).
+
 A retenção IRS pode ser registada em dois momentos:
 
 ## 1. No **lançamento** (declarada na fatura)

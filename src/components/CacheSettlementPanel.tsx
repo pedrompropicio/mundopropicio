@@ -9,7 +9,7 @@ import { Calculator, TrendingUp, TrendingDown, Minus, CheckCircle2, Unlock, Aler
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import type { RealCacheResult } from "@/hooks/useRealCacheCalculation";
-import { CacheTransactionModal } from "@/components/CacheTransactionModal";
+import { useCacheContractContext } from "@/hooks/useCacheContractContext";
 import { getCacheEffectiveAmount } from "@/lib/cache-pl-helper";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
@@ -58,48 +58,27 @@ export function CacheSettlementPanel({
   );
   const [adjustmentNotesInput, setAdjustmentNotesInput] = useState(sourceRow.agreement_notes ?? "");
   const [showBreakdown, setShowBreakdown] = useState(false);
-  const [showTxModal, setShowTxModal] = useState(false);
 
   // Effective event for advances/transactions: city if turnê, master otherwise
   const effectiveEventId = cityEventId ?? eventId;
 
-  // Fetch advances already paid for this artist
-  const { data: advancesPaid = 0 } = useQuery({
-    queryKey: ["cache-advances-paid", config.id, effectiveEventId, config.supplier_id],
-    enabled: !!config.supplier_id,
-    queryFn: async () => {
-      const { data: catRow, error: qErr1 } = await supabase
-        .from("account_categories")
-        .select("id")
-        .eq("is_active", true)
-        .eq("type", "expense")
-        .ilike("name", "%cach%")
-        .order("code")
-        .limit(1);
-      if (qErr1) throw qErr1;
-      const cacheCatId = catRow?.[0]?.id;
-      if (!cacheCatId) return 0;
-
-      const { data, error: qErr2 } = await fetchAllPagedQuery(supabase
-        .from("transactions")
-        .select("amount, paid_amount, status")
-        .eq("event_id", effectiveEventId)
-        .eq("type", "expense")
-        .eq("category_id", cacheCatId)
-        .eq("supplier_id", config.supplier_id));
-      if (qErr2) throw qErr2;
-
-      return (data ?? []).reduce((s: number, t: any) => s + Number(t.paid_amount ?? 0), 0);
-    },
-  });
+  // "Pago" por PAPEL estrutural (saldo/retenção/adiantamento), lido da RPC canónica — nunca por fornecedor.
+  const { data: cacheCtx } = useCacheContractContext(effectiveEventId, config.supplier_id);
+  const cityRoles = cacheCtx?.cities.find((c) => c.event_id === effectiveEventId)?.by_role ?? {};
+  const roleRows = [
+    { key: "artist_balance", label: "Saldo ao artista" },
+    { key: "withholding", label: "Retenção IRS (AT)" },
+    { key: "advance", label: "Adiantamentos" },
+    { key: "sem_papel", label: "Lançamentos anteriores" },
+  ].filter((r) => cityRoles[r.key]);
+  const bookedTotal = roleRows.reduce((s, r) => s + Number(cityRoles[r.key].amount), 0);
+  const paidTotal = roleRows.reduce((s, r) => s + Number(cityRoles[r.key].paid), 0);
 
   // Effective value uses helper: city settlement → config legacy → live calculation
   const effectiveValue = useMemo(
     () => getCacheEffectiveAmount(config, calculatedNow, cityEventId ? citySettlement : null),
     [config, calculatedNow, cityEventId, citySettlement]
   );
-  // DR-2026-09-03-D15 (revista): sem retenção no fluxo do cachê.
-  const balanceToPay = Math.max(0, effectiveValue - advancesPaid);
   const diff = effectiveValue - projectedValue;
   const isVariable = config.cache_type === "variable";
 
@@ -263,25 +242,28 @@ export function CacheSettlementPanel({
         </div>
       )}
 
-      {/* Withholding + Advances summary (always shown when there is a payment to make) */}
-      {advancesPaid > 0 && (
+      {/* Lançado / pago por papel estrutural nesta cidade */}
+      {roleRows.length > 0 && (
         <div className="rounded-lg border border-border bg-background p-2.5 space-y-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground">Cachê Total Acordado</span>
             <span className="font-mono">{formatCurrency(effectiveValue)}</span>
           </div>
-          {advancesPaid > 0 && (
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Wallet className="h-3 w-3" />
-                (−) Adiantamentos já pagos
+          {roleRows.map((r) => (
+            <div key={r.key} className="flex items-center justify-between text-xs text-muted-foreground">
+              <span className="flex items-center gap-1"><Wallet className="h-3 w-3" />{r.label}</span>
+              <span className="font-mono">
+                {formatCurrency(Number(cityRoles[r.key].amount))} · pago {formatCurrency(Number(cityRoles[r.key].paid))}
               </span>
-              <span className="font-mono">− {formatCurrency(advancesPaid)}</span>
             </div>
-          )}
+          ))}
           <div className="flex items-center justify-between text-xs font-semibold border-t border-border pt-1">
-            <span>Saldo a Pagar</span>
-            <span className="font-mono">{formatCurrency(balanceToPay)}</span>
+            <span>Por lançar</span>
+            <span className="font-mono">{formatCurrency(Math.max(0, effectiveValue - bookedTotal))}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Por pagar do lançado</span>
+            <span className="font-mono">{formatCurrency(Math.max(0, bookedTotal - paidTotal))}</span>
           </div>
         </div>
       )}
@@ -532,34 +514,10 @@ export function CacheSettlementPanel({
         )}
       </div>
 
-      {/* Generate transaction button — only when finalized */}
-      {isFinalized && canEdit && balanceToPay > 0 && (
-        <button
-          onClick={() => setShowTxModal(true)}
-          className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
-        >
-          <FileText className="h-4 w-4" />
-          Gerar Transação de Pagamento ({formatCurrency(balanceToPay)})
-        </button>
-      )}
-      {isFinalized && canEdit && balanceToPay <= 0 && (
-        <div className="w-full flex items-center justify-center gap-2 rounded-lg border border-success/30 bg-success/5 px-4 py-2.5 text-xs text-success">
-          <CheckCircle2 className="h-4 w-4" />
-          Cachê integralmente pago via adiantamentos
-        </div>
-      )}
-
-      {/* Transaction generation modal */}
-      {showTxModal && (
-        <CacheTransactionModal
-          onClose={() => setShowTxModal(false)}
-          eventId={effectiveEventId}
-          artistName={config.artist_name}
-          amount={effectiveValue}
-          cacheConfigId={config.id}
-          cacheType={config.cache_type}
-          configSupplierId={config.supplier_id}
-        />
+      {isFinalized && canEdit && (
+        <p className="text-[11px] text-muted-foreground">
+          Os pagamentos deste cachê são definidos em “Contratos de pagamento”, ao nível do evento/turnê.
+        </p>
       )}
     </div>
   );
