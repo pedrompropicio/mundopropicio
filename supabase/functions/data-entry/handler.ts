@@ -12,7 +12,11 @@ import {
 import { GmailConnectError, type GmailConnection } from "../_shared/gmail-app-user.ts";
 import { runAssistantTurn, type AssistantModel, type TurnInput } from "../_shared/assistant-orchestrator.ts";
 import type { ErpContext } from "../_shared/assistant-ticketline-proposal.ts";
-import { signContinuation, verifyContinuation, requestHash, type AssistantContinuation } from "../_shared/assistant-continuation.ts";
+import { signContinuation, verifyContinuation, requestHash, signServerPayload, verifyServerPayload, type AssistantContinuation } from "../_shared/assistant-continuation.ts";
+import { candidateFromBody, verifyAttachmentSource, mergeScanner, applyHumanEdits, candidateToStatement, validateSettlementConfirmation, type TicketlineCandidate, type ReviewEdits, type AccountReader } from "../_shared/assistant-ticketline-candidate.ts";
+import { buildTicketlineProposal, LINE_TYPES, type Proposal } from "../_shared/assistant-ticketline-proposal.ts";
+import { ReviewUnavailable, ReviewConflict, type ReviewStore } from "../_shared/assistant-review-store.ts";
+import type { AnalysisWire } from "../_shared/data-entry-analysis.ts";
 import { boundedAnalysis } from "./analysis-deadline.ts";
 import { GmailUnavailable, gmailFilterSchema, gmailOrigin, gmailSelectionSchema, type GmailReader as _GmailReader } from "../_shared/gmail-readonly.ts";
 
@@ -47,6 +51,13 @@ export interface Deps {
   assistant?: { model: AssistantModel; erpContext(token: string, company: string, text: string, signal?: AbortSignal, number?: string): Promise<ErpContext> };
   assistantFactory?(req: Request, scope: { user: string; company: string }, revalidate: () => Promise<void>): Promise<NonNullable<Deps["assistant"]>>;
   continuationSecret?: string;
+  /** #333 fase12c: scanner existente sobre o anexo escolhido (controlo durável). Ausente = fechado. */
+  scanAttachment?(bytes: Uint8Array, mime: DocumentType, signal: AbortSignal): Promise<AnalysisWire>;
+  /** Leitura ERP com o JWT do chamador (eventos/selagem/apuramentos e contas). Ausente = indisponível. */
+  ticketlineErp?: { context(token: string, company: string, text: string, signal: AbortSignal, number?: string): Promise<ErpContext>; account(token: string): AccountReader };
+  /** Persistência revista (RPC). Ausente = 503 explícito; nunca memória. */
+  reviewStore?: ReviewStore;
+  today?(): string;
   cors: Record<string, string>;
 }
 
@@ -77,6 +88,13 @@ export const commandSchema = z.discriminatedUnion("action", [
     history: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string().max(4000) }).strict()).max(20),
     selection: z.object({ message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/).optional(), event_id: z.string().uuid().optional() }).strict().optional(),
     known_message_ids: z.array(z.string().regex(/^[A-Za-z0-9]{6,64}$/)).max(50).optional(), continuation: z.string().max(8000).optional() }).strict(),
+  z.object({ action: z.literal("ticketline_candidate"), message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/), part_id: z.string().regex(/^[A-Za-z0-9.]{1,32}$/).optional(), expected_sha256: z.string().regex(/^[a-f0-9]{64}$/).optional() }).strict(),
+  z.object({ action: z.literal("ticketline_preview"), candidate_token: z.string().max(120000),
+    edits: z.object({ number: z.string().max(60).nullable().optional(), date: z.string().max(10).nullable().optional(), total_cents: z.number().int().nullable().optional(), event_id: z.string().uuid().nullable().optional(),
+      lines: z.array(z.object({ line_type: z.enum(LINE_TYPES), description: z.string().max(160), amount_cents: z.number().int().min(-1000000000).max(1000000000), event_hint: z.string().max(120).nullable() }).strict()).max(40).optional() }).strict(),
+    settlement: z.object({ financial_account_id: z.string().uuid(), date: z.string().max(10), amount_cents: z.number().int(), confirm: z.literal(true) }).strict().optional(),
+    save: z.object({ review_id: z.string().uuid().nullable(), expected_version: z.number().int().positive().nullable() }).strict().optional() }).strict(),
+  z.object({ action: z.literal("ticketline_authorize"), review_id: z.string().uuid(), version: z.number().int().positive(), effects_hash: z.string().regex(/^[a-f0-9]{64}$/), action_ids: z.array(z.string().regex(/^a[1-5]$/)).min(1).max(5), replay_key: z.string().uuid() }).strict(),
   z.object({ action: z.literal("gmail_read"), message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/) }).strict(),
   z.object({ action: z.literal("gmail_connection") }).strict(),
   z.object({ action: z.literal("gmail_connect_start"), origin: z.string().url().max(200) }).strict(),
@@ -259,6 +277,59 @@ export function createHandler(d: Deps) {
         if (req.signal.aborted) return reply({ error: "Pedido cancelado." }, 499);
         return reply(result);
       }
+      if (body.action === "ticketline_candidate") {
+        if (!d.continuationSecret) throw new SafeError("Candidatos indisponíveis: controlo de assinatura não configurado.", 503);
+        const reader = await gmailReader();
+        const read = await reader.read(body.message_id);
+        await canonicalStorageContext();
+        let cand: TicketlineCandidate = await candidateFromBody({ message_id: read.message_id, text: read.body_text, truncated: read.truncated });
+        if (body.part_id) {
+          const att = await reader.attachment(body.message_id, body.part_id);
+          await canonicalStorageContext();
+          let mime: DocumentType;
+          try { mime = validateDocument(att.bytes, att.mime); } catch (e) { throw new SafeError((e as Error).message, 422); }
+          let prov;
+          try { prov = await verifyAttachmentSource({ message_id: body.message_id, part_id: body.part_id, bytes: att.bytes, mime, listed: [{ part_id: body.part_id, size_bytes: att.bytes.length }], expected_sha256: body.expected_sha256 }); }
+          catch (e) { throw new SafeError((e as Error).message, 409); }
+          if (!d.scanAttachment || !d.analysisEnabled) cand = { ...cand, sources: [...cand.sources, prov], incomplete: [...cand.incomplete, "Anexo verificado (origem e hash), mas o scanner está fechado: confirmar número, data e total no documento."] };
+          else {
+            const wire = await boundedAnalysis(req.signal, signal => d.scanAttachment!(att.bytes, mime, signal));
+            await canonicalStorageContext();
+            cand = mergeScanner(cand, wire, prov);
+          }
+        }
+        return reply({ candidate: cand, candidate_token: await signServerPayload("ticketline_candidate", { user: user.id, company }, cand, d.continuationSecret) });
+      }
+      if (body.action === "ticketline_preview") {
+        if (!d.continuationSecret || !d.ticketlineErp) throw new SafeError("Revisão Ticketline indisponível: leitura do ERP por ativar. Nada foi guardado.", 503);
+        let cand: TicketlineCandidate;
+        try { cand = await verifyServerPayload<TicketlineCandidate>("ticketline_candidate", body.candidate_token, d.continuationSecret, { user: user.id, company }); }
+        catch { throw new SafeError("Candidato expirado ou de outro contexto; volta a ler o email.", 409); }
+        let reviewed: TicketlineCandidate;
+        try { reviewed = applyHumanEdits(cand, body.edits as ReviewEdits, user.id); } catch (e) { throw new SafeError((e as Error).message, 422); }
+        const st = await candidateToStatement(reviewed);
+        const erp = await d.ticketlineErp.context(token, company, st.lines.find(l => l.event_hint)?.event_hint ?? st.number ?? "ticketline", req.signal, st.number ?? undefined);
+        await canonicalStorageContext();
+        if (erp.company_id !== company) throw new SafeError("Contexto alterado.", 403);
+        const eventId = reviewed.event_id?.value ?? null;
+        if (eventId && !erp.events.some(e => e.id === eventId)) throw new SafeError("Evento indisponível para esta empresa.", 403);
+        let settlement;
+        try { settlement = await validateSettlementConfirmation(body.settlement as Parameters<typeof validateSettlementConfirmation>[0], { user_id: user.id, company_id: company, today: d.today?.() ?? new Date().toISOString().slice(0, 10), origin: "human_request" }, d.ticketlineErp.account(token)); }
+        catch (e) { throw new SafeError((e as Error).message, 422); }
+        await canonicalStorageContext();
+        const proposal: Proposal = await buildTicketlineProposal(st, erp, { event_id: eventId, settlement });
+        if (!body.save) return reply({ candidate: reviewed, proposal, persisted: false, notice: "Prévia calculada no servidor, não guardada." });
+        if (!d.reviewStore) throw new ReviewUnavailable();
+        const saved = await d.reviewStore.save(token, { review_id: body.save.review_id ?? null, expected_version: body.save.expected_version ?? null, proposal });
+        return reply({ candidate: reviewed, proposal, persisted: true, review: saved });
+      }
+      if (body.action === "ticketline_authorize") {
+        if (!d.reviewStore) throw new ReviewUnavailable();
+        await canonicalStorageContext();
+        if (new Set(body.action_ids).size !== body.action_ids.length) throw new SafeError("Ações repetidas.", 422);
+        const rec = await d.reviewStore.authorize(token, { review_id: body.review_id!, version: body.version!, effects_hash: body.effects_hash!, action_ids: body.action_ids!, replay_key: body.replay_key! });
+        return reply({ ...rec, executor: "indisponível", notice: "Autorização registada sem execução: executor financeiro desativado." });
+      }
       // Leitura do corpo da mensagem escolhida: só leitura, independente do envio documental fechado.
       if (body.action === "gmail_read") {
         const reader = await gmailReader();
@@ -350,6 +421,7 @@ export function createHandler(d: Deps) {
       if (error instanceof GmailConnectError) return reply({ error: error.message }, error.status);
       if (error instanceof GmailUnavailable) return reply({ error: error.message }, 503);
       if (error instanceof SafeError) return reply({ error: error.message }, error.status);
+      if (error instanceof ReviewUnavailable || error instanceof ReviewConflict) return reply({ error: error.message }, error.status);
       if (error instanceof z.ZodError || error instanceof SyntaxError) return reply({ error: "Pedido inválido; confirma os campos." }, 400);
       return reply({ error: "Operação interrompida. Não repitas um lançamento; consulta o resultado do lote." }, 503);
     }

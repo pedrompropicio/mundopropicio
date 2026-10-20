@@ -1,0 +1,67 @@
+apply OK
+1 gate fechado:
+ERROR:  #333: review_closed
+CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 6 at RAISE
+2 select direto authenticated:
+ERROR:  permission denied for table data_entry_assistant_reviews_333
+3 anon execute:
+permission denied for function data_entry_assistant_review_333
+4 viewer recusado:
+ERROR:  #333: context_mismatch
+CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 7 at RAISE
+5 empresa da proposta diferente:
+ERROR:  #333: context_mismatch
+CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 10 at RAISE
+6 v1 criada
+7 autorizar com ações bloqueadas:
+ERROR:  #333: actions_blocked
+CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 35 at RAISE
+8 outro utilizador/empresa:
+ERROR:  #333: context_mismatch
+CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 15 at RAISE
+9 edição -> v2:
+2
+10 versão antiga (stale):
+ERROR:  #333: stale_version
+CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 16 at RAISE
+11 autorizar v1/hash antigo:
+ERROR:  #333: stale_version
+CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 30 at RAISE
+12 subconjunto de ações:
+ERROR:  #333: actions_blocked
+CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 35 at RAISE
+13 duplicadas:
+ERROR:  #333: actions_blocked
+CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 35 at RAISE
+14 autorização exata:
+false
+15 replay igual:
+true
+16 replay com outra chave mesma versão:
+ERROR:  #333: replay_conflict
+CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 37 at RAISE
+17 mesma chave, outros efeitos:
+ERROR:  #333: replay_conflict
+CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 28 at RAISE
+18 concorrência (2 ligações, mesma versão esperada 2):
+   A: 3
+   A: 
+   B: ERROR:  #333: stale_version
+   B: CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 16 at RAISE
+19 contagens:
+3|1|3
+20 rollback com linhas:
+reviews_present_retain_before_rollback
+21 readback:
+t
+1|1
+data_entry_assistant_authorizations_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f
+data_entry_assistant_review_settings_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f
+data_entry_assistant_review_versions_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f
+data_entry_assistant_reviews_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f
+data_entry_assistant_review_333|t|{"search_path=public, pg_temp"}|{postgres=X/postgres,authenticated=X/postgres}|4842187f3a56594ffac883e923595e5a|f|t
+22 rollback OK
+23 esquema/ACL igual ao inicial
+24 reaplicar:
+OK
+reviewed_absent_objects_drift

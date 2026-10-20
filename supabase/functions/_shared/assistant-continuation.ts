@@ -19,4 +19,16 @@ export async function verifyContinuation(token: string, secret: string, ctx: { u
   const state = stateSchema.parse(JSON.parse(new TextDecoder().decode(bytes)));
   if (state.user !== ctx.user || state.company !== ctx.company || state.expires <= now || state.requestHash !== await requestHash(text)) throw new Error("Seleção expirada ou contexto alterado; repete a pesquisa.");
   return state;
+}/** #333 fase12c: candidato emitido pelo servidor, assinado e vinculado a user+empresa (sem corpo do email). */
+export async function signServerPayload(kind: string, ctx: { user: string; company: string }, payload: unknown, secret: string, ttlMs = 30 * 60_000, now = Date.now()) {
+  const bytes = new TextEncoder().encode(JSON.stringify({ kind, user: ctx.user, company: ctx.company, expires: now + ttlMs, payload }));
+  return `${b64(bytes)}.${b64(new Uint8Array(await crypto.subtle.sign("HMAC", await key(secret), bytes)))}`;
+}
+export async function verifyServerPayload<T>(kind: string, token: string, secret: string, ctx: { user: string; company: string }, now = Date.now()): Promise<T> {
+  const parts = token.split("."); if (token.length > 120_000 || parts.length !== 2) throw new Error("Candidato inválido.");
+  const bytes = decode(parts[0]);
+  if (!await crypto.subtle.verify("HMAC", await key(secret), decode(parts[1]), bytes)) throw new Error("Candidato inválido.");
+  const s = JSON.parse(new TextDecoder().decode(bytes));
+  if (s.kind !== kind || s.user !== ctx.user || s.company !== ctx.company || !(s.expires > now)) throw new Error("Candidato expirado ou de outro contexto.");
+  return s.payload as T;
 }

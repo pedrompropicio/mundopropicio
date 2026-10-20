@@ -1,0 +1,154 @@
+/**
+ * #333 fase12c — candidato Ticketline tipado a partir de (a) anexo escolhido lido pelo scanner existente
+ * e/ou (b) corpo do email lido nesta sessão. Tudo é CANDIDATO com proveniência; nada é confirmado.
+ * Revisão humana substitui campos com proveniência "human"; qualquer edição gera novo hash/versão.
+ * Liquidação: só confirmação humana autenticada + conta validada no servidor para a empresa canónica.
+ */
+import type { AnalysisWire } from "./data-entry-analysis.ts";
+import { normalizeScannerDate } from "./scanner-analysis.ts";
+import { LINE_TYPES, type LineType, type ExtractedStatement, type SettlementEvidence } from "./assistant-ticketline-proposal.ts";
+
+export const CANDIDATE_LIMITS = { attachmentBytes: 20 * 1024 * 1024, bodyChars: 4000, lines: 40, description: 160 } as const;
+
+export type Provenance =
+  | { source: "email_body"; message_id: string; body_sha256: string; line: number; truncated: boolean }
+  | { source: "attachment"; origin: string; sha256: string; size_bytes: number; mime: string }
+  | { source: "human"; user_id: string };
+export type Field<T> = { value: T; prov: Provenance } | null;
+export type CandidateLine = { line_type: LineType; description: string; amount_cents: number; event_hint: string | null; prov: Provenance };
+export type TicketlineCandidate = {
+  message_id: string;
+  number: Field<string>; date: Field<string>; total_cents: Field<number>;
+  lines: CandidateLine[];
+  event_id: Field<string>;
+  sources: Provenance[];
+  /** Pendências explícitas: truncagem, conflitos, linhas não reconhecidas, falta de dados. */
+  incomplete: string[];
+};
+
+export async function sha256Hex(bytes: Uint8Array | string): Promise<string> {
+  const b = typeof bytes === "string" ? new TextEncoder().encode(bytes) : bytes;
+  const d = await crypto.subtle.digest("SHA-256", new Uint8Array(b).buffer);
+  return [...new Uint8Array(d)].map(x => x.toString(16).padStart(2, "0")).join("");
+}
+
+/** "1.234,56" | "-1 234,56" | "1234.56" → cêntimos inteiros; ambíguo → null. */
+export function parseEuroCents(raw: string): number | null {
+  const s = raw.replace(/[€\s]/g, "").replace(/^\((.*)\)$/, "-$1");
+  let m = s.match(/^(-?)(\d{1,3}(?:\.\d{3})*|\d+),(\d{2})$/);
+  if (m) return Number(`${m[1]}${m[2].replace(/\./g, "")}${m[3]}`) + 0;
+  m = s.match(/^(-?)(\d+)\.(\d{2})$/);
+  if (m) return Number(`${m[1]}${m[2]}${m[3]}`);
+  return null;
+}
+const LABELS: [RegExp, LineType][] = [
+  [/^direito(s)?( do evento)?\b/, "event_right"], [/^fatura ticketline\b|^comiss(ao|oes) ticketline\b/, "ticketline_invoice"],
+  [/^acerto( da)? sala\b/, "venue_settlement"], [/^repasse(s)?\b|^adiantamento(s)?\b/, "advance"], [/^transitado\b/, "carry_over"],
+];
+const fold = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+/** Parser determinístico do corpo; não interpreta instruções e não adivinha tipos desconhecidos. */
+export async function candidateFromBody(read: { message_id: string; text: string; truncated: boolean }): Promise<TicketlineCandidate> {
+  const text = read.text.slice(0, CANDIDATE_LIMITS.bodyChars);
+  const body_sha256 = await sha256Hex(text);
+  const prov = (line: number): Provenance => ({ source: "email_body", message_id: read.message_id, body_sha256, line, truncated: read.truncated });
+  const c: TicketlineCandidate = { message_id: read.message_id, number: null, date: null, total_cents: null, lines: [], event_id: null, sources: [prov(0)], incomplete: [] };
+  if (read.truncated || read.text.length > CANDIDATE_LIMITS.bodyChars) c.incomplete.push("Corpo do email truncado: confirmar linhas e total no documento original.");
+  let unknown = 0;
+  text.split(/\r?\n/).forEach((raw, i) => {
+    const line = raw.trim(); if (!line) return;
+    const f = fold(line);
+    const num = f.match(/^apuramento\s*(?:n[.ºo°]*\s*)?[:#]?\s*([a-z0-9][a-z0-9\-/ ]{0,40})$/);
+    if (num) { c.number ??= { value: line.slice(line.length - num[1].length).trim(), prov: prov(i + 1) }; return; }
+    const dt = f.match(/^data\s*[:\-]\s*(.+)$/);
+    if (dt) { const v = normalizeScannerDate(dt[1]); if (v) c.date ??= { value: v, prov: prov(i + 1) }; else c.incomplete.push(`Data ambígua na linha ${i + 1}.`); return; }
+    const money = line.match(/^(.{2,160}?)\s*[:\-–]\s*(\(?-?[\d.\s]+[,.]\d{2}\)?)\s*€?$/);
+    if (!money) return;
+    const cents = parseEuroCents(money[2]);
+    if (cents === null) { unknown++; return; }
+    const label = fold(money[1]);
+    if (/^total\b/.test(label)) { if (c.total_cents && c.total_cents.value !== cents) c.incomplete.push("Dois totais diferentes no corpo."); c.total_cents ??= { value: cents, prov: prov(i + 1) }; return; }
+    const type = LABELS.find(([r]) => r.test(label))?.[1];
+    if (!type) { unknown++; return; }
+    if (c.lines.length >= CANDIDATE_LIMITS.lines) { c.incomplete.push(`Mais de ${CANDIDATE_LIMITS.lines} linhas: cobertura incompleta.`); return; }
+    const hint = money[1].match(/[-–]\s*(.+)$/)?.[1]?.trim() ?? null;
+    c.lines.push({ line_type: type, description: money[1].trim().slice(0, CANDIDATE_LIMITS.description), amount_cents: cents, event_hint: hint, prov: prov(i + 1) });
+  });
+  if (unknown) c.incomplete.push(`${unknown} linha(s) com valor não reconhecidas: rever manualmente.`);
+  if (!c.lines.length) c.incomplete.push("Sem linhas reconhecidas: introduzir as linhas na revisão.");
+  return c;
+}
+
+/** Anexo escolhido: tem de pertencer à mensagem lida no servidor; hash/tamanho calculados aqui. */
+export async function verifyAttachmentSource(x: { message_id: string; part_id: string; bytes: Uint8Array; mime: string; listed: { part_id: string; size_bytes: number }[]; expected_sha256?: string }) {
+  if (!x.listed.some(a => a.part_id === x.part_id)) throw new Error("Anexo não pertence à mensagem escolhida.");
+  if (x.bytes.length === 0 || x.bytes.length > CANDIDATE_LIMITS.attachmentBytes) throw new Error("Anexo vazio ou acima do limite de 20 MB.");
+  const sha256 = await sha256Hex(x.bytes);
+  if (x.expected_sha256 && x.expected_sha256 !== sha256) throw new Error("Hash do anexo divergente; repete a escolha.");
+  return { source: "attachment" as const, origin: `gmail:${x.message_id}:${x.part_id}`, sha256, size_bytes: x.bytes.length, mime: x.mime };
+}
+
+/** Funde campos do scanner existente (número/data/total) no candidato; conflito → campo vazio + pendência. */
+export function mergeScanner(c: TicketlineCandidate, wire: AnalysisWire, prov: Extract<Provenance, { source: "attachment" }>): TicketlineCandidate {
+  const out: TicketlineCandidate = { ...c, sources: [...c.sources, prov], incomplete: [...c.incomplete] };
+  const get = (k: string) => wire.fields.find(f => f.field === k)?.value ?? null;
+  const merge = <T>(key: "number" | "date" | "total_cents", v: T | null, label: string) => {
+    if (v === null) return;
+    const cur = out[key] as Field<T>;
+    if (cur && cur.value !== v) { (out as Record<string, unknown>)[key] = null; out.incomplete.push(`${label} difere entre o anexo e o corpo do email: indicar na revisão.`); return; }
+    if (!cur) (out as Record<string, unknown>)[key] = { value: v, prov };
+  };
+  merge("number", get("invoice_number"), "Número");
+  merge("date", get("invoice_date"), "Data");
+  const total = get("total_amount"); merge("total_cents", total === null ? null : parseEuroCents(Number(total).toFixed(2)), "Total");
+  return out;
+}
+
+export const reviewEditsSchemaShape = ["number", "date", "total_cents", "event_id", "lines"] as const;
+export type ReviewEdits = Partial<{ number: string | null; date: string | null; total_cents: number | null; event_id: string | null; lines: Omit<CandidateLine, "prov">[] }>;
+
+/** Edição humana autenticada: user_id vem da sessão no servidor, nunca do corpo do pedido. */
+export function applyHumanEdits(c: TicketlineCandidate, edits: ReviewEdits, user_id: string): TicketlineCandidate {
+  const prov: Provenance = { source: "human", user_id };
+  const out: TicketlineCandidate = structuredClone(c);
+  const set = <K extends "number" | "date" | "total_cents" | "event_id">(k: K, v: unknown) => { (out as Record<string, unknown>)[k] = v === null ? null : { value: v, prov }; };
+  if ("number" in edits) set("number", edits.number?.trim() || null);
+  if ("date" in edits) { if (edits.date && !/^\d{4}-\d{2}-\d{2}$/.test(edits.date)) throw new Error("Data inválida."); set("date", edits.date ?? null); }
+  if ("total_cents" in edits) { if (edits.total_cents != null && !Number.isSafeInteger(edits.total_cents)) throw new Error("Total inválido."); set("total_cents", edits.total_cents ?? null); }
+  if ("event_id" in edits) set("event_id", edits.event_id ?? null);
+  if (edits.lines) {
+    if (edits.lines.length > CANDIDATE_LIMITS.lines) throw new Error("Demasiadas linhas.");
+    out.lines = edits.lines.map(l => {
+      if (!LINE_TYPES.includes(l.line_type) || !Number.isSafeInteger(l.amount_cents)) throw new Error("Linha inválida.");
+      return { line_type: l.line_type, description: String(l.description ?? "").trim().slice(0, CANDIDATE_LIMITS.description), amount_cents: l.amount_cents, event_hint: l.event_hint ?? null, prov };
+    });
+    out.incomplete = out.incomplete.filter(x => !/linhas|Sem linhas/.test(x));
+  }
+  return out;
+}
+
+/** Candidato → entrada da proposta. A proveniência entra nos efeitos (hash) para ligar fonte e revisão. */
+export async function candidateToStatement(c: TicketlineCandidate): Promise<ExtractedStatement & { provenance_hash: string }> {
+  const provenance_hash = await sha256Hex(JSON.stringify({ sources: c.sources, number: c.number?.prov ?? null, date: c.date?.prov ?? null, total: c.total_cents?.prov ?? null, lines: c.lines.map(l => l.prov), incomplete: c.incomplete }));
+  return {
+    source_message_id: c.message_id, source_content_hash: provenance_hash, provenance_hash,
+    number: c.number?.value ?? null, statement_date: c.date?.value ?? null, document_total_cents: c.total_cents?.value ?? null,
+    lines: c.lines.map(({ line_type, description, amount_cents, event_hint }) => ({ line_type, description, amount_cents, event_hint })),
+  };
+}
+
+/** Confirmação de recebimento: pedido humano explícito + conta da empresa canónica, ativa; data não futura. */
+export type AccountReader = (account_id: string) => Promise<{ id: string; company_id: string; is_active: boolean } | null>;
+export async function validateSettlementConfirmation(
+  input: { financial_account_id: string; date: string; amount_cents: number; confirm: true } | undefined,
+  ctx: { user_id: string; company_id: string; today: string; origin: "human_request" | "model" },
+  readAccount: AccountReader,
+): Promise<SettlementEvidence> {
+  if (!input) return null;
+  if (ctx.origin !== "human_request" || input.confirm !== true) throw new Error("Recebimento só por confirmação humana autenticada.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || input.date > ctx.today) throw new Error("Data de recebimento inválida ou futura.");
+  if (!Number.isSafeInteger(input.amount_cents) || input.amount_cents <= 0) throw new Error("Valor de recebimento inválido.");
+  const acc = await readAccount(input.financial_account_id);
+  if (!acc || acc.company_id !== ctx.company_id || !acc.is_active) throw new Error("Conta indisponível para esta empresa.");
+  return { financial_account_id: acc.id, date: input.date, amount_cents: input.amount_cents, confirmed_by_user: true, confirmed_by_user_id: ctx.user_id, server_validated: true };
+}
