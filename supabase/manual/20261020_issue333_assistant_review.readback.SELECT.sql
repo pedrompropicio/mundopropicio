@@ -1,5 +1,6 @@
 -- #333 fase12d readback SELECT-only, antes e depois da aplicação separadamente autorizada.
 SELECT enabled FROM public.data_entry_assistant_review_settings_333;
+SELECT owner_id, company_id, expires_at, expires_at > now() AS open FROM public.data_entry_assistant_scope_333 ORDER BY 1,2;
 SELECT (SELECT count(*) FROM public.data_entry_assistant_reviews_333) reviews, (SELECT count(*) FROM public.data_entry_assistant_authorizations_333) authorizations;
 SELECT c.relname, c.relrowsecurity, c.relacl::text acl,
   has_table_privilege('anon', c.oid, 'SELECT,INSERT,UPDATE,DELETE') anon_any, has_table_privilege('authenticated', c.oid, 'SELECT,INSERT,UPDATE,DELETE') user_any,

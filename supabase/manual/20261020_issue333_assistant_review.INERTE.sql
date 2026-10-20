@@ -9,11 +9,15 @@
 --    revoga-se TUDO de todos os papéis exceto o dono, depois só SELECT a service_role nas tabelas.
 --  * Versões e autorizações imutáveis por trigger (UPDATE/DELETE/TRUNCATE recusados).
 --  * Autorização = subconjunto explícito de ações desbloqueadas, fechado por dependências; uma por versão.
+-- Revisão 12f: âmbito nominal (owner+empresa) com expiração no próprio SQL (data_entry_assistant_scope_333), exigido
+--  em save/authorize além do gate; esquema '333-12f' (o servidor recusa qualquer outro). Abrir janela = gate true + 1 linha
+--  de âmbito com expires_at; fechar = gate false + apagar o âmbito.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 DO $g$ BEGIN
   IF to_regclass('public.data_entry_assistant_reviews_333') IS NOT NULL OR to_regclass('public.data_entry_assistant_review_versions_333') IS NOT NULL
      OR to_regclass('public.data_entry_assistant_authorizations_333') IS NOT NULL OR to_regclass('public.data_entry_assistant_review_settings_333') IS NOT NULL
+     OR to_regclass('public.data_entry_assistant_scope_333') IS NOT NULL
      OR to_regprocedure('public.data_entry_assistant_review_333(text,uuid,uuid,uuid,integer,text,jsonb,text[],uuid)') IS NOT NULL
      OR to_regprocedure('public._de333_canon(jsonb)') IS NOT NULL OR to_regprocedure('public._de333_immutable()') IS NOT NULL
   THEN RAISE EXCEPTION 'reviewed_absent_objects_drift'; END IF;
@@ -22,6 +26,10 @@ END $g$;
 CREATE TABLE public.data_entry_assistant_review_settings_333 (
   singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton), enabled boolean NOT NULL DEFAULT false, changed_at timestamptz NOT NULL DEFAULT now());
 INSERT INTO public.data_entry_assistant_review_settings_333 DEFAULT VALUES;
+-- Âmbito nominal partilhado por revisão e executor: sem linha válida (não expirada) para owner+empresa, nada funciona.
+CREATE TABLE public.data_entry_assistant_scope_333 (
+  owner_id uuid NOT NULL, company_id uuid NOT NULL, expires_at timestamptz NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (owner_id, company_id), CHECK (expires_at > created_at AND expires_at <= created_at + interval '2 hours'));
 
 CREATE TABLE public.data_entry_assistant_reviews_333 (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), owner_id uuid NOT NULL, company_id uuid NOT NULL,
@@ -59,10 +67,12 @@ DECLARE r public.data_entry_assistant_reviews_333; v public.data_entry_assistant
   a public.data_entry_assistant_authorizations_333; open_ids text[]; sel text[]; x jsonb;
 BEGIN
   IF p_action = 'probe' THEN
-    RETURN jsonb_build_object('schema', '333-12d', 'enabled', coalesce((SELECT enabled FROM public.data_entry_assistant_review_settings_333 WHERE singleton), false));
+    RETURN jsonb_build_object('schema', '333-12f', 'enabled', coalesce((SELECT enabled FROM public.data_entry_assistant_review_settings_333 WHERE singleton), false));
   END IF;
   IF p_actor IS NULL OR p_company IS NULL THEN RAISE EXCEPTION '#333: context_mismatch' USING ERRCODE = '42501'; END IF;
   IF NOT coalesce((SELECT enabled FROM public.data_entry_assistant_review_settings_333 WHERE singleton), false) THEN RAISE EXCEPTION '#333: review_closed' USING ERRCODE = '42501'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.data_entry_assistant_scope_333 WHERE owner_id = p_actor AND company_id = p_company AND expires_at > now())
+  THEN RAISE EXCEPTION '#333: scope_closed' USING ERRCODE = '42501'; END IF;
   IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = p_actor AND deleted_at IS NULL AND (banned_until IS NULL OR banned_until <= now()))
      OR NOT EXISTS (SELECT 1 FROM public.companies WHERE id = p_company AND status = 'active')
      OR coalesce(public._effective_permissions_for(p_actor, p_company, '{}'::text[])->>'role', '') NOT IN ('admin', 'manager')
@@ -115,7 +125,7 @@ END $f$;
 
 -- ACL: revogar de TODOS os papéis com privilégios (inclui os herdados de default ACL), depois conceder o mínimo.
 DO $acl$ DECLARE o text; g text; BEGIN
-  FOREACH o IN ARRAY ARRAY['public.data_entry_assistant_review_settings_333','public.data_entry_assistant_reviews_333','public.data_entry_assistant_review_versions_333','public.data_entry_assistant_authorizations_333'] LOOP
+  FOREACH o IN ARRAY ARRAY['public.data_entry_assistant_review_settings_333','public.data_entry_assistant_scope_333','public.data_entry_assistant_reviews_333','public.data_entry_assistant_review_versions_333','public.data_entry_assistant_authorizations_333'] LOOP
     EXECUTE format('REVOKE ALL ON %s FROM PUBLIC', o);
     FOR g IN SELECT DISTINCT a.grantee::regrole::text FROM pg_class c, aclexplode(c.relacl) a WHERE c.oid = o::regclass AND a.grantee <> 0 AND a.grantee <> c.relowner LOOP
       EXECUTE format('REVOKE ALL ON %s FROM %s', o, g); END LOOP;
