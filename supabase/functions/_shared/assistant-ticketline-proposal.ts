@@ -6,6 +6,7 @@
  * Fecho recebido NÃO prova recebimento bancário: liquidação exige conta/data/valor confirmados por pessoa.
  */
 import { statementTypeTotals } from "./ticketline-totals.ts";
+import type { ClosingPlan } from "./assistant-settlement-plan.ts";
 export const LINE_TYPES = ["event_right", "ticketline_invoice", "venue_settlement", "advance", "carry_over"] as const;
 export type LineType = typeof LINE_TYPES[number];
 export const LINE_LABEL: Record<LineType, string> = {
@@ -36,7 +37,7 @@ export type SettlementEvidence = { financial_account_id: string; date: string; a
 export type Check = { code: string; ok: boolean; message: string };
 export type ProposedAction = {
   id: string;
-  kind: "create_statement" | "confirm_statement" | "settlement_in_modal" | "create_transactions" | "register_liquidation";
+  kind: "create_statement" | "confirm_statement" | "verify_deductions" | "save_settlement" | "register_liquidation";
   label: string;
   existing_flow: string;
   depends_on: string[];
@@ -81,7 +82,9 @@ export function resolveEvent(hints: (string | null)[], events: ErpContext["event
 }
 
 /** Confere o recebimento confirmado pela pessoa contra o fecho canónico (net_transferred → conta de transferência), nunca contra Σ do apuramento. */
-export function compareWithCanonical(s: SettlementEvidence, c: CanonicalSettlement | null | undefined): { ok: boolean; diffs: string[] } {
+export function compareWithCanonical(s: SettlementEvidence, c: CanonicalSettlement | null | undefined, plan?: ClosingPlan | null): { ok: boolean; diffs: string[] } {
+  // Fecho ainda por gravar nesta mesma autorização (a3): a referência é o plano revisto (líquido e conta de destino).
+  if ((!c || c.status !== "confirmed") && plan) c = { status: "confirmed", settlement_date: plan.settlement_date, net_transferred_cents: plan.net_cents, transfer_account_id: plan.transfer_account };
   if (!s || !s.server_validated) return { ok: false, diffs: ["Recebimento não confirmado por si (conta, data e valor)."] };
   if (!c || c.status !== "confirmed") return { ok: false, diffs: ["Fecho ainda não confirmado no modal: não há saldo canónico a receber."] };
   const diffs: string[] = [];
@@ -92,7 +95,7 @@ export function compareWithCanonical(s: SettlementEvidence, c: CanonicalSettleme
   return { ok: diffs.length === 0, diffs };
 }
 
-export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpContext, opts: { event_id?: string | null; settlement?: SettlementEvidence; human_reviewed?: boolean; office_account_id?: string | null }): Promise<Proposal> {
+export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpContext, opts: { event_id?: string | null; settlement?: SettlementEvidence; human_reviewed?: boolean; office_account_id?: string | null; closing?: ClosingPlan | null; closing_issues?: string[] }): Promise<Proposal> {
   const checks: Check[] = []; const needs: string[] = [];
   const mapped = statementTypeTotals(x.lines.map(l => ({ line_type: l.line_type, amount: l.amount_cents / 100 })));
   const totals = Object.fromEntries(Object.entries(mapped).map(([type, amount]) => [type, Math.round(amount * 100)])) as Partial<Record<LineType, number>>;
@@ -114,26 +117,30 @@ export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpCon
   if (!office) needs.push("Escolher a bilheteira (conta) do apuramento.");
   if (!opts.human_reviewed) needs.push("Confirmar a revisão dos campos e linhas (o candidato da IA/email não é aceite sozinho).");
   const settlement = opts.settlement ?? null;
-  const canonical = compareWithCanonical(settlement, ev.match?.canonical);
+  const plan = !sealed && opts.closing && opts.closing.event === ev.match?.id && opts.closing.office === office ? opts.closing : null;
+  const canonical = compareWithCanonical(settlement, ev.match?.canonical, plan);
   if (!settlement) needs.push("Conta, data e valor do recebimento, verificados por si no banco (o email não prova o recebimento).");
   else if (!canonical.ok) needs.push(...canonical.diffs.map(d => `Pendente: ${d}`));
   checks.push({ code: "liquidation_amount", ok: canonical.ok || !settlement, message: !settlement ? "Liquidação não pedida nesta revisão." : canonical.ok ? "Recebimento coincide com o fecho canónico (conta, valor, data)." : "Recebimento diverge do fecho canónico: fica pendente." });
-  needs.push("Repasses/transitado entram só na posição; o direito do evento é calculado no modal canónico.");
+  if (!sealed && !plan) needs.push(...(opts.closing_issues?.length ? opts.closing_issues : ["Escolher deduções, data do fecho e conta de destino para o fecho."]).map(x => `Fecho: ${x}`));
+  needs.push("Repasses/transitado entram só na posição do apuramento, não no fecho do evento.");
 
   const hard = checks.some((c) => !c.ok && c.code !== "liquidation_amount");
   const prep = hard ? "Resolver verificações antes." : !ev.match ? "Escolher o evento." : !x.number ? "Indicar o número do apuramento." : !office ? "Escolher a bilheteira do apuramento."
     : sealed ? "Evento já fechado: preparação não se repete." : !opts.human_reviewed ? "Falta a sua confirmação da revisão." : null;
   const liq = !settlement ? "Sem recebimento confirmado por si." : !opts.human_reviewed ? "Falta a sua confirmação da revisão." : hard ? "Resolver verificações antes."
-    : !sealed ? "Depende do fecho confirmado no modal (saldo canónico)." : canonical.ok ? null : "Recebimento diverge do fecho canónico.";
+    : !sealed && !plan ? "Depende do fecho (plano revisto ou fecho já confirmado)." : canonical.ok ? null : "Recebimento diverge do fecho.";
+  const close = prep ?? (plan ? null : "Plano de fecho incompleto (ver pendências do fecho).");
+  const eur = (c: number) => (c / 100).toFixed(2).replace(".", ",") + " €";
   const actions: ProposedAction[] = [
     { id: "a1", stage: "prepare", kind: "create_statement", label: `Registar apuramento ${x.number ?? "?"} com ${x.lines.length} linha(s)`, existing_flow: "ticket_office_statements + ticket_office_statement_lines (Bilheteiras → Apuramentos)", depends_on: [], blocked_reason: prep },
     { id: "a2", stage: "prepare", kind: "confirm_statement", label: "Confirmar apuramento (Σ linhas = total, sem linhas pendentes)", existing_flow: "RPC confirm_ticket_office_statement (admin/manager)", depends_on: ["a1"], blocked_reason: prep },
-    { id: "a4", stage: "prepare", kind: "create_transactions", label: "Rever transações existentes e documentos em falta antes do fecho", existing_flow: "Fluxos documentais existentes → despesas pendentes vinculadas no modal (não cria despesas automaticamente)", depends_on: ["a2"], blocked_reason: prep },
-    { id: "a3", stage: "prepare", kind: "settlement_in_modal", label: `Preparar fecho do evento ${ev.match?.name ?? "?"} no modal de fecho`, existing_flow: "TicketOfficeSettlementModal → ticket_office_settlements", depends_on: ["a4"], blocked_reason: prep },
+    { id: "a4", stage: "prepare", kind: "verify_deductions", label: plan ? `Conferir ${plan.deductions.length} dedução(ões) do fecho (${eur(plan.deductions_cents)}) com as regras do modal` : "Conferir deduções do fecho", existing_flow: "Elegibilidade do modal de fecho (sem escrita)", depends_on: ["a2"], blocked_reason: close },
+    { id: "a3", stage: "prepare", kind: "save_settlement", label: plan ? `Gravar fecho do evento ${ev.match?.name ?? "?"}: bruto ${eur(plan.gross_cents)} − deduções ${eur(plan.deductions_cents)} = ${eur(plan.net_cents)} a receber` : `Gravar fecho do evento ${ev.match?.name ?? "?"}`, existing_flow: "RPC save_ticket_office_settlement (o mesmo do modal), transferência 'a receber'", depends_on: ["a4"], blocked_reason: close },
     { id: "a5", stage: "liquidate", kind: "register_liquidation", label: "Liquidar com a entrada bancária confirmada", existing_flow: "transaction_payments (Registar pagamento)", depends_on: sealed ? [] : ["a3"], blocked_reason: liq },
   ];
   const effects = { company: erp.company_id, source: x.source_message_id, source_content_hash: x.source_content_hash ?? null, number: x.number, date: x.statement_date, total: x.document_total_cents, lines: x.lines, event: ev.match?.id ?? null, office,
-    human_reviewed: !!opts.human_reviewed, canonical: ev.match?.canonical ?? null,
+    human_reviewed: !!opts.human_reviewed, canonical: ev.match?.canonical ?? null, closing: plan,
     settlement: settlement?.server_validated ? { account: settlement.financial_account_id, date: settlement.date, amount_cents: settlement.amount_cents, by: settlement.confirmed_by_user_id ?? null } : null };
   return {
     version: 1, company_id: erp.company_id, source_message_id: x.source_message_id, statement_number: x.number,
@@ -147,7 +154,7 @@ export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpCon
 export type Authorization = { user_id: string; company_id: string; version: 1; effects_hash: string; action_ids: string[] };
 const EXPECTED: Record<string, { kind: ProposedAction["kind"]; deps: string[][] }> = {
   a1: { kind: "create_statement", deps: [[]] }, a2: { kind: "confirm_statement", deps: [["a1"]] },
-  a3: { kind: "settlement_in_modal", deps: [["a4"]] }, a4: { kind: "create_transactions", deps: [["a2"]] }, a5: { kind: "register_liquidation", deps: [["a3"], []] },
+  a3: { kind: "save_settlement", deps: [["a4"]] }, a4: { kind: "verify_deductions", deps: [["a2"]] }, a5: { kind: "register_liquidation", deps: [["a3"], []] },
 };
 export async function authorizationMatches(a: Authorization, p: Proposal, ctx: { user_id: string; company_id: string }): Promise<boolean> {
   if (!a.action_ids.length || new Set(a.action_ids).size !== a.action_ids.length || new Set(p.actions.map(x => x.id)).size !== p.actions.length || p.actions.length !== 5) return false;
@@ -163,6 +170,6 @@ export async function authorizationMatches(a: Authorization, p: Proposal, ctx: {
 /** Executor: SQL INERTE (supabase/manual/20261020_issue333_assistant_executor.*) e gate próprio fechado. */
 export const EXECUTION_GAPS = [
   "Executor SQL preparado e provado localmente, mas não aplicado no Cloud e com gate fechado.",
-  "Fecho no modal (a3) continua humano: o executor só confere o fecho confirmado, não calcula receita/deduções.",
+  "Fecho (a3) só no caso suportado: sem venda retida pela sala, saldo de fatura, ajustes manuais ou fecho existente; esses ficam no modal.",
   "Adaptador de IA implementado, ativação fechada e disponibilidade real ainda não validada.",
 ] as const;

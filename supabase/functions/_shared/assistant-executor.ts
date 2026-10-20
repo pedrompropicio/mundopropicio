@@ -1,10 +1,10 @@
 /**
- * #333 fase12e — cliente do executor Ticketline (SQL INERTE supabase/manual/20261020_issue333_assistant_executor.*).
+ * #333 fase12f — cliente do executor Ticketline (SQL INERTE supabase/manual/20261020_issue333_assistant_executor.*).
  * Chama a RPC com o JWT do PRÓPRIO utilizador: a identidade e a empresa vêm de auth.uid()/current_company_id() na sessão,
  * nunca de argumentos. Não envia efeitos nem versão: o SQL carrega-os só da revisão persistida e recalcula o hash.
  * Falha de transporte ou erro desconhecido = resultado INCERTO: nunca repetir às cegas; recuperar por leitura (status).
  */
-export const EXECUTOR_SCHEMA = "333-12e";
+export const EXECUTOR_SCHEMA = "333-12f";
 export class ExecutorUnavailable extends Error { status = 503; constructor() { super("Execução indisponível neste ambiente: executor por rever/aplicar. Nada foi executado."); } }
 export class ExecutionRefused extends Error { constructor(message: string, readonly status = 409, readonly code = "") { super(message); } }
 export class ExecutionUncertain extends Error { status = 502; constructor() { super("Resultado incerto. Não repita: use \"Verificar resultado\" para ler o estado gravado."); } }
@@ -30,7 +30,8 @@ export const REFUSALS: Record<string, [string, number]> = {
   event_sealed: ["O evento já tem fecho confirmado; o apuramento não foi registado.", 409],
   duplicate_statement: ["Já existe um apuramento com este número; não foi duplicado.", 409],
   data_changed: ["Os dados no sistema mudaram desde a autorização; nada foi alterado.", 409],
-  awaiting_human_modal: ["Falta confirmar o fecho no modal de fecho (passo humano). Depois volte a conferir.", 409],
+  scope_closed: ["Janela de execução fechada para si nesta empresa (âmbito expirado). Nada foi executado.", 503],
+  partial_state_manual: ["A transferência do fecho tem pagamentos parciais/planeados ou estorno: resolver no painel do fecho. Nada foi alterado.", 409],
   readback_mismatch: ["A conferência falhou; a operação foi anulada.", 409],
 };
 export const unavailableExecutor: Executor = {
@@ -47,6 +48,10 @@ export function rpcExecutor(rpc: CallerRpc): Executor {
       const code = Object.keys(REFUSALS).find(k => r.error!.message?.includes(`#333: ${k}`));
       if (code) { const [m, s] = REFUSALS[code]; throw new ExecutionRefused(m, s, code); }
       if (r.error.code === "42883" || r.error.code === "PGRST202" || r.error.code === "42501") throw new ExecutorUnavailable();
+      // Recusa lógica de writer/trigger canónico (dados 22, integridade 23, PL/pgSQL P0, permissões 42, serialização 40):
+      // a transação foi anulada pela base, nada gravado. Cancelamento/ligação/recursos (57/08/53/XX) continuam incertos.
+      if (typeof r.error.code === "string" && /^(22|23|P0|42|40)[0-9A-Z]{3}$/.test(r.error.code) && r.error.message)
+        throw new ExecutionRefused(`Recusado pela base (nada gravado): ${r.error.message.replace(/[\x00-\x1f]/g, " ").slice(0, 200)}`, 409, "sql_refused");
       if (uncertainOnUnknown) throw new ExecutionUncertain();
       throw new ExecutorUnavailable();
     }

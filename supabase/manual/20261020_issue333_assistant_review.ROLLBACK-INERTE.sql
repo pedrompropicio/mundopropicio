@@ -11,6 +11,7 @@ DROP TABLE public.data_entry_assistant_authorizations_333;
 DROP TABLE public.data_entry_assistant_review_versions_333;
 DROP TABLE public.data_entry_assistant_reviews_333;
 DROP TABLE public.data_entry_assistant_review_settings_333;
+DROP TABLE public.data_entry_assistant_scope_333;
 DROP FUNCTION public._de333_immutable();
 DROP FUNCTION public._de333_canon(jsonb);
 COMMIT;

@@ -54,11 +54,12 @@ export type CandidateProvenance = { source: "email_body"; message_id: string; bo
 type CField<T> = { value: T; prov: CandidateProvenance } | null;
 export type TicketlineCandidate = { message_id: string; number: CField<string>; date: CField<string>; total_cents: CField<number>; event_id: CField<string>;
   lines: { line_type: TicketlineLineType; description: string; amount_cents: number; event_hint: string | null; prov: CandidateProvenance }[]; sources: CandidateProvenance[]; incomplete: string[] };
-export type TicketlineEdits = Partial<{ confirm_review: boolean; number: string | null; date: string | null; total_cents: number | null; event_id: string | null; office_account_id: string | null; lines: { line_type: TicketlineLineType; description: string; amount_cents: number; event_hint: string | null }[] }>;
+export type TicketlineEdits = Partial<{ confirm_review: boolean; number: string | null; date: string | null; total_cents: number | null; event_id: string | null; office_account_id: string | null; closing: { deduction_ids: string[]; settlement_date: string; transfer_account_id: string } | null; lines: { line_type: TicketlineLineType; description: string; amount_cents: number; event_hint: string | null }[] }>;
 export type TicketlineExecution = { action_id: string; status: "succeeded"; replayed?: boolean; result: Record<string, unknown>; links: { label: string; href: string }[] };
 export type TicketlineSettlementInput = { financial_account_id: string; date: string; amount_cents: number; confirm: true };
 export type TicketlineAttachment = { part_id: string; filename: string; mime: string; size_bytes: number };
-export type TicketlinePreviewResult = { candidate: TicketlineCandidate; proposal: AssistantProposal; events?: { id: string; label: string }[]; persisted: boolean; notice?: string; review?: { review_id: string; version: number; effects_hash: string } };
+export type TicketlineClosingOptions = { gross_cents: number; sales: number; eligible: { id: string; description: string; gross_cents: number; status: string }[]; transfer_accounts: { id: string; name: string; type: string; withholds_revenue: boolean }[] };
+export type TicketlinePreviewResult = { candidate: TicketlineCandidate; proposal: AssistantProposal; events?: { id: string; label: string }[]; closing_options?: TicketlineClosingOptions | null; persisted: boolean; notice?: string; review?: { review_id: string; version: number; effects_hash: string } };
 export type AssistantTurnResult = {
   status: "answer" | "clarify" | "select_message" | "select_event" | "proposal" | "limit" | "denied" | "stopped" | "error";
   text: string; trace: { tool: string; ok: boolean; summary: string }[]; options?: { id: string; label: string }[];

@@ -106,7 +106,7 @@ describe("#333 fase12 proposta Ticketline (inerte)", () => {
   });
   it("evento selado bloqueia o fecho", async () => {
     const p = await buildTicketlineProposal({ source_message_id: "m", ...statement() }, erp({ events: [{ id: EV1, name: "Concerto Sintético", date: null, sealed: true }] }), {});
-    expect(p.actions.find((a) => a.kind === "settlement_in_modal")?.blocked_reason).toBeTruthy();
+    expect(p.actions.find((a) => a.kind === "save_settlement")?.blocked_reason).toBeTruthy();
   });
   it("Σ ≠ total é sinalizado ao cêntimo", async () => {
     const p = await buildTicketlineProposal({ source_message_id: "m", ...statement({ document_total_cents: 999999 }) }, erp(), {});

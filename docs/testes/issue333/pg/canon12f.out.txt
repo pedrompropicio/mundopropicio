@@ -1,0 +1,118 @@
+0 base canónica: 42 triggers reais, 92 funções
+0a review 12f OK
+0b executor 12f OK
+1 probe (esquema 12f):
+{"schema": "333-12f", "enabled": false}
+2 revisão sem âmbito nominal → recusa no SQL:
+ERROR:  #333: scope_closed
+3 gate do executor fechado:
+ERROR:  #333: executor_closed
+4 âmbito expirado / removido → recusa no RPC (não só no servidor):
+ERROR:  #333: scope_closed
+ERROR:  #333: scope_closed
+5 service_role / anon sem EXECUTE:
+permission denied for function data_entry_assistant_execute_333
+permission denied for function data_entry_assistant_execute_333
+6 viewer da empresa (context) / manager de outra empresa (sem âmbito) / sem sessão:
+ERROR:  #333: context_mismatch
+ERROR:  #333: scope_closed
+ERROR:  #333: context_mismatch
+7 a3 antes de a4 (dependência):
+ERROR:  #333: dependency_pending
+8 fluxo integral E1 — a1 apuramento, a2 confirmar, a4 conferir deduções (0 escritas), a3 fecho pelo RPC do modal:
+succeeded novo {"lines": 2}
+succeeded novo {"status": "confirmed"}
+succeeded novo {"deductions": 1, "net_cents": 87700, "writes": 0}
+succeeded novo {"deductions": 1, "net_cents": 87700}
+fecho|confirmed|1000|123.0000000000000000|877.0000000000000000|877.0000000000000000|t|2026-10-15
+dedução|paid|123.00|2026-10-15|t|t|1/123.00/base D-ERP157
+expense:pending:0:-:true:pag=0:
+income:pending:0:-:false:pag=0:
+9 replay a3 (resposta perdida → mesmo resultado, 1 fecho):
+succeeded replay {"deductions": 1, "net_cents": 87700}
+1
+10 a5 liquidação (evidência humana = plano: conta B1, 877,00 €, 16/10): triggers reais materializam 1 pagamento por perna:
+succeeded novo {"already_liquidated": false, "payments": 2, "writes": 2}
+expense:paid:877.00:2026-10-16:true:pag=1:paid/877.00/2026-10-16/true/transfer
+income:paid:877.00:2026-10-16:false:pag=1:paid/877.00/2026-10-16/true/transfer
+11 replay a5 → sem pagamentos novos:
+succeeded replay {"already_liquidated": false, "payments": 2, "writes": 2}
+2
+12 evidência com valor diferente do plano → a5 bloqueada; autorizar a5 recusado:
+ERROR:  #333: actions_blocked
+13 E2 dados alterados após autorização (dedução editada / venda nova) → a4 recusa, nada escrito:
+ERROR:  #333: data_changed
+ERROR:  #333: data_changed
+0
+14 nova versão da revisão revoga a autorização anterior:
+ERROR:  #333: stale_version
+15 E3 fechado no modal por outro caminho depois da autorização → a1 recusada:
+t
+ERROR:  #333: event_sealed
+16 hash adulterado na versão persistida:
+ERROR:  #333: hash_mismatch
+17 contrato de ações é do servidor (dependência a3→a4 removida, hash recalculado): recusa:
+ERROR:  #333: actions_blocked
+18 E4 concorrência (2 ligações no mesmo a3) → 1 fecho, 1 execução:
+   A: succeeded novo {"deductions": 1, "net_cents": 87700}
+   B: succeeded replay {"deductions": 1, "net_cents": 87700}
+1
+1
+19 E5 estado parcial (pagamento planeado numa perna) → a5 recusa, não adivinha:
+ERROR:  #333: partial_state_manual
+expense:pending:0:-:true:pag=0:
+income:pending:0:-:false:pag=1:planned/100/2026-10-16/true/transfer
+20 E6 resultado perdido antes do commit (crash) → nada gravado; reexecução segura:
+succeeded
+expense:pending:0:-:true:pag=0:
+income:pending:0:-:false:pag=0:
+0
+succeeded novo {"already_liquidated": false, "payments": 2, "writes": 2}
+expense:paid:877.00:2026-10-16:true:pag=1:paid/877.00/2026-10-16/true/transfer
+income:paid:877.00:2026-10-16:false:pag=1:paid/877.00/2026-10-16/true/transfer
+21 outra revisão/autorização para o mesmo fecho já liquidado → conferência, 0 escritas, sem pagamento duplicado:
+succeeded novo {"already_liquidated": true, "writes": 0}
+expense:paid:877.00:2026-10-16:true:pag=1:paid/877.00/2026-10-16/true/transfer
+income:paid:877.00:2026-10-16:false:pag=1:paid/877.00/2026-10-16/true/transfer
+22 E7 fecho confirmado no modal (a receber) + evidência humana → a5 liquida com os triggers reais:
+succeeded novo {"already_liquidated": false, "payments": 2, "writes": 2}
+expense:paid:877.00:2026-10-16:true:pag=1:paid/877.00/2026-10-16/true/transfer
+income:paid:877.00:2026-10-16:false:pag=1:paid/877.00/2026-10-16/true/transfer
+23 E8 par TRF-FECHO adulterado (perna de entrada noutra conta) → recusa:
+ERROR:  #333: data_changed
+expense:pending:0:-:true:pag=0:
+income:pending:0:-:false:pag=0:
+24 E9 já creditado no painel → conferência, 0 escritas:
+succeeded novo {"already_liquidated": true, "writes": 0}
+expense:paid:877.00:2026-10-16:true:pag=1:paid/877.00/2026-10-16/true/transfer
+income:paid:877.00:2026-10-16:false:pag=1:paid/877.00/2026-10-16/true/transfer
+25 imutabilidade das execuções (dono):
+immutable_record
+immutable_record
+26 readback (ACL/defaultACL/SECDEF):
+t
+a1|5
+a2|5
+a3|4
+a4|4
+a5|5
+data_entry_assistant_executions_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f|f
+data_entry_assistant_executor_settings_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f|f
+_de333_closing_check(jsonb,uuid)|f|{"search_path=public, pg_temp"}|{postgres=X/postgres}|013f11df8964efbf54e35b557ac4bee7|f|f|f
+data_entry_assistant_execute_333(text,uuid,text)|t|{"search_path=public, pg_temp"}|{postgres=X/postgres,authenticated=X/postgres}|d5a8d210f998b923656055158ba1ca48|f|t|f
+de333_exec_immutable
+de333_exec_no_truncate
+_derive_paid_amount(uuid)|18a8b97b75f5451859fba0d91436d4c4
+confirm_ticket_office_statement(uuid)|2e868bc2a28ec291581028f6dc579c6a
+create_settlement_transfer(uuid,uuid,uuid,numeric,date,boolean)|01c9f9d4e716ced8f5c8e6b1c5b96f03
+guard_paid_amount_vs_payments()|081f6b2023ce838a37f450873bf0e7bc
+materialize_paid_amount_payment()|ea609d670ca2072770bf740b8d33ef5f
+save_ticket_office_settlement(uuid,jsonb,boolean,jsonb,jsonb,text,text,text)|08b121edb56d5c9fa630f1f0003d9a35
+validate_installments_total()|4b361558beca5e6ae3508f693c5ada2d
+39
+27 rollback do executor com execuções → recusa (retenção):
+executions_present_retain_before_rollback
+28 rollback executor OK
+29 esquema/ACL igual ao anterior ao executor
+30 reaplicar OK
+executor_absent_objects_drift
