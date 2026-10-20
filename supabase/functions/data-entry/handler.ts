@@ -204,7 +204,7 @@ export function createHandler(d: Deps) {
       if (body.action === "status") {
         let companyName: string | null = null;
         try { companyName = d.companyName ? await d.companyName(company) : null; } catch { companyName = null; }
-        return reply({ user_id: user.id, role: eff.role, company_id: company, company_name: companyName, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: d.analysisEnabled === true && uploadEnabled && !!d.analysis, gmail: !!d.gmail, drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
+        return reply({ user_id: user.id, role: eff.role, company_id: company, company_name: companyName, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: d.analysisEnabled === true && uploadEnabled && !!d.analysis, gmail: !!d.gmail, assistant: !!d.assistant, drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
       }
       const gmailReader = async () => {
         if (!d.gmail) throw new SafeError("A ligação ao Gmail ainda não está disponível nesta plataforma. Envia o ficheiro manualmente.", 503);

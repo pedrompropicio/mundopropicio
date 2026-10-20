@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useIsMobile } from "@/hooks/use-mobile";
 import DocumentAnalysisPanel from "./DocumentAnalysisPanel";
+import AssistantConversation from "./AssistantConversation";
 import GmailAttachmentPicker from "./GmailAttachmentPicker";
 import { prepareDataEntryScannerFile } from "@/lib/data-entry-scanner-file";
 import { applyAnalysisCandidate } from "@/lib/data-entry-analysis";
@@ -52,6 +53,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
   // #333 fase11d: com o envio fechado, só ligar/estado/desligar do Gmail (sem lote, pesquisa ou importação).
   const [gmailOnly, setGmailOnly] = useState<DataEntryContext | null>(null);
   const [gmailOnlyCompany, setGmailOnlyCompany] = useState<string | null>(null);
+  const [assistantCtx, setAssistantCtx] = useState<DataEntryContext | null>(null);
   const generation = useRef(0);
   const inFlight = useRef(false);
   useLayoutEffect(() => () => { generation.current += 1; }, []);
@@ -62,6 +64,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
     adapter.status().then((s) => {
       if (gen !== generation.current) return;
       if (s.user_id !== userId) { setUnavailable("Sessão alterada; reabre o assistente."); return; }
+      setAssistantCtx(s.capabilities.assistant === true ? { user_id: s.user_id, company_id: s.company_id } : null);
       if (!s.capabilities.upload) {
         setGmailOnly(s.capabilities.gmail === true ? { user_id: s.user_id, company_id: s.company_id } : null);
         setGmailOnlyCompany(typeof s.company_name === "string" && s.company_name.trim() ? s.company_name.trim() : null);
@@ -272,12 +275,15 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
         <div data-testid="data-entry-body" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4">
         {unavailable ? (
           <div className="space-y-3 text-sm">
+            {assistantCtx ? <AssistantConversation adapter={adapter} context={assistantCtx} />
+              : <p role="status" className="text-xs text-muted-foreground">Assistente conversacional (texto livre): em preparação, ainda não ativado.</p>}
             <p role={gmailOnly ? "status" : "alert"}>{unavailable}</p>
             {gmailOnly && <GmailAttachmentPicker key={`${gmailOnly.user_id}:${gmailOnly.company_id}:ligacao`} adapter={adapter} context={gmailOnly} sessionId="" enabled connectionOnly disabled={false} onImported={() => undefined} />}
             <div><h4 className="text-xs font-semibold">Ainda não disponível</h4><ul className="list-disc pl-4 text-xs text-muted-foreground">{PENDING.map((p) => <li key={p}>{p}</li>)}</ul></div>
           </div>
         ) : (
           <div className="space-y-3">
+            {assistantCtx && <AssistantConversation adapter={adapter} context={assistantCtx} />}
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             {isMobile ? (
               <Tabs defaultValue="doc">
