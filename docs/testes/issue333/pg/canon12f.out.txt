@@ -54,8 +54,8 @@ ERROR:  #333: hash_mismatch
 17 contrato de ações é do servidor (dependência a3→a4 removida, hash recalculado): recusa:
 ERROR:  #333: actions_blocked
 18 E4 concorrência (2 ligações no mesmo a3) → 1 fecho, 1 execução:
-   B: succeeded novo {"deductions": 1, "net_cents": 87700}
    A: succeeded replay {"deductions": 1, "net_cents": 87700}
+   B: succeeded novo {"deductions": 1, "net_cents": 87700}
 1
 1
 19 E5 estado parcial (pagamento planeado numa perna) → a5 recusa, não adivinha:
@@ -91,20 +91,100 @@ income:pending:0:-:false:pag=0:
 succeeded novo {"already_liquidated": true, "writes": 0}
 expense:paid:877.00:2026-10-16:true:pag=1:paid/877.00/2026-10-16/true/transfer
 income:paid:877.00:2026-10-16:false:pag=1:paid/877.00/2026-10-16/true/transfer
+24b 12g — a2 compara cabeçalho e linhas completas (mesma contagem/soma não basta):
+succeeded novo {"lines": 2}
+  valores trocados entre linhas (contagem e soma iguais):
+ERROR:  #333: data_changed
+  tipo de linha alterado:
+ERROR:  #333: data_changed
+  evento da linha alterado:
+ERROR:  #333: data_changed
+  descrição alterada:
+ERROR:  #333: data_changed
+  valor de linha NULL (coluna permite):
+ERROR:  new row for relation "ticket_office_statement_lines" violates check constraint "tosl_amount_or_pending"
+  linha extra de valor 0 (soma igual):
+ERROR:  #333: data_changed
+  data do apuramento alterada:
+ERROR:  #333: data_changed
+  bilheteira do apuramento alterada:
+ERROR:  #333: data_changed
+  total do documento NULL (coluna permite):
+ERROR:  #333: data_changed
+  estado após recusas (draft, 0 execuções a2):
+draft
+0
+  sem adulteração → confirma:
+succeeded novo {"status": "confirmed"}
+24c 12g — efeitos JSON sem chaves (hash recalculado) → recusa sem efeitos:
+  a1 sem total:
+ERROR:  #333: data_incomplete
+  a1 linha sem cêntimos:
+ERROR:  #333: data_incomplete
+                 FROM jsonb_array_elements(e->'lines') WITH ORDINALITY AS z(l, o)"
+0
+  plano de fecho sem cada chave (_de333_closing_check chamado pelo executor em a4/a3):
+   sem gross_cents: #333: data_incomplete
+   sem deductions_cents: #333: data_incomplete
+   sem net_cents: #333: data_incomplete
+   sem event_right_cents: #333: data_incomplete
+   sem office: #333: data_incomplete
+   sem event: #333: data_incomplete
+   sem transfer_account: #333: data_incomplete
+   sem settlement_date: #333: data_incomplete
+   sem deductions: #333: data_incomplete
+   dedução sem gross_cents: #333: data_incomplete
+   net_cents null: #333: data_incomplete
+   controlo (plano completo): 1000
+   a5 evidência sem amount_cents: ERROR:  #333: data_incomplete
+   a5 evidência sem date: ERROR:  #333: data_incomplete
+   a5 evidência sem account: ERROR:  #333: data_incomplete
+24d 12g — pernas TRF-FECHO com campos NULL/divergentes (E8, adulteração+execução na mesma transação, ROLLBACK):
+   company_id NULL: ERROR:  null value in column "company_id" of relation "transactions" violates not-null constraint
+   event_id NULL: ERROR:  #333: data_changed
+   account_id NULL: ERROR:  #333: data_changed
+   amount NULL: ERROR:  null value in column "amount" of relation "transactions" violates not-null constraint
+   currency NULL: ERROR:  null value in column "currency" of relation "transactions" violates not-null constraint
+   exclude_from_result NULL: ERROR:  null value in column "exclude_from_result" of relation "transactions" violates not-null constraint
+   status NULL: ERROR:  null value in column "status" of relation "transactions" violates not-null constraint
+   paid_amount NULL: ERROR:  null value in column "paid_amount" of relation "transactions" violates not-null constraint
+   iva_rate NULL: ERROR:  null value in column "iva_rate" of relation "transactions" violates not-null constraint
+   payment_method NULL: ERROR:  null value in column "payment_method" of relation "transactions" violates not-null constraint
+   exclude_from_result false: ERROR:  #333: data_changed
+   currency BRL: ERROR:  #333: data_changed
+   bilheteira inativa agora: ERROR:  #333: context_mismatch
+   conta de destino inativa agora: ERROR:  #333: context_mismatch
+   controlo (sem adulteração, ROLLBACK): {"result": {"writes": 2, "payments": 2, "amount_cents": 87700, "payment_date": "2026-10-16", "operation_key": "TRF-FECHO-3BAE79BC", "settlement_id": "3bae79bc-d0c7-4994-a513-6cc4311e2db0", "already_liquidated": false, "transfer_transaction_id": "4982bbfe-97aa-4010-a211-556322c1158b"}, "status": "succeeded", "replayed": false, "action_id": "a5"}
+expense:pending:0:-:true:pag=0:
+income:pending:0:-:false:pag=0:
+0
+24e 12g — já creditado mas divergente da evidência autorizada → nunca 'conferido':
+   evidência 17/10 vs crédito 16/10: ERROR:  #333: liquidated_divergent
+   pagamento da perna noutra data: ERROR:  #333: liquidated_divergent
+   pagamento da perna noutra conta: ERROR:  #333: liquidated_divergent
+   pagamento da perna sem conta (NULL): ERROR:  #333: liquidated_divergent
+   pagamento da perna estornado: ERROR:  #333: liquidated_divergent
+   pagamento duplicado na perna: ERROR:  #333: liquidated_divergent
+   controlo exato (ROLLBACK): {"result": {"writes": 0, "amount_cents": 87700, "payment_date": "2026-10-16", "operation_key": "TRF-FECHO-7EDF82B1", "settlement_id": "7edf82b1-6f5e-46ea-bfbc-dc0871b4c40e", "already_liquidated": true, "transfer_transaction_id": "7278a6f2-4cae-4cd9-8e58-cf16414e2ce7"}, "status": "succeeded", "replayed": false, "action_id": "a5"}
+expense:paid:877.00:2026-10-16:true:pag=1:paid/877.00/2026-10-16/true/transfer
+income:paid:877.00:2026-10-16:false:pag=1:paid/877.00/2026-10-16/true/transfer
+0
 25 imutabilidade das execuções (dono):
 immutable_record
 immutable_record
 26 readback (ACL/defaultACL/SECDEF):
 t
-a1|5
-a2|5
+a1|6
+a2|6
 a3|4
 a4|4
 a5|5
 data_entry_assistant_executions_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f|f
 data_entry_assistant_executor_settings_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f|f
-_de333_closing_check(jsonb,uuid)|f|{"search_path=public, pg_temp"}|{postgres=X/postgres}|013f11df8964efbf54e35b557ac4bee7|f|f|f
-data_entry_assistant_execute_333(text,uuid,text)|t|{"search_path=public, pg_temp"}|{postgres=X/postgres,authenticated=X/postgres}|d5a8d210f998b923656055158ba1ca48|f|t|f
+_de333_cents(jsonb,bigint)|f|{"search_path=public, pg_temp"}|{postgres=X/postgres}|632fc48322926f014808931d04744124|f|f|f
+_de333_req(jsonb,text)|f|{"search_path=public, pg_temp"}|{postgres=X/postgres}|5c99de7039f3670527db7c5a561c6273|f|f|f
+_de333_closing_check(jsonb,uuid)|f|{"search_path=public, pg_temp"}|{postgres=X/postgres}|b854873900780f8879638115d7b9a8da|f|f|f
+data_entry_assistant_execute_333(text,uuid,text)|t|{"search_path=public, pg_temp"}|{postgres=X/postgres,authenticated=X/postgres}|2983bdc9d278de713573422a14b4e680|f|t|f
 de333_exec_immutable
 de333_exec_no_truncate
 _derive_paid_amount(uuid)|18a8b97b75f5451859fba0d91436d4c4
