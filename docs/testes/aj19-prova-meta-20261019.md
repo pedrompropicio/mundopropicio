@@ -35,3 +35,19 @@ fbclid171; ttclid25. Supressão por fornecedor observada; ViewContent não dupli
 
 ## Limites
 Aceitação Meta comprovada pela resposta CAPI/log, não por inspeção do painel Test Events. TikTok de teste não enviado; aguarda código próprio. CI novo SHA não confirmado aqui. Nenhuma alteração em defaults, ACL, dados financeiros ou Portal.
+
+## Prova TikTok 20/10/2026
+Código de teste do pixel DARF89JC77U5PB60A4V0 usado só nos pedidos; não gravado em dados, código, log nem relatório.
+Correção prévia (só song-link-event): log TikTok com allowlist event_id, row_id, event_name, code, message, request_id (tiktokReceipt; mensagem descartada se ecoar o código). Testes 84/84 PASS. Deploy só song-link-event, source SHA-256 fcaf740c6d61197bf9c46718c8259972ce6129f2f72083b7d2efb4aeeafb4acf.
+
+Chegada marcada (insert SET LOCAL ROLE service_role, slug rs-tt): row_id 5dd12d07-fe13-404c-93bc-4256a6cb1f91; arrival_event_id 0445ba12-e1d7-4cb4-9f89-92b5704e99de; origin ssr; mode/utm_source teste_aj19; fbclid/ttclid NULL; capi_status teste; tiktok_status suprimido_teste.
+
+app_open (só código TikTok): HTTP200 {"ok":true}; row_id d9e30a78-1a51-447e-8124-4fff9e27c07e; event_id 0445ba12-…:open; capi_status suprimido_teste; tiktok_status enviado.
+Slot tiktok/CompleteRegistration delivered, reserved_by d9e30a78-…, delivered_at 00:07:02.471 UTC.
+Log 00:07:02 UTC: status200, event CompleteRegistration, event_id 0445ba12-e1d7-4cb4-9f89-92b5704e99de:open, code0, message OK, request_id 20261020000702FFB35E4ECB341E9BC5E2, test true.
+
+choice 1 (falha do script de prova, sem event_id): HTTP200, row_id 6663b51d-dc9d-4444-a0fe-c4175b8ae9e0, ClickButton de teste sem event_id (code0 OK, request_id 202610200007116586D54D5B80241B304A); Meta suprimido_teste. Mantida, não apagada.
+choice 2 (válida): HTTP200; row_id 5bed01c2-b2fc-4495-8193-6578c2b629f8; event_id f35c259f-eb92-46c9-a951-3180c3f97f4a; capi_status suprimido_teste; tiktok_status enviado. Log 00:07:34 UTC: ClickButton, event_id f35c259f-…, code0, message OK, request_id 202610200007342A1D3E48081D21179A93, test true.
+Slots da chegada: apenas tiktok/CompleteRegistration (nenhum segundo CompleteRegistration, nenhum slot Meta).
+
+Limites: aceitação TikTok comprovada pela resposta da Events API, não pelo painel Test Events. Nenhuma linha apagada. CI do novo SHA não confirmado aqui.
