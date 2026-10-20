@@ -51,6 +51,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
   const [gmailEnabled, setGmailEnabled] = useState(false);
   // #333 fase11d: com o envio fechado, só ligar/estado/desligar do Gmail (sem lote, pesquisa ou importação).
   const [gmailOnly, setGmailOnly] = useState<DataEntryContext | null>(null);
+  const [gmailOnlyCompany, setGmailOnlyCompany] = useState<string | null>(null);
   const generation = useRef(0);
   const inFlight = useRef(false);
   useLayoutEffect(() => () => { generation.current += 1; }, []);
@@ -63,6 +64,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
       if (s.user_id !== userId) { setUnavailable("Sessão alterada; reabre o assistente."); return; }
       if (!s.capabilities.upload) {
         setGmailOnly(s.capabilities.gmail === true ? { user_id: s.user_id, company_id: s.company_id } : null);
+        setGmailOnlyCompany(typeof s.company_name === "string" && s.company_name.trim() ? s.company_name.trim() : null);
         setUnavailable("O envio de documentos ainda não foi ativado neste ambiente. Nada foi guardado nem lançado."); return;
       }
       const c = { user_id: s.user_id, company_id: s.company_id };
@@ -254,7 +256,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
     </section>
   );
 
-  const stateLabel = !context && !unavailable ? "A resolver sessão e empresa" : unavailable ? "Indisponível" : executed ? "Concluído" : busy ? `A tratar: ${busy}` : preview ? "Prévia pronta" : state ? "Lote aberto" : "Pronto";
+  const stateLabel = !context && !unavailable ? "A resolver sessão e empresa" : unavailable ? (gmailOnly ? "Gmail disponível · Documentos ainda desativados" : "Indisponível") : executed ? "Concluído" : busy ? `A tratar: ${busy}` : preview ? "Prévia pronta" : state ? "Lote aberto" : "Pronto";
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90dvh] flex flex-col gap-0 overflow-hidden p-0">
@@ -262,15 +264,15 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
           <DialogTitle>Assistente de Entrada de Dados</DialogTitle>
           <DialogDescription>Documento → dados confirmados → prévia → autorização expressa → conferência.</DialogDescription>
           <div className="flex flex-wrap gap-1.5 pt-1">
-            <Badge variant="outline">Empresa: {state?.company.name ?? "—"}</Badge>
+            <Badge variant="outline">Empresa: {state?.company.name ?? (gmailOnly ? gmailOnlyCompany : null) ?? "—"}</Badge>
             <Badge variant="outline">Evento: {state?.event?.name ?? "nenhum"}</Badge>
-            <Badge variant={unavailable ? "destructive" : "secondary"}>Estado: {stateLabel}</Badge>
+            <Badge variant={unavailable && !gmailOnly ? "destructive" : "secondary"}>Estado: {stateLabel}</Badge>
           </div>
         </DialogHeader>
         <div data-testid="data-entry-body" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4">
         {unavailable ? (
           <div className="space-y-3 text-sm">
-            <p role="alert">{unavailable}</p>
+            <p role={gmailOnly ? "status" : "alert"}>{unavailable}</p>
             {gmailOnly && <GmailAttachmentPicker key={`${gmailOnly.user_id}:${gmailOnly.company_id}:ligacao`} adapter={adapter} context={gmailOnly} sessionId="" enabled connectionOnly disabled={false} onImported={() => undefined} />}
             <div><h4 className="text-xs font-semibold">Ainda não disponível</h4><ul className="list-disc pl-4 text-xs text-muted-foreground">{PENDING.map((p) => <li key={p}>{p}</li>)}</ul></div>
           </div>

@@ -97,6 +97,12 @@ Deno.serve(createHandler({
       generate: (data, transport) => generateScannerAnalysis(data, Deno.env.get("LOVABLE_API_KEY") ?? "", transport),
     }, { ...input, signal })));
   },
+  async companyName(company) {
+    const { data, error } = await admin.from("companies").select("display_name, name").eq("id", company).maybeSingle();
+    if (error || !data) return null;
+    const n = String((data as { display_name?: string | null; name?: string | null }).display_name || (data as { name?: string | null }).name || "").replace(/[\x00-\x1f\x7f]/g, "").trim().slice(0, 120);
+    return n || null;
+  },
   async getUser(token) {
     const { data, error } = await admin.auth.getUser(token);
     return error || !data.user ? null : { id: data.user.id };

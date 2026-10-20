@@ -35,6 +35,8 @@ export interface Deps {
   /** #333 fase11: Gmail só leitura pela ligação PRÓPRIA do utilizador nesta empresa.
    * Ausente = infraestrutura de ligação ainda não configurada; null = utilizador sem ligação. */
   gmail?: Pick<GmailConnection, "reader"> & Partial<Omit<GmailConnection, "reader">>;
+  /** Nome canónico da empresa já resolvida no servidor; null/erro = não mostrar (nunca inventar). */
+  companyName?(company: string): Promise<string | null>;
   cors: Record<string, string>;
 }
 
@@ -192,7 +194,9 @@ export function createHandler(d: Deps) {
       const text = new TextDecoder().decode(await readCapped(req.body, 16000).catch(() => { throw new SafeError("Pedido demasiado grande", 413); }));
       const body = commandSchema.parse(JSON.parse(text));
       if (body.action === "status") {
-        return reply({ user_id: user.id, role: eff.role, company_id: company, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: d.analysisEnabled === true && uploadEnabled && !!d.analysis, gmail: !!d.gmail, drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
+        let companyName: string | null = null;
+        try { companyName = d.companyName ? await d.companyName(company) : null; } catch { companyName = null; }
+        return reply({ user_id: user.id, role: eff.role, company_id: company, company_name: companyName, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: d.analysisEnabled === true && uploadEnabled && !!d.analysis, gmail: !!d.gmail, drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
       }
       const gmailReader = async () => {
         if (!d.gmail) throw new SafeError("A ligação ao Gmail ainda não está disponível nesta plataforma. Envia o ficheiro manualmente.", 503);
