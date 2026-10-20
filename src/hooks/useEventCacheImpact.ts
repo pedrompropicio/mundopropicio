@@ -218,7 +218,7 @@ export function useEventCacheImpact(params: {
       if (!cacheCategoryId) return 0;
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("amount, status, is_transitory, parent_transaction_id, split_percentage, is_hidden")
+        .select("amount, status, is_transitory, parent_transaction_id, split_percentage, is_hidden, cache_role")
         .in("event_id", txEventIds)
         .eq("type", "expense")
         .eq("category_id", cacheCategoryId)
@@ -229,7 +229,9 @@ export function useEventCacheImpact(params: {
           (t: any) =>
             !t.is_transitory &&
             !t.is_hidden &&
-            !(t.parent_transaction_id && t.split_percentage !== null),
+            // Filhas de contrato de cachê (cache_role) contam no evento da cidade — a mãe
+            // não tem evento, logo não entra; sem isto o cachê seria contado duas vezes.
+            (!!t.cache_role || !(t.parent_transaction_id && t.split_percentage !== null)),
         )
         .reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
     },
