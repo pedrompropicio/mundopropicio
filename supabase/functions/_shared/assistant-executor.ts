@@ -32,6 +32,7 @@ export const REFUSALS: Record<string, [string, number]> = {
   data_changed: ["Os dados no sistema mudaram desde a autorização; nada foi alterado.", 409],
   scope_closed: ["Janela de execução fechada para si nesta empresa (âmbito expirado). Nada foi executado.", 503],
   partial_state_manual: ["A transferência do fecho tem pagamentos parciais/planeados ou estorno: resolver no painel do fecho. Nada foi alterado.", 409],
+  liquidated_divergent: ["A transferência do fecho já está creditada, mas com conta, data ou valor diferentes do que autorizou. Não foi dado como conferido; verifique no painel do fecho.", 409],
   readback_mismatch: ["A conferência falhou; a operação foi anulada.", 409],
 };
 export const unavailableExecutor: Executor = {
