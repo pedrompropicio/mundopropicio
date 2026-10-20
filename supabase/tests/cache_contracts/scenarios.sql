@@ -192,7 +192,7 @@ SELECT pg_temp.fails($$SELECT public.create_cache_advance('00000000-0000-0000-00
 SELECT public.create_cache_payment_contract('00000000-0000-0000-0000-000000000900','00000000-0000-0000-0000-00000000a000','00000000-0000-0000-0000-00000000a000', 10000, false, NULL, NULL, NULL, ARRAY[:'adv9']::uuid[]) AS c9 \gset
 SELECT public.add_cache_contract_advance(:'c9', 500, NULL, NULL, 'a9') AS pa9 \gset
 SELECT pg_temp.ok((SELECT amount FROM public.transactions WHERE id=(SELECT artist_mother_id FROM public.cache_payment_contracts WHERE id=:'c9')) = 8500, 'após congelar: adiantamento dentro do contrato reduz saldo');
-SELECT pg_temp.ok((public.cache_contract_context('00000000-0000-0000-0000-000000000900','00000000-0000-0000-0000-00000000a000')->>'frozen')::boolean, 'contexto: congelado');
+SELECT pg_temp.ok((public.cache_contract_status('00000000-0000-0000-0000-000000000900','00000000-0000-0000-0000-00000000a000')->>'frozen')::boolean, 'contexto: congelado');
 SELECT pg_temp.ok((SELECT bool_and(current_count = 0) FROM public._run_invariant_checks_cache_contracts()), 'invariantes conformes após ajuste');
 -- sem permissão
 SET t.uid = '00000000-0000-0000-0000-0000000000ff';
