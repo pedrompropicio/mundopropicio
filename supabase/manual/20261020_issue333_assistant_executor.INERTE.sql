@@ -46,7 +46,7 @@ CREATE TRIGGER de333_exec_no_truncate BEFORE TRUNCATE ON public.data_entry_assis
 -- Re-conferência do plano de fecho revisto contra o ERP atual, com as mesmas regras do modal
 -- (TicketOfficeSettlementModal + isSettlementEligibleTxn). Devolve a receita bruta exata; recusa qualquer divergência.
 CREATE FUNCTION public._de333_closing_check(c jsonb, p_company uuid) RETURNS numeric
-LANGUAGE plpgsql STABLE SET search_path = public, pg_temp AS $k$
+LANGUAGE plpgsql VOLATILE SET search_path = public, pg_temp AS $k$
 DECLARE v_office uuid := (c->>'office')::uuid; v_event uuid := (c->>'event')::uuid; v_to uuid := (c->>'transfer_account')::uuid;
   v_gross numeric; v_n int; d jsonb; t record; v_sum bigint := 0;
 BEGIN
@@ -226,13 +226,15 @@ BEGIN
       IF e->'closing'->>'transfer_account' IS DISTINCT FROM e->'settlement'->>'account' OR (e->'closing'->>'net_cents')::bigint <> (e->'settlement'->>'amount_cents')::bigint
       THEN RAISE EXCEPTION '#333: data_changed' USING ERRCODE = 'P0001'; END IF;
       SELECT * INTO s FROM public.ticket_office_settlements WHERE id = v_set AND company_id = v_company FOR UPDATE;
+      IF NOT FOUND THEN RAISE EXCEPTION '#333: data_changed' USING ERRCODE = 'P0001'; END IF;
     ELSE
       IF e->'canonical' IS NULL OR e->'canonical' = 'null'::jsonb THEN RAISE EXCEPTION '#333: data_incomplete' USING ERRCODE = 'P0001'; END IF;
       SELECT * INTO s FROM public.ticket_office_settlements WHERE event_id = v_event AND company_id = v_company AND status = 'confirmed' AND reversed_at IS NULL FOR UPDATE;
-      IF FOUND AND (s.transfer_account_id::text IS DISTINCT FROM e->'canonical'->>'transfer_account_id' OR round(s.net_transferred * 100) <> (e->'canonical'->>'net_transferred_cents')::numeric)
+      IF NOT FOUND THEN RAISE EXCEPTION '#333: data_changed' USING ERRCODE = 'P0001'; END IF;
+      IF (s.transfer_account_id::text IS DISTINCT FROM e->'canonical'->>'transfer_account_id' OR round(s.net_transferred * 100) <> (e->'canonical'->>'net_transferred_cents')::numeric)
       THEN RAISE EXCEPTION '#333: data_changed' USING ERRCODE = 'P0001'; END IF;
     END IF;
-    IF s.id IS NULL OR s.status <> 'confirmed' OR s.reversed_at IS NOT NULL OR s.transfer_transaction_id IS NULL
+    IF s.status <> 'confirmed' OR s.reversed_at IS NOT NULL OR s.transfer_transaction_id IS NULL
        OR s.transfer_account_id::text IS DISTINCT FROM e->'settlement'->>'account' OR round(s.net_transferred * 100) <> (e->'settlement'->>'amount_cents')::numeric
        OR v_date < s.settlement_date
     THEN RAISE EXCEPTION '#333: data_changed' USING ERRCODE = 'P0001'; END IF;
