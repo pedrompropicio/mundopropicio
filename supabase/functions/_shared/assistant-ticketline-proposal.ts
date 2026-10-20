@@ -5,6 +5,7 @@
  * com dependências explícitas e hash dos efeitos para uma autorização futura vinculada.
  * Fecho recebido NÃO prova recebimento bancário: liquidação exige conta/data/valor confirmados por pessoa.
  */
+import { statementTypeTotals } from "./ticketline-totals.ts";
 export const LINE_TYPES = ["event_right", "ticketline_invoice", "venue_settlement", "advance", "carry_over"] as const;
 export type LineType = typeof LINE_TYPES[number];
 export const LINE_LABEL: Record<LineType, string> = {
@@ -52,6 +53,8 @@ export type Proposal = {
   actions: ProposedAction[];
   needs: string[];
   effects_hash: string;
+  /** Complete source candidates included in the binding, never confirmed by the model. */
+  effects: Record<string, unknown>;
 };
 
 const canon = (v: unknown): string => Array.isArray(v) ? `[${v.map(canon).join(",")}]`
@@ -73,16 +76,17 @@ export function resolveEvent(hints: (string | null)[], events: ErpContext["event
 
 export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpContext, opts: { event_id?: string | null; settlement?: SettlementEvidence }): Promise<Proposal> {
   const checks: Check[] = []; const needs: string[] = [];
-  const totals: Partial<Record<LineType, number>> = {};
-  for (const l of x.lines) totals[l.line_type] = (totals[l.line_type] ?? 0) + l.amount_cents;
+  const mapped = statementTypeTotals(x.lines.map(l => ({ line_type: l.line_type, amount: l.amount_cents / 100 })));
+  const totals = Object.fromEntries(Object.entries(mapped).map(([type, amount]) => [type, Math.round(amount * 100)])) as Partial<Record<LineType, number>>;
   const sum = x.lines.reduce((a, l) => a + l.amount_cents, 0);
   const diff = x.document_total_cents == null ? null : sum - x.document_total_cents;
-  const ints = x.lines.every((l) => Number.isInteger(l.amount_cents)) && (x.document_total_cents == null || Number.isInteger(x.document_total_cents));
+  const ints = x.lines.length > 0 && x.lines.every((l) => Number.isSafeInteger(l.amount_cents) && Math.abs(l.amount_cents) <= 1000000000 && LINE_TYPES.includes(l.line_type)) && (x.document_total_cents == null || Number.isSafeInteger(x.document_total_cents));
   checks.push({ code: "cents", ok: ints, message: ints ? "Valores ao cêntimo." : "Valores com frações de cêntimo: rever o documento." });
   if (x.document_total_cents == null) { checks.push({ code: "total", ok: false, message: "Falta o total do documento." }); needs.push("Total do documento"); }
-  else checks.push({ code: "sum", ok: diff === 0, message: diff === 0 ? "Σ linhas = total do documento." : `Σ linhas difere do total em ${(diff! / 100).toFixed(2)} €.` });
+  else checks.push({ code: "sum", ok: diff === 0, message: diff === 0 ? "Σ linhas = total do documento." : `Σ linhas difere do total em ${((diff ?? 0) / 100).toFixed(2)} €.` });
   if (!x.number) needs.push("Número do apuramento");
-  const dup = x.number ? erp.existing_statements.find((s) => norm(s.number) === norm(x.number!)) : undefined;
+  const number = x.number;
+  const dup = number ? erp.existing_statements.find((s) => s.number.trim().toUpperCase() === number.trim().toUpperCase()) : undefined;
   checks.push({ code: "duplicate", ok: !dup, message: dup ? `Apuramento ${dup.number} já existe (estado ${dup.status}); não duplicar.` : "Sem apuramento com o mesmo número." });
   const ev = resolveEvent(x.lines.map((l) => l.event_hint), erp.events, opts.event_id);
   if (!ev.match) needs.push(ev.candidates.length > 1 ? `Escolher o evento (${ev.candidates.length} possíveis)` : "Indicar o evento");
@@ -90,37 +94,46 @@ export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpCon
   checks.push({ code: "sealed", ok: !sealed, message: sealed ? "Evento já tem fecho confirmado: não alterar." : "Evento sem fecho confirmado." });
   const settlement = opts.settlement ?? null;
   if (!settlement) needs.push("Conta, data e valor da liquidação (o email não prova o recebimento)");
-  const payable = (totals.event_right ?? 0) + (totals.ticketline_invoice ?? 0) + (totals.venue_settlement ?? 0) + (totals.advance ?? 0) + (totals.carry_over ?? 0);
-  if (settlement && settlement.amount_cents !== payable) checks.push({ code: "liquidation_amount", ok: false, message: `Valor confirmado (${(settlement.amount_cents / 100).toFixed(2)} €) ≠ saldo do apuramento (${(payable / 100).toFixed(2)} €).` });
+  // Σ includes repasses/transitado only for position reconciliation, never as event net or payment authority.
+  needs.push("Rever linhas/documentos e cálculo do direito no modal canónico; repasses/transitado não são deduções do fecho.");
+  if (settlement) checks.push({ code: "liquidation_amount", ok: false, message: "Evidência ainda não vinculada pelo servidor ao recebimento e ao saldo canónico; liquidação bloqueada." });
 
   const hard = checks.some((c) => !c.ok);
   const base = hard || !ev.match || !x.number ? "Resolver verificações/pendências antes." : null;
   const actions: ProposedAction[] = [
     { id: "a1", kind: "create_statement", label: `Registar apuramento ${x.number ?? "?"} com ${x.lines.length} linha(s)`, existing_flow: "ticket_office_statements + ticket_office_statement_lines (Bilheteiras → Apuramentos)", depends_on: [], blocked_reason: base },
-    { id: "a2", kind: "confirm_statement", label: "Confirmar apuramento (Σ linhas = total, sem linhas pendentes)", existing_flow: "RPC confirm_ticket_office_statement (admin/manager)", depends_on: ["a1"], blocked_reason: base },
+    { id: "a2", kind: "confirm_statement", label: "Confirmar apuramento (Σ linhas = total, sem linhas pendentes)", existing_flow: "RPC confirm_ticket_office_statement (admin/manager)", depends_on: ["a1"], blocked_reason: base ?? "Documentos e linhas ainda não revistos pela pessoa." },
     { id: "a3", kind: "settlement_in_modal", label: `Preparar fecho do evento ${ev.match?.name ?? "?"} no modal de fecho`, existing_flow: "TicketOfficeSettlementModal → ticket_office_settlements", depends_on: ["a2"], blocked_reason: base ?? (sealed ? "Evento selado." : null) },
-    { id: "a4", kind: "create_transactions", label: "Gerar transações do fecho (direito, fatura Ticketline, acerto da sala)", existing_flow: "Fluxo de fecho existente (transações pendentes vinculadas)", depends_on: ["a3"], blocked_reason: base },
-    { id: "a5", kind: "register_liquidation", label: "Liquidar com a entrada bancária confirmada", existing_flow: "transaction_payments (Registar pagamento)", depends_on: ["a4"], blocked_reason: settlement ? base : "Sem evidência de recebimento: conta/data/valor por confirmar." },
+    { id: "a4", kind: "create_transactions", label: "Rever transações existentes e documentos em falta antes do fecho", existing_flow: "Fluxos documentais existentes → despesas pendentes vinculadas no modal (não cria despesas automaticamente)", depends_on: ["a3"], blocked_reason: base ?? "Prévia documental e vínculos das transações por confirmar." },
+    { id: "a5", kind: "register_liquidation", label: "Liquidar com a entrada bancária confirmada", existing_flow: "transaction_payments (Registar pagamento)", depends_on: ["a4"], blocked_reason: "Sem evidência de recebimento vinculada no servidor: conta/data/valor por confirmar." },
   ];
   const effects = { company: erp.company_id, source: x.source_message_id, number: x.number, date: x.statement_date, total: x.document_total_cents, lines: x.lines, event: ev.match?.id ?? null, settlement };
   return {
     version: 1, company_id: erp.company_id, source_message_id: x.source_message_id, statement_number: x.number,
     event: ev.match ? { id: ev.match.id, name: ev.match.name } : null, totals_cents: totals, sum_cents: sum,
     document_total_cents: x.document_total_cents, difference_cents: diff, checks, actions, needs,
-    effects_hash: await sha256Hex(canon(effects)),
+    effects, effects_hash: await sha256Hex(canon({ effects, actions })),
   };
 }
 
 /** Autorização futura: vinculada a user+empresa+versão+hash; qualquer variação da prévia a invalida. */
 export type Authorization = { user_id: string; company_id: string; version: 1; effects_hash: string; action_ids: string[] };
 export function authorizationMatches(a: Authorization, p: Proposal, ctx: { user_id: string; company_id: string }): boolean {
+  const expected: Record<string, { kind: ProposedAction["kind"]; deps: string[] }> = {
+    a1: { kind: "create_statement", deps: [] }, a2: { kind: "confirm_statement", deps: ["a1"] },
+    a3: { kind: "settlement_in_modal", deps: ["a2"] }, a4: { kind: "create_transactions", deps: ["a3"] }, a5: { kind: "register_liquidation", deps: ["a4"] },
+  };
+  if (!a.action_ids.length || new Set(a.action_ids).size !== a.action_ids.length || new Set(p.actions.map(x => x.id)).size !== p.actions.length || p.actions.length !== 5) return false;
+  if (p.actions.some(x => !expected[x.id] || x.kind !== expected[x.id].kind || canon(x.depends_on) !== canon(expected[x.id].deps))) return false;
+  const selected = new Set(a.action_ids);
   return a.user_id === ctx.user_id && a.company_id === ctx.company_id && a.company_id === p.company_id
     && a.version === p.version && a.effects_hash === p.effects_hash
-    && a.action_ids.every((id) => p.actions.some((x) => x.id === id && !x.blocked_reason));
+    && a.action_ids.every((id) => p.actions.some((x) => x.id === id && !x.blocked_reason && x.depends_on.every(dep => selected.has(dep))))
+    && a.action_ids.length === p.actions.filter(x => !x.blocked_reason).length;
 }
 /** Nesta entrega não há executor integrado: lacunas específicas, nunca execução fingida. */
 export const EXECUTION_GAPS = [
   "Executor tipado ainda não ligado aos fluxos existentes (apuramento, fecho, transações, liquidações).",
   "Autorização expressa não é persistida nem verificada no servidor (tabela/RPC por aprovar).",
-  "Fornecedor do modelo não ligado: o assistente corre só com respostas simuladas nos testes.",
+  "Adaptador de IA implementado, ativação fechada e disponibilidade real ainda não validada.",
 ] as const;
