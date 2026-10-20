@@ -47,15 +47,15 @@ describe("#333 real adapters with synthetic HTTP only", () => {
   it.each([402, 403, 404])("terminal HTTP %i is not retried and denial persists", async status => {
     const c = control(); const f = vi.fn(async () => new Response(JSON.stringify({ error: { message: "mock-denied", type: "provider_denial" } }), { status, headers: { "Content-Type": "application/json" } }));
     const m = createAssistantModel({ apiKey: "local-not-a-key", control: c.control, validateContext: async () => {}, fetch: f });
-    await expect(m.next({ contract: "local", tools: TOOL_NAMES, messages: [], signal: signal() })).rejects.toMatchObject({ status });
+    await expect(m.next({ contract: "local", tools: TOOL_NAMES, messages: [{ role: "user", content: "pedido" }], signal: signal() })).rejects.toMatchObject({ status });
     expect(f).toHaveBeenCalledTimes(1);
-    if (status === 403) { await expect(m.next({ contract: "local", tools: TOOL_NAMES, messages: [], signal: signal() })).rejects.toMatchObject({ status: 503 }); expect(f).toHaveBeenCalledTimes(1); }
+    if (status === 403) { await expect(m.next({ contract: "local", tools: TOOL_NAMES, messages: [{ role: "user", content: "pedido" }], signal: signal() })).rejects.toMatchObject({ status: 503 }); expect(f).toHaveBeenCalledTimes(1); }
   });
   it("Stop propagates to provider fetch and classifies uncertain after POST", async () => {
     const c = control(); const ac = new AbortController(); let reached: () => void = () => {}; const ready = new Promise<void>(r => reached = r);
     const f: typeof fetch = async (_url, init) => new Promise((_resolve, reject) => { reached(); init?.signal?.addEventListener("abort", () => reject(new DOMException("stop", "AbortError")), { once: true }); });
     const m = createAssistantModel({ apiKey: "local-not-a-key", control: c.control, validateContext: async () => {}, fetch: f });
-    const pending = m.next({ contract: "local", tools: TOOL_NAMES, messages: [], signal: ac.signal });
+    const pending = m.next({ contract: "local", tools: TOOL_NAMES, messages: [{ role: "user", content: "pedido" }], signal: ac.signal });
     await ready; ac.abort(); await expect(pending).rejects.toBeDefined(); expect(c.outcomes).toEqual(["cancelled_after_post"]);
   });
   it("oversized transcript is refused before HTTP", async () => {
