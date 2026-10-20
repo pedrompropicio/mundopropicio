@@ -9,7 +9,7 @@ import { assertProviderControlAvailable, durableProviderControl, rpcControlStore
 import { boundedAnalysis } from "./analysis-deadline.ts";
 import { createGmailConnection, type GmailConnectionStore } from "../_shared/gmail-app-user.ts";
 import { createAssistantModel } from "../_shared/issue333-ai/assistant-model.ts";
-import { readAssistantErp, readAssistantAccounts, type ErpReader } from "../_shared/assistant-erp.ts";
+import { readAssistantErp, readAssistantAccounts, readAssistantClosing, type ErpReader, type ClosingReader } from "../_shared/assistant-erp.ts";
 import { rpcReviewStore } from "../_shared/assistant-review-store.ts";
 import { rpcExecutor } from "../_shared/assistant-executor.ts";
 
@@ -40,6 +40,21 @@ const erpReader = (token: string): ErpReader => {
     if (query.number) q = q.ilike("number", `%${query.number.replace(/[\\%_]/g, "\\$&")}%`); // bounded candidates; identity still checked with separators intact
     const r = await q.abortSignal(query.signal);
     if (r.error) throw new AnalysisError("Leitura ERP recusada ou indisponível.", 403);
+    return r.data;
+  };
+};
+
+// #333 fase12f: leituras do plano de fecho (mesmas fontes do modal) com o JWT do chamador; nunca cliente privilegiado.
+const closingReader = (token: string): ClosingReader => {
+  const client = asUser(token);
+  return async query => {
+    let q = client.from(query.table).select(query.columns).order("id").limit(query.limit);
+    for (const [k, v] of Object.entries(query.eq ?? {})) q = q.eq(k, v);
+    if (query.in) q = q.in(query.in[0], query.in[1]);
+    if (query.neq) q = q.neq(query.neq[0], query.neq[1]);
+    if (query.notNull) q = q.not(query.notNull, "is", null);
+    const r = await q.abortSignal(query.signal);
+    if (r.error) throw new AnalysisError("Leitura do fecho recusada ou indisponível.", 403);
     return r.data;
   };
 };
@@ -98,6 +113,7 @@ Deno.serve(createHandler({
   ticketlineErp: {
     context: (token, company, text, signal, number, eventId) => readAssistantErp(erpReader(token), company, text, signal, number, eventId),
     accounts: (token, company, signal) => readAssistantAccounts(erpReader(token), company, signal),
+    closing: (token, company, office, event, signal) => readAssistantClosing(closingReader(token), company, office, event, signal),
     account: (token) => async (id) => {
       const { data, error } = await asUser(token).from("financial_accounts").select("id,company_id,is_active,is_hidden").eq("id", id).maybeSingle();
       return error || !data ? null : data as { id: string; company_id: string; is_active: boolean; is_hidden: boolean };
