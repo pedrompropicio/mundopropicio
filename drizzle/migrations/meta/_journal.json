@@ -1513,6 +1513,13 @@
       "when": 1792530553677,
       "tag": "0215_cache_payment_contracts_acl",
       "breakpoints": true
+    },
+    {
+      "idx": 216,
+      "version": "7",
+      "when": 1792537287385,
+      "tag": "0216_cache_contracts_bp_line_and_freeze",
+      "breakpoints": true
     }
   ]
 }
