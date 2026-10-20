@@ -105,9 +105,9 @@ export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpCon
   const actions: ProposedAction[] = [
     { id: "a1", kind: "create_statement", label: `Registar apuramento ${x.number ?? "?"} com ${x.lines.length} linha(s)`, existing_flow: "ticket_office_statements + ticket_office_statement_lines (Bilheteiras → Apuramentos)", depends_on: [], blocked_reason: base },
     { id: "a2", kind: "confirm_statement", label: "Confirmar apuramento (Σ linhas = total, sem linhas pendentes)", existing_flow: "RPC confirm_ticket_office_statement (admin/manager)", depends_on: ["a1"], blocked_reason: base ?? "Documentos e linhas ainda não revistos pela pessoa." },
-    { id: "a3", kind: "settlement_in_modal", label: `Preparar fecho do evento ${ev.match?.name ?? "?"} no modal de fecho`, existing_flow: "TicketOfficeSettlementModal → ticket_office_settlements", depends_on: ["a2"], blocked_reason: base ?? (sealed ? "Evento selado." : null) },
-    { id: "a4", kind: "create_transactions", label: "Rever transações existentes e documentos em falta antes do fecho", existing_flow: "Fluxos documentais existentes → despesas pendentes vinculadas no modal (não cria despesas automaticamente)", depends_on: ["a3"], blocked_reason: base ?? "Prévia documental e vínculos das transações por confirmar." },
-    { id: "a5", kind: "register_liquidation", label: "Liquidar com a entrada bancária confirmada", existing_flow: "transaction_payments (Registar pagamento)", depends_on: ["a4"], blocked_reason: "Sem evidência de recebimento vinculada no servidor: conta/data/valor por confirmar." },
+    { id: "a4", kind: "create_transactions", label: "Rever transações existentes e documentos em falta antes do fecho", existing_flow: "Fluxos documentais existentes → despesas pendentes vinculadas no modal (não cria despesas automaticamente)", depends_on: ["a2"], blocked_reason: base ?? "Prévia documental e vínculos das transações por confirmar." },
+    { id: "a3", kind: "settlement_in_modal", label: `Preparar fecho do evento ${ev.match?.name ?? "?"} no modal de fecho`, existing_flow: "TicketOfficeSettlementModal → ticket_office_settlements", depends_on: ["a4"], blocked_reason: base ?? (sealed ? "Evento selado." : null) },
+    { id: "a5", kind: "register_liquidation", label: "Liquidar com a entrada bancária confirmada", existing_flow: "transaction_payments (Registar pagamento)", depends_on: ["a3"], blocked_reason: "Sem evidência de recebimento vinculada no servidor: conta/data/valor por confirmar." },
   ];
   const effects = { company: erp.company_id, source: x.source_message_id, source_content_hash: x.source_content_hash ?? null, number: x.number, date: x.statement_date, total: x.document_total_cents, lines: x.lines, event: ev.match?.id ?? null, settlement: null };
   return {
@@ -123,7 +123,7 @@ export type Authorization = { user_id: string; company_id: string; version: 1; e
 export async function authorizationMatches(a: Authorization, p: Proposal, ctx: { user_id: string; company_id: string }): Promise<boolean> {
   const expected: Record<string, { kind: ProposedAction["kind"]; deps: string[] }> = {
     a1: { kind: "create_statement", deps: [] }, a2: { kind: "confirm_statement", deps: ["a1"] },
-    a3: { kind: "settlement_in_modal", deps: ["a2"] }, a4: { kind: "create_transactions", deps: ["a3"] }, a5: { kind: "register_liquidation", deps: ["a4"] },
+    a3: { kind: "settlement_in_modal", deps: ["a4"] }, a4: { kind: "create_transactions", deps: ["a2"] }, a5: { kind: "register_liquidation", deps: ["a3"] },
   };
   if (!a.action_ids.length || new Set(a.action_ids).size !== a.action_ids.length || new Set(p.actions.map(x => x.id)).size !== p.actions.length || p.actions.length !== 5) return false;
   if (p.actions.some(x => !expected[x.id] || x.kind !== expected[x.id].kind || canon(x.depends_on) !== canon(expected[x.id].deps))) return false;

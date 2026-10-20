@@ -13,6 +13,8 @@ Base verificada: local/main `6f2e3b4df9fcc6233c87b3aab1991f31880146d7`. Controll
 - authorizationMatches assíncrono recomputa hash de efeitos+ações. Recusa conjunto vazio/parcial/desconhecido/duplicado, dependências omitidas, tipos trocados, ações ou valores alterados. Vincula conjunto exato. Helper não é endpoint de autorização e não ativa executor.
 
 ## Estado operacional
+Validação local: suite completa 1837 PASS /6skip/11todo (210 ficheiros PASS), Deno check index.ts sem erros; harness tipos/build OK. Inclui HTTP→SDK real simulado→Gmail→ERP→proposta, 402/403/404, run-ID seguinte, cancelamento cliente/provider, invalid output, overflow/isolamento e hash/ações exatas. Nenhuma dessas provas é inbox/modelo Cloud real.
+
 Gmail11e/f previamente operacional fica preservado, sem leitura real nesta tarefa. Assistente: código integrado, ASSISTANT_ENABLED=false, scopes vazios. Analysis/upload=false mantidos. Nenhuma configuração/controlo de produção alterada; sem deploy, Publish, Cloud SELECT/DML/DDL, OAuth, inbox ou fornecedor real, nem resíduos ERP/Storage/Auth. #322/#323 preservadas.
 
 ## Lacunas exatas
