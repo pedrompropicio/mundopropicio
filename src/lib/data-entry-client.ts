@@ -33,7 +33,7 @@ export type DataEntryStatus = { user_id: string; role: string; company_id: strin
 export type DataEntryContext = { user_id: string; company_id: string };
 export type ExecuteOutcome = { status: "conferido" | "conferencia_pendente" | "por_confirmar"; result?: DataEntryResult; persisted?: { id: string; status: string; total_amount: number; invoice_date: string; storage_path: string } | null; error?: string };
 
-export type GmailFilters = { from_date: string; to_date: string; sender?: string; subject?: string; page_size: number; page_token?: string };
+export type GmailFilters = { from_date: string; to_date: string; sender?: string; subject?: string; page_size: number; page_token?: string; attachments_only?: boolean };
 export type GmailAttachment = { part_id: string; filename: string; mime: string; size_bytes: number };
 export type GmailMessage = { message_id: string; from: string; subject: string; date: string; attachments: GmailAttachment[] };
 export type GmailConnectionStatus = { linked: boolean; reconnect_required: boolean; mailbox_email?: string };

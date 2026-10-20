@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { DataEntryAdapter, DataEntryContext, GmailConnectionStatus, GmailMessage } from "@/lib/data-entry-client";
+import type { DataEntryAdapter, DataEntryContext, GmailConnectionStatus, GmailMessage, GmailMessageBody } from "@/lib/data-entry-client";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
@@ -27,6 +27,7 @@ function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, on
   const [error, setError] = useState<string | null>(null);
   const [conn, setConn] = useState<GmailConnectionStatus | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [openBody, setOpenBody] = useState<GmailMessageBody | null>(null);
   useEffect(() => {
     if (!enabled || !adapter.gmailConnection) return;
     let live = true;
@@ -73,20 +74,9 @@ function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, on
   };
   const input = "w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm";
 
-  if (!enabled || (!connectionOnly && (!adapter.gmailSearch || !adapter.gmailImport))) {
-    return <p role="status" className="text-xs text-muted-foreground">Importar do Gmail ainda não está disponível. Envia o ficheiro manualmente.</p>;
-  }
-  if (connectionOnly && conn?.linked && !conn.reconnect_required) {
-    return (
-      <section aria-label="Ligação Gmail" className="space-y-2 rounded-md border border-border p-2.5">
-        <h4 className="text-xs font-semibold">O teu Gmail</h4>
-        <div className="flex flex-wrap items-center gap-2 text-xs"><span>Conta Gmail ligada (só leitura): {conn.mailbox_email}</span>
-          {adapter.gmailDisconnect && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void disconnect()}>Desligar Gmail</Button>}</div>
-        {notice && <p role="status" className="text-xs">{notice}</p>}
-        {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
-        <p className="text-xs text-muted-foreground">Escolher anexos fica disponível quando o envio de documentos for ativado.</p>
-      </section>
-    );
+  const readOnly = connectionOnly === true;
+  if (!enabled || !adapter.gmailSearch || (readOnly ? !adapter.gmailRead : !adapter.gmailImport)) {
+    return <p role="status" className="text-xs text-muted-foreground">{readOnly ? "A leitura do Gmail ainda não está disponível." : "Importar do Gmail ainda não está disponível. Envia o ficheiro manualmente."}</p>;
   }
   if (adapter.gmailConnection && (!conn || !conn.linked || conn.reconnect_required)) {
     return (
@@ -104,10 +94,10 @@ function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, on
   const search = async (token?: string) => {
     setBusy(true); setError(null);
     try {
-      const r = await adapter.gmailSearch?.({ from_date: from, to_date: to, ...(sender.trim() ? { sender: sender.trim() } : {}), ...(subject.trim() ? { subject: subject.trim() } : {}), page_size: PAGE, ...(token ? { page_token: token } : {}) }, context);
+      const r = await adapter.gmailSearch?.({ from_date: from, to_date: to, ...(sender.trim() ? { sender: sender.trim() } : {}), ...(subject.trim() ? { subject: subject.trim() } : {}), page_size: PAGE, ...(readOnly ? { attachments_only: false } : {}), ...(token ? { page_token: token } : {}) }, context);
       if (!mounted.current || !r) return;
       setMessages((m) => token && m ? [...m, ...r.messages] : r.messages); setNext(r.next_page_token);
-      if (!token) setChoice(null);
+      if (!token) { setChoice(null); setOpenBody(null); }
     } catch (e) { setError(e instanceof Error ? e.message : "Pesquisa indisponível."); }
     finally { setBusy(false); }
   };
@@ -116,6 +106,17 @@ function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, on
     setBusy(true); setError(null);
     try { await adapter.gmailImport?.(sessionId, choice, context); if (mounted.current) onImported(); }
     catch (e) { setError(e instanceof Error ? e.message : "Importação indisponível."); }
+    finally { setBusy(false); }
+  };
+  const readMessage = async (id: string) => {
+    if (openBody?.message_id === id) { setOpenBody(null); return; }
+    setBusy(true); setError(null);
+    try {
+      const b = await adapter.gmailRead?.(id, context);
+      if (!mounted.current || !b) return;
+      if (b.message_id !== id) throw new Error("Resposta inesperada do servidor.");
+      setOpenBody(b);
+    } catch (e) { setError(e instanceof Error ? e.message : "Leitura indisponível."); }
     finally { setBusy(false); }
   };
   const off = disabled || busy;
