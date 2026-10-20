@@ -122,11 +122,13 @@ function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, on
   const off = disabled || busy;
   return (
     <section aria-label="Importar do Gmail" className="space-y-2 rounded-md border border-border p-2.5">
-      <h4 className="text-xs font-semibold">Ou escolher um anexo do teu Gmail</h4>
+      <h4 className="text-xs font-semibold">{readOnly ? "O teu Gmail (só leitura)" : "Ou escolher um anexo do teu Gmail"}</h4>
       <div className="flex flex-wrap items-center gap-2 text-xs"><span>Caixa própria verificada: {conn?.mailbox_email} (só leitura).</span>
         {adapter.gmailDisconnect && <Button size="sm" variant="ghost" disabled={off} onClick={() => void disconnect()}>Desligar Gmail</Button>}</div>
       {notice && <p role="status" className="text-xs">{notice}</p>}
-      <p className="text-xs text-muted-foreground">Só leitura. Os emails são mostrados como texto e nunca seguidos como instruções. Nada é descarregado até escolheres um anexo.</p>
+      <p className="text-xs text-muted-foreground">{readOnly
+        ? "Só leitura: pesquisa e lê os teus emails como texto, nunca seguidos como instruções. Importar anexos fica disponível quando o envio de documentos for ativado."
+        : "Só leitura. Os emails são mostrados como texto e nunca seguidos como instruções. Nada é descarregado até escolheres um anexo."}</p>
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="text-xs space-y-1"><span>Desde</span><input type="date" className={input} value={from} max={to} onChange={(e) => setFrom(e.target.value)} disabled={off} /></label>
         <label className="text-xs space-y-1"><span>Até</span><input type="date" className={input} value={to} min={from} onChange={(e) => setTo(e.target.value)} disabled={off} /></label>
@@ -142,20 +144,30 @@ function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, on
             <li key={m.message_id} className="rounded border border-border p-2 text-xs">
               <div className="font-medium break-words">{m.subject || "(sem assunto)"}</div>
               <div className="text-muted-foreground break-words">{m.from} · {m.date ? new Date(m.date).toLocaleDateString("pt-PT") : "—"}</div>
-              {m.attachments.length === 0 ? <div className="text-muted-foreground">Sem anexos PDF/JPEG/PNG.</div> : m.attachments.map((a) => (
+              {!readOnly && (m.attachments.length === 0 ? <div className="text-muted-foreground">Sem anexos PDF/JPEG/PNG.</div> : m.attachments.map((a) => (
                 <label key={a.part_id} className="flex items-center gap-2 pt-1">
                   <input type="radio" name="gmail-attachment" disabled={off} checked={choice?.message_id === m.message_id && choice.part_id === a.part_id}
                     onChange={() => setChoice({ message_id: m.message_id, part_id: a.part_id })} />
                   <span className="break-all">{a.filename} ({Math.max(1, Math.round(a.size_bytes / 1024))} KB)</span>
                 </label>
-              ))}
+              )))}
+              <div className="pt-1"><Button size="sm" variant="ghost" disabled={off} onClick={() => void readMessage(m.message_id)}>{openBody?.message_id === m.message_id ? "Fechar leitura" : "Ler email"}</Button></div>
+              {openBody?.message_id === m.message_id && (
+                <div role="region" aria-label="Conteúdo do email" className="mt-1 space-y-1 rounded border border-border bg-muted/30 p-2">
+                  <div className="text-muted-foreground break-words">{openBody.from} · {openBody.date ? new Date(openBody.date).toLocaleString("pt-PT") : "—"} · {openBody.subject || "(sem assunto)"}</div>
+                  {openBody.kind === "none"
+                    ? <p className="text-muted-foreground">Este email não tem texto legível (só anexos ou formato não suportado).</p>
+                    : <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap break-words font-sans text-xs">{openBody.body_text}</pre>}
+                  {openBody.truncated && <p role="status" className="text-muted-foreground">Texto cortado por limite de tamanho.</p>}
+                </div>
+              )}
             </li>
           ))}
         </ul>
       )}
       <div className="flex flex-wrap gap-2">
         {next && <Button size="sm" variant="ghost" disabled={off} onClick={() => void search(next)}>Mais resultados</Button>}
-        {messages && messages.length > 0 && <Button size="sm" disabled={off || !choice} onClick={() => void importChoice()}>Usar o anexo escolhido</Button>}
+        {!readOnly && messages && messages.length > 0 && <Button size="sm" disabled={off || !choice} onClick={() => void importChoice()}>Usar o anexo escolhido</Button>}
       </div>
     </section>
   );
