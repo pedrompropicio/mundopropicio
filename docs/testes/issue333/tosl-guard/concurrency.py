@@ -7,7 +7,7 @@ ROOT=Path(__file__).resolve().parents[4]
 DSN='host=/tmp/issue333-guard-pg port=55439 user=postgres'
 def connect(db='guard333'):
  c=psycopg2.connect(DSN+' dbname='+db); c.autocommit=True; return c
-admin=connect('postgres'); admin.cursor().execute('DROP DATABASE IF EXISTS guard333'); admin.cursor().execute('CREATE DATABASE guard333'); admin.close()
+admin=connect('postgres'); admin.cursor().execute('DROP DATABASE IF EXISTS guard333'); admin.cursor().execute("CREATE DATABASE guard333 ENCODING 'UTF8' TEMPLATE template0"); admin.close()
 c=connect(); q=c.cursor()
 q.execute((ROOT/'docs/testes/issue333/pg/canon12f-base.sql').read_text())
 q.execute((ROOT/'docs/testes/issue333/pg/canon12f-seed.sql').read_text())
