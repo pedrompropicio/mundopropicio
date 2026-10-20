@@ -22,7 +22,7 @@ CREATE FUNCTION pg_temp.tour(p_root uuid, p_caps numeric[]) RETURNS void LANGUAG
 DECLARE i int; e uuid; cfg uuid := gen_random_uuid();
 BEGIN
   INSERT INTO public.events VALUES (p_root, 'Root', '2026-01-01', NULL, '00000000-0000-0000-0000-0000000000c1');
-  INSERT INTO public.event_cache_configs VALUES (cfg, p_root, '00000000-0000-0000-0000-00000000a000');
+  INSERT INTO public.event_cache_configs VALUES (cfg, p_root, '00000000-0000-0000-0000-00000000a000', true);
   IF array_length(p_caps,1) = 1 THEN
     INSERT INTO public.event_forecasts VALUES (gen_random_uuid(), p_root, p_caps[1], 'cache_module', cfg, NULL);
     RETURN;
@@ -66,8 +66,8 @@ SELECT pg_temp.ok(public.create_cache_payment_contract('00000000-0000-0000-0000-
   18000, true, 25, '2026-04-20', '2026-03-01', ARRAY[:'adv1']::uuid[], 'Artístico', 'k2') = :'c2'::uuid, 'replay devolve o mesmo contrato');
 -- teto esgotado
 SELECT pg_temp.fails($$SELECT public.create_cache_payment_contract('00000000-0000-0000-0000-000000000100','00000000-0000-0000-0000-00000000a000','00000000-0000-0000-0000-00000000a000', 1, false, NULL, NULL, NULL, '{}', NULL, NULL)$$, 'teto_excedido');
--- adiantamento livre recusado sem restante por contratar
-SELECT pg_temp.fails($$SELECT public.create_cache_advance('00000000-0000-0000-0000-000000000100','00000000-0000-0000-0000-00000000a000',NULL, 100, NULL)$$, 'sem_restante_por_contratar');
+-- cachê congelado: adiantamento livre recusado
+SELECT pg_temp.fails($$SELECT public.create_cache_advance('00000000-0000-0000-0000-000000000100','00000000-0000-0000-0000-00000000a000',NULL, 100, NULL)$$, 'cache_ja_congelado');
 -- pós-fecho: adiantamento 2000 no contrato 1 (saldos 8000/4000) -> 1333.33 / 666.67
 SELECT public.add_cache_contract_advance(:'c1', 2000, '2026-02-15', NULL, 'a1') AS pa \gset
 SELECT pg_temp.ok(pg_temp.city_sum(:'c1', pg_temp.city('00000000-0000-0000-0000-000000000100',1), 'advance') = 1333.33, 'pós-fecho Lisboa 1333.33');
@@ -121,8 +121,11 @@ SELECT pg_temp.ok((SELECT sum(quota) FROM public.cache_payment_contract_cities W
 
 -- ================= Cenário 4: evento simples 10k, adiantamento livre + contrato com retenção
 SELECT pg_temp.tour('00000000-0000-0000-0000-000000000400', ARRAY[10000]);
+UPDATE public.event_cache_configs SET is_finalized=false WHERE event_id='00000000-0000-0000-0000-000000000400';
 SELECT public.create_cache_advance('00000000-0000-0000-0000-000000000400','00000000-0000-0000-0000-00000000a000',NULL, 2000, '2026-01-20', NULL, 'adv4') AS adv4 \gset
 SELECT pg_temp.ok(public.create_cache_advance('00000000-0000-0000-0000-000000000400','00000000-0000-0000-0000-00000000a000',NULL, 2000, '2026-01-20', NULL, 'adv4') = :'adv4'::uuid, 'replay adiantamento');
+SELECT pg_temp.fails($$SELECT public.create_cache_payment_contract('00000000-0000-0000-0000-000000000400','00000000-0000-0000-0000-00000000a000','00000000-0000-0000-0000-00000000a000', 10000, false, NULL, NULL, NULL)$$, 'cache_nao_congelado');
+UPDATE public.event_cache_configs SET is_finalized=true WHERE event_id='00000000-0000-0000-0000-000000000400';
 SELECT public.create_cache_payment_contract('00000000-0000-0000-0000-000000000400','00000000-0000-0000-0000-00000000a000','00000000-0000-0000-0000-00000000a000', 10000, true, 25, '2026-04-20', NULL, ARRAY[:'adv4']::uuid[]) AS c4 \gset
 SELECT pg_temp.ok(pg_temp.city_sum(:'c4', '00000000-0000-0000-0000-000000000400', 'artist_balance') = 5500, 'simples: saldo 10000-2500-2000 = 5500');
 SELECT pg_temp.ok(pg_temp.city_sum(:'c4', '00000000-0000-0000-0000-000000000400', 'withholding') = 2500, 'simples: retenção 2500');
