@@ -26,3 +26,6 @@ Timeout sem resposta é inconclusivo, nunca recusa comprovada nem autorização 
 Preflight técnico obrigatório antes de consumir uma conta: PDF estrutural lido por parser e validateDocument exato, bytes/hash/size preservados desde a reserva, handler real com authorize recusado e espias sem upload/read/receipt/commit. Recusa execute409 com recuperação read-only não abre operações nem resolve timeout40001; fechar a lacuna negativa não equivale a fase6 concluída ou produto ativo.
 
 Hash-check é semântica sócheck,semconcluir causatimeoutantigo. Autorização específicaPedro18/10/2026 02:33UTC para migraçãooficial/UMAconta/reserva/UMRPC+UMendpoint negativo;ACLreaispreservadassemGRANTsuposto. Finallylogoutquandohouver sessão/ban sócontanova/SELECToficialsessions0. Falhafixture nãoautoriza reabrirconta/nova rodada;retomada exige decisão explícita. Semflags/faturas/upload/deploy/Publish;fase6/Issue/reservaabertas.
+
+## Fase11e (20/10/2026)
+Pesquisa/leitura Gmail própria ativa no modal com upload fechado: gmail_read lê só a mensagem escolhida, texto simples ou HTML→texto sanitizado (200KB/4000 chars/profundidade 6/15s, truncagem sinalizada), nunca marca lido nem escreve. Importação de anexo continua bloqueada pelo envio documental fechado. Gates análise/upload false e control rev16 closed preservados; deploy só data-entry.
