@@ -181,10 +181,11 @@ SELECT pg_temp.ok((SELECT count(*) FROM public._cache_free_advances('00000000-00
 -- D) turnê configurada: cidade por congelar bloqueia; congelado por cidade conta
 SELECT pg_temp.tour('00000000-0000-0000-0000-000000000900', ARRAY[6000,4000]);
 UPDATE public.event_cache_configs SET is_finalized=false WHERE event_id='00000000-0000-0000-0000-000000000900';
+SELECT public.create_cache_advance('00000000-0000-0000-0000-000000000900','00000000-0000-0000-0000-00000000a000',NULL, 1000, NULL) AS adv9 \gset
 INSERT INTO public.event_cache_city_settlements(cache_config_id,event_id,is_finalized)
   SELECT id, pg_temp.city('00000000-0000-0000-0000-000000000900',1), true FROM public.event_cache_configs WHERE event_id='00000000-0000-0000-0000-000000000900';
 SELECT pg_temp.fails($$SELECT public.create_cache_payment_contract('00000000-0000-0000-0000-000000000900','00000000-0000-0000-0000-00000000a000','00000000-0000-0000-0000-00000000a000', 1000, false, NULL, NULL, NULL)$$, 'cache_nao_congelado');
-SELECT public.create_cache_advance('00000000-0000-0000-0000-000000000900','00000000-0000-0000-0000-00000000a000',NULL, 1000, NULL) AS adv9 \gset
+SELECT pg_temp.fails($$SELECT public.create_cache_advance('00000000-0000-0000-0000-000000000900','00000000-0000-0000-0000-00000000a000',NULL, 100, NULL)$$, 'cache_ja_congelado');
 INSERT INTO public.event_cache_city_settlements(cache_config_id,event_id,is_finalized)
   SELECT id, pg_temp.city('00000000-0000-0000-0000-000000000900',2), true FROM public.event_cache_configs WHERE event_id='00000000-0000-0000-0000-000000000900';
 SELECT pg_temp.fails($$SELECT public.create_cache_advance('00000000-0000-0000-0000-000000000900','00000000-0000-0000-0000-00000000a000',NULL, 100, NULL)$$, 'cache_ja_congelado');
