@@ -156,7 +156,7 @@ CREATE TRIGGER ads_hourly_validate_connection
   BEFORE INSERT OR UPDATE ON crm.ads_insights_hourly
   FOR EACH ROW EXECUTE FUNCTION crm.ads_hourly_validate_connection();
 
--- Chamado com JWT do utilizador; p_scheduled=true apenas service_role validado.
+-- Manual: JWT do utilizador. Agendado: service_role sem auth.uid(), artista ativo.
 CREATE FUNCTION public.artist_ads_refresh_claim(p_artist_id uuid,p_scheduled boolean DEFAULT false)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, public, crm
@@ -169,13 +169,18 @@ BEGIN
     IF coalesce(auth.role(),'')<>'service_role' THEN
       RAISE EXCEPTION 'sync agendado reservado ao serviço' USING ERRCODE='42501';
     END IF;
+    SELECT a.company_id INTO v_company FROM public.artists a
+      WHERE a.id=p_artist_id AND a.status='ativo' AND a.company_id IS NOT NULL FOR SHARE;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'artista ativo inexistente ou sem empresa' USING ERRCODE='42501';
+    END IF;
   ELSE
     IF auth.uid() IS NULL THEN RAISE EXCEPTION 'sessão obrigatória' USING ERRCODE='42501'; END IF;
+    v_company:=public.artist_access_check(p_artist_id,'read','traffic');
+    -- Lock por artista: permissão manual validada antes de consumir o limite.
+    PERFORM 1 FROM public.artists WHERE id=p_artist_id AND company_id=v_company FOR SHARE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'artista alterado' USING ERRCODE='42501'; END IF;
   END IF;
-  v_company:=public.artist_access_check(p_artist_id,'read','traffic');
-  -- Lock por artista: permissão validada antes de consumir o limite.
-  PERFORM 1 FROM public.artists WHERE id=p_artist_id AND company_id=v_company FOR SHARE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'artista alterado' USING ERRCODE='42501'; END IF;
   INSERT INTO public.artist_ads_refresh_control(artist_id,company_id,last_started_at)
     VALUES(p_artist_id,v_company,v_now) ON CONFLICT(artist_id) DO NOTHING;
   SELECT * INTO v_row FROM public.artist_ads_refresh_control WHERE artist_id=p_artist_id FOR UPDATE;
