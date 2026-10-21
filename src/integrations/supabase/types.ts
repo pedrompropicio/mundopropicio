@@ -573,6 +573,68 @@ export type Database = {
         }
         Relationships: []
       }
+      artist_ads_refresh_control: {
+        Row: {
+          artist_id: string
+          company_id: string
+          last_requested_at: string | null
+          last_started_at: string
+          last_synced_at: string | null
+          lease_until: string | null
+          platform_results: Json
+          request_id: string | null
+        }
+        Insert: {
+          artist_id: string
+          company_id: string
+          last_requested_at?: string | null
+          last_started_at: string
+          last_synced_at?: string | null
+          lease_until?: string | null
+          platform_results?: Json
+          request_id?: string | null
+        }
+        Update: {
+          artist_id?: string
+          company_id?: string
+          last_requested_at?: string | null
+          last_started_at?: string
+          last_synced_at?: string | null
+          lease_until?: string | null
+          platform_results?: Json
+          request_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_ads_refresh_control_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: true
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_ads_refresh_control_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: true
+            referencedRelation: "v_song_benchmark_aligned"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_ads_refresh_control_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: true
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_ads_refresh_control_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       artist_aliases: {
         Row: {
           alias: string
@@ -23551,6 +23613,14 @@ export type Database = {
           spend_30d_cents: number
           thumbnail_url: string
         }[]
+      }
+      artist_ads_refresh_claim: {
+        Args: { p_artist_id: string; p_scheduled?: boolean }
+        Returns: Json
+      }
+      artist_ads_refresh_finish: {
+        Args: { p_artist_id: string; p_request_id: string; p_results: Json }
+        Returns: Json
       }
       artist_ads_register_external: {
         Args: {

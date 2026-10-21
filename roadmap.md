@@ -15,4 +15,5 @@
 - [ ] Cachê contratos: verificação em Live pelo Pedro (migração, privilégios, cenários, #323 intocada) e CI.
 - [x] Ajuste D-ERP288: linha BP 2.1.01 como tecto, congelar, adiantamentos, UI modal+BP, testes, docs (migração 0216).
 - [ ] Ajuste D-ERP288: verificação em Live pelo Pedro e CI do commit.
-- [ ] Visão comparativa Fase 1: aplicação abortada no bloco ACL por `r.rolname` ambíguo; rollback confirmado (cinco objetos ausentes). Aguarda autorização do DDL corrigido; sync, testes/deploy, backfill e crons não iniciados.
+- [x] Visão comparativa Fase 1: aliases SQL corrigidos; migração 0218 aplicada, SHA256 50e0f125931dc097bedad8a4d243b0cc7ad3bffaae17a44f156434cc721f5980; RLS/ACL/EXECUTE conferidos; 14 testes locais passaram.
+- [ ] Visão comparativa Fase 1: parada solicitada perante validação falhada: `deno check` rejeita BufferSource no helper Google existente. Writer SQL preparado mas NÃO aplicado; sync/edge escritos mas NÃO deployados manualmente nem invocados. Sem backfill/crons/chamadas às plataformas. Retomar após decisão de Pedro sobre correção do helper.
