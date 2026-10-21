@@ -16,4 +16,4 @@
 - [x] Ajuste D-ERP288: linha BP 2.1.01 como tecto, congelar, adiantamentos, UI modal+BP, testes, docs (migração 0216).
 - [ ] Ajuste D-ERP288: verificação em Live pelo Pedro e CI do commit.
 - [x] Visão comparativa Fase 1: aliases SQL corrigidos; migração 0218 aplicada, SHA256 50e0f125931dc097bedad8a4d243b0cc7ad3bffaae17a44f156434cc721f5980; RLS/ACL/EXECUTE conferidos; 14 testes locais passaram.
-- [ ] Visão comparativa Fase 1: parada solicitada perante validação falhada: `deno check` rejeita BufferSource no helper Google existente. Writer SQL preparado mas NÃO aplicado; sync/edge escritos mas NÃO deployados manualmente nem invocados. Sem backfill/crons/chamadas às plataformas. Retomar após decisão de Pedro sobre correção do helper.
+- [ ] Visão comparativa Fase 1: Pedro autorizou correção mínima BufferSource; validar Deno/testes, aplicar writer fenced, deploy, prova manual Litto, backfill com cobertura TikTok real, crons e retenção; parar perante guarda/teste falhado. Sem Publish.
