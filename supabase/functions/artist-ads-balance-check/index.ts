@@ -186,14 +186,19 @@ async function activeCampaigns(admin: any, c: Conn, tz: string, now: Date): Prom
   return camps.filter(x => campaignActive(x.effective_status ?? x.status ?? '', c.platform === 'meta' ? timestampDay(x.start_time, tz) : x.start_date, c.platform === 'meta' ? timestampDay(x.stop_time, tz) : x.end_date, tz, now)).map(x => x.external_campaign_id);
 }
 
-async function liveToday(c: Conn, tok: string, today: string): Promise<{ spend: number | null; status: any; problems: { account: string | null; ads: string | null; budget: string | null } }> {
+async function liveToday(c: Conn, tok: string, today: string, campaigns: string[]): Promise<{ spend: number | null; status: any; problems: { account: string | null; ads: string | null; budget: string | null } }> {
   const problems = { account: null as string | null, ads: null as string | null, budget: null as string | null };
   try {
     if (c.platform === "tiktok") {
-      const host = tiktokHost()!; const adv = c.selected_ad_account_id;
-      const rep = await tiktokGET<any>(host, "report/integrated/get/", { advertiser_id: adv, report_type: "BASIC", data_level: "AUCTION_ADVERTISER",
-        dimensions: JSON.stringify(["advertiser_id"]), metrics: JSON.stringify(["spend"]), start_date: today, end_date: today }, tok);
-      const spend = rep.ok ? Number(rep.data?.list?.[0]?.metrics?.spend ?? 0) : null;
+      const host = tiktokHost(); if (!host) throw new Error('tiktok_host_missing'); const adv = c.selected_ad_account_id;
+      let spend: number | null = 0;
+      for (let page = 1; ; page++) {
+        const rep = await tiktokGET<any>(host, "report/integrated/get/", { advertiser_id: adv, report_type: "BASIC", data_level: "AUCTION_CAMPAIGN",
+          dimensions: JSON.stringify(["campaign_id"]), metrics: JSON.stringify(["spend"]), start_date: today, end_date: today, page: String(page), page_size: '1000' }, tok);
+        if (!rep.ok) { spend = null; break; }
+        spend += (rep.data?.list ?? []).filter((r: any) => campaigns.includes(String(r.dimensions?.campaign_id))).reduce((sum: number, r: any) => sum + Number(r.metrics?.spend ?? 0), 0);
+        if (page >= Number(rep.data?.page_info?.total_page ?? 1)) break;
+      }
       const info = await tiktokGET<any>(host, "advertiser/info/", { advertiser_ids: JSON.stringify([adv]), fields: JSON.stringify(["status"]) }, tok);
       const st = info.ok ? info.data?.list?.[0]?.status : null;
       if (st && st !== "STATUS_ENABLE") problems.account = `status ${st}`;
@@ -220,9 +225,20 @@ async function liveToday(c: Conn, tok: string, today: string): Promise<{ spend: 
       const ra = await fetch(ua); const ba = await ra.json().catch(() => null);
       const n = ra.ok ? (ba?.data ?? []).length : 0;
       if (n) problems.ads = `${n} anúncio(s) rejeitado(s)/em revisão`;
-      return { spend: Number(b.insights?.data?.[0]?.spend ?? 0), status: { account_status: b.account_status }, problems };
+      const spendUrl = new URL(`${GRAPH}/${c.selected_ad_account_id}/insights`);
+      spendUrl.search = new URLSearchParams({ level: 'campaign', fields: 'campaign_id,spend', date_preset: 'today', limit: '500', filtering: JSON.stringify([{field:'campaign.id',operator:'IN',value:campaigns}]) }).toString();
+      let next: string | null = spendUrl.toString(); let spend = 0;
+      while (next) {
+        const url = new URL(next); if (url.origin !== 'https://graph.facebook.com') throw new Error('meta_pagination_origin');
+        const result = await fetch(url, {headers:{Authorization:`Bearer ${tok}`}}); const data = await result.json();
+        if (!result.ok || data.error) return {spend:null,status:{account_status:b.account_status},problems};
+        spend += (data.data ?? []).reduce((sum: number, r: any) => sum + Number(r.spend ?? 0), 0);
+        next = data.paging?.next ?? null;
+      }
+      return { spend, status: { account_status: b.account_status }, problems };
     }
-    const rows = await googleAdsSearch(await googleCtx(c), "SELECT metrics.cost_micros FROM customer WHERE segments.date DURING TODAY");
+    if (!campaigns.every(x => /^\d+$/.test(x))) throw new Error('invalid_google_campaign');
+    const rows = await googleAdsSearch(await googleCtx(c), `SELECT campaign.id, metrics.cost_micros FROM campaign WHERE segments.date DURING TODAY AND campaign.id IN (${campaigns.join(',')})`);
     return { spend: rows.reduce((a, r) => a + Number(r.metrics?.costMicros ?? 0), 0) / 1e6, status: null, problems };
   } catch (e) {
     return { spend: null, status: { erro: String(e).slice(0, 300) }, problems };
@@ -238,10 +254,10 @@ async function runDelivery(admin: any, conns: Conn[]) {
     const nAct = await activeCampaigns(admin, c, tz, now);
     if (!nAct.length) { evaluated.push(c.id); out.push({ conta: label(c), sem_campanhas_activas: true }); continue; }
     const tok = await token(admin, c);
-    const live = await liveToday(c, tok, today);
+    const live = await liveToday(c, tok, today, nAct);
     let spend = live.spend; let fonte = "api_hoje";
     if (spend === null) {
-      const s = await dailySpend(admin, c, today, today); spend = s[today] ?? null; fonte = "insights_gravados";
+      const s = await dailySpend(admin, c, today, today, nAct); spend = s[today] ?? null; fonte = "insights_gravados";
       if (spend === null) { out.push({ conta: label(c), ignorado: "sem gasto de hoje legível", live: scrubber(tok)(live.status) }); continue; }
     }
     evaluated.push(c.id);

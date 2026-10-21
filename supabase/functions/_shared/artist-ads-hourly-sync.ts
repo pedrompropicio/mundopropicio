@@ -56,6 +56,10 @@ export async function syncTraffic(admin:any,artistId:string,requestId:string,mod
         const customer=data?.[0]?.results?.[0]?.customer;timezone=customer?.timeZone;currency=customer?.currencyCode;
       }
       if(typeof timezone!=='string'||!timezone||!currency||!/^[A-Z]{3}$/.test(currency))throw new Error('account_timezone_currency_missing');
+      const {data:metadata,error:metadataError}=await admin.schema('crm').from('ad_platform_connections').select('oauth_meta').eq('id',conn.id).single();
+      if(metadataError)throw new Error('account_metadata_read_failed');
+      const {error:timezoneError}=await admin.schema('crm').from('ad_platform_connections').update({oauth_meta:{...metadata.oauth_meta,account_timezone:timezone}}).eq('id',conn.id);
+      if(timezoneError)throw new Error('account_timezone_write_failed');
       const hourlyDays=onlyDay?[onlyDay]:daysForRun(now,timezone,mode,14);
       const deviceDays=onlyDay?[onlyDay]:daysForRun(now,timezone,mode,30);
       const scope=await loadScope(admin,conn);
