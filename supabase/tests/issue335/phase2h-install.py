@@ -26,12 +26,35 @@ def run(st, as_admin=False):
         cur.execute(st['sql'])
         bad = [n for n in c.notices if 'no privileges were granted' in n or 'not all privileges were granted' in n or 'no privileges could be revoked' in n]
         if bad and not st['key'].endswith(':revoke'):
-            return 'WARN: ' + bad[0].strip()
+                return 'WARN: ' + bad[0].strip()
         return None
     except psycopg2.Error as e:
         return f'{e.pgcode}: {e.diag.message_primary}'
     finally:
         cur.execute('RESET ROLE')
+
+def run_st(st):
+    """Corre como o papel real; fallbacks de administrador documentados (registados em admin_fallback)."""
+    err = run(st)
+    if err and not as_admin_done.get(st['key']):
+        ph = st['phase']
+        if ph == '09_functions' and err.startswith('42501: permission denied to set parameter'):
+            # proconfig com GUC SUSET exige superuser; cria-se como administrador e entrega-se ao dono real
+            e2 = run(st, as_admin=True)
+            sig = st['key'].split(':', 1)[1]
+            if not e2:
+                e2 = run(dict(role='supabase_admin', key='own', sql=f'ALTER ROUTINE {sig} OWNER TO "{st["role"]}"'))
+            if not e2:
+                admin_fallback.append(dict(key=st['key'], reason=err)); as_admin_done[st['key']] = True
+                return None
+        if ph in ('16_policies', '16_triggers') and err.startswith('42501'):
+            # políticas/triggers não têm dono; em Live foram criados por sessão privilegiada
+            e2 = run(st, as_admin=True)
+            if not e2:
+                admin_fallback.append(dict(key=st['key'], reason=err)); as_admin_done[st['key']] = True
+                return None
+    return err
+as_admin_done = {}
 
 phases = {}
 for st in ddl['statements']:
@@ -54,9 +77,12 @@ owner_of = {}
 for st in ddl['statements']:
     if st['key'].endswith(':revoke'):
         owner_of[st['key'][:-len(':revoke')]] = st['role']
+late = []
 carry = []
 for block in blocks:
+    carried_before = list(carry)
     pending = carry + [st for p in block for st in phases.get(p, [])]
+    pending_all = list(pending)
     # ACL: REVOKE de reposição primeiro; depois GRANTs do dono; depois concedentes derivados.
     def order(st):
         k = st['key']
@@ -71,29 +97,28 @@ for block in blocks:
         passes += 1
         nxt = []
         for st in pending:
-            err = run(st)
+            err = run_st(st)
             if err:
                 nxt.append((st, err))
         if len(nxt) == len(pending):
             break
         pending = [s for s, _ in nxt]
     carry = [s for s, _ in nxt]
+    newly = [st for st in pending_all if st not in carry and st in carried_before]
+    late.extend(newly)
     last_err = {s['key']: e for s, e in nxt}
     stats['+'.join(block)] = dict(total=sum(len(phases.get(p, [])) for p in block), passes=passes, carried=len(carry))
-# Fallback documentado: funções cuja criação exige superuser (proconfig com GUC SUSET) são
-# criadas pelo administrador e depois entregues ao dono real.
-rest = []
-for st in carry:
-    if st['phase'] == '09_functions' and last_err[st['key']].startswith('42501: permission denied to set parameter'):
-        err = run(st, as_admin=True)
-        if not err:
-            sig = st['key'].split(':', 1)[1]
-            err = run(dict(role='supabase_admin', key='own', sql=f'ALTER ROUTINE {sig} OWNER TO "{st["role"]}"'))
-            if not err:
-                admin_fallback.append(st['key'])
-                continue
-        last_err[st['key']] = err
-    rest.append(st)
+rest = carry
+# Objectos criados tarde (dependência só satisfeita num bloco posterior) recebem de novo as suas ACL.
+late_objs = {st['key'].split(':', 1)[1] for st in late if st['phase'] in ('07_tables', '10_views', '06_sequences', '09_functions')}
+replay = [st for p in ('17_acl_tables', '17_acl_seq', '17_acl_functions') for st in phases.get(p, [])
+          if st['key'].split(':')[1] in late_objs]
+replay.sort(key=lambda st: 0 if st['key'].endswith(':revoke') else 1)
+for st in replay:
+    e = run_st(st)
+    if e:
+        rest.append(st); last_err[st['key']] = e
+stats['late_acl_replay'] = dict(objects=sorted(late_objs), statements=len(replay))
 failed = [dict(phase=s['phase'], key=s['key'], role=s['role'], error=last_err[s['key']]) for s in rest]
 cur.execute("SELECT rolsuper FROM pg_roles WHERE rolname='postgres'")
 assert cur.fetchone()[0] is False, 'postgres tem de ser NOSUPERUSER como em Live'
