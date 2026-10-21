@@ -9,7 +9,7 @@ import uuid
 import psycopg2
 
 socket, port, root = sys.argv[1:]
-assert socket.startswith('/tmp/issue335phase2f.')
+assert socket.startswith(('/tmp/issue335phase2f.', '/tmp/issue335phase2h.'))  # 2i: também harness fiel
 conns = [psycopg2.connect(host=socket, port=port, user='supabase_admin', dbname='postgres', sslmode='disable', application_name=f'issue335_2f_{i}') for i in range(3)]
 for c in conns:
     c.autocommit = True
