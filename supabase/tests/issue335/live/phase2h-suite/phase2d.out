@@ -1,0 +1,12 @@
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-000000000010
+(1 row)
+
+psql:/tmp/issue335-phase2h/adapted/phase2d.sql:12: NOTICE:  PASS 1/2/9: private executor, no auth-schema grants, storage SELECT only (including TRUNCATE/REFERENCES/TRIGGER/MAINTAIN), no identity policies
+psql:/tmp/issue335-phase2h/adapted/phase2d.sql:37: NOTICE:  PASS 4/5: bank detach/delete attacks denied; durable bank origin; apply/reverse/reapply identical documents
+psql:/tmp/issue335-phase2h/adapted/phase2d.sql:37: NOTICE:  PASS 3: authenticated legacy transaction_offset_create generates compensation and closes opposite document
+psql:/tmp/issue335-phase2h/adapted/phase2d.sql:55: ERROR:  null value in column "supplier_id" of relation "event_partners" violates not-null constraint
+DETAIL:  Failing row contains (587f715b-b6f0-4b2d-8958-c507a1453e10, f87c1c22-55e5-4113-ab4d-0869748470ea, null, 0, null, null, 2026-10-21 19:16:51.496431+00, 2026-10-21 19:16:51.496431+00, null, 00000000-0000-0000-0000-000000000001, f, f).
+CONTEXT:  SQL statement "INSERT INTO event_partners(id,company_id,event_id) VALUES(gen_random_uuid(),current_company_id(),ev) RETURNING id"
+PL/pgSQL function inline_code_block line 6 at SQL statement

@@ -39,6 +39,7 @@
 - [x] #335 fase 2b parcial: identidade executor/ataques, matching 0/1/1002, matriz local, auditoria, 14+12 falhas físicas, 54 triggers carregados, #336 e cinco vigias; suite completa passada; relatório distingue provas locais de Live.
 - [ ] #335 fase 2b aceitação bloqueada tecnicamente: reproduzir auth/RLS/ACL/constraints transitivas reais; diferencial BP master/âncoras/empates; concorrência cruzada entre writers; falhas em criação BP/adaptador banco; rollback ACL integral. Tipos manuais não executados por regra da plataforma. Não requer decisão comercial para corrigir estes pontos.
 - [ ] #335 aplicação A–C, UI e provas Live bloqueadas por autorização separada do Pedro.
+- [ ] #335 fase 2h: harness fiel do catálogo feito (0 diferenças não explicadas); adaptar fixtures 2b–2e e teste #233, depois E/A/camarim/G/F no harness fiel.
 - [ ] #335 fase 2g: D testado localmente (ataques recusados); E/A/camarim/F/G e paridade J abertos; sem aplicação.
 - [ ] #335 fase 2c: fechar paridade catálogo/auth, diferencial matching, concorrência cruzada, falhas banco/BP e rollback/invariantes; repetir PG/Vitest e documentar divergências reais, sem aplicação Live.
 

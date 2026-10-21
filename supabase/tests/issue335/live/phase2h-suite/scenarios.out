@@ -1,0 +1,71 @@
+              set_config              |              set_config              
+--------------------------------------+--------------------------------------
+ 00000000-0000-0000-0000-000000000010 | 00000000-0000-0000-0000-000000000001
+(1 row)
+
+ reconcile_bank_line 
+---------------------
+ 
+(1 row)
+
+psql:/tmp/issue335-phase2h/adapted/scenarios.sql:16: NOTICE:  PASS Estoril, bilateral payments, adopted legacy, cash, bank bridge
+ reconcile_bank_line 
+---------------------
+ 
+(1 row)
+
+psql:/tmp/issue335-phase2h/adapted/scenarios.sql:22: NOTICE:  PASS same replay, individual reversal denied
+                                                                                        transaction_offset_reverse                                                                                         
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {"status": "reversed", "group_id": "c1437804-ba60-4c48-8c04-d00bcc434e02", "movement_amount": 23406, "transaction_ids": ["00000000-0000-0000-0000-000000000101", "00000000-0000-0000-0000-000000000102"]}
+(1 row)
+
+psql:/tmp/issue335-phase2h/adapted/scenarios.sql:28: NOTICE:  PASS integral reversal derived; documents/history retained
+                 name                 | current_count 
+--------------------------------------+---------------
+ encontro_desequilibrado              |             0
+ encontro_pernas_divergentes          |             0
+ encontro_reversao_parcial            |             0
+ encontro_dinheiro_sem_conta          |             0
+ encontro_vinculo_bancario_divergente |             0
+(5 rows)
+
+psql:/tmp/issue335-phase2h/adapted/scenarios.sql:62: NOTICE:  PASS four VAT docs, cents rollback, changed replay, guards, debit, zero
+psql:/tmp/issue335-phase2h/adapted/scenarios.sql:74: WARNING:  coala_capture_forecast_category_change failed: record "new" has no field "supplier_id"
+psql:/tmp/issue335-phase2h/adapted/scenarios.sql:74: NOTICE:  PASS BP atomic creation and rollback
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-000000000011
+(1 row)
+
+psql:/tmp/issue335-phase2h/adapted/scenarios.sql:79: NOTICE:  PASS viewer denied
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-000000000013
+(1 row)
+
+psql:/tmp/issue335-phase2h/adapted/scenarios.sql:81: NOTICE:  PASS tenant isolation
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-000000000010
+(1 row)
+
+psql:/tmp/issue335-phase2h/adapted/scenarios.sql:84: NOTICE:  PASS all five bilateral invariants
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-000000000010
+(1 row)
+
+psql:/tmp/issue335-phase2h/adapted/scenarios.sql:100: ERROR:  duplicate key value violates unique constraint "uq_bank_line_matched_txn"
+CONTEXT:  SQL statement "update public.bank_statement_lines
+     set status = 'matched',
+         matched_transaction_id = case when v_n = 1 then v_ids[1] else null end,
+         matched_payment_list_id = null,
+         matched_sepa_export_id = null,
+         matched_by = case when v_n = 1 then 'manual:' else 'manual-multi:' end || v_email,
+         matched_at = now(),
+         date_divergence = case when jsonb_array_length(v_kept) > 0 then v_kept else null end
+   where id = v_line.id"
+PL/pgSQL function reconcile_bank_line(uuid,jsonb) line 196 at SQL statement
+SQL statement "SELECT reconcile_bank_line(b,jsonb_set(payload,'{0,date_action}','"keep"'))"
+PL/pgSQL function inline_code_block line 10 at PERFORM
