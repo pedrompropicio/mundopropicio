@@ -229,8 +229,8 @@ async function liveToday(c: Conn, tok: string, today: string, campaigns: string[
       spendUrl.search = new URLSearchParams({ level: 'campaign', fields: 'campaign_id,spend', date_preset: 'today', limit: '500', filtering: JSON.stringify([{field:'campaign.id',operator:'IN',value:campaigns}]) }).toString();
       let next: string | null = spendUrl.toString(); let spend = 0;
       while (next) {
-        const url = new URL(next); if (url.origin !== 'https://graph.facebook.com') throw new Error('meta_pagination_origin');
-        const result = await fetch(url, {headers:{Authorization:`Bearer ${tok}`}}); const data = await result.json();
+        const url: URL = new URL(next); if (url.origin !== 'https://graph.facebook.com') throw new Error('meta_pagination_origin');
+        const result: Response = await fetch(url, {headers:{Authorization:`Bearer ${tok}`}}); const data: any = await result.json();
         if (!result.ok || data.error) return {spend:null,status:{account_status:b.account_status},problems};
         spend += (data.data ?? []).reduce((sum: number, r: any) => sum + Number(r.spend ?? 0), 0);
         next = data.paging?.next ?? null;
