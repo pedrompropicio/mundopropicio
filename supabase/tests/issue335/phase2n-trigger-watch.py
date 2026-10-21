@@ -115,6 +115,7 @@ try:
  CREATE FUNCTION issue335_2n1c.attack() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_catalog AS $$
  BEGIN IF NOT issue335_context_valid('execute') THEN RAISE EXCEPTION 'attacker_not_inside_core';END IF;
  PERFORM current_setting('issue335.ctx');RETURN NEW;END $$;
+ CREATE TRIGGER attacker BEFORE INSERT ON issue335_2n1c.attacker FOR EACH ROW EXECUTE FUNCTION issue335_2n1c.attack();
  CREATE FUNCTION issue335_2n1c.hook() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_catalog AS $$
  BEGIN INSERT INTO issue335_2n1c.attacker VALUES(1);RETURN NEW;END $$""")
  baseline=run(admin,'SELECT * FROM issue335_invariant_counts()')
