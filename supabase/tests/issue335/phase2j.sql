@@ -325,7 +325,7 @@ DO $$ DECLARE s uuid; sa uuid; bk uuid; st uuid; inc uuid; mv uuid; r text; BEGI
  INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id,account_id) VALUES(public.current_company_id(),'approved','expense','Camarim adiantamento 2j',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-000000000030') RETURNING id INTO bk;
  INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,account_id) VALUES(public.current_company_id(),'approved','income','Camarim adiantamento 2j',40,0,'2026-10-13',sa) RETURNING id INTO st;
  INSERT INTO public.camarim_fund_moves(session_id,move_type,amount,move_date,transaction_id,company_id) VALUES(s,'advance',40,'2026-10-13',bk,public.current_company_id()) RETURNING id INTO mv;
- IF NOT EXISTS(SELECT 1 FROM public._camarim_fund_move_legs(mv) l WHERE l.bank_tx=bk AND l.session_tx=st) THEN RAISE EXCEPTION 'J7 pernas camarim não reconhecidas'; END IF;
+ INSERT INTO issue335_test.j VALUES('K:mv',mv),('K:bk',bk),('K:st',st) ON CONFLICT(k) DO UPDATE SET v=excluded.v;
  INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(public.current_company_id(),'approved','income','2j camarim+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO inc;
  BEGIN
   PERFORM public.transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',jsonb_build_array(jsonb_build_object('transaction_id',inc,'mode','settle'),jsonb_build_object('transaction_id',bk,'mode','offset')),'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13');
@@ -336,3 +336,9 @@ DO $$ DECLARE s uuid; sa uuid; bk uuid; st uuid; inc uuid; mv uuid; r text; BEGI
  RAISE NOTICE 'PASS 2j J7 camarim: perna de adiantamento recusada (camarim_leg_unsupported), zero pagamentos, conta da sessão intacta';
 END $$;
 RESET ROLE;
+-- Prova (fora da sessão authenticated, função real não executável por authenticated) de que o fixture é uma perna real.
+DO $$ BEGIN
+ IF NOT EXISTS(SELECT 1 FROM public._camarim_fund_move_legs((SELECT v FROM issue335_test.j WHERE k='K:mv')) l
+   WHERE l.bank_tx=(SELECT v FROM issue335_test.j WHERE k='K:bk') AND l.session_tx=(SELECT v FROM issue335_test.j WHERE k='K:st')) THEN RAISE EXCEPTION 'J7 pernas camarim não reconhecidas pela função real'; END IF;
+ RAISE NOTICE 'PASS 2j J7b fixture reconhecido por _camarim_fund_move_legs real (banco→sessão)';
+END $$;
