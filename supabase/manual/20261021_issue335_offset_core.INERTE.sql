@@ -124,6 +124,16 @@ DECLARE gid uuid; st text; trusted boolean := current_user = 'issue335_executor'
    NEW.company_id IS DISTINCT FROM OLD.company_id OR NEW.type IS DISTINCT FROM OLD.type OR NEW.forecast_id IS DISTINCT FROM OLD.forecast_id OR
    NEW.event_id IS DISTINCT FROM OLD.event_id OR NEW.is_hidden IS DISTINCT FROM OLD.is_hidden OR
    NEW.event_settlement_id IS DISTINCT FROM OLD.event_settlement_id OR
+   -- 2j (achado E, matriz coluna-a-coluna): condições de elegibilidade e identidade também imutáveis num documento gerido.
+   (NEW.id,NEW.currency,NEW.fx_rate,NEW.original_amount,NEW.installment_group_id,NEW.installment_number,NEW.installment_total,
+    NEW.card_session_id,NEW.held_by_supplier_id,NEW.settlement_id,NEW.is_transitory,NEW.supplier_credit_id,NEW.parent_transaction_id,
+    NEW.is_reimbursement,NEW.cache_contract_id,NEW.shared_cost_account_id,NEW.declared_withholding_amount,NEW.declared_withholding_rate,
+    NEW.split_percentage,NEW.split_amount,NEW.split_mode,NEW.payment_method,NEW.reversed_by,NEW.reversal_reason)
+   IS DISTINCT FROM
+   (OLD.id,OLD.currency,OLD.fx_rate,OLD.original_amount,OLD.installment_group_id,OLD.installment_number,OLD.installment_total,
+    OLD.card_session_id,OLD.held_by_supplier_id,OLD.settlement_id,OLD.is_transitory,OLD.supplier_credit_id,OLD.parent_transaction_id,
+    OLD.is_reimbursement,OLD.cache_contract_id,OLD.shared_cost_account_id,OLD.declared_withholding_amount,OLD.declared_withholding_rate,
+    OLD.split_percentage,OLD.split_amount,OLD.split_mode,OLD.payment_method,OLD.reversed_by,OLD.reversal_reason) OR
    (NOT trusted AND (NEW.account_id IS DISTINCT FROM OLD.account_id OR
     ((NEW.status IS DISTINCT FROM OLD.status OR NEW.payment_date IS DISTINCT FROM OLD.payment_date OR NEW.paid_amount IS DISTINCT FROM OLD.paid_amount) AND NOT (
       EXISTS(SELECT 1 FROM public.transaction_offset_items gi JOIN public.transaction_offset_groups gg ON gg.id=gi.group_id WHERE gi.transaction_id=OLD.id AND gg.status IN('preparing','reversing')) AND
