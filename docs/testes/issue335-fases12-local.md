@@ -831,3 +831,92 @@ Nível1: executar candidato kill_switch, esperar confirmação (drain); estornos
 Provas futuras Live BEGIN…ROLLBACK (não executadas): owners/ACL reais, aprovação/status com linhas reais, coerência saldos/extrato, locks concorrentes/backups e importações. Só depois da aceitação técnica e de Sim separado.
 API remoto observado: main `59e8fe039e929512ca837edf43ff4b4f47c89c9c`; CI success run39676081024; phase2l.sql HTTP404 nesse SHA. Não contém os edits 2l; presença/hash/CI final NÃO comprovados. Nenhum commit/push manual.
 Conclusão: 2l PARCIAL / NÃO ACEITE, não pronto para pedir A–C. Bloqueios técnicos não exigem nova decisão comercial; autorização de instalação permanece separada.
+
+## Fase 2m — PARCIAL / NÃO ACEITE (21/10/2026)
+
+Esta execução NÃO fechou os bloqueios da 2l. Nenhum dos oito blocos foi certificado fechado.
+Sem ferramenta de migração, novas migrations, DDL/DML Live, deploy, Publish ou alterações de cliente.
+Os candidatos SQL existentes não foram alterados. Restauro conservador e `cash_account_inconsistent` mantidos;
+control nunca restaurável. Reserva #335 mantida; #322/#323 preservadas.
+
+### Leituras — requisito prévio NÃO satisfeito
+Manifesto: `docs/testes/issue335-fase2m-leituras.md`, com ficheiro/intervalos/hash/revisor e NÃO LIDO explícito.
+Documentação requerida, todos os 24 SQL manuais e Issue corpo+13 comentários certificados nas leituras registadas.
+O conjunto de testes/capturas NÃO foi lido integralmente. Leituras delegadas truncadas não contam como certificação.
+O ficheiro questões2l está ausente; não foi possível renomeá-lo. Pasta live/phase2k EXISTE (corrige impressão inicial).
+A execução da regressão e criação do teste M1 ocorreram antes de completar o requisito de leitura: desvio declarado,
+não usar esta fase como cumprimento da ordem solicitada. SHA de leitura é histórico, não o hash pós-edição.
+
+### Resultados novos efetivamente executados
+- Harness fiel PG17.6 exato: postgres NOSUPERUSER, triggers reais, 15.529 instruções/0 falhas,
+  2.934 RI iguais e 0 diferenças não explicadas. 14/14 grupos anteriores passaram; phase2l tem 9 marcadores.
+  É regressão da 2l, NÃO prova de todos os novos requisitos 2m.
+- `phase2m-context.py`: 10 identidades × 24 entradas =240 linhas: 190 asserções/50 observações de grants.
+  15 funções internas por identidade; GUC aleatória; segundo token aleatório; INSERT contexto e SET ROLE executor.
+  Resultado final:0 expectativas inesperadas. UPDATEs são SÓ observações `has_table_privilege`, não ataques reais.
+  Token de outra transação válida NÃO exercitado; o segundo UUID aleatório NÃO é replay de token válido.
+- Primeiro ensaio falhou na assunção sandbox pelo postgres (42501): erro de montagem do ensaio.
+  Segundo produziu25 discrepâncias: identidade bootstrap superuser contaminava SET ROLE; grants service-role
+  intencionais de vigias e retornos booleanos/numeric eram mal classificados. Nenhum candidato SQL foi corrigido.
+  Ensaio final usa SET SESSION AUTHORIZATION nos NOLOGIN via bootstrap; comandos executam como papel não-superuser.
+  Owner verdadeiro pode administrar contexto; não alegamos proteção contra DDL do owner. Asserções não foram
+  removidas; expectativas corrigidas segundo grants explícitos já existentes, observações retiradas do PASS.
+- Harness limpo separado:12 pares candidatos instalados/desfeitos, captura integral before=after, diferenças `{}`.
+  Prova limitada ao catálogo e composição canónica sem história; NÃO restaura arbitrariamente flags/dados prévios.
+- Vitest completo maxWorkers4:221 ficheiros passados/2 skipped;1953 testes passados/6 skipped/11 todo;exit0.
+  Sem timeout nesta corrida.6 skips existentes:#333 worker opt-in4, receipt capturado opt-in1,
+  integração partner-statement dependente de token1.11 todo:bilhetes multi-dia4 e tickets-v2/read-layer7.
+  Classificados, não PASS; não ativadas provas externas nem alteradas asserções para esconder falhas.
+- tsgo/tsc não executado: regra do ambiente proíbe typechecks manuais neste projeto; verificação automática
+  registou build OK. Este sinal não equivale a tsc.
+- Aviso bootstrap `locale: command not found/no usable system locales`: não interrompeu initdb; catálogo
+  comparado com zero diferenças não explicadas. Sem alegar equivalência de collation além dessa captura.
+
+### Estado por bloco
+1. M1 PARCIAL:matriz190 asserções nova; faltam token válido cruzado/reutilizado, chamada sob contexto roubado,
+   UPDATE real nas5 tabelas e matriz executor com GUC/operação válida. Não basta grant observado.
+2. M3 ABERTO:regressão2l approved/parcial sem pernas anteriores e ordem errada passa; casos parcial com pernas
+   antigas/novas, paid e sem BP não foram adicionados. paid sem dívida é recusado; não mudar regra só para testar.
+3. M4 ABERTO:níveis1/2 e ACL canónica retestados; emergência concorrente execute/reverse NÃO adicionada.
+   Scripts operacionais continuam sem restauro de flags arbitrárias/guarda de estado desconhecido.
+4. M5/M7 ABERTO:corridas antigas5+7 passam; mapa transitivo/writers legais/refusados e novas3 sessões faltam.
+   NOWAIT/documentos ordenados e advisory supplier/account existem; não provam ausência universal de deadlock.
+5. M6 ABERTO:nenhuma vigia independente nova, matriz as-of/união contas/corrupção não executada.
+   347+5=352 casos históricos:contagem da2k, NÃO nova medição Live. Proposta:auditá-los por perna/conta/corte,
+   guardar classificação e pedir decisão para correção individual; sem preencher contas/reinterpretar legado.
+6. E ABERTO:ataques antigos retestados; matriz completa valores válidos/editor+manager/paridade legado ausente.
+7. Baixos PARCIAL:grep/read-only identifica permission bank helper,replay actor guard,upsert ignoreDuplicates,
+   RESTRICT e tradução lock/deadlock. Não prova user+permission RLS, replay2 utilizadores, efeitos sandbox/dynamic
+   edge/delete/import/índices. Sem novas contagens/tamanhos Live; janela de índices não aprovada.
+8. Cliente PARCIAL:inventário11 consumidores/referências em `issue335-fase2m-cliente.md`; nenhuma edição cliente.
+   Relatórios/helper/cards/previews usam paid_amount em percursos; FinancialAccounts usa RPC de saldo nos cards.
+   Inventário não exaustivo. Recomendação separada:definir caixa pela perna/conta/data com corte legado e distinguir
+   liquidação, preservando fontes canónicas/ajustes/estornos; não implementar sem decisão própria.
+
+### A/B/C e candidatos — NÃO prontos para instalação
+Todos os nomes abaixo referem-se a `supabase/manual/20261021_issue335_<nome>.INERTE.sql`;
+rollback correspondente `<nome>.ROLLBACK-INERTE.sql`. Diferenças prosrc não foram regeneradas em2m.
+A `offset_group_storage`:tabelas/contexto/colunas/grants/RLS; rollback remove só sem história; risco integridade/restauro.
+B `offset_core`:dispatch/worker/guards/wrappers/locks; rollback repõe legados sem história; risco M1/E/writers.
+C `offset_invariants`:registo e funções vigias; rollback repõe funções/registo; risco vigia independente não provada.
+`offset_balance`:saldo real em geridos; rollback duas funções legadas; risco extrato/as-of/cliente.
+`offset_approval`:trigger function de approval; rollback função original; risco status/pernas anteriores.
+`status`:derive preserva prior_status em estorno provado; rollback derive original; risco casos M3 em falta.
+`cash_position`/`cash_position_invariant`:caixa evento/vigia; rollbacks funções originais; risco fonte comum M6.
+`restore`:recusa restauro de empresa com história/control; rollback também recusa história; risco disponibilidade backup.
+`offset_kill_switch`:fecha admissões mantendo reverse; rollback enabled=true; risco estado prévio arbitrário.
+`emergency`:fecha admissão/reverse; rollback nível1; risco concorrência/flags arbitrárias.
+`reactivation`:ambos true; rollback ambos false; risco revisão/estado prévio arbitrário; nunca altera grants.
+Ordem canónica local:storage→core→invariants→balance→approval→status→kill-switch→emergency→reactivation→cash→cash-invariant→restore;
+rollback inverso com zero história. Não constitui proposta executável enquanto os blocos estiverem abertos.
+Só Live com autorização BEGIN…ROLLBACK provaria catálogo/owner/ACL atual, dependências reais e dados reais;
+concorrência exige sessões próprias e aprovação, não é provada por uma única transação. Não foi executado.
+Resposta direta:NÃO tecnicamente pronto para pedir A–C nem instalar qualquer candidato.
+
+### SHA/CI e artefactos
+API main observado22:12UTC:`b798a59d77a976c3de2759018ef88b9d6e3b56b9`;CI39679753365 completed/success.
+phase2m-context.py e manifesto2m devolvem404; relatório remoto ainda hash73df33…ef6ad da2l.
+CI desse SHA NÃO contém2m. SHA final dos edits não existe verificável durante esta execução; commits geridos pela
+plataforma. Sem commits por bloco/manual; requisito do Pedro de commit antes do próximo bloco NÃO cumprido.
+Artefactos em live/phase2m; hashes finais em issue335-fase2m-hashes.sha256 (sem circularidade).
+Conclusão:2m PARCIAL/NÃO ACEITE. Trabalho técnico restante não exige decisão comercial; A–C/candidatos exigem Sim separado.
