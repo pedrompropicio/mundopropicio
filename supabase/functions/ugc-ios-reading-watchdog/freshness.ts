@@ -25,8 +25,16 @@ export async function dailySourceAlerts(admin: any, dryRun: boolean) {
     .eq("function_name", "artist-song-source-alerts").eq("status", "success").gte("started_at", `${day}T00:00:00Z`);
   if (priorError) throw new Error(priorError.message);
   const sent = new Set((prior ?? []).flatMap((x: any) => x.details?.keys ?? []));
-  const { data: unsubscribe, error: unsubError } = await admin.from("email_unsubscribe_tokens")
+  let { data: unsubscribe, error: unsubError } = await admin.from("email_unsubscribe_tokens")
     .select("token").eq("email", "pedroneto@mundopropicio.com").maybeSingle();
+  if (!unsubError && !unsubscribe && stale[0]?.company_id) {
+    const { error } = await admin.from("email_unsubscribe_tokens").upsert({
+      token: crypto.randomUUID() + crypto.randomUUID(), email: "pedroneto@mundopropicio.com", company_id: stale[0].company_id,
+    }, { onConflict: "email", ignoreDuplicates: true });
+    if (error) throw new Error(`referência unsubscribe: ${error.message}`);
+    const result = await admin.from("email_unsubscribe_tokens").select("token").eq("email", "pedroneto@mundopropicio.com").maybeSingle();
+    unsubscribe = result.data; unsubError = result.error;
+  }
   if (unsubError || !unsubscribe?.token) throw new Error("canal de alertas email sem referência de unsubscribe");
   const { data: artists } = await admin.from("artists").select("id,name");
   const { data: songs } = await admin.from("artist_songs").select("id,title");
