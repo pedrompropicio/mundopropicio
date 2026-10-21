@@ -1,6 +1,8 @@
 # Visão comparativa de tráfego — Fase 1, preparação
 
 ## Estado e âmbito
+Estado real em 21/10/2026: migração 0218 aplicada (SHA256 50e0f125931dc097bedad8a4d243b0cc7ad3bffaae17a44f156434cc721f5980), RLS/ACL conferidos, 14 testes locais passaram. Continuação parada por `deno check` falhado no helper Google existente (BufferSource/pkcs8); writer NÃO aplicado, sem invocações/backfill/crons. Ver docs/questoes-trafego-fase1-validacao-google-20261021.md. Texto de preparação abaixo mantido como histórico.
+
 Só preparação. Nenhum DDL/DML aplicado, nenhum backfill, cron, API autenticada, deploy ou Publish executado. Proposta SQL inerte guardada em `supabase/manual/20261021_artist_ads_hourly_fase1.INERTE.sql`; após autorização, copiar byte a byte para a próxima migração livre (0218 é candidata, não reservada), pelo fluxo oficial de migrações. Não colocar agora numa pasta de aplicação automática.
 
 Leitura Cloud de 21/10: duas ligações Meta, duas TikTok e uma Google de artista ativas com conta selecionada. GitHub e repositório têm o mesmo HEAD `e3c620ad521ba7edecaa3aaa2d5525cea4358a86`. Nenhuma alteração a QUADRO, Issues, memória, código existente ou schema existente.
