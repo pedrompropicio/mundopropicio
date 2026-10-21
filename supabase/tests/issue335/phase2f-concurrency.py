@@ -28,7 +28,8 @@ for c in conns:
 def fixture():
     ids=[str(uuid.uuid4()),str(uuid.uuid4())]
     for ident,kind,value in zip(ids,['income','expense'],[100,40]):
-        sql(observer,"INSERT INTO transactions(id,type,description,amount,iva_rate,date,supplier_id) VALUES(%s,%s,'2f concurrent',%s,0,'2026-10-13',%s)",(ident,kind,value,supplier))
+        # 2i: Live tem default status='pending' (o stub tinha 'approved'); mesma adaptação de fixture que phase2h-adapt.py.
+        sql(observer,"INSERT INTO transactions(id,company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(%s,public.current_company_id(),'approved',%s,'2f concurrent',%s,0,'2026-10-13',%s)",(ident,kind,value,supplier))
     return ids
 def call(ids,request):
     items=json.dumps([dict(transaction_id=ids[0],mode='settle'),dict(transaction_id=ids[1],mode='offset')])
