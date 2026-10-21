@@ -31,3 +31,5 @@
 - [x] Urgente alertas fontes: emails bloqueados e zero na fila; regra 5/14 dias, ativo/elenco/ativo/non-reference, lotes excluídos; só Litto tiktok_artists (6 dias); resumo único e PK claim até recuperação, 10 testes locais. Email continua desligado.
 - [x] Alertas sem entrega/parada: datas inclusivas por conta nas três plataformas; campos existentes Google/Meta e raw TikTok já guardam datas; painel 2→1, log 4→3, Google resolvido. 16 testes e cinco contas reais HTTP 200; sem DDL de tabelas/apagar/Publish.
 - [x] SEPA Lisboa: datas/carimbos e data inicial da lista corrigidos; 18 testes em Brasil e Lisboa, DST e validação automática OK; reserva libertada, sem dados/DDL/DML/Publish. Aceitação bancária depende do próximo upload do Pedro.
+- [x] #336: dinheiro por conta nas camadas/manual/lista, leitura paginada, fronteira histórica estrita, testes e SELECT MP 0/Coala 10 · 29.629,84 €; consulta visual sem gravar; sem DDL/DML/Publish.
+- [ ] #336: controller confirmar CI / quality verde no SHA final; aceitação da ligação real pelo Pedro (não executada para preservar a restrição sem DML).

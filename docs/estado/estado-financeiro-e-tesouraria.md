@@ -4,6 +4,13 @@ Atualizado: 09/10/2026 (ritual de fecho da frente; inclui o trabalho do chat fin
 
 ## Em que pé está
 
+### #336 — conciliação por dinheiro (21/10/2026)
+- Motor (a/b/c), modo manual link, lista sem movimento e triângulo usam a soma das pernas pagas, não revertidas, não compensadas da conta do extrato; retenção/crédito deduzidos da perna. Leituras de pernas paginadas e em blocos de IDs; inclui transações cuja perna tem a conta mesmo que a transação tenha outra.
+- Recurso a paid_amount só sem pernas, com conta coincidente e data efetiva estritamente anterior ao primeiro period_from da própria conta. Sem leitura/corte conhecido, falha fechado. Sem RPC nova, DDL, DML em dados ou Publish; generate-historical-transactions e reservas #322/#323 intocadas.
+- 1.933 testes passaram na suite completa (6 skipped, 11 todo), incluindo 8 novos casos #336 e os 18 SEPA; build automático OK. Não foi executado tsc manual (validação automática da plataforma). Gate CI do SHA final ainda requer verificação no GitHub.
+- Live SELECT: paid_amount <> 0, reversed_at IS NULL, COALESCE(payment_date,date) >= MIN(bank_statements.period_from) da account_id, sem payment_method <> compensation com status paid e reversed_at NULL. MP 0; Coala 10 / 29.629,84 €, todas Coala Festival Portugal 2026 com date/payment_date 09/08/2026. Não corrigidas nem abrangidas por fallback posterior ao corte.
+- Consulta visual com sessão do Pedro: Santander MP 09–20/10, 0 transações sem movimento / 0,00 €, leitura sem erros; linha Casino 23.406,00 continua por explicar porque não houve gravação. Casino 30.996,00 = 23.406,00 + 7.590,00 provado exclusivamente em fixture; nenhuma conciliação real executada. #335/#337 não implementadas.
+
 ### SEPA com data de Lisboa (21/10/2026)
 - Gerador pain.001: datas/carimbos em Europe/Lisbon, execução nunca anterior ao dia de Lisboa, avanço para dia útil preservado e revalidação no momento de gerar. Data inicial da lista alinhada; datas explicitamente escolhidas mantidas. 18 testes SEPA locais passaram com TZ=America/Fortaleza, incluindo transições DST. Sem DDL, DML ou Publish; aceitação pelo Santander não testada nesta sessão.
 
