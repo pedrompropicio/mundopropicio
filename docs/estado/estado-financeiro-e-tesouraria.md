@@ -4,6 +4,12 @@ Atualizado: 09/10/2026 (ritual de fecho da frente; inclui o trabalho do chat fin
 
 ## Em que pé está
 
+### #335 — fases 1 e 2 LOCAL/INERTE (21/10/2026)
+- Prévia pura em cêntimos + 19 testes: quatro documentos, Estoril, débito, saldo zero, ordem, diferenças, parcelas/crédito/FX e BP partilhado. Suite: 1.952 passed, 6 skipped, 11 todo; build automático OK. Sem tsc/tsgo manual (harness automático).
+- Três conjuntos SQL INERTES e rollback em supabase/manual; nenhuma migration tool, ficheiro em migrations, DDL/DML Live, deploy ou Publish. SELECT só metadados instalados; #322/#323 e generate-historical-transactions intocados.
+- PostgreSQL local: triggers de derivação/validação/compensação instalados, Estoril 30.996 = 23.406 transfer + 7.590 compensation; despesa 7.590 compensation; adoção de par sem duplicar; reversão integral, BP atomicidade/rollback, débito/zero, cêntimos, repetição alterada, duas sessões concorrentes e #233 pending/align/keep com auditoria passaram.
+- Fase 2 ainda NÃO aceite para aplicação: guardas usam PG_CONTEXT (não fronteira de segurança), matching BP conservador ainda não canónico, locks/eventos/drift e auditoria novos incompletos; matriz de falhas/ACL/rollback integral por concluir. Relatório/hashes: docs/testes/issue335-fases12-local.md. Reserva mantida; A–C/UI/Live dependem de autorização separada após corrigir os bloqueios.
+
 ### #336 — conciliação por dinheiro (21/10/2026)
 - Motor (a/b/c), modo manual link, lista sem movimento e triângulo usam a soma das pernas pagas, não revertidas, não compensadas da conta do extrato; retenção/crédito deduzidos da perna. Leituras de pernas paginadas e em blocos de IDs; inclui transações cuja perna tem a conta mesmo que a transação tenha outra.
 - Recurso a paid_amount só sem pernas, com conta coincidente e data efetiva estritamente anterior ao primeiro period_from da própria conta. Sem leitura/corte conhecido, falha fechado. Sem RPC nova, DDL, DML em dados ou Publish; generate-historical-transactions e reservas #322/#323 intocadas.
