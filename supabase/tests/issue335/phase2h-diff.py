@@ -4,6 +4,18 @@ Cada diferença remanescente é classificada por regra explícita (EXPLAINED); o
 """
 import json, sys
 live, local = (json.loads(open(p).read()) for p in sys.argv[1:3])
+# Normalização única: um aclitem[] é um conjunto (a ordem dos itens não tem semântica no PostgreSQL).
+def _norm(o):
+    for f, v in list(o.items()):
+        if f == 'acl' and isinstance(v, str) and v.startswith('{'):
+            o[f] = '{' + ','.join(sorted(x for x in v[1:-1].split(',') if x)) + '}'
+    return o
+for cap in (live, local):
+    for cat, objs in cap.items():
+        if isinstance(objs, list):
+            for o in objs:
+                if isinstance(o, dict):
+                    _norm(o)
 keys = {'relations': ['schema', 'name'], 'columns': ['table', 'name'], 'constraints': ['table', 'type_owner', 'name'],
         'indexes': ['table', 'name'], 'triggers': ['table', 'name'], 'policies': ['schemaname', 'tablename', 'policyname'],
         'functions': ['signature'], 'types': ['name'], 'sequences': ['name'], 'views': ['name'],
@@ -17,6 +29,8 @@ def explain(cat, ident, l, r):
         return 'função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub'
     if cat == 'roles' and l and r and {k for k in l if l[k] != r[k]} <= {'login'}:
         return 'atributo LOGIN irrelevante para o harness'
+    if cat == 'indexes' and l and r and {f for f in set(l) | set(r) if l.get(f) != r.get(f)} == {'valid'} and l.get('valid') is False:
+        return 'índice INVÁLIDO em Live (construção concorrente interrompida); localmente válido — só afecta o planeador, não a semântica'
     return None
 rows = []
 for cat, fields in keys.items():
