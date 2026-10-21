@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/dev-server/supabase/tests/issue335/phase2j-concurrency.py", line 46, in <module>
+    assert r==CONFLICT,r
+           ^^^^^^^^^^^
+AssertionError: ('ok', [({'status': 'applied', 'group_id': '22f1a566-75d1-44fe-892b-3ad4ca7b5e9d', 'movement_amount': 60, 'transaction_ids': ['3d89757e-c228-4a3b-b833-56f479789e5f', '6035c87d-e66c-4961-a615-9dd538167b9a']},)])

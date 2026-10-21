@@ -1,0 +1,11 @@
+F1 resultado após commit do par legado: ok aplicado
+PASS 2j F1 offset_create legado em curso x encontro: 55P03 exacto, zero grupo; após commit o encontro adopta o par (1 grupo)
+F1b legado após encontro: ('P0001', 'managed_operation_required')
+PASS 2j F1b encontro em curso x offset_create legado: legado espera (aresta observada) e é recusado após commit: P0001
+PASS 2j F2 selagem em curso x encontro: 55P03 exacto; após selar, sealed_settlement exacto; zero grupo
+PASS 2j F2b encontro em curso x selagem: selagem espera o commit (aresta observada) e sela depois; grupo aplicado antes do selo
+F3 inclusão em lista em curso x encontro: 55P03 encontro_em_conflito: operação concorrente; atualize a prévia e tente novamente | item na lista: 1 | grupos: 0
+PASS 2j F4 reabertura em curso: chamada antes do commit 42501 exacto (sem grupo); depois do commit aplica (1 grupo)
+PASS 2j F4b in-flight abortado + fecho: zero grupo; fecho conclui; nova chamada 42501; reverse também fechado: 42501
+F3_RESULT ('55P03', 0, 1)
+PASS 2j F3 inclusão em lista em curso x encontro: 55P03 exacto, zero grupo
