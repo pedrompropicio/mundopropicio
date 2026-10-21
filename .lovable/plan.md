@@ -26,32 +26,32 @@ Sem coluna LPV nesta fase (fase 2): apenas raw allowlist com LPV/link_clicks qua
 ## 3. Hoje, fuso e agendamento
 Um instante de referência por corrida; hoje = data no **fuso da conta**, nunca browser/UTC/Lisboa por omissão. Meta timezone_name, TikTok timezone/display_timezone normalizado, Google customer.time_zone. Fuso inválido/desconhecido: erro explícito; não fallback silencioso UTC. Esta é lógica de anúncios, não altera a regra Europe/Lisbon das vendas.
 
-Um único job futuro para hoje por artista, a cada 30 minutos (**48 vezes/dia**), Meta+TikTok+Google, sem catálogos, autolinks, alertas nem histórico diário nesse caminho. Hoje obtém a série horária e o marginal diário device da Meta; não reexecuta backfill de 30 dias. Crons/histórico atuais mantêm-se, incluindo o sync Meta horário de métricas diárias — “hourly” no nome atual significa frequência, não granularidade dos dados.
+Um único job futuro por artista, **duas vezes por dia: 12:00 e 22:00 de Brasília (America/Sao_Paulo), correspondentes a 15:00 e 01:00 UTC**. Expressão futura UTC: `0 1,15 * * *`. Meta+TikTok+Google, sem catálogos, autolinks nem alertas. Ambas as corridas recolhem hoje por hora e o marginal diário device da Meta. A corrida das **12:00 de Brasília / 15:00 UTC fecha também D−1 inteiro**, horas 0–23 nas três plataformas e Android/iOS diário da Meta, porque as horas 22–23 só ficam completas no dia seguinte. Hoje e D−1 são sempre definidos no fuso de cada conta, não no dia UTC ou de Brasília. A corrida das 01:00 UTC é a das 22:00 de Brasília do dia civil anterior. Recolher D−1 é fecho programado, não reexecutar o backfill de 30 dias. Crons/histórico atuais mantêm-se, incluindo o sync Meta horário de métricas diárias — “hourly” no nome atual significa frequência, não granularidade dos dados.
 
-48 corridas/dia são necessárias para um atraso de disparo até 30 minutos; consolidação da plataforma pode atrasar mais. Checks frequentes podem aumentar custos Cloud, mantendo a base ativa mesmo sem trabalho. Alternativa mais barata é atualização manual + crons existentes, mas não cumpre o intervalo pedido. Retenção: job SQL diário consolidado das novas séries, não dois jobs independentes por plataforma. Cron a instalar separadamente pelo 0; **nenhum cron no DDL abaixo**.
+O intervalo agendado deixa de ser de 30 minutos: passa a 10h/14h entre corridas, com atualização manual disponível e possível atraso adicional de consolidação da plataforma. D−1 deve ser integralmente paginado; ausência/atraso da API não permite declarar o fecho completo nem preencher zeros. Retenção: job SQL diário consolidado das novas séries, não dois jobs independentes por plataforma. Cron a instalar separadamente pelo 0; **nenhum cron no DDL abaixo**.
 
 Retenção conserva hoje e D−1…D−29 por fuso guardado: futuramente `DELETE FROM crm.ads_insights_hourly WHERE metric_date < (now() AT TIME ZONE account_timezone)::date - 29`. Limpeza diária pode reter até cerca de 24h adicionais antes da remoção. Não apagar breakdown diário existente nem controlo/histórico anterior.
 
 ## 4. Atualizar agora por artista
 Nova edge futura `artist-ads-refresh-today` usa `_shared/artist-access.ts` e D-ERP259: sessão obrigatória + `artist_access_check(artist,'read','traffic')`; permite quem pode ler Tráfego, sem conceder editar orçamentos/contas. Não usar os coletores antigos que exigem ADS_ROLES como autorização para externos.
 
-`artist_ads_refresh_claim` é chamada pela edge **com JWT do utilizador**, antes de resolver tokens; só p_artist_id e p_scheduled, empresa/contas calculadas no servidor. Limite durável global por artista: uma aceitação manual em 120s, mesmo vários utilizadores/instâncias. Pedido agendado reservado a service_role; cron e manual partilham lease, para não correr simultaneamente. 429 + retry_after para limite; 202 para corrida já em curso. Falha não devolve a janela manual, evitando tempestades.
+`artist_ads_refresh_claim` no caminho manual é chamada pela edge **com JWT do utilizador**, antes de resolver tokens; só p_artist_id e p_scheduled, empresa/contas calculadas no servidor. Limite durável global por artista: uma aceitação manual em 120s, mesmo vários utilizadores/instâncias. No caminho agendado, validar explicitamente `auth.role()='service_role'`, obter `company_id` diretamente de `public.artists` para artista ativo, com lock; **não chamar artist_access_check nem exigir auth.uid()**, ausente no JWT de serviço. O caminho manual mantém sessão e `artist_access_check(artist,'read','traffic')` inalterados. Cron e manual partilham lease, para não correr simultaneamente. 429 + retry_after para limite; 202 para corrida já em curso. Falha não devolve a janela manual, evitando tempestades.
 
 `artist_ads_refresh_finish` só serviço, request_id e lease conferidos. Resposta contém last_synced_at global (última corrida integral bem-sucedida) e por plataforma (parciais/falhas explícitas). Conta desligada não é falha de plataforma ligada. Não usar max dos timestamps para declarar tudo atualizado. Lease de 5 min com teto futuro de trabalho de 110s; upserts futuros têm de ser fenced pelo request_id ativo e revalidados antes da escrita, impedindo worker antigo de sobrescrever worker novo. Esta edge e o writer fenced **não são implementados por este DDL**.
 
 ## 5. Backfill e custo
 Dispositivo Meta: **30 datas D−29…D**, campanha e conjunto, por conta; uma consulta lógica de 30 dias por nível se volume permitir, senão blocos menores, paginação/async. Meta horário: **até 14 datas D−13…D**, por nível; a documentação permite 13 meses, mas este pedido limita a recolha a 14 dias. TikTok: tentar até 14 datas, uma por pedido e nível; a retenção horária exata e LPV têm de ser confirmadas na documentação da conta — não prometo 14 dias recuperáveis sem essa confirmação. Lacunas ficam documentadas, não preenchidas. Google: backfill horário também até 14 datas se quota permitir, sem reescrever diário legado.
 
-Contagem base com as 5 ligações atuais, antes de páginas/retries/metadados: por corrida hoje Meta 2 contas × (2 hora + 2 device) = 8; TikTok 2 × 2 hora = 4; Google 1 × 2 hora = 2 operações. Total **14 pedidos/consultas lógicas por corrida; 672/dia** (Meta 384, TikTok 192, Google 96). Não é 1 pedido por campanha. Manual: até +14 por artista com uma conta por plataforma? Não: **8 por artista com 1 Meta+1 TikTok+1 Google** (4+2+2); total real depende das ligações desse artista. Limite teórico de 720 pedidos manuais aceites/dia/artista, não previsão de uso.
+Contagem base com as 5 ligações já observadas, sem nova consulta nesta revisão e antes de páginas/retries/metadados: por data Meta 2 contas × (2 hora + 2 device) = 8; TikTok 2 × 2 hora = 4; Google 1 × 2 hora = 2 operações. **Consultas separadas por data**, para o mesmo caminho por dia: às 12:00 Brasília, hoje + D−1 = **28**; às 22:00, só hoje = **14**. Total **42 consultas lógicas/dia** (Meta **24**, TikTok **12**, Google **6**), em vez de 672/dia: redução de 93,75%. Não é 1 pedido por campanha. Manual: **8 por artista com 1 Meta+1 TikTok+1 Google** (4+2+2), apenas hoje; total real depende das ligações desse artista. Limite teórico de 720 pedidos manuais aceites/dia/artista, não previsão de uso. Não descontar possíveis otimizações de intervalos nem confundir consultas lógicas com chamadas HTTP efetivas.
 
-Backfill base: Meta device 4 consultas + hora 4; TikTok 2 contas × 2 níveis × 14 dias = 56; Google 2: **66 consultas lógicas** antes de paginação; async acrescenta criação/polls/resultados. Uma consulta GAQL SearchStream conta uma operação; conta não comprovada para nível de acesso do projeto. Google 96/dia deste novo job é baixo face aos limites públicos, mas partilha quota com o resto da integração.
+Backfill base: Meta device 4 consultas + hora 4; TikTok 2 contas × 2 níveis × 14 dias = 56; Google 2: **66 consultas lógicas** antes de paginação; async acrescenta criação/polls/resultados. Uma consulta GAQL SearchStream conta uma operação; conta não comprovada para nível de acesso do projeto. Google **6/dia** deste novo job é baixo face aos limites públicos, mas partilha quota com o resto da integração.
 
 Rate limits: coordenação persistente por conta entre manual/cron/backfill, serialização de relatórios, concorrência baixa, medir cada página HTTP (contador atual Meta subconta páginas). Headers Meta X-App-Usage/X-Ad-Account-Usage/X-Business-Use-Case-Usage e Retry-After; TikTok limites do endpoint/app e códigos de throttling; Google RESOURCE_EXHAUSTED/query_resource_consumption. Retry com jitter limitado e retoma por cursor, sem busy loop nem job permanente de retry. Números absolutos de quota real do projeto não foram lidos: não inventar. Custos monetários Cloud não estimáveis só pelo número de chamadas.
 
 ## 6. Conferência e aplicação futura
 Antes: confirmar objetos novos ausentes, definição/ACL/índices/RLS da tabela reutilizada, definição e hash/ACL de artist_access_check, papéis sandbox, owners e default ACL. SQL tem pré-condições e guardas de grants diretos e efetivos por herança; não muda grants globais/esquemas. Depois: comparar snapshots dos objetos anteriores byte a byte; confirmar novas tabelas vazias, RLS on/zero policies, tabela/coluna sem anon/authenticated/sandbox, claim authenticated+service_role, finish só service_role, trigger owner/serviço. Guardas abortam a transação perante grants herdados inesperados; não “corrigir” role global.
 
-DDL analisado sintaticamente por parser PostgreSQL; **não executado nem validado funcionalmente em PG local/Cloud**. Na aplicação futura: testes locais de 120s, concorrência, empresa/área, falsa flag scheduled, stale worker, troca de conta/fuso, null/zero, paginação, backfill inclusivo e preservação dos relatórios antigos; CI verde antes de deploy não corretivo. Próxima etapa depende da aprovação do SQL exato abaixo.
+DDL analisado sintaticamente por parser PostgreSQL; **não executado nem validado funcionalmente em PG local/Cloud**. Na aplicação futura: testes locais de 120s, concorrência, empresa/área, falsa flag scheduled, service_role sem auth.uid(), artista inativo/inexistente, stale worker, troca de conta/fuso, null/zero, paginação, backfill inclusivo, horários 15:00/01:00 UTC e D−1 integral apenas na corrida das 15:00, e preservação dos relatórios antigos; CI verde antes de deploy não corretivo. Correções de 21/10 aprovadas apenas para preparação; próxima etapa depende de ordem expressa para aplicar o SQL exato abaixo.
 
 ## Referências oficiais
 - Meta: https://developers.facebook.com/docs/marketing-api/insights/breakdowns/
@@ -156,7 +156,7 @@ CREATE TRIGGER ads_hourly_validate_connection
   BEFORE INSERT OR UPDATE ON crm.ads_insights_hourly
   FOR EACH ROW EXECUTE FUNCTION crm.ads_hourly_validate_connection();
 
--- Chamado com JWT do utilizador; p_scheduled=true apenas service_role validado.
+-- Manual: JWT do utilizador. Agendado: service_role sem auth.uid(), artista ativo.
 CREATE FUNCTION public.artist_ads_refresh_claim(p_artist_id uuid,p_scheduled boolean DEFAULT false)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, public, crm
@@ -169,13 +169,18 @@ BEGIN
     IF coalesce(auth.role(),'')<>'service_role' THEN
       RAISE EXCEPTION 'sync agendado reservado ao serviço' USING ERRCODE='42501';
     END IF;
+    SELECT a.company_id INTO v_company FROM public.artists a
+      WHERE a.id=p_artist_id AND a.status='ativo' AND a.company_id IS NOT NULL FOR SHARE;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'artista ativo inexistente ou sem empresa' USING ERRCODE='42501';
+    END IF;
   ELSE
     IF auth.uid() IS NULL THEN RAISE EXCEPTION 'sessão obrigatória' USING ERRCODE='42501'; END IF;
+    v_company:=public.artist_access_check(p_artist_id,'read','traffic');
+    -- Lock por artista: permissão manual validada antes de consumir o limite.
+    PERFORM 1 FROM public.artists WHERE id=p_artist_id AND company_id=v_company FOR SHARE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'artista alterado' USING ERRCODE='42501'; END IF;
   END IF;
-  v_company:=public.artist_access_check(p_artist_id,'read','traffic');
-  -- Lock por artista: permissão validada antes de consumir o limite.
-  PERFORM 1 FROM public.artists WHERE id=p_artist_id AND company_id=v_company FOR SHARE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'artista alterado' USING ERRCODE='42501'; END IF;
   INSERT INTO public.artist_ads_refresh_control(artist_id,company_id,last_started_at)
     VALUES(p_artist_id,v_company,v_now) ON CONFLICT(artist_id) DO NOTHING;
   SELECT * INTO v_row FROM public.artist_ads_refresh_control WHERE artist_id=p_artist_id FOR UPDATE;
