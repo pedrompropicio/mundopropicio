@@ -1,4 +1,4 @@
-"""LOCAL ONLY: complete catalog before/after thirteen inert candidate pairs."""
+"""LOCAL ONLY: complete catalog before/after twelve inert candidate pairs."""
 import json
 import sys
 from pathlib import Path

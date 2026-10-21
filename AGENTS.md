@@ -31,6 +31,7 @@
 - CRM WhatsApp uses crm_whatsapp_eligible/invoker views. Ledger/member-phone triggers share a contact-locked projection; matching-fingerprint phones only fill empty contacts, avoiding leaks/overwrites.
 
 - Cache payments only via cache_* RPCs (mother/city children); optional line choices use local `cache.line_choices`, server-checked.
+- Issue #335 stays manual-only: guards require a private backend/transaction context created by the command trigger, never role/GUC alone; delegate parent locks without broad UPDATE, and verify existing-object candidate rollbacks against the full catalog before separate installation approval.
 - Separate artist hourly collector; service writer fences stale request_id. Read nested AGENTS.md, including supabase/ and function directories.
 <!-- LOVABLE:BEGIN -->
 - Arrival comparison uses UTC hourly raw counts, not unique visitors. Nonwaiting artist/hour trigger locks preserve capture; bounded rebuilds acknowledge only pending IDs captured before their source snapshot, retaining late commits for repair.
