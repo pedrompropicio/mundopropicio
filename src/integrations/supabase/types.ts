@@ -17337,6 +17337,60 @@ export type Database = {
         }
         Relationships: []
       }
+      song_link_report_visitor_refs_daily: {
+        Row: {
+          artist_id: string
+          day_utc: string
+          dim: Json
+          kind: string
+          n: number
+          scope: string
+        }
+        Insert: {
+          artist_id: string
+          day_utc: string
+          dim: Json
+          kind: string
+          n?: number
+          scope: string
+        }
+        Update: {
+          artist_id?: string
+          day_utc?: string
+          dim?: Json
+          kind?: string
+          n?: number
+          scope?: string
+        }
+        Relationships: []
+      }
+      song_link_report_visitor_totals_daily: {
+        Row: {
+          artist_id: string
+          day_utc: string
+          dim: Json
+          kind: string
+          scope: string
+          v: number
+        }
+        Insert: {
+          artist_id: string
+          day_utc: string
+          dim: Json
+          kind: string
+          scope: string
+          v?: number
+        }
+        Update: {
+          artist_id?: string
+          day_utc?: string
+          dim?: Json
+          kind?: string
+          scope?: string
+          v?: number
+        }
+        Relationships: []
+      }
       song_link_report_visitors_hourly: {
         Row: {
           artist_id: string
@@ -26506,6 +26560,10 @@ export type Database = {
       song_link_report_hourly_validate: {
         Args: { p_artist: string }
         Returns: Json
+      }
+      song_link_report_visitor_daily_delta: {
+        Args: { a: string; d: Json; delta: number; h: string; k: string }
+        Returns: undefined
       }
       song_link_utm_slug: { Args: { p: string }; Returns: string }
       split_transaction_by_bp_lines: {

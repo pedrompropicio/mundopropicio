@@ -1632,6 +1632,13 @@
       "when": 1792581049046,
       "tag": "0232_period_report_keep_single_visitor_scan",
       "breakpoints": true
+    },
+    {
+      "idx": 233,
+      "version": "7",
+      "when": 1792581103484,
+      "tag": "0233_period_report_exact_daily_visitors",
+      "breakpoints": true
     }
   ]
 }
