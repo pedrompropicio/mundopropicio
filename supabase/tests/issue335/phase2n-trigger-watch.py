@@ -53,6 +53,8 @@ try:
  assert run(admin,'SELECT id FROM transaction_offset_items WHERE group_id=%s',(g,))
  other=str(run(admin,'SELECT id FROM companies WHERE id<>%s ORDER BY id LIMIT 1',(company,))[0][0])
  template=run(admin,'SELECT to_jsonb(i) FROM transaction_offset_items i WHERE id=%s',(item,))[0][0]
+ fresh=run(admin,"INSERT INTO transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(%s,'approved','income','2n1c unique valid item target',10,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id",(company,))[0][0]
+ template.update(transaction_id=str(fresh),forecast_id=None,base_amount=10,iva_rate=0,gross_amount=10,prior_paid_amount=0,prior_status='approved',open_amount=10,cash_amount=0,compensation_amount=10)
  # Preserve real FK ids and every valid existing value; change unique key/order only.
  def item_insert(group_id,company_id):
   v=dict(template);v.update(id=str(uuid4()),group_id=group_id,company_id=company_id,cash_order=99)
@@ -72,6 +74,26 @@ try:
  PERFORM set_config('issue335.ctx',tok::text,true);EXECUTE NEW.command;
  DELETE FROM issue335_execution_context WHERE backend_pid=pg_backend_pid();RETURN NEW;END $$;
  CREATE TRIGGER context BEFORE INSERT ON issue335_2n1c.control FOR EACH ROW EXECUTE FUNCTION issue335_2n1c.context()""")
+ # Positive validity proof: same valid insert accepted only in preparing group,
+ # then rollback restores full rows. Applied-state refusals aren't invalid FKs.
+ before=snapshot(admin);run(admin,'BEGIN')
+ run(admin,'INSERT INTO issue335_2n1c.control VALUES(%s)',("UPDATE transaction_offset_groups SET status='preparing' WHERE id='"+g+"'",))
+ st,p=item_insert(g,company)
+ with admin.cursor() as q:command=q.mogrify(st,p).decode()
+ assert run(admin,'INSERT INTO issue335_2n1c.control VALUES(%s)',(command,))==1
+ run(admin,'ROLLBACK');assert before==snapshot(admin)
+ rows.append(dict(step=1,phase='BEFORE-valid-insert-positive',actual='INSERT1 preparing; same valid FKs; full rollback'))
+ # Show referenced-item FK itself refuses DELETE when state guard is satisfied.
+ before=snapshot(admin);run(admin,'BEGIN')
+ run(admin,'INSERT INTO issue335_2n1c.control VALUES(%s)',("UPDATE transaction_offset_groups SET status='preparing' WHERE id='"+g+"'",))
+ try:
+  run(admin,'INSERT INTO issue335_2n1c.control VALUES(%s)',("DELETE FROM transaction_offset_items WHERE id='"+str(item)+"'",))
+  raise AssertionError('referenced item FK delete accepted')
+ except psycopg2.Error as e:
+  assert e.pgcode=='23503',e.diag.message_primary
+  rows.append(dict(step=1,phase='BEFORE-referenced-item-FK',actual=e.pgcode+':'+e.diag.message_primary))
+ finally:run(admin,'ROLLBACK')
+ assert before==snapshot(admin)
  for name,args in attacks:
   before=snapshot(admin);run(admin,'BEGIN');st,p=args()
   with admin.cursor() as q:command=q.mogrify(st,p).decode()
