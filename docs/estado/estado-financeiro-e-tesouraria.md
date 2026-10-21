@@ -4,6 +4,9 @@ Atualizado: 09/10/2026 (ritual de fecho da frente; inclui o trabalho do chat fin
 
 ## Em que pé está
 
+### SEPA com data de Lisboa (21/10/2026)
+- Gerador pain.001: datas/carimbos em Europe/Lisbon, execução nunca anterior ao dia de Lisboa, avanço para dia útil preservado e revalidação no momento de gerar. Data inicial da lista alinhada; datas explicitamente escolhidas mantidas. 18 testes SEPA locais passaram com TZ=America/Fortaleza, incluindo transições DST. Sem DDL, DML ou Publish; aceitação pelo Santander não testada nesta sessão.
+
 ### Contratos de pagamento do cachê (20/10/2026)
 - D-ERP288 revê D15: até 4 contratos por cachê, retenção IRS opcional por contrato (mãe própria para a AT), vencimento manual, adiantamentos indivisíveis. Migrações 0214/0215; painel "Contratos de pagamento" no cachê; o antigo botão "Gerar Transação de Pagamento" foi retirado. Testes: `supabase/tests/cache_contracts/run.sh` (PG local, 49 verificações) e `src/lib/__tests__/cache-contracts.test.ts`. Por verificar pelo Pedro em Live: ver relatório da tarefa.
 - D-ERP288 adenda (20/10/2026, migração 0216): tecto = linha BP 2.1.01 da cidade (escolha quando há várias), contrato só após congelar o cachê configurado, adiantamento livre só antes de congelar, adiantamentos antigos só com evento em fecho (active + data passada). Entradas: modal de cachê (passo 2) e linha 2.1.01 do BP.
