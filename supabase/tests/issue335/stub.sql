@@ -1,0 +1,46 @@
+-- Disposable LOCAL ONLY. No secrets, no external calls. Structural dependencies stubbed;
+-- payment derivation/validation/legacy application/reconcile are installed verbatim baselines.
+CREATE SCHEMA auth;
+CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
+CREATE TYPE public.app_role AS ENUM('admin','manager','editor','viewer');
+CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULLIF(current_setting('t.uid',true),'')::uuid $$;
+CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT '{}'::jsonb $$;
+CREATE FUNCTION public.current_company_id() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULLIF(current_setting('t.company',true),'')::uuid $$;
+CREATE TABLE auth.users(id uuid PRIMARY KEY,email text);
+CREATE TABLE public.profiles(id uuid PRIMARY KEY,email text);
+CREATE TABLE public.user_roles(user_id uuid,role app_role);
+CREATE FUNCTION public.has_role(u uuid,r app_role) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$ SELECT EXISTS(SELECT 1 FROM public.user_roles WHERE user_id=u AND role=r) $$;
+CREATE FUNCTION public.has_staff_role(u uuid) RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT public.has_role(u,'admin') OR public.has_role(u,'manager') OR public.has_role(u,'editor') OR public.has_role(u,'viewer') $$;
+CREATE TABLE public.companies(id uuid PRIMARY KEY);
+CREATE TABLE public.suppliers(id uuid PRIMARY KEY,company_id uuid REFERENCES public.companies(id));
+CREATE TABLE public.events(id uuid PRIMARY KEY,company_id uuid,name text,status text DEFAULT 'active',parent_event_id uuid);
+CREATE TABLE public.financial_accounts(id uuid PRIMARY KEY,company_id uuid,type text DEFAULT 'bank',name text);
+CREATE TABLE public.event_forecasts(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),company_id uuid,event_id uuid,category_id uuid,type text,description text,specification text,amount numeric,iva_rate integer,transaction_id uuid,approved_at timestamptz,version_id uuid,currency text DEFAULT 'EUR',fx_rate numeric,cache_config_id uuid,master_forecast_id uuid,formula_type text DEFAULT 'fixed');
+CREATE TABLE public.transactions(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),company_id uuid DEFAULT current_company_id(),event_id uuid,category_id uuid,forecast_id uuid REFERENCES public.event_forecasts(id),type text,description text,specification text,amount numeric,iva_rate integer DEFAULT 23,date date,due_date date,status text DEFAULT 'approved',supplier_id uuid,account_id uuid,paid_amount numeric DEFAULT 0,payment_date date,currency text DEFAULT 'EUR',fx_rate numeric,original_amount numeric,installment_group_id uuid,installment_number integer,installment_total integer,parent_transaction_id uuid,split_percentage numeric,is_reimbursement boolean DEFAULT false,is_transitory boolean DEFAULT false,exclude_from_result boolean DEFAULT false,is_hidden boolean DEFAULT false,cache_contract_id uuid,shared_cost_account_id uuid,declared_withholding_amount numeric,declared_withholding_rate numeric,reversed_at timestamptz,reversal_kind text,reversal_reason text,reversed_by uuid,supplier_credit_id uuid,payment_method text DEFAULT 'transfer',updated_at timestamptz DEFAULT now());
+ALTER TABLE public.event_forecasts ADD FOREIGN KEY(transaction_id) REFERENCES public.transactions(id);
+CREATE TABLE public.transaction_offsets(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),company_id uuid DEFAULT current_company_id(),receivable_transaction_id uuid REFERENCES public.transactions(id),payable_transaction_id uuid REFERENCES public.transactions(id),amount numeric,note text,created_by text,UNIQUE(receivable_transaction_id,payable_transaction_id));
+CREATE TABLE public.transaction_payments(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),transaction_id uuid REFERENCES public.transactions(id),company_id uuid DEFAULT current_company_id(),amount numeric CHECK(amount>0),payment_date date NOT NULL,account_id uuid,payment_method text DEFAULT 'transfer',status text DEFAULT 'paid',created_by text DEFAULT 'sistema',currency text DEFAULT 'EUR',closes_transaction boolean DEFAULT false,offset_id uuid REFERENCES public.transaction_offsets(id),credit_amount numeric DEFAULT 0,withholding_amount numeric DEFAULT 0,fx_rate numeric,notes text,payment_reference text,reversed_at timestamptz,reversed_by uuid,reversal_kind text,reversal_reason text,supplier_credit_id uuid,updated_at timestamptz DEFAULT now());
+CREATE TABLE public.partner_paid_expenses(transaction_id uuid);
+CREATE TABLE public.payment_lists(id uuid,status text);
+CREATE TABLE public.payment_list_items(transaction_id uuid,payment_list_id uuid,manually_marked_paid boolean);
+CREATE TABLE public.supplier_credits(id uuid DEFAULT gen_random_uuid(),supplier_id uuid,origin_event_id uuid,amount numeric,used_amount numeric,reason text,valid_until date,status text,created_by text,company_id uuid,document_ref text);
+CREATE TABLE public.system_audit_log(id uuid DEFAULT gen_random_uuid(),entity_type text,entity_id text,action text,changed_by text,old_data jsonb,new_data jsonb,metadata jsonb,company_id uuid);
+CREATE TABLE public.transaction_audit_log(transaction_id uuid,changed_by text,changed_at timestamptz,field_name text,old_value text,new_value text,company_id uuid);
+CREATE TABLE public.bank_statement_lines(id uuid PRIMARY KEY,company_id uuid,financial_account_id uuid,amount numeric,booking_date date,value_date date,status text DEFAULT 'unmatched',matched_transaction_id uuid,created_transaction_id uuid,matched_payment_list_id uuid,matched_sepa_export_id uuid,matched_by text,matched_at timestamptz,date_divergence jsonb,description text);
+CREATE TABLE public.bank_line_transactions(id uuid DEFAULT gen_random_uuid(),line_id uuid,transaction_id uuid,company_id uuid DEFAULT current_company_id(),UNIQUE(line_id,transaction_id));
+CREATE TABLE public.system_invariants(name text PRIMARY KEY,description text,severity text,scope text,reference_count bigint,notes text);
+CREATE FUNCTION public.tx_has_installment_schedule(uuid) RETURNS boolean LANGUAGE sql AS $$ SELECT false $$;
+GRANT USAGE ON SCHEMA public,auth TO authenticated,service_role;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth,public TO authenticated,service_role;
+GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO authenticated,service_role;
+DO $$ DECLARE t text; BEGIN
+ FOREACH t IN ARRAY ARRAY['suppliers','events','financial_accounts','event_forecasts','transactions','transaction_payments','transaction_offsets','bank_statement_lines','bank_line_transactions'] LOOP
+  EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',t);
+  EXECUTE format('CREATE POLICY local_tenant ON public.%I FOR ALL TO authenticated USING(company_id=public.current_company_id()) WITH CHECK(company_id=public.current_company_id())',t);
+ END LOOP;
+END $$;
+INSERT INTO companies VALUES('00000000-0000-0000-0000-000000000001'),('00000000-0000-0000-0000-000000000002');
+INSERT INTO user_roles VALUES('00000000-0000-0000-0000-000000000010','admin'),('00000000-0000-0000-0000-000000000011','viewer');
+INSERT INTO suppliers VALUES('00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-000000000001');
+INSERT INTO financial_accounts VALUES('00000000-0000-0000-0000-000000000030','00000000-0000-0000-0000-000000000001','bank','LOCAL'),('00000000-0000-0000-0000-000000000031','00000000-0000-0000-0000-000000000001','cash','LOCAL cash');
+SELECT set_config('t.uid','00000000-0000-0000-0000-000000000010',false),set_config('t.company','00000000-0000-0000-0000-000000000001',false);
