@@ -17,4 +17,6 @@
 - [ ] Ajuste D-ERP288: verificação em Live pelo Pedro e CI do commit.
 - [x] Visão comparativa Fase 1: aliases SQL corrigidos; migração 0218 aplicada, SHA256 50e0f125931dc097bedad8a4d243b0cc7ad3bffaae17a44f156434cc721f5980; RLS/ACL/EXECUTE conferidos; 14 testes locais passaram.
 - [x] Visão comparativa Fase 1: correção mínima BufferSource validada por deno check; 14 testes existentes passaram.
-- [ ] Visão comparativa Fase 1: retoma autorizada 03:42 UTC; corrigir sintaxe/nomes/tipos/imports novos e retestar sem pausas. Entregar writer, deploy, prova Litto, backfill/cobertura TikTok, crons/retenção e contagens. Parar por guarda ACL/DDL, comportamento irresolúvel sem redesenho, API/permissão ou alteração existente fora do plano. Sem Publish.
+- [x] Visão comparativa Fase 1: writer 0219 aplicado e ACL conferida; deno check e 15 testes passam; edge deployada; Litto JWT real 200 e segunda chamada 429.
+- [x] Visão comparativa Fase 1: backfill 14 datas por hora nas 5 contas e 30 datas device Meta; ambas TikTok devolveram 08–21/10. Crons 7110/7111 confirmados ativos; 452 chamadas HTTP, contagens/outputs no relatório. Sem Publish.
+- [ ] Visão comparativa Fase 1: prova visual do botão bloqueada — esta cópia não tem página de tráfego artístico; ligar no frontend proprietário requer acesso/indicação dessa superfície. Endpoint manual provado, não botão UI.
