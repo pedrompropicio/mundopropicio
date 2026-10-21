@@ -6088,3 +6088,17 @@ Decisão do Pedro (20/10/2026, plano aprovado com ajustes A–H). O cachê paga-
 - `_cache_cancel_contract` passa a tratar as dependências exatamente como `delete_transaction_cascade` (âncora do BP, pagamentos do cachê, fecho de bilheteira, reembolsos, itens de lista, extras de sócio, créditos, pagamentos, documentos, auditoria em `system_audit_log`), mantém `contrato_com_pagamento` e uma só entrada no Lixo por mãe.
 - Depois re-ancora cada linha afetada à próxima transação existente (ORDER BY date, created_at, id, com `bp_tx_link_allowed`), ou NULL. "Alterar" (cancelar+recriar) usa o mesmo caminho.
 - UI: "Valor bruto" e "Valor" do adiantamento aceitam € ou %; % sobre o cachê efetivo (adiantamento dentro de contrato: sobre o saldo disponível), arredondado a 2 casas; grava sempre €. RPCs inalteradas.
+
+## D-ERP289 — Medição sobre dados financeiros históricos corta na implantação do saldo bancário (21/10/2026)
+
+Decisão do Pedro (21/10/2026), depois de o erro se repetir e de ter de ser explicado de novo.
+
+**A regra.** Qualquer contagem, soma ou diagnóstico sobre dados financeiros que vá justificar uma decisão corta na **implantação do saldo da conta em causa**. Antes dessa data não havia saldo implantado nem obrigação de conciliação, e os eventos históricos foram importados em agregado, sem transações reais e sem pernas de pagamento. Dados anteriores ao corte **não são prova de defeito** — são a forma da importação.
+
+**Onde se vai buscar o corte.** `public.bank_statements`, o primeiro `period_from` de cada conta. Consulta-se na hora, nunca de memória: contas novas têm o seu próprio corte. Valores a 21/10/2026 — Santander · MP (`594befaa`): **31/08/2026**, saldo de abertura 155.347,60, importado a 09/09/2026. Santander · Coala (`c0fda40b`): **04/08/2026**, importado a 13/10/2026.
+
+**Porquê.** Medir sem o corte não é ser conservador, é estar errado: infla o universo em ordens de grandeza e leva a desenhar portas de fuga permanentes para um problema que não existe. Caso que originou a decisão (#336, 21/10/2026): a Issue dava **499 transações pagas sem perna de dinheiro, 2.646.931,24 €**, e concluía daí que o recurso a `paid_amount` era obrigatório. Com o corte são **10 transações / 29.629,84 €**, todas da importação do Coala de 09/08/2026, evento encerrado a 28/08 — e **zero na MP**. A regra geral passou a ser uma fronteira datada, que se extingue sozinha.
+
+**O que se exige a quem apresenta o número.** Dizer qual o corte usado. Se apresentar o universo inteiro, dizer explicitamente que é o universo inteiro e porque é que isso é relevante para aquela decisão. Um número sem corte declarado não serve de base a decisão nenhuma.
+
+Relacionada: D-ERP278 (nunca concluir a partir de verificação incompleta).
