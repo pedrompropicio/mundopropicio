@@ -181,8 +181,8 @@ DO $$ DECLARE win uuid; ev uuid; cat uuid; f uuid; a uuid; n0 bigint; BEGIN
  -- 2j: a flag só é aceite em L3 do Grupo 10 (validate_category_allocate_flag real) → plano local 10 > 10.9 > 10.9.35.
  INSERT INTO public.account_categories(id,company_id,code,name,type,parent_id) VALUES('00000000-0000-0000-0000-000000000060','00000000-0000-0000-0000-000000000001','10','LOCAL G10','expense',NULL) ON CONFLICT DO NOTHING;
  INSERT INTO public.account_categories(id,company_id,code,name,type,parent_id) VALUES('00000000-0000-0000-0000-000000000061','00000000-0000-0000-0000-000000000001','10.9','LOCAL G10.9','expense','00000000-0000-0000-0000-000000000060') ON CONFLICT DO NOTHING;
- INSERT INTO public.account_categories(company_id,code,name,type,parent_id,allocate_to_active_event) VALUES('00000000-0000-0000-0000-000000000001','10.9.35','LOCAL janela','expense','00000000-0000-0000-0000-000000000061',true) RETURNING id INTO cat;
- INSERT INTO public.events(id,company_id,name,date,event_nature,absorbs_admin_costs,admin_window_start,admin_window_end) VALUES(gen_random_uuid(),'00000000-0000-0000-0000-000000000001','2j janela','2026-10-01','producao_propria',true,'2026-10-01','2026-10-31') RETURNING id INTO win;
+ INSERT INTO public.account_categories(id,company_id,code,name,type,parent_id,allocate_to_active_event) VALUES('00000000-0000-0000-0000-000000000062','00000000-0000-0000-0000-000000000001','10.9.35','LOCAL janela','expense','00000000-0000-0000-0000-000000000061',true) ON CONFLICT DO NOTHING; cat:='00000000-0000-0000-0000-000000000062';
+ INSERT INTO public.events(id,company_id,name,date,event_nature,absorbs_admin_costs,admin_window_start,admin_window_end) VALUES('00000000-0000-0000-0000-000000000063','00000000-0000-0000-0000-000000000001','2j janela','2026-10-01','producao_propria',true,'2026-10-01','2026-10-31') ON CONFLICT DO NOTHING; win:='00000000-0000-0000-0000-000000000063';
  RESET ROLE;
  INSERT INTO issue335_test.j VALUES('W:cat',cat),('W:win',win) ON CONFLICT(k) DO UPDATE SET v=excluded.v;
 EXCEPTION WHEN undefined_column THEN RAISE NOTICE 'J3 colunas de janela diferentes: %',SQLERRM; RAISE;
