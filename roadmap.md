@@ -29,4 +29,4 @@
 - [ ] Litto 2: retomar capturas Artists bloqueado por renovação TIKTOK_ARTISTS_COOKIE pelo Pedro; não inventar histórico ausente.
 - [x] Litto 3: AUCTION_CAMPAIGN implementado, 76 linhas/30 dias; dias fechados API=37.458,33, zero divergências; 8 testes Deno passaram; sem DDL/apagar/Publish.
 - [x] Urgente alertas fontes: emails bloqueados e zero na fila; regra 5/14 dias, ativo/elenco/ativo/non-reference, lotes excluídos; só Litto tiktok_artists (6 dias); resumo único e PK claim até recuperação, 10 testes locais. Email continua desligado.
-- [ ] Alertas sem entrega/parada: datas inclusivas no fuso da conta nas três plataformas, snapshots API, resolver falsos positivos e lista antes/depois; sem DDL/apagar.
+- [x] Alertas sem entrega/parada: datas inclusivas por conta nas três plataformas; campos existentes Google/Meta e raw TikTok já guardam datas; painel 2→1, log 4→3, Google resolvido. 16 testes e cinco contas reais HTTP 200; sem DDL de tabelas/apagar/Publish.
