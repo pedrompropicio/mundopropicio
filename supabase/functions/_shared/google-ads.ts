@@ -4,7 +4,7 @@
 export const GOOGLE_ADS_API_VERSION = "v24";
 const GOOGLE_ADS_BASE = `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}`;
 
-function pemToDer(pem: string): Uint8Array {
+function pemToDer(pem: string): ArrayBuffer {
   const b64 = pem
     .replace(/-----BEGIN [^-]+-----/g, "")
     .replace(/-----END [^-]+-----/g, "")
@@ -12,7 +12,7 @@ function pemToDer(pem: string): Uint8Array {
   const bin = atob(b64);
   const der = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) der[i] = bin.charCodeAt(i);
-  return der;
+  return der.buffer;
 }
 
 function b64urlEncode(input: Uint8Array | string): string {
