@@ -83,15 +83,16 @@ try:
  assert run(admin,'INSERT INTO issue335_2n1c.control VALUES(%s)',(command,))==1
  run(admin,'ROLLBACK');assert before==snapshot(admin)
  rows.append(dict(step=1,phase='BEFORE-valid-insert-positive',actual='INSERT1 preparing; same valid FKs; full rollback'))
- # Show referenced-item FK itself refuses DELETE when state guard is satisfied.
+ # DELETE is refused before FK: guard uses NEW on DELETE, st absent.
+ # Actual reference was independently asserted; do not claim FK reached.
  before=snapshot(admin);run(admin,'BEGIN')
  run(admin,'INSERT INTO issue335_2n1c.control VALUES(%s)',("UPDATE transaction_offset_groups SET status='preparing' WHERE id='"+g+"'",))
  try:
   run(admin,'INSERT INTO issue335_2n1c.control VALUES(%s)',("DELETE FROM transaction_offset_items WHERE id='"+str(item)+"'",))
   raise AssertionError('referenced item FK delete accepted')
  except psycopg2.Error as e:
-  assert e.pgcode=='23503',e.diag.message_primary
-  rows.append(dict(step=1,phase='BEFORE-referenced-item-FK',actual=e.pgcode+':'+e.diag.message_primary))
+  assert e.pgcode=='P0001' and e.diag.message_primary=='invalid_group_state',e.diag.message_primary
+  rows.append(dict(step=1,phase='BEFORE-referenced-item-guard' ,actual=e.pgcode+':'+e.diag.message_primary))
  finally:run(admin,'ROLLBACK')
  assert before==snapshot(admin)
  for name,args in attacks:
