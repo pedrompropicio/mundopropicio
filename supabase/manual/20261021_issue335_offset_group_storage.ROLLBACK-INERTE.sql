@@ -1,12 +1,10 @@
--- INERTE rollback: retain schema and every audit/payment; close NEW entry privileges.
+-- INERTE: only pristine zero-history restoration; managed history is never removed.
 BEGIN;
 SET LOCAL lock_timeout='5s';
-DO $$ BEGIN
- IF to_regclass('public.transaction_offset_groups') IS NOT NULL THEN
-  REVOKE INSERT,UPDATE ON public.transaction_offset_groups FROM authenticated;
- END IF;
- IF to_regclass('public.transaction_offset_items') IS NOT NULL THEN
-  REVOKE INSERT ON public.transaction_offset_items FROM authenticated;
- END IF;
-END $$;
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM public.transaction_offset_groups) THEN RAISE EXCEPTION 'groups_exist_keep_guards'; END IF; END $$;
+ALTER TABLE public.transaction_payments DROP COLUMN offset_item_id, DROP COLUMN offset_group_id;
+ALTER TABLE public.transaction_offsets DROP COLUMN offset_group_id;
+ALTER TABLE public.bank_statement_lines DROP COLUMN offset_group_id;
+DROP TABLE public.transaction_offset_items;
+DROP TABLE public.transaction_offset_groups;
 COMMIT;

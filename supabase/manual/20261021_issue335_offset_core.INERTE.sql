@@ -3,7 +3,7 @@ BEGIN;
 SET LOCAL lock_timeout='5s';
 -- LOCAL/INERTE SQL port of src/lib/bp-tx-matching.ts; same explicit union and token winner.
 CREATE OR REPLACE FUNCTION public.issue335_normalize(s text) RETURNS text LANGUAGE sql IMMUTABLE SET search_path=public,pg_catalog AS $$
- SELECT btrim(regexp_replace(regexp_replace(lower(normalize(coalesce(s,''),NFD)),U&'[\0300-\036f]','','g'),'[^a-z0-9]+',' ','g'))
+ SELECT btrim(regexp_replace(lower(regexp_replace(normalize(coalesce(s,''),NFD),U&'[\0300-\036f]','','g')),'[^a-z0-9]+',' ','g'))
 $$;
 CREATE OR REPLACE FUNCTION public.issue335_score(f text,t text) RETURNS double precision LANGUAGE sql IMMUTABLE SET search_path=public,pg_catalog AS $$
  WITH n AS(SELECT issue335_normalize(f) f,issue335_normalize(t) t),
@@ -13,7 +13,7 @@ CREATE OR REPLACE FUNCTION public.issue335_score(f text,t text) RETURNS double p
  SELECT CASE WHEN n.f='' AND n.t='' THEN 0 WHEN n.f=n.t THEN 1000 WHEN n.f='' OR n.t='' OR c.shared=0 THEN 0 ELSE c.shared*100+c.shared/nullif(c.fn,0)*10-abs(length(n.f)-length(n.t))::double precision/10000 END FROM n,c
 $$;
 CREATE OR REPLACE FUNCTION public.issue335_matching_transactions(p_forecast uuid) RETURNS SETOF uuid LANGUAGE sql STABLE SECURITY INVOKER SET search_path=public,pg_catalog AS $$
- WITH f AS(SELECT f.*,e.parent_event_id master_id FROM event_forecasts f LEFT JOIN events e ON e.id=f.event_id WHERE f.id=p_forecast),
+ WITH f AS(SELECT f.*,NULL::uuid master_id FROM event_forecasts f WHERE f.id=p_forecast),
  allf AS(SELECT x.* FROM event_forecasts x,f WHERE x.company_id=f.company_id AND x.version_id IS NULL AND x.event_id IN(f.event_id,f.master_id)),
  direct AS(SELECT t.id FROM transactions t,f WHERE t.company_id=f.company_id AND (t.forecast_id=f.id OR t.id=f.transaction_id)),
  cat AS(SELECT t.id,t.description FROM transactions t,f WHERE f.category_id IS NOT NULL AND t.company_id=f.company_id AND t.event_id IN(f.event_id,f.master_id) AND t.category_id=f.category_id AND t.type=f.type AND (t.forecast_id IS NULL OR t.forecast_id=f.id) AND NOT EXISTS(SELECT 1 FROM allf x WHERE x.id<>f.id AND x.transaction_id=t.id)),
@@ -32,6 +32,10 @@ END $$;
 GRANT USAGE ON SCHEMA public,auth TO issue335_executor;
 GRANT SELECT,UPDATE ON public.companies,public.suppliers,public.events,public.financial_accounts TO issue335_executor;
 GRANT SELECT ON public.partner_paid_expenses TO issue335_executor;
+-- Real current_company_id()/has_role() read identity tables as invoker. The executor may read only the caller's own rows.
+GRANT SELECT ON public.profiles,public.user_roles TO issue335_executor;
+CREATE POLICY issue335_identity ON public.profiles FOR SELECT TO issue335_executor USING (id=auth.uid());
+CREATE POLICY issue335_identity ON public.user_roles FOR SELECT TO issue335_executor USING (user_id=auth.uid());
 GRANT SELECT,INSERT,UPDATE ON public.event_forecasts,public.transactions,public.transaction_payments,public.transaction_offsets,public.bank_statement_lines,public.transaction_offset_groups,public.transaction_offset_items TO issue335_executor;
 GRANT SELECT,INSERT,DELETE ON public.bank_line_transactions TO issue335_executor;
 GRANT SELECT,INSERT ON public.forecast_audit_log,public.transaction_audit_log,public.system_audit_log TO issue335_executor;
@@ -101,6 +105,7 @@ DECLARE company uuid:=public.current_company_id(); uid uuid:=auth.uid(); h text;
  j jsonb; txid uuid; gid uuid; iid uuid; acc uuid; amount numeric; pd date; remaining numeric; paid numeric; gross numeric; debt numeric; cash numeric; net numeric:=0;
  has_income boolean:=false; has_expense boolean:=false; ids uuid[]:='{}'; prepared jsonb:='[]'; x jsonb; cash_type text; existing public.transaction_offsets;
 BEGIN
+ PERFORM set_config('lock_timeout','5s',true);
  IF uid IS NULL OR company IS NULL OR NOT (public.has_role(uid,'admin') OR public.has_role(uid,'manager') OR public.has_role(uid,'editor')) THEN RAISE EXCEPTION 'permission_denied'; END IF;
  IF p_request_id IS NULL OR p_supplier_id IS NULL OR p_date IS NULL OR jsonb_typeof(p_items) IS DISTINCT FROM 'array' OR jsonb_array_length(p_items)<2 THEN RAISE EXCEPTION 'invalid_request'; END IF;
  IF p_items::text ~ '"(amount|paid_amount|iva_rate)"' THEN RAISE EXCEPTION 'document_values_not_editable'; END IF;
@@ -201,6 +206,7 @@ END $$;
 CREATE OR REPLACE FUNCTION public._issue335_reverse(p_group_id uuid,p_request_id uuid,p_reason text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $$
 DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid uuid; BEGIN
+ PERFORM set_config('lock_timeout','5s',true);
  IF auth.uid() IS NULL OR NOT (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'manager') OR public.has_role(auth.uid(),'editor')) THEN RAISE EXCEPTION 'permission_denied'; END IF;
  IF p_request_id IS NULL OR nullif(trim(p_reason),'') IS NULL THEN RAISE EXCEPTION 'reason_required'; END IF;
  -- Nonwaiting locks prevent cycles with legacy writers (which use inverted orders).
@@ -224,6 +230,7 @@ DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid 
  UPDATE public.transaction_payments SET status='reversed',reversed_at=now(),reversed_by=auth.uid(),reversal_reason=p_reason WHERE offset_group_id=g.id;
  FOR txid IN SELECT transaction_id FROM public.transaction_offset_items WHERE group_id=g.id ORDER BY transaction_id LOOP PERFORM public._derive_paid_amount(txid); END LOOP;
  FOR l IN SELECT * FROM public.bank_statement_lines WHERE offset_group_id=g.id LOOP
+  INSERT INTO public.system_audit_log(entity_type,entity_id,action,changed_by,old_data,new_data,company_id) VALUES('bank_statement_line',l.id::text,'issue335_detach',auth.uid()::text,jsonb_build_object('header',to_jsonb(l),'links',(SELECT jsonb_agg(to_jsonb(b)) FROM public.bank_line_transactions b WHERE line_id=l.id)),jsonb_build_object('status','unmatched'),g.company_id);
   DELETE FROM public.bank_line_transactions WHERE line_id=l.id;
   UPDATE public.bank_statement_lines SET status='unmatched',offset_group_id=NULL,matched_transaction_id=NULL,matched_by=NULL,matched_at=NULL WHERE id=l.id;
  END LOOP;
@@ -724,6 +731,8 @@ begin
     v_gid := (v_group->>'group_id')::uuid;
     if v_group->>'status'<>'applied' then raise exception 'group_not_applied'; end if;
     if v_line.offset_group_id is not null then return; end if;
+    insert into public.system_audit_log(entity_type,entity_id,action,changed_by,old_data,new_data,company_id)
+      values('bank_statement_line',p_line_id::text,'issue335_attach',auth.uid()::text,to_jsonb(v_line),jsonb_build_object('group_id',v_gid,'transactions',(select jsonb_agg(transaction_id order by transaction_id) from public.transaction_offset_items where group_id=v_gid and cash_amount>0)),v_current);
     update public.bank_statement_lines set status='matched',offset_group_id=v_gid,matched_by='offset:'||auth.uid()::text,matched_at=now() where id=p_line_id;
     insert into public.bank_line_transactions(line_id,transaction_id)
       select p_line_id,transaction_id from public.transaction_offset_items where group_id=v_gid and cash_amount>0;
@@ -897,6 +906,8 @@ BEGIN
   NEW.result:=public._issue335_reverse((NEW.command->>'group_id')::uuid,(NEW.command->>'request_id')::uuid,NEW.command->>'reason');
  ELSE RAISE EXCEPTION 'invalid_operation'; END IF;
  RETURN NEW;
+EXCEPTION WHEN lock_not_available OR deadlock_detected THEN
+ RAISE EXCEPTION 'encontro_em_conflito: operação concorrente; atualize a prévia e tente novamente' USING ERRCODE='55P03';
 END $$;
 ALTER FUNCTION public.issue335_dispatch() OWNER TO issue335_executor;
 REVOKE ALL ON FUNCTION public.issue335_dispatch() FROM PUBLIC,anon,authenticated,service_role;

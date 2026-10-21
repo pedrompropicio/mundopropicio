@@ -1,0 +1,139 @@
+[
+  {
+    "acl": "{=X/supabase_auth_admin,postgres=X/supabase_auth_admin,supabase_auth_admin=X/supabase_auth_admin,dashboard_user=X/supabase_auth_admin}",
+    "args": "",
+    "name": "jwt",
+    "owner": "supabase_auth_admin",
+    "config": null,
+    "schema": "auth",
+    "secdef": false,
+    "volatile": "s",
+    "definition": "CREATE OR REPLACE FUNCTION auth.jwt()\n RETURNS jsonb\n LANGUAGE sql\n STABLE\nAS $function$\n  select \n    coalesce(\n        nullif(current_setting('request.jwt.claim', true), ''),\n        nullif(current_setting('request.jwt.claims', true), '')\n    )::jsonb\n$function$\n"
+  },
+  {
+    "acl": "{=X/supabase_auth_admin,supabase_auth_admin=X/supabase_auth_admin,dashboard_user=X/supabase_auth_admin}",
+    "args": "",
+    "name": "role",
+    "owner": "supabase_auth_admin",
+    "config": null,
+    "schema": "auth",
+    "secdef": false,
+    "volatile": "s",
+    "definition": "CREATE OR REPLACE FUNCTION auth.role()\n RETURNS text\n LANGUAGE sql\n STABLE\nAS $function$\n  select \n  coalesce(\n    nullif(current_setting('request.jwt.claim.role', true), ''),\n    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role')\n  )::text\n$function$\n"
+  },
+  {
+    "acl": "{=X/supabase_auth_admin,supabase_auth_admin=X/supabase_auth_admin,dashboard_user=X/supabase_auth_admin}",
+    "args": "",
+    "name": "uid",
+    "owner": "supabase_auth_admin",
+    "config": null,
+    "schema": "auth",
+    "secdef": false,
+    "volatile": "s",
+    "definition": "CREATE OR REPLACE FUNCTION auth.uid()\n RETURNS uuid\n LANGUAGE sql\n STABLE\nAS $function$\n  select \n  coalesce(\n    nullif(current_setting('request.jwt.claim.sub', true), ''),\n    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')\n  )::uuid\n$function$\n"
+  },
+  {
+    "acl": "{postgres=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+    "args": "_user_id uuid, _company_id uuid, _universe text[]",
+    "name": "_effective_permissions_for",
+    "owner": "postgres",
+    "config": [
+      "search_path=public"
+    ],
+    "schema": "public",
+    "secdef": true,
+    "volatile": "s",
+    "definition": "CREATE OR REPLACE FUNCTION public._effective_permissions_for(_user_id uuid, _company_id uuid, _universe text[] DEFAULT '{}'::text[])\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_pa boolean := public.is_platform_admin(_user_id);\n  v_roles text[];\n  v_role text;\n  v_full boolean;\n  v_perms text[];\nBEGIN\n  IF _user_id IS NULL THEN\n    RETURN jsonb_build_object('role', NULL, 'permissions', '[]'::jsonb);\n  END IF;\n\n  SELECT array_agg(DISTINCT role::text) INTO v_roles\n    FROM public.user_roles\n   WHERE user_id = _user_id\n     AND (company_id = _company_id OR role = 'platform_admin'::app_role);\n\n  SELECT r INTO v_role FROM unnest(coalesce(v_roles, '{}')) r\n   ORDER BY CASE r WHEN 'platform_admin' THEN 0 WHEN 'admin' THEN 1 WHEN 'manager' THEN 2\n     WHEN 'accountant' THEN 3 WHEN 'marketing_manager' THEN 4 WHEN 'content_manager' THEN 4\n     WHEN 'editor' THEN 4 WHEN 'producer' THEN 4 WHEN 'field_producer' THEN 4\n     WHEN 'partner' THEN 5 WHEN 'viewer' THEN 6 WHEN 'user' THEN 7 ELSE 99 END, r\n   LIMIT 1;\n\n  v_full := v_pa OR 'admin' = ANY(coalesce(v_roles, '{}'));\n\n  WITH base AS (\n    SELECT unnest(coalesce(_universe, '{}')) k WHERE v_full\n    UNION SELECT permission FROM public.role_permissions WHERE v_pa\n    UNION SELECT rp.permission FROM public.role_permissions rp\n      WHERE rp.role::text = ANY(coalesce(v_roles, '{}'))\n  ),\n  ov AS (\n    SELECT permission k, bool_and(granted) g FROM public.user_permissions\n     WHERE user_id = _user_id AND company_id = _company_id GROUP BY 1\n  ),\n  eff AS (\n    SELECT b.k FROM base b LEFT JOIN ov ON ov.k = b.k WHERE ov.g IS NULL OR ov.g\n    UNION SELECT k FROM ov WHERE g\n  )\n  SELECT array_agg(k ORDER BY k) INTO v_perms FROM eff;\n\n  RETURN jsonb_build_object(\n    'role', coalesce(v_role, 'user'),\n    'company_id', _company_id,\n    'permissions', to_jsonb(coalesce(v_perms, '{}'))\n  );\nEND;\n$function$\n"
+  },
+  {
+    "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+    "args": "",
+    "name": "current_company_id",
+    "owner": "postgres",
+    "config": [
+      "search_path=public"
+    ],
+    "schema": "public",
+    "secdef": true,
+    "volatile": "s",
+    "definition": "CREATE OR REPLACE FUNCTION public.current_company_id()\n RETURNS uuid\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  v_uid uuid := auth.uid();\n  v_active uuid;\n  v_company uuid;\n  v_is_pa boolean;\n  v_has_active_membership boolean := false;\nBEGIN\n  IF v_uid IS NULL THEN RETURN NULL; END IF;\n\n  SELECT active_company_id, company_id INTO v_active, v_company\n    FROM public.profiles WHERE id = v_uid;\n\n  SELECT EXISTS(SELECT 1 FROM public.user_roles\n    WHERE user_id = v_uid AND role = 'platform_admin'::app_role) INTO v_is_pa;\n\n  -- 1) active_company_id v\u00e1lido (platform_admin OU user tem membership l\u00e1)\n  IF v_active IS NOT NULL THEN\n    IF v_is_pa THEN\n      RETURN v_active;\n    END IF;\n    SELECT EXISTS(SELECT 1 FROM public.user_roles\n      WHERE user_id = v_uid AND company_id = v_active) INTO v_has_active_membership;\n    IF v_has_active_membership THEN RETURN v_active; END IF;\n  END IF;\n\n  -- 2) fallback: profiles.company_id se ainda tem membership l\u00e1\n  IF v_company IS NOT NULL THEN\n    IF v_is_pa OR EXISTS(SELECT 1 FROM public.user_roles\n        WHERE user_id = v_uid AND company_id = v_company) THEN\n      RETURN v_company;\n    END IF;\n  END IF;\n\n  -- 3) fallback: primeira empresa onde tem membership\n  RETURN (SELECT ur.company_id FROM public.user_roles ur\n    JOIN public.companies c ON c.id = ur.company_id\n    WHERE ur.user_id = v_uid AND c.status='active'\n    ORDER BY ur.id LIMIT 1);\nEND;\n$function$\n"
+  },
+  {
+    "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+    "args": "_user_id uuid, _permission text",
+    "name": "has_permission",
+    "owner": "postgres",
+    "config": [
+      "search_path=public"
+    ],
+    "schema": "public",
+    "secdef": true,
+    "volatile": "s",
+    "definition": "CREATE OR REPLACE FUNCTION public.has_permission(_user_id uuid, _permission text)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  SELECT COALESCE(\n    (SELECT granted FROM public.user_permissions\n       WHERE user_id = _user_id AND permission = _permission\n         AND company_id = public.current_company_id()\n       LIMIT 1),\n    public.is_platform_admin(_user_id)\n    OR EXISTS (\n      SELECT 1 FROM public.user_roles ur\n      JOIN public.role_permissions rp ON rp.role = ur.role\n      WHERE ur.user_id = _user_id AND rp.permission = _permission\n        AND ur.company_id = public.current_company_id()\n    )\n  )\n$function$\n"
+  },
+  {
+    "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+    "args": "_user_id uuid, _permission text, _company_id uuid",
+    "name": "has_permission_in",
+    "owner": "postgres",
+    "config": [
+      "search_path=public"
+    ],
+    "schema": "public",
+    "secdef": true,
+    "volatile": "s",
+    "definition": "CREATE OR REPLACE FUNCTION public.has_permission_in(_user_id uuid, _permission text, _company_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  SELECT COALESCE(\n    (SELECT granted FROM public.user_permissions\n       WHERE user_id = _user_id AND permission = _permission AND company_id = _company_id LIMIT 1),\n    public.is_platform_admin(_user_id)\n    OR EXISTS (SELECT 1 FROM public.user_roles ur\n       JOIN public.role_permissions rp ON rp.role = ur.role\n       WHERE ur.user_id = _user_id AND rp.permission = _permission AND ur.company_id = _company_id)\n  )\n$function$\n"
+  },
+  {
+    "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+    "args": "_user_id uuid, _role app_role",
+    "name": "has_role",
+    "owner": "postgres",
+    "config": [
+      "search_path=public"
+    ],
+    "schema": "public",
+    "secdef": true,
+    "volatile": "s",
+    "definition": "CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  SELECT\n    public.is_platform_admin(_user_id)\n    OR EXISTS (\n      SELECT 1 FROM public.user_roles\n      WHERE user_id = _user_id\n        AND role = _role\n        AND (\n          _role = 'platform_admin'::app_role\n          OR company_id = public.current_company_id()\n        )\n    )\n$function$\n"
+  },
+  {
+    "acl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+    "args": "_user_id uuid",
+    "name": "has_staff_role",
+    "owner": "postgres",
+    "config": [
+      "search_path=public"
+    ],
+    "schema": "public",
+    "secdef": true,
+    "volatile": "s",
+    "definition": "CREATE OR REPLACE FUNCTION public.has_staff_role(_user_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  SELECT _user_id IS NOT NULL AND (\n    public.is_platform_admin(_user_id)\n    OR EXISTS (\n      SELECT 1 FROM public.user_roles ur\n      WHERE ur.user_id = _user_id\n        AND ur.role IN (\n          'admin','platform_admin','manager','editor','viewer','accountant',\n          'producer','field_producer','content_manager','marketing_manager'\n        )\n        AND (ur.role = 'platform_admin'::app_role OR ur.company_id = public.current_company_id())\n    )\n  );\n$function$\n"
+  },
+  {
+    "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+    "args": "_user_id uuid",
+    "name": "is_platform_admin",
+    "owner": "postgres",
+    "config": [
+      "search_path=public"
+    ],
+    "schema": "public",
+    "secdef": true,
+    "volatile": "s",
+    "definition": "CREATE OR REPLACE FUNCTION public.is_platform_admin(_user_id uuid DEFAULT auth.uid())\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  SELECT EXISTS (\n    SELECT 1 FROM public.user_roles\n    WHERE user_id = _user_id AND role = 'platform_admin'::app_role\n  )\n$function$\n"
+  },
+  {
+    "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+    "args": "_row_company_id uuid",
+    "name": "row_belongs_to_current_company",
+    "owner": "postgres",
+    "config": [
+      "search_path=public"
+    ],
+    "schema": "public",
+    "secdef": true,
+    "volatile": "s",
+    "definition": "CREATE OR REPLACE FUNCTION public.row_belongs_to_current_company(_row_company_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  SELECT\n    public.is_platform_admin()\n    OR _row_company_id IS NULL\n    OR _row_company_id = public.current_company_id()\n$function$\n"
+  }
+]

@@ -152,3 +152,28 @@ e932c186a6857b8a0cd975d09c64c8b0c9ba43dcc3be8c22d1ee8e5cc6bf99cd  supabase/tests
 4c4d5c91cc3502a066dc4ccbf79bf1930a6cd1dad88ac6b9e1c353e2dac0436b  supabase/tests/issue335/triggers.sql
 a685a81bcee780949e1348e5ec7ff59bdc1bc23500c74e8930181946ac43f8d2  supabase/tests/issue335/validate.LIVE-BASELINE.sql
 ```
+
+
+## Fase 2c (21/10/2026) — LOCAL E INERTE
+
+Paridade: `live/phase2c-auth.sql` repõe corpos reais de auth.uid/jwt/role, current_company_id, has_role, has_permission(_in), is_platform_admin, row_belongs_to_current_company e helpers das policies; owners, ACL (incl. MAINTAIN), 95+3 policies reais, CHECK/UNIQUE/PK/FK e role_permissions de aprovação. Diferencial `live/phase2c-catalog-diff.md`: 390 objetos, 368 iguais, 22 explicados (FKs para tabelas fora do fixture: venues, cities, bp_versions, bank_statements, payment_lists, cache_*, partners, settlements; FKs para auth.users), 0 divergentes.
+
+Defeitos encontrados pela paridade e corrigidos no SQL inerte: executor sem leitura de profiles/user_roles (real current_company_id é invoker) → política `issue335_identity` só para as linhas do próprio utilizador; rollback não repunha ACL de `_derive_paid_amount`/`bp_tx_link_allowed` → reposta exatamente.
+
+Resultados (run.sh, 31 PASS, exit 0): cenários fases 1–2b sobre auth real; paridade BP JS↔SQL (8 casos, 1.002 transações, âncoras em conflito históricas, empates, master excluído, acentos, scores); concorrência 3 sessões (encontro×estorno×pagamento, encontro×encontro, encontro×edição BP) sem deadlock no log, conflito com `encontro_em_conflito` e zero escritas parciais; falhas injectadas banco+BP 24 escritas e reversão 17, todas as tabelas públicas idênticas; rollbacks recusam com grupos; rollback em histórico zero deixa catálogo idêntico (funções/ACL/owners, relações, colunas, policies, triggers, constraints, roles); matriz 17 invariantes idêntica antes/durante/depois, 5 novas a zero.
+
+Vitest: 1.944 passou, 15 skipped, 11 todo (newgang-crm-profile-fields expirou na suite completa por timeout de rede; isolado 9/9 OK). tsgo: OK.
+
+### sha256 fase 2c
+44681f1b5c37dc2af56567267fa0bf879a438ac9b5048bfe9a25f83fd4a03c4a core.INERTE
+6fb4ac387e20e879d4f7e3b44a17b88bca488ea0c921eadb9e44696a0d1812b7 core.ROLLBACK-INERTE
+ee9ee7627da82511de0e0885112bd79071d5e5fe652bbf31d94827eb0d0db3cc group_storage.INERTE
+f0713aaca18c43b44bc352655d5c79dc40d0624084715a42c5eaf54c81576fcf group_storage.ROLLBACK-INERTE
+24bf7ad2a273cc5bc080f20db3c90378f2829ea036cbd264d526d7fda6263c4a invariants.INERTE
+edd924cd48d5378180e80a50547b5a5a4bbe378596155fc384fe127f051c5571 invariants.ROLLBACK-INERTE
+
+### Em aberto
+- FKs para 22 dependências fora do fixture continuam não reproduzidas (explicadas, não provadas).
+- Matching SQL não infere master por parent_event_id (JS só usa master quando o chamador o passa); paridade provada nesse contrato.
+- Teste encontro×encontro usa barreira advisory para sincronizar arranque; corrida sem barreira não medida.
+- Aplicação A–C exige autorização separada do Pedro.

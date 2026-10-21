@@ -1,7 +1,124 @@
--- INERTE: preserve schema/history; refuse restoration with managed groups.
+-- INERTE: zero-history restoration only. Never apply to Live without separate authorization.
 BEGIN;
 SET LOCAL lock_timeout='5s';
 DO $$ BEGIN IF EXISTS(SELECT 1 FROM public.transaction_offset_groups) THEN RAISE EXCEPTION 'groups_exist_keep_guards'; END IF; END $$;
+DROP TRIGGER IF EXISTS issue335_guard ON public.transaction_offset_groups;
+DROP TRIGGER IF EXISTS issue335_guard ON public.transaction_offset_items;
+DROP TRIGGER IF EXISTS issue335_guard ON public.transaction_payments;
+DROP TRIGGER IF EXISTS issue335_guard ON public.transaction_offsets;
+DROP TRIGGER IF EXISTS issue335_guard ON public.transactions;
+DROP VIEW IF EXISTS public.issue335_commands;
+DROP FUNCTION IF EXISTS public.transaction_offset_execute(uuid,uuid,jsonb,jsonb,date,text);
+DROP FUNCTION IF EXISTS public.transaction_offset_reverse(uuid,uuid,text);
+DROP FUNCTION IF EXISTS public.issue335_dispatch();
+DROP FUNCTION IF EXISTS public._issue335_execute(uuid,uuid,jsonb,jsonb,date,text);
+DROP FUNCTION IF EXISTS public._issue335_reverse(uuid,uuid,text);
+DROP FUNCTION IF EXISTS public.issue335_guard();
+DROP FUNCTION IF EXISTS public.issue335_matching_transactions(uuid);
+DROP FUNCTION IF EXISTS public.issue335_score(text,text);
+DROP FUNCTION IF EXISTS public.issue335_normalize(text);
+CREATE OR REPLACE FUNCTION public._apply_transaction_offset(p_offset_id uuid, p_origin_payment_id uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  o record; op record; src record; oth record;
+  v_other uuid; v_open numeric; v_amt numeric; v_new uuid;
+BEGIN
+  SELECT * INTO o FROM public.transaction_offsets WHERE id = p_offset_id;
+  IF NOT FOUND THEN RETURN NULL; END IF;
+  SELECT * INTO op FROM public.transaction_payments WHERE id = p_origin_payment_id;
+  IF NOT FOUND OR op.payment_method = 'compensation' OR op.status <> 'paid' OR op.reversed_at IS NOT NULL THEN
+    RETURN NULL;
+  END IF;
+  IF op.transaction_id = o.receivable_transaction_id THEN
+    v_other := o.payable_transaction_id;
+  ELSIF op.transaction_id = o.payable_transaction_id THEN
+    v_other := o.receivable_transaction_id;
+  ELSE
+    RETURN NULL;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.transaction_payments x
+              WHERE x.offset_id = o.id AND x.transaction_id = v_other
+                AND x.status = 'paid' AND x.reversed_at IS NULL) THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT * INTO src FROM public.transactions WHERE id = op.transaction_id;
+  SELECT * INTO oth FROM public.transactions WHERE id = v_other;
+  SELECT round(oth.amount * (1 + COALESCE(oth.iva_rate, 0) / 100.0), 2)
+         - COALESCE((SELECT SUM(x.amount) FROM public.transaction_payments x
+                      WHERE x.transaction_id = v_other AND x.status IN ('planned','paid')), 0)
+    INTO v_open;
+  v_amt := round(LEAST(o.amount, v_open), 2);
+  IF v_amt <= 0.01 THEN RETURN NULL; END IF;
+
+  INSERT INTO public.transaction_payments (
+    transaction_id, amount, payment_date, account_id, payment_method,
+    payment_reference, notes, created_by, company_id, status, offset_id,
+    closes_transaction, currency
+  ) VALUES (
+    v_other, v_amt, op.payment_date, NULL, 'compensation',
+    left('Compensação com ' || COALESCE(src.description, src.id::text), 250),
+    'Gerado pela ligação de compensação ' || o.id::text,
+    op.created_by, oth.company_id, 'paid', o.id,
+    (COALESCE(oth.currency, 'EUR') <> 'EUR' AND v_amt >= v_open - 0.05),
+    'EUR'
+  ) RETURNING id INTO v_new;
+
+  -- Chamada a partir de um trigger: o sync_paid_amount_from_payments do INSERT
+  -- acima corre com depth > 1 e sai sem derivar — deriva-se aqui com a MESMA
+  -- função (contexto do dono do trigger). Chamada a partir da RPC (depth 0):
+  -- o sync corre normalmente.
+  IF pg_trigger_depth() > 0 THEN
+    PERFORM public._derive_paid_amount(v_other);
+  END IF;
+  RETURN v_new;
+END;
+$function$;
+ALTER FUNCTION public._apply_transaction_offset(p_offset_id uuid, p_origin_payment_id uuid) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public._apply_transaction_offset(p_offset_id uuid, p_origin_payment_id uuid) FROM PUBLIC,anon,authenticated,service_role,sandbox_exec,sandbox_exec_sfohvvlqccmmebvjgibx;
+GRANT EXECUTE ON FUNCTION public._apply_transaction_offset(p_offset_id uuid, p_origin_payment_id uuid) TO postgres;
+GRANT EXECUTE ON FUNCTION public._apply_transaction_offset(p_offset_id uuid, p_origin_payment_id uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public._apply_transaction_offset(p_offset_id uuid, p_origin_payment_id uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public._apply_transaction_offset(p_offset_id uuid, p_origin_payment_id uuid) TO sandbox_exec_sfohvvlqccmmebvjgibx;
+CREATE OR REPLACE FUNCTION public._reverse_transaction_offsets_for(p_tx_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  o record; v_other uuid;
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.transaction_payments x
+              WHERE x.transaction_id = p_tx_id AND x.payment_method <> 'compensation'
+                AND x.status = 'paid' AND x.reversed_at IS NULL) THEN
+    RETURN;
+  END IF;
+  FOR o IN SELECT * FROM public.transaction_offsets
+            WHERE receivable_transaction_id = p_tx_id OR payable_transaction_id = p_tx_id
+  LOOP
+    v_other := CASE WHEN o.receivable_transaction_id = p_tx_id
+                    THEN o.payable_transaction_id ELSE o.receivable_transaction_id END;
+    UPDATE public.transaction_payments
+       SET status = 'reversed', reversed_at = now(), reversed_by = (SELECT auth.uid()),
+           reversal_reason = 'estorno do pagamento de origem'
+     WHERE offset_id = o.id AND transaction_id = v_other
+       AND status = 'paid' AND reversed_at IS NULL;
+    IF FOUND THEN
+      PERFORM public._derive_paid_amount(v_other);
+    END IF;
+  END LOOP;
+END;
+$function$;
+ALTER FUNCTION public._reverse_transaction_offsets_for(p_tx_id uuid) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public._reverse_transaction_offsets_for(p_tx_id uuid) FROM PUBLIC,anon,authenticated,service_role,sandbox_exec,sandbox_exec_sfohvvlqccmmebvjgibx;
+GRANT EXECUTE ON FUNCTION public._reverse_transaction_offsets_for(p_tx_id uuid) TO postgres;
+GRANT EXECUTE ON FUNCTION public._reverse_transaction_offsets_for(p_tx_id uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public._reverse_transaction_offsets_for(p_tx_id uuid) TO sandbox_exec_sfohvvlqccmmebvjgibx;
 CREATE OR REPLACE FUNCTION public.reconcile_bank_line(p_line_id uuid, p_items jsonb)
  RETURNS void
  LANGUAGE plpgsql
@@ -186,100 +303,12 @@ begin
   end if;
 end;
 $function$;
-
-CREATE OR REPLACE FUNCTION public._apply_transaction_offset(p_offset_id uuid, p_origin_payment_id uuid)
- RETURNS uuid
- LANGUAGE plpgsql
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  o record; op record; src record; oth record;
-  v_other uuid; v_open numeric; v_amt numeric; v_new uuid;
-BEGIN
-  SELECT * INTO o FROM public.transaction_offsets WHERE id = p_offset_id;
-  IF NOT FOUND THEN RETURN NULL; END IF;
-  SELECT * INTO op FROM public.transaction_payments WHERE id = p_origin_payment_id;
-  IF NOT FOUND OR op.payment_method = 'compensation' OR op.status <> 'paid' OR op.reversed_at IS NOT NULL THEN
-    RETURN NULL;
-  END IF;
-  IF op.transaction_id = o.receivable_transaction_id THEN
-    v_other := o.payable_transaction_id;
-  ELSIF op.transaction_id = o.payable_transaction_id THEN
-    v_other := o.receivable_transaction_id;
-  ELSE
-    RETURN NULL;
-  END IF;
-
-  IF EXISTS (SELECT 1 FROM public.transaction_payments x
-              WHERE x.offset_id = o.id AND x.transaction_id = v_other
-                AND x.status = 'paid' AND x.reversed_at IS NULL) THEN
-    RETURN NULL;
-  END IF;
-
-  SELECT * INTO src FROM public.transactions WHERE id = op.transaction_id;
-  SELECT * INTO oth FROM public.transactions WHERE id = v_other;
-  SELECT round(oth.amount * (1 + COALESCE(oth.iva_rate, 0) / 100.0), 2)
-         - COALESCE((SELECT SUM(x.amount) FROM public.transaction_payments x
-                      WHERE x.transaction_id = v_other AND x.status IN ('planned','paid')), 0)
-    INTO v_open;
-  v_amt := round(LEAST(o.amount, v_open), 2);
-  IF v_amt <= 0.01 THEN RETURN NULL; END IF;
-
-  INSERT INTO public.transaction_payments (
-    transaction_id, amount, payment_date, account_id, payment_method,
-    payment_reference, notes, created_by, company_id, status, offset_id,
-    closes_transaction, currency
-  ) VALUES (
-    v_other, v_amt, op.payment_date, NULL, 'compensation',
-    left('Compensação com ' || COALESCE(src.description, src.id::text), 250),
-    'Gerado pela ligação de compensação ' || o.id::text,
-    op.created_by, oth.company_id, 'paid', o.id,
-    (COALESCE(oth.currency, 'EUR') <> 'EUR' AND v_amt >= v_open - 0.05),
-    'EUR'
-  ) RETURNING id INTO v_new;
-
-  -- Chamada a partir de um trigger: o sync_paid_amount_from_payments do INSERT
-  -- acima corre com depth > 1 e sai sem derivar — deriva-se aqui com a MESMA
-  -- função (contexto do dono do trigger). Chamada a partir da RPC (depth 0):
-  -- o sync corre normalmente.
-  IF pg_trigger_depth() > 0 THEN
-    PERFORM public._derive_paid_amount(v_other);
-  END IF;
-  RETURN v_new;
-END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public._reverse_transaction_offsets_for(p_tx_id uuid)
- RETURNS void
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  o record; v_other uuid;
-BEGIN
-  IF EXISTS (SELECT 1 FROM public.transaction_payments x
-              WHERE x.transaction_id = p_tx_id AND x.payment_method <> 'compensation'
-                AND x.status = 'paid' AND x.reversed_at IS NULL) THEN
-    RETURN;
-  END IF;
-  FOR o IN SELECT * FROM public.transaction_offsets
-            WHERE receivable_transaction_id = p_tx_id OR payable_transaction_id = p_tx_id
-  LOOP
-    v_other := CASE WHEN o.receivable_transaction_id = p_tx_id
-                    THEN o.payable_transaction_id ELSE o.receivable_transaction_id END;
-    UPDATE public.transaction_payments
-       SET status = 'reversed', reversed_at = now(), reversed_by = (SELECT auth.uid()),
-           reversal_reason = 'estorno do pagamento de origem'
-     WHERE offset_id = o.id AND transaction_id = v_other
-       AND status = 'paid' AND reversed_at IS NULL;
-    IF FOUND THEN
-      PERFORM public._derive_paid_amount(v_other);
-    END IF;
-  END LOOP;
-END;
-$function$;
-
+ALTER FUNCTION public.reconcile_bank_line(p_line_id uuid, p_items jsonb) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.reconcile_bank_line(p_line_id uuid, p_items jsonb) FROM PUBLIC,anon,authenticated,service_role,sandbox_exec,sandbox_exec_sfohvvlqccmmebvjgibx;
+GRANT EXECUTE ON FUNCTION public.reconcile_bank_line(p_line_id uuid, p_items jsonb) TO postgres;
+GRANT EXECUTE ON FUNCTION public.reconcile_bank_line(p_line_id uuid, p_items jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reconcile_bank_line(p_line_id uuid, p_items jsonb) TO service_role;
+GRANT EXECUTE ON FUNCTION public.reconcile_bank_line(p_line_id uuid, p_items jsonb) TO sandbox_exec_sfohvvlqccmmebvjgibx;
 CREATE OR REPLACE FUNCTION public.reverse_payment(p_payment_id uuid, p_kind text, p_reason text, p_valid_until date DEFAULT NULL::date, p_amount numeric DEFAULT NULL::numeric)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -430,7 +459,26 @@ BEGIN
   );
 END;
 $function$;
-
+ALTER FUNCTION public.reverse_payment(p_payment_id uuid, p_kind text, p_reason text, p_valid_until date, p_amount numeric) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.reverse_payment(p_payment_id uuid, p_kind text, p_reason text, p_valid_until date, p_amount numeric) FROM PUBLIC,anon,authenticated,service_role,sandbox_exec,sandbox_exec_sfohvvlqccmmebvjgibx;
+GRANT EXECUTE ON FUNCTION public.reverse_payment(p_payment_id uuid, p_kind text, p_reason text, p_valid_until date, p_amount numeric) TO postgres;
+GRANT EXECUTE ON FUNCTION public.reverse_payment(p_payment_id uuid, p_kind text, p_reason text, p_valid_until date, p_amount numeric) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reverse_payment(p_payment_id uuid, p_kind text, p_reason text, p_valid_until date, p_amount numeric) TO service_role;
+GRANT EXECUTE ON FUNCTION public.reverse_payment(p_payment_id uuid, p_kind text, p_reason text, p_valid_until date, p_amount numeric) TO sandbox_exec_sfohvvlqccmmebvjgibx;
+CREATE OR REPLACE FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date DEFAULT NULL::date)
+ RETURNS jsonb
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT public.reverse_transaction(p_tx_id, p_kind, p_reason, p_valid_until, false);
+$function$;
+ALTER FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date) FROM PUBLIC,anon,authenticated,service_role,sandbox_exec,sandbox_exec_sfohvvlqccmmebvjgibx;
+GRANT EXECUTE ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date) TO postgres;
+GRANT EXECUTE ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date) TO service_role;
+GRANT EXECUTE ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date) TO sandbox_exec_sfohvvlqccmmebvjgibx;
 CREATE OR REPLACE FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date, p_release_for_repayment boolean)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -613,9 +661,32 @@ BEGIN
   );
 END;
 $function$;
-
-REVOKE ALL ON FUNCTION public.transaction_offset_execute(uuid,uuid,jsonb,jsonb,date,text),public.transaction_offset_reverse(uuid,uuid,text) FROM PUBLIC,anon,authenticated,service_role;
--- Retain objects for audit, but close the alternate INSERT entry as well as RPCs.
-REVOKE ALL ON public.issue335_commands FROM PUBLIC,anon,authenticated,service_role;
-REVOKE ALL ON FUNCTION public.issue335_dispatch(),public._issue335_execute(uuid,uuid,jsonb,jsonb,date,text),public._issue335_reverse(uuid,uuid,text) FROM PUBLIC,anon,authenticated,service_role;
+ALTER FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date, p_release_for_repayment boolean) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date, p_release_for_repayment boolean) FROM PUBLIC,anon,authenticated,service_role,sandbox_exec,sandbox_exec_sfohvvlqccmmebvjgibx;
+GRANT EXECUTE ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date, p_release_for_repayment boolean) TO postgres;
+GRANT EXECUTE ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date, p_release_for_repayment boolean) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date, p_release_for_repayment boolean) TO service_role;
+GRANT EXECUTE ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date, p_release_for_repayment boolean) TO sandbox_exec_sfohvvlqccmmebvjgibx;
+DROP POLICY IF EXISTS issue335_identity ON public.profiles;
+DROP POLICY IF EXISTS issue335_identity ON public.user_roles;
+DROP POLICY IF EXISTS issue335_internal ON public.companies;
+DROP POLICY IF EXISTS issue335_internal ON public.suppliers;
+DROP POLICY IF EXISTS issue335_internal ON public.events;
+DROP POLICY IF EXISTS issue335_internal ON public.financial_accounts;
+DROP POLICY IF EXISTS issue335_internal ON public.event_forecasts;
+DROP POLICY IF EXISTS issue335_internal ON public.transactions;
+DROP POLICY IF EXISTS issue335_internal ON public.transaction_payments;
+DROP POLICY IF EXISTS issue335_internal ON public.transaction_offsets;
+DROP POLICY IF EXISTS issue335_internal ON public.bank_statement_lines;
+DROP POLICY IF EXISTS issue335_internal ON public.bank_line_transactions;
+DROP POLICY IF EXISTS issue335_internal ON public.transaction_offset_groups;
+DROP POLICY IF EXISTS issue335_internal ON public.transaction_offset_items;
+DROP POLICY IF EXISTS issue335_internal ON public.forecast_audit_log;
+DROP POLICY IF EXISTS issue335_internal ON public.transaction_audit_log;
+DROP POLICY IF EXISTS issue335_internal ON public.system_audit_log;
+DROP OWNED BY issue335_executor;
+DROP ROLE issue335_executor;
+-- Restore the exact Live ACL of shared helpers that the core granted to the executor (catalog snapshot).
+REVOKE ALL ON FUNCTION public._derive_paid_amount(uuid),public.bp_tx_link_allowed(uuid,uuid,uuid,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public._derive_paid_amount(uuid),public.bp_tx_link_allowed(uuid,uuid,uuid,uuid) TO service_role,sandbox_exec_sfohvvlqccmmebvjgibx;
 COMMIT;

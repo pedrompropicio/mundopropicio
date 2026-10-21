@@ -1,3 +1,3 @@
 SET ROLE authenticated;
-SELECT set_config('t.uid','00000000-0000-0000-0000-000000000010',false),set_config('t.company','00000000-0000-0000-0000-000000000001',false);
+SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false),set_config('issue335.ignored_company','00000000-0000-0000-0000-000000000001',false);
 SELECT transaction_offset_execute('00000000-0000-0000-0000-000000000777','00000000-0000-0000-0000-000000000020','[{"transaction_id":"00000000-0000-0000-0000-000000000701","mode":"settle"},{"transaction_id":"00000000-0000-0000-0000-000000000702","mode":"offset"}]','{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":23406}','2026-10-13');

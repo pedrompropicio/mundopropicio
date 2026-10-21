@@ -1,6 +1,6 @@
 -- All fixtures and fault injection are disposable LOCAL ONLY.
 SET SESSION AUTHORIZATION authenticated;
-SELECT set_config('t.uid','00000000-0000-0000-0000-000000000010',false),set_config('t.company','00000000-0000-0000-0000-000000000001',false);
+SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false),set_config('issue335.ignored_company','00000000-0000-0000-0000-000000000001',false);
 DO $$ DECLARE g uuid; p uuid; t uuid; BEGIN
  SELECT id INTO g FROM transaction_offset_groups WHERE status='applied' LIMIT 1;
  SELECT id,transaction_id INTO p,t FROM transaction_payments WHERE offset_group_id=g LIMIT 1;
@@ -28,13 +28,13 @@ DO $$ BEGIN
 END $$;
 RESET SESSION AUTHORIZATION;
 SET SESSION AUTHORIZATION authenticated;
-SELECT set_config('t.uid','00000000-0000-0000-0000-000000000099',false);
+SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000099',false);
 DO $$ DECLARE r jsonb; BEGIN
  IF EXISTS(SELECT 1 FROM transaction_offset_groups) THEN RAISE EXCEPTION 'no-role read'; END IF;
  BEGIN PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020','[]',NULL,'2026-10-13'); RAISE EXCEPTION 'no-role execute'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'permission_denied' THEN RAISE; END IF; END;
  RAISE NOTICE 'PASS matrix authenticated without role: no read/no execute';
 END $$;
-SELECT set_config('t.uid','00000000-0000-0000-0000-000000000012',false);
+SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000012',false);
 DO $$ BEGIN
  IF NOT EXISTS(SELECT 1 FROM transaction_offset_groups) THEN RAISE EXCEPTION 'staff read'; END IF;
  BEGIN PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020','[]',NULL,'2026-10-13'); RAISE EXCEPTION 'staff validation bypass'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'invalid_request' THEN RAISE; END IF; END;
@@ -43,21 +43,22 @@ DO $$ BEGIN
 END $$;
 RESET SESSION AUTHORIZATION;
 SET SESSION AUTHORIZATION service_role;
-SELECT set_config('t.uid','',false);
+SELECT set_config('request.jwt.claim.sub','',false);
 DO $$ BEGIN
  IF has_table_privilege(current_user,'public.transaction_offset_groups','INSERT') OR has_function_privilege(current_user,'public._issue335_reverse(uuid,uuid,text)','EXECUTE') THEN RAISE EXCEPTION 'service write/helper'; END IF;
  BEGIN PERFORM transaction_offset_reverse(gen_random_uuid(),gen_random_uuid(),'service no actor'); RAISE EXCEPTION 'service actor bypass'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'permission_denied' THEN RAISE; END IF; END;
  RAISE NOTICE 'PASS matrix service: read grant, no direct writes/helpers; no actor denied';
 END $$;
 RESET SESSION AUTHORIZATION;
-SELECT set_config('t.uid','00000000-0000-0000-0000-000000000010',false);
+SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false);
 DO $$ DECLARE f uuid; f2 uuid; ev uuid; cat uuid:=gen_random_uuid(); a uuid; b uuid; BEGIN
  INSERT INTO events(id,company_id,name) VALUES(gen_random_uuid(),current_company_id(),'Matching local') RETURNING id INTO ev;
  INSERT INTO event_forecasts(company_id,event_id,category_id,type,description,amount,iva_rate,approved_at) VALUES(current_company_id(),ev,cat,'income','Diárias staff',10,0,now()) RETURNING id INTO f;
  IF EXISTS(SELECT 1 FROM issue335_matching_transactions(f)) THEN RAISE EXCEPTION 'zero matching'; END IF;
  INSERT INTO transactions(type,event_id,category_id,description,amount,iva_rate,date,supplier_id) VALUES('income',ev,cat,'Outra',1,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
  IF (SELECT count(*) FROM issue335_matching_transactions(f))<>1 THEN RAISE EXCEPTION 'single category'; END IF;
- INSERT INTO transactions(type,event_id,category_id,description,amount,iva_rate,date,supplier_id) SELECT 'income',ev,cat,'Outra',1,0,'2026-10-13',CASE WHEN n%2=0 THEN '00000000-0000-0000-0000-000000000020'::uuid ELSE gen_random_uuid() END FROM generate_series(1,1001)n;
+ INSERT INTO suppliers(id,company_id,name) VALUES('00000000-0000-0000-0000-000000000029',current_company_id(),'Outra entidade') ON CONFLICT DO NOTHING;
+ INSERT INTO transactions(type,event_id,category_id,description,amount,iva_rate,date,supplier_id) SELECT 'income',ev,cat,'Outra',1,0,'2026-10-13',CASE WHEN n%2=0 THEN '00000000-0000-0000-0000-000000000020'::uuid ELSE '00000000-0000-0000-0000-000000000029'::uuid END FROM generate_series(1,1001)n;
  IF (SELECT count(*) FROM issue335_matching_transactions(f))<>1002 THEN RAISE EXCEPTION '1000 truncated or entity filtered'; END IF;
  INSERT INTO event_forecasts(company_id,event_id,category_id,type,description,amount,iva_rate,approved_at) VALUES(current_company_id(),ev,cat,'income','Outra',10,0,now()) RETURNING id INTO f2;
  IF EXISTS(SELECT 1 FROM issue335_matching_transactions(f)) THEN RAISE EXCEPTION 'zero score claimed'; END IF;

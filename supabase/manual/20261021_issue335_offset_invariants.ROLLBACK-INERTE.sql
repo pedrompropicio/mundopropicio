@@ -1,7 +1,7 @@
--- INERTE rollback retains registry/history; disables new callable checker only.
+-- INERTE: pristine zero-history restoration; refusal retains every audit/payment.
 BEGIN;
 SET LOCAL lock_timeout='5s';
-REVOKE EXECUTE ON FUNCTION public.issue335_invariant_counts() FROM PUBLIC,anon,authenticated,service_role;
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM public.transaction_offset_groups) THEN RAISE EXCEPTION 'groups_exist_keep_guards'; END IF; END $$;
 CREATE OR REPLACE FUNCTION public._run_invariant_checks_extra()
  RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
  LANGUAGE plpgsql
@@ -258,5 +258,10 @@ BEGIN
    WHERE i.name = 'camarim_sessao_integrada_com_saldo';
 END;
 $function$;
-
+REVOKE ALL ON FUNCTION public._run_invariant_checks_extra() FROM PUBLIC,anon,authenticated,service_role,sandbox_exec,sandbox_exec_sfohvvlqccmmebvjgibx;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_extra() TO postgres;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_extra() TO service_role;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_extra() TO sandbox_exec_sfohvvlqccmmebvjgibx;
+DROP FUNCTION public.issue335_invariant_counts();
+DELETE FROM public.system_invariants WHERE name IN ('encontro_desequilibrado','encontro_pernas_divergentes','encontro_reversao_parcial','encontro_dinheiro_sem_conta','encontro_vinculo_bancario_divergente');
 COMMIT;
