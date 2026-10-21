@@ -115,11 +115,16 @@ DO $$ DECLARE ev uuid; f uuid; n uuid; a uuid; b uuid; g uuid; r int; BEGIN
  EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
  RESET ROLE;
  -- (e5) group of another company: reverse through public RPC sees nothing.
+ BEGIN UPDATE transaction_offset_groups SET company_id='00000000-0000-0000-0000-0000000000ff' WHERE id=g; RAISE EXCEPTION 'X (e5t) tamper accepted';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'managed_operation_required' THEN RAISE; END IF; END;
+ -- Test-only fixture of a foreign-company group (replica role skips user triggers; harness superuser only).
+ SET LOCAL session_replication_role=replica;
  UPDATE transaction_offset_groups SET company_id='00000000-0000-0000-0000-0000000000ff' WHERE id=g;
  UPDATE transaction_offset_items SET company_id='00000000-0000-0000-0000-0000000000ff' WHERE group_id=g;
+ SET LOCAL session_replication_role=origin;
  BEGIN PERFORM transaction_offset_reverse(g,gen_random_uuid(),'other company'); RAISE EXCEPTION 'X (e5) accepted';
  EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE '%group_not_found%' THEN RAISE; END IF; END;
- RAISE NOTICE 'PASS 2g D (d)(e): editor approval 42501; ungrouped forged-GUC restore 42501 BP; forged group insert/update denied; applied-group direct restore refused; direct internal call 42501; other-company group not found';
+ RAISE NOTICE 'PASS 2g D (d)(e): editor approval 42501; ungrouped forged-GUC restore 42501 BP; forged group insert/update denied; applied-group direct restore refused; direct internal call 42501; even superuser tamper of group company refused managed_operation_required; other-company group not found';
 END $$;
 ROLLBACK;
 
