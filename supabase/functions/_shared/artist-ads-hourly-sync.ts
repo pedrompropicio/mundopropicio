@@ -1,7 +1,13 @@
 import { GRAPH } from './artist-meta.ts';
 import { loadTikTokConnection, tiktokHost, tiktokGET } from './tiktok-ads.ts';
 import { getGoogleAdsAccessToken, googleAdsPost, type GoogleAdsCtx } from './google-ads.ts';
-import { cents,integer,daysForRun,deviceOs,paginate,type Level } from './artist-ads-hourly-core.ts';
+import { cents,integer,daysForRun,deviceOs,paginate,scopeRows,type Level,type CampaignScope } from './artist-ads-hourly-core.ts';
+
+async function loadScope(admin:any,conn:{id:string;platform:string}):Promise<CampaignScope>{
+  const ids=async(table:string,eventLinked:boolean)=>{const out=new Set<string>();for(let from=0;;from+=1000){let q=admin.schema('crm').from(table).select('external_campaign_id').eq('connection_id',conn.id).order('external_campaign_id').range(from,from+999);q=eventLinked?q.not('linked_event_id','is',null):q;const {data,error}=await q;if(error)throw new Error('campaign_scope_read_failed');for(const r of data??[])out.add(String(r.external_campaign_id));if((data??[]).length<1000)break;}return out;};
+  if(conn.platform==='tiktok')return {platform:'tiktok',carreira:await ids('tiktok_campaign_carreira',false),eventLinked:await ids('tiktok_campaign',true)};
+  return {platform:conn.platform,eventLinked:await ids(conn.platform==='meta'?'meta_campaign_snapshot':'google_campaign',true)};
+}
 
 type Mode = 'today'|'scheduled'|'backfill';
 type Row = Record<string,unknown>;
@@ -52,7 +58,10 @@ export async function syncTraffic(admin:any,artistId:string,requestId:string,mod
       if(typeof timezone!=='string'||!timezone||!currency||!/^[A-Z]{3}$/.test(currency))throw new Error('account_timezone_currency_missing');
       const hourlyDays=onlyDay?[onlyDay]:daysForRun(now,timezone,mode,14);
       const deviceDays=onlyDay?[onlyDay]:daysForRun(now,timezone,mode,30);
-      const write=async(rows:Row[],device:boolean)=>{
+      const scope=await loadScope(admin,conn);
+      const write=async(all:Row[],device:boolean)=>{
+        const {kept:rows,skipped}=scopeRows(scope,all);
+        if(skipped.length)detail.push({platform:conn.platform,connection_id:conn.id,kind:device?'device':'hourly',skipped_non_artist_campaigns:skipped,skipped_rows:all.length-rows.length});
         for(let offset=0;offset<rows.length;offset+=20){check();
           const {data,error}=await admin.rpc('artist_ads_refresh_write',{p_artist_id:artistId,p_request_id:requestId,p_connection_id:conn.id,p_rows:rows.slice(offset,offset+20),p_device:device});
           if(error)throw new Error(`writer_rejected:${error.code??'unknown'}`);
