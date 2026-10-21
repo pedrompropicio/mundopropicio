@@ -23622,6 +23622,16 @@ export type Database = {
         Args: { p_artist_id: string; p_request_id: string; p_results: Json }
         Returns: Json
       }
+      artist_ads_refresh_write: {
+        Args: {
+          p_artist_id: string
+          p_connection_id: string
+          p_device?: boolean
+          p_request_id: string
+          p_rows: Json
+        }
+        Returns: Json
+      }
       artist_ads_register_external: {
         Args: {
           p_artist_id: string
