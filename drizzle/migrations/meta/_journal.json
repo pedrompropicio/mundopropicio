@@ -1541,6 +1541,13 @@
       "when": 1792554176933,
       "tag": "0219_artist_ads_refresh_write",
       "breakpoints": true
+    },
+    {
+      "idx": 220,
+      "version": "7",
+      "when": 1792573696226,
+      "tag": "0220_artist_ads_breakdowns_levels_and_period_metrics_by_currency",
+      "breakpoints": true
     }
   ]
 }

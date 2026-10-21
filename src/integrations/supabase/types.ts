@@ -23330,8 +23330,11 @@ export type Database = {
         Args: {
           p_artist_id: string
           p_breakdown?: string
+          p_country?: string
           p_days?: number
+          p_from?: string
           p_platform?: string
+          p_to?: string
         }
         Returns: {
           breakdown: string
