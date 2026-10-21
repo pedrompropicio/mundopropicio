@@ -16,3 +16,5 @@ type: feature
 - Cidade com cachê configurado: contrato só depois de congelar. Adiantamento livre só antes de congelar; depois, só dentro de um contrato.
 - Adiantamentos antigos só oferecidos com o evento em fecho: status active e última data já passada (completed/planning/confirmed não).
 - Entradas: passo 2 "Pagamento" no modal de cachê e ação "Pagamento do cachê" na linha 2.1.01 do BP.
+- Cancelar/alterar contrato elimina mães/filhas com o tratamento de dependências de delete_transaction_cascade e re-ancora a linha de BP à próxima transação (date, created_at, id) ou NULL.
+- Valor bruto e valor do adiantamento: € ou %; % sobre o cachê efetivo (dentro de contrato: saldo disponível), 2 casas; grava sempre €.

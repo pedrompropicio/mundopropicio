@@ -7,6 +7,7 @@ Atualizado: 09/10/2026 (ritual de fecho da frente; inclui o trabalho do chat fin
 ### Contratos de pagamento do cachê (20/10/2026)
 - D-ERP288 revê D15: até 4 contratos por cachê, retenção IRS opcional por contrato (mãe própria para a AT), vencimento manual, adiantamentos indivisíveis. Migrações 0214/0215; painel "Contratos de pagamento" no cachê; o antigo botão "Gerar Transação de Pagamento" foi retirado. Testes: `supabase/tests/cache_contracts/run.sh` (PG local, 49 verificações) e `src/lib/__tests__/cache-contracts.test.ts`. Por verificar pelo Pedro em Live: ver relatório da tarefa.
 - D-ERP288 adenda (20/10/2026, migração 0216): tecto = linha BP 2.1.01 da cidade (escolha quando há várias), contrato só após congelar o cachê configurado, adiantamento livre só antes de congelar, adiantamentos antigos só com evento em fecho (active + data passada). Entradas: modal de cachê (passo 2) e linha 2.1.01 do BP.
+- D-ERP288 adenda 2 (21/10/2026, migração 0217): cancelar/alterar contrato limpa as dependências como a eliminação canónica e re-ancora a linha de BP; valor do contrato/adiantamento em € ou %. PG local 84 verificações.
 
 ### Resolvido a 10/10/2026
 
