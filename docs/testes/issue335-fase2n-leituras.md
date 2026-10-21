@@ -103,3 +103,11 @@ Leituras core delegadas sub_zbfwr52y; testes históricos delegados sub_v2bm4wh9;
 - supabase/tests/issue335/phase2h-fixtures.sql | N=75 | sha256=0e18c816017d5db7f3f46f4a2e69250a73690e851665647ed713b8a66bfcbb03 | LIDO INTEGRAL | intervalos 1–75
 - supabase/tests/issue335/derive.LIVE-BASELINE.sql | N=46 | sha256=7f058a732181e963365cbf800eb6d9e6b342efa2fad5423fa7f12cb5aaa967cb | LIDO INTEGRAL | intervalos 1–46
 - docs/testes/issue335-fases12-local.md | N=6330 | sha256=94e387d6c5d10f1fc65447a214844494fe81c3cc86434a663c375f7397cb0fae | NÃO LIDO integralmente: apenas secções M3 pedidas, sub_vsv0r59w; intervalos 1–200,554–590,604–692,693–855,835–924,925–1018,5191–5325,6227–6330. Leituras complementares pendentes; não certifica 1..N.
+
+### Bloco2 — complemento das leituras delegadas (sub_cgk0pdms; antes de testes relevantes)
+- docs/testes/issue335-fases12-local.md | N=6330 | sha256=94e387d6c5d10f1fc65447a214844494fe81c3cc86434a663c375f7397cb0fae | NÃO LIDO integral: só secções pedidas | intervalos 381–553,591–603
+- supabase/tests/issue335/phase2j-concurrency.py | N=124 | sha256=54f4c8939a5fa16690c9919d94047a80177e80ec26b489e3e3592b4a93a61965 | LIDO INTEGRAL | intervalos 1–124
+- supabase/tests/issue335/phase2j-rollback.sh | N=23 | sha256=c9b7910eb4b4642be6fe4e08d947872a728126c3cf2433f9b6570ff4010bb43e | LIDO INTEGRAL | intervalos 1–23
+- supabase/tests/issue335/phase2k-rollback.py | N=49 | sha256=e46d84765be63ba6559cfc32b8d8704728124afad3d185e87a2c020f614201b5 | NÃO LIDO integral: falta linha 49 | intervalos 1–48
+- supabase/tests/issue335/phase2l.sql | N=114 | sha256=e8b54b5a46e0f44aedb950828ef79c0b7bee322d71230821c069b4f52693212b | LIDO INTEGRAL | intervalos 1–113,114–114
+- supabase/tests/issue335/phase2m-context.py | N=115 | sha256=29986a0ab18acd230307f3ae228eff26600e28e00bc8e623122c11a49408d962 | LIDO INTEGRAL | intervalos 1–114,115–115
