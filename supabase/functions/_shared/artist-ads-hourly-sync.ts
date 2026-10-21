@@ -53,8 +53,8 @@ export async function syncTraffic(admin:any,artistId:string,requestId:string,mod
       const hourlyDays=onlyDay?[onlyDay]:daysForRun(now,timezone,mode,14);
       const deviceDays=onlyDay?[onlyDay]:daysForRun(now,timezone,mode,30);
       const write=async(rows:Row[],device:boolean)=>{
-        for(let offset=0;offset<rows.length;offset+=500){check();
-          const {data,error}=await admin.rpc('artist_ads_refresh_write',{p_artist_id:artistId,p_request_id:requestId,p_connection_id:conn.id,p_rows:rows.slice(offset,offset+500),p_device:device});
+        for(let offset=0;offset<rows.length;offset+=20){check();
+          const {data,error}=await admin.rpc('artist_ads_refresh_write',{p_artist_id:artistId,p_request_id:requestId,p_connection_id:conn.id,p_rows:rows.slice(offset,offset+20),p_device:device});
           if(error)throw new Error(`writer_rejected:${error.code??'unknown'}`);
           if(!data?.accepted)throw new Error('stale_request');written+=data.rows_written;
         }
@@ -111,7 +111,7 @@ export async function syncTraffic(admin:any,artistId:string,requestId:string,mod
       stats.reason=/^[a-z_]+(?::[a-zA-Z0-9_-]+)?$/.test(message)?message:'platform_request_failed';
       detail.push({platform:conn.platform,connection_id:conn.id,error:stats.reason});
       stats.api_calls+=callCount;stats.rows_written+=written;
-      for(const later of Object.values(results))if(later.status==='not_connected'){later.status='not_attempted';later.reason='stopped_after_error';}
+      for(const later of Object.values(results))if(later.status==='not_connected'){later.status='error';later.reason='stopped_after_error';}
       return {results,detail};
     }
     stats.api_calls+=callCount;stats.rows_written+=written;
