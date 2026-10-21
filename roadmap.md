@@ -22,3 +22,5 @@
 - [ ] Visão comparativa Fase 1: prova visual do botão bloqueada — esta cópia não tem página de tráfego artístico; ligar no frontend proprietário requer acesso/indicação dessa superfície. Endpoint manual provado, não botão UI.
 - [x] Chegadas horárias: plano aprovado; migrações 0225–0227, tabela privada, manutenção INSERT/UPDATE/DELETE e cron 7243 às 04:20 UTC.
 - [x] Chegadas horárias: backfill completo e igualdade por dimensão; compare preservada, diferenças só novas capturas em curso; 0,141–0,153 s no banco, teste isolado +1/−1 e reconciliação 0 divergências.
+- [ ] Period_report opção B autorizada: apresentar desenho aditivo com visitantes únicos exatos antes da migração; preservar origem e JSON, sem Publish.
+- [ ] Period_report opção B: aplicar manutenção/reconciliação e backfill, validar igualdade 7/30/90 dias BR/PT/sem país e metas <1 s/<2 s.
