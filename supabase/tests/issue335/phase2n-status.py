@@ -134,8 +134,14 @@ for phase in ('BEFORE', 'AFTER'):
         run('BEGIN')
         ids = fixture(status, old, no_bp, legacy)
         before = snapshot(ids)
+        fixture_certified = not legacy or (any(d['status'] == 'partially_paid' and d['paid_amount'] == 20 for d in before['data']['documents']) and before['data']['payments'] == [])
         applied = execute(ids, 40 if old or legacy else 60)
-        row = dict(phase=phase, case=name, expected=expected, before=before, applied=applied)
+        row = dict(phase=phase, case=name, expected=expected, before=before, applied=applied, fixture_certified=fixture_certified)
+        if legacy:
+            # Do not conceal the real materialization trigger or relabel this as
+            # a genuine legacy-without-payments test. No trigger disabling allowed.
+            assert fixture_certified is False
+            row['fixture_finding'] = 'zz_materialize_paid_amount_payment created a real payment and rederived approved; requested legacy-only case NOT PROVEN'
         if applied['outcome'] == 'ok':
             group = applied['result'][0][0]['group_id']
             during = snapshot(ids)
@@ -222,7 +228,7 @@ for subject, label in [('00000000-0000-0000-0000-000000000017', 'editor'), ('000
 identity()
 assert run("SELECT pg_get_functiondef('_derive_paid_amount(uuid)'::regprocedure)")[0][0] == original_derive
 assert run("SELECT pg_get_functiondef('enforce_transaction_approval_permission()'::regprocedure)")[0][0] == original_approval
-result = {'block': 'OPEN', 'reason': 'paid/legacy-only are refused; core without approval admits historical no-BP; full snapshots retain reversed legs and change updated_at', 'zero_skips': True, 'cases': rows}
+result = {'block': 'OPEN', 'reason': 'paid is refused; legacy-only nonzero fixture materializes a payment so case c NOT PROVEN; core without approval admits historical no-BP; full snapshots retain reversed legs and change updated_at', 'all_planned_attempts_executed': True, 'case_c_validity_open': True, 'cases': rows}
 Path(output).write_text(json.dumps(result, indent=2, ensure_ascii=False, default=str))
-print(json.dumps({'block': result['block'], 'cases': len(rows), 'reason': result['reason'], 'zero_skips': True}))
+print(json.dumps({'block': result['block'], 'cases': len(rows), 'reason': result['reason'], 'all_planned_attempts_executed': True, 'case_c_validity_open': True}))
 c.close()
