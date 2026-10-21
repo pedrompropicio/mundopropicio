@@ -275,6 +275,10 @@ BEGIN
     FROM public.system_invariants i
    WHERE i.name = 'camarim_sessao_integrada_com_saldo';
   RETURN QUERY SELECT i.name,i.description,i.severity,i.scope,c.current_count,i.reference_count,(c.current_count=i.reference_count),i.notes,'[]'::jsonb FROM public.issue335_invariant_counts() c JOIN public.system_invariants i ON i.name=c.name;
+  -- Balance is a separately approved candidate and may not be installed.
+  IF to_regprocedure('public.issue335_balance_invariant_count()') IS NOT NULL THEN
+    RETURN QUERY EXECUTE 'SELECT i.name,i.description,i.severity,i.scope,c.n,i.reference_count,(c.n=i.reference_count),i.notes,''[]''::jsonb FROM public.system_invariants i CROSS JOIN LATERAL (SELECT public.issue335_balance_invariant_count() n) c WHERE i.name=''encontro_saldo_dinheiro_divergente''';
+  END IF;
 END;
 $function$;
 

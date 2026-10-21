@@ -385,3 +385,168 @@ edd924cd48d5378180e80a50547b5a5a4bbe378596155fc384fe127f051c5571  supabase/manua
 -- READ ONLY: production aggregated counts; no financial values/IDs.
 SELECT count(*) FILTER(WHERE t.type='"'expense' AND t.event_id IS NOT NULL AND t.forecast_id IS NULL AND t.parent_transaction_id IS NULL AND NOT coalesce(t.is_transitory,false) AND NOT coalesce(t.exclude_from_result,false) AND t.reversed_at IS NULL AND NOT coalesce(t.is_hidden,false) AND t.shared_cost_account_id IS NULL AND NOT EXISTS(SELECT 1 FROM public.account_categories c WHERE c.id=t.category_id AND c.code LIKE '10.3%') AND EXISTS(SELECT 1 FROM public.events ev JOIN public.companies c ON c.id=ev.company_id WHERE ev.id=t.event_id AND coalesce(ev.budget_mode,c.default_budget_mode,'with_bp')='with_bp') AND t.status IN('approved','paid','partially_paid')) AS d_with_bp_no_forecast,count(*) FILTER(WHERE EXISTS(SELECT 1 FROM public.payment_list_items i JOIN public.payment_lists l ON l.id=i.payment_list_id WHERE i.transaction_id=t.id AND i.removed_at IS NULL AND l.status IN('draft','pending_approval','approved','revision','partially_approved'))) AS g_active_lists,count(*) FILTER(WHERE EXISTS(SELECT 1 FROM public.payment_list_sepa_exports e WHERE t.id=ANY(e.transaction_ids))) AS g_sepa_exports FROM public.transactions t\;
 ```
+
+
+## Fase 2f — PARCIAL / NÃO ACEITE — 21/10/2026
+
+Tudo LOCAL/INERTE. Nenhuma ferramenta de migração, alteração de migrations,
+DDL/DML Live, dados financeiros Live, deploy ou Publish. Reserva #335 mantida.
+As únicas consultas Live foram catálogo SELECT. #322/#323 intocadas.
+
+### Estados e testes por ponto
+D — PÁRA-PARA-DECISÃO. A reprodução histórica without_bp→with_bp continua
+bloqueada pelo trigger real em paid→approved, atómica (phase2e.sql). Catálogo:
+UPDATE para approved reavalia BP/verba; UPDATE para paid não reavalia. Não há
+caminho demonstrado que reponha approved mantendo status intacto: a derivação
+real repõe approved quando a dívida reabre. Guardar prior_status no item apenas
+preserva prova da aprovação anterior; não resolve sozinho a transição.
+Candidato SEPARADO approval.INERTE.sql + rollback exato +
+live/phase2f-approval-prosrc.diff. Não instalado sequer no harness; é desenho,
+NÃO correção aceite. A proposta preserva a verificação de permissão e limita a
+exceção BP à reversão com grupo reversing/item aprovado, valores iguais,
+pernas revertidas e soma derivada. Faltam testes de verba excedida/P0409,
+novas aprovações e ataques ao candidato. Não aplicar nem enfraquecer aprovação.
+
+F — CORRIGIDO apenas nos cenários novos cobertos. phase2f-concurrency.py usa
+três sessões persistentes e pg_blocking_pids como barreira, sem sleeps/erros
+tolerados: kill-switch ANTES aplica após fecho (defeito); DEPOIS recusa
+P0001 encontro_desativado com zero grupo/pernas; chamadas novas 42501.
+Drain: fecho espera transação admitida, só conclui após COMMIT, flag false.
+Dois encontros: vencedor reconhecido mantém locks, rival exatamente 55P03,
+um grupo. Writer reconcile settle: legado paga exatamente 1, rival 55P03.
+INSERT normal FK: ambos concluem sem conflito com locks compatíveis.
+ABERTO: transaction_offset_create cruzado, seal_event_settlement real,
+inclusão concorrente em lista/SEPA e rollback/reabertura da flag concorrente.
+Os cenários antigos de run.sh ainda usam sleeps: não substituídos integralmente.
+O teste FK novo não prova a totalidade das 83 FKs ausentes.
+
+J — CORRIGIDO versão exata: PostgreSQL 17.6 compilado localmente com contrib.
+Deploy dos candidatos como postgres NOSUPERUSER/CREATEROLE/BYPASSRLS;
+bootstrap/corrupção local como supabase_admin; defaults public reproduzidos no
+escopo anterior. Live é aarch64, local x86_64; não é paridade de infraestrutura.
+Catálogo recapturado: 35 relações, 692 colunas, 238 constraints, 204 índices,
+1515 triggers (internos incluídos), 166 funções, 140 policies, 37 default ACL,
+17 roles, 23 memberships, 2 schemas. FKs transitivas de saída capturadas.
+Diferencial byte-exato pré-candidatos em phase2f-catalog-differential.json,
+com valores Live/local integrais por objeto; NÃO normaliza prosrc/whitespace.
+Paridade NÃO CONFIRMADA: 457 iguais, 2089 ausentes, 523 diferentes, 635 extras.
+83 FKs ausentes, incluindo as 22 antigas; continuam bloqueios, não passes.
+Camarim: funções/triggers capturados, teste real saldo/derivação/estorno NÃO feito.
+
+A — CORRIGIDO integração da vigia no runner global _run_invariant_checks_extra
+como candidato inerte opcional; zero→função corrompida→não conforme→zero
+provado em phase2f-negative.sql. Regressão: o antigo prefix count de cinco
+vigias falhou com a sexta; corrigido para exigir os cinco nomes do registry.
+PG completo agora passa matriz 18 checks, apply/reverse/rollback iguais.
+Misto +60 e corte as-of anteriores continuam passando. ABERTO: matriz integral
+legado account X/compensation/transaction_offsets, camarim e guarda débito
+servidor não certificadas; não alegar prevenção de saldo negativo.
+
+E — ABERTO. Guardas anteriores passam no escopo retido, mas NÃO há ataque por
+cada campo como editor/manager, nem prova integral restore/janela administrativa,
+fecho selado via writers reais. Não ampliar janela nem alterar trigger instalado.
+
+G — CORRIGIDO fixture held_by legal: receita/método compensation, trigger torna
+paid, encontro recusa invalid_document sem grupo parcial. ABERTO: restantes
+fixtures sessão/card/fornecedor e concorrência de listas; ausência de FKs limita
+representatividade.
+
+I — CORRIGIDO testes negativos: exatamente 51 itens→mensagem too_many_items;
+adoção 39 contra requerido 40→legacy_offset_amount_mismatch; zero escritas
+parciais. Chamadas novas/in-flight/drain cobertas em F. Reabertura concorrente
+não confirmada. O núcleo/grupo permanecem candidatos inertes.
+
+L — NÃO CONFIRMADO entrega final. Base GitHub main 3ffce9dc2577276e108e5fe975c020c259ab6cb2,
+CI completed/success run 39637542161; phase2e e relatório da BASE iguais via API.
+Esse CI NÃO cobre estes novos edits. Local observado e7babb995960e908773dbdb25d72ee1d8e2b9b26
+antes do fecho documental. SHA final e CI dos edits aguardam sincronização
+normal da plataforma; nunca git push manual. Incidente de atrasos GitHub ativo.
+
+### Diferencial completo — interpretação
+Cada entrada JSON inclui category/object/status/reason/live/local. "missing"
+é dependência não reproduzida; "different" conserva os dois valores e exige
+revisão; "local_extra" é bootstrap/objetos extra, não equivalência. Triggers FK
+internos têm nomes OID gerados, contribuindo para missing/extra, sem omiti-los.
+Colunas diferem no bootstrap (ordem/tipos/defaults/nullability), funções incluem
+wrappers locais/ACL/config, relações/schema/roles/default ACL diferem na réplica.
+O JSON é o diferencial integral DO ESCOPO CAPTURADO, não catálogo inteiro Live
+nem closure de dependências dinâmicas de corpos PL/pgSQL.
+
+```text
+columns: iguais=153; ausentes=94; diferentes=445; extras locais=275
+constraints: iguais=110; ausentes=128; diferentes=0; extras locais=32
+default_acl: iguais=0; ausentes=35; diferentes=2; extras locais=0
+functions: iguais=11; ausentes=96; diferentes=59; extras locais=22
+indexes: iguais=25; ausentes=179; diferentes=0; extras locais=15
+memberships: iguais=9; ausentes=14; diferentes=0; extras locais=0
+policies: iguais=71; ausentes=69; diferentes=0; extras locais=27
+relations: iguais=17; ausentes=5; diferentes=13; extras locais=28
+roles: iguais=7; ausentes=8; diferentes=2; extras locais=0
+schemas: iguais=0; ausentes=0; diferentes=2; extras locais=0
+triggers: iguais=54; ausentes=1461; diferentes=0; extras locais=236
+```
+As 22 FKs antigas e suas causas individuais permanecem listadas na secção 2c
+acima; não foram resolvidas. O novo diff expõe mais 61 FKs ausentes.
+Este diferencial certifica apenas a igualdade ou diferença exata dos objetos e atributos capturados entre o catálogo Live e o harness; não certifica paridade integral com Live, dependências dinâmicas completas, equivalência de infraestrutura nem segurança para aplicação.
+
+### Testes executados realmente
+- phase2f-run.sh PG17.6: exit 0, negativos, runner saldo e cenários acima.
+- run.sh completo PG17.6: exit 0, injeções retidas, rollback/ACL/história zero,
+  matriz invariantes igual. Os sleeps antigos continuam uma limitação explícita.
+- Vitest completo: 221 passed/2 skipped; 1953 passed/6 skipped/11 todo; exit 0.
+- tsgo --noEmit -p tsconfig.app.json: exit 0. tsc clássico não executado
+  (a plataforma proíbe typechecks clássicos/manuais; tsgo é o equivalente permitido).
+- Preview automático: build OK observado; não há alteração UI para validar.
+- approval separado NÃO instalado/testado. Não inventar passes D/E/J/camarim.
+
+### SHA256 de todos os SQL candidatos e harness (fase 2f)
+```text
+23b2442b90a057534dd725666b5fb9fedc5ba2441aa12d1d5b614356b9edf7af  supabase/manual/20261021_issue335_offset_approval.INERTE.sql
+5829c312ab4ce7fe41becc47d1f70f2f9a8f5e76b9b8bc6c3841b409778ac89a  supabase/manual/20261021_issue335_offset_approval.ROLLBACK-INERTE.sql
+2d7473a1ea8e452a5e7c6cef2287937ea2abfbec77a6c88a3676dd0618b4e6c9  supabase/manual/20261021_issue335_offset_balance.INERTE.sql
+a9fd863c5e7e426eaaab22dccec290d941f10b4b20bc9662472e04b635f4b899  supabase/manual/20261021_issue335_offset_balance.ROLLBACK-INERTE.sql
+13e1e1e74fe9497e4d43597abf7d23a907a7798e768aebdb8b8d734bda13bb34  supabase/manual/20261021_issue335_offset_core.INERTE.sql
+55da8f56b28c5002de3c7acda0275283348093c30bdfc56b9595971bf846c944  supabase/manual/20261021_issue335_offset_core.ROLLBACK-INERTE.sql
+9a075e8ea8f4f3a854e8d628888a0f4d0c3fbfa6139033f3ea7170e8cbe49c4f  supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql
+3caeb7b7583c74cf9b95a8a12f27a10904bb95e81d7b77d48ccee6409e3f7164  supabase/manual/20261021_issue335_offset_group_storage.ROLLBACK-INERTE.sql
+1e3bae7e62d80c116f0cb29c7e41a647500d751f0b817b3cc3e93c4aa53626ee  supabase/manual/20261021_issue335_offset_invariants.INERTE.sql
+edd924cd48d5378180e80a50547b5a5a4bbe378596155fc384fe127f051c5571  supabase/manual/20261021_issue335_offset_invariants.ROLLBACK-INERTE.sql
+f22f588766bc99ef157af3a01f5e0e1e069109e05c303b49f07e637e02755d35  supabase/manual/20261021_issue335_offset_kill_switch.INERTE.sql
+6baf725661f44978eb99ae5811e2fdf0095741ddefba99b823fe08bc759310ca  supabase/manual/20261021_issue335_offset_kill_switch.ROLLBACK-INERTE.sql
+07068a430688eb963d4ade7b5305c88f41ccb41e7d429a59c009bca158f26bb6  supabase/tests/issue335/concurrency.sql
+7f058a732181e963365cbf800eb6d9e6b342efa2fad5423fa7f12cb5aaa967cb  supabase/tests/issue335/derive.LIVE-BASELINE.sql
+fb1a7398949ce2fb73c0d5749c73591aa91ca1552a8430618ae2bee67c74ed21  supabase/tests/issue335/live/dependencies.sql
+55e6b6d91a977aa97dcd8001c50dffb9df71a290b047f24e0703634686181bf1  supabase/tests/issue335/live/functions.sql
+fb4768371f61b502634a2ea4d647f3924760a7db733edf8f38e6e13f3c06660f  supabase/tests/issue335/live/phase2c-auth.sql
+244fb56591b2ac48f6a51dec135c7d400e6a9346bb52150693a1678c4348a4f4  supabase/tests/issue335/live/phase2c-invariant-registry.sql
+122ba034d0868e3af650b4c04fab9b658464403a7b0706d5ed24a70e24e8f9e9  supabase/tests/issue335/live/phase2d-constraints.sql
+ae466ac60343bfdc6c2f68fa416bf68843e3241b5821557fdb01380fe94b170d  supabase/tests/issue335/live/phase2d-legacy.sql
+533683f655d1250e6b86932fd10937b1e2f0de39bb4230c004d39414a8d15826  supabase/tests/issue335/live/phase2d-role.sql
+93b2ddb76d7fa39986a38b103789a205c8808fc2713592d0a90446241737a2b1  supabase/tests/issue335/live/phase2e-balance-baseline.sql
+80e29326c4fbe46d1ce443e0089287ae64725ae474b3357b4faeab63b3b301d6  supabase/tests/issue335/live/phase2e-counts-query.sql
+9604803b46d815d5020ca1d25e8fa3b2776b824446facacb20e7e51a2397e180  supabase/tests/issue335/live/phase2e-replay.sql
+ffb8ec79f61e7aa040810efc79d895fbbfd30fd1904308bc83397420c347c1fb  supabase/tests/issue335/live/triggers.sql
+0f6e803bff83c2cf51e39d4ba09900daec20cbaab4ccb1943ccfb72d7c434d0e  supabase/tests/issue335/matching.INERTE.sql
+ad43ef9cf31282d59907a5410644c0d8451704032bf8fc5ccfd123a966e1bd1d  supabase/tests/issue335/phase2b.sql
+b71186f1a98461a974bf4e3961e2d75ac539a04a4bd0890c19df1131da155160  supabase/tests/issue335/phase2c-invariant-matrix.sql
+240fd14e2a97496e910132ad7a5650b6f8b73f2405ba12dc4628b1bed06b9baa  supabase/tests/issue335/phase2c.sql
+aadbd49eeb72406766eabc07804249f9a1a22f91aa6056d43fe77c4e8f469f02  supabase/tests/issue335/phase2d.sql
+c510f3ee57b56c6d6df51f396708caa9daa3aad3ce17b3607f0de3a49bc59acc  supabase/tests/issue335/phase2e.sql
+4fcb4bd26c45cd19a6859e5db502f9003c61de294e46751fa343fabed8bdcc8c  supabase/tests/issue335/phase2f-negative.sql
+59ad9b2c68647da79c837cf4786d9550af7beeb3fe2bc39797404439bbd43b49  supabase/tests/issue335/reconcile_bank_line.LIVE-BASELINE.sql
+ceed9e6b392595fc2db6347426fc5aa7c35cdc583a531f7cc754788ff4a630da  supabase/tests/issue335/scenarios.sql
+25e2c812180ab99e4ae8aaa4cf0a5a39c470760e4cd2d232015ac5ba094ff5b0  supabase/tests/issue335/storage-only.sql
+9afe41632efe76fbe43ebf4774d661fb6ecece12d125335d40b34dd81c2baeec  supabase/tests/issue335/stub.sql
+6212eddfc81236f3c3fe31c8414a62d382fcdc0789c5c75ddcd830481139777c  supabase/tests/issue335/sync.LIVE-BASELINE.sql
+4c4d5c91cc3502a066dc4ccbf79bf1930a6cd1dad88ac6b9e1c353e2dac0436b  supabase/tests/issue335/triggers.sql
+a685a81bcee780949e1348e5ec7ff59bdc1bc23500c74e8930181946ac43f8d2  supabase/tests/issue335/validate.LIVE-BASELINE.sql
+```
+Hash deste relatório em docs/testes/issue335-fase2f-hashes.sha256, externo para
+não criar referência circular. Esse manifesto também inclui catálogo/diff/harness.
+
+### Bloqueios e limite final
+Fase 2f NÃO ACEITE: D candidato aprovação não validado; F quatro corridas
+pendentes e sleeps antigos; J paridade/FKs/camarim; A matriz/débito; E campos/
+restore/selagem; G fixtures; I reabertura concorrente; L SHA/CI final.
+A–C, saldo, approval, kill-switch e qualquer objeto instalado continuam NÃO
+aplicados e dependem de Sim separado de Pedro após aceitação técnica.

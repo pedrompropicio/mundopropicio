@@ -47,3 +47,5 @@
 - [x] #335 fase 2e parcial: saldo restrito/rollback/vigia, permissões banco, confidencial/restrita, guardas, listas/SEPA, sandbox e kill-switch; PG/Vitest/tsgo passaram, relatório explicita provas e lacunas.
 - [ ] #335 fase 2e aceitação técnica: F scheduler/selagem/listas, J PG17.6/paridade/FKs/camarim, A matriz legado/débito/runner, E restore, G held_by/fixtures, I chamadas/in-flight; D exige decisão própria.
 - [ ] #335 fase 2e fecho: hashes/diff, Issue, SHA sincronizado e CI concluído; reserva mantida.
+- [x] #335 fase 2f parcial: PG17.6, before/after kill-switch determinístico, drain, dois encontros/reconcile/FK, negativos 51/adoção/held_by, saldo runner, catálogo/diff byte-exato e candidato approval separado; PG/Vitest/tsgo passam.
+- [ ] #335 fase 2f NÃO ACEITE: D candidato não validado; F offset_create/selagem/listas/reabertura/sleeps antigos; J paridade/83 FKs/camarim; A matriz/débito; E campos/restore; G fixtures restantes; L SHA/CI final. Reserva mantida; aplicação exige Sim separado.

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Never use Cloud, PG env credentials or a network database. Local disposable Unix socket only.
 set -euo pipefail
+export PGSSLMODE=disable
+if [ -n "${ISSUE335_PG_BIN:-}" ]; then export PATH="$ISSUE335_PG_BIN:$PATH"; fi
 S=$(cd "$(dirname "$0")" && pwd); ROOT=$(cd "$S/../../.." && pwd)
 D=$(mktemp -d /tmp/issue335pg.XXXXXX); chown 1000 "$D"
 R=(setpriv --reuid=1000 --regid=1000 --clear-groups)
@@ -39,6 +41,7 @@ catalog() { "${P[@]}" -At -c "SELECT jsonb_build_object(
 
 # 1) Parity: real auth bodies/owners/ACL/policies/constraints, then differential report.
 baseline
+"${P[@]}" -At -c "SELECT version();"
 "${P[@]}" -c "$SUB" >/dev/null
 python3 "$S/catalog-diff.py" "${P[@]}"
 PRE=$(catalog)
