@@ -4,6 +4,7 @@
 // dry_run=true (default): devolve as decisões sem escrever log nem enfileirar.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
+import { dailySourceAlerts } from "./freshness.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,13 +32,18 @@ Deno.serve(async (req) => {
     if (body && body.dry_run === false) dryRun = false;
   } catch { /* body vazio → dry_run */ }
 
+  const url = Deno.env.get("SUPABASE_URL"); const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) return new Response(JSON.stringify({ error: "configuração em falta" }), { status: 500, headers: corsHeaders });
   const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    url,
+    key,
     { auth: { persistSession: false } },
   );
 
   const today = lisbonToday();
+  let sourceAlerts: unknown;
+  try { sourceAlerts = await dailySourceAlerts(supabase, dryRun); }
+  catch (e) { sourceAlerts = { error: String(e) }; }
 
   const { data: configs, error: cfgErr } = await supabase
     .from("ugc_watchdog_config")
@@ -82,7 +88,7 @@ Deno.serve(async (req) => {
     }
 
     if ((todayRows ?? []).length > 0) {
-      const decision = { song_id: cfg.song_id, label: cfg.label, decision: "ok", today_value: todayRows![0].value };
+      const decision = { song_id: cfg.song_id, label: cfg.label, decision: "ok", today_value: todayRows?.[0]?.value };
       if (!dryRun) {
         await supabase.from("ugc_watchdog_log").upsert(
           { song_id: cfg.song_id, check_date: today, status: "ok" },
@@ -165,7 +171,7 @@ Deno.serve(async (req) => {
     decisions.push(decision);
   }
 
-  return new Response(JSON.stringify({ dry_run: dryRun, date: today, decisions }), {
+  return new Response(JSON.stringify({ dry_run: dryRun, date: today, decisions, source_alerts: sourceAlerts }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
