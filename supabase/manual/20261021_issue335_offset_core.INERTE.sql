@@ -52,6 +52,14 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_catalog AS $$
                WHERE i.transaction_id=p_tx AND i.removed_at IS NULL AND l.status IN('draft','pending_approval','approved','revision','partially_approved'))
      OR EXISTS(SELECT 1 FROM public.payment_list_sepa_exports e WHERE p_tx=ANY(e.transaction_ids))
      OR EXISTS(SELECT 1 FROM public.partner_paid_expenses x WHERE x.transaction_id=p_tx)
+     OR EXISTS(SELECT 1 FROM public.reimbursement_notes n WHERE n.payment_transaction_id=p_tx)
+     OR EXISTS(SELECT 1 FROM public.card_session_loads l WHERE p_tx IN(l.out_transaction_id,l.in_transaction_id))
+     OR EXISTS(SELECT 1 FROM public.partner_aporte_mirror m WHERE p_tx IN(m.source_transaction_id,m.aporte_transaction_id))
+     OR EXISTS(SELECT 1 FROM public.transactions t JOIN public.financial_accounts a ON a.id=t.account_id
+               WHERE t.id=p_tx AND (a.mirror_partner_aporte OR a.type IN('ticket_office','prepaid_card','camarim_session')))
+     OR EXISTS(SELECT 1 FROM public.transaction_payments p JOIN public.financial_accounts a ON a.id=p.account_id
+               WHERE p.transaction_id=p_tx AND p.status='paid' AND p.reversed_at IS NULL
+                 AND (a.mirror_partner_aporte OR a.type IN('ticket_office','prepaid_card','camarim_session')))
 $$;
 REVOKE ALL ON FUNCTION public.issue335_payment_flow_blocked(uuid) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.issue335_payment_flow_blocked(uuid) TO issue335_executor;
@@ -252,6 +260,12 @@ BEGIN
   IF t.id=ANY(ids) THEN RAISE EXCEPTION 'duplicate_item'; END IF; ids:=array_append(ids,t.id);
   IF t.supplier_id IS DISTINCT FROM p_supplier_id OR t.type NOT IN ('income','expense') OR t.status NOT IN ('approved','partially_paid') OR t.reversed_at IS NOT NULL OR t.is_hidden THEN RAISE EXCEPTION 'invalid_document'; END IF;
   IF public.issue335_camarim_leg(t.id) THEN RAISE EXCEPTION 'camarim_leg_unsupported: movimentos de camarim não entram no encontro de contas'; END IF;
+  -- 2k M6: não reinterpretar dinheiro legado atribuído a outra conta ao activar um grupo.
+  IF EXISTS(SELECT 1 FROM public.transaction_payments p WHERE p.transaction_id=t.id AND p.status='paid'
+    AND p.reversed_at IS NULL AND p.payment_method IS DISTINCT FROM 'compensation'
+    AND (p.account_id IS NULL OR p.account_id IS DISTINCT FROM t.account_id)) THEN
+   RAISE EXCEPTION 'cash_account_inconsistent: reveja a conta das pernas existentes antes do encontro';
+  END IF;
   IF t.currency<>'EUR' OR t.fx_rate IS NOT NULL OR t.original_amount IS NOT NULL OR t.installment_group_id IS NOT NULL OR t.installment_number IS NOT NULL OR t.installment_total IS NOT NULL OR
      t.card_session_id IS NOT NULL OR t.held_by_supplier_id IS NOT NULL OR t.settlement_id IS NOT NULL OR t.is_transitory OR t.supplier_credit_id IS NOT NULL OR
      public.issue335_payment_flow_blocked(t.id) OR
