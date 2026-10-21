@@ -50,7 +50,13 @@ END $$;
 DO $$ DECLARE t text; BEGIN FOREACH t IN ARRAY ARRAY['transactions','transaction_payments','transaction_offsets','event_forecasts','transaction_offset_groups','transaction_offset_items','forecast_audit_log','transaction_audit_log','system_audit_log','bank_statement_lines','bank_line_transactions'] LOOP
  EXECUTE format('CREATE TRIGGER zzz_issue335_failure AFTER INSERT OR UPDATE OR DELETE ON public.%I FOR EACH ROW EXECUTE FUNCTION issue335_test.fail_write()',t);
 END LOOP; END $$;
-CREATE FUNCTION issue335_test.snapshot() RETURNS jsonb LANGUAGE sql AS $$ SELECT jsonb_build_object('tx',(SELECT jsonb_agg(to_jsonb(x) ORDER BY id) FROM transactions x),'payments',(SELECT jsonb_agg(to_jsonb(x) ORDER BY id) FROM transaction_payments x),'groups',(SELECT jsonb_agg(to_jsonb(x) ORDER BY id) FROM transaction_offset_groups x),'items',(SELECT jsonb_agg(to_jsonb(x) ORDER BY id) FROM transaction_offset_items x),'sys',(SELECT jsonb_agg(to_jsonb(x) ORDER BY id) FROM system_audit_log x),'txaudit',(SELECT jsonb_agg(to_jsonb(x) ORDER BY transaction_id,field_name) FROM transaction_audit_log x),'fcaudit',(SELECT jsonb_agg(to_jsonb(x) ORDER BY forecast_id) FROM forecast_audit_log x)) $$;
+CREATE FUNCTION issue335_test.snapshot() RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE t text; rows jsonb; result jsonb:='{}'; BEGIN
+ FOREACH t IN ARRAY ARRAY['transactions','transaction_payments','transaction_offsets','event_forecasts','transaction_offset_groups','transaction_offset_items','system_audit_log','transaction_audit_log','forecast_audit_log','bank_statement_lines','bank_line_transactions'] LOOP
+  EXECUTE format('SELECT jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text) FROM public.%I x',t) INTO rows;
+  result:=result||jsonb_build_object(t,rows);
+ END LOOP; RETURN result;
+END $$;
 DO $$ DECLARE a uuid; b uuid; r uuid:=gen_random_uuid(); g uuid; items jsonb; snap jsonb; k int; hit boolean; total int:=0; BEGIN
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('income','Fault+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','Fault-',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
