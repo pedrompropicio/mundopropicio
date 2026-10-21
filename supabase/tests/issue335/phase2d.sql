@@ -57,3 +57,21 @@ SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000012'
 DO $$ BEGIN BEGIN PERFORM transaction_offset_reverse(gen_random_uuid(),gen_random_uuid(),'manager denied'); RAISE EXCEPTION 'manager reversed'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'permission_denied' THEN RAISE; END IF; END; RAISE NOTICE 'PASS 8: manager cannot reverse group (admin only, like legacy reverse_payment)'; END $$;
 RESET ROLE;
 SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false);
+
+-- Trigger-dependent settlement read, then explicit sealed refusal (including forged GUC).
+DO $$ DECLARE ev uuid; es uuid; a uuid; b uuid; items jsonb; g uuid; BEGIN
+ INSERT INTO events(id,company_id,name) VALUES(gen_random_uuid(),current_company_id(),'2d settlement') RETURNING id INTO ev;
+ INSERT INTO event_settlements(id,event_id,company_id,is_sealed) VALUES(gen_random_uuid(),ev,current_company_id(),false) RETURNING id INTO es;
+ INSERT INTO transactions(type,event_id,event_settlement_id,description,amount,iva_rate,date,supplier_id) VALUES('income',ev,es,'2d close+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
+ INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2d close-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
+ items:=jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset'));
+ SELECT (transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13')->>'group_id')::uuid INTO g;
+ UPDATE event_settlements SET is_sealed=true WHERE id=es;
+ PERFORM set_config('app.settlement_seal_op','on',true);
+ BEGIN PERFORM transaction_offset_reverse(g,gen_random_uuid(),'sealed attack'); RAISE EXCEPTION 'sealed reversed'; EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE 'sealed_settlement:%' THEN RAISE; END IF; END;
+ UPDATE event_settlements SET is_sealed=false WHERE id=es;
+ PERFORM transaction_offset_reverse(g,gen_random_uuid(),'unsealed');
+ UPDATE event_settlements SET is_sealed=true WHERE id=es;
+ BEGIN PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13'); RAISE EXCEPTION 'sealed applied'; EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE 'sealed_settlement:%' THEN RAISE; END IF; END;
+ RAISE NOTICE 'PASS 10/seal: settlement-linked document apply/reverse unsealed; sealed apply/reverse denied even with forged seal GUC';
+END $$;

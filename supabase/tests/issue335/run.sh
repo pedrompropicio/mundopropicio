@@ -29,6 +29,10 @@ catalog() { "${P[@]}" -At -c "SELECT jsonb_build_object(
  'policies',(SELECT jsonb_agg(to_jsonb(p) ORDER BY p.tablename,p.policyname) FROM pg_policies p WHERE schemaname='public'),
  'triggers',(SELECT jsonb_agg(jsonb_build_object('t',tgrelid::regclass::text,'n',tgname,'d',pg_get_triggerdef(oid),'e',tgenabled) ORDER BY tgrelid::regclass::text,tgname) FROM pg_trigger WHERE NOT tgisinternal),
  'constraints',(SELECT jsonb_agg(jsonb_build_object('t',conrelid::regclass::text,'n',conname,'d',pg_get_constraintdef(oid)) ORDER BY conrelid::regclass::text,conname) FROM pg_constraint WHERE connamespace='public'::regnamespace),
+ 'schemas',(SELECT jsonb_agg(jsonb_build_object('n',nspname,'o',pg_get_userbyid(nspowner),'a',nspacl::text) ORDER BY nspname) FROM pg_namespace WHERE nspname IN('public','auth')),
+ 'default_acl',(SELECT jsonb_agg(jsonb_build_object('r',pg_get_userbyid(defaclrole),'n',defaclnamespace::regnamespace::text,'t',defaclobjtype,'a',defaclacl::text) ORDER BY defaclrole,defaclnamespace,defaclobjtype) FROM pg_default_acl),
+ 'role_attrs',(SELECT jsonb_agg(jsonb_build_object('r',rolname,'super',rolsuper,'create',rolcreaterole,'bypass',rolbypassrls,'inherit',rolinherit) ORDER BY rolname) FROM pg_roles WHERE rolname NOT LIKE 'pg\_%'),
+ 'memberships',(SELECT jsonb_agg(jsonb_build_object('r',pg_get_userbyid(roleid),'m',pg_get_userbyid(member),'g',pg_get_userbyid(grantor),'a',admin_option,'i',inherit_option,'s',set_option) ORDER BY roleid,member) FROM pg_auth_members),
  'roles',(SELECT jsonb_agg(rolname ORDER BY rolname) FROM pg_roles WHERE rolname NOT LIKE 'pg\_%'))"; }
 
 # 1) Parity: real auth bodies/owners/ACL/policies/constraints, then differential report.
@@ -88,6 +92,16 @@ session "$EXEC_C" c_retry
 if grep -q 'deadlock detected' "$D/log"; then echo 'ERROR deadlock detected'; exit 1; fi
 echo 'PASS concurrency: no deadlock in server log; waits bounded by NOWAIT/lock_timeout'
 
+# Explicit FK KEY SHARE compatibility: three sessions; normal insert holds supplier FK.
+seed "INSERT INTO transactions(id,type,description,amount,iva_rate,date,supplier_id) VALUES('00000000-0000-0000-0000-000000000891','income','FK+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020'),('00000000-0000-0000-0000-000000000892','expense','FK-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020');"
+hold "INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id,account_id) VALUES('income','FK normal insert',1,0,'2026-10-13','00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-000000000030')" fk_insert & H=$!
+sleep 0.5
+session "SELECT transaction_offset_execute('00000000-0000-0000-0000-000000000893','00000000-0000-0000-0000-000000000020','[{\"transaction_id\":\"00000000-0000-0000-0000-000000000891\",\"mode\":\"settle\"},{\"transaction_id\":\"00000000-0000-0000-0000-000000000892\",\"mode\":\"offset\"}]','{\"account_id\":\"00000000-0000-0000-0000-000000000030\",\"date\":\"2026-10-13\",\"amount\":60}','2026-10-13')" fk_execute & E=$!
+session "SELECT count(*) FROM transactions" fk_read & V=$!
+wait "$H"; wait "$E"; wait "$V"
+"${P[@]}" -c "DO \$\$ BEGIN IF NOT EXISTS(SELECT 1 FROM transaction_offset_groups WHERE request_id='00000000-0000-0000-0000-000000000893' AND status='applied') THEN RAISE EXCEPTION 'FK insert blocks encounter'; END IF; RAISE NOTICE 'PASS 6: three sessions encounter x ordinary FK insert x read, NO KEY UPDATE compatible with KEY SHARE'; END \$\$;"
+if grep -q 'deadlock detected' "$D/log"; then echo 'ERROR FK deadlock'; exit 1; fi
+
 # Same-request duplicate click (phase 2b proof retained).
 seed "INSERT INTO transactions(id,company_id,type,description,amount,iva_rate,date,supplier_id) VALUES
 ('00000000-0000-0000-0000-000000000701',current_company_id(),'income','Race+',30996,0,'2026-10-13','00000000-0000-0000-0000-000000000020'),
@@ -115,6 +129,11 @@ PRE=$(catalog)
 "${P[@]}" -c "DO \$\$ BEGIN IF (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) THEN RAISE EXCEPTION 'deployment_is_superuser'; END IF; END \$\$;"
 for f in storage core invariants; do "${P[@]}" -f "$(ls "$ROOT/supabase/manual/20261021_issue335_offset_"*"$f.INERTE.sql")" >/dev/null; done
 "${ADMIN[@]}" -f "$S/phase2c-invariant-matrix.sql"
+for f in core group_storage; do
+ if "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_$f.ROLLBACK-INERTE.sql" >"$D/wrong-order" 2>&1; then echo "ERROR wrong rollback order accepted $f"; exit 1; fi
+ grep -q rollback_order "$D/wrong-order"
+done
+echo 'PASS 11: rollback wrong order refused without groups; correct order invariants -> core -> storage follows'
 for f in invariants core group_storage; do "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_$f.ROLLBACK-INERTE.sql" >/dev/null; done
 POST=$(catalog)
 AFTER=$("${P[@]}" -At -c "$INV")
