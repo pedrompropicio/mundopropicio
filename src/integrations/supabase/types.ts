@@ -16940,6 +16940,72 @@ export type Database = {
           },
         ]
       }
+      song_link_arrivals_hourly: {
+        Row: {
+          artist_id: string
+          canal: string
+          company_id: string
+          country: string
+          hour_utc: string
+          n: number
+          os: string
+          updated_at: string
+        }
+        Insert: {
+          artist_id: string
+          canal: string
+          company_id: string
+          country?: string
+          hour_utc: string
+          n?: number
+          os: string
+          updated_at?: string
+        }
+        Update: {
+          artist_id?: string
+          canal?: string
+          company_id?: string
+          country?: string
+          hour_utc?: string
+          n?: number
+          os?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      song_link_arrivals_hourly_log: {
+        Row: {
+          artist_id: string | null
+          created_at: string
+          divergent_rows: number | null
+          error_code: string | null
+          hour_utc: string | null
+          id: string
+          kind: string
+          repaired_at: string | null
+        }
+        Insert: {
+          artist_id?: string | null
+          created_at?: string
+          divergent_rows?: number | null
+          error_code?: string | null
+          hour_utc?: string | null
+          id?: string
+          kind: string
+          repaired_at?: string | null
+        }
+        Update: {
+          artist_id?: string | null
+          created_at?: string
+          divergent_rows?: number | null
+          error_code?: string | null
+          hour_utc?: string | null
+          id?: string
+          kind?: string
+          repaired_at?: string | null
+        }
+        Relationships: []
+      }
       song_link_delivery_slots: {
         Row: {
           arrival_event_id: string
@@ -26246,6 +26312,22 @@ export type Database = {
         Args: { p_from?: string; p_song_id: string; p_to?: string }
         Returns: Json
       }
+      song_link_arrivals_hour_delta: {
+        Args: {
+          p_delta: number
+          p_event: Database["public"]["Tables"]["song_link_events"]["Row"]
+        }
+        Returns: undefined
+      }
+      song_link_arrivals_hour_key: {
+        Args: { p_artist: string; p_hour: string }
+        Returns: number
+      }
+      song_link_arrivals_hourly_rebuild: {
+        Args: { p_artist: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      song_link_arrivals_hourly_reconcile: { Args: never; Returns: Json }
       song_link_event_canal: {
         Args: {
           p_link_canal: string
