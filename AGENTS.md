@@ -32,3 +32,4 @@
 
 - Cache payments only via cache_* RPCs (mother/city children); optional line choices use local `cache.line_choices`, server-checked.
 - Separate artist hourly collector; atomic service writer locks claim to fence stale request_id writes, preserving legacy sync.
+- Meta daily insights are requested one civil day per call: multi-day time_range with the full field set returns spend/impressions 0 since 18/10/2026.
