@@ -8,11 +8,11 @@ R=(setpriv --reuid=1000 --regid=1000 --clear-groups)
 "${R[@]}" pg_ctl -D "$D/data" -o "-k $D -p 55443 -c listen_addresses='' -c deadlock_timeout=200ms -c log_lock_waits=on" -l "$D/log" -w start >/dev/null
 trap '"${R[@]}" pg_ctl -D "$D/data" -m immediate stop >/dev/null; rm -rf "$D"' EXIT
 P=(env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE psql -X -q -h "$D" -p 55443 -U postgres -d postgres -v ON_ERROR_STOP=1)
-A=(env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE psql -X -q -h "$D" -p 55443 -U supabase_admin -d postgres -v ON_ERROR_STOP=1)
+ADMIN=(env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE psql -X -q -h "$D" -p 55443 -U supabase_admin -d postgres -v ON_ERROR_STOP=1)
 C=(env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE psql -X -q -h "$D" -p 55443 -U postgres -d postgres)
 SUB="SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false);"
 baseline() {
- "${A[@]}" -c "CREATE ROLE postgres LOGIN SUPERUSER; ALTER DATABASE postgres OWNER TO postgres;" >/dev/null
+ "${ADMIN[@]}" -c "CREATE ROLE postgres LOGIN SUPERUSER; ALTER DATABASE postgres OWNER TO postgres;" >/dev/null
  "${P[@]}" -f "$S/stub.sql" >/dev/null
  "${P[@]}" -f "$S/live/dependencies.sql" >/dev/null
  "${P[@]}" -f "$S/live/functions.sql" >/dev/null
@@ -20,7 +20,7 @@ baseline() {
  "${P[@]}" -f "$S/live/phase2c-auth.sql" >/dev/null
  "${P[@]}" -f "$S/live/phase2c-invariant-registry.sql" >/dev/null
  "${P[@]}" -f "$S/live/phase2d-legacy.sql" >/dev/null
- "${A[@]}" -f "$S/live/phase2d-role.sql" >/dev/null
+ "${ADMIN[@]}" -f "$S/live/phase2d-role.sql" >/dev/null
 }
 catalog() { "${P[@]}" -At -c "SELECT jsonb_build_object(
  'functions',(SELECT jsonb_agg(jsonb_build_object('f',p.oid::regprocedure::text,'d',md5(pg_get_functiondef(p.oid)),'o',pg_get_userbyid(p.proowner),'a',p.proacl::text,'s',p.prosecdef,'c',p.proconfig) ORDER BY p.oid::regprocedure::text) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN('public','auth') AND p.prokind='f'),
@@ -40,12 +40,12 @@ PRE=$(catalog)
 # Full scenarios on top of the real installed auth model.
 "${P[@]}" -c "DO \$\$ BEGIN IF (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) THEN RAISE EXCEPTION 'deployment_is_superuser'; END IF; END \$\$;"
 for f in storage core invariants; do "${P[@]}" -f "$(ls "$ROOT/supabase/manual/20261021_issue335_offset_"*"$f.INERTE.sql")" >/dev/null; done
-"${A[@]}" -f "$S/scenarios.sql"
-"${A[@]}" -f "$S/phase2d.sql"
-"${A[@]}" -f "$S/phase2b.sql"
-"${A[@]}" -f "$S/phase2c.sql"
+"${ADMIN[@]}" -f "$S/scenarios.sql"
+"${ADMIN[@]}" -f "$S/phase2d.sql"
+"${ADMIN[@]}" -f "$S/phase2b.sql"
+"${ADMIN[@]}" -f "$S/phase2c.sql"
 (cd "$ROOT" && bun "$S/matching-parity.ts") >"$D/parity.sql"
-"${A[@]}" -f "$D/parity.sql"
+"${ADMIN[@]}" -f "$D/parity.sql"
 
 # 3) Concurrency. Every scenario has three real sessions and bounded waits.
 seed() { "${P[@]}" -c "$SUB $1" >/dev/null; }
@@ -114,7 +114,7 @@ BEFORE=$("${P[@]}" -At -c "$INV")
 PRE=$(catalog)
 "${P[@]}" -c "DO \$\$ BEGIN IF (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) THEN RAISE EXCEPTION 'deployment_is_superuser'; END IF; END \$\$;"
 for f in storage core invariants; do "${P[@]}" -f "$(ls "$ROOT/supabase/manual/20261021_issue335_offset_"*"$f.INERTE.sql")" >/dev/null; done
-"${A[@]}" -f "$S/phase2c-invariant-matrix.sql"
+"${ADMIN[@]}" -f "$S/phase2c-invariant-matrix.sql"
 for f in invariants core group_storage; do "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_$f.ROLLBACK-INERTE.sql" >/dev/null; done
 POST=$(catalog)
 AFTER=$("${P[@]}" -At -c "$INV")
