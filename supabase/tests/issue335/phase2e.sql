@@ -119,7 +119,10 @@ DO $$ DECLARE a uuid; b uuid; lid uuid; v text; items jsonb; mov jsonb; n bigint
   BEGIN PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,mov,'2026-10-13'); RAISE EXCEPTION 'list accepted %',v; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'unsupported_debt' THEN RAISE; END IF; END;
   DELETE FROM payment_list_items WHERE transaction_id=a;
  END LOOP;
- INSERT INTO payment_list_sepa_exports(id,transaction_ids) VALUES(gen_random_uuid(),ARRAY[a]);
+ -- 2i: schema real exige lista aprovada e metadados do ficheiro; item já removido acima, isolando a guarda SEPA.
+ INSERT INTO payment_lists(id,title,status) VALUES(gen_random_uuid(),'LOCAL lista SEPA','approved') RETURNING id INTO lid;
+ INSERT INTO payment_list_sepa_exports(id,payment_list_id,exported_by,file_name,msg_id,total_amount,n_transactions,transaction_ids)
+  VALUES(gen_random_uuid(),lid,auth.uid()::text,'LOCAL.xml','LOCAL-MSG',100,1,ARRAY[a]);
  BEGIN PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,mov,'2026-10-13'); RAISE EXCEPTION 'SEPA accepted'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'unsupported_debt' THEN RAISE; END IF; END;
  RAISE NOTICE 'PASS 2e G: four fields, five active list statuses and SEPA array refused; held_by unproved separately';
 END $$;
