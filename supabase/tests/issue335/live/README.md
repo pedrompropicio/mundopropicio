@@ -20,7 +20,9 @@ any group history raises groups_exist_keep_guards. DROP OWNED is not used. Unexp
 dependencies cause DROP ROLE to fail and the surrounding transaction rolls back.
 
 Remaining limitations: 22 FK dependencies not replayed; role/default/schema model is scoped
-(not the entire hosted role system). Comparator checks constraint names, not their complete semantics.
+(not the entire hosted role system). Comparator now checks constraint type, validation and full definition;
+six pre-existing stub FKs were corrected from the retained catalog snapshot (CASCADE/RESTRICT/DEFERRABLE).
+It still does not certify indexes, all additional objects or whitespace inside function string literals.
 No real REST server is started: storage-only attacks use its exact authenticated SQL role.
 Three-session tests retain timing sleeps; not an exhaustive deterministic scheduler proof.
 Restore atomic/administrative-window integration and server debit balance guard remain unproven.
