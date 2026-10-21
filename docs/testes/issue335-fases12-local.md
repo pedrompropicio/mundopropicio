@@ -550,3 +550,27 @@ pendentes e sleeps antigos; J paridade/FKs/camarim; A matriz/débito; E campos/
 restore/selagem; G fixtures; I reabertura concorrente; L SHA/CI final.
 A–C, saldo, approval, kill-switch e qualquer objeto instalado continuam NÃO
 aplicados e dependem de Sim separado de Pedro após aceitação técnica.
+
+## Fase 2g (21/10/2026) — PARCIAL / NÃO ACEITE
+
+Harness: PostgreSQL 17.6 exacto (`/tmp/issue335-phase2f/pg17.6`), deploy como `postgres` NOSUPERUSER com default privileges de Live. Nada aplicado em Live; sem migrations, DDL/DML Live ou Publish.
+
+1. D — candidato de aprovação TESTADO só no harness (`supabase/tests/issue335/phase2g-approval.sql`, ligado ao `phase2f-run.sh`):
+   - ANTES (trigger de Live): estorno histórico without_bp→with_bp recusado 42501 "sem linha de BP"; estorno com verba excedida recusado P0409; grupo fica `applied` (atómico).
+   - DEPOIS: (a) estorno histórico passa, documento volta a `approved`/paid 0, grupo `reversed`; (b) estorno com verba excedida passa, aprovação nova na mesma linha continua P0409; (c) aprovação sem linha de BP continua 42501; (d) editor sem `approve_transactions` recusado; (e) ataques recusados: GUCs forjadas (`issue335.trusted`, `issue335.reversing`, `app.bypass_approval`) em documento sem grupo → 42501 BP; INSERT/UPDATE de grupo `reversing` por `authenticated` → negado; restauro directo de documento em grupo `applied` → recusado; chamada directa a `_issue335_reverse` → 42501; mover grupo para outra empresa, mesmo como superuser do harness → `managed_operation_required`; grupo de outra empresa → `group_not_found`; (f) rollback repõe `prosrc` byte-a-byte igual ao capturado de Live.
+   - Nenhum ataque passou; candidato não precisou de correcção. Diff final: `supabase/tests/issue335/live/phase2f-approval-prosrc.diff` (inalterado; inclui remoção de uma linha de comentário de Live, reposta no rollback).
+   - Ressalvas: no ataque (e3) aceita-se qualquer erro (não um código único); em (d) a recusa pode vir de RLS (0 linhas) ou 42501. Estado: PÁRA-PARA-DECISÃO (instalar exige Sim).
+2. E — matriz exaustiva por coluna, restauro atómico, janela administrativa e fecho selado: ABERTO (não executado nesta fase).
+3. A — matriz de saldo lado a lado com funções originais e guarda de débito: ABERTO (mantém-se apenas a prova 2e/2f).
+4. Camarim J.3: ABERTO. O harness nem tem os triggers de `camarim_sessions` (ver J).
+5. F — offset_create cruzado, selagem real, lista concorrente, reabertura da flag; substituição dos testes com sleeps de `run.sh`: ABERTO. Passam (2f, repetido): encontro/encontro, reconcile settle/encontro, FK insert/encontro, kill-switch antes/depois/drain.
+6. G — card_session/fornecedor e listas concorrentes: ABERTO.
+7. J — diferencial classificado em `supabase/tests/issue335/live/phase2g-differential-classification.json` (critério lexical directo: identificador presente nos SQL candidatos ou testes 2d–2g; não fecha transitivamente corpos PL/pgSQL). Relevantes não iguais: 2316 (1148 triggers RI de FK em falta, 212 RI extra, 48 triggers de utilizador em falta, 409 colunas diferentes, 175 colunas extra, 27 em falta, 126 índices, 64 constraints, 32 policies, 32 default ACL em falta). Harness NÃO foi tornado fiel nesta fase.
+   - Dependências de Live não reproduzidas com risco de alterar o resultado: `event_settlements.trg_guard_sealed_event_settlement` (fecho selado); `payment_list_items.trg_payment_list_items_bankable` e `payment_list_sepa_exports.trg_enforce_sepa_export_guard` (listas/SEPA); `events.trg_admin_windows_contiguous`, `trg_enforce_event_reopen_permission`, `enforce_event_close_blockers` (janela administrativa/fecho); triggers `camarim_sessions.*` (camarim); `trg_set_company_id` em 13 tabelas (empresa por defeito); `audit_*_changes` (auditoria); 1148 triggers RI (FKs/cascatas).
+   - Paridade para o conjunto relevante: NÃO provada.
+   - Frase: "O diferencial certifica apenas que os 457 objectos marcados iguais coincidem nos atributos capturados entre Live (PG 17.6) e o harness; NÃO certifica paridade do conjunto relevante ao #335, nem corpos de funções chamadas transitivamente, nem comportamento dos 48 triggers de utilizador e 1148 triggers RI ausentes."
+8. L — ver resposta/Issue (SHA e CI).
+
+Execuções: `phase2f-run.sh` (PG 17.6) exit 0; `run.sh` global em PG 17.6 exit 0; Vitest completo 219/223 ficheiros passaram, 2 falharam por timeout de hook sob carga paralela (newgang-crm-profile-fields, newgang-crm-whatsapp) e passaram isolados 35/35; tsgo exit 0; `tsc` clássico não executado (regra da plataforma).
+
+Hashes: `docs/testes/issue335-fase2g-hashes.sha256`.
