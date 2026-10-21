@@ -3,6 +3,9 @@ Adaptações (todas porque o stub antigo tinha defaults que Live não tem):
  1) bank_statement_lines exige statement_id e line_hash: injecta-se o extrato fixture ...040 e hash único;
  2) transactions.status tem default 'pending' em Live (o stub tinha 'approved'): os INSERT sem coluna
     status passam a declarar status='approved' explicitamente; o trigger REAL de aprovação avalia-o.
+    Sem company_id, o trigger real de aprovação corre antes de trg_set_company_id (ordem alfabética) e
+    recusa; como a aplicação, declara-se company_id=current_company_id() quando a coluna falta.
+ 3) INSERT posicional em user_roles (ordem de colunas do stub) passa a nomear user_id,role e a empresa ...001.
 Uso: phase2h-adapt.py <in.sql> <out.sql>"""
 import re, sys
 s = open(sys.argv[1]).read()
@@ -22,7 +25,8 @@ while True:
     out.append(s[i:m.start()])
     if 'status' in cols:
         out.append(m.group(0)); i = m.end(); continue
-    out.append(m.group(0).replace('(' + m.group(1) + ')', '(status,' + m.group(1) + ')', 1))
+    addc = 'company_id' not in cols
+    out.append(m.group(0).replace('(' + m.group(1) + ')', '(status,' + ('company_id,' if addc else '') + m.group(1) + ')', 1))
     j = m.end()
     while True:  # percorre tuplos (aspas e parênteses aninhados)
         while s[j] in ' \n\t': out.append(s[j]); j += 1
@@ -41,12 +45,16 @@ while True:
                 depth -= 1
                 if depth == 0: break
             k += 1
-        out.append("('approved'," + s[j + 1:k + 1]); n['tx_rows'] += 1
+        out.append("('approved'," + ('public.current_company_id(),' if addc else '') + s[j + 1:k + 1]); n['tx_rows'] += 1
         j = k + 1
         while s[j] in ' \n\t': out.append(s[j]); j += 1
         if s[j] == ',':
             out.append(','); j += 1; continue
         break
     i = j
-open(sys.argv[2], 'w').write(''.join(out))
+r = ''.join(out)
+r, k = re.subn(r"INSERT INTO public\.user_roles VALUES\(('[0-9a-f-]{36}'),('[a-z_]+')\)",
+               r"INSERT INTO public.user_roles(user_id,role,company_id) VALUES(\1,\2,'00000000-0000-0000-0000-000000000001')", r)
+n['user_roles'] = k
+open(sys.argv[2], 'w').write(r)
 print(sys.argv[1], 'adaptações:', n)
