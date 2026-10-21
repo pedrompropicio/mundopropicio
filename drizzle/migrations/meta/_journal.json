@@ -1618,6 +1618,13 @@
       "when": 1792580865560,
       "tag": "0230_period_report_use_exact_arrivals",
       "breakpoints": true
+    },
+    {
+      "idx": 231,
+      "version": "7",
+      "when": 1792580977609,
+      "tag": "0231_period_report_visitor_filter_pushdown",
+      "breakpoints": true
     }
   ]
 }
