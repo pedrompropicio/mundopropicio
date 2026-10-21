@@ -1534,6 +1534,13 @@
       "when": 1792553164477,
       "tag": "0218_artist_ads_hourly_fase1",
       "breakpoints": true
+    },
+    {
+      "idx": 219,
+      "version": "7",
+      "when": 1792554176933,
+      "tag": "0219_artist_ads_refresh_write",
+      "breakpoints": true
     }
   ]
 }

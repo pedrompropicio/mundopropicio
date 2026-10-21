@@ -87,7 +87,7 @@ describe('Traffic Fase 1 exact applied DDL, local PostgreSQL', () => {
   it('writer fences stale requests and preserves null rather than zero', async () => {
     await db.exec("SET test.role='service_role'; SET test.uid=''; UPDATE artist_ads_refresh_control SET lease_until=null,request_id=null;");
     const accepted = await claim(true);
-    const date = (await db.query<{day:string}>("select to_char(clock_timestamp() AT TIME ZONE 'America/Sao_Paulo','YYYY-MM-DD') day")).rows[0].day;
+    const date = (await db.query<{metric_day:string}>("select to_char(clock_timestamp() AT TIME ZONE 'America/Sao_Paulo','YYYY-MM-DD') metric_day")).rows[0].metric_day;
     const row = {level:'campaign',external_campaign_id:'456',external_adset_id:'',metric_date:date,metric_hour:0,account_timezone:'America/Sao_Paulo',currency:'BRL',impressions:null,clicks:0,spend_cents:null,raw:{}};
     const write = (request:string,rows:unknown[],device=false) => db.query<{result:any}>('select artist_ads_refresh_write($1,$2,$3,$4,$5) result',[artist,request,artist,JSON.stringify(rows),device]).then(r=>r.rows[0].result);
     expect((await write(company,[row])).reason).toBe('stale_request');

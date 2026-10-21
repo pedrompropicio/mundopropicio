@@ -1,7 +1,7 @@
 # Visão comparativa de tráfego — Fase 1, preparação
 
 ## Estado e âmbito
-Estado real em 21/10/2026: migração 0218 aplicada (SHA256 50e0f125931dc097bedad8a4d243b0cc7ad3bffaae17a44f156434cc721f5980), RLS/ACL conferidos, 14 testes locais passaram. Continuação parada por `deno check` falhado no helper Google existente (BufferSource/pkcs8); writer NÃO aplicado, sem invocações/backfill/crons. Ver docs/questoes-trafego-fase1-validacao-google-20261021.md. Texto de preparação abaixo mantido como histórico.
+Estado real em 21/10/2026 04:07 UTC: migrações 0218/0219 aplicadas e RLS/ACL conferidos; deno check e 15 testes passaram; artist-ads-refresh-today deployada e provada com JWT Pedro/Litto (200, repetição 429). Backfill 14 datas horário e 30 datas device concluído, 452 chamadas HTTP incluindo tentativas e metadados. Crons 7110 (0 1,15 * * *) e 7111 (0 4 * * *) ativos confirmados. Sem Publish. Prova visual do botão bloqueada: página artística ausente neste frontend. Ver docs/questoes-trafego-fase1-entrega-20261021.md. Texto de preparação abaixo mantido como histórico.
 
 Só preparação. Nenhum DDL/DML aplicado, nenhum backfill, cron, API autenticada, deploy ou Publish executado. Proposta SQL inerte guardada em `supabase/manual/20261021_artist_ads_hourly_fase1.INERTE.sql`; após autorização, copiar byte a byte para a próxima migração livre (0218 é candidata, não reservada), pelo fluxo oficial de migrações. Não colocar agora numa pasta de aplicação automática.
 
