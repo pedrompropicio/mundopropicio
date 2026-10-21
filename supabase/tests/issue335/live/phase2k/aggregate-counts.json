@@ -1,0 +1,13 @@
+{
+  "cash_account_null": 347,
+  "cash_account_different": 5,
+  "cash_account_inconsistent": 352,
+  "potentially_eligible_cash_account_null": 0,
+  "potentially_eligible_cash_account_different": 0,
+  "potentially_eligible_cash_account_inconsistent": 0,
+  "transactions": 2013,
+  "transaction_payments": 1462,
+  "bank_statement_lines": 229,
+  "transaction_offsets": 7,
+  "scope": "only aggregated counts, no financial amounts or IDs"
+}
