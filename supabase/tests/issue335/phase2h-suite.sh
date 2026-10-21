@@ -42,4 +42,7 @@ else echo "FAIL phase2n-context: $(tail -1 "$OUT/phase2n-context.out")" | tee -a
 if python3 "$S/phase2n-trigger-watch.py" "$D" "$PORT" "$ROOT" "$OUT/phase2n-trigger-watch.json" > "$OUT/phase2n-trigger-watch.out" 2>&1; then
   echo 'PASS phase2n-trigger-watch (full row snapshots and detector)' | tee -a "$res"
 else echo "FAIL phase2n-trigger-watch: $(tail -1 "$OUT/phase2n-trigger-watch.out")" | tee -a "$res"; fi
+if python3 "$S/phase2n-status.py" "$D" "$PORT" "$ROOT" "$OUT/phase2n-status.json" > "$OUT/phase2n-status.out" 2>&1; then
+  echo "PASS phase2n-status (M3 2n-Bloco2b: order, case c, exact comparison + negative tests)" | tee -a "$res"
+else echo "FAIL phase2n-status: $(tail -3 "$OUT/phase2n-status.out" | tr '\n' ' ')" | tee -a "$res"; fi
 if grep -q '^FAIL' "$res"; then exit 1; fi

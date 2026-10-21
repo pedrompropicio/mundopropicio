@@ -216,7 +216,6 @@ for name, kc, value, expect_status in [
         neg['prior_leg'] = compare(before, snapshot(ids), group, new_legs)
     run('ROLLBACK')
     run('BEGIN')
-    run("SAVEPOINT s")
     leg(ids[1], 1)
     neg['extra_paid_leg'] = compare(before, snapshot(ids), group, new_legs)
     run('ROLLBACK')
