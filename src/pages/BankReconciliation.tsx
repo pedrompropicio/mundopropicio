@@ -414,8 +414,8 @@ export default function BankReconciliation() {
   const savedLineIds = useMemo(() => (savedLines as any[]).map((l) => l.id), [savedLines]);
 
   const { data: bridgeRows = [] } = useQuery({
-    queryKey: ["bank-recon-bridge", currentStatement?.id, savedLineIds.length],
-    enabled: savedLineIds.length > 0,
+    queryKey: ["bank-recon-bridge", currentStatement?.id, savedLineIds.length, firstStatementFrom],
+    enabled: savedLineIds.length > 0 && firstStatementReady,
     queryFn: async () => {
       const out: any[] = [];
       for (let i = 0; i < savedLineIds.length; i += 200) {
@@ -1483,6 +1483,10 @@ export default function BankReconciliation() {
    */
   async function rerunReconcile() {
     if (!currentStatement) return;
+    if (!cashReady) {
+      toast.error("A leitura dos pagamentos ainda não está pronta. Aguarde e tente novamente.");
+      return;
+    }
     setRerunning(true);
     try {
       const lines = (savedLines as any[]).filter(
