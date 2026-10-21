@@ -6,7 +6,7 @@ const four = [doc("sponsor", "income", 1230000, 0), doc("tickets", "income", 159
 function allocation(items: OffsetPlanItem[], amount: number) {
   const result = previewTransactionOffset(items, amount);
   expect(result.ok).toBe(true);
-  if (!result.ok) throw new Error(result.message);
+  if (result.ok === false) throw new Error(result.message);
   return result.items;
 }
 describe("#335 pure preview", () => {
