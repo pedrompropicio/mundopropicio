@@ -46,6 +46,8 @@ failed = []
 stats = {}
 for block in blocks:
     pending = [st for p in block for st in phases.get(p, [])]
+    # ACL: cada REVOKE de reposição corre antes dos GRANT do mesmo objecto (ordem estável)
+    pending.sort(key=lambda st: (0 if st['key'].endswith(':revoke') else 1))
     passes = 0
     while pending:
         passes += 1
