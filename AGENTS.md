@@ -31,7 +31,7 @@
 - CRM WhatsApp uses crm_whatsapp_eligible/invoker views. Ledger/member-phone triggers share a contact-locked projection; matching-fingerprint phones only fill empty contacts, avoiding leaks/overwrites.
 
 - Cache payments only via cache_* RPCs (mother/city children); optional line choices use local `cache.line_choices`, server-checked.
-- Issue #335 stays manual-only: guards require a private backend/transaction context created by the command trigger, never role/GUC alone; delegate parent locks without broad UPDATE, and verify existing-object candidate rollbacks against the full catalog before separate installation approval.
+- Issue #335 stays manual-only: guards require a private backend/transaction context created by the command trigger, never role/GUC alone; delegate parent locks without broad UPDATE, and verify existing-object candidate rollbacks against the full catalog before separate installation approval. Owner-created DDL triggers belong to the trusted computing base; a separate manual read-only trigger-name allowlist detects additions, never claims prevention or body-replacement detection.
 - Issue #335 role probes must set session identity for NOLOGIN roles, not merely SET ROLE from a superuser session; otherwise role-assumption tests measure the bootstrap administrator rather than the actor.
 - Separate artist hourly collector; service writer fences stale request_id. Read nested AGENTS.md, including supabase/ and function directories.
 <!-- LOVABLE:BEGIN -->

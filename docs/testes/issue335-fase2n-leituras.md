@@ -73,3 +73,8 @@ Fontes do Bloco1 inexistentes como runner versionado: script real era /tmp/issue
 - phase2h-suite.sh / phase2l-rollback.py: hashes ANTES recuperados da versão base por git show (leitura anterior view certificada):
 - supabase/tests/issue335/phase2h-suite.sh: 1–45; sha256=66f442d2649f8d3f28f2e839a75d6c7f72df238fd5871d9aa284875003ab2aef
 - supabase/tests/issue335/phase2l-rollback.py: 1–49; sha256=e41767df157f79c2b42e32eb978d48a27436b960c65208493b006dc82d356acc
+
+### Bloco1c — fecho
+- core 121–155 e 155–213 relidos por partes antes de ajustar classificação de DELETE; sha256 e3153a10868d726687581ec7abee1e7b260426ff270bab62ff96effba659b772.
+- Relatório fim 6180–6224 lido antes do append 1c; não se certifica leitura integral do ficheiro.
+- Lista trigger_watch: SELECT Live pg_catalog em 21/10/2026; nomes versionados no SQL. Nenhuma leitura de dados Live.

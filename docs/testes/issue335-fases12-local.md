@@ -6325,3 +6325,6 @@ cec62127d8cad7825d45acaabd79e2b21a3f44658e80fa33a51b4e24f17dd8a7  /tmp/issue335-
 ```
 
 M1 FECHADO tecnicamente neste âmbito de modelo de confiança DDL + ataques pedidos sobre schema real. A referência item→offset não existe no schema; testada a referência pagamento→item real, com offset no pagamento. Não implica aceitação das outras fases, A–C, instalação ou CI remoto.
+
+### GitHub e CI (API, fecho 1c)
+HEAD main observado 40743f624213643f517b7bc54a32699369370799; novo runner e candidato HTTP404; relatório remoto não contém edits 1c. Run 39687730567 success desse HEAD só cobre versão anterior. CI 1c NÃO VERIFICADA; não verde. Comentário #335 enviado após fechar relatório; nenhuma instalação.
