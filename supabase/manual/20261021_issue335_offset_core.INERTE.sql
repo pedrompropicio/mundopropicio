@@ -208,7 +208,9 @@ BEGIN
  ORDER BY id FOR NO KEY UPDATE NOWAIT;
  -- All BP and existing transaction locks are obtained in UUID order, not display order.
  PERFORM 1 FROM public.event_forecasts WHERE id IN (SELECT (v->>'forecast_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'forecast_id') ORDER BY id FOR NO KEY UPDATE NOWAIT;
- PERFORM 1 FROM public.transactions WHERE id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id') ORDER BY id FOR NO KEY UPDATE NOWAIT;
+ -- 2j (achado F1/F3): FOR UPDATE (não NO KEY UPDATE) conflitua com o KEY SHARE de inserções por confirmar que referenciam
+ -- o documento (transaction_offsets, payment_list_items, transaction_payments) → recusa 55P03 em vez de aplicar em paralelo.
+ PERFORM 1 FROM public.transactions WHERE id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id') ORDER BY id FOR UPDATE NOWAIT;
  PERFORM 1 FROM public.transaction_payments WHERE transaction_id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id') ORDER BY id FOR NO KEY UPDATE NOWAIT;
  -- Resolve all items and validate before financial writes. BP creation stays in this transaction.
  FOR j IN SELECT v FROM jsonb_array_elements(p_items) v ORDER BY COALESCE((v->>'cash_order')::integer,0),COALESCE(v->>'transaction_id',v->>'forecast_id') LOOP
@@ -317,7 +319,7 @@ DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid 
  END IF;
  IF g.status<>'applied' THEN RAISE EXCEPTION 'invalid_group_state'; END IF;
  PERFORM 1 FROM public.event_settlements WHERE id IN(SELECT t.event_settlement_id FROM public.transactions t JOIN public.transaction_offset_items i ON i.transaction_id=t.id WHERE i.group_id=g.id) ORDER BY id FOR NO KEY UPDATE NOWAIT;
- PERFORM 1 FROM public.transactions WHERE id IN(SELECT transaction_id FROM public.transaction_offset_items WHERE group_id=g.id) ORDER BY id FOR NO KEY UPDATE NOWAIT;
+ PERFORM 1 FROM public.transactions WHERE id IN(SELECT transaction_id FROM public.transaction_offset_items WHERE group_id=g.id) ORDER BY id FOR UPDATE NOWAIT; -- 2j: idem execute
  PERFORM 1 FROM public.transaction_payments WHERE offset_group_id=g.id ORDER BY id FOR NO KEY UPDATE NOWAIT;
  IF EXISTS(SELECT 1 FROM public.transaction_payments WHERE offset_group_id=g.id AND (status<>'paid' OR reversed_at IS NOT NULL)) THEN RAISE EXCEPTION 'group_ledger_divergent'; END IF;
  IF EXISTS(SELECT 1 FROM public.transactions t JOIN public.transaction_offset_items i ON i.transaction_id=t.id JOIN public.event_settlements es ON es.id=t.event_settlement_id WHERE i.group_id=g.id AND es.is_sealed) THEN RAISE EXCEPTION 'sealed_settlement: reabra o fecho antes do estorno'; END IF;
