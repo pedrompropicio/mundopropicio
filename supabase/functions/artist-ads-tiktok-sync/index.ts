@@ -7,6 +7,7 @@ import { adminClient, authorize, corsHeaders, json } from "../_shared/artist-met
 import { ADS_ROLES } from "../_shared/artist-ads.ts";
 import { loadTikTokConnection, tiktokGET, tiktokHost } from "../_shared/tiktok-ads.ts";
 import { deduceTriggerSource, finishSyncRun, resolveStatus, startSyncRun } from "../_shared/sync-run.ts";
+import { marketCountry, regionCountries, type GeoRow } from "./geo.ts";
 
 const FN = "artist-ads-tiktok-sync";
 const METRICS = [
@@ -33,7 +34,8 @@ async function pageAll(host: string, path: string, params: Record<string, string
     if (!r.ok) return { ok: false as const, error: `${path}: ${r.message} (code ${r.code})`, list: out };
     out.push(...(r.data?.list ?? []));
     const tp = Number(r.data?.page_info?.total_page ?? 1);
-    if (page >= tp || page >= 50) break;
+    if (page >= tp) break;
+    if (page >= 50) return { ok: false as const, error: `${path}: paginação incompleta`, list: out };
     page++;
   }
   return { ok: true as const, list: out };
@@ -42,12 +44,14 @@ async function pageAll(host: string, path: string, params: Record<string, string
 async function syncOne(admin: any, connectionId: string, opts: { days: number; since?: string; dryRun: boolean }) {
   const host = tiktokHost();
   if (!host) return { ok: false, error: "secret TIKTOK_API_HOST em falta" };
-  const conn = await loadTikTokConnection(admin, { connectionId, masterKey: Deno.env.get("ENCRYPTION_MASTER_KEY")!, exigirToken: true });
+  const conn = await loadTikTokConnection(admin, { connectionId, masterKey: Deno.env.get("ENCRYPTION_MASTER_KEY") ?? "", exigirToken: true });
   if (!conn.ok) return { ok: false, error: `${conn.error}: ${conn.message}` };
   if (conn.status !== "active") return { ok: false, error: `ligação não activa (${conn.status})` };
-  const tok = conn.accessToken!; const adv = conn.advertiserId; const currency = conn.moedaConta;
+  const tok = conn.accessToken; const adv = conn.advertiserId; const currency = conn.moedaConta;
+  if (!tok) return { ok: false, error: "sem token TikTok" };
   const c = { calls: 0 };
   const { data: cRow } = await admin.schema("crm").from("ad_platform_connections").select("company_id, artist_id").eq("id", connectionId).single();
+  if (!cRow?.company_id) return { ok: false, error: "ligação sem empresa" };
 
   c.calls++;
   const info = await tiktokGET<any>(host, "advertiser/info/", { advertiser_ids: JSON.stringify([adv]), fields: JSON.stringify(["name", "currency", "timezone", "display_timezone"]) }, tok);
@@ -60,6 +64,48 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
   if (!groups.ok) return { ok: false, error: groups.error, api_calls: c.calls };
   const ads = await pageAll(host, "ad/get/", { advertiser_id: adv }, tok, c);
   if (!ads.ok) return { ok: false, error: ads.error, api_calls: c.calls };
+
+  // Resolve missing targeting IDs from the API, then insert only (never replace a map row).
+  const geoMap = new Map<string, GeoRow>();
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await admin.schema("crm").from("ads_geo_country_map")
+      .select("geo_id,country,nome").eq("platform", "tiktok").order("geo_id").range(offset, offset + 999);
+    if (error) return { ok: false, error: `mapa geo: ${error.message}` };
+    for (const row of data ?? []) geoMap.set(row.geo_id, row);
+    if ((data ?? []).length < 1000) break;
+  }
+  const geoGaps: string[] = []; const geoRequests = new Map<string, any>();
+  for (const g of groups.list) {
+    const ids = Array.isArray(g.location_ids) ? g.location_ids.map(String) : [];
+    if (!ids.some((id: string) => !geoMap.has(id))) continue;
+    const objective = camps.list.find((x: any) => String(x.campaign_id) === String(g.campaign_id))?.objective_type ?? "TRAFFIC";
+    const placements = Array.isArray(g.placements) && g.placements.length ? g.placements : ["PLACEMENT_TIKTOK"];
+    const params = { advertiser_id: adv, objective_type: objective, placements: JSON.stringify(placements) };
+    geoRequests.set(JSON.stringify(params), params);
+  }
+  let geoInserted = 0;
+  for (const params of geoRequests.values()) {
+    c.calls++;
+    const r = await tiktokGET<any>(host, "tool/region/", params, tok);
+    if (!r.ok) { geoGaps.push(`tool/region: ${r.message}`); continue; }
+    const wanted = new Set(groups.list.flatMap((g: any) => (g.location_ids ?? []).map(String)));
+    const rows = [...regionCountries(r.data).values()].filter((x) => wanted.has(x.geo_id) && !geoMap.has(x.geo_id));
+    if (!opts.dryRun && rows.length) {
+      const { error } = await admin.schema("crm").from("ads_geo_country_map")
+        .upsert(rows.map((x) => ({ ...x, platform: "tiktok" })), { onConflict: "platform,geo_id", ignoreDuplicates: true });
+      if (error) return { ok: false, error: `insert mapa geo: ${error.message}` };
+      geoInserted += rows.length;
+    }
+    for (const row of rows) geoMap.set(row.geo_id, row);
+  }
+  const countryByCampaign = new Map<string, ReturnType<typeof marketCountry>>();
+  for (const camp of camps.list) {
+    const ids = [...new Set<string>(groups.list.filter((g: any) => String(g.campaign_id) === String(camp.campaign_id))
+      .flatMap((g: any) => (g.location_ids ?? []).map(String)))];
+    const result = marketCountry(ids, geoMap, camp.campaign_name ?? "");
+    countryByCampaign.set(String(camp.campaign_id), result);
+    if (result.gap) geoGaps.push(`${camp.campaign_id}: ${result.gap}`);
+  }
 
   // Métricas aceites: tenta todas; se recusar, testa uma a uma.
   const end = dayInTz(tz, 0);
@@ -176,7 +222,7 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
   }));
 
   const counts = { campanhas: campRows.length, grupos: grpRows.length, anuncios: ads.list.length, dias_ad: adDays.length, dias_adgroup: grpDays.length };
-  if (opts.dryRun) return { ok: true, dry_run: true, api_calls: c.calls, rows: 0, counts, accepted, refused, nao_mapeadas: naoMapeadas, ambiguas, start, end, tz, conta: ai.name ?? null };
+  if (opts.dryRun) return { ok: true, dry_run: true, api_calls: c.calls, rows: 0, counts, accepted, refused, nao_mapeadas: naoMapeadas, ambiguas, start, end, tz, conta: ai.name ?? null, geo_lacunas: geoGaps, paises: Object.fromEntries(countryByCampaign) };
 
   const crm = admin.schema("crm");
   const chunks = <T,>(a: T[], n = 500) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
@@ -193,6 +239,16 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
   // D-ERP181: país de mercado pela segmentação (location_ids → ISO); respeita market_country_locked.
   const { data: mc, error: mcErr } = await admin.rpc("ads_market_country_refresh", { p_connection_id: connectionId });
   const marketCountry = mcErr ? { erro: mcErr.message } : mc;
+  // The legacy RPC can select a partial known country or MULTI. Override unlocked
+  // campaigns with the complete, fail-closed targeting result and durable gap.
+  for (const cr of campRows) {
+    const result = countryByCampaign.get(cr.external_campaign_id);
+    if (!result) continue;
+    const { error } = await crm.from("tiktok_campaign").update({ market_country: result.country,
+      raw: { ...cr.raw, market_country_gap: result.gap, market_countries: result.countries } })
+      .eq("connection_id", connectionId).eq("external_campaign_id", cr.external_campaign_id).eq("market_country_locked", false);
+    if (error) return { ok: false, error: `país campanha: ${error.message}` };
+  }
   // D-ERP248: ligação automática campanha → evento das empresas com quem a conta é partilhada.
   const { data: ev, error: evErr } = await admin.rpc("tiktok_auto_link_events_for_connection", { p_connection_id: connectionId });
   const eventLinks = evErr ? { erro: evErr.message } : ev;
@@ -215,7 +271,7 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
     }
   }
   const rows = campRows.length + grpRows.length + adDays.length + grpDays.length;
-  return { ok: true, api_calls: c.calls, rows, counts, accepted, refused, nao_mapeadas: naoMapeadas, ambiguas, anuncios_sem_grupo: [...new Set(semGrupo)], substituidas, start, end, tz, conta: ai.name ?? null, currency, market_country: marketCountry, event_links: eventLinks };
+  return { ok: true, api_calls: c.calls, rows, counts, accepted, refused, nao_mapeadas: naoMapeadas, ambiguas, anuncios_sem_grupo: [...new Set(semGrupo)], substituidas, start, end, tz, conta: ai.name ?? null, currency, market_country: marketCountry, geo_inserts: geoInserted, geo_lacunas: geoGaps, event_links: eventLinks };
 }
 
 Deno.serve(async (req) => {
@@ -240,7 +296,8 @@ Deno.serve(async (req) => {
   if (!caller.isServiceRole && ids.length) {
     // utilizador: só ligações das empresas onde tem papel
     const { data: conns } = await (admin as any).schema("crm").from("ad_platform_connections").select("id, company_id").in("id", ids);
-    const { data: rr } = await admin.from("user_roles").select("role, company_id").eq("user_id", caller.userId!);
+    if (!caller.userId) return json({ error: "utilizador em falta" }, 403);
+    const { data: rr } = await admin.from("user_roles").select("role, company_id").eq("user_id", caller.userId);
     const okCo = new Set((rr ?? []).filter((r: any) => ADS_ROLES.includes(r.role)).map((r: any) => r.company_id));
     const pa = (rr ?? []).some((r: any) => r.role === "platform_admin");
     if (!pa && (conns ?? []).some((c: any) => !okCo.has(c.company_id))) return json({ error: "ligação fora da empresa do utilizador" }, 403);
