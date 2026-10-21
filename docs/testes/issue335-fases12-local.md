@@ -631,3 +631,61 @@ Ainda em aberto: E (restore/janela por coluna), A+camarim (as-of/estorno camarim
 
 Hashes: core.INERTE `95e9c558d653bc9ec3606b8e9209c703652d9c2887156e044c367b18d9e54959`;
 core.ROLLBACK-INERTE `40cd3b313c4040ba80d88022f1c0bfd468c0839bfec54679e6d22db4315cf7de`.
+
+## Fase 2j — LOCAL/INERTE (21/10/2026)
+
+Harness fiel PG 17.6, `postgres` NÃO-superuser, triggers reais. Nada em migrations, nada em Live, sem Publish.
+Decisão do Pedro: `manage_bp` dado por `user_permissions` no fixture (não existe em migrations versionadas).
+
+### Suite (fresca, sequencial) — 13/13 PASS, 0 falha real, 0 falha de fixture
+scenarios 9 · 2b 10 · 2c 2 · 2d 8 · 2e 7 · 2f-negative 2 · kill-switch · invariant-matrix 1 · 2f-concurrency 5 ·
+2g-approval 3 · matching-parity 1 (8 casos) · phase2j 11 (J0–J7b) · phase2j-concurrency 7 (F1,F1b,F2,F2b,F3,F4,F4b).
+Rollback completo (harness limpo, `phase2j-rollback.sh`): impressão digital do catálogo antes = depois.
+Vitest 221 ficheiros / 1.953 passaram (6 skip, 11 todo), sem timeouts. tsgo OK. tsc clássico: 2 erros
+pré-existentes em `src/lib/bank-statement/parse-santander.ts:208` (ficheiro não tocado na 2j).
+
+### Alterações de teste (motivo)
+- `matching-parity.ts`: cria categoria L3 local por caso (FK real `event_forecasts_category_id_fkey`); asserções iguais.
+- `phase2f-concurrency.py`: aceita socket do harness 2h; asserções iguais.
+- `phase2h-suite.sh`: liga matching-parity, phase2j e phase2j-concurrency.
+- Novos: `phase2j.sql`, `phase2j-concurrency.py`, `phase2j-rollback.sh`.
+
+### Achados reais e correcções (SQL inerte, com ANTES/DEPOIS)
+1. E: `issue335_guard` não protegia 24 colunas de identidade/elegibilidade (fx_rate, original_amount, parcelas,
+   payment_method, reversed_by/reason, split_*, retenção, held_by, card_session, settlement, supplier_credit,
+   cache_contract, shared_cost_account, is_transitory, parent, is_reimbursement, currency). Corrigido (tuplo imutável).
+   DEPOIS: 388 ataques (64+34 colunas × editor/manager × gerido/legado) — gerido: 144 recusados `reverse_entire_group`,
+   FK/CHECK/RLS nos restantes com valor inválido; permitido-inofensivo (não mexe pernas/saldo/grupo): description,
+   specification, date, due_date, invoice_ref, invoice_group_id, payment_entity/reference, iban_override,
+   pl_override_note, reimbursement_to, exclude_from_result, fx_rate_source, cache_root_event_id,
+   cache_artist_supplier_id, created/updated_at. Risco residual analítico: paying/ordering_partner_id,
+   shared_cost_counterparty_id, category_id (testados só com valor inválido → FK; com valor válido seriam permitidos).
+   Legado: idêntico ao Live (112 aplicados, restantes recusados por constraints/RLS existentes).
+2. J7 camarim: ANTES encontro sobre perna de adiantamento aceite e espelhado na sessão (40,00 como `transfer`) →
+   dinheiro fictício. DEPOIS recusado `camarim_leg_unsupported`, zero pagamentos, sessão intacta.
+3. F1: ANTES `transaction_offset_create` por confirmar × encontro → ambos aplicavam. DEPOIS 55P03 exacto
+   (lock `FOR UPDATE NOWAIT` em execute/reverse conflitua com KEY SHARE de inserções pendentes).
+4. F1b: ANTES encontro em curso × par legado → par legado criado sobre documento gerido. DEPOIS recusado
+   `managed_operation_required` (KEY SHARE explícito antes da verificação no guard).
+5. F3: inclusão em lista por confirmar × encontro → DEPOIS 55P03, zero grupo (mesma correcção do F1).
+6. Rollback saldo: `AS $function$;` deixava `;` no corpo restaurado (não byte-idêntico). Corrigido.
+7. J5 (NÃO corrigido, só detectado): `restore_apply_from_shadow` (Live, SECURITY DEFINER) desliga triggers de
+   utilizador por desenho; restauro só de `transaction_payments` deixa grupo `applied` sem pernas. Vigias #335
+   detectam (0→2). Impedir exigiria alterar o restauro instalado → decisão do Pedro.
+
+### Policy `issue335_guard_read` (2i) — substituída
+A 2i acrescentava policy SELECT por empresa a payment_lists, payment_list_items, payment_list_sepa_exports,
+partner_paid_expenses. 2j: removida; usa `issue335_payment_flow_blocked(uuid)` SECURITY DEFINER, dono postgres,
+search_path fixo, EXECUTE só `issue335_executor` (revogado a PUBLIC/anon/authenticated/service_role/sandbox_exec*),
+devolve só booleano. Zero policies/GRANTs novos nessas 4 tabelas (J0). Menor superfície: sem leitura de linhas
+pelo executor. Risco: função definer (mitigado por ACL + search_path). Rollback: DROP FUNCTION.
+
+### Estado por tema
+- E: J1 matriz, J2 selado (estorno/reverse recusados; ok após reabrir), J3/J3b janela, J4 fecho/reabertura 42501,
+  J5 restauro = ACHADO aberto.
+- A+camarim: J6 matriz 8 casos (legado = Live; caso 4 Live 150 vs candidato 210 = dinheiro real; débito coerente);
+  J7/J7b camarim recusado. Guarda de débito servidor: `account_has_balance_for` só é consultada pelo cliente
+  (sem writer servidor que a imponha) — interacção documentada, não reforçada.
+- Matching: paridade 8 casos JS↔SQL no harness fiel PASS.
+- F/I: barreira por `pg_blocking_pids` (aresta observada, polling com prazo 8s, sem sleep fixo), sem erros tolerados. Os testes 2f antigos
+  continuam na suite. Não testado: encontro em curso × inclusão em lista (fica legado: lista após pagamento).

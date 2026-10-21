@@ -1,0 +1,2 @@
+antes=f4ffb350818401f2d73df4ed01cbb6ef instalado=ead231204f71eb9773ae830397123fdd depois=f4ffb350818401f2d73df4ed01cbb6ef
+PASS 2j rollback completo: 6 instalações + 6 rollbacks restauram funções/triggers/policies/ACL/colunas/papéis byte a byte

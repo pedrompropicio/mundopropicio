@@ -40,15 +40,38 @@ CREATE POLICY issue335_company_membership ON public.user_roles FOR SELECT TO iss
 GRANT SELECT,UPDATE ON public.companies,public.suppliers,public.events,public.financial_accounts TO issue335_executor;
 GRANT SELECT ON public.transaction_offset_control TO issue335_executor;
 CREATE POLICY issue335_control_read ON public.transaction_offset_control FOR SELECT TO issue335_executor USING(true);
-GRANT SELECT ON public.partner_paid_expenses,public.event_settlements,public.payment_list_items,public.payment_lists,public.payment_list_sepa_exports TO issue335_executor;
+GRANT SELECT ON public.event_settlements TO issue335_executor;
+-- 2j: substitui a policy issue335_guard_read da 2i. As guardas de lista/SEPA/despesa de sócio leem por uma
+-- função SECURITY DEFINER (dono = papel que instala, dono das tabelas e sem RLS forçada nelas),
+-- search_path fixo, EXECUTE só ao executor. Nenhuma policy nem GRANT novo em payment_lists,
+-- payment_list_items, payment_list_sepa_exports, partner_paid_expenses (objectos existentes intocados).
+-- Devolve só um booleano para um documento já validado como da empresa do pedido.
+CREATE FUNCTION public.issue335_payment_flow_blocked(p_tx uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_catalog AS $$
+ SELECT EXISTS(SELECT 1 FROM public.payment_list_items i JOIN public.payment_lists l ON l.id=i.payment_list_id
+               WHERE i.transaction_id=p_tx AND i.removed_at IS NULL AND l.status IN('draft','pending_approval','approved','revision','partially_approved'))
+     OR EXISTS(SELECT 1 FROM public.payment_list_sepa_exports e WHERE p_tx=ANY(e.transaction_ids))
+     OR EXISTS(SELECT 1 FROM public.partner_paid_expenses x WHERE x.transaction_id=p_tx)
+$$;
+REVOKE ALL ON FUNCTION public.issue335_payment_flow_blocked(uuid) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.issue335_payment_flow_blocked(uuid) TO issue335_executor;
+-- 2j (achado J7 camarim): a perna do banco de um movimento de camarim é espelhada na conta da sessão pelo trigger
+-- real camarim_sync_session_leg_payment, que soma TODOS os pagamentos (incl. compensation) como 'transfer'.
+-- Um encontro sobre essa perna criaria dinheiro fictício na sessão → o núcleo recusa pernas de camarim.
+CREATE FUNCTION public.issue335_camarim_leg(p_tx uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_catalog AS $$
+ SELECT EXISTS(SELECT 1 FROM public.camarim_fund_moves m WHERE m.transaction_id=p_tx)
+     OR EXISTS(SELECT 1 FROM public.camarim_fund_moves m CROSS JOIN LATERAL public._camarim_fund_move_legs(m.id) l
+               WHERE m.company_id=(SELECT company_id FROM public.transactions WHERE id=p_tx) AND p_tx IN(l.bank_tx,l.session_tx))
+     OR EXISTS(SELECT 1 FROM public.transactions t JOIN public.financial_accounts a ON a.id=t.account_id
+               WHERE t.id=p_tx AND a.type='camarim_session')
+$$;
+REVOKE ALL ON FUNCTION public.issue335_camarim_leg(uuid) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.issue335_camarim_leg(uuid) TO issue335_executor;
+-- 2j (achado pelo teste 2e de sandbox): o default ACL de Live dá EXECUTE a sandbox_exec* em funções novas.
+DO $$ DECLARE r record; BEGIN FOR r IN SELECT rolname FROM pg_roles WHERE rolname LIKE 'sandbox_exec%' LOOP
+ EXECUTE format('REVOKE ALL ON FUNCTION public.issue335_payment_flow_blocked(uuid),public.issue335_camarim_leg(uuid) FROM %I',r.rolname); END LOOP; END $$;
 GRANT UPDATE ON public.event_settlements TO issue335_executor;
--- 2i (achado real no harness fiel): estas quatro tabelas têm RLS em Live só para authenticated; sem policy o
--- executor lia ZERO linhas e as guardas de lista/SEPA/despesa de sócio passavam (fail-open). Leitura por empresa.
-DO $$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['partner_paid_expenses','payment_list_items','payment_lists','payment_list_sepa_exports'] LOOP
-  EXECUTE format('CREATE POLICY issue335_guard_read ON public.%I FOR SELECT TO issue335_executor USING (company_id=public.current_company_id())',t);
- END LOOP;
-END $$;
 GRANT EXECUTE ON FUNCTION public.can_see_confidential(uuid),public.has_permission(uuid,text),public.is_platform_admin(uuid) TO issue335_executor;
 GRANT SELECT,INSERT,UPDATE ON public.event_forecasts,public.transactions,public.transaction_payments,public.transaction_offsets,public.bank_statement_lines,public.transaction_offset_groups,public.transaction_offset_items TO issue335_executor;
 GRANT SELECT,INSERT,DELETE ON public.bank_line_transactions TO issue335_executor;
@@ -94,6 +117,16 @@ DECLARE gid uuid; st text; trusted boolean := current_user = 'issue335_executor'
  IF (CASE WHEN TG_OP='DELETE' THEN OLD.offset_group_id WHEN TG_OP='INSERT' THEN NEW.offset_group_id ELSE COALESCE(OLD.offset_group_id,NEW.offset_group_id) END) IS NOT NULL THEN
   IF TG_OP='DELETE' OR NOT trusted THEN RAISE EXCEPTION 'managed_operation_required'; END IF;
  END IF;
+ -- 2j (achado F1b): par legado novo/alterado sobre documento já gerido por um grupo activo é recusado.
+ -- KEY SHARE explícito ANTES da verificação: espera o FOR UPDATE de um encontro em curso e, em READ COMMITTED,
+ -- a consulta seguinte já vê o grupo confirmado (sem isto a verificação corria antes da espera da FK).
+ IF TG_OP<>'DELETE' AND NOT trusted THEN
+  PERFORM 1 FROM public.transactions WHERE id IN(NEW.receivable_transaction_id,NEW.payable_transaction_id) ORDER BY id FOR KEY SHARE;
+ END IF;
+ IF TG_OP<>'DELETE' AND NOT trusted AND EXISTS(SELECT 1 FROM public.transaction_offset_items i JOIN public.transaction_offset_groups g ON g.id=i.group_id
+    WHERE i.transaction_id IN(NEW.receivable_transaction_id,NEW.payable_transaction_id) AND g.status IN('preparing','applied','reversing')) THEN
+  RAISE EXCEPTION 'managed_operation_required';
+ END IF;
  END IF;
  IF TG_TABLE_NAME='bank_statement_lines' THEN
   gid := CASE WHEN TG_OP='DELETE' THEN OLD.offset_group_id WHEN TG_OP='INSERT' THEN NEW.offset_group_id ELSE COALESCE(OLD.offset_group_id,NEW.offset_group_id) END;
@@ -114,6 +147,16 @@ DECLARE gid uuid; st text; trusted boolean := current_user = 'issue335_executor'
    NEW.company_id IS DISTINCT FROM OLD.company_id OR NEW.type IS DISTINCT FROM OLD.type OR NEW.forecast_id IS DISTINCT FROM OLD.forecast_id OR
    NEW.event_id IS DISTINCT FROM OLD.event_id OR NEW.is_hidden IS DISTINCT FROM OLD.is_hidden OR
    NEW.event_settlement_id IS DISTINCT FROM OLD.event_settlement_id OR
+   -- 2j (achado E, matriz coluna-a-coluna): condições de elegibilidade e identidade também imutáveis num documento gerido.
+   (NEW.id,NEW.currency,NEW.fx_rate,NEW.original_amount,NEW.installment_group_id,NEW.installment_number,NEW.installment_total,
+    NEW.card_session_id,NEW.held_by_supplier_id,NEW.settlement_id,NEW.is_transitory,NEW.supplier_credit_id,NEW.parent_transaction_id,
+    NEW.is_reimbursement,NEW.cache_contract_id,NEW.shared_cost_account_id,NEW.declared_withholding_amount,NEW.declared_withholding_rate,
+    NEW.split_percentage,NEW.split_amount,NEW.split_mode,NEW.payment_method,NEW.reversed_by,NEW.reversal_reason)
+   IS DISTINCT FROM
+   (OLD.id,OLD.currency,OLD.fx_rate,OLD.original_amount,OLD.installment_group_id,OLD.installment_number,OLD.installment_total,
+    OLD.card_session_id,OLD.held_by_supplier_id,OLD.settlement_id,OLD.is_transitory,OLD.supplier_credit_id,OLD.parent_transaction_id,
+    OLD.is_reimbursement,OLD.cache_contract_id,OLD.shared_cost_account_id,OLD.declared_withholding_amount,OLD.declared_withholding_rate,
+    OLD.split_percentage,OLD.split_amount,OLD.split_mode,OLD.payment_method,OLD.reversed_by,OLD.reversal_reason) OR
    (NOT trusted AND (NEW.account_id IS DISTINCT FROM OLD.account_id OR
     ((NEW.status IS DISTINCT FROM OLD.status OR NEW.payment_date IS DISTINCT FROM OLD.payment_date OR NEW.paid_amount IS DISTINCT FROM OLD.paid_amount) AND NOT (
       EXISTS(SELECT 1 FROM public.transaction_offset_items gi JOIN public.transaction_offset_groups gg ON gg.id=gi.group_id WHERE gi.transaction_id=OLD.id AND gg.status IN('preparing','reversing')) AND
@@ -175,7 +218,9 @@ BEGIN
  ORDER BY id FOR NO KEY UPDATE NOWAIT;
  -- All BP and existing transaction locks are obtained in UUID order, not display order.
  PERFORM 1 FROM public.event_forecasts WHERE id IN (SELECT (v->>'forecast_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'forecast_id') ORDER BY id FOR NO KEY UPDATE NOWAIT;
- PERFORM 1 FROM public.transactions WHERE id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id') ORDER BY id FOR NO KEY UPDATE NOWAIT;
+ -- 2j (achado F1/F3): FOR UPDATE (não NO KEY UPDATE) conflitua com o KEY SHARE de inserções por confirmar que referenciam
+ -- o documento (transaction_offsets, payment_list_items, transaction_payments) → recusa 55P03 em vez de aplicar em paralelo.
+ PERFORM 1 FROM public.transactions WHERE id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id') ORDER BY id FOR UPDATE NOWAIT;
  PERFORM 1 FROM public.transaction_payments WHERE transaction_id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id') ORDER BY id FOR NO KEY UPDATE NOWAIT;
  -- Resolve all items and validate before financial writes. BP creation stays in this transaction.
  FOR j IN SELECT v FROM jsonb_array_elements(p_items) v ORDER BY COALESCE((v->>'cash_order')::integer,0),COALESCE(v->>'transaction_id',v->>'forecast_id') LOOP
@@ -202,12 +247,12 @@ BEGIN
   END IF;
   IF t.id=ANY(ids) THEN RAISE EXCEPTION 'duplicate_item'; END IF; ids:=array_append(ids,t.id);
   IF t.supplier_id IS DISTINCT FROM p_supplier_id OR t.type NOT IN ('income','expense') OR t.status NOT IN ('approved','partially_paid') OR t.reversed_at IS NOT NULL OR t.is_hidden THEN RAISE EXCEPTION 'invalid_document'; END IF;
+  IF public.issue335_camarim_leg(t.id) THEN RAISE EXCEPTION 'camarim_leg_unsupported: movimentos de camarim não entram no encontro de contas'; END IF;
   IF t.currency<>'EUR' OR t.fx_rate IS NOT NULL OR t.original_amount IS NOT NULL OR t.installment_group_id IS NOT NULL OR t.installment_number IS NOT NULL OR t.installment_total IS NOT NULL OR
      t.card_session_id IS NOT NULL OR t.held_by_supplier_id IS NOT NULL OR t.settlement_id IS NOT NULL OR t.is_transitory OR t.supplier_credit_id IS NOT NULL OR
-     EXISTS(SELECT 1 FROM public.payment_list_items i JOIN public.payment_lists l ON l.id=i.payment_list_id WHERE i.transaction_id=t.id AND i.removed_at IS NULL AND l.status IN('draft','pending_approval','approved','revision','partially_approved')) OR
-     EXISTS(SELECT 1 FROM public.payment_list_sepa_exports e WHERE t.id=ANY(e.transaction_ids)) OR
+     public.issue335_payment_flow_blocked(t.id) OR
      t.parent_transaction_id IS NOT NULL OR t.is_reimbursement OR t.cache_contract_id IS NOT NULL OR t.shared_cost_account_id IS NOT NULL OR
-     COALESCE(t.declared_withholding_amount,0)<>0 OR COALESCE(t.declared_withholding_rate,0)<>0 OR EXISTS(SELECT 1 FROM public.partner_paid_expenses WHERE transaction_id=t.id) OR
+     COALESCE(t.declared_withholding_amount,0)<>0 OR COALESCE(t.declared_withholding_rate,0)<>0 OR
      EXISTS(SELECT 1 FROM public.transaction_payments WHERE transaction_id=t.id AND (status='planned' OR (status='paid' AND reversed_at IS NULL AND (credit_amount<>0 OR withholding_amount<>0 OR currency<>'EUR' OR fx_rate IS NOT NULL OR reversal_kind='supplier_credit' OR offset_group_id IS NOT NULL)))) THEN RAISE EXCEPTION 'unsupported_debt'; END IF;
   IF t.amount IS DISTINCT FROM round(t.amount,2) OR EXISTS(SELECT 1 FROM public.transaction_payments p WHERE p.transaction_id=t.id AND p.status='paid' AND p.reversed_at IS NULL AND p.amount IS DISTINCT FROM round(p.amount,2)) THEN RAISE EXCEPTION 'document_precision_unsupported: valores com mais de duas casas decimais'; END IF;
   IF EXISTS(SELECT 1 FROM public.event_settlements es WHERE es.id=t.event_settlement_id AND es.is_sealed) THEN RAISE EXCEPTION 'sealed_settlement: reabra o fecho antes do encontro'; END IF;
@@ -284,7 +329,7 @@ DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid 
  END IF;
  IF g.status<>'applied' THEN RAISE EXCEPTION 'invalid_group_state'; END IF;
  PERFORM 1 FROM public.event_settlements WHERE id IN(SELECT t.event_settlement_id FROM public.transactions t JOIN public.transaction_offset_items i ON i.transaction_id=t.id WHERE i.group_id=g.id) ORDER BY id FOR NO KEY UPDATE NOWAIT;
- PERFORM 1 FROM public.transactions WHERE id IN(SELECT transaction_id FROM public.transaction_offset_items WHERE group_id=g.id) ORDER BY id FOR NO KEY UPDATE NOWAIT;
+ PERFORM 1 FROM public.transactions WHERE id IN(SELECT transaction_id FROM public.transaction_offset_items WHERE group_id=g.id) ORDER BY id FOR UPDATE NOWAIT; -- 2j: idem execute
  PERFORM 1 FROM public.transaction_payments WHERE offset_group_id=g.id ORDER BY id FOR NO KEY UPDATE NOWAIT;
  IF EXISTS(SELECT 1 FROM public.transaction_payments WHERE offset_group_id=g.id AND (status<>'paid' OR reversed_at IS NOT NULL)) THEN RAISE EXCEPTION 'group_ledger_divergent'; END IF;
  IF EXISTS(SELECT 1 FROM public.transactions t JOIN public.transaction_offset_items i ON i.transaction_id=t.id JOIN public.event_settlements es ON es.id=t.event_settlement_id WHERE i.group_id=g.id AND es.is_sealed) THEN RAISE EXCEPTION 'sealed_settlement: reabra o fecho antes do estorno'; END IF;

@@ -1,0 +1,410 @@
+psql:/tmp/i335/adapted/phase2j.sql:5: NOTICE:  schema "issue335_test" already exists, skipping
+psql:/tmp/i335/adapted/phase2j.sql:12: NOTICE:  relation "j" already exists, skipping
+psql:/tmp/i335/adapted/phase2j.sql:45: NOTICE:  PASS 2j J0 superfície: zero policies/GRANTs novos nas 4 tabelas; função DEFINER dono postgres, search_path fixo, EXECUTE só executor
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-000000000010
+(1 row)
+
+psql:/tmp/i335/adapted/phase2j.sql:62: NOTICE:  PASS 2j J0 ANTES (GRANT sem policy) executor vê 0 linhas = fail-open; DEPOIS função = t
+psql:/tmp/i335/adapted/phase2j.sql:78: NOTICE:  PASS 2j J0 despesa paga por sócio recusada (unsupported_debt)
+               j_group                
+--------------------------------------
+ a42098df-b19c-4ede-913e-a187079ac9f6
+(1 row)
+
+psql:/tmp/i335/adapted/phase2j.sql:102: NOTICE:  relation "e_matrix" already exists, skipping
+         tbl          |             col             |  actor  | target | state |                                                                          msg                                                                          
+----------------------+-----------------------------+---------+--------+-------+-------------------------------------------------------------------------------------------------------------------------------------------------------
+ transaction_payments | account_id                  | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | account_id                  | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | amount                      | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | amount                      | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | closes_transaction          | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | closes_transaction          | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | company_id                  | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | company_id                  | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | created_at                  | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | created_at                  | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | created_by                  | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | created_by                  | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | credit_amount               | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | credit_amount               | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | currency                    | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | currency                    | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | fx_rate                     | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | fx_rate                     | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | fx_rate_source              | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | fx_rate_source              | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | id                          | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | id                          | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | invoice_ref                 | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | invoice_ref                 | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | notes                       | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | notes                       | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | offset_group_id             | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | offset_group_id             | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | offset_id                   | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | offset_id                   | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | offset_item_id              | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | offset_item_id              | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | original_amount             | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | original_amount             | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | outside_batch               | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | outside_batch               | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | payment_date                | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | payment_date                | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | payment_entity              | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | payment_entity              | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | payment_list_id             | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | payment_list_id             | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | payment_method              | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | payment_method              | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | payment_reference           | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | payment_reference           | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | reversal_kind               | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | reversal_kind               | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | reversal_reason             | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | reversal_reason             | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | reversed_at                 | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | reversed_at                 | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | reversed_by                 | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | reversed_by                 | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | scheduled_date              | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | scheduled_date              | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | status                      | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | status                      | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | supplier_credit_id          | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | supplier_credit_id          | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | transaction_id              | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | transaction_id              | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | updated_at                  | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | updated_at                  | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | withholding_amount          | editor  | gerido | P0001 | reverse_entire_group
+ transaction_payments | withholding_amount          | manager | gerido | P0001 | reverse_entire_group
+ transaction_payments | account_id                  | editor  | legado | 23503 | insert or update on table "transaction_payments" violates foreign key constraint "transaction_payments_account_id_fkey"
+ transaction_payments | account_id                  | manager | legado | 23503 | insert or update on table "transaction_payments" violates foreign key constraint "transaction_payments_account_id_fkey"
+ transaction_payments | amount                      | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | amount                      | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | closes_transaction          | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | closes_transaction          | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | company_id                  | editor  | legado | 42501 | new row violates row-level security policy "company_isolation_transaction_payments" for table "transaction_payments"
+ transaction_payments | company_id                  | manager | legado | 42501 | new row violates row-level security policy "company_isolation_transaction_payments" for table "transaction_payments"
+ transaction_payments | created_at                  | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | created_at                  | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | created_by                  | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | created_by                  | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | credit_amount               | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | credit_amount               | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | currency                    | editor  | legado | 23514 | new row for relation "transaction_payments" violates check constraint "transaction_payments_fx_required"
+ transaction_payments | currency                    | manager | legado | 23514 | new row for relation "transaction_payments" violates check constraint "transaction_payments_fx_required"
+ transaction_payments | fx_rate                     | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | fx_rate                     | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | fx_rate_source              | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | fx_rate_source              | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | id                          | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | id                          | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | invoice_ref                 | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | invoice_ref                 | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | notes                       | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | notes                       | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | offset_group_id             | editor  | legado | P0001 | reverse_entire_group
+ transaction_payments | offset_group_id             | manager | legado | P0001 | reverse_entire_group
+ transaction_payments | offset_id                   | editor  | legado | 23503 | insert or update on table "transaction_payments" violates foreign key constraint "transaction_payments_offset_id_fkey"
+ transaction_payments | offset_id                   | manager | legado | 23503 | insert or update on table "transaction_payments" violates foreign key constraint "transaction_payments_offset_id_fkey"
+ transaction_payments | offset_item_id              | editor  | legado | 23514 | new row for relation "transaction_payments" violates check constraint "issue335_payment_group_pair"
+ transaction_payments | offset_item_id              | manager | legado | 23514 | new row for relation "transaction_payments" violates check constraint "issue335_payment_group_pair"
+ transaction_payments | original_amount             | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | original_amount             | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | outside_batch               | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | outside_batch               | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | payment_date                | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | payment_date                | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | payment_entity              | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | payment_entity              | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | payment_list_id             | editor  | legado | 23503 | insert or update on table "transaction_payments" violates foreign key constraint "transaction_payments_payment_list_id_fkey"
+ transaction_payments | payment_list_id             | manager | legado | 23503 | insert or update on table "transaction_payments" violates foreign key constraint "transaction_payments_payment_list_id_fkey"
+ transaction_payments | payment_method              | editor  | legado | 23514 | new row for relation "transaction_payments" violates check constraint "transaction_payments_payment_method_check"
+ transaction_payments | payment_method              | manager | legado | 23514 | new row for relation "transaction_payments" violates check constraint "transaction_payments_payment_method_check"
+ transaction_payments | payment_reference           | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | payment_reference           | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | reversal_kind               | editor  | legado | 23514 | new row for relation "transaction_payments" violates check constraint "transaction_payments_reversal_kind_check"
+ transaction_payments | reversal_kind               | manager | legado | 23514 | new row for relation "transaction_payments" violates check constraint "transaction_payments_reversal_kind_check"
+ transaction_payments | reversal_reason             | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | reversal_reason             | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | reversed_at                 | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | reversed_at                 | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | reversed_by                 | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | reversed_by                 | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | scheduled_date              | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | scheduled_date              | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | status                      | editor  | legado | 23514 | new row for relation "transaction_payments" violates check constraint "transaction_payments_status_check"
+ transaction_payments | status                      | manager | legado | 23514 | new row for relation "transaction_payments" violates check constraint "transaction_payments_status_check"
+ transaction_payments | supplier_credit_id          | editor  | legado | 23503 | insert or update on table "transaction_payments" violates foreign key constraint "transaction_payments_supplier_credit_id_fkey"
+ transaction_payments | supplier_credit_id          | manager | legado | 23503 | insert or update on table "transaction_payments" violates foreign key constraint "transaction_payments_supplier_credit_id_fkey"
+ transaction_payments | transaction_id              | editor  | legado | 23503 | insert or update on table "transaction_payments" violates foreign key constraint "transaction_payments_transaction_id_fkey"
+ transaction_payments | transaction_id              | manager | legado | 23503 | insert or update on table "transaction_payments" violates foreign key constraint "transaction_payments_transaction_id_fkey"
+ transaction_payments | updated_at                  | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | updated_at                  | manager | legado | P0335 | j2e_applied:1
+ transaction_payments | withholding_amount          | editor  | legado | P0335 | j2e_applied:1
+ transaction_payments | withholding_amount          | manager | legado | P0335 | j2e_applied:1
+ transactions         | account_id                  | editor  | gerido | P0001 | reverse_entire_group
+ transactions         | account_id                  | manager | gerido | P0001 | reverse_entire_group
+ transactions         | amount                      | editor  | gerido | P0001 | reverse_entire_group
+ transactions         | amount                      | manager | gerido | P0001 | reverse_entire_group
+ transactions         | cache_artist_supplier_id    | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | cache_artist_supplier_id    | manager | gerido | P0335 | j2e_applied:1
+ transactions         | cache_contract_id           | editor  | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_cache_contract_id_fkey"
+ transactions         | cache_contract_id           | manager | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_cache_contract_id_fkey"
+ transactions         | cache_role                  | editor  | gerido | 23514 | new row for relation "transactions" violates check constraint "transactions_cache_role_check"
+ transactions         | cache_role                  | manager | gerido | 23514 | new row for relation "transactions" violates check constraint "transactions_cache_role_check"
+ transactions         | cache_root_event_id         | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | cache_root_event_id         | manager | gerido | P0335 | j2e_applied:1
+ transactions         | card_session_id             | editor  | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_card_session_id_fkey"
+ transactions         | card_session_id             | manager | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_card_session_id_fkey"
+ transactions         | category_id                 | editor  | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_category_id_fkey"
+ transactions         | category_id                 | manager | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_category_id_fkey"
+ transactions         | company_id                  | editor  | gerido | P0001 | reverse_entire_group
+ transactions         | company_id                  | manager | gerido | P0001 | reverse_entire_group
+ transactions         | created_at                  | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | created_at                  | manager | gerido | P0335 | j2e_applied:1
+ transactions         | currency                    | editor  | gerido | 23514 | new row for relation "transactions" violates check constraint "transactions_currency_check"
+ transactions         | currency                    | manager | gerido | 23514 | new row for relation "transactions" violates check constraint "transactions_currency_check"
+ transactions         | date                        | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | date                        | manager | gerido | P0335 | j2e_applied:1
+ transactions         | declared_withholding_amount | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | declared_withholding_amount | manager | gerido | P0335 | j2e_applied:1
+ transactions         | declared_withholding_rate   | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | declared_withholding_rate   | manager | gerido | P0335 | j2e_applied:1
+ transactions         | description                 | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | description                 | manager | gerido | P0335 | j2e_applied:1
+ transactions         | due_date                    | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | due_date                    | manager | gerido | P0335 | j2e_applied:1
+ transactions         | event_id                    | editor  | gerido | P0001 | reverse_entire_group
+ transactions         | event_id                    | manager | gerido | P0001 | reverse_entire_group
+ transactions         | event_settlement_id         | editor  | gerido | P0001 | reverse_entire_group
+ transactions         | event_settlement_id         | manager | gerido | P0001 | reverse_entire_group
+ transactions         | exclude_from_result         | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | exclude_from_result         | manager | gerido | P0335 | j2e_applied:1
+ transactions         | forecast_id                 | editor  | gerido | P0001 | reverse_entire_group
+ transactions         | forecast_id                 | manager | gerido | P0001 | reverse_entire_group
+ transactions         | fx_rate                     | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | fx_rate                     | manager | gerido | P0335 | j2e_applied:1
+ transactions         | fx_rate_source              | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | fx_rate_source              | manager | gerido | P0335 | j2e_applied:1
+ transactions         | held_by_supplier_id         | editor  | gerido | 23514 | new row for relation "transactions" violates check constraint "transactions_held_by_only_compensation_income"
+ transactions         | held_by_supplier_id         | manager | gerido | 23514 | new row for relation "transactions" violates check constraint "transactions_held_by_only_compensation_income"
+ transactions         | iban_override               | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | iban_override               | manager | gerido | P0335 | j2e_applied:1
+ transactions         | id                          | editor  | gerido | 23503 | update or delete on table "transactions" violates foreign key constraint "transaction_audit_log_transaction_id_fkey" on table "transaction_audit_log"
+ transactions         | id                          | manager | gerido | 23503 | update or delete on table "transactions" violates foreign key constraint "transaction_audit_log_transaction_id_fkey" on table "transaction_audit_log"
+ transactions         | installment_group_id        | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | installment_group_id        | manager | gerido | P0335 | j2e_applied:1
+ transactions         | installment_number          | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | installment_number          | manager | gerido | P0335 | j2e_applied:1
+ transactions         | installment_total           | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | installment_total           | manager | gerido | P0335 | j2e_applied:1
+ transactions         | invoice_group_id            | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | invoice_group_id            | manager | gerido | P0335 | j2e_applied:1
+ transactions         | invoice_ref                 | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | invoice_ref                 | manager | gerido | P0335 | j2e_applied:1
+ transactions         | is_confidential             | editor  | gerido | 42501 | new row violates row-level security policy "transactions_confidential_guard" for table "transactions"
+ transactions         | is_confidential             | manager | gerido | 42501 | new row violates row-level security policy "transactions_confidential_guard" for table "transactions"
+ transactions         | is_hidden                   | editor  | gerido | P0001 | reverse_entire_group
+ transactions         | is_hidden                   | manager | gerido | P0001 | reverse_entire_group
+ transactions         | is_reimbursement            | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | is_reimbursement            | manager | gerido | P0335 | j2e_applied:1
+ transactions         | is_transitory               | editor  | gerido | 23514 | new row for relation "transactions" violates check constraint "transactions_transitory_reason_required"
+ transactions         | is_transitory               | manager | gerido | 23514 | new row for relation "transactions" violates check constraint "transactions_transitory_reason_required"
+ transactions         | iva_rate                    | editor  | gerido | P0001 | reverse_entire_group
+ transactions         | iva_rate                    | manager | gerido | P0001 | reverse_entire_group
+ transactions         | operation_key               | editor  | gerido | 23514 | new row for relation "transactions" violates check constraint "transactions_operation_key_check"
+ transactions         | operation_key               | manager | gerido | 23514 | new row for relation "transactions" violates check constraint "transactions_operation_key_check"
+ transactions         | ordering_partner_id         | editor  | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_ordering_partner_id_fkey"
+ transactions         | ordering_partner_id         | manager | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_ordering_partner_id_fkey"
+ transactions         | original_amount             | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | original_amount             | manager | gerido | P0335 | j2e_applied:1
+ transactions         | paid_amount                 | editor  | gerido | P0001 | reverse_entire_group
+ transactions         | paid_amount                 | manager | gerido | P0001 | reverse_entire_group
+ transactions         | parent_transaction_id       | editor  | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_parent_transaction_id_fkey"
+ transactions         | parent_transaction_id       | manager | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_parent_transaction_id_fkey"
+ transactions         | paying_partner_id           | editor  | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_paying_partner_id_fkey"
+ transactions         | paying_partner_id           | manager | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_paying_partner_id_fkey"
+ transactions         | payment_date                | editor  | gerido | P0001 | reverse_entire_group
+ transactions         | payment_date                | manager | gerido | P0001 | reverse_entire_group
+ transactions         | payment_entity              | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | payment_entity              | manager | gerido | P0335 | j2e_applied:1
+ transactions         | payment_method              | editor  | gerido | 23514 | new row for relation "transactions" violates check constraint "transactions_payment_method_check"
+ transactions         | payment_method              | manager | gerido | 23514 | new row for relation "transactions" violates check constraint "transactions_payment_method_check"
+ transactions         | payment_reference           | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | payment_reference           | manager | gerido | P0335 | j2e_applied:1
+ transactions         | pl_override_note            | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | pl_override_note            | manager | gerido | P0335 | j2e_applied:1
+ transactions         | reimbursement_to            | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | reimbursement_to            | manager | gerido | P0335 | j2e_applied:1
+ transactions         | reversal_kind               | editor  | gerido | P0001 | reverse_entire_group
+ transactions         | reversal_kind               | manager | gerido | P0001 | reverse_entire_group
+ transactions         | reversal_reason             | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | reversal_reason             | manager | gerido | P0335 | j2e_applied:1
+ transactions         | reversed_at                 | editor  | gerido | P0001 | reverse_entire_group
+ transactions         | reversed_at                 | manager | gerido | P0001 | reverse_entire_group
+ transactions         | reversed_by                 | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | reversed_by                 | manager | gerido | P0335 | j2e_applied:1
+ transactions         | settlement_id               | editor  | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_settlement_id_fkey"
+ transactions         | settlement_id               | manager | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_settlement_id_fkey"
+ transactions         | shared_cost_account_id      | editor  | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_shared_cost_account_id_fkey"
+ transactions         | shared_cost_account_id      | manager | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_shared_cost_account_id_fkey"
+ transactions         | shared_cost_counterparty_id | editor  | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_shared_cost_counterparty_id_fkey"
+ transactions         | shared_cost_counterparty_id | manager | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_shared_cost_counterparty_id_fkey"
+ transactions         | specification               | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | specification               | manager | gerido | P0335 | j2e_applied:1
+ transactions         | split_amount                | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | split_amount                | manager | gerido | P0335 | j2e_applied:1
+ transactions         | split_mode                  | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | split_mode                  | manager | gerido | P0335 | j2e_applied:1
+ transactions         | split_percentage            | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | split_percentage            | manager | gerido | P0335 | j2e_applied:1
+ transactions         | status                      | editor  | gerido | P0001 | reverse_entire_group
+ transactions         | status                      | manager | gerido | P0001 | reverse_entire_group
+ transactions         | supplier_credit_id          | editor  | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_supplier_credit_id_fkey"
+ transactions         | supplier_credit_id          | manager | gerido | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_supplier_credit_id_fkey"
+ transactions         | supplier_id                 | editor  | gerido | P0001 | reverse_entire_group
+ transactions         | supplier_id                 | manager | gerido | P0001 | reverse_entire_group
+ transactions         | transitory_reason           | editor  | gerido | 23514 | new row for relation "transactions" violates check constraint "transactions_transitory_reason_domain"
+ transactions         | transitory_reason           | manager | gerido | 23514 | new row for relation "transactions" violates check constraint "transactions_transitory_reason_domain"
+ transactions         | type                        | editor  | gerido | P0001 | reverse_entire_group
+ transactions         | type                        | manager | gerido | P0001 | reverse_entire_group
+ transactions         | updated_at                  | editor  | gerido | P0335 | j2e_applied:1
+ transactions         | updated_at                  | manager | gerido | P0335 | j2e_applied:1
+ transactions         | account_id                  | editor  | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_account_id_fkey"
+ transactions         | account_id                  | manager | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_account_id_fkey"
+ transactions         | amount                      | editor  | legado | P0335 | j2e_applied:1
+ transactions         | amount                      | manager | legado | P0335 | j2e_applied:1
+ transactions         | cache_artist_supplier_id    | editor  | legado | P0335 | j2e_applied:1
+ transactions         | cache_artist_supplier_id    | manager | legado | P0335 | j2e_applied:1
+ transactions         | cache_contract_id           | editor  | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_cache_contract_id_fkey"
+ transactions         | cache_contract_id           | manager | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_cache_contract_id_fkey"
+ transactions         | cache_role                  | editor  | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_cache_role_check"
+ transactions         | cache_role                  | manager | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_cache_role_check"
+ transactions         | cache_root_event_id         | editor  | legado | P0335 | j2e_applied:1
+ transactions         | cache_root_event_id         | manager | legado | P0335 | j2e_applied:1
+ transactions         | card_session_id             | editor  | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_card_session_id_fkey"
+ transactions         | card_session_id             | manager | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_card_session_id_fkey"
+ transactions         | category_id                 | editor  | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_category_id_fkey"
+ transactions         | category_id                 | manager | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_category_id_fkey"
+ transactions         | company_id                  | editor  | legado | 42501 | new row violates row-level security policy "company_isolation_transactions" for table "transactions"
+ transactions         | company_id                  | manager | legado | 42501 | new row violates row-level security policy "company_isolation_transactions" for table "transactions"
+ transactions         | created_at                  | editor  | legado | P0335 | j2e_applied:1
+ transactions         | created_at                  | manager | legado | P0335 | j2e_applied:1
+ transactions         | currency                    | editor  | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_currency_check"
+ transactions         | currency                    | manager | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_currency_check"
+ transactions         | date                        | editor  | legado | P0335 | j2e_applied:1
+ transactions         | date                        | manager | legado | P0335 | j2e_applied:1
+ transactions         | declared_withholding_amount | editor  | legado | P0335 | j2e_applied:1
+ transactions         | declared_withholding_amount | manager | legado | P0335 | j2e_applied:1
+ transactions         | declared_withholding_rate   | editor  | legado | P0335 | j2e_applied:1
+ transactions         | declared_withholding_rate   | manager | legado | P0335 | j2e_applied:1
+ transactions         | description                 | editor  | legado | P0335 | j2e_applied:1
+ transactions         | description                 | manager | legado | P0335 | j2e_applied:1
+ transactions         | due_date                    | editor  | legado | P0335 | j2e_applied:1
+ transactions         | due_date                    | manager | legado | P0335 | j2e_applied:1
+ transactions         | event_id                    | editor  | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_event_id_fkey"
+ transactions         | event_id                    | manager | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_event_id_fkey"
+ transactions         | event_settlement_id         | editor  | legado | P0001 | Uma transação sem evento (mãe de rateio) não pode ser ligada a um fechamento
+ transactions         | event_settlement_id         | manager | legado | P0001 | Uma transação sem evento (mãe de rateio) não pode ser ligada a um fechamento
+ transactions         | exclude_from_result         | editor  | legado | P0335 | j2e_applied:1
+ transactions         | exclude_from_result         | manager | legado | P0335 | j2e_applied:1
+ transactions         | forecast_id                 | editor  | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_forecast_id_fkey"
+ transactions         | forecast_id                 | manager | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_forecast_id_fkey"
+ transactions         | fx_rate                     | editor  | legado | P0335 | j2e_applied:1
+ transactions         | fx_rate                     | manager | legado | P0335 | j2e_applied:1
+ transactions         | fx_rate_source              | editor  | legado | P0335 | j2e_applied:1
+ transactions         | fx_rate_source              | manager | legado | P0335 | j2e_applied:1
+ transactions         | held_by_supplier_id         | editor  | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_held_by_only_compensation_income"
+ transactions         | held_by_supplier_id         | manager | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_held_by_only_compensation_income"
+ transactions         | iban_override               | editor  | legado | P0335 | j2e_applied:1
+ transactions         | iban_override               | manager | legado | P0335 | j2e_applied:1
+ transactions         | id                          | editor  | legado | 23503 | update or delete on table "transactions" violates foreign key constraint "transaction_payments_transaction_id_fkey" on table "transaction_payments"
+ transactions         | id                          | manager | legado | 23503 | update or delete on table "transactions" violates foreign key constraint "transaction_payments_transaction_id_fkey" on table "transaction_payments"
+ transactions         | installment_group_id        | editor  | legado | P0335 | j2e_applied:1
+ transactions         | installment_group_id        | manager | legado | P0335 | j2e_applied:1
+ transactions         | installment_number          | editor  | legado | P0335 | j2e_applied:1
+ transactions         | installment_number          | manager | legado | P0335 | j2e_applied:1
+ transactions         | installment_total           | editor  | legado | P0335 | j2e_applied:1
+ transactions         | installment_total           | manager | legado | P0335 | j2e_applied:1
+ transactions         | invoice_group_id            | editor  | legado | P0335 | j2e_applied:1
+ transactions         | invoice_group_id            | manager | legado | P0335 | j2e_applied:1
+ transactions         | invoice_ref                 | editor  | legado | P0335 | j2e_applied:1
+ transactions         | invoice_ref                 | manager | legado | P0335 | j2e_applied:1
+ transactions         | is_confidential             | editor  | legado | 42501 | new row violates row-level security policy "transactions_confidential_guard" for table "transactions"
+ transactions         | is_confidential             | manager | legado | 42501 | new row violates row-level security policy "transactions_confidential_guard" for table "transactions"
+ transactions         | is_hidden                   | editor  | legado | P0335 | j2e_applied:1
+ transactions         | is_hidden                   | manager | legado | P0335 | j2e_applied:1
+ transactions         | is_reimbursement            | editor  | legado | P0335 | j2e_applied:1
+ transactions         | is_reimbursement            | manager | legado | P0335 | j2e_applied:1
+ transactions         | is_transitory               | editor  | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_transitory_reason_required"
+ transactions         | is_transitory               | manager | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_transitory_reason_required"
+ transactions         | iva_rate                    | editor  | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_iva_rate_check"
+ transactions         | iva_rate                    | manager | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_iva_rate_check"
+ transactions         | operation_key               | editor  | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_operation_key_check"
+ transactions         | operation_key               | manager | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_operation_key_check"
+ transactions         | ordering_partner_id         | editor  | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_ordering_partner_id_fkey"
+ transactions         | ordering_partner_id         | manager | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_ordering_partner_id_fkey"
+ transactions         | original_amount             | editor  | legado | P0335 | j2e_applied:1
+ transactions         | original_amount             | manager | legado | P0335 | j2e_applied:1
+ transactions         | paid_amount                 | editor  | legado | P0335 | j2e_applied:1
+ transactions         | paid_amount                 | manager | legado | P0335 | j2e_applied:1
+ transactions         | parent_transaction_id       | editor  | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_parent_transaction_id_fkey"
+ transactions         | parent_transaction_id       | manager | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_parent_transaction_id_fkey"
+ transactions         | paying_partner_id           | editor  | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_paying_partner_id_fkey"
+ transactions         | paying_partner_id           | manager | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_paying_partner_id_fkey"
+ transactions         | payment_date                | editor  | legado | P0335 | j2e_applied:1
+ transactions         | payment_date                | manager | legado | P0335 | j2e_applied:1
+ transactions         | payment_entity              | editor  | legado | P0335 | j2e_applied:1
+ transactions         | payment_entity              | manager | legado | P0335 | j2e_applied:1
+ transactions         | payment_method              | editor  | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_payment_method_check"
+ transactions         | payment_method              | manager | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_payment_method_check"
+ transactions         | payment_reference           | editor  | legado | P0335 | j2e_applied:1
+ transactions         | payment_reference           | manager | legado | P0335 | j2e_applied:1
+ transactions         | pl_override_note            | editor  | legado | P0335 | j2e_applied:1
+ transactions         | pl_override_note            | manager | legado | P0335 | j2e_applied:1
+ transactions         | reimbursement_to            | editor  | legado | P0335 | j2e_applied:1
+ transactions         | reimbursement_to            | manager | legado | P0335 | j2e_applied:1
+ transactions         | reversal_kind               | editor  | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_reversal_kind_check"
+ transactions         | reversal_kind               | manager | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_reversal_kind_check"
+ transactions         | reversal_reason             | editor  | legado | P0335 | j2e_applied:1
+ transactions         | reversal_reason             | manager | legado | P0335 | j2e_applied:1
+ transactions         | reversed_at                 | editor  | legado | P0335 | j2e_applied:1
+ transactions         | reversed_at                 | manager | legado | P0335 | j2e_applied:1
+ transactions         | reversed_by                 | editor  | legado | P0335 | j2e_applied:1
+ transactions         | reversed_by                 | manager | legado | P0335 | j2e_applied:1
+ transactions         | settlement_id               | editor  | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_settlement_id_fkey"
+ transactions         | settlement_id               | manager | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_settlement_id_fkey"
+ transactions         | shared_cost_account_id      | editor  | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_shared_cost_account_id_fkey"
+ transactions         | shared_cost_account_id      | manager | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_shared_cost_account_id_fkey"
+ transactions         | shared_cost_counterparty_id | editor  | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_shared_cost_counterparty_id_fkey"
+ transactions         | shared_cost_counterparty_id | manager | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_shared_cost_counterparty_id_fkey"
+ transactions         | specification               | editor  | legado | P0335 | j2e_applied:1
+ transactions         | specification               | manager | legado | P0335 | j2e_applied:1
+ transactions         | split_amount                | editor  | legado | P0335 | j2e_applied:1
+ transactions         | split_amount                | manager | legado | P0335 | j2e_applied:1
+ transactions         | split_mode                  | editor  | legado | P0335 | j2e_applied:1
+ transactions         | split_mode                  | manager | legado | P0335 | j2e_applied:1
+ transactions         | split_percentage            | editor  | legado | P0335 | j2e_applied:1
+ transactions         | split_percentage            | manager | legado | P0335 | j2e_applied:1
+ transactions         | status                      | editor  | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_status_check"
+ transactions         | status                      | manager | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_status_check"
+ transactions         | supplier_credit_id          | editor  | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_supplier_credit_id_fkey"
+ transactions         | supplier_credit_id          | manager | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_supplier_credit_id_fkey"
+ transactions         | supplier_id                 | editor  | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_supplier_id_fkey"
+ transactions         | supplier_id                 | manager | legado | 23503 | insert or update on table "transactions" violates foreign key constraint "transactions_supplier_id_fkey"
+ transactions         | transitory_reason           | editor  | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_transitory_reason_domain"
+ transactions         | transitory_reason           | manager | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_transitory_reason_domain"
+ transactions         | type                        | editor  | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_type_check"
+ transactions         | type                        | manager | legado | 23514 | new row for relation "transactions" violates check constraint "transactions_type_check"
+ transactions         | updated_at                  | editor  | legado | P0335 | j2e_applied:1
+ transactions         | updated_at                  | manager | legado | P0335 | j2e_applied:1
+(388 rows)
+
+psql:/tmp/i335/adapted/phase2j.sql:152: ERROR:  E coluna obrigatória não protegida em documento gerido: transactions.cache_contract_id(editor:23503), transactions.cache_contract_id(manager:23503), transactions.card_session_id(editor:23503), transactions.card_session_id(manager:23503), transactions.currency(editor:23514), transactions.currency(manager:23514), transactions.declared_withholding_amount(editor:P0335), transactions.declared_withholding_amount(manager:P0335), transactions.declared_withholding_rate(editor:P0335), transactions.declared_withholding_rate(manager:P0335), transactions.fx_rate(editor:P0335), transactions.fx_rate(manager:P0335), transactions.held_by_supplier_id(editor:23514), transactions.held_by_supplier_id(manager:23514), transactions.id(editor:23503), transactions.id(manager:23503), transactions.installment_group_id(editor:P0335), transactions.installment_group_id(manager:P0335), transactions.installment_number(editor:P0335), transactions.installment_number(manager:P0335), transactions.installment_total(editor:P0335), transactions.installment_total(manager:P0335), transactions.is_reimbursement(editor:P0335), transactions.is_reimbursement(manager:P0335), transactions.is_transitory(editor:23514), transactions.is_transitory(manager:23514), transactions.original_amount(editor:P0335), transactions.original_amount(manager:P0335), transactions.parent_transaction_id(editor:23503), transactions.parent_transaction_id(manager:23503), transactions.payment_method(editor:23514), transactions.payment_method(manager:23514), transactions.reversal_reason(editor:P0335), transactions.reversal_reason(manager:P0335), transactions.reversed_by(editor:P0335), transactions.reversed_by(manager:P0335), transactions.settlement_id(editor:23503), transactions.settlement_id(manager:23503), transactions.shared_cost_account_id(editor:23503), transactions.shared_cost_account_id(manager:23503), transactions.split_amount(editor:P0335), transactions.split_amount(manager:P0335), transactions.split_mode(editor:P0335), transactions.split_mode(manager:P0335), transactions.split_percentage(editor:P0335), transactions.split_percentage(manager:P0335), transactions.supplier_credit_id(editor:23503), transactions.supplier_credit_id(manager:23503)
+CONTEXT:  PL/pgSQL function inline_code_block line 7 at RAISE

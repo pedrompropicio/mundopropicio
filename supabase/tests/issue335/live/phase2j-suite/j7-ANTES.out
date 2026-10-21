@@ -1,0 +1,7 @@
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-000000000010
+(1 row)
+
+psql:/tmp/i335/j7a.sql:21: ERROR:  J7 ANTES: encontro sobre perna de camarim aceite; espelho na sessão=40.00 método transfer
+CONTEXT:  PL/pgSQL function inline_code_block line 13 at RAISE

@@ -51,3 +51,5 @@
 - [ ] #335 fase 2e fecho: hashes/diff, Issue, SHA sincronizado e CI concluído; reserva mantida.
 - [x] #335 fase 2f parcial: PG17.6, before/after kill-switch determinístico, drain, dois encontros/reconcile/FK, negativos 51/adoção/held_by, saldo runner, catálogo/diff byte-exato e candidato approval separado; PG/Vitest/tsgo passam.
 - [ ] #335 fase 2f NÃO ACEITE: D candidato não validado; F offset_create/selagem/listas/reabertura/sleeps antigos; J paridade/83 FKs/camarim; A matriz/débito; E campos/restore; G fixtures restantes; L SHA/CI final. Reserva mantida; aplicação exige Sim separado.
+- [x] #335 fase 2j: suite fiel 13/13, rollback byte-idêntico, E 388 ataques, A+camarim, paridade matching, F1–F4; 5 achados corrigidos no SQL inerte.
+- [ ] #335 decisões 2j (restauro parcial J5, colunas analíticas, autorização D) — aguarda Pedro.
