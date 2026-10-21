@@ -23464,6 +23464,16 @@ export type Database = {
           video_views_30d: number
         }[]
       }
+      artist_ads_compare: {
+        Args: {
+          p_artist_id: string
+          p_country?: string
+          p_from: string
+          p_to: string
+          p_tz?: string
+        }
+        Returns: Json
+      }
       artist_ads_connections: {
         Args: { p_artist_id: string }
         Returns: {
