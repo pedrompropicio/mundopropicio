@@ -118,6 +118,11 @@ DECLARE gid uuid; st text; trusted boolean := current_user = 'issue335_executor'
   IF TG_OP='DELETE' OR NOT trusted THEN RAISE EXCEPTION 'managed_operation_required'; END IF;
  END IF;
  -- 2j (achado F1b): par legado novo/alterado sobre documento já gerido por um grupo activo é recusado.
+ -- KEY SHARE explícito ANTES da verificação: espera o FOR UPDATE de um encontro em curso e, em READ COMMITTED,
+ -- a consulta seguinte já vê o grupo confirmado (sem isto a verificação corria antes da espera da FK).
+ IF TG_OP<>'DELETE' AND NOT trusted THEN
+  PERFORM 1 FROM public.transactions WHERE id IN(NEW.receivable_transaction_id,NEW.payable_transaction_id) ORDER BY id FOR KEY SHARE;
+ END IF;
  IF TG_OP<>'DELETE' AND NOT trusted AND EXISTS(SELECT 1 FROM public.transaction_offset_items i JOIN public.transaction_offset_groups g ON g.id=i.group_id
     WHERE i.transaction_id IN(NEW.receivable_transaction_id,NEW.payable_transaction_id) AND g.status IN('preparing','applied','reversing')) THEN
   RAISE EXCEPTION 'managed_operation_required';
