@@ -615,4 +615,7 @@ END;
 $function$;
 
 REVOKE ALL ON FUNCTION public.transaction_offset_execute(uuid,uuid,jsonb,jsonb,date,text),public.transaction_offset_reverse(uuid,uuid,text) FROM PUBLIC,anon,authenticated,service_role;
+-- Retain objects for audit, but close the alternate INSERT entry as well as RPCs.
+REVOKE ALL ON public.issue335_commands FROM PUBLIC,anon,authenticated,service_role;
+REVOKE ALL ON FUNCTION public.issue335_dispatch(),public._issue335_execute(uuid,uuid,jsonb,jsonb,date,text),public._issue335_reverse(uuid,uuid,text) FROM PUBLIC,anon,authenticated,service_role;
 COMMIT;
