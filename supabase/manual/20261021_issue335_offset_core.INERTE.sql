@@ -40,15 +40,22 @@ CREATE POLICY issue335_company_membership ON public.user_roles FOR SELECT TO iss
 GRANT SELECT,UPDATE ON public.companies,public.suppliers,public.events,public.financial_accounts TO issue335_executor;
 GRANT SELECT ON public.transaction_offset_control TO issue335_executor;
 CREATE POLICY issue335_control_read ON public.transaction_offset_control FOR SELECT TO issue335_executor USING(true);
-GRANT SELECT ON public.partner_paid_expenses,public.event_settlements,public.payment_list_items,public.payment_lists,public.payment_list_sepa_exports TO issue335_executor;
+GRANT SELECT ON public.event_settlements TO issue335_executor;
+-- 2j: substitui a policy issue335_guard_read da 2i. As guardas de lista/SEPA/despesa de sócio leem por uma
+-- função SECURITY DEFINER (dono = papel que instala, dono das tabelas e sem RLS forçada nelas),
+-- search_path fixo, EXECUTE só ao executor. Nenhuma policy nem GRANT novo em payment_lists,
+-- payment_list_items, payment_list_sepa_exports, partner_paid_expenses (objectos existentes intocados).
+-- Devolve só um booleano para um documento já validado como da empresa do pedido.
+CREATE FUNCTION public.issue335_payment_flow_blocked(p_tx uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_catalog AS $$
+ SELECT EXISTS(SELECT 1 FROM public.payment_list_items i JOIN public.payment_lists l ON l.id=i.payment_list_id
+               WHERE i.transaction_id=p_tx AND i.removed_at IS NULL AND l.status IN('draft','pending_approval','approved','revision','partially_approved'))
+     OR EXISTS(SELECT 1 FROM public.payment_list_sepa_exports e WHERE p_tx=ANY(e.transaction_ids))
+     OR EXISTS(SELECT 1 FROM public.partner_paid_expenses x WHERE x.transaction_id=p_tx)
+$$;
+REVOKE ALL ON FUNCTION public.issue335_payment_flow_blocked(uuid) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.issue335_payment_flow_blocked(uuid) TO issue335_executor;
 GRANT UPDATE ON public.event_settlements TO issue335_executor;
--- 2i (achado real no harness fiel): estas quatro tabelas têm RLS em Live só para authenticated; sem policy o
--- executor lia ZERO linhas e as guardas de lista/SEPA/despesa de sócio passavam (fail-open). Leitura por empresa.
-DO $$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['partner_paid_expenses','payment_list_items','payment_lists','payment_list_sepa_exports'] LOOP
-  EXECUTE format('CREATE POLICY issue335_guard_read ON public.%I FOR SELECT TO issue335_executor USING (company_id=public.current_company_id())',t);
- END LOOP;
-END $$;
 GRANT EXECUTE ON FUNCTION public.can_see_confidential(uuid),public.has_permission(uuid,text),public.is_platform_admin(uuid) TO issue335_executor;
 GRANT SELECT,INSERT,UPDATE ON public.event_forecasts,public.transactions,public.transaction_payments,public.transaction_offsets,public.bank_statement_lines,public.transaction_offset_groups,public.transaction_offset_items TO issue335_executor;
 GRANT SELECT,INSERT,DELETE ON public.bank_line_transactions TO issue335_executor;
