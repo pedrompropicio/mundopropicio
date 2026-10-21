@@ -48,3 +48,8 @@ Conjunto fontes M1 pedido integralmente lido; capturas volumosas NÃO LIDO acima
 - supabase/manual/20261021_issue335_offset_core.INERTE.sql | N=1130 | sha256=e3153a10868d726687581ec7abee1e7b260426ff270bab62ff96effba659b772 | SECCÃO PEDIDA LIDA; ficheiro actual NÃO LIDO integralmente nesta ronda (só mínimo pedido); intervalos 1–200,1060–1130; relatório delegado sub_fb149649, restantes executor.
 - supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql | N=91 | sha256=ea8632f3dfb3d997678c03ff33092088b2838cc7ab9e38eeb3f4a29ae60abecc | LIDO INTEGRAL; intervalos 1–91; relatório delegado sub_fb149649, restantes executor.
 Fontes do Bloco1 inexistentes como runner versionado: script real era /tmp/issue335-2n/attacks.py e cópia integral no relatório; ambos lidos antes de criar1b. Capturas históricas NÃO LIDO mantêm classificação acima.
+
+### Fontes adicionais lidas nesta ronda
+- supabase/tests/issue335/phase2j.sql: intervalos 1–45; SHA actual 84b08bc489e68ee3b754692d9ca565613df3b4303e5455b76489c61527f6cb0f; novo runner actual tem linhas adicionadas após leitura, não afirmar versão actual integralmente relida.
+- supabase/tests/issue335/phase2n-context.py: intervalos 1–200,201–222 (versão inicial antes do patch); SHA actual 67c31a48bcd38ee3dcbbb6394d5bc91453acc00ed04802d6fe55af6be5df4f9f; novo runner actual tem linhas adicionadas após leitura, não afirmar versão actual integralmente relida.
+- supabase/tests/issue335/phase2l-rollback.py: intervalos 1–49 (já em contexto da mesma conversa); SHA actual eaa73e57553011903fc83b6b404fef8204f1dbf988e58fc8bdd020b2a1282297; novo runner actual tem linhas adicionadas após leitura, não afirmar versão actual integralmente relida.
