@@ -1569,6 +1569,13 @@
       "when": 1792574343896,
       "tag": "0223_artist_ads_compare_hash_agg",
       "breakpoints": true
+    },
+    {
+      "idx": 224,
+      "version": "7",
+      "when": 1792574795913,
+      "tag": "0224_artist_ads_compare_totals_device_ratios",
+      "breakpoints": true
     }
   ]
 }
