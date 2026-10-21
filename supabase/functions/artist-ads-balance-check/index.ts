@@ -11,6 +11,7 @@ import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { tiktokGET, tiktokHost } from "../_shared/tiktok-ads.ts";
 import { getGoogleAdsAccessToken, googleAdsSearch, type GoogleAdsCtx } from "../_shared/google-ads.ts";
 import { balanceAlert, dayFraction, deliveryStopped, parseMetaDisplayBalance, pickCause } from "./logic.ts";
+import { campaignActive, timestampDay } from '../_shared/campaign-activity.ts';
 
 const MASTER_KEY = Deno.env.get("ENCRYPTION_MASTER_KEY") ?? "";
 const GRAPH = "https://graph.facebook.com/v25.0";
@@ -142,11 +143,46 @@ async function runBalance(admin: any, conns: Conn[]) {
 }
 
 // ---------------------------------------------------------------- entrega
-async function activeCampaigns(admin: any, c: Conn): Promise<number> {
+async function accountTimezone(admin: any, c: Conn): Promise<string> {
+  let tz: string | undefined;
+  if (c.platform === 'google') {
+    const rows = await googleAdsSearch(await googleCtx(c), 'SELECT customer.time_zone FROM customer LIMIT 1');
+    tz = rows[0]?.customer?.timeZone;
+  } else if (c.platform === 'meta') {
+    const tok = await token(admin, c);
+    const r = await fetch(`${GRAPH}/${c.selected_ad_account_id}?fields=timezone_name`, { headers: { Authorization: `Bearer ${tok}` } });
+    const b = await r.json();
+    if (r.ok && !b.error) tz = b.timezone_name;
+  } else {
+    const host = tiktokHost(); if (!host) throw new Error('tiktok_host_missing');
+    const r = await tiktokGET<any>(host, 'advertiser/info/', { advertiser_ids: JSON.stringify([c.selected_ad_account_id]), fields: JSON.stringify(['timezone', 'display_timezone']) }, await token(admin, c));
+    if (r.ok) tz = r.data?.list?.[0]?.timezone ?? r.data?.list?.[0]?.display_timezone;
+  }
+  if (!tz) throw new Error('account_timezone_missing');
+  ymd(new Date(), tz); // validate IANA timezone before writes
+  const { error } = await admin.schema('crm').from('ad_platform_connections').update({ oauth_meta: { ...c.oauth_meta, account_timezone: tz } }).eq('id', c.id);
+  if (error) throw new Error('account_timezone_write_failed');
+  return tz;
+}
+async function activeCampaigns(admin: any, c: Conn, tz: string, now: Date): Promise<number> {
   const crm = admin.schema("crm");
-  if (c.platform === "tiktok") { const { count } = await crm.from("tiktok_campaign_carreira").select("id", { count: "exact", head: true }).eq("connection_id", c.id).in("status", ["ENABLE", "enable"]); return count ?? 0; }
-  if (c.platform === "meta") { const { count } = await crm.from("meta_campaign_snapshot").select("id", { count: "exact", head: true }).eq("connection_id", c.id).eq("effective_status", "ACTIVE"); return count ?? 0; }
-  const { count } = await crm.from("google_campaign").select("id", { count: "exact", head: true }).eq("connection_id", c.id).eq("status", "ENABLED"); return count ?? 0;
+  const table = c.platform === 'google' ? 'google_campaign' : c.platform === 'meta' ? 'meta_campaign_snapshot' : 'tiktok_campaign_carreira';
+  const camps: any[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await crm.from(table).select('*').eq('connection_id', c.id).order('id').range(offset, offset + 999);
+    if (error) throw new Error('campaign_read_failed');
+    camps.push(...data); if (data.length < 1000) break;
+  }
+  if (c.platform === 'tiktok') {
+    const groups: any[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await crm.from('tiktok_adgroup').select('external_campaign_id,status,raw').eq('connection_id', c.id).order('id').range(offset, offset + 999);
+      if (error) throw new Error('adgroup_read_failed');
+      groups.push(...data); if (data.length < 1000) break;
+    }
+    return camps.filter(x => ['ENABLE','ACTIVE'].includes(String(x.status).toUpperCase()) && groups.some(g => g.external_campaign_id === x.external_campaign_id && campaignActive(g.status ?? '', timestampDay(g.raw?.schedule_start_time ?? null, tz, true), timestampDay(g.raw?.schedule_end_time ?? null, tz, true), tz, now))).length;
+  }
+  return camps.filter(x => campaignActive(x.effective_status ?? x.status ?? '', c.platform === 'meta' ? timestampDay(x.start_time, tz) : x.start_date, c.platform === 'meta' ? timestampDay(x.stop_time, tz) : x.end_date, tz, now)).length;
 }
 
 async function liveToday(c: Conn, tok: string, today: string): Promise<{ spend: number | null; status: any; problems: { account: string | null; ads: string | null; budget: string | null } }> {
@@ -193,10 +229,12 @@ async function liveToday(c: Conn, tok: string, today: string): Promise<{ spend: 
 }
 
 async function runDelivery(admin: any, conns: Conn[]) {
-  const now = new Date(); const today = ymd(now); const frac = dayFraction(now, TZ);
+  const now = new Date();
   const alerts: any[] = []; const out: any[] = []; const evaluated: string[] = [];
   for (const c of conns) {
-    const nAct = await activeCampaigns(admin, c);
+    const tz = await accountTimezone(admin, c);
+    const today = ymd(now, tz); const frac = dayFraction(now, tz);
+    const nAct = await activeCampaigns(admin, c, tz, now);
     if (!nAct) { evaluated.push(c.id); out.push({ conta: label(c), sem_campanhas_activas: true }); continue; }
     const tok = await token(admin, c);
     const live = await liveToday(c, tok, today);
@@ -223,7 +261,7 @@ async function runDelivery(admin: any, conns: Conn[]) {
     out.push({ conta: label(c), fonte, gasto_hoje: spend, esperado: Number(d.expected.toFixed(2)), media_3d: Number(a.avg.toFixed(2)), parada: d.stopped, causa: d.stopped ? cause : null, estado: scrubber(tok)(live.status) });
   }
   const { data, error } = await admin.rpc("artist_ads_balance_alerts_apply", { p_scope: "delivery", p_connections: evaluated, p_alerts: alerts });
-  return { fracao_dia: Number(frac.toFixed(3)), contas: out, aplicado: data, erro: error?.message ?? null };
+  return { contas: out, aplicado: data, erro: error?.message ?? null };
 }
 
 // ---------------------------------------------------------------- simulação (sem escrita)
