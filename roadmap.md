@@ -20,5 +20,5 @@
 - [x] Visão comparativa Fase 1: writer 0219 aplicado e ACL conferida; deno check e 15 testes passam; edge deployada; Litto JWT real 200 e segunda chamada 429.
 - [x] Visão comparativa Fase 1: backfill 14 datas por hora nas 5 contas e 30 datas device Meta; ambas TikTok devolveram 08–21/10. Crons 7110/7111 confirmados ativos; 452 chamadas HTTP, contagens/outputs no relatório. Sem Publish.
 - [ ] Visão comparativa Fase 1: prova visual do botão bloqueada — esta cópia não tem página de tráfego artístico; ligar no frontend proprietário requer acesso/indicação dessa superfície. Endpoint manual provado, não botão UI.
-- [ ] Chegadas horárias: aprovar plano antes da migração; tabela privada, manutenção INSERT/UPDATE/DELETE e reconciliação 04:20 UTC.
-- [ ] Chegadas horárias: backfill completo, compare com JSON preservado e provas Pedro/Litto de igualdade, desempenho e teste isolado.
+- [x] Chegadas horárias: plano aprovado; migrações 0225–0227, tabela privada, manutenção INSERT/UPDATE/DELETE e cron 7243 às 04:20 UTC.
+- [x] Chegadas horárias: backfill completo e igualdade por dimensão; compare preservada, diferenças só novas capturas em curso; 0,141–0,153 s no banco, teste isolado +1/−1 e reconciliação 0 divergências.
