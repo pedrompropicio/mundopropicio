@@ -1,0 +1,22 @@
+--- Live/restore_apply_from_shadow
++++ INERTE/restore_apply_from_shadow
+@@ -29,6 +29,19 @@
+     FOR k IN SELECT jsonb_object_keys(p_extra_deletes) LOOP
+       IF NOT (k = ANY (v_all)) THEN v_all := v_all || k; END IF;
+     END LOOP;
++  END IF;
++
++  -- #335 2k INERTE: fence antes de desligar triggers, inclusive extra_deletes/cascatas.
++  -- Recusa conservadora de QUALQUER restauro no âmbito com história gerida;
++  -- global com grupos também recusa (não promete reconstrução coerente).
++  PERFORM pg_advisory_xact_lock(335,1);
++  IF EXISTS (SELECT 1 FROM public.transaction_offset_groups g
++             WHERE p_scope <> 'company' OR g.company_id=p_company_id) THEN
++    RAISE EXCEPTION 'managed_restore_forbidden: restauro com história de encontros exige procedimento integral separado';
++  END IF;
++  IF 'transaction_offset_control'=ANY(p_tables)
++     OR coalesce(p_extra_deletes ? 'transaction_offset_control',false) THEN
++    RAISE EXCEPTION 'managed_control_restore_forbidden: backup não autoriza reactivar encontros';
+   END IF;
+ 
+   SET CONSTRAINTS ALL DEFERRED;

@@ -1,0 +1,52 @@
+--- Live/get_event_cash_position
++++ INERTE/get_event_cash_position
+@@ -21,6 +21,13 @@
+       AND fa.type IN ('bank', 'cash', 'prepaid_card')
+       AND COALESCE(fa.skip_balance_check, false) = false
+   ),
++  managed AS (
++    SELECT DISTINCT i.transaction_id
++    FROM public.transaction_offset_items i JOIN public.transaction_offset_groups g ON g.id=i.group_id
++    WHERE g.status IN ('preparing','applied','reversing')
++      AND EXISTS (SELECT 1 FROM public.transaction_payments p WHERE p.offset_group_id=g.id
++        AND p.offset_item_id=i.id AND p.transaction_id=i.transaction_id AND p.status='paid' AND p.reversed_at IS NULL)
++  ),
+   tx AS (
+     SELECT t.id, t.event_id, t.type, t.status,
+            t.amount, t.paid_amount, t.payment_date, t.date,
+@@ -34,13 +41,25 @@
+            SUM(CASE WHEN tx.type = 'income' THEN tx.paid_amount
+                     ELSE -tx.paid_amount END) AS paid_signed
+     FROM tx
+-    WHERE (p_date_from IS NULL OR (tx.payment_date IS NOT NULL AND tx.payment_date >= p_date_from))
++    WHERE NOT EXISTS (SELECT 1 FROM managed m WHERE m.transaction_id=tx.id)
++      AND (p_date_from IS NULL OR (tx.payment_date IS NOT NULL AND tx.payment_date >= p_date_from))
+       AND (p_date_to   IS NULL OR (tx.payment_date IS NOT NULL AND tx.payment_date <= p_date_to))
+       -- Data de corte do saldo inicial: o que é anterior já está no saldo inicial.
+       AND (tx.initial_balance_date IS NULL
+            OR COALESCE(tx.payment_date, tx.date) > tx.initial_balance_date)
+     GROUP BY tx.event_id
++    UNION ALL
++    SELECT t.event_id,sum(CASE WHEN t.type='income' THEN p.amount ELSE -p.amount END)
++    FROM public.transaction_payments p JOIN public.transactions t ON t.id=p.transaction_id
++    JOIN managed m ON m.transaction_id=t.id JOIN liquid l ON l.id=p.account_id
++    WHERE t.company_id=p_company_id AND p.status='paid' AND p.reversed_at IS NULL
++      AND p.payment_method<>'compensation'
++      AND (p_date_from IS NULL OR p.payment_date>=p_date_from)
++      AND (p_date_to IS NULL OR p.payment_date<=p_date_to)
++      AND (l.initial_balance_date IS NULL OR p.payment_date IS NULL OR p.payment_date>l.initial_balance_date)
++    GROUP BY t.event_id
+   ),
++  paid_total AS (SELECT event_id,sum(paid_signed) AS paid_signed FROM paid_agg GROUP BY event_id),
+   adj_agg AS (
+     SELECT t.event_id,
+            SUM(COALESCE(p.withholding_amount, 0) + COALESCE(p.credit_amount, 0)) AS adj
+@@ -89,7 +108,7 @@
+     ROUND(COALESCE(pe.pending, 0)::numeric, 2)
+   FROM keys k
+   LEFT JOIN events        e  ON e.id = k.event_id
+-  LEFT JOIN paid_agg      pa ON pa.event_id IS NOT DISTINCT FROM k.event_id
++  LEFT JOIN paid_total    pa ON pa.event_id IS NOT DISTINCT FROM k.event_id
+   LEFT JOIN adj_agg       aa ON aa.event_id IS NOT DISTINCT FROM k.event_id
+   LEFT JOIN committed_agg ca ON ca.event_id IS NOT DISTINCT FROM k.event_id
+   LEFT JOIN pending_agg   pe ON pe.event_id IS NOT DISTINCT FROM k.event_id
