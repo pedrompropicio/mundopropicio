@@ -194,6 +194,41 @@ SELECT public.add_cache_contract_advance(:'c9', 500, NULL, NULL, 'a9') AS pa9 \g
 SELECT pg_temp.ok((SELECT amount FROM public.transactions WHERE id=(SELECT artist_mother_id FROM public.cache_payment_contracts WHERE id=:'c9')) = 8500, 'após congelar: adiantamento dentro do contrato reduz saldo');
 SELECT pg_temp.ok((public.cache_contract_status('00000000-0000-0000-0000-000000000900','00000000-0000-0000-0000-00000000a000')->>'frozen')::boolean, 'contexto: congelado');
 SELECT pg_temp.ok((SELECT bool_and(current_count = 0) FROM public._run_invariant_checks_cache_contracts()), 'invariantes conformes após ajuste');
+-- ================= 0217: cancelar com âncora do BP nas filhas
+SELECT pg_temp.tour('00000000-0000-0000-0000-000000000a00', ARRAY[6000,4000]);
+INSERT INTO public.suppliers VALUES ('00000000-0000-0000-0000-00000000a0a8','MINISTERIO DAS FINANCAS - IRS','00000000-0000-0000-0000-0000000000c1');
+CREATE FUNCTION pg_temp.anchor_contract(n int) RETURNS uuid LANGUAGE sql AS $$
+  SELECT t.cache_contract_id FROM public.event_forecasts f JOIN public.transactions t ON t.id = f.transaction_id
+   WHERE f.event_id = pg_temp.city('00000000-0000-0000-0000-000000000a00', n) $$;
+CREATE FUNCTION pg_temp.anchor(n int) RETURNS uuid LANGUAGE sql AS $$
+  SELECT transaction_id FROM public.event_forecasts WHERE event_id = pg_temp.city('00000000-0000-0000-0000-000000000a00', n) $$;
+SELECT public.create_cache_payment_contract('00000000-0000-0000-0000-000000000a00','00000000-0000-0000-0000-00000000a000','00000000-0000-0000-0000-00000000a000', 6000, true, 25, '2026-04-20', NULL) AS ca1 \gset
+SELECT public.create_cache_payment_contract('00000000-0000-0000-0000-000000000a00','00000000-0000-0000-0000-00000000a000','00000000-0000-0000-0000-00000000a000', 4000, false, NULL, NULL, NULL) AS ca2 \gset
+SELECT pg_temp.ok(pg_temp.anchor_contract(1) = :'ca1' AND pg_temp.anchor_contract(2) = :'ca1', 'âncora das linhas nas filhas do contrato 1');
+-- dependências pendentes numa filha (lista por aprovar + documento) são limpas
+INSERT INTO public.payment_lists VALUES ('00000000-0000-0000-0000-00000000aa01','pending_approval');
+INSERT INTO public.payment_list_items(payment_list_id, transaction_id) VALUES ('00000000-0000-0000-0000-00000000aa01', pg_temp.anchor(1));
+INSERT INTO public.transaction_documents(transaction_id) VALUES (pg_temp.anchor(1));
+INSERT INTO public.event_cache_payments(transaction_id) VALUES (pg_temp.anchor(2));
+SELECT count(*) AS trash0 FROM public.trash \gset
+SELECT public.cancel_cache_payment_breakdown(:'ca1', 'teste âncora');
+SELECT pg_temp.ok(pg_temp.anchor_contract(1) = :'ca2' AND pg_temp.anchor_contract(2) = :'ca2', 'âncora passa para a transação do outro contrato');
+SELECT pg_temp.ok((SELECT count(*) FROM public.trash) - :trash0 = 2, 'uma entrada no Lixo por mãe (saldo + retenção), sem duplicar');
+SELECT pg_temp.ok((SELECT count(*) FROM public.transactions WHERE cache_contract_id = :'ca1') = 0, 'mães e filhas do contrato 1 apagadas');
+SELECT pg_temp.ok((SELECT count(*) FROM public.payment_list_items WHERE payment_list_id='00000000-0000-0000-0000-00000000aa01') = 0, 'item de lista pendente removido');
+SELECT pg_temp.ok((SELECT count(*) FROM public.system_audit_log WHERE metadata->>'cache_contract_id' = :'ca1') > 0, 'auditoria registada');
+-- alterar o contrato âncora: a âncora acompanha o novo contrato
+SELECT public.update_cache_payment_contract(:'ca2', '00000000-0000-0000-0000-00000000a000', 3000, false, NULL, NULL, NULL) AS ca3 \gset
+SELECT pg_temp.ok(pg_temp.anchor_contract(1) = :'ca3' AND pg_temp.anchor_contract(2) = :'ca3', 'alterar contrato âncora: âncora no contrato novo');
+SELECT public.cancel_cache_payment_breakdown(:'ca3', 'teste');
+SELECT pg_temp.ok(pg_temp.anchor(1) IS NULL AND pg_temp.anchor(2) IS NULL, 'sem outras transações: âncora NULL');
+-- com pagamento continua a recusar e a âncora fica
+SELECT public.create_cache_payment_contract('00000000-0000-0000-0000-000000000a00','00000000-0000-0000-0000-00000000a000','00000000-0000-0000-0000-00000000a000', 2000, false, NULL, NULL, NULL) AS ca4 \gset
+UPDATE public.transactions SET paid_amount = amount, status='paid' WHERE id=(SELECT artist_mother_id FROM public.cache_payment_contracts WHERE id=:'ca4');
+SELECT pg_temp.fails(format($$SELECT public.cancel_cache_payment_breakdown(%L)$$, :'ca4'), 'contrato_com_pagamento');
+SELECT pg_temp.fails(format($$SELECT public.update_cache_payment_contract(%L, '00000000-0000-0000-0000-00000000a000', 2000, false, NULL, NULL, NULL)$$, :'ca4'), 'contrato_com_pagamento');
+SELECT pg_temp.ok(pg_temp.anchor_contract(1) = :'ca4', 'pago: âncora intacta');
+SELECT pg_temp.ok((SELECT bool_and(current_count = 0) FROM public._run_invariant_checks_cache_contracts()), 'invariantes conformes após 0217');
 -- sem permissão
 SET t.uid = '00000000-0000-0000-0000-0000000000ff';
 SELECT pg_temp.fails($$SELECT public.create_cache_advance('00000000-0000-0000-0000-000000000500','00000000-0000-0000-0000-00000000a000',NULL, 1, NULL)$$, 'permission_denied');

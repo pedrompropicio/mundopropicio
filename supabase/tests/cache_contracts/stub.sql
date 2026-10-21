@@ -31,3 +31,42 @@ DO $$ DECLARE f text; BEGIN
   FOREACH f IN ARRAY ARRAY['raw','extra','paid','secrets','infra','secdef','docs','extrato','cards','tenant','duplicate_invoices','camarim','suppliers','paid_below_gross','ticketline_series','unreachable_docs','isolation','storage','rateio','cash','dre_nature'] LOOP
     EXECUTE format($f$CREATE FUNCTION public._run_invariant_checks_%s() RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb) LANGUAGE sql AS 'SELECT NULL::text,NULL::text,NULL::text,NULL::text,0::bigint,0::bigint,true,NULL::text,NULL::jsonb WHERE false'$f$, f);
   END LOOP; END $$;
+-- 0217: âncora do BP (FK real) + dependências tratadas por delete_transaction_cascade.
+ALTER TABLE public.transactions ADD COLUMN created_at timestamptz DEFAULT clock_timestamp();
+ALTER TABLE public.event_forecasts ADD COLUMN company_id uuid, ADD COLUMN transaction_id uuid REFERENCES public.transactions(id);
+ALTER TABLE public.payment_list_items ADD FOREIGN KEY (transaction_id) REFERENCES public.transactions(id);
+ALTER TABLE public.transaction_payments ADD FOREIGN KEY (transaction_id) REFERENCES public.transactions(id);
+CREATE TABLE public.event_cache_payments(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), transaction_id uuid REFERENCES public.transactions(id), withholding_transaction_id uuid REFERENCES public.transactions(id));
+CREATE TABLE public.ticket_office_settlements(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), transfer_transaction_id uuid REFERENCES public.transactions(id));
+CREATE TABLE public.reimbursement_notes(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), payment_transaction_id uuid REFERENCES public.transactions(id));
+CREATE TABLE public.reimbursement_note_items(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), transaction_id uuid REFERENCES public.transactions(id));
+CREATE TABLE public.partner_paid_expenses(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), transaction_id uuid REFERENCES public.transactions(id));
+CREATE TABLE public.partner_advance_expenses(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), transaction_id uuid REFERENCES public.transactions(id));
+CREATE TABLE public.supplier_credit_usages(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), transaction_id uuid REFERENCES public.transactions(id));
+CREATE TABLE public.transaction_documents(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), transaction_id uuid REFERENCES public.transactions(id));
+CREATE TABLE public.system_audit_log(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), entity_type text, entity_id text, action text, changed_by text, old_data jsonb, metadata jsonb, company_id uuid);
+-- cópias exatas (Live) de bp_tx_link_allowed e sync_tx_forecast_to_anchor
+CREATE FUNCTION public.bp_tx_link_allowed(_tx_event uuid, _tx_company uuid, _fc_event uuid, _fc_company uuid) RETURNS boolean LANGUAGE sql STABLE AS $$
+  SELECT CASE WHEN _tx_company IS NOT NULL AND _fc_company IS NOT NULL AND _tx_company <> _fc_company THEN false
+    WHEN _tx_event IS NULL THEN true WHEN _fc_event IS NULL THEN true WHEN _tx_event = _fc_event THEN true ELSE false END $$;
+CREATE FUNCTION public.sync_tx_forecast_to_anchor() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+DECLARE v_anchor uuid; v_next uuid; v_fc_event uuid; v_fc_company uuid;
+BEGIN
+  IF pg_trigger_depth() > 1 THEN RETURN NEW; END IF;
+  IF TG_OP = 'UPDATE' AND OLD.forecast_id IS NOT NULL AND OLD.forecast_id IS DISTINCT FROM NEW.forecast_id THEN
+    SELECT transaction_id, event_id, company_id INTO v_anchor, v_fc_event, v_fc_company FROM public.event_forecasts WHERE id = OLD.forecast_id AND version_id IS NULL;
+    IF FOUND AND v_anchor = NEW.id THEN
+      SELECT t.id INTO v_next FROM public.transactions t WHERE t.forecast_id = OLD.forecast_id AND t.id <> NEW.id
+        AND public.bp_tx_link_allowed(t.event_id, t.company_id, v_fc_event, v_fc_company) ORDER BY t.date, t.created_at, t.id LIMIT 1;
+      UPDATE public.event_forecasts SET transaction_id = v_next WHERE id = OLD.forecast_id AND version_id IS NULL;
+    END IF;
+  END IF;
+  IF NEW.forecast_id IS NOT NULL THEN
+    SELECT transaction_id INTO v_anchor FROM public.event_forecasts WHERE id = NEW.forecast_id AND version_id IS NULL;
+    IF FOUND AND v_anchor IS NULL THEN
+      UPDATE public.event_forecasts SET transaction_id = NEW.id WHERE id = NEW.forecast_id AND transaction_id IS NULL AND version_id IS NULL;
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER trg_sync_tx_forecast_to_anchor AFTER INSERT OR UPDATE OF forecast_id ON public.transactions FOR EACH ROW EXECUTE FUNCTION public.sync_tx_forecast_to_anchor();

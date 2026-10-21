@@ -105,3 +105,30 @@ describe("ajuste D-ERP288: congelar e linha de BP", () => {
     expect(cacheErrorMessage({ message: "teto_excedido: bruto 5" })).toBe("bruto 5");
   });
 });
+
+import { inputToEuros } from "@/lib/cache-contracts";
+
+describe("valor em € ou % (grava sempre €)", () => {
+  it("40% de um cachê efetivo de 30.000 dá 12.000 €", () => {
+    expect(inputToEuros("40", "pct", 30000)).toBe(12000);
+  });
+  it("arredonda a 2 casas: 33,333% de 10.000 dá 3.333,30 €", () => {
+    expect(inputToEuros("33,333", "pct", 10000)).toBe(3333.3);
+    expect(inputToEuros("1", "pct", 333.33)).toBe(3.33);
+  });
+  it("adiantamento dentro de contrato: 10% do saldo disponível 8.500 dá 850 €", () => {
+    expect(inputToEuros("10", "pct", 8500)).toBe(850);
+  });
+  it("€ passa tal e qual; vírgula aceite", () => {
+    expect(inputToEuros("1234,56", "eur", 0)).toBe(1234.56);
+  });
+  it("inválidos: vazio, negativo, % acima de 100", () => {
+    expect(inputToEuros("", "pct", 100)).toBeNaN();
+    expect(inputToEuros("-1", "eur", 100)).toBeNaN();
+    expect(inputToEuros("101", "pct", 100)).toBeNaN();
+  });
+  it("100% do cachê efetivo excede o restante quando já há contratos", () => {
+    const remaining = remainingToContract({ totalCap: 30000, otherContractsGross: 12000, freeAdvancesNotChosen: 0 });
+    expect(inputToEuros("100", "pct", 30000) > remaining).toBe(true);
+  });
+});

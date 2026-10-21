@@ -12,4 +12,5 @@ $P -f $S/stub.sql >/dev/null
 $P -1 -f $ROOT/drizzle/migrations/0214_cache_payment_contracts.sql >/dev/null
 $P -1 -f $ROOT/drizzle/migrations/0215_cache_payment_contracts_acl.sql >/dev/null
 $P -1 -f ${M0216:-$(ls $ROOT/drizzle/migrations/0216_*.sql)} >/dev/null
+$P -1 -f ${M0217:-$(ls $ROOT/drizzle/migrations/0217_*.sql)} >/dev/null
 $P -f $S/scenarios.sql 2>&1
