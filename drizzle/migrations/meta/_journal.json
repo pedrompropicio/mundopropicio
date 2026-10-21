@@ -1611,6 +1611,13 @@
       "when": 1792580726343,
       "tag": "0229_period_report_exact_hourly",
       "breakpoints": true
+    },
+    {
+      "idx": 230,
+      "version": "7",
+      "when": 1792580865560,
+      "tag": "0230_period_report_use_exact_arrivals",
+      "breakpoints": true
     }
   ]
 }

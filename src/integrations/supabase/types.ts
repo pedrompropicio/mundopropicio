@@ -26475,6 +26475,23 @@ export type Database = {
           title: string
         }[]
       }
+      song_link_report_arrivals: {
+        Args: {
+          p_artist_id: string
+          p_country: string
+          p_from: string
+          p_to: string
+        }
+        Returns: {
+          canal: string
+          k: string
+          kind: string
+          n: number
+          sp: number
+          src: string
+          v: number
+        }[]
+      }
       song_link_report_hour_delta: {
         Args: {
           p_delta: number
