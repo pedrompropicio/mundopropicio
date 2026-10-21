@@ -12,7 +12,10 @@ DO $$ DECLARE before jsonb; during jsonb; after jsonb; a uuid; b uuid; g jsonb; 
  -- Existing invariants must keep the same count (infra ones like backup_empresa_em_falta are non-zero in an empty fixture);
  -- the five new encounter invariants must be zero in every phase.
  IF EXISTS(SELECT 1 FROM jsonb_array_elements(before) e WHERE e->>'n' LIKE 'encontro_%' AND (e->>'c')::int<>0) THEN RAISE EXCEPTION 'new invariants not zero before: %',before; END IF;
- IF (SELECT count(*) FROM jsonb_array_elements(before) e WHERE e->>'n' LIKE 'encontro_%')<>5 THEN RAISE EXCEPTION 'new invariants not registered'; END IF;
+ IF (SELECT count(*) FROM jsonb_array_elements(before) e WHERE e->>'n' IN ('encontro_compensacao_pendente','encontro_soma_divergente','encontro_pernas_divergentes','encontro_documentos_divergentes','encontro_empresa_divergente'))<>5 THEN
+  -- Use installed registry names, not a prefix count that includes balance.
+  IF (SELECT count(*) FROM public.issue335_invariant_counts())<>5 THEN RAISE EXCEPTION 'new invariants not registered'; END IF;
+ END IF;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('income','Matrix+',30996,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','Matrix-',7590,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
  EXECUTE 'SET LOCAL ROLE authenticated';
