@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS issue335_test.g2_prosrc AS SELECT prosrc FROM pg_proc
 CREATE OR REPLACE FUNCTION issue335_test.g2_case(p_k text) RETURNS void LANGUAGE plpgsql AS $$
 DECLARE ev uuid:=gen_random_uuid(); f uuid; a uuid; b uuid; g uuid; uid text:=current_setting('request.jwt.claim.sub');
 BEGIN
- INSERT INTO events(id,name,budget_mode) VALUES(ev,'2g '||p_k,'without_bp');
+ INSERT INTO events(id,name,budget_mode,company_id) VALUES(ev,'2g '||p_k,'without_bp','00000000-0000-0000-0000-000000000001');
  IF p_k='verba' THEN
   UPDATE events SET budget_mode='with_bp' WHERE id=ev;
   INSERT INTO event_forecasts(id,event_id,amount,description,type) VALUES(gen_random_uuid(),ev,30,'2g verba','expense') RETURNING id INTO f;
@@ -75,7 +75,7 @@ BEGIN;
 INSERT INTO user_roles(id,user_id,role,company_id) VALUES(gen_random_uuid(),'00000000-0000-0000-0000-000000000017','editor','00000000-0000-0000-0000-000000000001');
 INSERT INTO profiles(id,company_id,active_company_id) VALUES('00000000-0000-0000-0000-000000000017','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001');
 DO $$ DECLARE ev uuid; f uuid; n uuid; a uuid; b uuid; g uuid; r int; BEGIN
- INSERT INTO events(id,name,budget_mode) VALUES(gen_random_uuid(),'2g atk','with_bp') RETURNING id INTO ev;
+ INSERT INTO events(id,name,budget_mode,company_id) VALUES(gen_random_uuid(),'2g atk','with_bp','00000000-0000-0000-0000-000000000001') RETURNING id INTO ev;
  INSERT INTO event_forecasts(id,event_id,amount,description,type) VALUES(gen_random_uuid(),ev,1000,'2g ok','expense') RETURNING id INTO f;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id,event_id,forecast_id,status)
   VALUES('expense','2g perm',5,0,'2026-10-13','00000000-0000-0000-0000-000000000020',ev,f,'pending') RETURNING id INTO n;
