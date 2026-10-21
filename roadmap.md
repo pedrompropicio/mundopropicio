@@ -24,6 +24,7 @@
 - [x] Chegadas horárias: backfill completo e igualdade por dimensão; compare preservada, diferenças só novas capturas em curso; 0,141–0,153 s no banco, teste isolado +1/−1 e reconciliação 0 divergências.
 - [x] Period_report opção B: plano aditivo aprovado; protótipo e testes locais de referências exatas, mudança de identidade/canal e reparação passaram; origem preservada, sem Publish.
 - [x] Period_report opção B: migrações 0229–0234, backfill integral, 239075=239075, zero divergências e pendências; nove JSON idênticos exceto gerado_em; 30d 0,036–0,089 s e 90d 0,029–0,088 s no banco; testes locais passaram, sem Publish.
-- [ ] Litto 1: confirmar países pela segmentação TikTok, corrigir sincronização futura e duas campanhas; auditar Meta/Google com gasto sem país, sem DDL/apagar.
-- [ ] Litto 2: diagnosticar TikTok for Artists parado, corrigir ou indicar reconexão; alerta de fonte diária sem captura >48 h, sem DDL/apagar.
-- [ ] Litto 3: comparar TikTok campanha/adgroup/ad dia a dia com API, corrigir nível campaign e backfill 30 dias; sem DDL/apagar.
+- [x] Litto 1: Fortaleza 3399415=BR via API; mapa insert-only e resolver futuro, multi/unknown NULL+lacuna; Sem país 815,34→0; Meta/Google sem campanhas com gasto NULL.
+- [x] Litto 2: histórico confirma cookie expirado desde 06/10; alerta diário >48h em todas fontes automáticas via email existente, 11 enfileirados e repetição zero; instruções documentadas.
+- [ ] Litto 2: retomar capturas Artists bloqueado por renovação TIKTOK_ARTISTS_COOKIE pelo Pedro; não inventar histórico ausente.
+- [x] Litto 3: AUCTION_CAMPAIGN implementado, 76 linhas/30 dias; dias fechados API=37558? corrigido na prova: 37458,33, zero divergências; 19 testes passaram; sem DDL/apagar/Publish.
