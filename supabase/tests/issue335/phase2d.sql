@@ -67,10 +67,10 @@ DO $$ DECLARE ev uuid; es uuid; a uuid; b uuid; items jsonb; g uuid; BEGIN
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2d close-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
  items:=jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset'));
  SELECT (transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13')->>'group_id')::uuid INTO g;
- UPDATE event_settlements SET is_sealed=true WHERE id=es;
+ PERFORM seal_event_settlement(es,'{"check1":0,"check2":0}'::jsonb,NULL,'LOCAL 2d'); -- 2i: selo real só por RPC
  PERFORM set_config('app.settlement_seal_op','on',true);
  BEGIN PERFORM transaction_offset_reverse(g,gen_random_uuid(),'sealed attack'); RAISE EXCEPTION 'sealed reversed'; EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE 'sealed_settlement:%' THEN RAISE; END IF; END;
- UPDATE event_settlements SET is_sealed=false WHERE id=es;
+ PERFORM unseal_event_settlement(es,'LOCAL 2d reabrir'); -- 2i: reabertura real só por RPC
  PERFORM transaction_offset_reverse(g,gen_random_uuid(),'unsealed');
  -- 2i: em Live o selo só muda por seal_event_settlement (guard_sealed_event_settlement); antes: UPDATE directo.
  PERFORM seal_event_settlement(es,'{"check1":0,"check2":0}'::jsonb,NULL,'LOCAL 2d');
