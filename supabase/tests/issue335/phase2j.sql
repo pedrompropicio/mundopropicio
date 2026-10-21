@@ -179,3 +179,63 @@ DO $$ DECLARE win uuid; ev uuid; cat uuid; f uuid; a uuid; n0 bigint; BEGIN
  INSERT INTO issue335_test.j VALUES('W:cat',cat),('W:win',win) ON CONFLICT(k) DO UPDATE SET v=excluded.v;
 EXCEPTION WHEN undefined_column THEN RAISE NOTICE 'J3 colunas de janela diferentes: %',SQLERRM; RAISE;
 END $$;
+SET ROLE authenticated;
+DO $$ DECLARE ev uuid; f uuid; b uuid; n0 bigint; n1 bigint; BEGIN
+ INSERT INTO public.events(id,company_id,name,date,event_nature) VALUES(gen_random_uuid(),public.current_company_id(),'2j fora da janela','2026-10-13','producao_propria') RETURNING id INTO ev;
+ INSERT INTO public.event_forecasts(id,company_id,event_id,category_id,type,description,amount,iva_rate,approved_at)
+  VALUES(gen_random_uuid(),public.current_company_id(),ev,(SELECT v FROM issue335_test.j WHERE k='W:cat'),'income','2j janela BP',100,0,now()) RETURNING id INTO f;
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(public.current_company_id(),'approved','expense','2j janela-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
+ SELECT count(*) INTO n0 FROM public.transactions;
+ BEGIN PERFORM public.transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',jsonb_build_array(jsonb_build_object('forecast_id',f,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset')),'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13'); RAISE EXCEPTION 'J3 janela contornada';
+ EXCEPTION WHEN OTHERS THEN IF SQLSTATE<>'42501' OR SQLERRM NOT LIKE 'Esta conta é custo do evento%' THEN RAISE; END IF; END;
+ SELECT count(*) INTO n1 FROM public.transactions;
+ IF n1<>n0 OR EXISTS(SELECT 1 FROM public.transaction_payments WHERE transaction_id=b) THEN RAISE EXCEPTION 'J3 escrita parcial'; END IF;
+ RAISE NOTICE 'PASS 2j J3 janela administrativa: criação a partir do BP recusada pelo trigger real (42501), atómica';
+END $$;
+-- Mudar a janela depois de existir um grupo não mexe em transacções/pagamentos; a contiguidade real continua a valer.
+DO $$ DECLARE g uuid; BEGIN
+ g:=issue335_test.j_group('W2');
+ BEGIN UPDATE public.events SET admin_window_end='2026-09-01' WHERE id=(SELECT v FROM issue335_test.j WHERE k='W:win'); EXCEPTION WHEN OTHERS THEN NULL; END;
+ IF (SELECT count(*) FROM public.transaction_payments WHERE offset_group_id=g AND status='paid')<>3 THEN RAISE EXCEPTION 'J3 janela alterou grupo'; END IF;
+ RAISE NOTICE 'PASS 2j J3b alteração da janela não toca nas pernas do grupo (3 pagas)';
+END $$;
+
+-- ===================== J4 — fecho/reabertura de evento =====================
+DO $$ DECLARE ev uuid; f uuid; b uuid; g uuid; BEGIN
+ INSERT INTO public.events(id,company_id,name,date,event_nature) VALUES(gen_random_uuid(),public.current_company_id(),'2j fecho','2026-10-13','producao_propria') RETURNING id INTO ev;
+ g:=issue335_test.j_group('C',jsonb_build_object('event_id',ev));
+ UPDATE public.events SET status='completed' WHERE id=ev;  -- enforce_event_close_blockers real: grupo não é bloqueio
+ INSERT INTO public.event_forecasts(id,company_id,event_id,category_id,type,description,amount,iva_rate,approved_at) VALUES(gen_random_uuid(),public.current_company_id(),ev,'00000000-0000-0000-0000-000000000052','income','2j fechado BP',100,0,now()) RETURNING id INTO f;
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(public.current_company_id(),'approved','expense','2j fechado-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
+ BEGIN PERFORM public.transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',jsonb_build_array(jsonb_build_object('forecast_id',f,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset')),'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13'); RAISE EXCEPTION 'J4 BP em evento fechado';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT IN('event_closed','forecast_not_available') AND SQLERRM NOT LIKE 'Evento%' AND SQLERRM NOT LIKE '%conclu%' THEN RAISE; END IF; END;
+ -- Reabrir: o trigger real enforce_event_reopen_permission continua a decidir (manager sem reopen_event recusado).
+ PERFORM set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000016',true);
+ BEGIN UPDATE public.events SET status='active' WHERE id=ev; RAISE EXCEPTION 'J4 reabertura sem permissão';
+ EXCEPTION WHEN OTHERS THEN IF SQLSTATE<>'42501' THEN RAISE; END IF; END;
+ PERFORM set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',true);
+ IF (SELECT status FROM public.transaction_offset_groups WHERE id=g)<>'applied' THEN RAISE EXCEPTION 'J4 grupo mexido'; END IF;
+ RAISE NOTICE 'PASS 2j J4 fecho real aceita evento com grupo; criação BP em evento fechado recusada; reabertura sem permissão 42501';
+END $$;
+RESET ROLE;
+
+-- ===================== J5 — restauro (função real restore_apply_from_shadow) =====================
+-- O restauro desliga os triggers de utilizador (por desenho) e, num restauro por tabela, pode deixar o grupo
+-- incoerente. Prova: restauro de transaction_payments sem as tabelas de grupo → vigias do #335 acendem.
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT issue335_test.j_group('R');
+RESET ROLE;
+DO $$ DECLARE g uuid:=(SELECT v FROM issue335_test.j WHERE k='R:g'); before bigint; after bigint; BEGIN
+ SELECT coalesce(sum(current_count),0) INTO before FROM public.issue335_invariant_counts();
+ SET LOCAL ROLE service_role;
+ PERFORM public.restore_shadow_prepare(ARRAY['transaction_payments']);
+ EXECUTE 'INSERT INTO restore_shadow.public__transaction_payments SELECT * FROM public.transaction_payments WHERE offset_group_id IS DISTINCT FROM $1' USING g;
+ PERFORM public.restore_apply_from_shadow('company','00000000-0000-0000-0000-000000000001',ARRAY['transaction_payments'],NULL);
+ RESET ROLE;
+ SELECT coalesce(sum(current_count),0) INTO after FROM public.issue335_invariant_counts();
+ IF (SELECT status FROM public.transaction_offset_groups WHERE id=g)<>'applied' OR EXISTS(SELECT 1 FROM public.transaction_payments WHERE offset_group_id=g) THEN RAISE EXCEPTION 'J5 cenário não reproduzido'; END IF;
+ IF after<=before THEN RAISE EXCEPTION 'J5 restauro parcial deixou grupo incoerente SEM vigia (antes %, depois %)',before,after; END IF;
+ RAISE NOTICE 'ACHADO 2j J5: restauro por tabela contorna a guarda (triggers desligados por desenho) e deixa grupo applied sem pernas; DETECTADO pelas vigias #335 (% → %). Não impedido.',before,after;
+END $$;
+ROLLBACK;
