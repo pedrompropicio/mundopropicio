@@ -93,10 +93,15 @@ RESET ROLE;
 DO $$ DECLARE a uuid; b uuid; items jsonb; before_balance numeric; after_balance numeric; BEGIN
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id,account_id) VALUES('income','2d balance+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-000000000030') RETURNING id INTO a;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2d balance-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
- before_balance:=_account_true_balance_raw('00000000-0000-0000-0000-000000000030');
+ -- 2i: no harness fiel o candidato de saldo (2e) já está instalado antes deste ficheiro. A reprodução do defeito
+ -- passa a ser feita contra a cópia byte-igual da função de Live (issue335_test.legacy_*) e exige delta=100;
+ -- a função instalada (candidato) tem de dar exactamente 60. Antes: só a função instalada, sem candidato.
+ before_balance:=issue335_test.legacy_account_true_balance_raw('00000000-0000-0000-0000-000000000030');
+ PERFORM set_config('issue335_test.cand_before',_account_true_balance_raw('00000000-0000-0000-0000-000000000030')::text,true);
  items:=jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset'));
  PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13');
- after_balance:=_account_true_balance_raw('00000000-0000-0000-0000-000000000030');
+ after_balance:=issue335_test.legacy_account_true_balance_raw('00000000-0000-0000-0000-000000000030');
  IF after_balance-before_balance<>100 THEN RAISE EXCEPTION 'canonical balance defect reproduction changed: %',after_balance-before_balance; END IF;
- RAISE WARNING 'OPEN BLOCKER balance: canonical account delta=100 but real cash=60; compensation counted as cash. No financial acceptance.';
+ IF _account_true_balance_raw('00000000-0000-0000-0000-000000000030')-current_setting('issue335_test.cand_before')::numeric<>60 THEN RAISE EXCEPTION 'balance candidate delta <> 60'; END IF;
+ RAISE NOTICE 'PASS 2d/2i balance: Live function delta=100 (defect reproduced), installed candidate delta=60 (real cash)';
 END $$;
