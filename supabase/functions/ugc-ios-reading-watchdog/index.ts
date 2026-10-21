@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 
   const today = lisbonToday();
   let sourceAlerts: unknown;
-  try { sourceAlerts = await dailySourceAlerts(supabase, dryRun); }
+  try { sourceAlerts = { ...await dailySourceAlerts(supabase, true), email_enabled: false }; }
   catch (e) { sourceAlerts = { error: String(e) }; }
 
   const { data: configs, error: cfgErr } = await supabase
