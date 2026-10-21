@@ -89,4 +89,45 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
     assert outcome(s2,*call(ids,str(uuid.uuid4())))[0]=='42501'
     print('PASS 2f F/I AFTER: same observed request-lock edge; closure committed first; resumed call encontro_desativado, zero group/payments, fresh call 42501.')
     sql(observer,Path(root+'/supabase/manual/20261021_issue335_offset_kill_switch.ROLLBACK-INERTE.sql').read_text())
+    # Draining an already successful transaction: closure waits for its fence.
+    ids=fixture(); request=str(uuid.uuid4())
+    sql(s2,'BEGIN')
+    assert outcome(s2,*call(ids,request))[0]=='ok'
+    close_sql=Path(root+'/supabase/manual/20261021_issue335_offset_kill_switch.INERTE.sql').read_text()
+    future=pool.submit(outcome,s1,close_sql,None)
+    blocked(s1.get_backend_pid(),s2.get_backend_pid())
+    sql(s2,'COMMIT')
+    assert future.result(timeout=12)[0]=='ok'
+    assert sql(observer,'SELECT enabled FROM transaction_offset_control')[0][0] is False
+    assert outcome(s2,*call(ids,str(uuid.uuid4())))[0]=='42501'
+    print('PASS 2f F/I drain: closure blocked by admitted transaction until COMMIT; closure then false, fresh invocation 42501.')
+    sql(observer,Path(root+'/supabase/manual/20261021_issue335_offset_kill_switch.ROLLBACK-INERTE.sql').read_text())
+    # Two encounters: acknowledged winner retains locks; unique exact loser.
+    ids=fixture(); request=str(uuid.uuid4())
+    sql(s2,'BEGIN'); assert outcome(s2,*call(ids,request))[0]=='ok'
+    sql(s1,'SET ROLE authenticated')
+    losing=str(uuid.uuid4())
+    result=outcome(s1,*call(ids,losing))
+    assert result==('55P03','encontro_em_conflito: operação concorrente; atualize a prévia e tente novamente'),result
+    sql(s2,'COMMIT')
+    assert sql(observer,'SELECT count(*) FROM transaction_offset_groups WHERE request_id=ANY(%s::uuid[])',([request,losing],))[0][0]==1
+    print('PASS 2f F encounter/encounter: winner acknowledged before rival; rival exactly 55P03; one applied group.')
+    sql(s1,'RESET ROLE')
+    # Real legacy settle holds the chosen document; encounter cannot overlap.
+    ids=fixture(); line=str(uuid.uuid4())
+    sql(observer,"INSERT INTO bank_statement_lines(id,company_id,financial_account_id,amount,booking_date) VALUES(%s,%s,%s,1,'2026-10-13')",(line,company,account))
+    sql(s1,'BEGIN'); sql(s1,'SET LOCAL ROLE authenticated')
+    sql(s1,'SELECT reconcile_bank_line(%s,%s::jsonb)',(line,json.dumps([dict(transaction_id=ids[0],mode='settle',amount=1)])))
+    result=outcome(s2,*call(ids,str(uuid.uuid4())))
+    assert result[0]=='55P03',result
+    sql(s1,'COMMIT')
+    assert sql(observer,'SELECT paid_amount FROM transactions WHERE id=%s',(ids[0],))[0][0]==1
+    print('PASS 2f F legacy reconcile settle/encounter: legacy payment 1 committed exactly; encounter 55P03, no managed group.')
+    # FK KEY SHARE does not obstruct NO KEY UPDATE in an encounter.
+    ids=fixture(); sql(s1,'BEGIN')
+    sql(s1,"INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('income','2f FK normal',1,0,'2026-10-13',%s)",(supplier,))
+    result=outcome(s2,*call(ids,str(uuid.uuid4())))
+    assert result[0]=='ok',result
+    sql(s1,'COMMIT')
+    print('PASS 2f F ordinary FK insert/encounter: holder acknowledged; compatible encounter completes before normal INSERT commits.')
 for c in conns:c.close()
