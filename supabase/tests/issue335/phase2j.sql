@@ -68,7 +68,10 @@ DO $$ DECLARE a uuid; b uuid; ev uuid; BEGIN
  INSERT INTO public.events(id,company_id,budget_mode,name,date,event_nature) VALUES(gen_random_uuid(),public.current_company_id(),'without_bp','2j sócio','2026-10-13','producao_propria') RETURNING id INTO ev;
  INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(public.current_company_id(),'approved','income','2j ppe+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
  INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id,event_id) VALUES(public.current_company_id(),'approved','expense','2j ppe-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020',ev) RETURNING id INTO b;
- INSERT INTO public.partner_paid_expenses(event_id,partner_id,transaction_id) VALUES(ev,'00000000-0000-0000-0000-000000000020',b);
+ -- 2j: partner_id referencia event_partners (FK real).
+ INSERT INTO public.event_partners(id,company_id,event_id,supplier_id) VALUES(gen_random_uuid(),public.current_company_id(),ev,'00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
+ INSERT INTO public.partner_paid_expenses(event_id,partner_id,transaction_id) VALUES(ev,a,b);
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(public.current_company_id(),'approved','income','2j ppe+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
  BEGIN PERFORM public.transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset')),'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13'); RAISE EXCEPTION 'J0 ppe aceite';
  EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'unsupported_debt' THEN RAISE; END IF; END;
  RAISE NOTICE 'PASS 2j J0 despesa paga por sócio recusada (unsupported_debt)';
