@@ -99,7 +99,7 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
     }
     for (const row of rows) geoMap.set(row.geo_id, row);
   }
-  const countryByCampaign = new Map<string, ReturnType<typeof marketCountry>>();
+  const countryByCampaign = new Map<string, ReturnType<typeof resolveMarketCountry>>();
   for (const camp of camps.list) {
     const ids = [...new Set<string>(groups.list.filter((g: any) => String(g.campaign_id) === String(camp.campaign_id))
       .flatMap((g: any) => (g.location_ids ?? []).map(String)))];
