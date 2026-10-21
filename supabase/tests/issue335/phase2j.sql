@@ -146,7 +146,9 @@ DO $$ DECLARE bad text; leg text; BEGIN
  IF bad IS NOT NULL THEN RAISE EXCEPTION 'E coluna obrigatória não protegida em documento gerido: %',bad; END IF;
  -- Legado: nenhuma recusa vem da guarda do #335.
  SELECT string_agg(DISTINCT m.tbl||'.'||m.col,', ') INTO leg FROM issue335_test.e_matrix m
-  WHERE m.target='legado' AND m.msg IN('reverse_entire_group','managed_operation_required','managed_bank_anchor_immutable');
+  WHERE m.target='legado' AND m.msg IN('reverse_entire_group','managed_operation_required','managed_bank_anchor_immutable')
+    -- colunas criadas pelo próprio #335: não existem no legado; ligar um pagamento antigo a um grupo É um ataque.
+    AND NOT (m.tbl='transaction_payments' AND m.col IN('offset_group_id','offset_item_id'));
  IF leg IS NOT NULL THEN RAISE EXCEPTION 'E documento sem grupo afectado pela guarda #335: %',leg; END IF;
  RAISE NOTICE 'PASS 2j J1 E: % ataques; colunas obrigatórias recusadas em documento gerido (manager e editor); legado sem guarda #335',(SELECT count(*) FROM issue335_test.e_matrix);
 END $$;
