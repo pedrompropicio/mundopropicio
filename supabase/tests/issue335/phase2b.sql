@@ -118,7 +118,7 @@ DO $$ DECLARE a uuid; b uuid; r uuid:=gen_random_uuid(); g uuid; items jsonb; sn
 END $$;
 -- Privileged corruption only in discarded subtransactions; guards aren't weakened for clients.
 DO $$ DECLARE g uuid; i uuid; BEGIN
- SELECT id INTO g FROM transaction_offset_groups WHERE status='applied' AND movement_amount<>0 LIMIT 1;
+ SELECT id INTO g FROM transaction_offset_groups WHERE status='applied' AND movement_amount<>0 AND bank_line_id IS NULL LIMIT 1;
  SELECT id INTO i FROM transaction_offset_items WHERE group_id=g AND cash_amount>0 LIMIT 1;
  ALTER TABLE transaction_offset_groups DISABLE TRIGGER issue335_guard;
  ALTER TABLE transaction_offset_items DISABLE TRIGGER issue335_guard;
