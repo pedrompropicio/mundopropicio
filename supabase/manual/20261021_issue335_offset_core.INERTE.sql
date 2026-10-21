@@ -32,14 +32,18 @@ DECLARE ctx text; gid uuid; st text; BEGIN
     NEW.payment_date IS DISTINCT FROM OLD.payment_date OR NEW.status<>'reversed' OR NEW.reversed_at IS NULL THEN RAISE EXCEPTION 'reverse_entire_group'; END IF;
   END IF;
  END IF;
- IF TG_TABLE_NAME='transaction_offsets' AND (CASE WHEN TG_OP='DELETE' THEN OLD.offset_group_id ELSE COALESCE(OLD.offset_group_id,NEW.offset_group_id) END) IS NOT NULL THEN
+ IF TG_TABLE_NAME='transaction_offsets' THEN
+ IF (CASE WHEN TG_OP='DELETE' THEN OLD.offset_group_id ELSE COALESCE(OLD.offset_group_id,NEW.offset_group_id) END) IS NOT NULL THEN
   IF TG_OP='DELETE' OR ctx !~ 'PL/pgSQL function transaction_offset_(execute|reverse)\(' THEN RAISE EXCEPTION 'managed_operation_required'; END IF;
  END IF;
- IF TG_TABLE_NAME='transactions' AND EXISTS(SELECT 1 FROM public.transaction_offset_items i JOIN public.transaction_offset_groups g ON g.id=i.group_id WHERE i.transaction_id=OLD.id AND g.status IN ('preparing','applied','reversing')) THEN
+ END IF;
+ IF TG_TABLE_NAME='transactions' THEN
+ IF EXISTS(SELECT 1 FROM public.transaction_offset_items i JOIN public.transaction_offset_groups g ON g.id=i.group_id WHERE i.transaction_id=OLD.id AND g.status IN ('preparing','applied','reversing')) THEN
   IF TG_OP='DELETE' THEN RAISE EXCEPTION 'reverse_entire_group'; END IF;
   IF NEW.reversed_at IS DISTINCT FROM OLD.reversed_at OR NEW.reversal_kind IS DISTINCT FROM OLD.reversal_kind OR
    NEW.amount IS DISTINCT FROM OLD.amount OR NEW.iva_rate IS DISTINCT FROM OLD.iva_rate OR NEW.supplier_id IS DISTINCT FROM OLD.supplier_id OR
    NEW.company_id IS DISTINCT FROM OLD.company_id OR NEW.type IS DISTINCT FROM OLD.type OR NEW.forecast_id IS DISTINCT FROM OLD.forecast_id THEN RAISE EXCEPTION 'reverse_entire_group'; END IF;
+ END IF;
  END IF;
  RETURN CASE WHEN TG_OP='DELETE' THEN OLD ELSE NEW END;
 END $$;
