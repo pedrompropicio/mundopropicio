@@ -29,10 +29,18 @@ export function selectSources(rows: any[], songs: any[], artists: any[], now: nu
     const group = groups.get(key) ?? []; group.push(row); groups.set(key, group);
   }
   return [...groups.entries()].map(([key, group]) => {
-    const last = group.reduce((a, b) => Date.parse(a.captured_at) > Date.parse(b.captured_at) ? a : b);
-    return { ...last, key, capture_days: regularDays(group, last.captured_at),
+    const dates = new Map<string, Set<string>>();
+    for (const r of group) {
+      const day = r.captured_at.slice(0, 10); const set = dates.get(day) ?? new Set<string>();
+      if (r.metric_date) set.add(r.metric_date); dates.set(day, set);
+    }
+    // Unlabelled historical batch: multiple observation dates ingested on one day.
+    const scheduled = group.filter((r) => (dates.get(r.captured_at.slice(0, 10))?.size ?? 0) <= 1);
+    if (!scheduled.length) return null;
+    const last = scheduled.reduce((a, b) => Date.parse(a.captured_at) > Date.parse(b.captured_at) ? a : b);
+    return { ...last, key, capture_days: regularDays(scheduled, last.captured_at),
       artist_name: am.get(last.artist_id)?.name, song_title: sm.get(last.song_id)?.title };
-  }).filter((r) => r.capture_days >= 5 && isStale(r.captured_at, now));
+  }).filter((r): r is NonNullable<typeof r> => r !== null && r.capture_days >= 5 && isStale(r.captured_at, now));
 }
 export function alreadyOpen(row: any, history: any[]): boolean {
   // Old 11-alert run is retained as delivery proof, including the legitimate Litto alert.

@@ -50,6 +50,10 @@ Deno.test("source stays deduplicated across days until a newer capture resolves 
   assertEquals(alreadyOpen(row, history), true);
   assertEquals(alreadyOpen({ ...row, captured_at: "2026-10-22T09:40:00Z" }, history), false);
 });
+Deno.test("unlabelled historical batches on five days cannot create regular cadence", () => {
+  const rows = captures.flatMap((r) => [ { ...r, metric_date: "2026-08-01" }, { ...r, metric_date: "2026-08-02" } ]);
+  assertEquals(selectSources(rows, [song], [artist], Date.parse("2026-10-21T11:41:00Z")).length, 0);
+});
 Deno.test("multiple missing sources enqueue one summary; existing atomic claim prevents a second enqueue", async () => {
   let calls = 0; let claimed = false;
   const admin = {
