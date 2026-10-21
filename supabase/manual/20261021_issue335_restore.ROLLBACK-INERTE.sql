@@ -1,6 +1,7 @@
 -- LOCAL/INERTE 2k. Separate Sim required; never installed in Live.
 BEGIN;
 SET LOCAL lock_timeout='5s';
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM public.transaction_offset_groups) THEN RAISE EXCEPTION 'groups_exist_keep_guards'; END IF; END $$;
 CREATE OR REPLACE FUNCTION public.restore_apply_from_shadow(p_scope text, p_company_id uuid, p_tables text[], p_extra_deletes jsonb DEFAULT '{}'::jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql

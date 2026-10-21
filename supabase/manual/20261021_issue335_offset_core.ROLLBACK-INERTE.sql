@@ -2,6 +2,10 @@
 BEGIN;
 SET LOCAL lock_timeout='5s';
 DO $$ BEGIN IF EXISTS(SELECT 1 FROM public.transaction_offset_groups) THEN RAISE EXCEPTION 'groups_exist_keep_guards'; END IF; IF to_regprocedure('public.issue335_invariant_counts()') IS NOT NULL THEN RAISE EXCEPTION 'rollback_order: invariants_before_core'; END IF; END $$;
+DO $$ BEGIN IF position('issue335-status-v2l' in pg_get_functiondef('public._derive_paid_amount(uuid)'::regprocedure))>0
+ OR position('issue335-approval-v2l' in pg_get_functiondef('public.enforce_transaction_approval_permission()'::regprocedure))>0
+ THEN RAISE EXCEPTION 'rollback_order: status_and_approval_before_core'; END IF; END $$;
+GRANT issue335_executor TO postgres WITH INHERIT FALSE, SET TRUE;
 DROP TRIGGER IF EXISTS issue335_guard ON public.transaction_offset_groups;
 DROP TRIGGER IF EXISTS issue335_guard ON public.transaction_offset_items;
 DROP TRIGGER IF EXISTS issue335_guard ON public.transaction_payments;
@@ -13,6 +17,7 @@ DROP VIEW IF EXISTS public.issue335_commands;
 DROP FUNCTION IF EXISTS public.transaction_offset_execute(uuid,uuid,jsonb,jsonb,date,text);
 DROP FUNCTION IF EXISTS public.transaction_offset_reverse(uuid,uuid,text);
 DROP FUNCTION IF EXISTS public.issue335_dispatch();
+DROP FUNCTION IF EXISTS public.issue335_worker(jsonb);
 DROP FUNCTION IF EXISTS public._issue335_execute(uuid,uuid,jsonb,jsonb,date,text);
 DROP FUNCTION IF EXISTS public._issue335_reverse(uuid,uuid,text);
 DROP FUNCTION IF EXISTS public.issue335_guard();
@@ -692,12 +697,16 @@ DROP POLICY IF EXISTS issue335_internal ON public.system_audit_log;
 DROP POLICY IF EXISTS issue335_internal ON public.event_settlements;
 DROP FUNCTION IF EXISTS public.issue335_payment_flow_blocked(uuid);
 DROP FUNCTION IF EXISTS public.issue335_camarim_leg(uuid);
+DROP FUNCTION IF EXISTS public.issue335_lock_parents(text,uuid[]);
+DROP FUNCTION IF EXISTS public.issue335_context_valid(text);
+DROP TABLE public.issue335_execution_context;
 REVOKE ALL ON public.transaction_offset_control FROM issue335_executor;
 REVOKE ALL ON public.companies,public.suppliers,public.events,public.financial_accounts,public.partner_paid_expenses,public.event_settlements,public.payment_list_items,public.payment_lists,public.payment_list_sepa_exports,public.event_forecasts,public.transactions,public.transaction_payments,public.transaction_offsets,public.bank_statement_lines,public.bank_line_transactions,public.transaction_offset_groups,public.transaction_offset_items,public.forecast_audit_log,public.transaction_audit_log,public.system_audit_log FROM issue335_executor;
 REVOKE ALL ON FUNCTION public.can_see_confidential(uuid),public.has_permission(uuid,text),public.is_platform_admin(uuid) FROM issue335_executor;
 REVOKE ALL ON FUNCTION public.current_company_id(),public.has_role(uuid,public.app_role),public.bp_tx_link_allowed(uuid,uuid,uuid,uuid),public._derive_paid_amount(uuid) FROM issue335_executor;
 REVOKE ALL ON FUNCTION public.reconcile_bank_line(uuid,jsonb) FROM issue335_executor;
 REVOKE ALL ON SCHEMA public FROM issue335_executor;
+REVOKE issue335_executor FROM postgres;
 DROP ROLE issue335_executor;
 -- Restore the exact Live ACL of shared helpers that the core granted to the executor (catalog snapshot).
 REVOKE ALL ON FUNCTION public._derive_paid_amount(uuid),public.bp_tx_link_allowed(uuid,uuid,uuid,uuid) FROM PUBLIC,anon,authenticated;

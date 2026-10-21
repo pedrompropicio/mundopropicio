@@ -793,3 +793,41 @@ concorrência/writers reais, backups coerentes e saldos deverá ter autorizaçã
 API: remoto main=f4cf8d4b9ef977cff4c0088cc11ce25d019c759e, CI success run 39670367135, ficheiro phase2k-focused
 devolve 404 nesse SHA. HEAD local observado ee65756f55da960ab6b6c057846bde72964c22f8. CI NÃO cobre os edits 2k.
 NÃO pronto para pedir A–C. Artefactos e outputs em live/phase2k; hashes em issue335-fase2k-hashes.sha256.
+
+## Fase 2l — PARCIAL / NÃO ACEITE (21/10/2026)
+
+Nada instalado em Live. Sem migrations/tool, DDL/DML Live, Publish, deploy ou alteração de UI. SELECT Live exclusivamente a catálogo de funções (owners/ACL/search_path/md5 prosrc); nenhuma linha empresarial nem nova contagem.
+Restauro conservador mantido: empresa com história gerida recusada; control nunca restaurável. Reserva #335 mantida; #322/#323 preservadas.
+
+### Achados e alterações locais
+- M1 ANTES: postgres SET ROLE executor passou; chamada interna com JWT válido atingiu `invalid_request`, logo ultrapassou a barreira de identidade. DEPOIS: associação temporária só durante instalação, revogada antes COMMIT; contexto privado backend PID+xid8+token+op criado pelo trigger de comandos. Guard/worker/core exigem contexto e profundidade de trigger. GUC isolada/reutilizada não autoriza. Cinco UPDATE amplos removidos; locks de events/settlements delegados a helper sem DML, fornecedor/conta usam advisory. Contexto desaparece ao terminar RPC/abortar. Table owner verdadeiro continua administrador, fora do modelo de adversário; não se promete impedir postgres de reescrever objetos.
+- M1: 3 marcadores focados como postgres NOSUPERUSER, simulação explícita de SET-role após devolver apenas membership em transação revertida; authenticated worker negado, token falso/contexto INSERT e UPDATE nas cinco tabelas recusados. Matriz completa service_role/sandbox/direct triggers não encerrada.
+- M3: novo candidato SEPARADO `_derive_paid_amount` mantém toda fórmula legada fora de reversão provada. Guarda restaura prior_status/prior_payment_date, paid_amount só pela derivação real. Approval exige contexto reverse, prova de grupo reverting, pernas revertidas e valores anteriores. Parcialmente pago sem candidato status é recusado antes de escrever. Status candidato exige marker approval; rollback core exige desfazer ambos primeiro. 3 marcadores: ordem errada e approved/partially_paid exatos. Caso parcialmente pago com pernas anteriores não nulas e matriz status paid ainda não fechados. paid sem dívida continua recusado pelo núcleo.
+- M4: enabled para admissão, reverse_enabled para emergência. Nível1 enabled=false conserva estorno; nível2 ambos false; reativação explícita, ACLs nunca reescritas. Erro `encontro_desativado`. Fence advisory exclusivo drena operações admitidas; testes concorrentes existentes repetidos, expectativas de erro atualizadas de 42501 para P0001 encontro_desativado, não removidas. 3 novos marcadores nível1/reverse, nível2/reverse, igualdade ACL de entradas e writers legados. Corridas específicas emergência/reverse ainda abertas.
+- Runners agora falham efetivamente com FAIL, instruções não instaladas ou diferenças não explicadas. O primeiro ensaio novo detectou default ACL vazada no worker após ALTER OWNER: corrigido REVOKE executado como dono executor; suite sandbox voltou a passar.
+- Rollback restore agora também recusa história antes de repor objeto inseguro. Candidatos adicionais permanecem separados e inertes.
+
+### Resultados executados
+- PG17.6 exato, catálogo capturado 15.529 instruções/0 falhas/0 diferenças não explicadas e 2.934 RI iguais; postgres NOSUPERUSER, triggers reais.
+- Suite completa atualizada `phase2h-run.sh`: 14/14 grupos PASS incluindo phase2l (9 marcadores), exit0. Não significa os 11 requisitos integralmente aceites.
+- Harness limpo separado: 12 pares instalados/desfeitos, captura integral antes=depois; diferenças `{}`. Funções/ACL/owners/roles/membership/defaults/colunas/índices/triggers/RI/policies/views incluídos. Status rollback prosrc original incluído.
+- Vitest primeira execução: 1 ficheiro falhou por timeout beforeAll Newgang (1944 passed). Repetição completa SEM editar testes, maxWorkers=4: 221 passed/2 skipped; 1953 passed,6 skipped,11 todo, exit0.
+- tsgo/tsc NÃO executados: proibição do ambiente de typecheck manual. Build automático observado OK. Não usar esse sinal como tsc.
+- Artefactos integrais em `supabase/tests/issue335/live/phase2l/`. Manifesto externo `docs/testes/issue335-fase2l-hashes.sha256` (sem circularidade).
+
+### Pendências obrigatórias — não resolvidas nesta fase
+- M5/M7: inventário transitivo completo locks/writers/triggers, novas três sessões wait_event/barreiras e caminhos legais/recusas mirror/card/shared/cache/settlement/transitórias/reembolso. Testes anteriores passaram; não substituem nova matriz.
+- M6: vigia independente por perna/extrato/união conta documento-perna-grupo, as-of, corrupção ainda NÃO implementada. Vigia atual reutiliza fórmula e não pode certificar independentemente. `cash_account_inconsistent` mantido. Para 352 casos históricos da 2k (347 nula,5 diferente): só propor auditoria classificada por documento/perna/corte e decisão manual; nunca preencher/apagar automaticamente nem mudar saldo legado.
+- E: matriz integral por coluna com valores válidos/editor/manager e paridade legada ainda aberta.
+- Baixos: user_permissions/RLS, replay por outro utilizador, impacto completo sandbox REVOKE, edge upserts/imports/ON DELETE, tamanho/índices ainda abertos. `request_actor_mismatch` acrescentado à replay mas não novo teste específico.
+- Leituras por ficheiro: manifesto explícito `issue335-fase2l-leituras.md`; requisito completo NÃO satisfeito.
+- Cliente (nenhuma UI alterada): account-balance.ts e ReportBankStatement/ReportCashFlow retêm paid_amount/account_id. BankReconciliation escreve links/statement. Decisão recomendada: separar dinheiro/liquidação para documentos geridos, preservar corte legado; exige desenho/testes próprios, não aplicar nesta tarefa. Inventário ainda não exaustivo.
+
+### A/B/C e candidatos / risco / ordem
+A storage: control reverse_enabled, items prior_payment_date, contexto privado. B core: guards/dispatch/worker, privilégios mínimos e locks, wrappers legados. C invariants/registry: original mantido, vigia independente aberta. Todos NÃO aceites para aplicação.
+Separados: balance (2 funções), approval (1 trigger function), status (derive), cash_position, cash-invariant, restore; kill-switch/emergency/reactivation operacionais. Diff novo derive em live/phase2l; demais diffs existentes 2k não regenerados integralmente: lacuna declarada.
+Ordem local rollback testada: storage→core→invariants→balance→approval→status→kill-switch→emergency→reactivation→cash→cash-invariant→restore; inverso para zero história. Risco: regressão de status/ACL/writers e bloqueio conservador de restauro; com história nunca remover guards/objetos, apenas procedimento operacional autorizado.
+Nível1: executar candidato kill_switch, esperar confirmação (drain); estornos permitidos. Nível2: emergency, ambos bloqueados. Voltar de nível2 a nível1 via emergency rollback; reativação plena via reactivation após revisão; sem tocar GRANT. Os scripts operacionais têm estados de origem distintos, rollback não é restauração arbitrária de estado desconhecido. Restauração exata de flags prévias arbitrárias NÃO provada; requisitoM4 permanece parcial.
+Provas futuras Live BEGIN…ROLLBACK (não executadas): owners/ACL reais, aprovação/status com linhas reais, coerência saldos/extrato, locks concorrentes/backups e importações. Só depois da aceitação técnica e de Sim separado.
+API remoto observado: main `59e8fe039e929512ca837edf43ff4b4f47c89c9c`; CI success run39676081024; phase2l.sql HTTP404 nesse SHA. Não contém os edits 2l; presença/hash/CI final NÃO comprovados. Nenhum commit/push manual.
+Conclusão: 2l PARCIAL / NÃO ACEITE, não pronto para pedir A–C. Bloqueios técnicos não exigem nova decisão comercial; autorização de instalação permanece separada.

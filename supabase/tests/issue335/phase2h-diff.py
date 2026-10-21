@@ -64,3 +64,5 @@ json.dump(dict(equal=equal, summary=summary, differences=rows), open(sys.argv[3]
 print('equal', equal)
 print('diffs', json.dumps(summary, ensure_ascii=False))
 print('UNEXPLAINED total', sum(1 for r in rows if not r['explained']))
+if any(not r['explained'] for r in rows):
+    sys.exit(1)

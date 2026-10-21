@@ -93,13 +93,13 @@ ko=Path(root+'/supabase/manual/20261021_issue335_offset_kill_switch.ROLLBACK-INE
 sql(obs,ks)
 a,b=fixture()
 sql(s2,'SET ROLE authenticated')
-assert outcome(s2,*call(a,b))[0]=='42501'   # fechado: entrada sem EXECUTE
+assert outcome(s2,*call(a,b))==('P0001','encontro_desativado')
 sql(s2,'RESET ROLE')
 reopen=ko.replace('BEGIN;','',1).replace('COMMIT;','')
 sql(s1,'BEGIN'); sql(s1,reopen)   # reabertura em curso: advisory (335,1) exclusivo + flag true não confirmada
 sql(s2,'SET ROLE authenticated')
-r=outcome(s2,*call(a,b))  # ACL ainda fechada (GRANT não confirmado) → 42501 exacto, sem esperar
-assert r[0]=='42501',r
+r=outcome(s2,*call(a,b))  # old committed admission flag still false; exact clear rejection
+assert r==('P0001','encontro_desativado'),r
 sql(s1,'COMMIT')
 r=outcome(s2,*call(a,b)); assert r[0]=='ok',r
 print('PASS 2j F4 reabertura em curso: chamada antes do commit 42501 exacto (sem grupo); depois do commit aplica (1 grupo)')
@@ -112,7 +112,7 @@ fut=pool.submit(outcome,s1,ks,None); blocked(s1.get_backend_pid(),s2.get_backend
 sql(s2,'ROLLBACK')   # in-flight abortado pelo próprio cliente
 assert fut.result(timeout=12)[0]=='ok'
 assert groups(a)==0
-r=outcome(s2,*call(a,b)); assert r[0]=='42501',r
+r=outcome(s2,*call(a,b)); assert r==('P0001','encontro_desativado'),r
 print('PASS 2j F4b in-flight abortado + fecho: zero grupo; fecho conclui; nova chamada 42501; reverse também fechado:',outcome(s2,"SELECT transaction_offset_reverse(%s,%s,'x')",(str(uuid.uuid4()),str(uuid.uuid4())))[0])
 sql(s2,'RESET ROLE'); sql(obs,ko)
 print('F3_RESULT',F3_RESULT)
