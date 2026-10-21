@@ -138,6 +138,10 @@ BEGIN
  h:=encode(sha256(convert_to(jsonb_build_object('supplier',p_supplier_id,'items',p_items,'movement',p_movement,'date',p_date,'note',p_note)::text,'UTF8')),'hex');
  -- Request identity is serialized before checking the durable result.
  PERFORM pg_advisory_xact_lock(hashtextextended(company::text||p_request_id::text,335));
+ -- Admission fence: recheck after the potentially waiting request lock, and
+ -- retain SHARE until commit. Closure drains admitted writes before returning.
+ PERFORM 1 FROM public.transaction_offset_control WHERE singleton AND enabled FOR SHARE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'encontro_desativado'; END IF;
  SELECT * INTO g FROM public.transaction_offset_groups WHERE company_id=company AND request_id=p_request_id;
  IF FOUND THEN
   IF g.request_hash<>h THEN RAISE EXCEPTION 'request_changed'; END IF;
@@ -255,6 +259,8 @@ DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid 
  PERFORM set_config('lock_timeout','5s',true);
  IF public.issue335_uid() IS NULL OR NOT public.has_role(public.issue335_uid(),'admin') THEN RAISE EXCEPTION 'permission_denied'; END IF;
  IF p_request_id IS NULL OR nullif(trim(p_reason),'') IS NULL THEN RAISE EXCEPTION 'reason_required'; END IF;
+ PERFORM 1 FROM public.transaction_offset_control WHERE singleton AND enabled FOR SHARE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'encontro_desativado'; END IF;
  -- Nonwaiting locks prevent cycles with legacy writers (which use inverted orders).
  PERFORM 1 FROM public.companies WHERE id=public.current_company_id() FOR NO KEY UPDATE NOWAIT;
  PERFORM 1 FROM public.suppliers WHERE id IN (SELECT supplier_id FROM public.transaction_offset_groups WHERE id=p_group_id AND company_id=public.current_company_id()) ORDER BY id FOR NO KEY UPDATE NOWAIT;
