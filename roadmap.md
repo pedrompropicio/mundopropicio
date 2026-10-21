@@ -40,3 +40,6 @@
 - [ ] #335 fase 2b aceitação bloqueada tecnicamente: reproduzir auth/RLS/ACL/constraints transitivas reais; diferencial BP master/âncoras/empates; concorrência cruzada entre writers; falhas em criação BP/adaptador banco; rollback ACL integral. Tipos manuais não executados por regra da plataforma. Não requer decisão comercial para corrigir estes pontos.
 - [ ] #335 aplicação A–C, UI e provas Live bloqueadas por autorização separada do Pedro.
 - [ ] #335 fase 2c: fechar paridade catálogo/auth, diferencial matching, concorrência cruzada, falhas banco/BP e rollback/invariantes; repetir PG/Vitest e documentar divergências reais, sem aplicação Live.
+
+- [ ] #335 fase 2d: reproduzir papel real/default ACL; verificar e corrigir 12 achados e testes locais completos.
+- [ ] #335 A–C: não aplicar; autorização separada de Pedro obrigatória.

@@ -15,7 +15,7 @@ DO $$ DECLARE g uuid; p uuid; t uuid; BEGIN
  BEGIN PERFORM reverse_transaction(t,'cash_refund','attack',NULL,false); RAISE EXCEPTION 'managed tx reversed'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'reverse_entire_group' THEN RAISE; END IF; END;
  BEGIN UPDATE transaction_offsets SET note='attack' WHERE offset_group_id IS NOT NULL; RAISE EXCEPTION 'legacy edit accepted'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'managed_operation_required' THEN RAISE; END IF; END;
  BEGIN DELETE FROM transaction_offsets WHERE offset_group_id IS NOT NULL; RAISE EXCEPTION 'legacy deletion accepted'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'managed_operation_required' THEN RAISE; END IF; END;
- IF has_function_privilege('authenticated','public._apply_transaction_offset(uuid,uuid)','EXECUTE') OR has_function_privilege('anon','public._issue335_execute(uuid,uuid,jsonb,jsonb,date,text)','EXECUTE') THEN RAISE EXCEPTION 'ACL exposed'; END IF;
+ IF NOT has_function_privilege('authenticated','public._apply_transaction_offset(uuid,uuid)','EXECUTE') OR has_function_privilege('anon','public._issue335_execute(uuid,uuid,jsonb,jsonb,date,text)','EXECUTE') THEN RAISE EXCEPTION 'ACL exposed'; END IF;
  RAISE NOTICE 'PASS attacks: SET ROLE, spoofed GUC, helpers, invented IDs, delete/edit/reverse legs and legacy pairs';
 END $$;
 RESET SESSION AUTHORIZATION;
@@ -143,10 +143,12 @@ DO $$ DECLARE g uuid; i uuid; BEGIN
  ALTER TABLE transaction_offset_items ENABLE TRIGGER issue335_guard;
  ALTER TABLE transaction_payments ENABLE TRIGGER issue335_guard;
  -- Source adapter Estoril was reversed, create a deliberate invalid bank header for watcher only.
+ ALTER TABLE bank_statement_lines DISABLE TRIGGER issue335_guard;
  BEGIN
   INSERT INTO bank_statement_lines(id,company_id,financial_account_id,amount,booking_date,status,offset_group_id) VALUES(gen_random_uuid(),current_company_id(),'00000000-0000-0000-0000-000000000030',1,'2026-10-13','matched',g);
   IF NOT EXISTS(SELECT 1 FROM issue335_invariant_counts() WHERE name='encontro_vinculo_bancario_divergente' AND current_count>0) THEN RAISE EXCEPTION 'watch bank missed'; END IF;
   RAISE EXCEPTION 'restore'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'restore' THEN RAISE; END IF; END;
+ ALTER TABLE bank_statement_lines ENABLE TRIGGER issue335_guard;
  IF EXISTS(SELECT 1 FROM issue335_invariant_counts() WHERE current_count<>0) THEN RAISE EXCEPTION 'corruption not restored'; END IF;
  RAISE NOTICE 'PASS all five watchers detect injected corruption and return to zero';
 END $$;

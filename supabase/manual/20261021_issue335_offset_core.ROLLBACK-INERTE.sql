@@ -1,12 +1,14 @@
 -- INERTE: zero-history restoration only. Never apply to Live without separate authorization.
 BEGIN;
 SET LOCAL lock_timeout='5s';
-DO $$ BEGIN IF EXISTS(SELECT 1 FROM public.transaction_offset_groups) THEN RAISE EXCEPTION 'groups_exist_keep_guards'; END IF; END $$;
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM public.transaction_offset_groups) THEN RAISE EXCEPTION 'groups_exist_keep_guards'; END IF; IF to_regprocedure('public.issue335_invariant_counts()') IS NOT NULL THEN RAISE EXCEPTION 'rollback_order: invariants_before_core'; END IF; END $$;
 DROP TRIGGER IF EXISTS issue335_guard ON public.transaction_offset_groups;
 DROP TRIGGER IF EXISTS issue335_guard ON public.transaction_offset_items;
 DROP TRIGGER IF EXISTS issue335_guard ON public.transaction_payments;
 DROP TRIGGER IF EXISTS issue335_guard ON public.transaction_offsets;
 DROP TRIGGER IF EXISTS issue335_guard ON public.transactions;
+DROP TRIGGER IF EXISTS issue335_guard ON public.bank_statement_lines;
+DROP TRIGGER IF EXISTS issue335_guard ON public.bank_line_transactions;
 DROP VIEW IF EXISTS public.issue335_commands;
 DROP FUNCTION IF EXISTS public.transaction_offset_execute(uuid,uuid,jsonb,jsonb,date,text);
 DROP FUNCTION IF EXISTS public.transaction_offset_reverse(uuid,uuid,text);
@@ -14,6 +16,7 @@ DROP FUNCTION IF EXISTS public.issue335_dispatch();
 DROP FUNCTION IF EXISTS public._issue335_execute(uuid,uuid,jsonb,jsonb,date,text);
 DROP FUNCTION IF EXISTS public._issue335_reverse(uuid,uuid,text);
 DROP FUNCTION IF EXISTS public.issue335_guard();
+DROP FUNCTION IF EXISTS public.issue335_uid();
 DROP FUNCTION IF EXISTS public.issue335_matching_transactions(uuid);
 DROP FUNCTION IF EXISTS public.issue335_score(text,text);
 DROP FUNCTION IF EXISTS public.issue335_normalize(text);
@@ -667,8 +670,6 @@ GRANT EXECUTE ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, 
 GRANT EXECUTE ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date, p_release_for_repayment boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date, p_release_for_repayment boolean) TO service_role;
 GRANT EXECUTE ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date, p_release_for_repayment boolean) TO sandbox_exec_sfohvvlqccmmebvjgibx;
-DROP POLICY IF EXISTS issue335_identity ON public.profiles;
-DROP POLICY IF EXISTS issue335_identity ON public.user_roles;
 DROP POLICY IF EXISTS issue335_internal ON public.companies;
 DROP POLICY IF EXISTS issue335_internal ON public.suppliers;
 DROP POLICY IF EXISTS issue335_internal ON public.events;
@@ -684,7 +685,11 @@ DROP POLICY IF EXISTS issue335_internal ON public.transaction_offset_items;
 DROP POLICY IF EXISTS issue335_internal ON public.forecast_audit_log;
 DROP POLICY IF EXISTS issue335_internal ON public.transaction_audit_log;
 DROP POLICY IF EXISTS issue335_internal ON public.system_audit_log;
-DROP OWNED BY issue335_executor;
+DROP POLICY IF EXISTS issue335_internal ON public.event_settlements;
+REVOKE ALL ON public.companies,public.suppliers,public.events,public.financial_accounts,public.partner_paid_expenses,public.event_settlements,public.event_forecasts,public.transactions,public.transaction_payments,public.transaction_offsets,public.bank_statement_lines,public.bank_line_transactions,public.transaction_offset_groups,public.transaction_offset_items,public.forecast_audit_log,public.transaction_audit_log,public.system_audit_log FROM issue335_executor;
+REVOKE ALL ON FUNCTION public.current_company_id(),public.has_role(uuid,public.app_role),public.bp_tx_link_allowed(uuid,uuid,uuid,uuid),public._derive_paid_amount(uuid) FROM issue335_executor;
+REVOKE ALL ON FUNCTION public.reconcile_bank_line(uuid,jsonb) FROM issue335_executor;
+REVOKE ALL ON SCHEMA public FROM issue335_executor;
 DROP ROLE issue335_executor;
 -- Restore the exact Live ACL of shared helpers that the core granted to the executor (catalog snapshot).
 REVOKE ALL ON FUNCTION public._derive_paid_amount(uuid),public.bp_tx_link_allowed(uuid,uuid,uuid,uuid) FROM PUBLIC,anon,authenticated;
