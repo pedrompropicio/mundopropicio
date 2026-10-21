@@ -45,8 +45,16 @@ def blocked(waiter,holder):
         if sql(observer,'SELECT %s=ANY(pg_blocking_pids(%s))',(holder,waiter))[0][0]:
             return
     raise AssertionError('expected exact lock edge not observed')
+original=sql(observer,"SELECT pg_get_functiondef('public._issue335_execute(uuid,uuid,jsonb,jsonb,date,text)'::regprocedure)")[0][0]
+fence=""" -- Admission fence: recheck after the potentially waiting request lock, and
+ -- retain SHARE until commit. Closure drains admitted writes before returning.
+ PERFORM 1 FROM public.transaction_offset_control WHERE singleton AND enabled FOR SHARE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'encontro_desativado'; END IF;
+"""
+assert fence in original
+sql(observer,original.replace(fence,''))
 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-    # Deterministic stale admission proof BEFORE any correction.
+    # Deterministic stale admission BEFORE, then same schedule AFTER correction.
     ids=fixture(); request=str(uuid.uuid4())
     key=sql(s1,'SELECT hashtextextended(%s,335)',(company+request,))[0][0]
     sql(s1,'SELECT pg_advisory_lock(%s)',(key,))
@@ -64,5 +72,20 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
     result=outcome(s2,*call(ids,str(uuid.uuid4())))
     assert result[0]=='42501',result
     print('REPRODUCED 2f F/I: in-flight invocation applies AFTER switch committed; one group, three legs. Fresh call 42501. OPEN, not corrected.')
+    sql(observer,Path(root+'/supabase/manual/20261021_issue335_offset_kill_switch.ROLLBACK-INERTE.sql').read_text())
+    sql(observer,original)
+    ids=fixture(); request=str(uuid.uuid4())
+    key=sql(s1,'SELECT hashtextextended(%s,335)',(company+request,))[0][0]
+    sql(s1,'SELECT pg_advisory_lock(%s)',(key,))
+    future=pool.submit(outcome,s2,*call(ids,request))
+    blocked(s2.get_backend_pid(),s1.get_backend_pid())
+    sql(observer,Path(root+'/supabase/manual/20261021_issue335_offset_kill_switch.INERTE.sql').read_text())
+    sql(s1,'SELECT pg_advisory_unlock(%s)',(key,))
+    result=future.result(timeout=12)
+    assert result==('P0001','encontro_desativado'),result
+    assert sql(observer,'SELECT count(*) FROM transaction_offset_groups WHERE request_id=%s',(request,))[0][0]==0
+    assert sql(observer,'SELECT count(*) FROM transaction_payments WHERE transaction_id=ANY(%s::uuid[])',(ids,))[0][0]==0
+    assert outcome(s2,*call(ids,str(uuid.uuid4())))[0]=='42501'
+    print('PASS 2f F/I AFTER: same observed request-lock edge; closure committed first; resumed call encontro_desativado, zero group/payments, fresh call 42501.')
     sql(observer,Path(root+'/supabase/manual/20261021_issue335_offset_kill_switch.ROLLBACK-INERTE.sql').read_text())
 for c in conns:c.close()
