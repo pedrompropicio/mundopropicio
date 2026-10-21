@@ -49,4 +49,13 @@ DO $$ BEGIN
  -- Legacy 0228 counts DISTINCT tuple rows, including one NULL identity per day/key.
  IF (SELECT count(*) FROM (SELECT DISTINCT hour_utc::date,dim->>0,dim->>2 FROM song_link_report_visitors_hourly WHERE kind='channel' AND n>0) x)<>2 THEN RAISE EXCEPTION 'NULL identity must match legacy tuple DISTINCT'; END IF;
 END $$;
+SELECT song_link_report_hourly_validate('00000000-0000-0000-0000-000000000001');
+DO $$ BEGIN
+ IF NOT (SELECT ready FROM song_link_report_hourly_state LIMIT 1) THEN RAISE EXCEPTION 'complete validated aggregate must become ready'; END IF;
+ IF (SELECT sum(n) FROM song_link_report_arrivals('00000000-0000-0000-0000-000000000001','2026-10-18','2026-10-18',NULL) WHERE kind='channel')<>4 THEN RAISE EXCEPTION 'ready reader returns four arrivals'; END IF;
+END $$;
+UPDATE song_link_report_hourly_state SET ready=false;
+DO $$ BEGIN
+ IF (SELECT sum(n) FROM song_link_report_arrivals('00000000-0000-0000-0000-000000000001','2026-10-18','2026-10-18',NULL) WHERE kind='channel')<>4 THEN RAISE EXCEPTION 'unready reader falls back to source'; END IF;
+END $$;
 ROLLBACK;
