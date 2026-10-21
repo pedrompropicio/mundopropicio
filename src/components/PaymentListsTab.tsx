@@ -28,7 +28,7 @@ import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModa
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { BatchPaymentModal } from "@/components/BatchPaymentModal";
 import SepaExportModal, { type SepaCandidate } from "@/components/SepaExportModal";
-import { appendEventToDescription } from "@/lib/sepa/pain001";
+import { appendEventToDescription, formatLocalDate } from "@/lib/sepa/pain001";
 import { normalizeIban } from "@/lib/iban";
 import { checkPaymentBankability, isBankable, isInternalNoIban, internalNoIbanBadgeProps, isSocialSecurityByNif, socialSecurityBadgeProps, SEPA_INTERNAL_NO_IBAN_REASON, SEPA_SOCIAL_SECURITY_REASON, resolvePaymentIban, resolvePaymentCreditorName, noIbanBadgeProps, NO_IBAN_TOOLTIP } from "@/lib/payment-iban";
 import NoIbanBadge from "@/components/NoIbanBadge";
@@ -938,8 +938,9 @@ function InvoiceGroupHeaderRow({
 
 function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { user } = useAuth();
-  const [title, setTitle] = useState(`Pagamentos ${new Date().toLocaleDateString("pt-PT")}`);
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+  const [initialDate] = useState(() => formatLocalDate(new Date(Date.now())));
+  const [title, setTitle] = useState(() => `Pagamentos ${initialDate.split("-").reverse().join("/")}`);
+  const [paymentDate, setPaymentDate] = useState(initialDate);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
 
