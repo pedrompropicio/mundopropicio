@@ -72,7 +72,8 @@ DO $$ DECLARE ev uuid; es uuid; a uuid; b uuid; items jsonb; g uuid; BEGIN
  BEGIN PERFORM transaction_offset_reverse(g,gen_random_uuid(),'sealed attack'); RAISE EXCEPTION 'sealed reversed'; EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE 'sealed_settlement:%' THEN RAISE; END IF; END;
  UPDATE event_settlements SET is_sealed=false WHERE id=es;
  PERFORM transaction_offset_reverse(g,gen_random_uuid(),'unsealed');
- UPDATE event_settlements SET is_sealed=true WHERE id=es;
+ -- 2i: em Live o selo só muda por seal_event_settlement (guard_sealed_event_settlement); antes: UPDATE directo.
+ PERFORM seal_event_settlement(es,'{"check1":0,"check2":0}'::jsonb,NULL,'LOCAL 2d');
  BEGIN PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13'); RAISE EXCEPTION 'sealed applied'; EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE 'sealed_settlement:%' THEN RAISE; END IF; END;
  RAISE NOTICE 'PASS 10/seal: settlement-linked document apply/reverse unsealed; sealed apply/reverse denied even with forged seal GUC';
 END $$;
