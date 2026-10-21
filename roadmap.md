@@ -30,4 +30,4 @@
 - [x] Litto 3: AUCTION_CAMPAIGN implementado, 76 linhas/30 dias; dias fechados API=37.458,33, zero divergências; 8 testes Deno passaram; sem DDL/apagar/Publish.
 - [x] Urgente alertas fontes: emails bloqueados e zero na fila; regra 5/14 dias, ativo/elenco/ativo/non-reference, lotes excluídos; só Litto tiktok_artists (6 dias); resumo único e PK claim até recuperação, 10 testes locais. Email continua desligado.
 - [x] Alertas sem entrega/parada: datas inclusivas por conta nas três plataformas; campos existentes Google/Meta e raw TikTok já guardam datas; painel 2→1, log 4→3, Google resolvido. 16 testes e cinco contas reais HTTP 200; sem DDL de tabelas/apagar/Publish.
-- [ ] SEPA Lisboa: corrigir datas/carimbos, testar Brasil às 22h e DST, validar e libertar reserva; sem dados/DDL/DML/Publish.
+- [x] SEPA Lisboa: datas/carimbos e data inicial da lista corrigidos; 18 testes em Brasil e Lisboa, DST e validação automática OK; reserva libertada, sem dados/DDL/DML/Publish. Aceitação bancária depende do próximo upload do Pedro.
