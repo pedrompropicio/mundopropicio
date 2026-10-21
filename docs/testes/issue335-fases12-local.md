@@ -687,5 +687,5 @@ pelo executor. Risco: função definer (mitigado por ACL + search_path). Rollbac
   J7/J7b camarim recusado. Guarda de débito servidor: `account_has_balance_for` só é consultada pelo cliente
   (sem writer servidor que a imponha) — interacção documentada, não reforçada.
 - Matching: paridade 8 casos JS↔SQL no harness fiel PASS.
-- F/I: barreira por `pg_blocking_pids` (aresta observada), sem sleeps, sem erros tolerados. Os testes 2f antigos
+- F/I: barreira por `pg_blocking_pids` (aresta observada, polling com prazo 8s, sem sleep fixo), sem erros tolerados. Os testes 2f antigos
   continuam na suite. Não testado: encontro em curso × inclusão em lista (fica legado: lista após pagamento).
