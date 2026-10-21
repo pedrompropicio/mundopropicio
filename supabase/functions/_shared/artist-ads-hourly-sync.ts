@@ -105,7 +105,15 @@ export async function syncTraffic(admin:any,artistId:string,requestId:string,mod
           }
         }
       }
-    }catch(e){stats.status=written>0?'partial':'error';stats.reason=e instanceof Error?e.message:'sync_failed';detail.push({platform:conn.platform,connection_id:conn.id,error:stats.reason});}
+    }catch(e){
+      stats.status=written>0?'partial':'error';
+      const message=e instanceof Error?e.message:'sync_failed';
+      stats.reason=/^[a-z_]+(?::[a-zA-Z0-9_-]+)?$/.test(message)?message:'platform_request_failed';
+      detail.push({platform:conn.platform,connection_id:conn.id,error:stats.reason});
+      stats.api_calls+=callCount;stats.rows_written+=written;
+      for(const later of Object.values(results))if(later.status==='not_connected'){later.status='not_attempted';later.reason='stopped_after_error';}
+      return {results,detail};
+    }
     stats.api_calls+=callCount;stats.rows_written+=written;
   }
   for(const stats of Object.values(results))if(stats.status==='success')stats.last_synced_at=new Date().toISOString();
