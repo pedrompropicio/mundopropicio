@@ -34,3 +34,4 @@ run_sql phase2g-approval "$S/phase2g-approval.sql"
 # 2j: paridade do matching (gerado pelo helper JS canónico) e matrizes E/A/camarim/selo/janela/restauro.
 if (cd "$ROOT" && bun "$S/matching-parity.ts") > "$OUT/parity.raw.sql" 2>"$OUT/parity.gen.err"; then run_sql matching-parity "$OUT/parity.raw.sql"; else echo "FAIL matching-parity: gerador $(tail -1 "$OUT/parity.gen.err")" | tee -a "$res"; fi
 run_sql phase2j "$S/phase2j.sql"
+if python3 "$S/phase2j-concurrency.py" "$D" "$PORT" "$ROOT" > "$OUT/concurrency2j.out" 2>&1; then echo "PASS phase2j-concurrency ($(grep -c PASS "$OUT/concurrency2j.out") marcadores)" | tee -a "$res"; else echo "FAIL phase2j-concurrency (rc=$?): $(grep -E 'ACHADO|Error|assert' "$OUT/concurrency2j.out" | tail -1)" | tee -a "$res"; fi
