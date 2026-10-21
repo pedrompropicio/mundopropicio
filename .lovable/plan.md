@@ -263,9 +263,9 @@ BEGIN
       AND x.grantee<>(SELECT oid FROM pg_roles WHERE rolname='service_role')) THEN
     RAISE EXCEPTION 'fase1: ACL inesperada em tabela/coluna';
   END IF;
-  IF EXISTS(SELECT 1 FROM pg_roles r WHERE (r.rolname IN ('anon','authenticated') OR r.rolname='sandbox_exec'
-      OR r.rolname LIKE 'sandbox_exec_%') AND (has_table_privilege(r.oid,'crm.ads_insights_hourly','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
-      OR has_table_privilege(r.oid,'public.artist_ads_refresh_control','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))) THEN
+  IF EXISTS(SELECT 1 FROM pg_roles role_check WHERE (role_check.rolname IN ('anon','authenticated') OR role_check.rolname='sandbox_exec'
+      OR role_check.rolname LIKE 'sandbox_exec_%') AND (has_table_privilege(role_check.oid,'crm.ads_insights_hourly','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+      OR has_table_privilege(role_check.oid,'public.artist_ads_refresh_control','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))) THEN
     RAISE EXCEPTION 'fase1: acesso efetivo inesperado, incluindo herança';
   END IF;
   IF EXISTS(SELECT 1 FROM pg_proc p,LATERAL aclexplode(p.proacl) a WHERE p.oid IN
@@ -275,11 +275,11 @@ BEGIN
       CASE WHEN p.proname='artist_ads_refresh_claim' THEN (SELECT oid FROM pg_roles WHERE rolname='authenticated') ELSE p.proowner END)) THEN
     RAISE EXCEPTION 'fase1: ACL inesperada em função';
   END IF;
-  IF EXISTS(SELECT 1 FROM pg_roles r WHERE (r.rolname='anon' OR r.rolname='sandbox_exec'
-      OR r.rolname LIKE 'sandbox_exec_%') AND
-    (has_function_privilege(r.oid,'public.artist_ads_refresh_claim(uuid,boolean)','EXECUTE')
-     OR has_function_privilege(r.oid,'public.artist_ads_refresh_finish(uuid,uuid,jsonb)','EXECUTE')
-     OR has_function_privilege(r.oid,'crm.ads_hourly_validate_connection()','EXECUTE')))
+  IF EXISTS(SELECT 1 FROM pg_roles role_check WHERE (role_check.rolname='anon' OR role_check.rolname='sandbox_exec'
+      OR role_check.rolname LIKE 'sandbox_exec_%') AND
+    (has_function_privilege(role_check.oid,'public.artist_ads_refresh_claim(uuid,boolean)','EXECUTE')
+     OR has_function_privilege(role_check.oid,'public.artist_ads_refresh_finish(uuid,uuid,jsonb)','EXECUTE')
+     OR has_function_privilege(role_check.oid,'crm.ads_hourly_validate_connection()','EXECUTE')))
     OR has_function_privilege('authenticated','public.artist_ads_refresh_finish(uuid,uuid,jsonb)','EXECUTE')
     OR has_function_privilege('authenticated','crm.ads_hourly_validate_connection()','EXECUTE') THEN
     RAISE EXCEPTION 'fase1: EXECUTE efetivo inesperado, incluindo herança';
