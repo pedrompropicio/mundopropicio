@@ -11,25 +11,34 @@ INSERT INTO public.companies(id, legal_name, display_name, slug, status) VALUES
  ('00000000-0000-0000-0000-000000000002', 'Local 335 B, Lda', 'Local B', 'local-335-b', 'active');
 RESET ROLE;
 SET ROLE supabase_auth_admin;
+-- IDs iguais aos dos testes antigos; empresa via metadata (o trigger real cria profile + papel 'user').
 INSERT INTO auth.users(id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at) VALUES
  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-  'admin@local.invalid', '{"company_id":"00000000-0000-0000-0000-000000000001","full_name":"Admin local"}', now(), now()),
+  'u10@local.invalid', '{"company_id":"00000000-0000-0000-0000-000000000001","full_name":"Admin local"}', now(), now()),
  ('00000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-  'viewer@local.invalid', '{"company_id":"00000000-0000-0000-0000-000000000001","full_name":"Viewer local"}', now(), now()),
+  'u11@local.invalid', '{"company_id":"00000000-0000-0000-0000-000000000001","full_name":"Viewer local"}', now(), now()),
  ('00000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-  'editor@local.invalid', '{"company_id":"00000000-0000-0000-0000-000000000001","full_name":"Editor local"}', now(), now()),
+  'u12@local.invalid', '{"company_id":"00000000-0000-0000-0000-000000000001","full_name":"Manager (papel dado na 2b)"}', now(), now()),
+ ('00000000-0000-0000-0000-000000000016', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+  'u16@local.invalid', '{"company_id":"00000000-0000-0000-0000-000000000001","full_name":"Manager (2e)"}', now(), now()),
+ ('00000000-0000-0000-0000-000000000017', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+  'u17@local.invalid', '{"company_id":"00000000-0000-0000-0000-000000000001","full_name":"Editor (2e)"}', now(), now()),
  ('00000000-0000-0000-0000-000000000013', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-  'manager@local.invalid', '{"company_id":"00000000-0000-0000-0000-000000000001","full_name":"Manager local"}', now(), now()),
+  'u13@local.invalid', '{"company_id":"00000000-0000-0000-0000-000000000002","full_name":"Outra empresa"}', now(), now()),
+ ('00000000-0000-0000-0000-000000000014', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+  'u14@local.invalid', '{"company_id":"00000000-0000-0000-0000-000000000002","full_name":"Outra empresa"}', now(), now()),
+ ('00000000-0000-0000-0000-000000000015', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+  'u15@local.invalid', '{"company_id":"00000000-0000-0000-0000-000000000002","full_name":"Outra empresa"}', now(), now()),
  ('00000000-0000-0000-0000-000000000019', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-  'outro@local.invalid', '{"company_id":"00000000-0000-0000-0000-000000000002","full_name":"Outra empresa"}', now(), now());
+  'u19@local.invalid', '{"company_id":"00000000-0000-0000-0000-000000000002","full_name":"Admin B"}', now(), now()),
+ ('00000000-0000-0000-0000-000000000099', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+  'u99@local.invalid', '{"company_id":"00000000-0000-0000-0000-000000000002","full_name":"Sem acesso a A"}', now(), now());
 RESET ROLE;
 SET ROLE service_role;
 -- on_auth_user_created criou profile + papel 'user'; promovem-se os papéis de teste.
 INSERT INTO public.user_roles(user_id, role, company_id) VALUES
  ('00000000-0000-0000-0000-000000000010', 'admin',   '00000000-0000-0000-0000-000000000001'),
  ('00000000-0000-0000-0000-000000000011', 'viewer',  '00000000-0000-0000-0000-000000000001'),
- ('00000000-0000-0000-0000-000000000012', 'editor',  '00000000-0000-0000-0000-000000000001'),
- ('00000000-0000-0000-0000-000000000013', 'manager', '00000000-0000-0000-0000-000000000001'),
  ('00000000-0000-0000-0000-000000000019', 'admin',   '00000000-0000-0000-0000-000000000002');
 -- Dados de referência de permissões: copiados do CÓDIGO versionado (não de linhas de Live):
 -- supabase/migrations/20260902231429_5aa81920-cf05-4440-92fb-c6f7f44e98ac.sql
