@@ -141,3 +141,5 @@ DO $$ BEGIN
  IF (SELECT prosrc FROM pg_proc WHERE oid='public.enforce_transaction_approval_permission'::regproc) IS DISTINCT FROM (SELECT prosrc FROM issue335_test.g2_prosrc) THEN RAISE EXCEPTION '2g (f) rollback prosrc parity failed'; END IF;
  RAISE NOTICE 'PASS 2g D (f): rollback prosrc byte-identical to captured Live';
 END $$;
+-- 2n-Bloco2b: the suite keeps approval installed after core for the remaining phases.
+\i :root/supabase/manual/20261021_issue335_offset_approval.INERTE.sql
