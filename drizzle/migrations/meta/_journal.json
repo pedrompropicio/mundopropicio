@@ -1520,6 +1520,13 @@
       "when": 1792537287385,
       "tag": "0216_cache_contracts_bp_line_and_freeze",
       "breakpoints": true
+    },
+    {
+      "idx": 217,
+      "version": "7",
+      "when": 1792541223585,
+      "tag": "0217_cache_cancel_contract_canonical_deps",
+      "breakpoints": true
     }
   ]
 }
