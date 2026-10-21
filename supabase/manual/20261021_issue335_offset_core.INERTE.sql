@@ -1,12 +1,26 @@
 -- INERTE: reviewed only in disposable PostgreSQL. No Live application authorized.
 BEGIN;
 SET LOCAL lock_timeout='5s';
+-- INERTE phase2b: dedicated NOLOGIN execution identity, never granted to app roles.
+-- An INSERT into the command view is equivalent to the RPC: full authorization,
+-- hash, locks and validation still execute. No GUC/caller text is an authorization token.
+DO $$ BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='issue335_executor') THEN CREATE ROLE issue335_executor NOLOGIN NOINHERIT; END IF;
+END $$;
+GRANT USAGE ON SCHEMA public,auth TO issue335_executor;
+GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO issue335_executor;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public,auth TO issue335_executor;
+DO $$ DECLARE t text; BEGIN
+ FOREACH t IN ARRAY ARRAY['companies','suppliers','events','financial_accounts','event_forecasts','transactions','transaction_payments','transaction_offsets','bank_statement_lines','bank_line_transactions','transaction_offset_groups','transaction_offset_items','forecast_audit_log','transaction_audit_log','system_audit_log'] LOOP
+  EXECUTE format('CREATE POLICY issue335_internal ON public.%I FOR ALL TO issue335_executor USING (true) WITH CHECK (true)',t);
+ END LOOP;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.issue335_guard() RETURNS trigger
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
-DECLARE ctx text; gid uuid; st text; BEGIN
- GET DIAGNOSTICS ctx = PG_CONTEXT;
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $$
+DECLARE gid uuid; st text; trusted boolean := current_user = 'issue335_executor'; BEGIN
  IF TG_TABLE_NAME IN ('transaction_offset_groups','transaction_offset_items') THEN
-  IF ctx !~ 'PL/pgSQL function transaction_offset_(execute|reverse)\(' THEN RAISE EXCEPTION 'managed_operation_required'; END IF;
+  IF NOT trusted THEN RAISE EXCEPTION 'managed_operation_required'; END IF;
   IF TG_TABLE_NAME='transaction_offset_items' THEN
    SELECT status INTO st FROM public.transaction_offset_groups WHERE id=NEW.group_id AND company_id=NEW.company_id;
    IF st IS DISTINCT FROM 'preparing' THEN RAISE EXCEPTION 'invalid_group_state'; END IF;
@@ -19,13 +33,13 @@ DECLARE ctx text; gid uuid; st text; BEGIN
   IF TG_OP='INSERT' THEN
    SELECT g.status INTO st FROM public.transaction_offset_groups g JOIN public.transaction_offset_items i ON i.group_id=g.id
     WHERE g.id=NEW.offset_group_id AND i.id=NEW.offset_item_id AND i.transaction_id=NEW.transaction_id AND i.company_id=NEW.company_id;
-   IF ctx !~ 'PL/pgSQL function transaction_offset_execute\(' OR st IS DISTINCT FROM 'preparing' OR NEW.offset_id IS NOT NULL OR
+   IF NOT trusted OR st IS DISTINCT FROM 'preparing' OR NEW.offset_id IS NOT NULL OR
       NEW.status<>'paid' OR NEW.reversed_at IS NOT NULL OR NEW.credit_amount<>0 OR NEW.withholding_amount<>0 OR
       (NEW.payment_method='compensation' AND NEW.account_id IS NOT NULL) THEN RAISE EXCEPTION 'managed_operation_required'; END IF;
   ELSE
    IF TG_OP='DELETE' THEN RAISE EXCEPTION 'reverse_entire_group'; END IF;
    SELECT status INTO st FROM public.transaction_offset_groups WHERE id=gid;
-   IF ctx !~ 'PL/pgSQL function transaction_offset_reverse\(' OR st IS DISTINCT FROM 'reversing' OR
+   IF NOT trusted OR st IS DISTINCT FROM 'reversing' OR
     NEW.amount IS DISTINCT FROM OLD.amount OR NEW.transaction_id IS DISTINCT FROM OLD.transaction_id OR
     NEW.account_id IS DISTINCT FROM OLD.account_id OR NEW.offset_group_id IS DISTINCT FROM OLD.offset_group_id OR
     NEW.offset_item_id IS DISTINCT FROM OLD.offset_item_id OR NEW.payment_method IS DISTINCT FROM OLD.payment_method OR
@@ -34,7 +48,7 @@ DECLARE ctx text; gid uuid; st text; BEGIN
  END IF;
  IF TG_TABLE_NAME='transaction_offsets' THEN
  IF (CASE WHEN TG_OP='DELETE' THEN OLD.offset_group_id ELSE COALESCE(OLD.offset_group_id,NEW.offset_group_id) END) IS NOT NULL THEN
-  IF TG_OP='DELETE' OR ctx !~ 'PL/pgSQL function transaction_offset_(execute|reverse)\(' THEN RAISE EXCEPTION 'managed_operation_required'; END IF;
+  IF TG_OP='DELETE' OR NOT trusted THEN RAISE EXCEPTION 'managed_operation_required'; END IF;
  END IF;
  END IF;
  IF TG_TABLE_NAME='transactions' THEN
@@ -54,7 +68,7 @@ DO $$ DECLARE t text; BEGIN
   EXECUTE format('CREATE TRIGGER issue335_guard BEFORE INSERT OR UPDATE OR DELETE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.issue335_guard()',t);
  END LOOP;
 END $$;
-CREATE OR REPLACE FUNCTION public.transaction_offset_execute(
+CREATE OR REPLACE FUNCTION public._issue335_execute(
  p_request_id uuid,p_supplier_id uuid,p_items jsonb,p_movement jsonb,p_date date,p_note text DEFAULT NULL
 ) RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $$
 DECLARE company uuid:=public.current_company_id(); uid uuid:=auth.uid(); h text; g public.transaction_offset_groups; t public.transactions; f public.event_forecasts;
@@ -73,6 +87,7 @@ BEGIN
   IF g.status NOT IN ('applied','reversed') THEN RAISE EXCEPTION 'request_incomplete'; END IF;
   RETURN g.result || jsonb_build_object('status',g.status);
  END IF;
+ PERFORM 1 FROM public.companies WHERE id=company FOR UPDATE;
  PERFORM 1 FROM public.suppliers WHERE id=p_supplier_id AND company_id=company FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'supplier_not_found'; END IF;
  IF p_movement IS NULL THEN amount:=0; acc:=NULL; pd:=p_date;
@@ -83,6 +98,7 @@ BEGIN
   PERFORM 1 FROM public.financial_accounts WHERE id=acc AND company_id=company AND type NOT IN ('cash','camarim_session') FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'account_not_allowed'; END IF;
  END IF;
+ PERFORM 1 FROM public.events WHERE id IN (SELECT f.event_id FROM public.event_forecasts f WHERE f.id IN (SELECT (v->>'forecast_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'forecast_id') UNION SELECT t.event_id FROM public.transactions t WHERE t.id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id')) ORDER BY id FOR UPDATE;
  -- All BP and existing transaction locks are obtained in UUID order, not display order.
  PERFORM 1 FROM public.event_forecasts WHERE id IN (SELECT (v->>'forecast_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'forecast_id') ORDER BY id FOR UPDATE;
  PERFORM 1 FROM public.transactions WHERE id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id') ORDER BY id FOR UPDATE;
@@ -93,14 +109,15 @@ BEGIN
   IF j ? 'forecast_id' THEN
    SELECT * INTO f FROM public.event_forecasts WHERE id=(j->>'forecast_id')::uuid AND company_id=company;
    IF NOT FOUND OR f.approved_at IS NULL OR f.version_id IS NOT NULL OR f.currency<>'EUR' OR f.fx_rate IS NOT NULL OR f.cache_config_id IS NOT NULL OR f.master_forecast_id IS NOT NULL OR f.formula_type<>'fixed' THEN RAISE EXCEPTION 'forecast_not_available'; END IF;
-   -- Conservative server barrier: canonical+legacy association, and any unclaimed same-rubric document.
-   IF f.transaction_id IS NOT NULL OR EXISTS(SELECT 1 FROM public.transactions z WHERE z.forecast_id=f.id OR
-      (z.event_id=f.event_id AND z.category_id=f.category_id AND z.type=f.type AND z.forecast_id IS NULL)) THEN RAISE EXCEPTION 'forecast_shared_no_creation'; END IF;
+   -- Match the complete canonical BP union; no LIMIT or entity prefilter.
+   IF EXISTS(SELECT 1 FROM public.issue335_matching_transactions(f.id)) THEN RAISE EXCEPTION 'forecast_shared_no_creation'; END IF;
    PERFORM 1 FROM public.events WHERE id=f.event_id AND company_id=company AND status NOT IN ('completed','cancelled');
    IF NOT FOUND THEN RAISE EXCEPTION 'event_closed'; END IF;
    IF j ? 'expected_open_cents' AND (j->>'expected_open_cents')::bigint<>round(f.amount*(1+f.iva_rate/100.0),2)*100 THEN RAISE EXCEPTION 'preview_changed'; END IF;
+   IF NOT public.bp_tx_link_allowed(f.event_id,company,f.event_id,f.company_id) THEN RAISE EXCEPTION 'forecast_link_denied'; END IF;
    INSERT INTO public.transactions(company_id,event_id,category_id,forecast_id,type,description,specification,amount,iva_rate,date,due_date,status,supplier_id,currency)
     VALUES(company,f.event_id,f.category_id,f.id,f.type,f.description,f.specification,f.amount,f.iva_rate,p_date,p_date,'approved',p_supplier_id,'EUR') RETURNING * INTO t;
+   INSERT INTO public.forecast_audit_log(forecast_id,changed_by,field_name,old_value,new_value,company_id) VALUES(f.id,uid::text,'issue335_create_transaction',NULL,t.id::text,company);
   ELSE
    SELECT * INTO t FROM public.transactions WHERE id=(j->>'transaction_id')::uuid AND company_id=company;
    IF NOT FOUND THEN RAISE EXCEPTION 'transaction_not_found'; END IF;
@@ -149,10 +166,12 @@ BEGIN
     VALUES((x->>'id')::uuid,company,debt-cash,p_date,NULL,'compensation','paid',uid::text,gid,iid);
   END IF;
  END LOOP;
+ INSERT INTO public.transaction_audit_log(transaction_id,changed_by,changed_at,field_name,old_value,new_value,company_id) SELECT transaction_id,uid::text,now(),'issue335_apply',prior_paid_amount::text,jsonb_build_object('group_id',gid,'cash',cash_amount,'compensation',compensation_amount)::text,company FROM public.transaction_offset_items WHERE group_id=gid;
+ INSERT INTO public.system_audit_log(entity_type,entity_id,action,changed_by,new_data,company_id) SELECT 'transaction_payment',id::text,'issue335_create',uid::text,to_jsonb(p),company FROM public.transaction_payments p WHERE offset_group_id=gid;
  UPDATE public.transaction_offset_groups SET status='applied',result=jsonb_build_object('group_id',gid,'status','applied','movement_amount',amount,'transaction_ids',to_jsonb(ids)) WHERE id=gid RETURNING * INTO g;
  RETURN g.result;
 END $$;
-CREATE OR REPLACE FUNCTION public.transaction_offset_reverse(p_group_id uuid,p_request_id uuid,p_reason text)
+CREATE OR REPLACE FUNCTION public._issue335_reverse(p_group_id uuid,p_request_id uuid,p_reason text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $$
 DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; BEGIN
  IF auth.uid() IS NULL OR NOT (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'manager') OR public.has_role(auth.uid(),'editor')) THEN RAISE EXCEPTION 'permission_denied'; END IF;
@@ -169,6 +188,8 @@ DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; BEGIN
  PERFORM 1 FROM public.transactions WHERE id IN(SELECT transaction_id FROM public.transaction_offset_items WHERE group_id=g.id) ORDER BY id FOR UPDATE;
  PERFORM 1 FROM public.transaction_payments WHERE offset_group_id=g.id ORDER BY id FOR UPDATE;
  IF EXISTS(SELECT 1 FROM public.transaction_payments WHERE offset_group_id=g.id AND (status<>'paid' OR reversed_at IS NOT NULL)) THEN RAISE EXCEPTION 'group_ledger_divergent'; END IF;
+ INSERT INTO public.system_audit_log(entity_type,entity_id,action,changed_by,old_data,company_id) SELECT 'transaction_payment',id::text,'issue335_reverse',auth.uid()::text,to_jsonb(p),g.company_id FROM public.transaction_payments p WHERE offset_group_id=g.id;
+ INSERT INTO public.transaction_audit_log(transaction_id,changed_by,changed_at,field_name,old_value,new_value,company_id) SELECT transaction_id,auth.uid()::text,now(),'issue335_reverse',g.id::text,p_reason,g.company_id FROM public.transaction_offset_items WHERE group_id=g.id;
  UPDATE public.transaction_offset_groups SET status='reversing' WHERE id=g.id;
  UPDATE public.transaction_payments SET status='reversed',reversed_at=now(),reversed_by=auth.uid(),reversal_reason=p_reason WHERE offset_group_id=g.id;
  FOR l IN SELECT * FROM public.bank_statement_lines WHERE offset_group_id=g.id LOOP
@@ -179,8 +200,6 @@ DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; BEGIN
  UPDATE public.transaction_offset_groups SET status='reversed',reversed_at=now(),reversal_request_id=p_request_id,reversal_reason=p_reason WHERE id=g.id;
  RETURN g.result||jsonb_build_object('status','reversed');
 END $$;
-REVOKE ALL ON FUNCTION public.transaction_offset_execute(uuid,uuid,jsonb,jsonb,date,text),public.transaction_offset_reverse(uuid,uuid,text) FROM PUBLIC,anon;
-GRANT EXECUTE ON FUNCTION public.transaction_offset_execute(uuid,uuid,jsonb,jsonb,date,text),public.transaction_offset_reverse(uuid,uuid,text) TO authenticated,service_role;
 
 CREATE OR REPLACE FUNCTION public._apply_transaction_offset(p_offset_id uuid, p_origin_payment_id uuid)
  RETURNS uuid
@@ -823,14 +842,43 @@ begin
 end;
 $function$;
 
-REVOKE ALL ON FUNCTION public.reconcile_bank_line(uuid,jsonb),public._apply_transaction_offset(uuid,uuid),public.reverse_payment(uuid,text,text,date,numeric),public.reverse_transaction(uuid,text,text,date,boolean) FROM PUBLIC,anon;
-GRANT EXECUTE ON FUNCTION public.reconcile_bank_line(uuid,jsonb),public._apply_transaction_offset(uuid,uuid),public.reverse_payment(uuid,text,text,date,numeric),public.reverse_transaction(uuid,text,text,date,boolean) TO authenticated,service_role;
+REVOKE ALL ON FUNCTION public.reconcile_bank_line(uuid,jsonb),public.reverse_payment(uuid,text,text,date,numeric),public.reverse_transaction(uuid,text,text,date,boolean) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.reconcile_bank_line(uuid,jsonb),public.reverse_payment(uuid,text,text,date,numeric),public.reverse_transaction(uuid,text,text,date,boolean) TO authenticated,service_role;
 -- Reset extraneous EXECUTE grants on all touched/new functions, preserving owner.
 DO $$ DECLARE r record; BEGIN
  FOR r IN SELECT p.oid,n.nspname,p.proname,pg_get_function_identity_arguments(p.oid) args,a.grantee
  FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a
- WHERE n.nspname='public' AND p.proname IN ('transaction_offset_execute','transaction_offset_reverse','issue335_guard','reconcile_bank_line','_apply_transaction_offset','_reverse_transaction_offsets_for','reverse_payment','reverse_transaction') AND a.grantee<>p.proowner AND a.grantee<>0 AND a.grantee NOT IN(SELECT oid FROM pg_roles WHERE rolname IN ('authenticated','service_role')) LOOP
+ WHERE n.nspname='public' AND p.proname IN ('transaction_offset_execute','transaction_offset_reverse','_issue335_execute','_issue335_reverse','issue335_dispatch','issue335_guard','reconcile_bank_line','_apply_transaction_offset','_reverse_transaction_offsets_for','reverse_payment','reverse_transaction') AND a.grantee<>p.proowner AND a.grantee<>0 AND a.grantee NOT IN(SELECT oid FROM pg_roles WHERE rolname IN ('authenticated','service_role')) LOOP
  EXECUTE format('REVOKE ALL ON FUNCTION %I.%I(%s) FROM %I',r.nspname,r.proname,r.args,(SELECT rolname FROM pg_roles WHERE oid=r.grantee));
  END LOOP;
 END $$;
+
+REVOKE ALL ON FUNCTION public._issue335_execute(uuid,uuid,jsonb,jsonb,date,text), public._issue335_reverse(uuid,uuid,text), public._apply_transaction_offset(uuid,uuid),public._reverse_transaction_offsets_for(uuid) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public._issue335_execute(uuid,uuid,jsonb,jsonb,date,text),public._issue335_reverse(uuid,uuid,text),public.issue335_guard() TO issue335_executor;
+CREATE VIEW public.issue335_commands AS SELECT NULL::jsonb AS command,NULL::jsonb AS result WHERE false;
+REVOKE ALL ON public.issue335_commands FROM PUBLIC,anon;
+GRANT SELECT,INSERT ON public.issue335_commands TO authenticated,service_role;
+CREATE FUNCTION public.issue335_dispatch() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_catalog AS $$
+BEGIN
+ IF NEW.command->>'op'='execute' THEN
+  NEW.result:=public._issue335_execute((NEW.command->>'request_id')::uuid,(NEW.command->>'supplier_id')::uuid,NEW.command->'items',NULLIF(NEW.command->'movement','null'::jsonb),(NEW.command->>'date')::date,NEW.command->>'note');
+ ELSIF NEW.command->>'op'='reverse' THEN
+  NEW.result:=public._issue335_reverse((NEW.command->>'group_id')::uuid,(NEW.command->>'request_id')::uuid,NEW.command->>'reason');
+ ELSE RAISE EXCEPTION 'invalid_operation'; END IF;
+ RETURN NEW;
+END $$;
+ALTER FUNCTION public.issue335_dispatch() OWNER TO issue335_executor;
+REVOKE ALL ON FUNCTION public.issue335_dispatch() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER issue335_dispatch INSTEAD OF INSERT ON public.issue335_commands FOR EACH ROW EXECUTE FUNCTION public.issue335_dispatch();
+CREATE OR REPLACE FUNCTION public.transaction_offset_execute(p_request_id uuid,p_supplier_id uuid,p_items jsonb,p_movement jsonb,p_date date,p_note text DEFAULT NULL) RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=public,pg_catalog AS $$
+DECLARE r jsonb; BEGIN
+ INSERT INTO public.issue335_commands(command) VALUES(jsonb_build_object('op','execute','request_id',p_request_id,'supplier_id',p_supplier_id,'items',p_items,'movement',p_movement,'date',p_date,'note',p_note)) RETURNING result INTO r; RETURN r;
+END $$;
+CREATE OR REPLACE FUNCTION public.transaction_offset_reverse(p_group_id uuid,p_request_id uuid,p_reason text) RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=public,pg_catalog AS $$
+DECLARE r jsonb; BEGIN
+ INSERT INTO public.issue335_commands(command) VALUES(jsonb_build_object('op','reverse','group_id',p_group_id,'request_id',p_request_id,'reason',p_reason)) RETURNING result INTO r; RETURN r;
+END $$;
+REVOKE ALL ON FUNCTION public.transaction_offset_execute(uuid,uuid,jsonb,jsonb,date,text),public.transaction_offset_reverse(uuid,uuid,text) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.transaction_offset_execute(uuid,uuid,jsonb,jsonb,date,text),public.transaction_offset_reverse(uuid,uuid,text) TO authenticated,service_role;
+
 COMMIT;
