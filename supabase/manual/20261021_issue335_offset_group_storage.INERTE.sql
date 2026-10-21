@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS public.transaction_offset_items (
  iva_rate integer NOT NULL,
  gross_amount numeric(14,2) NOT NULL,
  prior_paid_amount numeric(14,2) NOT NULL,
+ prior_status text NOT NULL CHECK(prior_status IN ('approved','partially_paid')),
  open_amount numeric(14,2) NOT NULL CHECK(open_amount>0),
  cash_amount numeric(14,2) NOT NULL CHECK(cash_amount>=0),
  compensation_amount numeric(14,2) NOT NULL CHECK(compensation_amount>=0),

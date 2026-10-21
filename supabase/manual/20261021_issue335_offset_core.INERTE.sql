@@ -215,7 +215,7 @@ BEGIN
   IF amount=0 AND (j->>'mode') IS DISTINCT FROM 'offset' THEN RAISE EXCEPTION 'invalid_mode_sign'; END IF;
   net:=net+CASE WHEN t.type='income' THEN debt ELSE -debt END;
   has_income:=has_income OR t.type='income'; has_expense:=has_expense OR t.type='expense';
-  prepared:=prepared||jsonb_build_object('id',t.id,'forecast_id',CASE WHEN j ? 'forecast_id' THEN f.id ELSE NULL END,'order',COALESCE((j->>'cash_order')::integer,0),'type',t.type,'base',t.amount,'iva',t.iva_rate,'gross',gross,'paid',paid,'debt',debt);
+  prepared:=prepared||jsonb_build_object('id',t.id,'forecast_id',CASE WHEN j ? 'forecast_id' THEN f.id ELSE NULL END,'order',COALESCE((j->>'cash_order')::integer,0),'type',t.type,'base',t.amount,'iva',t.iva_rate,'gross',gross,'paid',paid,'prior_status',t.status,'debt',debt);
  END LOOP;
  IF NOT has_income OR NOT has_expense THEN RAISE EXCEPTION 'both_signs_required'; END IF;
  IF net<>amount THEN RAISE EXCEPTION '% % €',CASE WHEN (net-amount)*CASE WHEN amount<0 THEN -1 ELSE 1 END<0 THEN 'Faltam' ELSE 'Excedem' END,replace(to_char(abs(net-amount),'FM999999999990.00'),'.',',') USING DETAIL=jsonb_build_object('difference_cents',(net-amount)*100)::text; END IF;
@@ -234,8 +234,8 @@ BEGIN
  remaining:=abs(amount);
  FOR x IN SELECT v FROM jsonb_array_elements(prepared) v LOOP
   debt:=(x->>'debt')::numeric; cash:=CASE WHEN x->>'type'=cash_type THEN least(debt,remaining) ELSE 0 END; remaining:=remaining-cash;
-  INSERT INTO public.transaction_offset_items(group_id,company_id,transaction_id,forecast_id,cash_order,type,base_amount,iva_rate,gross_amount,prior_paid_amount,open_amount,cash_amount,compensation_amount)
-   VALUES(gid,company,(x->>'id')::uuid,(x->>'forecast_id')::uuid,(x->>'order')::integer,x->>'type',(x->>'base')::numeric,(x->>'iva')::integer,(x->>'gross')::numeric,(x->>'paid')::numeric,debt,cash,debt-cash) RETURNING id INTO iid;
+  INSERT INTO public.transaction_offset_items(group_id,company_id,transaction_id,forecast_id,cash_order,type,base_amount,iva_rate,gross_amount,prior_paid_amount,prior_status,open_amount,cash_amount,compensation_amount)
+   VALUES(gid,company,(x->>'id')::uuid,(x->>'forecast_id')::uuid,(x->>'order')::integer,x->>'type',(x->>'base')::numeric,(x->>'iva')::integer,(x->>'gross')::numeric,(x->>'paid')::numeric,x->>'prior_status',debt,cash,debt-cash) RETURNING id INTO iid;
   IF cash>0 THEN
    INSERT INTO public.transaction_payments(transaction_id,company_id,amount,payment_date,account_id,payment_method,status,created_by,offset_group_id,offset_item_id)
     VALUES((x->>'id')::uuid,company,cash,p_date,acc,'transfer','paid',uid::text,gid,iid);
