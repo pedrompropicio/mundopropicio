@@ -117,6 +117,11 @@ DECLARE gid uuid; st text; trusted boolean := current_user = 'issue335_executor'
  IF (CASE WHEN TG_OP='DELETE' THEN OLD.offset_group_id WHEN TG_OP='INSERT' THEN NEW.offset_group_id ELSE COALESCE(OLD.offset_group_id,NEW.offset_group_id) END) IS NOT NULL THEN
   IF TG_OP='DELETE' OR NOT trusted THEN RAISE EXCEPTION 'managed_operation_required'; END IF;
  END IF;
+ -- 2j (achado F1b): par legado novo/alterado sobre documento já gerido por um grupo activo é recusado.
+ IF TG_OP<>'DELETE' AND NOT trusted AND EXISTS(SELECT 1 FROM public.transaction_offset_items i JOIN public.transaction_offset_groups g ON g.id=i.group_id
+    WHERE i.transaction_id IN(NEW.receivable_transaction_id,NEW.payable_transaction_id) AND g.status IN('preparing','applied','reversing')) THEN
+  RAISE EXCEPTION 'managed_operation_required';
+ END IF;
  END IF;
  IF TG_TABLE_NAME='bank_statement_lines' THEN
   gid := CASE WHEN TG_OP='DELETE' THEN OLD.offset_group_id WHEN TG_OP='INSERT' THEN NEW.offset_group_id ELSE COALESCE(OLD.offset_group_id,NEW.offset_group_id) END;
