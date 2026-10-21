@@ -128,6 +128,6 @@ failed = [dict(phase=s['phase'], key=s['key'], role=s['role'], error=last_err[s[
 cur.execute("SELECT rolsuper FROM pg_roles WHERE rolname='postgres'")
 assert cur.fetchone()[0] is False, 'postgres tem de ser NOSUPERUSER como em Live'
 json.dump(dict(stats=stats, admin_fallback=admin_fallback, failed=failed), open(report_path, 'w'), ensure_ascii=False, indent=1)
-print('phase2h install:', sum(v['total'] for v in stats.values()), 'statements;', len(failed), 'failed')
+print('phase2h install:', sum(v.get('total', 0) for v in stats.values()), 'statements;', len(failed), 'failed')
 for f in failed[:60]:
     print(' FAIL', f['key'], f['error'][:160])
