@@ -36,12 +36,14 @@ DO $$ DECLARE a uuid; b uuid; r uuid; g uuid; items jsonb; line uuid; p uuid; n 
 END $$;
 RESET ROLE;
 -- Exact refusal for each account flag/type without writes.
-DO $$ DECLARE a uuid; b uuid; acc uuid; items jsonb; val text; snap bigint; BEGIN
+DO $$ DECLARE a uuid; b uuid; acc uuid; partner uuid; ev uuid; items jsonb; val text; snap bigint; BEGIN
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('income','2d whitelist+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2d whitelist-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
  items:=jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset'));
+ INSERT INTO events(id,company_id,name) VALUES(gen_random_uuid(),current_company_id(),'2d partner fixture') RETURNING id INTO ev;
+ INSERT INTO event_partners(id,company_id,event_id) VALUES(gen_random_uuid(),current_company_id(),ev) RETURNING id INTO partner;
  FOREACH val IN ARRAY ARRAY['inactive','hidden','restricted','partner','mirror','ticket_office','prepaid_card','other','cash'] LOOP
-  INSERT INTO financial_accounts(id,company_id,name,type,is_active,is_hidden,is_restricted,partner_id,mirror_partner_aporte) VALUES(gen_random_uuid(),current_company_id(),'LOCAL whitelist',CASE WHEN val IN('ticket_office','prepaid_card','other','cash') THEN val ELSE 'bank' END,val<>'inactive',val='hidden',val='restricted',CASE WHEN val='partner' THEN gen_random_uuid() END,val='mirror') RETURNING id INTO acc;
+  INSERT INTO financial_accounts(id,company_id,name,type,is_active,is_hidden,is_restricted,partner_id,mirror_partner_aporte) VALUES(gen_random_uuid(),current_company_id(),'LOCAL whitelist',CASE WHEN val IN('ticket_office','prepaid_card','other','cash') THEN val ELSE 'bank' END,val<>'inactive',val='hidden',val='restricted',CASE WHEN val='partner' THEN partner END,val='mirror') RETURNING id INTO acc;
   snap:=(SELECT count(*) FROM transaction_offset_groups);
   BEGIN PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,jsonb_build_object('account_id',acc,'date','2026-10-13','amount',60),'2026-10-13'); RAISE EXCEPTION 'account accepted %',val; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'account_not_allowed' THEN RAISE; END IF; END;
   IF (SELECT count(*) FROM transaction_offset_groups)<>snap THEN RAISE EXCEPTION 'account partial'; END IF;
