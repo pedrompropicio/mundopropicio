@@ -1,0 +1,2302 @@
+[
+  {
+    "role": "authenticated editor",
+    "attack": "direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_reverse",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "direct issue335_balance_invariant_count()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_balance_invariant_count",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_camarim_leg",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "direct issue335_context_valid(text)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "direct issue335_dispatch()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_dispatch",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "direct issue335_guard()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_guard",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "direct issue335_invariant_counts()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_invariant_counts",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_lock_parents",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_matching_transactions",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "direct issue335_normalize(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_normalize",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_payment_flow_blocked",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "direct issue335_score(text,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_score",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "direct issue335_uid()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_uid",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "direct issue335_worker(jsonb)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_worker",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "forged GUC",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "second random token (not valid replay)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "context INSERT",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table issue335_execution_context",
+    "pass_": true,
+    "justification": "True table owner can administer context; application roles cannot forge rows. No claim of protection against owner DDL."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "pass_": true,
+    "justification": "Installation membership must be revoked; no role may assume executor afterwards."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "broad UPDATE privilege companies",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "broad UPDATE privilege suppliers",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "broad UPDATE privilege events",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "broad UPDATE privilege financial_accounts",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "broad UPDATE privilege event_settlements",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_reverse",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "direct issue335_balance_invariant_count()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_balance_invariant_count",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_camarim_leg",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "direct issue335_context_valid(text)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "direct issue335_dispatch()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_dispatch",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "direct issue335_guard()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_guard",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "direct issue335_invariant_counts()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_invariant_counts",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_lock_parents",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_matching_transactions",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "direct issue335_normalize(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_normalize",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_payment_flow_blocked",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "direct issue335_score(text,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_score",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "direct issue335_uid()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_uid",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "direct issue335_worker(jsonb)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_worker",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "forged GUC",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "second random token (not valid replay)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "context INSERT",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table issue335_execution_context",
+    "pass_": true,
+    "justification": "True table owner can administer context; application roles cannot forge rows. No claim of protection against owner DDL."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "pass_": true,
+    "justification": "Installation membership must be revoked; no role may assume executor afterwards."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "broad UPDATE privilege companies",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "broad UPDATE privilege suppliers",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "broad UPDATE privilege events",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "broad UPDATE privilege financial_accounts",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "broad UPDATE privilege event_settlements",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_reverse",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "direct issue335_balance_invariant_count()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_balance_invariant_count",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_camarim_leg",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "direct issue335_context_valid(text)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "direct issue335_dispatch()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_dispatch",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "direct issue335_guard()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_guard",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "direct issue335_invariant_counts()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_invariant_counts",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_lock_parents",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_matching_transactions",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "direct issue335_normalize(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_normalize",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_payment_flow_blocked",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "direct issue335_score(text,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_score",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "direct issue335_uid()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_uid",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "direct issue335_worker(jsonb)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_worker",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "forged GUC",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "second random token (not valid replay)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "context INSERT",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table issue335_execution_context",
+    "pass_": true,
+    "justification": "True table owner can administer context; application roles cannot forge rows. No claim of protection against owner DDL."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "pass_": true,
+    "justification": "Installation membership must be revoked; no role may assume executor afterwards."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "broad UPDATE privilege companies",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "broad UPDATE privilege suppliers",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "broad UPDATE privilege events",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "broad UPDATE privilege financial_accounts",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "authenticated user",
+    "attack": "broad UPDATE privilege event_settlements",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "service_role",
+    "attack": "direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "service_role",
+    "attack": "direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_reverse",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "service_role",
+    "attack": "direct issue335_balance_invariant_count()",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "service_role",
+    "attack": "direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_camarim_leg",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "service_role",
+    "attack": "direct issue335_context_valid(text)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "service_role",
+    "attack": "direct issue335_dispatch()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_dispatch",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "service_role",
+    "attack": "direct issue335_guard()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_guard",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "service_role",
+    "attack": "direct issue335_invariant_counts()",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "service_role",
+    "attack": "direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_lock_parents",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "service_role",
+    "attack": "direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_matching_transactions",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "service_role",
+    "attack": "direct issue335_normalize(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_normalize",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "service_role",
+    "attack": "direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_payment_flow_blocked",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "service_role",
+    "attack": "direct issue335_score(text,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_score",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "service_role",
+    "attack": "direct issue335_uid()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_uid",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "service_role",
+    "attack": "direct issue335_worker(jsonb)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_worker",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "service_role",
+    "attack": "forged GUC",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "service_role",
+    "attack": "second random token (not valid replay)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "service_role",
+    "attack": "context INSERT",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table issue335_execution_context",
+    "pass_": true,
+    "justification": "True table owner can administer context; application roles cannot forge rows. No claim of protection against owner DDL."
+  },
+  {
+    "role": "service_role",
+    "attack": "SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "pass_": true,
+    "justification": "Installation membership must be revoked; no role may assume executor afterwards."
+  },
+  {
+    "role": "service_role",
+    "attack": "broad UPDATE privilege companies",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "service_role",
+    "attack": "broad UPDATE privilege suppliers",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "service_role",
+    "attack": "broad UPDATE privilege events",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "service_role",
+    "attack": "broad UPDATE privilege financial_accounts",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "service_role",
+    "attack": "broad UPDATE privilege event_settlements",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_reverse",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "direct issue335_balance_invariant_count()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_balance_invariant_count",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_camarim_leg",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "direct issue335_context_valid(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "direct issue335_dispatch()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_dispatch",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "direct issue335_guard()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_guard",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "direct issue335_invariant_counts()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_invariant_counts",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_lock_parents",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_matching_transactions",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "direct issue335_normalize(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_normalize",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_payment_flow_blocked",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "direct issue335_score(text,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_score",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "direct issue335_uid()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_uid",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "direct issue335_worker(jsonb)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_worker",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "forged GUC",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "second random token (not valid replay)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "context INSERT",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table issue335_execution_context",
+    "pass_": true,
+    "justification": "True table owner can administer context; application roles cannot forge rows. No claim of protection against owner DDL."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "pass_": true,
+    "justification": "Installation membership must be revoked; no role may assume executor afterwards."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "broad UPDATE privilege companies",
+    "expected": null,
+    "actual": false,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "broad UPDATE privilege suppliers",
+    "expected": null,
+    "actual": false,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "broad UPDATE privilege events",
+    "expected": null,
+    "actual": false,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "broad UPDATE privilege financial_accounts",
+    "expected": null,
+    "actual": false,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "broad UPDATE privilege event_settlements",
+    "expected": null,
+    "actual": false,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_reverse",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "direct issue335_balance_invariant_count()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_balance_invariant_count",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_camarim_leg",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "direct issue335_context_valid(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "direct issue335_dispatch()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_dispatch",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "direct issue335_guard()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_guard",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "direct issue335_invariant_counts()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_invariant_counts",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_lock_parents",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_matching_transactions",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "direct issue335_normalize(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_normalize",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_payment_flow_blocked",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "direct issue335_score(text,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_score",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "direct issue335_uid()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_uid",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "direct issue335_worker(jsonb)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_worker",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "forged GUC",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "second random token (not valid replay)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "context INSERT",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table issue335_execution_context",
+    "pass_": true,
+    "justification": "True table owner can administer context; application roles cannot forge rows. No claim of protection against owner DDL."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "pass_": true,
+    "justification": "Installation membership must be revoked; no role may assume executor afterwards."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "broad UPDATE privilege companies",
+    "expected": null,
+    "actual": false,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "broad UPDATE privilege suppliers",
+    "expected": null,
+    "actual": false,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "broad UPDATE privilege events",
+    "expected": null,
+    "actual": false,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "broad UPDATE privilege financial_accounts",
+    "expected": null,
+    "actual": false,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "broad UPDATE privilege event_settlements",
+    "expected": null,
+    "actual": false,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "direct issue335_balance_invariant_count()",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "direct issue335_context_valid(text)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "direct issue335_dispatch()",
+    "expected": [
+      "0A000"
+    ],
+    "actual": "0A000:trigger functions can only be called as triggers",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "direct issue335_guard()",
+    "expected": [
+      "0A000"
+    ],
+    "actual": "0A000:trigger functions can only be called as triggers",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "direct issue335_invariant_counts()",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "direct issue335_normalize(text)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "direct issue335_score(text,text)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "direct issue335_uid()",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "direct issue335_worker(jsonb)",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "forged GUC",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "second random token (not valid replay)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "context INSERT",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "pass_": true,
+    "justification": "True table owner can administer context; application roles cannot forge rows. No claim of protection against owner DDL."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "pass_": true,
+    "justification": "Installation membership must be revoked; no role may assume executor afterwards."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "broad UPDATE privilege companies",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "broad UPDATE privilege suppliers",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "broad UPDATE privilege events",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "broad UPDATE privilege financial_accounts",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "postgres without SET ROLE",
+    "attack": "broad UPDATE privilege event_settlements",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_reverse",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "direct issue335_balance_invariant_count()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_balance_invariant_count",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_camarim_leg",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "direct issue335_context_valid(text)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "direct issue335_dispatch()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_dispatch",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "direct issue335_guard()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_guard",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "direct issue335_invariant_counts()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_invariant_counts",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_lock_parents",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_matching_transactions",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "direct issue335_normalize(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_normalize",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_payment_flow_blocked",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "direct issue335_score(text,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_score",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "direct issue335_uid()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_uid",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "direct issue335_worker(jsonb)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_worker",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "forged GUC",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "second random token (not valid replay)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "context INSERT",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table issue335_execution_context",
+    "pass_": true,
+    "justification": "True table owner can administer context; application roles cannot forge rows. No claim of protection against owner DDL."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "pass_": true,
+    "justification": "Installation membership must be revoked; no role may assume executor afterwards."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "broad UPDATE privilege companies",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "broad UPDATE privilege suppliers",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "broad UPDATE privilege events",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "broad UPDATE privilege financial_accounts",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "postgres SET ROLE authenticated",
+    "attack": "broad UPDATE privilege event_settlements",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "direct issue335_balance_invariant_count()",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "direct issue335_context_valid(text)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "direct issue335_dispatch()",
+    "expected": [
+      "0A000"
+    ],
+    "actual": "0A000:trigger functions can only be called as triggers",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "direct issue335_guard()",
+    "expected": [
+      "0A000"
+    ],
+    "actual": "0A000:trigger functions can only be called as triggers",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "direct issue335_invariant_counts()",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "direct issue335_normalize(text)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "direct issue335_score(text,text)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "direct issue335_uid()",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "direct issue335_worker(jsonb)",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "forged GUC",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "second random token (not valid replay)",
+    "expected": [
+      "ok:false"
+    ],
+    "actual": "ok:false",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "context INSERT",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "pass_": true,
+    "justification": "True table owner can administer context; application roles cannot forge rows. No claim of protection against owner DDL."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "pass_": true,
+    "justification": "Installation membership must be revoked; no role may assume executor afterwards."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "broad UPDATE privilege companies",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "broad UPDATE privilege suppliers",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "broad UPDATE privilege events",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "broad UPDATE privilege financial_accounts",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "postgres SET ROLE postgres",
+    "attack": "broad UPDATE privilege event_settlements",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "anon",
+    "attack": "direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "anon",
+    "attack": "direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_reverse",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "anon",
+    "attack": "direct issue335_balance_invariant_count()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_balance_invariant_count",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "anon",
+    "attack": "direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_camarim_leg",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "anon",
+    "attack": "direct issue335_context_valid(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "anon",
+    "attack": "direct issue335_dispatch()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_dispatch",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "anon",
+    "attack": "direct issue335_guard()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_guard",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "anon",
+    "attack": "direct issue335_invariant_counts()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_invariant_counts",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "anon",
+    "attack": "direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_lock_parents",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "anon",
+    "attack": "direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_matching_transactions",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "anon",
+    "attack": "direct issue335_normalize(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_normalize",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "anon",
+    "attack": "direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_payment_flow_blocked",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "anon",
+    "attack": "direct issue335_score(text,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_score",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "anon",
+    "attack": "direct issue335_uid()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_uid",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "anon",
+    "attack": "direct issue335_worker(jsonb)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_worker",
+    "pass_": true,
+    "justification": "True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability."
+  },
+  {
+    "role": "anon",
+    "attack": "forged GUC",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "anon",
+    "attack": "second random token (not valid replay)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "pass_": true,
+    "justification": "GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token."
+  },
+  {
+    "role": "anon",
+    "attack": "context INSERT",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table issue335_execution_context",
+    "pass_": true,
+    "justification": "True table owner can administer context; application roles cannot forge rows. No claim of protection against owner DDL."
+  },
+  {
+    "role": "anon",
+    "attack": "SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "pass_": true,
+    "justification": "Installation membership must be revoked; no role may assume executor afterwards."
+  },
+  {
+    "role": "anon",
+    "attack": "broad UPDATE privilege companies",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "anon",
+    "attack": "broad UPDATE privilege suppliers",
+    "expected": null,
+    "actual": false,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "anon",
+    "attack": "broad UPDATE privilege events",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "anon",
+    "attack": "broad UPDATE privilege financial_accounts",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  },
+  {
+    "role": "anon",
+    "attack": "broad UPDATE privilege event_settlements",
+    "expected": null,
+    "actual": true,
+    "pass_": null,
+    "justification": "Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding."
+  }
+]

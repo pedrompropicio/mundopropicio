@@ -1,6 +1,6 @@
 # #335 fase 2m — manifesto de leituras
 
-Época da leitura: 2026-10-21T22:06:01.734743+00:00 (UTC); hashes calculados durante a leitura e reconfirmados nesta emissão.
+Época da emissão inicial: 2026-10-21T22:06:01.734743+00:00 (UTC). Hashes históricos registados pelos revisores; emissão inicial não certifica simultaneidade para todas as leituras. Hash pós-edição no manifesto SHA separado.
 Leituras delegadas identificam o revisor; não são alegadas como leitura pessoal do executor. Intervalos ≤200 linhas. N inclui última linha sem newline. Não confundir hashing/execução com leitura.
 O relatório sub_2zabbhnk declara truncamento e não certifica revisão semântica exaustiva; os seus ficheiros não certificados pelo executor ficam NÃO LIDO, mesmo quando têm intervalos emitidos.
 
@@ -10,7 +10,7 @@ O relatório sub_2zabbhnk declara truncamento e não certifica revisão semânti
 - .lovable/plan.md | N=134 | sha256=a6929c6ba99cb7af6f2277a51ca4241109ad2fd59939a285ab8970dc81896cfe | LIDO INTEGRAL — sub_gsr842wh; intervalos 1–70,71–133,134.
 - docs/testes/issue335-fases12-local.md | N=833 | sha256=73df33cbdc278497c0e9c84c6e55f1415bbce5b6a103b745329ee5c17bfef6ad | LIDO INTEGRAL — sub_gsr842wh; intervalos 1–80,81–160,161–240,241–320,321–400,401–470,471–540,541–610,611–650,651–700,701–760,761–833.
 - docs/testes/issue335-fase2l-leituras.md | N=32 | sha256=049ed823a23beb15e442744416df652089f51880de1032af1e28c8eb1b71e9a1 | LIDO INTEGRAL — executor; intervalos 1–32.
-- docs/questoes-issue335-fase2l-local.md: NÃO LIDO — ausente nesta cópia; sem hash atual.
+- docs/questoes-issue335-fase2l-local.md: NÃO LIDO — ausente nesta cópia; sem hash atual. Impossível renomear; questões2m criado separadamente.
 - docs/testes/issue335-fase2l-hashes.sha256 | N=48 | sha256=0bbfd1e6c0c6afd5f5e1d5f3a58b39719666dbfde44937db051307ad5b83971d | LIDO INTEGRAL — executor; intervalos 1–48.
 - .lovable/memory/features/compensacao-ligada.md | N=47 | sha256=b6f1a368c823a53e1462558fd1d7c60ae24908ba3e835b692f7868098c1dafd6 | LIDO INTEGRAL — executor; intervalos 1–47.
 - .lovable/memory/features/payment-account-ownership.md | N=46 | sha256=ee962f16af7ba153f39192769f4aa6f57590aff5c419a74ae80a278924ccde4e | LIDO INTEGRAL — executor; intervalos 1–46.
@@ -153,3 +153,18 @@ O relatório sub_2zabbhnk declara truncamento e não certifica revisão semânti
 - Issue #335 e TODOS os 13 comentários: LIDO INTEGRAL — executor; API paginada 13/13; captura /tmp/issue335-2m/issue335-full.md; N=475; intervalos 1–100,101–200,201–300,301–400,401–475; sha256=6aa58b12d24ef447c9cd427c8eda0ce91b0be7bf96de8c30e6e7c7bc29e838e3.
 
 Estado: INCOMPLETO. Requisito de leitura integral de todo o conjunto NÃO satisfeito. Nenhum intervalo emitido mas não revisto conta como leitura.
+
+## Adenda executor 22:12–22:16 UTC
+
+Pasta live/phase2k EXISTE; a impressão inicial de ausência estava errada. Todos os seus ficheiros permanecem NÃO LIDO integralmente conforme entradas acima.
+Leituras adicionais de cliente: ver issue335-fase2m-cliente.md (revisor sub_ea4vwbsv, hashes e intervalos; revisão parcial).
+- supabase/manual/20261021_issue335_status.INERTE.sql | sha256=9b9b752b7aa907887f833e0e6f0b02fc6c08d4d4fdeabe6a10c269bd193a0c20 | executor LIDO INTEGRAL; 1–54.
+- supabase/manual/20261021_issue335_emergency.INERTE.sql | sha256=cd0a44d64c79b311e229e9bb7b47c9a759e4af759eed6f683df5e16c8d8cb233 | executor LIDO INTEGRAL; 1–6.
+- supabase/manual/20261021_issue335_emergency.ROLLBACK-INERTE.sql | sha256=06010883cb0ada6685bfdb16296efd4a2db0f463ce6cbaf9512dd39ec23ab4bb | executor LIDO INTEGRAL; 1–6.
+- supabase/manual/20261021_issue335_offset_kill_switch.ROLLBACK-INERTE.sql | sha256=a0f25216556a194b203817640be1bdf4ebb2d24bef120dc1cc3eb4af048f3a79 | executor LIDO INTEGRAL; 1–7.
+- supabase/tests/issue335/phase2l-rollback.py | sha256=eaa73e57553011903fc83b6b404fef8204f1dbf988e58fc8bdd020b2a1282297 | executor LIDO INTEGRAL; 1–49.
+- supabase/tests/issue335/phase2h-run.sh | sha256=65299cf90cf0e194d32636d8d4a91d1a4fcf63930e6bbc40606aa59ccbe01c52 | executor LIDO INTEGRAL; 1–23.
+- supabase/tests/issue335/phase2h-suite.sh | sha256=ce3a01bf9a38337a6b86a476090ff34f557c0a762f60626243bce9bbf9561d17 | executor LIDO INTEGRAL; 1–39.
+- .lovable/memory/features/compensacao-ligada.md | sha256=b6f1a368c823a53e1462558fd1d7c60ae24908ba3e835b692f7868098c1dafd6 | executor LIDO INTEGRAL; 1–47.
+
+phase2m-context.py é novo, conteúdo integral produzido pelo executor; não conta como leitura prévia dos testes existentes. Matriz190 asserções/50 observações; não certifica replay token válido nem UPDATE real.

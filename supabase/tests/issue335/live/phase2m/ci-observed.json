@@ -1,0 +1,27 @@
+{
+  "head_http": 200,
+  "sha": "b798a59d77a976c3de2759018ef88b9d6e3b56b9",
+  "files": {
+    "supabase/tests/issue335/phase2m-context.py": {
+      "http": 404
+    },
+    "docs/testes/issue335-fase2m-leituras.md": {
+      "http": 404
+    },
+    "docs/testes/issue335-fases12-local.md": {
+      "http": 200,
+      "sha256": "73df33cbdc278497c0e9c84c6e55f1415bbce5b6a103b745329ee5c17bfef6ad",
+      "local_equal": true
+    }
+  },
+  "runs": [
+    {
+      "id": 39679753365,
+      "sha": "b798a59d77a976c3de2759018ef88b9d6e3b56b9",
+      "name": "CI",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "ci_covers_2m": false
+}
