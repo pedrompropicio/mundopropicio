@@ -41,8 +41,15 @@ def q(sql, args=None):
     rows = json.loads(''.join(lines), object_pairs_hook=lambda pairs: [v for k, v in pairs])
     return [tuple(r) for r in rows]
 
+import re as _re
+_KW = None
 def ident(x):
-    return q('SELECT quote_ident(%s)', (x,))[0][0]
+    global _KW
+    if _KW is None:
+        _KW = {r[0] for r in q("SELECT word FROM pg_get_keywords() WHERE catcode<>'U'")}
+    if _re.fullmatch(r'[a-z_][a-z0-9_$]*', x) and x not in _KW:
+        return x
+    return '"' + x.replace('"', '""') + '"'
 
 ext_member = """(SELECT objid FROM pg_depend d JOIN pg_extension e ON e.oid=d.refobjid
                  WHERE d.deptype='e' AND d.classid=%s::regclass AND e.extname = ANY(%s))"""
