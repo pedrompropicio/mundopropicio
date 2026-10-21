@@ -287,6 +287,11 @@ BEGIN
   IF t.id=ANY(ids) THEN RAISE EXCEPTION 'duplicate_item'; END IF; ids:=array_append(ids,t.id);
   IF t.status='partially_paid' AND position('issue335-status-v2l' in pg_get_functiondef('public._derive_paid_amount(uuid)'::regprocedure))=0 THEN
    RAISE EXCEPTION 'installation_order: status_candidate_required'; END IF;
+  -- 2n-Bloco2b: reverting an approved item is a paid->approved UPDATE that re-runs the BP-line and
+  -- budget checks; event budget mode/BP/budget can change after apply. Every approved item
+  -- (including forecast-created and no-BP history) therefore depends on the approval candidate.
+  IF t.status='approved' AND position('issue335-approval-v2l' in pg_get_functiondef('public.enforce_transaction_approval_permission()'::regprocedure))=0 THEN
+   RAISE EXCEPTION 'installation_order: approval_candidate_required'; END IF;
   IF t.supplier_id IS DISTINCT FROM p_supplier_id OR t.type NOT IN ('income','expense') OR t.status NOT IN ('approved','partially_paid') OR t.reversed_at IS NOT NULL OR t.is_hidden THEN RAISE EXCEPTION 'invalid_document'; END IF;
   IF public.issue335_camarim_leg(t.id) THEN RAISE EXCEPTION 'camarim_leg_unsupported: movimentos de camarim não entram no encontro de contas'; END IF;
   -- 2k M6: não reinterpretar dinheiro legado atribuído a outra conta ao activar um grupo.
@@ -375,6 +380,10 @@ DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid 
   RAISE EXCEPTION 'already_reversed';
  END IF;
  IF g.status<>'applied' THEN RAISE EXCEPTION 'invalid_group_state'; END IF;
+ -- 2n-Bloco2b: candidate removed after apply -> clear atomic refusal instead of a late 42501.
+ IF EXISTS(SELECT 1 FROM public.transaction_offset_items WHERE group_id=g.id AND prior_status='approved')
+    AND position('issue335-approval-v2l' in pg_get_functiondef('public.enforce_transaction_approval_permission()'::regprocedure))=0 THEN
+  RAISE EXCEPTION 'installation_order: approval_candidate_required'; END IF;
  PERFORM public.issue335_lock_parents('event_settlements',ARRAY(SELECT t.event_settlement_id FROM public.transactions t JOIN public.transaction_offset_items i ON i.transaction_id=t.id WHERE i.group_id=g.id));
  PERFORM 1 FROM public.transactions WHERE id IN(SELECT transaction_id FROM public.transaction_offset_items WHERE group_id=g.id) ORDER BY id FOR UPDATE NOWAIT; -- 2j: idem execute
  PERFORM 1 FROM public.transaction_payments WHERE offset_group_id=g.id ORDER BY id FOR NO KEY UPDATE NOWAIT;

@@ -9,8 +9,8 @@ python3 "$S/phase2i-reference-data.py" "$ROOT/supabase/migrations" "$OUT/refdata
 "${A[@]}" -v ON_ERROR_STOP=0 -f "$OUT/refdata.sql" > "$OUT/refdata.out" 2>&1; echo "refdata errors: $(grep -c ERROR "$OUT/refdata.out")"
 "${A[@]}" -f "$S/phase2h-fixtures.sql" >/dev/null || { echo 'FIXTURES FAIL'; exit 1; }
 "${P[@]}" -c "DO \$\$ BEGIN IF (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) THEN RAISE EXCEPTION 'superuser deploy'; END IF; END \$\$;"
-for f in group_storage core invariants balance; do "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_$f.INERTE.sql" >/dev/null 2>"$OUT/install-$f.err" || { echo "INSTALL FAIL $f"; cat "$OUT/install-$f.err"; exit 1; }; done
-echo 'INSTALL OK (postgres NOSUPERUSER): group_storage core invariants balance'
+for f in group_storage core approval invariants balance; do "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_$f.INERTE.sql" >/dev/null 2>"$OUT/install-$f.err" || { echo "INSTALL FAIL $f"; cat "$OUT/install-$f.err"; exit 1; }; done
+echo 'INSTALL OK (postgres NOSUPERUSER): group_storage core approval invariants balance (2n-Bloco2b order)'
 "${A[@]}" -f "$S/live/phase2e-balance-baseline.sql" >/dev/null   # cópias legadas só para comparação (schema issue335_test)
 res=$OUT/suite-results.txt; : > "$res"
 # Sequencial numa só base, como no runner original (cada fase usa o estado da anterior).
@@ -42,4 +42,7 @@ else echo "FAIL phase2n-context: $(tail -1 "$OUT/phase2n-context.out")" | tee -a
 if python3 "$S/phase2n-trigger-watch.py" "$D" "$PORT" "$ROOT" "$OUT/phase2n-trigger-watch.json" > "$OUT/phase2n-trigger-watch.out" 2>&1; then
   echo 'PASS phase2n-trigger-watch (full row snapshots and detector)' | tee -a "$res"
 else echo "FAIL phase2n-trigger-watch: $(tail -1 "$OUT/phase2n-trigger-watch.out")" | tee -a "$res"; fi
+if python3 "$S/phase2n-status.py" "$D" "$PORT" "$ROOT" "$OUT/phase2n-status.json" > "$OUT/phase2n-status.out" 2>&1; then
+  echo "PASS phase2n-status (M3 2n-Bloco2b: order, case c, exact comparison + negative tests)" | tee -a "$res"
+else echo "FAIL phase2n-status: $(tail -3 "$OUT/phase2n-status.out" | tr '\n' ' ')" | tee -a "$res"; fi
 if grep -q '^FAIL' "$res"; then exit 1; fi

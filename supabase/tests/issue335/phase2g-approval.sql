@@ -5,7 +5,9 @@
 CREATE SCHEMA IF NOT EXISTS issue335_test;
 SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false);
 CREATE TABLE IF NOT EXISTS issue335_test.g2(k text PRIMARY KEY, v uuid);
+\i :root/supabase/manual/20261021_issue335_offset_approval.ROLLBACK-INERTE.sql
 CREATE TABLE IF NOT EXISTS issue335_test.g2_prosrc AS SELECT prosrc FROM pg_proc WHERE oid='public.enforce_transaction_approval_permission'::regproc;
+DO $$ BEGIN IF position('issue335-approval-v2l' in (SELECT prosrc FROM issue335_test.g2_prosrc))>0 THEN RAISE EXCEPTION '2g captured body is not Live'; END IF; END $$;
 CREATE OR REPLACE FUNCTION issue335_test.g2_case(p_k text) RETURNS void LANGUAGE plpgsql AS $$
 DECLARE ev uuid:=gen_random_uuid(); f uuid; a uuid; b uuid; g uuid; uid text:=current_setting('request.jwt.claim.sub');
 BEGIN
@@ -36,18 +38,23 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN RETURN SQLSTATE||' '||SQLERRM; END $$;
 
 -- ===== BEFORE: Live trigger =====
-DO $$ DECLARE r text; BEGIN
- PERFORM issue335_test.g2_case('hist'); PERFORM issue335_test.g2_case('verba');
- r:=issue335_test.g2_reverse('hist');
- IF r NOT LIKE '42501 Esta transacao nao tem linha de BP%' THEN RAISE EXCEPTION '2g BEFORE hist expected BP refusal, got %',r; END IF;
- r:=issue335_test.g2_reverse('verba');
- IF r NOT LIKE 'P0409 %' THEN RAISE EXCEPTION '2g BEFORE verba expected P0409, got %',r; END IF;
- IF (SELECT status FROM transaction_offset_groups WHERE id=(SELECT v FROM issue335_test.g2 WHERE k='hist:g'))<>'applied' THEN RAISE EXCEPTION '2g BEFORE not atomic'; END IF;
- RAISE NOTICE 'REPRODUCED 2g D BEFORE: historic without_bp->with_bp reverse refused 42501; over-budget reverse refused P0409; group stays applied (atomic)';
+-- 2n-Bloco2b: the suite installs approval after core; the captured Live body is restored by
+-- the approval rollback for this BEFORE phase. Historic 2g evidence (apply ok, reverse 42501 /
+-- P0409, atomic) is superseded: the core now refuses the APPLY with a clear order error,
+-- before any financial write (stricter; documented in the report, section 2n-Bloco2b).
+DO $$ DECLARE r text; k text; n int:=(SELECT count(*) FROM transaction_offset_groups); BEGIN
+ FOREACH k IN ARRAY ARRAY['hist','verba'] LOOP
+  BEGIN PERFORM issue335_test.g2_case(k); r:='ok';
+  EXCEPTION WHEN OTHERS THEN r:=SQLSTATE||' '||SQLERRM; END;
+  IF r<>'P0001 installation_order: approval_candidate_required' THEN RAISE EXCEPTION '2g BEFORE % expected approval_candidate_required, got %',k,r; END IF;
+ END LOOP;
+ IF (SELECT count(*) FROM transaction_offset_groups)<>n THEN RAISE EXCEPTION '2g BEFORE refusal not atomic'; END IF;
+ RAISE NOTICE 'PASS 2g D BEFORE (2n-Bloco2b): without approval candidate the encounter is refused at apply (approval_candidate_required), zero groups written';
 END $$;
 
 -- ===== AFTER: candidate installed only here =====
 \i :root/supabase/manual/20261021_issue335_offset_approval.INERTE.sql
+DO $$ BEGIN PERFORM issue335_test.g2_case('hist'); PERFORM issue335_test.g2_case('verba'); END $$;
 DO $$ DECLARE r text; b uuid; ev uuid; f uuid; n uuid; BEGIN
  r:=issue335_test.g2_reverse('hist');
  IF r<>'ok' THEN RAISE EXCEPTION '2g AFTER (a) hist reverse failed: %',r; END IF;
@@ -134,3 +141,5 @@ DO $$ BEGIN
  IF (SELECT prosrc FROM pg_proc WHERE oid='public.enforce_transaction_approval_permission'::regproc) IS DISTINCT FROM (SELECT prosrc FROM issue335_test.g2_prosrc) THEN RAISE EXCEPTION '2g (f) rollback prosrc parity failed'; END IF;
  RAISE NOTICE 'PASS 2g D (f): rollback prosrc byte-identical to captured Live';
 END $$;
+-- 2n-Bloco2b: the suite keeps approval installed after core for the remaining phases.
+\i :root/supabase/manual/20261021_issue335_offset_approval.INERTE.sql

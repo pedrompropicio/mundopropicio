@@ -111,3 +111,18 @@ Leituras core delegadas sub_zbfwr52y; testes históricos delegados sub_v2bm4wh9;
 - supabase/tests/issue335/phase2k-rollback.py | N=49 | sha256=e46d84765be63ba6559cfc32b8d8704728124afad3d185e87a2c020f614201b5 | NÃO LIDO integral: falta linha 49 | intervalos 1–48
 - supabase/tests/issue335/phase2l.sql | N=114 | sha256=e8b54b5a46e0f44aedb950828ef79c0b7bee322d71230821c069b4f52693212b | LIDO INTEGRAL | intervalos 1–113,114–114
 - supabase/tests/issue335/phase2m-context.py | N=115 | sha256=29986a0ab18acd230307f3ae228eff26600e28e00bc8e623122c11a49408d962 | LIDO INTEGRAL | intervalos 1–114,115–115
+
+### Bloco2b — leituras antes de escrever testes (21/10/2026, chunks ≤200)
+- docs/testes/issue335-fases12-local.md | N=6375 | sha256=1882c75431bb79f4e91f44fe33c9021ac62de23ac1dfcc36853a5472fbc8d9a0 | secção 2n-Bloco2 LIDA INTEGRAL (6332–6375) | resto do ficheiro NÃO LIDO: fora do âmbito pedido
+- supabase/tests/issue335/phase2n-status.py (versão Bloco2) | N=233 | sha256=d65ec6434be349314dc6c0b128bf576e826ee9af483e838027004caf3faeb4f1 | LIDO INTEGRAL | intervalos 1–200,201–233
+- supabase/manual/20261021_issue335_offset_core.INERTE.sql (antes da edição) | N=1130 | sha256=e3153a10868d726687581ec7abee1e7b260426ff270bab62ff96effba659b772 | LIDO INTEGRAL | 1–200,201–400,401–600,601–800,801–1000,1001–1130
+- supabase/manual/20261021_issue335_offset_core.ROLLBACK-INERTE.sql | N=714 | sha256=9371b4a265c5b4a5d509ce0d2e275371c8554559bc06e23cebefc74b19ca785c | LIDO INTEGRAL | 1–200,201–400,401–600,601–714
+- supabase/manual/20261021_issue335_offset_approval.INERTE.sql | N=160 | sha256=94fd0c26f78d1585f2f62d0cfae8906a951ac5feeacb241c3dc85451dc987f62 | LIDO INTEGRAL | 1–160
+- supabase/manual/20261021_issue335_offset_approval.ROLLBACK-INERTE.sql | N=134 | sha256=5829c312ab4ce7fe41becc47d1f70f2f9a8f5e76b9b8bc6c3841b409778ac89a | LIDO INTEGRAL | 1–134
+- supabase/tests/issue335/phase2k-rollback.py | N=49 (último byte sem newline; wc=48) | sha256=e46d84765be63ba6559cfc32b8d8704728124afad3d185e87a2c020f614201b5 | LIDO INTEGRAL | 1–49 (inclui linha 49 c.close())
+- supabase/tests/issue335/phase2h-suite.sh | N=45 | sha256=66f442d2649f8d3f28f2e839a75d6c7f72df238fd5871d9aa284875003ab2aef | LIDO INTEGRAL | 1–45
+- supabase/tests/issue335/phase2h-run.sh | N=23 | sha256=65299cf90cf0e194d32636d8d4a91d1a4fcf63930e6bbc40606aa59ccbe01c52 | LIDO INTEGRAL | 1–23
+- supabase/tests/issue335/phase2g-approval.sql | N=136 | LIDO INTEGRAL | 1–60,60–136 (antes da edição)
+- supabase/tests/issue335/phase2e.sql | linhas 70–95 do adaptado + 86–93 do original | NÃO LIDO integral: só o bloco D tocado
+- supabase/tests/issue335/phase2l-rollback.py | linhas 25–49 relidas | já integral no Bloco2
+- Catálogo Live (só SELECT pg_proc): _derive_paid_amount md5 18a8b97b…, materialize_paid_amount_payment ea609d67…, sync_paid_amount_from_payments 8909621f…, validate_paid_requires_payment_date 1d75d22d…, _paid_guard_is_exempt 6f00c9b9…, e todas as funções public com 'partially_paid' (reverse_payment 73185dd7… é o único escritor).

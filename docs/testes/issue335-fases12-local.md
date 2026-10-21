@@ -6373,3 +6373,26 @@ Manifesto docs/testes/issue335-fase2n-leituras.md contém hashes no momento de l
 API GitHub main: 8f3a9fc749f3e58ab888fe8437d6983f0769b273. Runner phase2n-status.py HTTP404; relatório remoto SHA256 94e387d6c5d10f1fc65447a214844494fe81c3cc86434a663c375f7397cb0fae não contém secção Bloco2. CI run 39689840508 success desse HEAD NÃO cobre estes edits. CI M3 NÃO VERIFICADA; nenhum SHA final remoto com estes edits é certificável neste turno. Sem comandos git stateful.
 
 M3 ABERTO: caso c real sem pernas, admissão/restauro paid, snapshot integral literal, guarda de ordem core/approval e cobertura integral dos testes históricos ainda impedem aceitação. Sem avançar para outros blocos ou pedir autorização de instalação.
+
+## Fase 2n-Bloco2b — fecho do M3 (21/10/2026)
+
+ESTADO: passos 1–4 FECHADOS localmente (harness fiel PG 17.6, postgres NOSUPERUSER, triggers reais). Nada em Live, sem migrations, sem TS, sem Publish. Instalação continua a exigir Sim separado.
+
+### Passo 1 — ordem core/approval: FECHADO
+ANTES (core e3153a10…): core sem approval aceita documento histórico sem BP e o estorno falha depois com 42501 (runner Bloco2, linha "core without approval: historical no-BP" ok/42501).
+Correcção no core INERTE (núcleo novo sha256 c0b97329…, N=1139): (1) no encontro, qualquer item approved (incluindo criado a partir do BP e histórico sem BP) é recusado com P0001 installation_order: approval_candidate_required se o marcador issue335-approval-v2l estiver ausente; (2) no estorno, o mesmo erro, atómico, se o candidato foi removido depois do apply. Justificação: estornar um approved é UPDATE paid->approved que reavalia linha de BP e verba; modo do evento/BP/verba podem mudar depois do apply (2g hist/verba), logo todo o approved depende do candidato. Rollback do core: sem alteração (as linhas novas vivem nas funções que o rollback já remove; guarda status_and_approval_before_core mantém-se).
+DEPOIS: ordem errada -> approval_candidate_required, zero escrita (hash integral igual); com approval aplica e estorna; estorno com approval removido -> approval_candidate_required, hash igual; rollback do core antes de approval -> rollback_order: status_and_approval_before_core. Ordem de instalação: storage → core → approval → (status) → invariants → balance → …; remoção inversa (13 pares).
+Testes históricos ajustados (sem enfraquecer): phase2g BEFORE passa a exigir a recusa no apply (antes: 42501 no estorno); phase2e D passa a exigir estorno histórico restaurado com approval instalado. A suite instala approval logo a seguir ao core.
+
+### Passo 2 — caso c: FECHADO como inalcançável (prova)
+Catálogo Live: _derive_paid_amount nunca escreve partially_paid (parcial -> approved); o único escritor é reverse_payment (ramo parcial, paid_amount = soma das pernas paid, logo com pernas); materialize_paid_amount_payment (AFTER INSERT OR UPDATE OF paid_amount) cria perna 'base D-ERP157' e deriva approved. Excepção: _paid_guard_is_exempt (reembolso, filha de rateio, despesa paga pelo sócio) — aí o estado existe sem pernas, mas o núcleo recusa-o.
+Teste: c1 INSERT partially_paid/20 -> perna criada + approved; c2 UPDATE status+paid_amount -> idem; c3 reembolso partially_paid/20 sem pernas -> encontro recusado unsupported_debt, hash igual. Fixture inválida (Bloco2) removida; não conta.
+
+### Passo 3 — regra de comparação: FECHADO
+Snapshot integral por documento (to_jsonb de todas as colunas, hash) antes vs depois do estorno, cada passo em transacção própria (updated_at muda de facto). Única excepção: transactions.updated_at (não há outra coluna de auditoria na linha). Pernas anteriores: idênticas byte-a-byte. Pernas novas: número = pernas do grupo, todas status reversed, reversed_at preenchido, offset_group_id do grupo. Soma das pernas paid por documento e por conta: igual à inicial. Aplicado a a, b (partially_paid por reverse_payment real), e, misto; d/f recusados com hash integral igual. Negativos (detectados em todos os casos): coluna specification alterada, notes de perna anterior alterada, perna paga extra. Replay mesmo request ok sem alterações; outro request already_reversed.
+Resultado: a/b/e/misto violações [], colunas alteradas só updated_at, 3 pernas novas reversed; status restaurado approved / partially_paid exacto.
+
+### Passo 4 — integração: FECHADO
+phase2h-suite.sh corre phase2n-status.py no fim. Suite completa: 17 linhas PASS, zero FAIL, zero skips (scenarios, 2b–2f, kill-switch, matriz, 2f-conc, 2g, matching, 2j, 2j-conc, 2l, 2n-context, trigger-watch, phase2n-status). JSON M3 sha256 31cbbaa5dade25157b73a58e011937d7c3e824b99630567a7b39a6e5d2f13231.
+Rollback 13 pares em harness limpo: before=after, differences={}; captura completa NORMALIZADA (ordem de linhas/ACL), não byte-a-byte. SHA before/after 474947e2…, differences 44136fa3….
+Ambiente: harness reconstruído em /tmp (PG 17.6 npm beta.15, pgvector 0.8.2 do nix com script 0.8.0 copiado — ambiental, 0 falhas de instalação, UNEXPLAINED 0).
