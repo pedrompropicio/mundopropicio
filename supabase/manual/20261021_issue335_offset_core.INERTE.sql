@@ -151,12 +151,16 @@ DECLARE gid uuid; st text; trusted boolean := current_user = 'issue335_executor'
    (NEW.id,NEW.currency,NEW.fx_rate,NEW.original_amount,NEW.installment_group_id,NEW.installment_number,NEW.installment_total,
     NEW.card_session_id,NEW.held_by_supplier_id,NEW.settlement_id,NEW.is_transitory,NEW.supplier_credit_id,NEW.parent_transaction_id,
     NEW.is_reimbursement,NEW.cache_contract_id,NEW.shared_cost_account_id,NEW.declared_withholding_amount,NEW.declared_withholding_rate,
-    NEW.split_percentage,NEW.split_amount,NEW.split_mode,NEW.payment_method,NEW.reversed_by,NEW.reversal_reason)
+    NEW.split_percentage,NEW.split_amount,NEW.split_mode,NEW.payment_method,NEW.reversed_by,NEW.reversal_reason,
+    NEW.paying_partner_id,NEW.ordering_partner_id,NEW.shared_cost_counterparty_id,NEW.category_id,NEW.exclude_from_result,
+    NEW.cache_role,NEW.cache_root_event_id,NEW.cache_artist_supplier_id,NEW.operation_key,NEW.invoice_group_id,NEW.transitory_reason)
    IS DISTINCT FROM
    (OLD.id,OLD.currency,OLD.fx_rate,OLD.original_amount,OLD.installment_group_id,OLD.installment_number,OLD.installment_total,
     OLD.card_session_id,OLD.held_by_supplier_id,OLD.settlement_id,OLD.is_transitory,OLD.supplier_credit_id,OLD.parent_transaction_id,
     OLD.is_reimbursement,OLD.cache_contract_id,OLD.shared_cost_account_id,OLD.declared_withholding_amount,OLD.declared_withholding_rate,
-    OLD.split_percentage,OLD.split_amount,OLD.split_mode,OLD.payment_method,OLD.reversed_by,OLD.reversal_reason) OR
+    OLD.split_percentage,OLD.split_amount,OLD.split_mode,OLD.payment_method,OLD.reversed_by,OLD.reversal_reason,
+    OLD.paying_partner_id,OLD.ordering_partner_id,OLD.shared_cost_counterparty_id,OLD.category_id,OLD.exclude_from_result,
+    OLD.cache_role,OLD.cache_root_event_id,OLD.cache_artist_supplier_id,OLD.operation_key,OLD.invoice_group_id,OLD.transitory_reason) OR
    (NOT trusted AND (NEW.account_id IS DISTINCT FROM OLD.account_id OR
     ((NEW.status IS DISTINCT FROM OLD.status OR NEW.payment_date IS DISTINCT FROM OLD.payment_date OR NEW.paid_amount IS DISTINCT FROM OLD.paid_amount) AND NOT (
       EXISTS(SELECT 1 FROM public.transaction_offset_items gi JOIN public.transaction_offset_groups gg ON gg.id=gi.group_id WHERE gi.transaction_id=OLD.id AND gg.status IN('preparing','reversing')) AND
