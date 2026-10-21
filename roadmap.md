@@ -17,4 +17,4 @@
 - [ ] Ajuste D-ERP288: verificação em Live pelo Pedro e CI do commit.
 - [x] Visão comparativa Fase 1: aliases SQL corrigidos; migração 0218 aplicada, SHA256 50e0f125931dc097bedad8a4d243b0cc7ad3bffaae17a44f156434cc721f5980; RLS/ACL/EXECUTE conferidos; 14 testes locais passaram.
 - [x] Visão comparativa Fase 1: correção mínima BufferSource validada por deno check; 14 testes existentes passaram.
-- [ ] Visão comparativa Fase 1: parada perante novo teste do writer falhado (alias SQL `day` no próprio teste, syntax error). 14/15 passaram; writer não aplicado nem exercitado até ao fim. Retomar após autorização: corrigir alias do teste, validar, deploy, prova manual Litto, backfill e crons/retenção. Zero chamadas às plataformas; sem Publish.
+- [ ] Visão comparativa Fase 1: retoma autorizada 03:42 UTC; corrigir sintaxe/nomes/tipos/imports novos e retestar sem pausas. Entregar writer, deploy, prova Litto, backfill/cobertura TikTok, crons/retenção e contagens. Parar por guarda ACL/DDL, comportamento irresolúvel sem redesenho, API/permissão ou alteração existente fora do plano. Sem Publish.
