@@ -9,7 +9,7 @@ Estado: INCOMPLETO. Não confundir capturas automáticas/hashes ou revisão por 
 - .lovable/memory/features/compensacao-ligada.md e payment-account-ownership.md: 1–40 (ficheiros completos).
 - Issue #335: corpo + 12 comentários, API paginada, captura /tmp/issue335-2l/issue.txt: 1–100,101–200,201–300,301–400,401–467. Não certifica comentários acrescentados depois dessa captura.
 - docs/questoes-issue335-fase2k-local.md: 1–18; docs/testes/issue335-fase2k-hashes.sha256: 1–35.
-- docs/testes/issue335-fases12-local.md: secções 2h–2k completas em 520–610,611–700,701–795. Partes anteriores não relidas integralmente.
+- docs/testes/issue335-fases12-local.md: 520–610 e701–795 confirmadas; 611–700 não confirmado integralmente nesta fase. Secção2k completa; secções2h–2j não certificadas integralmente.
 - supabase/manual/20261021_issue335_offset_core.INERTE.sql original: 1–120,121–240,241–360,361–480,481–600,601–720,721–840,841–960,961–1075; posteriores alterações conhecidas por patches, não releitura integral adicional.
 - offset_group_storage.INERTE.sql: 1–90; rollback: 1–11.
 - offset_approval.INERTE.sql: 1–159; kill_switch candidato e rollback completos; offset_balance candidato 1–126 e rollback completo.
