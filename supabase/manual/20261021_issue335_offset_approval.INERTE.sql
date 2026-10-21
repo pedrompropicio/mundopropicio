@@ -16,6 +16,7 @@ DECLARE
   v_rubrica text;
   v_real numeric;
 BEGIN
+  -- issue335-approval-v2l: versioned source marker; core context also required.
   -- ===== PERMISSAO (approve_transactions) =====
   -- So no UPDATE que transita para 'approved'.
   -- NAO se exige no INSERT: quem nasce aprovado nasce pela regra do saldo do BP
@@ -46,17 +47,17 @@ BEGIN
   -- #335 LOCAL/INERTE candidate: restoring a proven earlier approval is not
   -- a new budget commitment. Permission check remains unchanged below.
   -- Group/item state cannot be written by application roles; no JWT/GUC bypass.
-  IF TG_OP = 'UPDATE' AND OLD.status = 'paid' AND NEW.status = 'approved'
+  IF TG_OP = 'UPDATE' AND public.issue335_context_valid('reverse') AND OLD.status = 'paid' AND NEW.status IN('approved','partially_paid')
      AND (to_jsonb(NEW) - ARRAY['status','paid_amount','payment_date','updated_at'])
          IS NOT DISTINCT FROM
          (to_jsonb(OLD) - ARRAY['status','paid_amount','payment_date','updated_at'])
-     AND NEW.payment_date IS NULL
      AND EXISTS (
        SELECT 1 FROM public.transaction_offset_items i
        JOIN public.transaction_offset_groups g ON g.id=i.group_id
        WHERE i.transaction_id=OLD.id AND i.company_id=OLD.company_id
          AND g.company_id=OLD.company_id AND g.status='reversing'
-         AND i.prior_status='approved' AND i.prior_paid_amount=NEW.paid_amount
+         AND i.prior_status=NEW.status AND i.prior_paid_amount=NEW.paid_amount
+         AND NEW.payment_date IS NOT DISTINCT FROM i.prior_payment_date
          AND i.base_amount=NEW.amount AND i.iva_rate=NEW.iva_rate
          AND i.gross_amount=round(NEW.amount*(1+NEW.iva_rate/100.0),2)
          AND NOT EXISTS(SELECT 1 FROM public.transaction_payments p

@@ -131,3 +131,5 @@ json.dump(dict(stats=stats, admin_fallback=admin_fallback, failed=failed), open(
 print('phase2h install:', sum(v.get('total', 0) for v in stats.values()), 'statements;', len(failed), 'failed')
 for f in failed[:60]:
     print(' FAIL', f['key'], f['error'][:160])
+if failed:
+    sys.exit(1)

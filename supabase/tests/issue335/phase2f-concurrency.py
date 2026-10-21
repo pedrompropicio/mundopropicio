@@ -72,8 +72,8 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
     assert sql(observer,"SELECT count(*) FROM transaction_offset_groups WHERE request_id=%s AND status='applied'",(request,))[0][0]==1
     assert sql(observer,"SELECT count(*) FROM transaction_payments WHERE transaction_id=ANY(%s::uuid[]) AND status='paid'",(ids,))[0][0]==3
     result=outcome(s2,*call(ids,str(uuid.uuid4())))
-    assert result[0]=='42501',result
-    print('REPRODUCED 2f F/I: in-flight invocation applies AFTER switch committed; one group, three legs. Fresh call 42501. OPEN, not corrected.')
+    assert result==('P0001','encontro_desativado'),result
+    print('REPRODUCED 2f F/I: in-flight invocation applies AFTER switch committed; one group, three legs. Fresh call encontro_desativado. OPEN, not corrected.')
     sql(observer,Path(root+'/supabase/manual/20261021_issue335_offset_kill_switch.ROLLBACK-INERTE.sql').read_text())
     sql(observer,original)
     ids=fixture(); request=str(uuid.uuid4())
@@ -87,7 +87,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
     assert result==('P0001','encontro_desativado'),result
     assert sql(observer,'SELECT count(*) FROM transaction_offset_groups WHERE request_id=%s',(request,))[0][0]==0
     assert sql(observer,'SELECT count(*) FROM transaction_payments WHERE transaction_id=ANY(%s::uuid[])',(ids,))[0][0]==0
-    assert outcome(s2,*call(ids,str(uuid.uuid4())))[0]=='42501'
+    assert outcome(s2,*call(ids,str(uuid.uuid4())))==('P0001','encontro_desativado')
     print('PASS 2f F/I AFTER: same observed request-lock edge; closure committed first; resumed call encontro_desativado, zero group/payments, fresh call 42501.')
     sql(observer,Path(root+'/supabase/manual/20261021_issue335_offset_kill_switch.ROLLBACK-INERTE.sql').read_text())
     # Draining an already successful transaction: closure waits for its fence.
@@ -100,7 +100,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
     sql(s2,'COMMIT')
     assert future.result(timeout=12)[0]=='ok'
     assert sql(observer,'SELECT enabled FROM transaction_offset_control')[0][0] is False
-    assert outcome(s2,*call(ids,str(uuid.uuid4())))[0]=='42501'
+    assert outcome(s2,*call(ids,str(uuid.uuid4())))==('P0001','encontro_desativado')
     print('PASS 2f F/I drain: closure blocked by admitted transaction until COMMIT; closure then false, fresh invocation 42501.')
     sql(observer,Path(root+'/supabase/manual/20261021_issue335_offset_kill_switch.ROLLBACK-INERTE.sql').read_text())
     # Two encounters: acknowledged winner retains locks; unique exact loser.

@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS public.transaction_offset_items (
  gross_amount numeric(14,2) NOT NULL,
  prior_paid_amount numeric(14,2) NOT NULL,
  prior_status text NOT NULL CHECK(prior_status IN ('approved','partially_paid')),
+ prior_payment_date date,
  open_amount numeric(14,2) NOT NULL CHECK(open_amount>0),
  cash_amount numeric(14,2) NOT NULL CHECK(cash_amount>=0),
  compensation_amount numeric(14,2) NOT NULL CHECK(compensation_amount>=0),
@@ -82,7 +83,7 @@ DO $$ DECLARE r record; t text; BEGIN
   END LOOP;
  END LOOP;
 END $$;
-CREATE TABLE public.transaction_offset_control (singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),enabled boolean NOT NULL DEFAULT true);
+CREATE TABLE public.transaction_offset_control (singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),enabled boolean NOT NULL DEFAULT true,reverse_enabled boolean NOT NULL DEFAULT true);
 REVOKE ALL ON public.transaction_offset_control FROM PUBLIC,anon,authenticated,service_role,sandbox_exec,sandbox_exec_sfohvvlqccmmebvjgibx;
 GRANT SELECT ON public.transaction_offset_control TO service_role;
 ALTER TABLE public.transaction_offset_control ENABLE ROW LEVEL SECURITY;

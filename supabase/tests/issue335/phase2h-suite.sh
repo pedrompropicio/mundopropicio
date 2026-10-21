@@ -25,9 +25,9 @@ run_sql() { local n=$1 f=$2; python3 "$S/phase2h-adapt.py" "$f" "$T/$n.sql" >> "
   if "${A[@]}" -v root="$ROOT" -f "$T/$n.sql" > "$OUT/$n.out" 2>&1; then echo "PASS $n ($(grep -c 'PASS' "$OUT/$n.out") marcadores PASS)" | tee -a "$res"
   else echo "FAIL $n: $(grep -m1 ERROR "$OUT/$n.out")" | tee -a "$res"; fi; }
 if "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_kill_switch.INERTE.sql" >"$OUT/ks.out" 2>&1 && \
-   "${A[@]}" -c "DO \$\$ BEGIN IF (SELECT enabled FROM transaction_offset_control) OR has_function_privilege('authenticated','transaction_offset_execute(uuid,uuid,jsonb,jsonb,date,text)','EXECUTE') OR has_table_privilege('authenticated','issue335_commands','INSERT') THEN RAISE EXCEPTION 'kill_switch_failed'; END IF; END \$\$;" >>"$OUT/ks.out" 2>&1 && \
+   "${A[@]}" -c "DO \$\$ BEGIN IF (SELECT enabled FROM transaction_offset_control) OR NOT (SELECT reverse_enabled FROM transaction_offset_control) OR NOT has_function_privilege('authenticated','transaction_offset_reverse(uuid,uuid,text)','EXECUTE') OR NOT has_table_privilege('authenticated','issue335_commands','INSERT') THEN RAISE EXCEPTION 'kill_switch_failed'; END IF; END \$\$;" >>"$OUT/ks.out" 2>&1 && \
    "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_kill_switch.ROLLBACK-INERTE.sql" >>"$OUT/ks.out" 2>&1
-then echo "PASS kill-switch (flag + 2 ACL fechadas + rollback)" | tee -a "$res"; else echo "FAIL kill-switch: $(grep -m1 ERROR "$OUT/ks.out")" | tee -a "$res"; fi
+then echo "PASS kill-switch (level 1, reverse available, ACL unchanged + rollback)" | tee -a "$res"; else echo "FAIL kill-switch: $(grep -m1 ERROR "$OUT/ks.out")" | tee -a "$res"; fi
 run_sql phase2c-invariant-matrix "$S/phase2c-invariant-matrix.sql"
 if python3 "$S/phase2f-concurrency.py" "$D" "$PORT" "$ROOT" > "$OUT/concurrency.out" 2>&1; then echo "PASS phase2f-concurrency ($(grep -c PASS "$OUT/concurrency.out") marcadores)" | tee -a "$res"; else echo "FAIL phase2f-concurrency: $(tail -1 "$OUT/concurrency.out")" | tee -a "$res"; fi
 run_sql phase2g-approval "$S/phase2g-approval.sql"
@@ -35,3 +35,4 @@ run_sql phase2g-approval "$S/phase2g-approval.sql"
 if (cd "$ROOT" && bun "$S/matching-parity.ts") > "$OUT/parity.raw.sql" 2>"$OUT/parity.gen.err"; then run_sql matching-parity "$OUT/parity.raw.sql"; else echo "FAIL matching-parity: gerador $(tail -1 "$OUT/parity.gen.err")" | tee -a "$res"; fi
 run_sql phase2j "$S/phase2j.sql"
 if python3 "$S/phase2j-concurrency.py" "$D" "$PORT" "$ROOT" > "$OUT/concurrency2j.out" 2>&1; then echo "PASS phase2j-concurrency ($(grep -c PASS "$OUT/concurrency2j.out") marcadores)" | tee -a "$res"; else echo "FAIL phase2j-concurrency (rc=$?): $(grep -E 'ACHADO|Error|assert' "$OUT/concurrency2j.out" | tail -1)" | tee -a "$res"; fi
+if grep -q '^FAIL' "$res"; then exit 1; fi

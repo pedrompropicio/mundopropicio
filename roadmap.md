@@ -57,3 +57,5 @@
 - [ ] #335 fase 2k fecho: relatório e questões, Issue, SHA remoto com ficheiros/hash presentes e CI desse SHA; reserva mantida, sem A–C/Live/Publish.
 - [x] #335 fase 2k parcial: candidatos separados caixa/vigia/restauro preventivo, analíticas category/exclude e elegibilidade reembolso/contas; ANTES/DEPOIS local, suite retida 13/13 + 6 focados, rollback completo 9 pares, Vitest 1953.
 - [ ] #335 2k NÃO ACEITE: M1 executor/locks; M3 prior_status; M4 dois níveis; M5/M7 corridas; A1 relatórios/extracto; M6 vigia; E valores válidos completos; baixas/releitura integral/CI final. Não depende de nova decisão comercial; não aplicar.
+- [ ] #335 fase 2l: leituras por partes e manifesto; M1 contexto/ACL/locks; M3 status/ordem; M4 dois níveis/reactivação; M5/M7 corridas; M6 vigia; E matriz válida/paridade; baixas e proposta cliente sem implementação.
+- [ ] #335 fase 2l fecho: suite fiel PG17.6/rollback integral/Vitest, hashes/relatório/questões/QUADRO/Issue, presença remoto+hash+CI. Manter restauro conservador/reserva; nenhum A–C/Live/Publish.
