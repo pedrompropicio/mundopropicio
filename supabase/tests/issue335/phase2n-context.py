@@ -67,7 +67,7 @@ try:
         tokens = [re.search(r'2N1B_TOKEN:([a-f0-9-]{36})', n).group(1) for n in a.notices if '2N1B_TOKEN:' in n]
         assert len(tokens) == 1
         token = tokens[0]
-        assert execute(a, 'SELECT count(*) FROM issue335_execution_context') if False else True
+        assert execute(admin, 'SELECT count(*) FROM issue335_execution_context') == [(0,)]
         execute(a, ending)
         exists = execute(admin, 'SELECT count(*) FROM transaction_offset_groups WHERE id=%s', (group,))[0][0]
         assert exists == (1 if ending == 'COMMIT' else 0)
@@ -130,6 +130,11 @@ CREATE TRIGGER control_context BEFORE INSERT ON issue335_2n1b.control FOR EACH R
     execute(admin, 'BEGIN')
     rendered = admin.cursor().mogrify(statement, values()).decode()
     assert execute(admin, 'INSERT INTO issue335_2n1b.control VALUES(%s)', (rendered,)) == 1
+    execute(admin, 'INSERT INTO issue335_2n1b.control VALUES(%s)', ("UPDATE transaction_offset_groups SET status='preparing' WHERE id='" + g + "'",))
+    for table in ('transaction_offset_items', 'transaction_offsets'):
+        statement, values = inserts[table]
+        rendered = admin.cursor().mogrify(statement, values()).decode()
+        assert execute(admin, 'INSERT INTO issue335_2n1b.control VALUES(%s)', (rendered,)) == 1
     execute(admin, 'ROLLBACK')
     # Item2 full actor INSERT/DELETE matrix; guarded group versus explicitly legal legacy offset.
     execute(admin, 'GRANT issue335_executor TO postgres WITH INHERIT FALSE, SET TRUE')
@@ -198,6 +203,8 @@ CREATE TRIGGER issue335_2n1b_hook AFTER INSERT ON transaction_offset_groups FOR 
     assert len(findings) == 8, findings
     # Exact observed boundary: privileged malicious owner trigger can borrow same PID/xid context.
     assert findings[0][1:] == ('ok', 1), findings
+    assert findings[1][1:] == ('P0001:invalid_group_state', 0), findings
+    assert findings[2][1:] == ('ok', 1), findings
     assert all(x[1:] == ('ok', 1) for x in findings[3:]), findings
     for target, actual, affected in findings:
         rows.append(dict(item=3, role='owner-created attacker SECURITY DEFINER trigger', attack=target,
