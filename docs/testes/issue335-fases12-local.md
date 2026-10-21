@@ -40,3 +40,86 @@ dd6969d166b3a81f18e31c0b6ac8c7e43627f4d51eda17117d8f14df9d14e7db  supabase/manua
 24bf7ad2a273cc5bc080f20db3c90378f2829ea036cbd264d526d7fda6263c4a  supabase/manual/20261021_issue335_offset_invariants.INERTE.sql
 bf303fbe2224fd336b0c1a535849e8fc7e7eb64c6e26da8e169dd67876ea4935  supabase/manual/20261021_issue335_offset_invariants.ROLLBACK-INERTE.sql
 ```
+
+## Fase 2b — resultado real, 21/10/2026
+
+PARCIAL; NÃO ACEITE. A–C continuam não aplicados. Nenhum DDL/DML Live,
+migration tool, migrations, deploy ou Publish. Live: somente SELECT catálogo,
+sem consultar linhas financeiras. Reserva #335 mantida como fase 2b.
+
+Lidos: docs/QUADRO.md, AGENTS.md, .lovable/plan.md,
+docs/testes/issue335-fases12-local.md, docs/questoes-issue335-fases12-local.md,
+os seis supabase/manual/20261021_issue335_offset_*.sql,
+run.sh/stub.sql/triggers.sql/scenarios.sql/concurrency.sql e baselines em
+supabase/tests/issue335; Issue #335 completa e comentários de bloqueios.
+Complementos: memórias compensacao-ligada.md/payment-account-ownership.md,
+src/lib/bp-tx-matching.ts e matching usado no EventForecast,
+reconcile.test.ts, decisões D-ERP28/86 e catálogo instalado.
+
+CI inicial: main 1e994d385c9ae51197c6d5c3c9c88c3fb9a961fb, success,
+run 39611609843, https://github.com/pedrompropicio/mundopropicio/actions/runs/39611609843.
+HEAD observado antes deste relatório: a85a6b007a7e68e48bb12f261a5d6875d470708f.
+Não é afirmação de SHA final: a plataforma cria commits depois dos edits.
+
+### Resultados por requisito
+
+1. Fronteira: retirado PG_CONTEXT. RPCs INVOKER delegam para trigger interno
+SECURITY DEFINER, executor NOLOGIN fresco, sem associação a papéis da app.
+Cliente não consegue mudar current_user via GUC. Helpers sem EXECUTE a
+PUBLIC/anon/authenticated/service_role. Privilégios explícitos, não schema-wide;
+políticas internas limitadas à empresa. Passaram: SET ROLE, GUC forjada,
+helpers, IDs inventados, DELETE/UPDATE/estorno de pernas e pares legados.
+Ainda não certificado contra todas as ACL/RLS/owners reais.
+2. Matching: SQL reproduz união forecast_id/âncora, categorias/tipos, exclusão
+de claims alheios, normalização e winner estrito. Passaram 0/1/1002 transações,
+N entidades, sem truncamento, âncora deduplicada, winner, score zero e acentos.
+Falta diferencial exaustivo master/âncoras conflituosas/empates com o SSoT JS.
+3. Locks: empresa/entidade/eventos/forecasts/transactions/payments ordenados;
+NOWAIT nos locks explícitos evita esperar na ordem inversa legada.
+Passaram duas sessões com MESMO request, um grupo/três pernas; replay/hash.
+NÃO provadas 2–3 sessões cruzadas encontro/estorno/pagamento normal nem
+esperas transitivas FK/trigger/advisory. NOWAIT não substitui essas provas.
+4. Auditoria: logs existentes forecast_audit_log, transaction_audit_log e
+system_audit_log; derivação por _derive_paid_amount, sem atribuição manual no
+núcleo. Passaram presenças de criação/estorno e auditoria #233 align/keep.
+5. Atomicidade: injeção após 14 escritas físicas na aplicação e 12 na reversão,
+incluindo triggers/auditoria; snapshots das 11 tabelas envolvidas idênticos após
+cada falha. Cenário testado: par de documentos existentes, saldo zero.
+Faltam injeções em cada escrita do adaptador banco e da criação a partir do BP.
+6. Matriz LOCAL: anon recusado; authenticated sem papel sem leitura/execução;
+staff lê e passa autorização/validação, sem escrita direta/helpers; admin
+executa cenários/ataques; service_role sem ator recusado e sem helpers/writes.
+RLS de Live e modelo efetivo de permissões NÃO reproduzidos integralmente.
+7. Harness: inventário de 54 triggers/74 funções; 54 triggers e 67 definições
+carregados. Não foram omitidas definições de triggers inventariadas.
+Substituídos: auth.uid/auth.jwt/current_company_id/has_role/has_staff_role,
+has_permission_in e is_platform_admin (ambas assinaturas).
+Não carregados: _effective_permissions_for/row_belongs_to_current_company.
+Owners, ACL, constraints/FKs/nullability e dependências transitivas incompletos.
+Coala forecast category emite `record new has no field supplier_id`, capturado
+pela própria função instalada; NÃO foi ocultado/corrigido/desativado.
+Lista explicada também em supabase/tests/issue335/live/README.md.
+8. #336: 9 testes; Estoril aplicado conta 23406, despesa compensation zero,
+revertido zero sem fallback histórico. HISTORICAL_CASH_BOUNDARY preservada;
+generate-historical-transactions intocado. Cinco vigias disparam individualmente
+sob corrupção local e regressam a zero. NÃO executada toda a matriz instalada
+de invariantes transitivas, portanto sem certificação global.
+
+### Comandos e verificações
+- bash supabase/tests/issue335/run.sh: exit 0, cenários fases 1/2 e novos passam.
+- bunx vitest run: primeira corrida falhou em beforeAll PGlite Newgang (10s).
+  Não se alterou o teste alheio; repetição com --maxWorkers=2 passou.
+- bunx vitest run --maxWorkers=2 FINAL: 221 ficheiros passaram, 2 skipped;
+  1953 testes passaram, 6 skipped, 11 todo (1970).
+- Testes focados: 19 prévia + 9 conciliação = 28 passaram.
+- tsc/tsgo manual NÃO EXECUTADO: regra da plataforma proíbe typechecks manuais.
+  Build automático observado OK; isto NÃO equivale a tsc executado.
+- Rollback recusa groups_exist_keep_guards; entrada alternativa por view também
+  revogada. Limpeza/restauração integral de ACL/roles/políticas ainda não provada.
+
+### Bloqueios remanescentes (técnicos; não escondidos)
+Não aceitar fase 2b: faltam paridade auth/RLS/ACL/constraints/dependências;
+matching diferencial master/âncoras/empates; concorrência cruzada entre writers;
+falhas de todas as escritas banco/BP; rollback ACL integral; invariantes
+transitivas. Estes pontos não dependem de nova decisão comercial do Pedro.
+A–C aguardam autorização separada só DEPOIS da aceitação técnica.
