@@ -38,4 +38,24 @@ SELECT song_link_report_hourly_rebuild('00000000-0000-0000-0000-000000000001','2
 DO $$ BEGIN
  IF (SELECT sum(n) FROM song_link_report_hourly WHERE dim->>5='instagram_bio')<>2 THEN RAISE EXCEPTION 'channel repair preserves 2 arrivals'; END IF;
 END $$;
+-- The prior eight were two count removals/additions and two visitor removals/additions.
+-- Show the idempotent result explicitly, not just inside an assertion.
+SELECT song_link_report_hourly_rebuild('00000000-0000-0000-0000-000000000001','2026-10-18 12:00+00','2026-10-18 15:00+00') AS final_reconciliation;
+INSERT INTO song_link_events(company_id,artist_id,link_id,event,created_at,country,ip_hash)
+SELECT '00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001',
+'00000000-0000-0000-0000-000000000002','arrival',h,NULL,NULL
+FROM (VALUES ('2026-10-18 12:15+00'::timestamptz),('2026-10-18 13:15+00')) x(h);
+DO $$ BEGIN
+ -- Legacy 0228 counts DISTINCT tuple rows, including one NULL identity per day/key.
+ IF (SELECT count(*) FROM (SELECT DISTINCT hour_utc::date,dim->>0,dim->>2 FROM song_link_report_visitors_hourly WHERE kind='channel' AND n>0) x)<>2 THEN RAISE EXCEPTION 'NULL identity must match legacy tuple DISTINCT'; END IF;
+END $$;
+SELECT song_link_report_hourly_validate('00000000-0000-0000-0000-000000000001');
+DO $$ BEGIN
+ IF NOT (SELECT ready FROM song_link_report_hourly_state LIMIT 1) THEN RAISE EXCEPTION 'complete validated aggregate must become ready'; END IF;
+ IF (SELECT sum(n) FROM song_link_report_arrivals('00000000-0000-0000-0000-000000000001','2026-10-18','2026-10-18',NULL) WHERE kind='channel')<>4 THEN RAISE EXCEPTION 'ready reader returns four arrivals'; END IF;
+END $$;
+UPDATE song_link_report_hourly_state SET ready=false;
+DO $$ BEGIN
+ IF (SELECT sum(n) FROM song_link_report_arrivals('00000000-0000-0000-0000-000000000001','2026-10-18','2026-10-18',NULL) WHERE kind='channel')<>4 THEN RAISE EXCEPTION 'unready reader falls back to source'; END IF;
+END $$;
 ROLLBACK;
