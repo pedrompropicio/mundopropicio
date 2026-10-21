@@ -829,3 +829,5 @@ ALTER TABLE public.shared_cost_mirror ADD COLUMN IF NOT EXISTS mirror_transactio
 ALTER TABLE public.shared_cost_mirror ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
 ALTER TABLE public.shared_cost_mirror ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO authenticated,service_role;
+
+CREATE FUNCTION public.is_platform_admin() RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT false $$;
