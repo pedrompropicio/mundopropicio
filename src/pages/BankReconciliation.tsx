@@ -86,7 +86,7 @@ async function fetchAllPages<T>(
   return out;
 }
 
-/** #336: pagination séparée des jambes, y compris compensations/estornos. */
+/** #336: leitura paginada das pernas, incluindo compensações e estornos. */
 async function attachReconciliationPayments(rows: any[], accountId: string, firstFrom: string | null) {
   const payments = new Map<string, ReconcilePayment[]>();
   for (let start = 0; start < rows.length; start += 100) {
@@ -225,7 +225,7 @@ export default function BankReconciliation() {
   });
 
   // Universo = conta da transação OU conta das pernas; nunca só paid_amount.
-  const { data: txns = [] } = useQuery({
+  const { data: txns = [], isSuccess: cashReady } = useQuery({
     queryKey: ["bank-recon-txns", accountId, firstStatementFrom],
     enabled: !!accountId && firstStatementReady,
     queryFn: async () => {
@@ -262,8 +262,8 @@ export default function BankReconciliation() {
    * esconderia precisamente o erro de conta que queremos ver.
    */
   const { data: crossAccountTxns = [] } = useQuery({
-    queryKey: ["bank-recon-cross-txns", manualLine?.id, accountId],
-    enabled: !!manualLine && !!accountId,
+    queryKey: ["bank-recon-cross-txns", manualLine?.id, accountId, firstStatementFrom],
+    enabled: !!manualLine && !!accountId && firstStatementReady,
     queryFn: async () => {
       const target = Math.abs(Number(manualLine.amount ?? 0));
       const base = manualLine.value_date ?? manualLine.booking_date;
@@ -273,22 +273,20 @@ export default function BankReconciliation() {
         x.setDate(x.getDate() + days);
         return x.toISOString().slice(0, 10);
       };
-      const { data, error } = await supabase
+      const data = await fetchAllPages<any>((from, to) => supabase
         .from("transactions")
         .select("id, description, type, paid_amount, payment_date, date, account_id, financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
         // O SINAL da linha manda no tipo: crédito só casa com receita.
         .eq("type", Number(manualLine.amount ?? 0) >= 0 ? "income" : "expense")
         .neq("account_id", accountId)
         .not("account_id", "is", null)
-        .gte("paid_amount", target - 0.01)
-        .lte("paid_amount", target + 0.01)
+        .is("reversed_at", null)
         .gte("payment_date", shift(-AMOUNT_WINDOW_DAYS))
         .lte("payment_date", shift(AMOUNT_WINDOW_DAYS))
-        .order("payment_date")
-        .limit(50);
-      if (error) throw error;
+        .order("id").range(from, to) as any);
       const hydrated = await attachReconciliationPayments(data ?? [], accountId, firstStatementFrom ?? null);
-      return hydrated.filter((t) => reconciliationCash(t) > 0).map((t: any) => ({
+      return hydrated.filter((t) => reconciliationCash(t) > 0 &&
+        Math.abs(reconciliationCash(t) - target) <= 0.01).map((t: any) => ({
         ...t,
         account_name: t.financial_accounts?.name ?? "conta desconhecida",
       }));
@@ -423,12 +421,14 @@ export default function BankReconciliation() {
       for (let i = 0; i < savedLineIds.length; i += 200) {
         const { data, error } = await supabase
           .from("bank_line_transactions")
-          .select("id, line_id, transaction_id, transactions(description, paid_amount, payment_date, date)")
+          .select("id, line_id, transaction_id, transactions(id, account_id, description, paid_amount, payment_date, date)")
           .in("line_id", savedLineIds.slice(i, i + 200));
         if (error) throw error;
         out.push(...(data ?? []));
       }
-      return out;
+      const hydrated = await attachReconciliationPayments(out.map((r) => r.transactions).filter(Boolean), accountId, firstStatementFrom ?? null);
+      const byId = new Map(hydrated.map((t) => [t.id, t]));
+      return out.map((r) => ({ ...r, transactions: byId.get(r.transaction_id) }));
     },
   });
 
@@ -863,6 +863,7 @@ export default function BankReconciliation() {
     }
     try {
       const buf = await file.arrayBuffer();
+      if (!cashReady) throw new Error("A leitura dos pagamentos ainda não está pronta. Aguarde e tente novamente.");
       const p = parseSantanderStatement(buf);
       setParsed(p);
       setFileName(file.name);
@@ -1899,7 +1900,7 @@ export default function BankReconciliation() {
                             {formatCurrency(
                               Math.round(
                                 (bridgeByLine.get(l.id) ?? []).reduce(
-                                  (a, r) => a + Math.abs(Number(r.transactions?.paid_amount ?? 0)),
+                                  (a, r) => a + (r.transactions ? reconciliationCash(r.transactions) : 0),
                                   0,
                                 ) * 100,
                               ) / 100,
@@ -1907,7 +1908,7 @@ export default function BankReconciliation() {
                           </p>
                           {(bridgeByLine.get(l.id) ?? []).map((r) => (
                             <p key={r.id} className="max-w-[320px] truncate">
-                              {formatCurrency(Math.abs(Number(r.transactions?.paid_amount ?? 0)))} ·{" "}
+                              {formatCurrency(r.transactions ? reconciliationCash(r.transactions) : 0)} ·{" "}
                               {r.transactions?.description ?? "(transação)"}
                             </p>
                           ))}
