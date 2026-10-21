@@ -1,5 +1,5 @@
 -- All fixtures and fault injection are disposable LOCAL ONLY.
-SET ROLE authenticated;
+SET SESSION AUTHORIZATION authenticated;
 SELECT set_config('t.uid','00000000-0000-0000-0000-000000000010',false),set_config('t.company','00000000-0000-0000-0000-000000000001',false);
 DO $$ DECLARE g uuid; p uuid; t uuid; BEGIN
  SELECT id INTO g FROM transaction_offset_groups WHERE status='applied' LIMIT 1;
@@ -18,7 +18,7 @@ DO $$ DECLARE g uuid; p uuid; t uuid; BEGIN
  IF has_function_privilege('authenticated','public._apply_transaction_offset(uuid,uuid)','EXECUTE') OR has_function_privilege('anon','public._issue335_execute(uuid,uuid,jsonb,jsonb,date,text)','EXECUTE') THEN RAISE EXCEPTION 'ACL exposed'; END IF;
  RAISE NOTICE 'PASS attacks: SET ROLE, spoofed GUC, helpers, invented IDs, delete/edit/reverse legs and legacy pairs';
 END $$;
-RESET ROLE;
+RESET SESSION AUTHORIZATION;
 DO $$ DECLARE f uuid; f2 uuid; ev uuid; cat uuid:=gen_random_uuid(); a uuid; b uuid; BEGIN
  INSERT INTO events(id,company_id,name) VALUES(gen_random_uuid(),current_company_id(),'Matching local') RETURNING id INTO ev;
  INSERT INTO event_forecasts(company_id,event_id,category_id,type,description,amount,iva_rate,approved_at) VALUES(current_company_id(),ev,cat,'income','Diárias staff',10,0,now()) RETURNING id INTO f;
