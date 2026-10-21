@@ -42,7 +42,7 @@ DO $$ DECLARE a uuid; b uuid; acc uuid; partner uuid; ev uuid; items jsonb; val 
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2d whitelist-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
  items:=jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset'));
  INSERT INTO events(id,company_id,name) VALUES(gen_random_uuid(),current_company_id(),'2d partner fixture') RETURNING id INTO ev;
- INSERT INTO event_partners(id,company_id,event_id) VALUES(gen_random_uuid(),current_company_id(),ev) RETURNING id INTO partner;
+ INSERT INTO event_partners(id,company_id,event_id,supplier_id) VALUES(gen_random_uuid(),current_company_id(),ev,'00000000-0000-0000-0000-000000000020') RETURNING id INTO partner;
  FOREACH val IN ARRAY ARRAY['inactive','hidden','restricted','partner','mirror','ticket_office','prepaid_card','other','cash'] LOOP
   INSERT INTO financial_accounts(id,company_id,name,type,is_active,is_hidden,is_restricted,partner_id,mirror_partner_aporte) VALUES(gen_random_uuid(),current_company_id(),'LOCAL whitelist',CASE WHEN val IN('ticket_office','prepaid_card','other','cash') THEN val ELSE 'bank' END,val<>'inactive',val='hidden',val='restricted',CASE WHEN val='partner' THEN partner END,val='mirror') RETURNING id INTO acc;
   snap:=(SELECT count(*) FROM transaction_offset_groups);

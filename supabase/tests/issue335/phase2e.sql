@@ -37,7 +37,7 @@ END $$;
 BEGIN;
 SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',true);
 INSERT INTO user_roles(id,user_id,role,company_id) VALUES(gen_random_uuid(),'00000000-0000-0000-0000-000000000016','manager','00000000-0000-0000-0000-000000000001');
-INSERT INTO profiles(id,company_id,active_company_id) VALUES('00000000-0000-0000-0000-000000000016','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001');
+INSERT INTO profiles(id,company_id,active_company_id) VALUES('00000000-0000-0000-0000-000000000016','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001') ON CONFLICT (id) DO UPDATE SET company_id=EXCLUDED.company_id,active_company_id=EXCLUDED.active_company_id;
 DO $$ DECLARE a uuid; b uuid; items jsonb; BEGIN
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id,is_confidential) VALUES('income','2e secret',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020',true) RETURNING id INTO a;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2e public',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
