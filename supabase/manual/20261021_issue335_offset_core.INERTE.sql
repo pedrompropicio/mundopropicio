@@ -204,10 +204,9 @@ BEGIN
   IF t.supplier_id IS DISTINCT FROM p_supplier_id OR t.type NOT IN ('income','expense') OR t.status NOT IN ('approved','partially_paid') OR t.reversed_at IS NOT NULL OR t.is_hidden THEN RAISE EXCEPTION 'invalid_document'; END IF;
   IF t.currency<>'EUR' OR t.fx_rate IS NOT NULL OR t.original_amount IS NOT NULL OR t.installment_group_id IS NOT NULL OR t.installment_number IS NOT NULL OR t.installment_total IS NOT NULL OR
      t.card_session_id IS NOT NULL OR t.held_by_supplier_id IS NOT NULL OR t.settlement_id IS NOT NULL OR t.is_transitory OR t.supplier_credit_id IS NOT NULL OR
-     EXISTS(SELECT 1 FROM public.payment_list_items i JOIN public.payment_lists l ON l.id=i.payment_list_id WHERE i.transaction_id=t.id AND i.removed_at IS NULL AND l.status IN('draft','pending_approval','approved','revision','partially_approved')) OR
-     EXISTS(SELECT 1 FROM public.payment_list_sepa_exports e WHERE t.id=ANY(e.transaction_ids)) OR
+     public.issue335_payment_flow_blocked(t.id) OR
      t.parent_transaction_id IS NOT NULL OR t.is_reimbursement OR t.cache_contract_id IS NOT NULL OR t.shared_cost_account_id IS NOT NULL OR
-     COALESCE(t.declared_withholding_amount,0)<>0 OR COALESCE(t.declared_withholding_rate,0)<>0 OR EXISTS(SELECT 1 FROM public.partner_paid_expenses WHERE transaction_id=t.id) OR
+     COALESCE(t.declared_withholding_amount,0)<>0 OR COALESCE(t.declared_withholding_rate,0)<>0 OR
      EXISTS(SELECT 1 FROM public.transaction_payments WHERE transaction_id=t.id AND (status='planned' OR (status='paid' AND reversed_at IS NULL AND (credit_amount<>0 OR withholding_amount<>0 OR currency<>'EUR' OR fx_rate IS NOT NULL OR reversal_kind='supplier_credit' OR offset_group_id IS NOT NULL)))) THEN RAISE EXCEPTION 'unsupported_debt'; END IF;
   IF t.amount IS DISTINCT FROM round(t.amount,2) OR EXISTS(SELECT 1 FROM public.transaction_payments p WHERE p.transaction_id=t.id AND p.status='paid' AND p.reversed_at IS NULL AND p.amount IS DISTINCT FROM round(p.amount,2)) THEN RAISE EXCEPTION 'document_precision_unsupported: valores com mais de duas casas decimais'; END IF;
   IF EXISTS(SELECT 1 FROM public.event_settlements es WHERE es.id=t.event_settlement_id AND es.is_sealed) THEN RAISE EXCEPTION 'sealed_settlement: reabra o fecho antes do encontro'; END IF;
