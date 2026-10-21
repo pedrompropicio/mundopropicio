@@ -44,5 +44,6 @@
 - [x] #335 fase 2d parcial: postgres não-superuser/default ACL, âncora/reuso, compensação legacy, seis FKs, rollback; PG/Vitest/tsgo passaram; relatório transparente.
 - [ ] #335 fase 2d aceitação técnica: corrigir saldo +100 vs +60 dinheiro e guarda débito; restore/window, metadados geridos/selagem concorrente, paridade integral e scheduler determinístico. Não depende de decisão comercial.
 - [ ] #335 A–C: não aplicar; autorização separada de Pedro obrigatória.
-- [ ] #335 fase 2e: confirmar A–K no catálogo, corrigir candidatos locais, testar antes/depois, repetir PG/Vitest e documentar bloqueios.
+- [x] #335 fase 2e parcial: saldo restrito/rollback/vigia, permissões banco, confidencial/restrita, guardas, listas/SEPA, sandbox e kill-switch; PG/Vitest/tsgo passaram, relatório explicita provas e lacunas.
+- [ ] #335 fase 2e aceitação técnica: F scheduler/selagem/listas, J PG17.6/paridade/FKs/camarim, A matriz legado/débito/runner, E restore, G held_by/fixtures, I chamadas/in-flight; D exige decisão própria.
 - [ ] #335 fase 2e fecho: hashes/diff, Issue, SHA sincronizado e CI concluído; reserva mantida.

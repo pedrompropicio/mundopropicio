@@ -325,3 +325,63 @@ Total: 390; iguais: 368; explicadas: 22; DIVERGENTES: 0
 | constraint:transactions.transactions_settlement_id_fkey | explicada | fixture dependency absent locally: relation "ticket_office_settlements" does not exist |
 | constraint:transactions.transactions_supplier_credit_id_fkey | explicada | fixture dependency absent locally: there is no unique constraint matching given keys for referenced table "supplier_credits" |
 | constraint:user_roles.user_roles_user_id_fkey | explicada | fixture dependency absent locally: insert or update on table "user_roles" violates foreign key constraint "user_roles_user_id_fkey" |
+
+
+## Fase 2e — PARCIAL, NÃO ACEITE — 21/10/2026
+
+Autorização de Pedro: opção 1 somente LOCAL/INERTE, ajuste restrito às duas funções de saldo. Não autoriza instalação Live. A–C e alteração instalada de saldo exigem Sim separado. Nenhum migration tool, migrations, DDL/DML Live, deploy ou Publish. K apenas contagens agregadas em production.
+
+### Ficheiros e fontes lidos
+- docs/QUADRO.md; AGENTS.md; supabase/AGENTS.md; .lovable/plan.md.
+- docs/testes/issue335-fases12-local.md; docs/questoes-issue335-fase2d-local.md (agora renomeado fase2e).
+- Seis candidatos originais: supabase/manual/20261021_issue335_offset_{core,group_storage,invariants}.{INERTE,ROLLBACK-INERTE}.sql.
+- supabase/tests/issue335/run.sh, phase2d.sql, phase2b.sql, phase2c.sql, phase2c-invariant-matrix.sql, scenarios.sql, stub.sql, catalog-diff.py; live/README.md, dependencies.sql, functions.sql, triggers.sql, phase2c-auth.sql, phase2c-invariant-registry.sql, phase2d-role.sql e snapshots.
+- Memórias compensacao-ligada.md, payment-account-ownership.md, financial-account-visibility e transaction-editing-rules; Issue #335 e comentários completos consultados via API.
+- Capturas novas: live/phase2e-functions.json, phase2e-catalog.json; phase2e-balance-baseline.sql, phase2e-replay.sql, phase2e-balance-prosrc.diff.
+
+### Estados A–K (sem extrapolar PASS locais)
+A — CORRIGIDO no cenário misto: +60 dinheiro/+40 compensation dá saldo +60, conta X original preservada e sem +100 fantasma. Candidato balance e rollback SEPARADOS. Gerido = grupo preparing/applied/reversing com perna paga não revertida vinculada ao item/documento; todos os pagamentos reais ativos desses documentos seguem conta/data da própria perna; compensation excluída. Sem pernas geridas ativas mantém o caminho legado, incluindo filtros antigos (não acrescentar status/hidden/reversed ao ramo legado). transactions.account_id não é reatribuído pelo núcleo; force_no_account_on_compensation continua instalado, e paid_amount somente derivado. Provas as-of e corte estrito, estorno, conta X e legado hidden passaram. ABERTO: matriz integral legado/método compensation/offset antigo e conta camarim; proteção concorrente de débito não certificada. Vigia issue335_balance_invariant_count passou zero→corrupção detectada→zero; registrada separadamente, ainda NÃO integrada no runner global.
+B — CORRIGIDO no adaptador: policy real bank_statement_lines = platform_admin/admin/manager ou manage_bank_reconciliation. Editor sem permissão recusado; manager aceite; admin nos cenários retidos. Sem alterar policy instalada.
+C — CORRIGIDO no escopo testado: restrictive confidential rule reproduzida antes de erros com valores; manager sem can_see_confidential recusado, conta fonte restrita recusada com a mesma mensagem genérica. ABERTO: matriz integral de permissões/contas atribuídas e operações inversas não provada.
+D — PÁRA-PARA-DECISÃO: reproduzido no trigger real: documento aprovado quando evento estava without_bp, depois with_bp, encontra/fecha mas paid→approved na reversão falha por falta de BP. Recusa atómica: grupo applied e pernas paid ficam intactos. Não se alterou trigger nem JWT, não se contornou P0409. Desbloqueio deste caso exige desenho/autorização própria; não pedir aplicação A–C enquanto bloqueios técnicos persistirem.
+E — CORRIGIDO parcialmente: proteção de account_id/event_id/payment_date/payment_method/settlement e metadados nos documentos geridos, com exceção estrutural restrita à derivação real. Ataque account_id recusado; documento sem grupo mantém legado. ABERTO: matriz exaustiva de todos os campos protegidos/restore administrativo.
+F — ABERTO: locks settlements e revalidação da dívida adicionados; testes retidos três sessões passam, mas usam sleeps, barreiras de arranque e erros tolerados. NÃO certificam scheduler determinístico nem todas as esperas FK/advisory/listas/selagem. Revisão independente confirmou limitação. Não declarar encerrado.
+G — CORRIGIDO nos casos isolados: settlement_id, supplier_credit_id, card_session_id, is_transitory com transitory_reason válido; cinco estados de listas ativas com removed_at NULL e qualquer export SEPA que contenha ID recusados. ABERTO: held_by_supplier_id precisa fixture legal (método compensation e trigger torna paid), demais campos de sessão/fornecedor e concorrência de listas ainda não integralmente provados. FKs dessas dependências continuam parcialmente ausentes.
+H — CORRIGIDO no escopo testado: sandbox_exec* sem SELECT/INSERT command view e sem EXECUTE issue335_* / _issue335_* / RPCs novos; EXECUTE legado reconcile/reverse preservado. Default ACL real revelou fuga em issue335_invariant_counts, revogada e teste repetido. Dispatch explícito fail-closed para executor privado NOLOGIN. NÃO certifica todos os objetos/ACL globais.
+I — CORRIGIDO parcialmente: DELETE OLD/recusa, limite 50, adoção amount validado, mensagem NOWAIT específica. Kill-switch/rollback separados desativam flag, RPC e view sem revogar reconcile legado. Teste confirma flag/ACL; ABERTO chamadas rejeitadas/in-flight, testes negativos 51 itens/adoption amount e rollback flag em concorrência.
+J — NÃO CONFIRMADO integralmente: PostgreSQL local 17.9, catálogo consultado 17.6; execução exata em 17.6 não feita. Seis assinaturas legadas do rollback core byte-idênticas ao prosrc capturado; dois saldos rollback originais preservados. Paridade conhecida continua 390 objetos/368 iguais/22 FK ausentes explicadas/0 divergências no escopo fase2c. NÃO incorpora todo snapshot phase2e, índices/objetos adicionais/FKs transitivas; camarim completo não testado. Revisão independente não atesta ambiente Live; K explícito production.
+K — CONFIRMADO, SELECT agregado production: D 34, G listas ativas 609, G exports SEPA 317. São contagens de documentos que satisfazem predicados, não somas monetárias nem diagnóstico individual; não concluir que todos os 34 são elegíveis ao encontro. Query e resultado integrais em live/phase2e-counts-query.sql / phase2e-counts-result.json. Nenhuma correção financeira executada.
+
+### Testes finais realmente executados
+- bash supabase/tests/issue335/run.sh: exit 0; PostgreSQL 17.9; candidatos aplicados/rollback como postgres NOSUPERUSER, defaults hospedados; casos authenticated dentro de fixtures preparadas pelo administrador local.
+- Reprodução anterior phase2d ainda emite +100/+60 ANTES de instalar o candidato balance; phase2e depois prova +60. Não apagar essa reprodução.
+- Injeção: 14 escritas físicas apply core/12 reverse; adaptador banco+BP 23 apply/17 reverse, snapshots públicos sem escritas parciais. Isso é o escopo coberto, não todas as possibilidades futuras.
+- Seis prosrc rollback legados core: byte a byte iguais por assinatura, hashes em live/phase2e-rollback-prosrc-parity.json.
+- Zero-history rollback: diff vazio nas funções/ACL/owners/relações/colunas/policies/triggers/constraints/papéis do harness. Grupos existentes recusam rollback com groups_exist_keep_guards. Matriz 17 invariantes retida idêntica.
+- bunx vitest run --maxWorkers=2: exit 0, 221 ficheiros passed/2 skipped; 1953 passed/6 skipped/11 todo; 215.47 s.
+- Testes focados prévia/#336: 19+9=28 passed; fronteira histórica #336 intocada.
+- bunx tsgo --noEmit -p tsconfig.app.json: exit 0; NÃO tsc clássico.
+- Build automático observado OK.
+
+### SHA/CI e bloqueios de entrega
+GitHub main consultado: a39f0388c4e9276bbe0aa1f8f595100bdd070ab9; CI completed/success run 39628493331, https://github.com/pedrompropicio/mundopropicio/actions/runs/39628493331. É BASE ANTERIOR, não CI destes edits. SHA local observado durante a fase 20da1c22bc5998b5ca0de87b64b79c27c633b2fb não existia no GitHub (422). Sincronização e CI FINAL destes artefactos NÃO confirmados; não rotular CI verde de entrega. A plataforma sincroniza commits após os edits; nenhum git push manual. Reserva mantida fase2e; #322/#323 intocadas.
+
+### SHA256 fase2e candidatos exatos
+```text
+2d7473a1ea8e452a5e7c6cef2287937ea2abfbec77a6c88a3676dd0618b4e6c9  supabase/manual/20261021_issue335_offset_balance.INERTE.sql
+a9fd863c5e7e426eaaab22dccec290d941f10b4b20bc9662472e04b635f4b899  supabase/manual/20261021_issue335_offset_balance.ROLLBACK-INERTE.sql
+1bcb3c6e8f23258dcfb1903b881a23c47956c91e0737a03b65577d574bbcb1e2  supabase/manual/20261021_issue335_offset_core.INERTE.sql
+33932071962992c6114d0c921c14ebdb6b5de7e95da78d40743599cc3859fc7b  supabase/manual/20261021_issue335_offset_core.ROLLBACK-INERTE.sql
+7c2b57af9cc9cc7eefbf884985a20ced3eb560b4934bbd875bf3b6f7f5785842  supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql
+3caeb7b7583c74cf9b95a8a12f27a10904bb95e81d7b77d48ccee6409e3f7164  supabase/manual/20261021_issue335_offset_group_storage.ROLLBACK-INERTE.sql
+fe5edaf2b17d6412c4e576bed73df333f2fd0004d2178b8e1fd5e7d78b4484a5  supabase/manual/20261021_issue335_offset_invariants.INERTE.sql
+edd924cd48d5378180e80a50547b5a5a4bbe378596155fc384fe127f051c5571  supabase/manual/20261021_issue335_offset_invariants.ROLLBACK-INERTE.sql
+793ff37ed64747413786e1afdc15c7ce8a453a80d71f51caf49c53a4c8ea9df9  supabase/manual/20261021_issue335_offset_kill_switch.INERTE.sql
+72297c516bfcb2ba966f1d796065c95c1dc12825a7056a35547f0a524bf3bd66  supabase/manual/20261021_issue335_offset_kill_switch.ROLLBACK-INERTE.sql
+```
+
+### Query K exata
+```sql
+-- READ ONLY: production aggregated counts; no financial values/IDs.
+SELECT count(*) FILTER(WHERE t.type='"'expense' AND t.event_id IS NOT NULL AND t.forecast_id IS NULL AND t.parent_transaction_id IS NULL AND NOT coalesce(t.is_transitory,false) AND NOT coalesce(t.exclude_from_result,false) AND t.reversed_at IS NULL AND NOT coalesce(t.is_hidden,false) AND t.shared_cost_account_id IS NULL AND NOT EXISTS(SELECT 1 FROM public.account_categories c WHERE c.id=t.category_id AND c.code LIKE '10.3%') AND EXISTS(SELECT 1 FROM public.events ev JOIN public.companies c ON c.id=ev.company_id WHERE ev.id=t.event_id AND coalesce(ev.budget_mode,c.default_budget_mode,'with_bp')='with_bp') AND t.status IN('approved','paid','partially_paid')) AS d_with_bp_no_forecast,count(*) FILTER(WHERE EXISTS(SELECT 1 FROM public.payment_list_items i JOIN public.payment_lists l ON l.id=i.payment_list_id WHERE i.transaction_id=t.id AND i.removed_at IS NULL AND l.status IN('draft','pending_approval','approved','revision','partially_approved'))) AS g_active_lists,count(*) FILTER(WHERE EXISTS(SELECT 1 FROM public.payment_list_sepa_exports e WHERE t.id=ANY(e.transaction_ids))) AS g_sepa_exports FROM public.transactions t\;
+```
