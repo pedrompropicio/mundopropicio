@@ -9,13 +9,16 @@ R=(setpriv --reuid=1000 --regid=1000 --clear-groups)
 trap '"${R[@]}" pg_ctl -D "$D/data" -m immediate stop >/dev/null; rm -rf "$D"' EXIT
 P=(env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE psql -X -q -h "$D" -p 55443 -U postgres -d postgres -v ON_ERROR_STOP=1)
 "${P[@]}" -f "$S/stub.sql" >/dev/null
-for f in "$S"/*.LIVE-BASELINE.sql; do "${P[@]}" -f "$f" >/dev/null; done
-"${P[@]}" -f "$S/triggers.sql" >/dev/null
+"${P[@]}" -f "$S/live/dependencies.sql" >/dev/null
+"${P[@]}" -f "$S/live/functions.sql" >/dev/null
+"${P[@]}" -f "$S/live/triggers.sql" >/dev/null
+"${P[@]}" -f "$S/matching.INERTE.sql" >/dev/null
 for f in storage core invariants; do
  path=$(ls "$ROOT/supabase/manual/20261021_issue335_offset_"*"$f.INERTE.sql")
  "${P[@]}" -f "$path" >/dev/null
  done
 "${P[@]}" -f "$S/scenarios.sql"
+"${P[@]}" -f "$S/phase2b.sql"
 
 "${P[@]}" <<'SQL'
 SELECT set_config('t.uid','00000000-0000-0000-0000-000000000010',false),set_config('t.company','00000000-0000-0000-0000-000000000001',false);
