@@ -6328,3 +6328,48 @@ M1 FECHADO tecnicamente neste âmbito de modelo de confiança DDL + ataques pedi
 
 ### GitHub e CI (API, fecho 1c)
 HEAD main observado 40743f624213643f517b7bc54a32699369370799; novo runner e candidato HTTP404; relatório remoto não contém edits 1c. Run 39687730567 success desse HEAD só cobre versão anterior. CI 1c NÃO VERIFICADA; não verde. Comentário #335 enviado após fechar relatório; nenhuma instalação.
+
+## Fase 2n-Bloco2 — M3/status/approval (21/10/2026)
+
+ESTADO: ABERTO / NÃO ACEITE. Só este bloco; LOCAL/INERTE, sem TS, migrations, instalação Live ou Publish. Nenhum candidato SQL foi alterado. Não há diff de candidato nem rollback novo. A–C e qualquer candidato continuam a exigir Sim separado.
+
+### Provas ANTES/DEPOIS e limites
+
+Runner dedicado: supabase/tests/issue335/phase2n-status.py, executado depois da suite oficial. BEFORE substitui apenas no harness as duas funções pelas versões legadas capturadas; AFTER repõe os corpos iniciais dos candidatos approval/status. O runner verifica os corpos exactos no fim. Não desliga triggers, não reduz asserções e não converte achados em PASS. Exit 0 significa execução concluída, NÃO M3 aceite. Os dados são fixtures locais, nunca dados fictícios inseridos no ERP.
+
+Tabela copiável caso / esperado / BEFORE / AFTER:
+- a approved: aplicar e restaurar integralmente / aplica+estorna; campos de negócio iguais, hash integral diferente / igual resultado. As três pernas novas ficam reversed; updated_at muda. ABERTO para o requisito literal de snapshot integral igual.
+- b partially_paid com pernas antigas: restaurar status/paid_amount/pernas iniciais / recusa installation_order: status_candidate_required / aplica+estorna; status partially_paid e paid_amount derivados regressam, pernas antigas integralmente preservadas; hash integral diferente por histórico novo e updated_at. Fixture status prévio sem UPDATE paid_amount; status seeded localmente após perna real. Parcialmente provado, não fecho integral.
+- c partially_paid só legado, sem pernas: aplicar e restaurar exactamente / fixture NÃO CERTIFICADA / fixture NÃO CERTIFICADA. O INSERT histórico com paid_amount=20 dispara zz_materialize_paid_amount_payment: cria uma perna real e deriva approved. A auditoria do snapshot detectou isto; não se afirma que o caso pedido foi exercitado nem recusado. ABERTO: falta fixture fiel deste legado sem desativar triggers ou alterar writers.
+- d paid: aplicar e estornar como pedido / invalid_document / invalid_document; conteúdo integral inalterado na recusa. Fixture paid criada por pagamento real e _derive_paid_amount, não por status paid sem data. ABERTO: documento já integralmente pago não é admitido; não foi inventado saldo disponível.
+- e histórico sem BP: aplicar e estornar / aplica, estorno falha 42501 (sem linha BP); falha atómica / aplica+estorna, campos de negócio iniciais iguais; histórico reversed conservado e updated_at diferente. Isenção demonstrada mas snapshot literal não igual.
+- f pending: recusar sem alterações / invalid_document; hash integral igual / invalid_document; hash integral igual. FECHADO para esta recusa.
+- misto partially_paid + approved no mesmo grupo: restauração por item / status_candidate_required / aplica+estorna com estados distintos iniciais restaurados; hash literal diferente. Cobertura inclui um item de receita partially_paid e um de despesa approved; não afirma todas as combinações possíveis.
+- estorno parcial: UPDATE real numa perna gerida recusado; snapshot during igual antes/depois. Repetição mesma request_id devolve sucesso sem alteração integral; outra request_id dá P0001:already_reversed, também sem alteração. BEFORE quando o apply é recusado não chega à prova de estorno; explicitamente não conta como coverage.
+- g editor/manager: isenção fora do estorno recusada / cobertura histórica 2g mantém novas aprovações/BP negadas / ataques reais a UPDATE status/payment_date com GUC forjada: editor 42501 sem permissão de aprovar; manager 42501 sem BP; chamada _issue335_reverse directa 42501; hashes integrais iguais. Nenhuma observação de privilégio conta como ataque.
+
+Snapshots do runner são JSON de TODAS as colunas das transações e pagamentos seleccionados, ordenados por id e hashed SHA256. As comparações sem updated_at são diagnóstico separado, NUNCA substituem a asserção integral nem autorizam fecho. Reversão mantém ledger histórico; apagá-lo para igualar snapshots violaria a finalidade de auditoria. Requisito literal continua aberto, sem mudar a regra pedida.
+
+### Ordem de instalação (h): ABERTO
+
+Escolha existente: guarda RAISE no candidato status exige marcador issue335-approval-v2l antes da sua instalação. Teste ordem errada: status sem approval retorna P0001:installation_order: approval_before_status. Ordem certa approval→status executada pela suite/rollback limpo. Ordem inversa de remoção status→approval→balance→invariants→core→storage provada no rollback dos 13 pares.
+
+Achado adicional: core sem approval admite documento histórico sem BP e escreve encontro, mas o estorno depois falha 42501. A guarda do status NÃO protege esse caminho approved. Portanto a alternativa exigida pelo Pedro não está satisfeita para todos os documentos dependentes de approval. Nenhuma correcção proposta foi instalada ou ocultada. Falta guarda de admissão ou preflight robusto que cubra este caminho, com teste antes/depois e candidato separado quando mexer em objectos existentes.
+
+### Suite, erros e rollback
+
+Harness PostgreSQL 17.6; postgres NOSUPERUSER; triggers reais. 15.529 statements instalados, 0 falhas; 2.934 triggers iguais, 0 diferenças de catálogo não explicadas. Cinco extensões ambientais ausentes permanecem classificadas no diferencial existente; pgvector 0.8 compilado só em /tmp com headers do mesmo major. Tentativas iniciais por bibliotecas/vector ausentes não contam como PASS.
+
+Suite oficial completa final exit 0: todos os grupos históricos, phase2n-context e trigger-watch PASS de execução. Runner M3 separado depois: 17 linhas de resultado, exit 0, block OPEN. NÃO está integrado na suite oficial; execução separada explícita, não se afirma CI automático deste runner. phase2k-focused e phase2m-context não são invocados pelo runner oficial; cobertura histórica de todos os ficheiros anteriores NÃO certificada. Vitest não executado porque nenhum TS foi alterado.
+
+Primeira repetição final teve timeout de ferramenta aos 60s depois de phase2f-concurrency, antes de completar a suite: classificada INTERROMPIDA, não PASS. Repetição nova com 180s terminou suite e runner sem erro. Fixture paid inicial falhou por payment_date; corrigida para usar pagamento+derivação. Fixture c aparentemente válida foi reclassificada NÃO PROVADA depois de ler conteúdo completo, sem remover a asserção de validade. Não há skips silenciosos; caso c e cobertura oficial incompleta são bloqueios declarados.
+
+Rollback dos 13 pares, em harness limpo, postgres NOSUPERUSER: before=after e differences={}. Captura COMPLETA de catálogo NORMALIZADA na ordem de linhas/ACL, não pg_dump byte-a-byte nem snapshot de dados de negócio. SHA before e after: 474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1. SHA differences: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a.
+
+### Leitura e fecho remoto
+
+Manifesto docs/testes/issue335-fase2n-leituras.md contém hashes no momento de leitura e intervalos ≤200. Core e rollback integrais; approval e rollback integrais; balance/status e rollbacks integrais; memórias compensacao-ligada e payment-account-ownership integrais; testes M3 consultados registados. Relatório global NÃO LIDO integralmente: só secções M3 seleccionadas. phase2k-rollback NÃO LIDO integralmente: falta linha 49. Não se certifica 1..N onde não existe cobertura contígua.
+
+API GitHub main: 8f3a9fc749f3e58ab888fe8437d6983f0769b273. Runner phase2n-status.py HTTP404; relatório remoto SHA256 94e387d6c5d10f1fc65447a214844494fe81c3cc86434a663c375f7397cb0fae não contém secção Bloco2. CI run 39689840508 success desse HEAD NÃO cobre estes edits. CI M3 NÃO VERIFICADA; nenhum SHA final remoto com estes edits é certificável neste turno. Sem comandos git stateful.
+
+M3 ABERTO: caso c real sem pernas, admissão/restauro paid, snapshot integral literal, guarda de ordem core/approval e cobertura integral dos testes históricos ainda impedem aceitação. Sem avançar para outros blocos ou pedir autorização de instalação.
