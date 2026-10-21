@@ -196,6 +196,7 @@ SELECT pg_temp.ok((public.cache_contract_status('00000000-0000-0000-0000-0000000
 SELECT pg_temp.ok((SELECT bool_and(current_count = 0) FROM public._run_invariant_checks_cache_contracts()), 'invariantes conformes após ajuste');
 -- ================= 0217: cancelar com âncora do BP nas filhas
 SELECT pg_temp.tour('00000000-0000-0000-0000-000000000a00', ARRAY[6000,4000]);
+INSERT INTO public.suppliers VALUES ('00000000-0000-0000-0000-00000000a0a8','MINISTERIO DAS FINANCAS - IRS','00000000-0000-0000-0000-0000000000c1');
 CREATE FUNCTION pg_temp.anchor_contract(n int) RETURNS uuid LANGUAGE sql AS $$
   SELECT t.cache_contract_id FROM public.event_forecasts f JOIN public.transactions t ON t.id = f.transaction_id
    WHERE f.event_id = pg_temp.city('00000000-0000-0000-0000-000000000a00', n) $$;
