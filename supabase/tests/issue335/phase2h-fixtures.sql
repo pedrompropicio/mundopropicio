@@ -36,6 +36,8 @@ INSERT INTO public.suppliers(id, company_id, name) VALUES
 INSERT INTO public.financial_accounts(id, company_id, name, type) VALUES
  ('00000000-0000-0000-0000-000000000030', '00000000-0000-0000-0000-000000000001', 'LOCAL banco', 'bank'),
  ('00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000001', 'LOCAL caixa', 'cash');
+INSERT INTO public.bank_statements(id, company_id, financial_account_id, file_name) VALUES
+ ('00000000-0000-0000-0000-000000000040', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000030', 'local-335.csv');
 COMMIT;
 -- Prova de que os triggers reais correram (falha o ficheiro se não):
 DO $$ BEGIN
