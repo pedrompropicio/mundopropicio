@@ -32,3 +32,6 @@
 
 - Cache payments only via cache_* RPCs (mother/city children); optional line choices use local `cache.line_choices`, server-checked.
 - Separate artist hourly collector; service writer fences stale request_id. Function dirs may have own AGENTS.md.
+<!-- LOVABLE:BEGIN -->
+- Arrival comparison uses UTC hourly raw counts, not unique visitors. Nonwaiting artist/hour trigger locks preserve capture; bounded rebuilds acknowledge only pending IDs captured before their source snapshot, retaining late commits for repair.
+<!-- LOVABLE:END -->
