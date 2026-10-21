@@ -54,14 +54,6 @@ owner_of = {}
 for st in ddl['statements']:
     if st['key'].endswith(':revoke'):
         owner_of[st['key'][:-len(':revoke')]] = st['role']
-def prio(st):
-    k = st['key']
-    if k.endswith(':revoke'):
-        return 0
-    base = k.split(':')[0] + ':' + k.split(':')[1] if k.count(':') >= 1 else k
-    for pref, own in owner_of.items():
-        pass
-    return 1
 carry = []
 for block in blocks:
     pending = carry + [st for p in block for st in phases.get(p, [])]
