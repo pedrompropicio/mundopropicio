@@ -36,4 +36,7 @@ if (cd "$ROOT" && bun "$S/matching-parity.ts") > "$OUT/parity.raw.sql" 2>"$OUT/p
 run_sql phase2j "$S/phase2j.sql"
 if python3 "$S/phase2j-concurrency.py" "$D" "$PORT" "$ROOT" > "$OUT/concurrency2j.out" 2>&1; then echo "PASS phase2j-concurrency ($(grep -c PASS "$OUT/concurrency2j.out") marcadores)" | tee -a "$res"; else echo "FAIL phase2j-concurrency (rc=$?): $(grep -E 'ACHADO|Error|assert' "$OUT/concurrency2j.out" | tail -1)" | tee -a "$res"; fi
 if "${P[@]}" -v root="$ROOT" -f "$S/phase2l.sql" > "$OUT/phase2l.out" 2>&1; then echo "PASS phase2l ($(grep -c 'NOTICE:.*PASS' "$OUT/phase2l.out") marcadores)" | tee -a "$res"; else echo "FAIL phase2l: $(grep -m1 ERROR "$OUT/phase2l.out")" | tee -a "$res"; fi
+if python3 "$S/phase2n-context.py" "$D" "$PORT" "$OUT/phase2n-context.json" > "$OUT/phase2n-context.out" 2>&1; then
+  echo 'PASS phase2n-context execution (item1/2 assertions; item3 OPEN owner-trigger boundary, NOT security acceptance)' | tee -a "$res"
+else echo "FAIL phase2n-context: $(tail -1 "$OUT/phase2n-context.out")" | tee -a "$res"; fi
 if grep -q '^FAIL' "$res"; then exit 1; fi

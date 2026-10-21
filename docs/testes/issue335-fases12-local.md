@@ -5186,3 +5186,1039 @@ dd375a9fcc9e8b8910acf17f10cf9be00ef7c999174190a54af923cb1baa6543  /tmp/issue335-
 474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1  /tmp/issue335-2n/rollback/after.json
 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a  /tmp/issue335-2n/rollback/differences.json
 ```
+
+
+## Fase 2n — Bloco1b M1 (2026-10-21 22:28 UTC) — ABERTO / NÃO ACEITE
+
+Só itens1–4. Sem Live, migrations, Publish, TS ou alterações ao SQL candidato.
+Lista restrita de documentação respeitada; excepção expressamente pedida item4:
+novo phase2n-context.py e integração em phase2h-suite.sh. run.sh antigo (stub/superuser)
+não foi usado ou modificado. Entry fiel oficial phase2h-run.sh→phase2h-suite.sh.
+
+### Estados e ANTES/DEPOIS
+1 FECHADO no escopo replay pós-fim:ANTES runner2n usa token único COMMIT seguido de
+ROLLBACK de transação posterior;DEPOIS dois tokens legítimos distintos em encontros
+A próprios COMMIT/ROLLBACK. Captura verifica context_valid true no trigger real.
+Após fim:9 papéis noutras sessões + A nova transação por token=20 provas; mutadores
+42501 ou managed_operation_required; predicate mesma sessão false; grupo COMMIT1,
+ROLLBACK0. Não inclui outra sessão ainda dentro do período de execução do núcleo.
+2 ABERTO, parcial:ANTES só UPDATE;DEPOIS54 INSERT/DELETE reais9 papéis×3 tabelas×2,
+mais2 controles service_role/postgres de INSERT+DELETE legado:1+1 (rollback).
+FKs apontam a dados locais existentes; checks numéricos válidos;0 escrita gerida
+persistente. Controlo positivo trusted-trigger valida INSERT grupo/itens/offsets.
+LIMITES EXACTOS:itens usam grupo applied e são recusados invalid_group_state antes
+FK/check;DELETE grupo/itens alvo referenciado impede provar que passar guarda não
+falharia FK;contagens antes/depois não equivalem snapshot integral de dados.
+Não vender54 probes como fecho de validade sem estes controlos adicionais.
+Service_role BYPASSRLS/postgres owner não contornam guarda gerida fora contexto;
+legado sem grupo mantém1INSERT+1DELETE autorizados. Não mudar legado para esconder.
+3 ABERTO:ANTES não havia trigger atacante;DEPOIS trigger real em tabela teste,
+disparado por hook AFTER INSERT grupo dentro encontro legítimo. SECURITY DEFINER
+owner postgres:context_valid true,PIDs/xid/op/token iguais ao núcleo. Resultados:
+grupo INSERT1,offset INSERT1,5 tabelas UPDATE1 cada;item INSERT0 invalid_group_state.
+Todas as8 tentativas medidas;7 escritas efectivamente conseguem dentro transação,
+ROLLBACK remove-as. Este é LIMITE de trusted computing base, NÃO prova de segurança.
+Um atacante que consiga instalar função/trigger SECURITY DEFINER owner já pertence
+à administração;actor de aplicação sem esse poder não foi demonstrado equivalente.
+Proposta candidato INERTE (não criado/instalado):capacidade por escrita/identidade
+alvo/colunas,provisionada no dispatcher e consumida atomicamente antes dos hooks;
+executor sem DDL e auditoria allowlist de triggers/functions/owners. Guarda fina
+precisa desenhar legitimas escritas/triggers1a1 e regressão+rollback próprios.
+Depth/PID/xid/op/token sozinhos NÃO isolam código malicioso já dentro do núcleo.
+Mesmo essa proposta não protege contra owner DDL:owner pode substituir guarda.
+Sem decisão de confiança e candidato testado não declarar fecho M1/A–C.
+4 FECHADO execução/versionamento LOCAL:ANTES suite39linhas sem novo runner;
+DEPOIS phase2n-context.py executado pela suite oficial após2l,fail-closed para
+regressão técnica. O PASS final diz explicitamente item3OPEN/NOT security acceptance.
+Runner mede84 provas,0 skips novos;item3 security_pass false por7 casos,sem disfarçar
+como testes de segurança aprovados. Não integra o antigo runner281 sem correcção:
+reteste ANTES devolveu3falhas por escolher settlement selado na base nova. Novo
+runner escolhe NOT is_sealed, mantendo a guarda e os erros históricos classificados.
+
+### Suite / rollback / erros
+PG17.6,postgres NOSUPERUSER,2934 triggers iguais,15529 instruções0 falhas,
+0 diferenças não explicadas no catálogo adaptado. Suite14grupos anteriores+runner1b.
+Normalização/5 extensões ausentes explicadas herdadas:não certifica runtimes externos.
+Warnings históricos (locale indisponível;trigger coala supplier_id ausente) não são
+skips novos,nem foram corrigidos ou silenciados;zero skips do novo runner apenas.
+Rollback12pares em OUTRA base limpa:captura NORMALIZADA (ordenação arrays/ACL),
+before=after, diferenças={};não catálogo universal nem snapshot integral de dados.
+Nenhum Vitest/tsgo/tsc:nenhum TS alterado,fora deste pedido.
+
+### Leituras
+Manifesto actualizado ANTES testes. Secção925–5188 lida em80linhas (sub_fb149649);
+runner anterior90linhas integral,storage91integral,core1–200/1060–1130 mínimo pedido.
+Ficheiro relatório/core actual NÃO LIDO integral nesta ronda:só secção requerida;
+capturas volumosas antigas NÃO LIDO mantêm-se,sem nova alegação por hashing.
+
+### Correções/diff
+Nenhum prosrc/SQL/rollback existente alterado. Novo runner contém20 replay probes,
+54managed inserts/deletes,2legacy controls,8trigger attacks. Suite adiciona chamada:
+```diff
++if python3 "$S/phase2n-context.py" "$D" "$PORT" "$OUT/phase2n-context.json" > "$OUT/phase2n-context.out" 2>&1; then
++  echo 'PASS phase2n-context execution (item1/2 assertions; item3 OPEN owner-trigger boundary, NOT security acceptance)' | tee -a "$res"
++else echo "FAIL phase2n-context: $(tail -1 "$OUT/phase2n-context.out")" | tee -a "$res"; fi
+```
+Novo ficheiro inteiro versionado (222+7 linhas),diff novo=conteúdo integral desse ficheiro.
+
+### HEAD/CI por API
+HEAD bb701b1f495fb477fcb473a2520078065293549c;CI39686372314 success MAS só2n-Bloco1.
+Runner1b404,suite remoto hash antigo;manifesto remoto versão anterior. Relatório
+remoto ainda Bloco1. CI NÃO cobre1b;SHA final dos edits não certificável neste turno.
+A–C/candidatos continuam sem autorização;nenhum Publish.
+
+### Outputs integrais ANTES/DEPOIS, suite, rollback, GitHub
+
+#### before.out
+```text
+FAIL authenticated manager d REAL UPDATE event_settlements ['ok'] P0001:Fechamento selado: nome e quota não podem ser alterados. Reabra primeiro.
+FAIL service_role d REAL UPDATE event_settlements ['ok'] P0001:Fechamento selado: nome e quota não podem ser alterados. Reabra primeiro.
+FAIL postgres WITHOUT SET ROLE d REAL UPDATE event_settlements ['ok'] P0001:Fechamento selado: nome e quota não podem ser alterados. Reabra primeiro.
+2n REAL ATTACKS 281 FAIL 3 captured legitimate core token validated inside real group trigger; temporary instrumentation removed
+
+```
+
+#### after.out
+```text
+OPEN item3: owner-created malicious trigger borrows legitimate context; group INSERT and 5 parent UPDATEs succeed in transaction, rolled back. No candidate installed.
+PASS item1: distinct COMMIT/ROLLBACK live tokens rejected across sessions and new xid
+PASS item2: 54 actual managed INSERT/DELETE probes + legacy bypass controls, no persistence
+PASS item4 dedicated runner executed; item3 security remains OPEN, not a green security gate
+2n1b measured 84 probes; no skips; security item3 OPEN
+
+```
+
+#### suite/phase2n-context.out
+```text
+OPEN item3: owner-created malicious trigger borrows legitimate context; group INSERT and 5 parent UPDATEs succeed in transaction, rolled back. No candidate installed.
+PASS item1: distinct COMMIT/ROLLBACK live tokens rejected across sessions and new xid
+PASS item2: 54 actual managed INSERT/DELETE probes + legacy bypass controls, no persistence
+PASS item4 dedicated runner executed; item3 security remains OPEN, not a green security gate
+2n1b measured 84 probes; no skips; security item3 OPEN
+
+```
+
+#### suite.out
+```text
+sh: line 1: locale: command not found
+2026-10-21 22:32:30.772 UTC [56804] WARNING:  no usable system locales were found
+phase2h install: 15529 statements; 0 failed
+equal {'relations': 525, 'columns': 6392, 'constraints': 1987, 'indexes': 1477, 'triggers': 2934, 'policies': 1284, 'functions': 876, 'types': 27, 'sequences': 15, 'views': 53, 'default_acl': 37, 'schemas': 16, 'extensions': 6, 'roles': 17, 'memberships': 20}
+diffs {"columns": {"different_explained": 70}, "constraints": {"different_explained": 8}, "indexes": {"different_explained": 1}, "functions": {"different_explained": 18}, "views": {"different_explained": 1}, "extensions": {"missing_explained": 5}}
+UNEXPLAINED total 0
+reference data: 27 statements from 23 migrations
+refdata errors: 0
+INSTALL OK (postgres NOSUPERUSER): group_storage core invariants balance
+PASS scenarios (9 marcadores PASS)
+PASS phase2b (10 marcadores PASS)
+PASS phase2c (2 marcadores PASS)
+PASS phase2d (8 marcadores PASS)
+PASS phase2e (7 marcadores PASS)
+PASS phase2f-negative (2 marcadores PASS)
+PASS kill-switch (level 1, reverse available, ACL unchanged + rollback)
+PASS phase2c-invariant-matrix (1 marcadores PASS)
+PASS phase2f-concurrency (5 marcadores)
+PASS phase2g-approval (3 marcadores PASS)
+PASS matching-parity (1 marcadores PASS)
+PASS phase2j (11 marcadores PASS)
+PASS phase2j-concurrency (7 marcadores)
+PASS phase2l (9 marcadores)
+PASS phase2n-context execution (item1/2 assertions; item3 OPEN owner-trigger boundary, NOT security acceptance)
+
+```
+
+#### rollback.out
+```text
+installed local offset_group_storage
+installed local offset_core
+installed local offset_invariants
+installed local offset_balance
+installed local offset_approval
+installed local status
+installed local offset_kill_switch
+installed local emergency
+installed local reactivation
+installed local cash_position
+installed local cash_position_invariant
+installed local restore
+rolled back local restore
+rolled back local cash_position_invariant
+rolled back local cash_position
+rolled back local reactivation
+rolled back local emergency
+rolled back local offset_kill_switch
+rolled back local status
+rolled back local offset_approval
+rolled back local offset_balance
+rolled back local offset_invariants
+rolled back local offset_core
+rolled back local offset_group_storage
+PASS 2l full capture equality: owners/ACL/memberships/roles/types/defaults/indexes/RI/triggers/policies/functions/views
+
+```
+
+#### github.json
+```text
+{
+  "sha": "bb701b1f495fb477fcb473a2520078065293549c",
+  "files": {
+    "supabase/tests/issue335/phase2n-context.py": {
+      "http": 404
+    },
+    "supabase/tests/issue335/phase2h-suite.sh": {
+      "http": 200,
+      "sha256": "ce3a01bf9a38337a6b86a476090ff34f557c0a762f60626243bce9bbf9561d17",
+      "local_equal": false
+    },
+    "docs/testes/issue335-fase2n-leituras.md": {
+      "http": 200,
+      "sha256": "e3f55a11f6d05a36819f9179a2e09dcb9a5c56cf49e7ae839cd56fb8a8a0b632",
+      "local_equal": false
+    },
+    "docs/testes/issue335-fases12-local.md": {
+      "http": 200,
+      "sha256": "51a3a9a2118a4871db64d2df7a0dffcc04fccc54fcb9bbcf126ae717b72e0a41",
+      "local_equal": true
+    },
+    "docs/testes/issue335-fase2n-hashes.sha256": {
+      "http": 200,
+      "sha256": "c5d07c9f0fde78f5941f7a5d2872879e654d973965cb212b7fcb142391644887",
+      "local_equal": true
+    }
+  },
+  "runs": [
+    {
+      "id": 39686372314,
+      "status": "completed",
+      "conclusion": "success",
+      "sha": "bb701b1f495fb477fcb473a2520078065293549c"
+    }
+  ],
+  "ci_covers_1b": false
+}
+```
+
+### Matriz1b completa esperado/obtido/linhas/classificação
+```json
+[
+  {
+    "item": 1,
+    "role": "editor",
+    "attack": "replay after own COMMIT",
+    "expected": "42501",
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "manager",
+    "attack": "replay after own COMMIT",
+    "expected": "42501",
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "user",
+    "attack": "replay after own COMMIT",
+    "expected": "42501",
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "anon",
+    "attack": "replay after own COMMIT",
+    "expected": "42501",
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "service_role",
+    "attack": "replay after own COMMIT",
+    "expected": "42501",
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "sandbox_exec",
+    "attack": "replay after own COMMIT",
+    "expected": "42501",
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "sandbox_exec specific",
+    "attack": "replay after own COMMIT",
+    "expected": "42501",
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "postgres",
+    "attack": "replay after own COMMIT",
+    "expected": "P0001:managed_operation_required",
+    "actual": "P0001:managed_operation_required",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "postgres SET executor",
+    "attack": "replay after own COMMIT",
+    "expected": "P0001:managed_operation_required",
+    "actual": "P0001:managed_operation_required",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "same A new xid",
+    "attack": "replay after own COMMIT",
+    "expected": "false/42501",
+    "actual": "false/42501",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "editor",
+    "attack": "replay after own ROLLBACK",
+    "expected": "42501",
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "manager",
+    "attack": "replay after own ROLLBACK",
+    "expected": "42501",
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "user",
+    "attack": "replay after own ROLLBACK",
+    "expected": "42501",
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "anon",
+    "attack": "replay after own ROLLBACK",
+    "expected": "42501",
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "service_role",
+    "attack": "replay after own ROLLBACK",
+    "expected": "42501",
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "sandbox_exec",
+    "attack": "replay after own ROLLBACK",
+    "expected": "42501",
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "sandbox_exec specific",
+    "attack": "replay after own ROLLBACK",
+    "expected": "42501",
+    "actual": "42501:permission denied for function _issue335_execute",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "postgres",
+    "attack": "replay after own ROLLBACK",
+    "expected": "P0001:managed_operation_required",
+    "actual": "P0001:managed_operation_required",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "postgres SET executor",
+    "attack": "replay after own ROLLBACK",
+    "expected": "P0001:managed_operation_required",
+    "actual": "P0001:managed_operation_required",
+    "pass_": true
+  },
+  {
+    "item": 1,
+    "role": "same A new xid",
+    "attack": "replay after own ROLLBACK",
+    "expected": "false/42501",
+    "actual": "false/42501",
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "editor",
+    "attack": "INSERT transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "editor",
+    "attack": "DELETE transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "editor",
+    "attack": "INSERT transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "editor",
+    "attack": "DELETE transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "editor",
+    "attack": "INSERT transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "editor",
+    "attack": "DELETE transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "manager",
+    "attack": "INSERT transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "manager",
+    "attack": "DELETE transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "manager",
+    "attack": "INSERT transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "manager",
+    "attack": "DELETE transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "manager",
+    "attack": "INSERT transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "manager",
+    "attack": "DELETE transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "user",
+    "attack": "INSERT transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "user",
+    "attack": "DELETE transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "user",
+    "attack": "INSERT transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "user",
+    "attack": "DELETE transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "user",
+    "attack": "INSERT transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "user",
+    "attack": "DELETE transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "ok:0",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "anon",
+    "attack": "INSERT transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "anon",
+    "attack": "DELETE transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "anon",
+    "attack": "INSERT transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "anon",
+    "attack": "DELETE transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "anon",
+    "attack": "INSERT transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "anon",
+    "attack": "DELETE transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "ok:0",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "service_role",
+    "attack": "INSERT transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "service_role",
+    "attack": "DELETE transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "service_role",
+    "attack": "INSERT transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "service_role",
+    "attack": "DELETE transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "service_role",
+    "attack": "INSERT transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "service_role",
+    "attack": "DELETE transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "service_role",
+    "attack": "legacy offset INSERT+DELETE",
+    "expected": "1+1 authorized bypass, rollback",
+    "actual": "1+1",
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "sandbox_exec",
+    "attack": "INSERT transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "sandbox_exec",
+    "attack": "DELETE transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "sandbox_exec",
+    "attack": "INSERT transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "sandbox_exec",
+    "attack": "DELETE transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "sandbox_exec",
+    "attack": "INSERT transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "sandbox_exec",
+    "attack": "DELETE transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offsets",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "sandbox_exec specific",
+    "attack": "INSERT transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "sandbox_exec specific",
+    "attack": "DELETE transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "sandbox_exec specific",
+    "attack": "INSERT transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "sandbox_exec specific",
+    "attack": "DELETE transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "sandbox_exec specific",
+    "attack": "INSERT transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "sandbox_exec specific",
+    "attack": "DELETE transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offsets",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "postgres",
+    "attack": "INSERT transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "postgres",
+    "attack": "DELETE transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "postgres",
+    "attack": "INSERT transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "postgres",
+    "attack": "DELETE transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "postgres",
+    "attack": "INSERT transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "postgres",
+    "attack": "DELETE transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "postgres",
+    "attack": "legacy offset INSERT+DELETE",
+    "expected": "1+1 authorized bypass, rollback",
+    "actual": "1+1",
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "postgres SET executor",
+    "attack": "INSERT transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "postgres SET executor",
+    "attack": "DELETE transaction_offset_groups",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "postgres SET executor",
+    "attack": "INSERT transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "postgres SET executor",
+    "attack": "DELETE transaction_offset_items",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "postgres SET executor",
+    "attack": "INSERT transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 2,
+    "role": "postgres SET executor",
+    "attack": "DELETE transaction_offsets",
+    "expected": "42501/guard or RLS0; no managed write",
+    "actual": "42501:permission denied for table transaction_offsets",
+    "affected": 0,
+    "persistent": false,
+    "pass_": true
+  },
+  {
+    "item": 3,
+    "role": "owner-created attacker SECURITY DEFINER trigger",
+    "attack": "INSERT INTO transaction_offset_groups(id,company_id,supplier_id,request_id,request_hash,operation_date,movement_amount,created_by)\n        VALUES('32eabcf5-b5ff-4f97-a7d6-e7a50e089fb9','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000020','fc800d43-5079-48a2-b9d3-59d57541e4a6','valid-test-hash','2026-10-13',0,'00000000-0000-0000-0000-000000000010') RETURNING id",
+    "expected": "security requirement: DENY; owner trusted-base boundary being measured",
+    "actual": "ok",
+    "affected": 1,
+    "security_pass": false,
+    "classification": "OPEN privilege/context borrowing; all rolled back",
+    "pass_": true
+  },
+  {
+    "item": 3,
+    "role": "owner-created attacker SECURITY DEFINER trigger",
+    "attack": "INSERT INTO transaction_offset_items(id,group_id,company_id,transaction_id,cash_order,type,base_amount,iva_rate,gross_amount,prior_paid_amount,prior_status,open_amount,cash_amount,compensation_amount)\n        VALUES('76fc953d-bcc9-45e9-8317-fe9bf6b65d46','fd117d68-7bf4-4e72-addb-340ec40536be','00000000-0000-0000-0000-000000000001','f098ae89-be8d-4f0c-970e-ad181e2b7c08',99,'income',10,0,10,0,'approved',10,0,10) RETURNING id",
+    "expected": "security requirement: DENY; owner trusted-base boundary being measured",
+    "actual": "P0001:invalid_group_state",
+    "affected": 0,
+    "security_pass": true,
+    "classification": "OPEN privilege/context borrowing; all rolled back",
+    "pass_": true
+  },
+  {
+    "item": 3,
+    "role": "owner-created attacker SECURITY DEFINER trigger",
+    "attack": "INSERT INTO transaction_offsets(id,company_id,receivable_transaction_id,payable_transaction_id,amount,offset_group_id)\n        VALUES('48bd367b-deda-4e73-9ca1-48441666c7fc','00000000-0000-0000-0000-000000000001','f098ae89-be8d-4f0c-970e-ad181e2b7c08','7a1ed778-05e7-4a0a-8e46-0eab997700f6',1,'fd117d68-7bf4-4e72-addb-340ec40536be') RETURNING id",
+    "expected": "security requirement: DENY; owner trusted-base boundary being measured",
+    "actual": "ok",
+    "affected": 1,
+    "security_pass": false,
+    "classification": "OPEN privilege/context borrowing; all rolled back",
+    "pass_": true
+  },
+  {
+    "item": 3,
+    "role": "owner-created attacker SECURITY DEFINER trigger",
+    "attack": "UPDATE \"companies\" SET \"display_name\"=\"display_name\"||' stolen' WHERE id='00000000-0000-0000-0000-000000000001'",
+    "expected": "security requirement: DENY; owner trusted-base boundary being measured",
+    "actual": "ok",
+    "affected": 1,
+    "security_pass": false,
+    "classification": "OPEN privilege/context borrowing; all rolled back",
+    "pass_": true
+  },
+  {
+    "item": 3,
+    "role": "owner-created attacker SECURITY DEFINER trigger",
+    "attack": "UPDATE \"suppliers\" SET \"name\"=\"name\"||' stolen' WHERE id='00000000-0000-0000-0000-000000000020'",
+    "expected": "security requirement: DENY; owner trusted-base boundary being measured",
+    "actual": "ok",
+    "affected": 1,
+    "security_pass": false,
+    "classification": "OPEN privilege/context borrowing; all rolled back",
+    "pass_": true
+  },
+  {
+    "item": 3,
+    "role": "owner-created attacker SECURITY DEFINER trigger",
+    "attack": "UPDATE \"financial_accounts\" SET \"name\"=\"name\"||' stolen' WHERE id='00000000-0000-0000-0000-000000000030'",
+    "expected": "security requirement: DENY; owner trusted-base boundary being measured",
+    "actual": "ok",
+    "affected": 1,
+    "security_pass": false,
+    "classification": "OPEN privilege/context borrowing; all rolled back",
+    "pass_": true
+  },
+  {
+    "item": 3,
+    "role": "owner-created attacker SECURITY DEFINER trigger",
+    "attack": "UPDATE \"events\" SET name=name||' stolen' WHERE id='00000000-0000-0000-0000-000000000063'",
+    "expected": "security requirement: DENY; owner trusted-base boundary being measured",
+    "actual": "ok",
+    "affected": 1,
+    "security_pass": false,
+    "classification": "OPEN privilege/context borrowing; all rolled back",
+    "pass_": true
+  },
+  {
+    "item": 3,
+    "role": "owner-created attacker SECURITY DEFINER trigger",
+    "attack": "UPDATE \"event_settlements\" SET name=name||' stolen' WHERE id='4429889b-68fe-4555-97d8-2aeb2a3861f8'",
+    "expected": "security requirement: DENY; owner trusted-base boundary being measured",
+    "actual": "ok",
+    "affected": 1,
+    "security_pass": false,
+    "classification": "OPEN privilege/context borrowing; all rolled back",
+    "pass_": true
+  }
+]
+```
+
+### Hashes dos artefactos locais (captura normalizada)
+```text
+b22703d92fab68e3e8c714f057bbc32415efec369e847eb78c14183df488767a  /tmp/issue335-2n1b/suite/phase2n-context.json
+7274420a5dd801cfe29336a1c93f23253a263af9e2d046c2e2f9fb4aa4cda403  /tmp/issue335-2n1b/suite/phase2n-context.out
+6b2e13e8e5714e0d7a669bd612f1d63349d8f296c453c3c2a3888bd7b7013a52  /tmp/issue335-2n1b/suite.out
+474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1  /tmp/issue335-2n1b/rollback/before.json
+474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1  /tmp/issue335-2n1b/rollback/after.json
+44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a  /tmp/issue335-2n1b/rollback/differences.json
+dd375a9fcc9e8b8910acf17f10cf9be00ef7c999174190a54af923cb1baa6543  /tmp/issue335-2n1b/rollback.out
+```
+
+Questões/decisões em aberto:nenhuma instalação autorizada;itens2/3 exigem prova/desenho técnico,modelo owner deve ser explicitamente aceite só após candidatos/testes. Recomendada:manter M1 aberto e não instalar.

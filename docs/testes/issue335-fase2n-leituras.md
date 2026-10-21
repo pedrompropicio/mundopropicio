@@ -38,3 +38,18 @@ Nomes pedidos storage/core/invariants resolvidos para offset_group_storage/offse
 - supabase/tests/issue335/live/phase2m/vitest.out | N=361 | sha256=6c33fc8f30a55cb7ef7faa3197e06fad090c46ef961b3b6016ad16d4261d47f1 | NÃO LIDO — captura volumosa/resultados não integralmente revistos; não alegar leitura por execução/hashing
 
 Conjunto fontes M1 pedido integralmente lido; capturas volumosas NÃO LIDO acima. Não certifica todos os artefactos históricos nem outros blocos.
+
+
+## Bloco1b — leituras ANTES dos testes (22:28 UTC)
+- docs/testes/issue335-fases12-local.md | N=5188 | sha256=51a3a9a2118a4871db64d2df7a0dffcc04fccc54fcb9bbcf126ae717b72e0a41 | SECCÃO PEDIDA LIDA; ficheiro actual NÃO LIDO integralmente nesta ronda (só mínimo pedido); intervalos 925–1004,1005–1084,1085–1164,1165–1244,1245–1324,1325–1404,1405–1484,1485–1564,1565–1644,1645–1724,1725–1804,1805–1884,1885–1964,1965–2044,2045–2124,2125–2204,2205–2284,2285–2364,2365–2444,2445–2524,2525–2604,2605–2684,2685–2764,2765–2844,2845–2924,2925–3004,3005–3084,3085–3164,3165–3244,3245–3324,3325–3404,3405–3484,3485–3564,3565–3644,3645–3724,3725–3804,3805–3884,3885–3964,3965–4044,4045–4124,4125–4204,4205–4284,4285–4364,4365–4444,4445–4524,4525–4604,4605–4684,4685–4764,4765–4844,4845–4924,4925–5004,5005–5084,5085–5164,5165–5188; relatório delegado sub_fb149649, restantes executor.
+- /tmp/issue335-2n/attacks.py | N=90 | sha256=e0e754138a56aa59dba5f6b65c6275feefa186b1226f4327ff0727e47872c702 | LIDO INTEGRAL; intervalos 1–90; relatório delegado sub_fb149649, restantes executor.
+- supabase/tests/issue335/run.sh | N=164 | sha256=1fa39995462e363eb3019dbbba74f90278945011adccad56560b299590d85e83 | LIDO INTEGRAL; intervalos 1–164; relatório delegado sub_fb149649, restantes executor.
+- supabase/tests/issue335/phase2h-suite.sh | N=39 | sha256=ce3a01bf9a38337a6b86a476090ff34f557c0a762f60626243bce9bbf9561d17 | LIDO INTEGRAL; intervalos 1–39; relatório delegado sub_fb149649, restantes executor.
+- supabase/manual/20261021_issue335_offset_core.INERTE.sql | N=1130 | sha256=e3153a10868d726687581ec7abee1e7b260426ff270bab62ff96effba659b772 | SECCÃO PEDIDA LIDA; ficheiro actual NÃO LIDO integralmente nesta ronda (só mínimo pedido); intervalos 1–200,1060–1130; relatório delegado sub_fb149649, restantes executor.
+- supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql | N=91 | sha256=ea8632f3dfb3d997678c03ff33092088b2838cc7ab9e38eeb3f4a29ae60abecc | LIDO INTEGRAL; intervalos 1–91; relatório delegado sub_fb149649, restantes executor.
+Fontes do Bloco1 inexistentes como runner versionado: script real era /tmp/issue335-2n/attacks.py e cópia integral no relatório; ambos lidos antes de criar1b. Capturas históricas NÃO LIDO mantêm classificação acima.
+
+### Fontes adicionais lidas nesta ronda
+- supabase/tests/issue335/phase2j.sql: intervalos 1–45; SHA actual 84b08bc489e68ee3b754692d9ca565613df3b4303e5455b76489c61527f6cb0f; novo runner actual tem linhas adicionadas após leitura, não afirmar versão actual integralmente relida.
+- supabase/tests/issue335/phase2n-context.py: intervalos 1–200,201–222 (versão inicial antes do patch); SHA actual 67c31a48bcd38ee3dcbbb6394d5bc91453acc00ed04802d6fe55af6be5df4f9f; novo runner actual tem linhas adicionadas após leitura, não afirmar versão actual integralmente relida.
+- supabase/tests/issue335/phase2l-rollback.py: intervalos 1–49 (já em contexto da mesma conversa); SHA actual eaa73e57553011903fc83b6b404fef8204f1dbf988e58fc8bdd020b2a1282297; novo runner actual tem linhas adicionadas após leitura, não afirmar versão actual integralmente relida.
