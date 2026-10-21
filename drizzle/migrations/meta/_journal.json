@@ -1639,6 +1639,13 @@
       "when": 1792581103484,
       "tag": "0233_period_report_exact_daily_visitors",
       "breakpoints": true
+    },
+    {
+      "idx": 234,
+      "version": "7",
+      "when": 1792581159239,
+      "tag": "0234_period_report_daily_visitor_read",
+      "breakpoints": true
     }
   ]
 }
