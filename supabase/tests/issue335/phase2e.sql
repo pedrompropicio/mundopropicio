@@ -85,11 +85,13 @@ DO $$ DECLARE a uuid; b uuid; ev uuid; g uuid; snap jsonb; items jsonb; BEGIN
  UPDATE events SET budget_mode='with_bp' WHERE id=ev;
  items:=jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset'));
  SELECT (transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13')->>'group_id')::uuid INTO g;
- BEGIN PERFORM transaction_offset_reverse(g,gen_random_uuid(),'2e D trigger'); RAISE EXCEPTION 'historical reversal unexpectedly accepted'; EXCEPTION WHEN SQLSTATE '42501' THEN
-  IF SQLERRM NOT LIKE '%linha de BP%' THEN RAISE; END IF;
- END;
- IF (SELECT status FROM transaction_offset_groups WHERE id=g)<>'applied' OR EXISTS(SELECT 1 FROM transaction_payments WHERE offset_group_id=g AND status<>'paid') THEN RAISE EXCEPTION 'D refusal partial'; END IF;
- RAISE NOTICE 'CONFIRMED 2e D STOP: real approval trigger rejects historical no-BP reversal; group/payment state atomic and retained. Trigger not changed, JWT not cleared.';
+ -- 2n-Bloco2b: approval candidate is now installed right after core (order guard); the former
+ -- 42501 STOP (reverse refused after apply) is superseded: without the candidate the APPLY is
+ -- refused (phase2g BEFORE, phase2n-status order); with it the historical reversal restores.
+ PERFORM transaction_offset_reverse(g,gen_random_uuid(),'2e D trigger');
+ IF (SELECT status FROM transaction_offset_groups WHERE id=g)<>'reversed' OR (SELECT status FROM transactions WHERE id=b)<>'approved'
+    OR (SELECT paid_amount FROM transactions WHERE id=b)<>0 OR EXISTS(SELECT 1 FROM transaction_payments WHERE offset_group_id=g AND status<>'reversed') THEN RAISE EXCEPTION 'D historical reverse not restored'; END IF;
+ RAISE NOTICE 'PASS 2e D (2n-Bloco2b): with approval candidate installed after core, historical no-BP reversal restores approved/0 and all group legs reversed. JWT not cleared.';
 END $$;
 ROLLBACK;
 BEGIN;
