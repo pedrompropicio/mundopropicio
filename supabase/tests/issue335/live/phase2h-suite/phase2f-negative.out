@@ -1,0 +1,12 @@
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-000000000010
+(1 row)
+
+psql:/tmp/issue335-phase2h/adapted/phase2f-negative.sql:37: NOTICE:  PASS 2f I/G: exactly 51 refused, adoption 39 versus required 40 refused, legal compensation held_by becomes paid and refused; atomic
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-000000000010
+(1 row)
+
+psql:/tmp/issue335-phase2h/adapted/phase2f-negative.sql:55: NOTICE:  PASS 2f A runner: registered balance check zero -> corruption nonzero/nonconforme -> zero through global extra runner

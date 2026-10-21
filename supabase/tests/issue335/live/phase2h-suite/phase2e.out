@@ -1,0 +1,14 @@
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-000000000010
+(1 row)
+
+psql:/tmp/issue335-phase2h/adapted/phase2e.sql:35: NOTICE:  PASS 2e A/E: mixed 60+40=60, prior X preserved, compensation zero, cutoff/asof, editor account attack, reversal zero
+psql:/tmp/issue335-phase2h/adapted/phase2e.sql:35: NOTICE:  PASS 2e A: unmanaged legacy balance exact numerical parity, hidden/cutoff/asof
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-000000000010
+(1 row)
+
+psql:/tmp/issue335-phase2h/adapted/phase2e.sql:40: ERROR:  duplicate key value violates unique constraint "profiles_pkey"
+DETAIL:  Key (id)=(00000000-0000-0000-0000-000000000016) already exists.

@@ -1,0 +1,9 @@
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-000000000010
+(1 row)
+
+psql:/tmp/issue335-phase2h/adapted/phase2c.sql:16: NOTICE:  trigger "zzz_issue335_failure" for relation "public.artist_ads_country_benchmarks" does not exist, skipping
+psql:/tmp/issue335-phase2h/adapted/phase2c.sql:16: ERROR:  function issue335_test.fail_write() does not exist
+CONTEXT:  SQL statement "CREATE TRIGGER zzz_issue335_failure AFTER INSERT OR UPDATE OR DELETE ON public.artist_ads_country_benchmarks FOR EACH ROW EXECUTE FUNCTION issue335_test.fail_write()"
+PL/pgSQL function inline_code_block line 4 at EXECUTE

@@ -1,0 +1,427 @@
+{
+ "stats": {
+  "00_roles": {
+   "total": 18,
+   "passes": 1,
+   "carried": 0
+  },
+  "01_members": {
+   "total": 20,
+   "passes": 1,
+   "carried": 0
+  },
+  "02_schemas": {
+   "total": 16,
+   "passes": 1,
+   "carried": 0
+  },
+  "03_schema_acl": {
+   "total": 78,
+   "passes": 1,
+   "carried": 0
+  },
+  "04_extensions": {
+   "total": 5,
+   "passes": 1,
+   "carried": 0
+  },
+  "05_types+06_sequences+07_tables+09_functions+10_views": {
+   "total": 1437,
+   "passes": 3,
+   "carried": 3
+  },
+  "08_dropped_columns": {
+   "total": 28,
+   "passes": 2,
+   "carried": 3
+  },
+  "09_functions_meta": {
+   "total": 18,
+   "passes": 2,
+   "carried": 3
+  },
+  "17_acl_tables+17_acl_seq+17_acl_functions": {
+   "total": 6964,
+   "passes": 2,
+   "carried": 24
+  },
+  "18_acl_columns": {
+   "total": 20,
+   "passes": 2,
+   "carried": 24
+  },
+  "11_defaults": {
+   "total": 1975,
+   "passes": 2,
+   "carried": 24
+  },
+  "12_seq_owned": {
+   "total": 4,
+   "passes": 2,
+   "carried": 24
+  },
+  "13_constraints": {
+   "total": 1167,
+   "passes": 4,
+   "carried": 0
+  },
+  "13_constraints_fk": {
+   "total": 807,
+   "passes": 1,
+   "carried": 0
+  },
+  "14_rls": {
+   "total": 428,
+   "passes": 1,
+   "carried": 0
+  },
+  "15_indexes": {
+   "total": 827,
+   "passes": 1,
+   "carried": 0
+  },
+  "16_triggers": {
+   "total": 396,
+   "passes": 1,
+   "carried": 0
+  },
+  "16_triggers_state": {
+   "total": 0,
+   "passes": 0,
+   "carried": 0
+  },
+  "16_policies": {
+   "total": 1284,
+   "passes": 1,
+   "carried": 0
+  },
+  "19_default_acl": {
+   "total": 37,
+   "passes": 1,
+   "carried": 0
+  },
+  "late_acl_replay": {
+   "objects": [
+    "public.v_artist_content_ranking",
+    "public.v_content_latest",
+    "public.v_song_content"
+   ],
+   "statements": 21
+  }
+ },
+ "admin_fallback": [
+  {
+   "key": "fn:realtime.list_changes(name,name,integer,integer)",
+   "reason": "42501: permission denied to set parameter \"log_min_messages\""
+  },
+  {
+   "key": "fn:realtime.list_changes_sync(name,name,integer,integer)",
+   "reason": "42501: permission denied to set parameter \"log_min_messages\""
+  },
+  {
+   "key": "trg:auth.users.on_auth_user_created",
+   "reason": "42501: permission denied for function handle_new_user"
+  },
+  {
+   "key": "pol:storage.objects.Accountant and viewer can view transaction docs",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Accountant can view supplier documents",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Admin can delete implementation files",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Admin can delete import reports",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Admin can upload implementation files",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Admin can view implementation files",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Admin delete company-logos",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Admin update company-logos",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Admin write company-logos",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Admins and managers can delete bp-version-snapshots",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Admins and managers can delete credit docs",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Admins and managers can read bp-version-snapshots",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Admins and managers can update bp-version-snapshots",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Admins and managers can upload bp-version-snapshots",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Ads invoices deletable by privileged roles",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Ads invoices uploadable by privileged roles",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Ads invoices viewable by privileged roles",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Backup files deletable by admin",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Backup files insertable by admin",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Backup files viewable by admin",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Cache extra docs deletable by admin or manager",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Cache extra docs uploadable by admin or manager",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Camarim documents insertable by admin or manager",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Camarim documents insertable by team or manager",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Camarim documents updatable by admin or manager",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Camarim documents updatable by team or manager",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Camarim documents viewable by accountant",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Camarim documents viewable by authenticated",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Card docs insert",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Card docs select",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Card docs update",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Card docs viewable by accountant",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Credit docs uploadable by admin or manager",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Import reports uploadable by privileged roles",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Managers can update settlement files",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Managers can upload settlement files",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Partner extra docs deletable by admin or manager",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Partner extra docs uploadable by admin or manager",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Staff can update closing cost docs",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Staff can upload closing cost docs",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Staff can view cache extra docs",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Staff can view closing cost docs",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Staff can view import reports",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Staff can view partner extra docs",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Staff can view supplier credit docs",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Staff can view supplier documents",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Staff can view transaction docs",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Supplier docs uploadable by privileged roles",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.Transaction docs uploadable by privileged roles",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.accountant_exports_select_admin_manager",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.bank_statements_storage_insert",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.bank_statements_storage_select",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.eaba-storage insert privileged",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.ed-storage delete privileged",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.ed-storage insert privileged",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.efa-storage insert privileged",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.event_images_delete",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.event_images_insert",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.event_images_update",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.festival_edition_videos_delete",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.festival_edition_videos_insert",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.festival_edition_videos_update",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.funnel_screens_delete",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.funnel_screens_insert",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.funnel_screens_select",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.operacao-media insert admin bypass",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.operacao_media_delete",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.operacao_media_insert",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.operacao_media_select",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.operacao_media_update",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.portal_marketing_images_delete",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.portal_marketing_images_insert",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.portal_marketing_images_update",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.standalone_invoices_storage_insert",
+   "reason": "42501: permission denied for schema auth"
+  },
+  {
+   "key": "pol:storage.objects.standalone_invoices_storage_select",
+   "reason": "42501: permission denied for schema auth"
+  }
+ ],
+ "failed": []
+}

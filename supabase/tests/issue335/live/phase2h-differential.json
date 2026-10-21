@@ -1,0 +1,3789 @@
+{
+ "equal": {
+  "relations": 525,
+  "columns": 6392,
+  "constraints": 1987,
+  "indexes": 1477,
+  "triggers": 2934,
+  "policies": 1284,
+  "functions": 876,
+  "types": 27,
+  "sequences": 15,
+  "views": 53,
+  "default_acl": 37,
+  "schemas": 16,
+  "extensions": 6,
+  "roles": 17,
+  "memberships": 20
+ },
+ "summary": {
+  "columns": {
+   "different_explained": 70
+  },
+  "constraints": {
+   "different_explained": 8
+  },
+  "indexes": {
+   "different_explained": 1
+  },
+  "functions": {
+   "different_explained": 18
+  },
+  "views": {
+   "different_explained": 1
+  },
+  "extensions": {
+   "missing_explained": 5
+  }
+ },
+ "differences": [
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_18",
+    "binary_payload"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "binary_payload",
+    "type": "bytea",
+    "table": "realtime.messages_2026_10_18",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 9,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "binary_payload",
+    "type": "bytea",
+    "table": "realtime.messages_2026_10_18",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 11,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_18",
+    "event"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "event",
+    "type": "text",
+    "table": "realtime.messages_2026_10_18",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 4,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "event",
+    "type": "text",
+    "table": "realtime.messages_2026_10_18",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 6,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_18",
+    "extension"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "extension",
+    "type": "text",
+    "table": "realtime.messages_2026_10_18",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 2,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "extension",
+    "type": "text",
+    "table": "realtime.messages_2026_10_18",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 4,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_18",
+    "id"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "table": "realtime.messages_2026_10_18",
+    "default": "gen_random_uuid()",
+    "notnull": true,
+    "identity": "",
+    "position": 8,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "table": "realtime.messages_2026_10_18",
+    "default": "gen_random_uuid()",
+    "notnull": true,
+    "identity": "",
+    "position": 10,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_18",
+    "inserted_at"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "inserted_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_18",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 7,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "inserted_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_18",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 9,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_18",
+    "payload"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "payload",
+    "type": "jsonb",
+    "table": "realtime.messages_2026_10_18",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 3,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "payload",
+    "type": "jsonb",
+    "table": "realtime.messages_2026_10_18",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 5,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_18",
+    "private"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "private",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_18",
+    "default": "false",
+    "notnull": false,
+    "identity": "",
+    "position": 5,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "private",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_18",
+    "default": "false",
+    "notnull": false,
+    "identity": "",
+    "position": 7,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_18",
+    "skip_broadcast"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "skip_broadcast",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_18",
+    "default": "false",
+    "notnull": true,
+    "identity": "",
+    "position": 10,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "skip_broadcast",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_18",
+    "default": "false",
+    "notnull": true,
+    "identity": "",
+    "position": 12,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_18",
+    "topic"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "topic",
+    "type": "text",
+    "table": "realtime.messages_2026_10_18",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 1,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "topic",
+    "type": "text",
+    "table": "realtime.messages_2026_10_18",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 3,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_18",
+    "updated_at"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_18",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 6,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_18",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 8,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_19",
+    "binary_payload"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "binary_payload",
+    "type": "bytea",
+    "table": "realtime.messages_2026_10_19",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 9,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "binary_payload",
+    "type": "bytea",
+    "table": "realtime.messages_2026_10_19",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 11,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_19",
+    "event"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "event",
+    "type": "text",
+    "table": "realtime.messages_2026_10_19",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 4,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "event",
+    "type": "text",
+    "table": "realtime.messages_2026_10_19",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 6,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_19",
+    "extension"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "extension",
+    "type": "text",
+    "table": "realtime.messages_2026_10_19",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 2,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "extension",
+    "type": "text",
+    "table": "realtime.messages_2026_10_19",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 4,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_19",
+    "id"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "table": "realtime.messages_2026_10_19",
+    "default": "gen_random_uuid()",
+    "notnull": true,
+    "identity": "",
+    "position": 8,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "table": "realtime.messages_2026_10_19",
+    "default": "gen_random_uuid()",
+    "notnull": true,
+    "identity": "",
+    "position": 10,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_19",
+    "inserted_at"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "inserted_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_19",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 7,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "inserted_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_19",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 9,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_19",
+    "payload"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "payload",
+    "type": "jsonb",
+    "table": "realtime.messages_2026_10_19",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 3,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "payload",
+    "type": "jsonb",
+    "table": "realtime.messages_2026_10_19",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 5,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_19",
+    "private"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "private",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_19",
+    "default": "false",
+    "notnull": false,
+    "identity": "",
+    "position": 5,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "private",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_19",
+    "default": "false",
+    "notnull": false,
+    "identity": "",
+    "position": 7,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_19",
+    "skip_broadcast"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "skip_broadcast",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_19",
+    "default": "false",
+    "notnull": true,
+    "identity": "",
+    "position": 10,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "skip_broadcast",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_19",
+    "default": "false",
+    "notnull": true,
+    "identity": "",
+    "position": 12,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_19",
+    "topic"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "topic",
+    "type": "text",
+    "table": "realtime.messages_2026_10_19",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 1,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "topic",
+    "type": "text",
+    "table": "realtime.messages_2026_10_19",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 3,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_19",
+    "updated_at"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_19",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 6,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_19",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 8,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_20",
+    "binary_payload"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "binary_payload",
+    "type": "bytea",
+    "table": "realtime.messages_2026_10_20",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 9,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "binary_payload",
+    "type": "bytea",
+    "table": "realtime.messages_2026_10_20",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 11,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_20",
+    "event"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "event",
+    "type": "text",
+    "table": "realtime.messages_2026_10_20",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 4,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "event",
+    "type": "text",
+    "table": "realtime.messages_2026_10_20",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 6,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_20",
+    "extension"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "extension",
+    "type": "text",
+    "table": "realtime.messages_2026_10_20",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 2,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "extension",
+    "type": "text",
+    "table": "realtime.messages_2026_10_20",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 4,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_20",
+    "id"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "table": "realtime.messages_2026_10_20",
+    "default": "gen_random_uuid()",
+    "notnull": true,
+    "identity": "",
+    "position": 8,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "table": "realtime.messages_2026_10_20",
+    "default": "gen_random_uuid()",
+    "notnull": true,
+    "identity": "",
+    "position": 10,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_20",
+    "inserted_at"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "inserted_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_20",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 7,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "inserted_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_20",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 9,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_20",
+    "payload"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "payload",
+    "type": "jsonb",
+    "table": "realtime.messages_2026_10_20",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 3,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "payload",
+    "type": "jsonb",
+    "table": "realtime.messages_2026_10_20",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 5,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_20",
+    "private"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "private",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_20",
+    "default": "false",
+    "notnull": false,
+    "identity": "",
+    "position": 5,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "private",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_20",
+    "default": "false",
+    "notnull": false,
+    "identity": "",
+    "position": 7,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_20",
+    "skip_broadcast"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "skip_broadcast",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_20",
+    "default": "false",
+    "notnull": true,
+    "identity": "",
+    "position": 10,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "skip_broadcast",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_20",
+    "default": "false",
+    "notnull": true,
+    "identity": "",
+    "position": 12,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_20",
+    "topic"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "topic",
+    "type": "text",
+    "table": "realtime.messages_2026_10_20",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 1,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "topic",
+    "type": "text",
+    "table": "realtime.messages_2026_10_20",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 3,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_20",
+    "updated_at"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_20",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 6,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_20",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 8,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_21",
+    "binary_payload"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "binary_payload",
+    "type": "bytea",
+    "table": "realtime.messages_2026_10_21",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 9,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "binary_payload",
+    "type": "bytea",
+    "table": "realtime.messages_2026_10_21",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 11,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_21",
+    "event"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "event",
+    "type": "text",
+    "table": "realtime.messages_2026_10_21",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 4,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "event",
+    "type": "text",
+    "table": "realtime.messages_2026_10_21",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 6,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_21",
+    "extension"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "extension",
+    "type": "text",
+    "table": "realtime.messages_2026_10_21",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 2,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "extension",
+    "type": "text",
+    "table": "realtime.messages_2026_10_21",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 4,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_21",
+    "id"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "table": "realtime.messages_2026_10_21",
+    "default": "gen_random_uuid()",
+    "notnull": true,
+    "identity": "",
+    "position": 8,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "table": "realtime.messages_2026_10_21",
+    "default": "gen_random_uuid()",
+    "notnull": true,
+    "identity": "",
+    "position": 10,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_21",
+    "inserted_at"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "inserted_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_21",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 7,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "inserted_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_21",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 9,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_21",
+    "payload"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "payload",
+    "type": "jsonb",
+    "table": "realtime.messages_2026_10_21",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 3,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "payload",
+    "type": "jsonb",
+    "table": "realtime.messages_2026_10_21",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 5,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_21",
+    "private"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "private",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_21",
+    "default": "false",
+    "notnull": false,
+    "identity": "",
+    "position": 5,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "private",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_21",
+    "default": "false",
+    "notnull": false,
+    "identity": "",
+    "position": 7,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_21",
+    "skip_broadcast"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "skip_broadcast",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_21",
+    "default": "false",
+    "notnull": true,
+    "identity": "",
+    "position": 10,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "skip_broadcast",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_21",
+    "default": "false",
+    "notnull": true,
+    "identity": "",
+    "position": 12,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_21",
+    "topic"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "topic",
+    "type": "text",
+    "table": "realtime.messages_2026_10_21",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 1,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "topic",
+    "type": "text",
+    "table": "realtime.messages_2026_10_21",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 3,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_21",
+    "updated_at"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_21",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 6,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_21",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 8,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_22",
+    "binary_payload"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "binary_payload",
+    "type": "bytea",
+    "table": "realtime.messages_2026_10_22",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 9,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "binary_payload",
+    "type": "bytea",
+    "table": "realtime.messages_2026_10_22",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 11,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_22",
+    "event"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "event",
+    "type": "text",
+    "table": "realtime.messages_2026_10_22",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 4,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "event",
+    "type": "text",
+    "table": "realtime.messages_2026_10_22",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 6,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_22",
+    "extension"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "extension",
+    "type": "text",
+    "table": "realtime.messages_2026_10_22",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 2,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "extension",
+    "type": "text",
+    "table": "realtime.messages_2026_10_22",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 4,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_22",
+    "id"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "table": "realtime.messages_2026_10_22",
+    "default": "gen_random_uuid()",
+    "notnull": true,
+    "identity": "",
+    "position": 8,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "table": "realtime.messages_2026_10_22",
+    "default": "gen_random_uuid()",
+    "notnull": true,
+    "identity": "",
+    "position": 10,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_22",
+    "inserted_at"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "inserted_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_22",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 7,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "inserted_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_22",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 9,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_22",
+    "payload"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "payload",
+    "type": "jsonb",
+    "table": "realtime.messages_2026_10_22",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 3,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "payload",
+    "type": "jsonb",
+    "table": "realtime.messages_2026_10_22",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 5,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_22",
+    "private"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "private",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_22",
+    "default": "false",
+    "notnull": false,
+    "identity": "",
+    "position": 5,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "private",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_22",
+    "default": "false",
+    "notnull": false,
+    "identity": "",
+    "position": 7,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_22",
+    "skip_broadcast"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "skip_broadcast",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_22",
+    "default": "false",
+    "notnull": true,
+    "identity": "",
+    "position": 10,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "skip_broadcast",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_22",
+    "default": "false",
+    "notnull": true,
+    "identity": "",
+    "position": 12,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_22",
+    "topic"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "topic",
+    "type": "text",
+    "table": "realtime.messages_2026_10_22",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 1,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "topic",
+    "type": "text",
+    "table": "realtime.messages_2026_10_22",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 3,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_22",
+    "updated_at"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_22",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 6,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_22",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 8,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_23",
+    "binary_payload"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "binary_payload",
+    "type": "bytea",
+    "table": "realtime.messages_2026_10_23",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 9,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "binary_payload",
+    "type": "bytea",
+    "table": "realtime.messages_2026_10_23",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 11,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_23",
+    "event"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "event",
+    "type": "text",
+    "table": "realtime.messages_2026_10_23",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 4,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "event",
+    "type": "text",
+    "table": "realtime.messages_2026_10_23",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 6,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_23",
+    "extension"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "extension",
+    "type": "text",
+    "table": "realtime.messages_2026_10_23",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 2,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "extension",
+    "type": "text",
+    "table": "realtime.messages_2026_10_23",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 4,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_23",
+    "id"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "table": "realtime.messages_2026_10_23",
+    "default": "gen_random_uuid()",
+    "notnull": true,
+    "identity": "",
+    "position": 8,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "table": "realtime.messages_2026_10_23",
+    "default": "gen_random_uuid()",
+    "notnull": true,
+    "identity": "",
+    "position": 10,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_23",
+    "inserted_at"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "inserted_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_23",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 7,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "inserted_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_23",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 9,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_23",
+    "payload"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "payload",
+    "type": "jsonb",
+    "table": "realtime.messages_2026_10_23",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 3,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "payload",
+    "type": "jsonb",
+    "table": "realtime.messages_2026_10_23",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 5,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_23",
+    "private"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "private",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_23",
+    "default": "false",
+    "notnull": false,
+    "identity": "",
+    "position": 5,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "private",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_23",
+    "default": "false",
+    "notnull": false,
+    "identity": "",
+    "position": 7,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_23",
+    "skip_broadcast"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "skip_broadcast",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_23",
+    "default": "false",
+    "notnull": true,
+    "identity": "",
+    "position": 10,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "skip_broadcast",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_23",
+    "default": "false",
+    "notnull": true,
+    "identity": "",
+    "position": 12,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_23",
+    "topic"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "topic",
+    "type": "text",
+    "table": "realtime.messages_2026_10_23",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 1,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "topic",
+    "type": "text",
+    "table": "realtime.messages_2026_10_23",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 3,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_23",
+    "updated_at"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_23",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 6,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_23",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 8,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_24",
+    "binary_payload"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "binary_payload",
+    "type": "bytea",
+    "table": "realtime.messages_2026_10_24",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 9,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "binary_payload",
+    "type": "bytea",
+    "table": "realtime.messages_2026_10_24",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 11,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_24",
+    "event"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "event",
+    "type": "text",
+    "table": "realtime.messages_2026_10_24",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 4,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "event",
+    "type": "text",
+    "table": "realtime.messages_2026_10_24",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 6,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_24",
+    "extension"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "extension",
+    "type": "text",
+    "table": "realtime.messages_2026_10_24",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 2,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "extension",
+    "type": "text",
+    "table": "realtime.messages_2026_10_24",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 4,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_24",
+    "id"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "table": "realtime.messages_2026_10_24",
+    "default": "gen_random_uuid()",
+    "notnull": true,
+    "identity": "",
+    "position": 8,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "table": "realtime.messages_2026_10_24",
+    "default": "gen_random_uuid()",
+    "notnull": true,
+    "identity": "",
+    "position": 10,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_24",
+    "inserted_at"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "inserted_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_24",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 7,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "inserted_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_24",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 9,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_24",
+    "payload"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "payload",
+    "type": "jsonb",
+    "table": "realtime.messages_2026_10_24",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 3,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "payload",
+    "type": "jsonb",
+    "table": "realtime.messages_2026_10_24",
+    "default": null,
+    "notnull": false,
+    "identity": "",
+    "position": 5,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_24",
+    "private"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "private",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_24",
+    "default": "false",
+    "notnull": false,
+    "identity": "",
+    "position": 5,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "private",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_24",
+    "default": "false",
+    "notnull": false,
+    "identity": "",
+    "position": 7,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_24",
+    "skip_broadcast"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "skip_broadcast",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_24",
+    "default": "false",
+    "notnull": true,
+    "identity": "",
+    "position": 10,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "skip_broadcast",
+    "type": "boolean",
+    "table": "realtime.messages_2026_10_24",
+    "default": "false",
+    "notnull": true,
+    "identity": "",
+    "position": 12,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_24",
+    "topic"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "topic",
+    "type": "text",
+    "table": "realtime.messages_2026_10_24",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 1,
+    "collation": "\"default\"",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "topic",
+    "type": "text",
+    "table": "realtime.messages_2026_10_24",
+    "default": null,
+    "notnull": true,
+    "identity": "",
+    "position": 3,
+    "collation": "\"default\"",
+    "generated": ""
+   }
+  },
+  {
+   "category": "columns",
+   "object": [
+    "realtime.messages_2026_10_24",
+    "updated_at"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "position"
+   ],
+   "live": {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_24",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 6,
+    "collation": "-",
+    "generated": ""
+   },
+   "local": {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp without time zone",
+    "table": "realtime.messages_2026_10_24",
+    "default": "timezone('utc'::text, clock_timestamp())",
+    "notnull": true,
+    "identity": "",
+    "position": 8,
+    "collation": "-",
+    "generated": ""
+   }
+  },
+  {
+   "category": "constraints",
+   "object": [
+    "club_member_profiles",
+    "-",
+    "club_member_profiles_city_check"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "normalização do deparser: (a AND b) AND c reimprime-se como a AND b AND c; mesmos termos, mesma semântica",
+   "differing_fields": [
+    "definition"
+   ],
+   "live": {
+    "name": "club_member_profiles_city_check",
+    "type": "c",
+    "table": "club_member_profiles",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK (((city IS NULL) OR (((length(city) >= 1) AND (length(city) <= 120)) AND (city !~ '[<>[:cntrl:]]'::text))))",
+    "type_owner": "-"
+   },
+   "local": {
+    "name": "club_member_profiles_city_check",
+    "type": "c",
+    "table": "club_member_profiles",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK (((city IS NULL) OR ((length(city) >= 1) AND (length(city) <= 120) AND (city !~ '[<>[:cntrl:]]'::text))))",
+    "type_owner": "-"
+   }
+  },
+  {
+   "category": "constraints",
+   "object": [
+    "realtime.messages_2026_10_18",
+    "-",
+    "messages_payload_exclusive"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "definition",
+    "validated"
+   ],
+   "live": {
+    "name": "messages_payload_exclusive",
+    "type": "c",
+    "table": "realtime.messages_2026_10_18",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK (((payload IS NULL) OR (binary_payload IS NULL)))",
+    "type_owner": "-"
+   },
+   "local": {
+    "name": "messages_payload_exclusive",
+    "type": "c",
+    "table": "realtime.messages_2026_10_18",
+    "deferred": false,
+    "validated": false,
+    "deferrable": false,
+    "definition": "CHECK (((payload IS NULL) OR (binary_payload IS NULL))) NOT VALID",
+    "type_owner": "-"
+   }
+  },
+  {
+   "category": "constraints",
+   "object": [
+    "realtime.messages_2026_10_19",
+    "-",
+    "messages_payload_exclusive"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "definition",
+    "validated"
+   ],
+   "live": {
+    "name": "messages_payload_exclusive",
+    "type": "c",
+    "table": "realtime.messages_2026_10_19",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK (((payload IS NULL) OR (binary_payload IS NULL)))",
+    "type_owner": "-"
+   },
+   "local": {
+    "name": "messages_payload_exclusive",
+    "type": "c",
+    "table": "realtime.messages_2026_10_19",
+    "deferred": false,
+    "validated": false,
+    "deferrable": false,
+    "definition": "CHECK (((payload IS NULL) OR (binary_payload IS NULL))) NOT VALID",
+    "type_owner": "-"
+   }
+  },
+  {
+   "category": "constraints",
+   "object": [
+    "realtime.messages_2026_10_20",
+    "-",
+    "messages_payload_exclusive"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "definition",
+    "validated"
+   ],
+   "live": {
+    "name": "messages_payload_exclusive",
+    "type": "c",
+    "table": "realtime.messages_2026_10_20",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK (((payload IS NULL) OR (binary_payload IS NULL)))",
+    "type_owner": "-"
+   },
+   "local": {
+    "name": "messages_payload_exclusive",
+    "type": "c",
+    "table": "realtime.messages_2026_10_20",
+    "deferred": false,
+    "validated": false,
+    "deferrable": false,
+    "definition": "CHECK (((payload IS NULL) OR (binary_payload IS NULL))) NOT VALID",
+    "type_owner": "-"
+   }
+  },
+  {
+   "category": "constraints",
+   "object": [
+    "realtime.messages_2026_10_21",
+    "-",
+    "messages_payload_exclusive"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "definition",
+    "validated"
+   ],
+   "live": {
+    "name": "messages_payload_exclusive",
+    "type": "c",
+    "table": "realtime.messages_2026_10_21",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK (((payload IS NULL) OR (binary_payload IS NULL)))",
+    "type_owner": "-"
+   },
+   "local": {
+    "name": "messages_payload_exclusive",
+    "type": "c",
+    "table": "realtime.messages_2026_10_21",
+    "deferred": false,
+    "validated": false,
+    "deferrable": false,
+    "definition": "CHECK (((payload IS NULL) OR (binary_payload IS NULL))) NOT VALID",
+    "type_owner": "-"
+   }
+  },
+  {
+   "category": "constraints",
+   "object": [
+    "realtime.messages_2026_10_22",
+    "-",
+    "messages_payload_exclusive"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "definition",
+    "validated"
+   ],
+   "live": {
+    "name": "messages_payload_exclusive",
+    "type": "c",
+    "table": "realtime.messages_2026_10_22",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK (((payload IS NULL) OR (binary_payload IS NULL)))",
+    "type_owner": "-"
+   },
+   "local": {
+    "name": "messages_payload_exclusive",
+    "type": "c",
+    "table": "realtime.messages_2026_10_22",
+    "deferred": false,
+    "validated": false,
+    "deferrable": false,
+    "definition": "CHECK (((payload IS NULL) OR (binary_payload IS NULL))) NOT VALID",
+    "type_owner": "-"
+   }
+  },
+  {
+   "category": "constraints",
+   "object": [
+    "realtime.messages_2026_10_23",
+    "-",
+    "messages_payload_exclusive"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "definition",
+    "validated"
+   ],
+   "live": {
+    "name": "messages_payload_exclusive",
+    "type": "c",
+    "table": "realtime.messages_2026_10_23",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK (((payload IS NULL) OR (binary_payload IS NULL)))",
+    "type_owner": "-"
+   },
+   "local": {
+    "name": "messages_payload_exclusive",
+    "type": "c",
+    "table": "realtime.messages_2026_10_23",
+    "deferred": false,
+    "validated": false,
+    "deferrable": false,
+    "definition": "CHECK (((payload IS NULL) OR (binary_payload IS NULL))) NOT VALID",
+    "type_owner": "-"
+   }
+  },
+  {
+   "category": "constraints",
+   "object": [
+    "realtime.messages_2026_10_24",
+    "-",
+    "messages_payload_exclusive"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF",
+   "differing_fields": [
+    "definition",
+    "validated"
+   ],
+   "live": {
+    "name": "messages_payload_exclusive",
+    "type": "c",
+    "table": "realtime.messages_2026_10_24",
+    "deferred": false,
+    "validated": true,
+    "deferrable": false,
+    "definition": "CHECK (((payload IS NULL) OR (binary_payload IS NULL)))",
+    "type_owner": "-"
+   },
+   "local": {
+    "name": "messages_payload_exclusive",
+    "type": "c",
+    "table": "realtime.messages_2026_10_24",
+    "deferred": false,
+    "validated": false,
+    "deferrable": false,
+    "definition": "CHECK (((payload IS NULL) OR (binary_payload IS NULL))) NOT VALID",
+    "type_owner": "-"
+   }
+  },
+  {
+   "category": "indexes",
+   "object": [
+    "storage.objects",
+    "idx_objects_bucket_id_name_lower"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "índice INVÁLIDO em Live (construção concorrente interrompida); localmente válido — só afecta o planeador, não a semântica",
+   "differing_fields": [
+    "valid"
+   ],
+   "live": {
+    "name": "idx_objects_bucket_id_name_lower",
+    "ready": true,
+    "table": "storage.objects",
+    "valid": false,
+    "definition": "CREATE INDEX idx_objects_bucket_id_name_lower ON storage.objects USING btree (bucket_id, lower(name) COLLATE \"C\")"
+   },
+   "local": {
+    "name": "idx_objects_bucket_id_name_lower",
+    "ready": true,
+    "table": "storage.objects",
+    "valid": true,
+    "definition": "CREATE INDEX idx_objects_bucket_id_name_lower ON storage.objects USING btree (bucket_id, lower(name) COLLATE \"C\")"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "cron.alter_job(bigint,text,text,text,text,boolean)"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language"
+   ],
+   "live": {
+    "acl": "{postgres=X*/supabase_admin,supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "c",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "cron.alter_job(bigint,text,text,text,text,boolean)",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": "{postgres=X*/supabase_admin,supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "cron.alter_job(bigint,text,text,text,text,boolean)",
+    "definition": "CREATE OR REPLACE FUNCTION cron.alter_job(job_id bigint, schedule text DEFAULT NULL::text, command text DEFAULT NULL::text, database text DEFAULT NULL::text, username text DEFAULT NULL::text, active boolean DEFAULT NULL::boolean)\n RETURNS void\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: cron.alter_job(bigint,text,text,text,text,boolean) (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "cron.job_cache_invalidate()"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language"
+   ],
+   "live": {
+    "acl": "{=X/supabase_admin,postgres=X*/supabase_admin,supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "c",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "cron.job_cache_invalidate()",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": "{=X/supabase_admin,postgres=X*/supabase_admin,supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "cron.job_cache_invalidate()",
+    "definition": "CREATE OR REPLACE FUNCTION cron.job_cache_invalidate()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: cron.job_cache_invalidate() (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "cron.schedule(text,text)"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language",
+    "strict"
+   ],
+   "live": {
+    "acl": "{=X/supabase_admin,postgres=X*/supabase_admin,supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": true,
+    "language": "c",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "cron.schedule(text,text)",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": "{=X/supabase_admin,postgres=X*/supabase_admin,supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "cron.schedule(text,text)",
+    "definition": "CREATE OR REPLACE FUNCTION cron.schedule(schedule text, command text)\n RETURNS bigint\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: cron.schedule(text,text) (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "cron.schedule(text,text,text)"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language"
+   ],
+   "live": {
+    "acl": "{=X/supabase_admin,postgres=X*/supabase_admin,supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "c",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "cron.schedule(text,text,text)",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": "{=X/supabase_admin,postgres=X*/supabase_admin,supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "cron.schedule(text,text,text)",
+    "definition": "CREATE OR REPLACE FUNCTION cron.schedule(job_name text, schedule text, command text)\n RETURNS bigint\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: cron.schedule(text,text,text) (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "cron.schedule_in_database(text,text,text,text,text,boolean)"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language"
+   ],
+   "live": {
+    "acl": "{postgres=X*/supabase_admin,supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "c",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "cron.schedule_in_database(text,text,text,text,text,boolean)",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": "{postgres=X*/supabase_admin,supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "cron.schedule_in_database(text,text,text,text,text,boolean)",
+    "definition": "CREATE OR REPLACE FUNCTION cron.schedule_in_database(job_name text, schedule text, command text, database text, username text DEFAULT NULL::text, active boolean DEFAULT true)\n RETURNS bigint\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: cron.schedule_in_database(text,text,text,text,text,boolean) (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "cron.unschedule(bigint)"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language",
+    "strict"
+   ],
+   "live": {
+    "acl": "{=X/supabase_admin,postgres=X*/supabase_admin,supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": true,
+    "language": "c",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "cron.unschedule(bigint)",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": "{=X/supabase_admin,postgres=X*/supabase_admin,supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "cron.unschedule(bigint)",
+    "definition": "CREATE OR REPLACE FUNCTION cron.unschedule(job_id bigint)\n RETURNS boolean\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: cron.unschedule(bigint) (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "cron.unschedule(text)"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language",
+    "strict"
+   ],
+   "live": {
+    "acl": "{=X/supabase_admin,postgres=X*/supabase_admin,supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": true,
+    "language": "c",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "cron.unschedule(text)",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": "{=X/supabase_admin,postgres=X*/supabase_admin,supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "cron.unschedule(text)",
+    "definition": "CREATE OR REPLACE FUNCTION cron.unschedule(job_name text)\n RETURNS boolean\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: cron.unschedule(text) (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "extensions.pg_stat_statements(boolean)"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language",
+    "parallel",
+    "strict"
+   ],
+   "live": {
+    "acl": "{=X/postgres,dashboard_user=X/postgres,postgres=X*/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+    "kind": "f",
+    "owner": "postgres",
+    "config": null,
+    "secdef": false,
+    "strict": true,
+    "language": "c",
+    "parallel": "s",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "extensions.pg_stat_statements(boolean)",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": "{=X/postgres,dashboard_user=X/postgres,postgres=X*/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+    "kind": "f",
+    "owner": "postgres",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "extensions.pg_stat_statements(boolean)",
+    "definition": "CREATE OR REPLACE FUNCTION extensions.pg_stat_statements(showtext boolean, OUT userid oid, OUT dbid oid, OUT toplevel boolean, OUT queryid bigint, OUT query text, OUT plans bigint, OUT total_plan_time double precision, OUT min_plan_time double precision, OUT max_plan_time double precision, OUT mean_plan_time double precision, OUT stddev_plan_time double precision, OUT calls bigint, OUT total_exec_time double precision, OUT min_exec_time double precision, OUT max_exec_time double precision, OUT mean_exec_time double precision, OUT stddev_exec_time double precision, OUT rows bigint, OUT shared_blks_hit bigint, OUT shared_blks_read bigint, OUT shared_blks_dirtied bigint, OUT shared_blks_written bigint, OUT local_blks_hit bigint, OUT local_blks_read bigint, OUT local_blks_dirtied bigint, OUT local_blks_written bigint, OUT temp_blks_read bigint, OUT temp_blks_written bigint, OUT shared_blk_read_time double precision, OUT shared_blk_write_time double precision, OUT local_blk_read_time double precision, OUT local_blk_write_time double precision, OUT temp_blk_read_time double precision, OUT temp_blk_write_time double precision, OUT wal_records bigint, OUT wal_fpi bigint, OUT wal_bytes numeric, OUT jit_functions bigint, OUT jit_generation_time double precision, OUT jit_inlining_count bigint, OUT jit_inlining_time double precision, OUT jit_optimization_count bigint, OUT jit_optimization_time double precision, OUT jit_emission_count bigint, OUT jit_emission_time double precision, OUT jit_deform_count bigint, OUT jit_deform_time double precision, OUT stats_since timestamp with time zone, OUT minmax_stats_since timestamp with time zone)\n RETURNS SETOF record\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: extensions.pg_stat_statements(boolean) (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "extensions.pg_stat_statements_info()"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language",
+    "parallel",
+    "strict"
+   ],
+   "live": {
+    "acl": "{=X/postgres,dashboard_user=X/postgres,postgres=X*/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+    "kind": "f",
+    "owner": "postgres",
+    "config": null,
+    "secdef": false,
+    "strict": true,
+    "language": "c",
+    "parallel": "s",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "extensions.pg_stat_statements_info()",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": "{=X/postgres,dashboard_user=X/postgres,postgres=X*/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+    "kind": "f",
+    "owner": "postgres",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "extensions.pg_stat_statements_info()",
+    "definition": "CREATE OR REPLACE FUNCTION extensions.pg_stat_statements_info(OUT dealloc bigint, OUT stats_reset timestamp with time zone)\n RETURNS record\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: extensions.pg_stat_statements_info() (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "extensions.pg_stat_statements_reset(oid,oid,bigint,boolean)"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language",
+    "parallel",
+    "strict"
+   ],
+   "live": {
+    "acl": "{dashboard_user=X/postgres,postgres=X*/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+    "kind": "f",
+    "owner": "postgres",
+    "config": null,
+    "secdef": false,
+    "strict": true,
+    "language": "c",
+    "parallel": "s",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "extensions.pg_stat_statements_reset(oid,oid,bigint,boolean)",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": "{dashboard_user=X/postgres,postgres=X*/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+    "kind": "f",
+    "owner": "postgres",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "extensions.pg_stat_statements_reset(oid,oid,bigint,boolean)",
+    "definition": "CREATE OR REPLACE FUNCTION extensions.pg_stat_statements_reset(userid oid DEFAULT 0, dbid oid DEFAULT 0, queryid bigint DEFAULT 0, minmax_only boolean DEFAULT false)\n RETURNS timestamp with time zone\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: extensions.pg_stat_statements_reset(oid,oid,bigint,boolean) (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "net._encode_url_with_params_array(text,text[])"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language",
+    "volatile"
+   ],
+   "live": {
+    "acl": null,
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "c",
+    "parallel": "u",
+    "volatile": "i",
+    "leakproof": false,
+    "signature": "net._encode_url_with_params_array(text,text[])",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": null,
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "net._encode_url_with_params_array(text,text[])",
+    "definition": "CREATE OR REPLACE FUNCTION net._encode_url_with_params_array(url text, params_array text[])\n RETURNS text\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: net._encode_url_with_params_array(text,text[]) (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "net._urlencode_string(character varying)"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language",
+    "volatile"
+   ],
+   "live": {
+    "acl": null,
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "c",
+    "parallel": "u",
+    "volatile": "i",
+    "leakproof": false,
+    "signature": "net._urlencode_string(character varying)",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": null,
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "net._urlencode_string(character varying)",
+    "definition": "CREATE OR REPLACE FUNCTION net._urlencode_string(string character varying)\n RETURNS text\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: net._urlencode_string(character varying) (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "net.wait_until_running()"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language"
+   ],
+   "live": {
+    "acl": null,
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "c",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "net.wait_until_running()",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": null,
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "net.wait_until_running()",
+    "definition": "CREATE OR REPLACE FUNCTION net.wait_until_running()\n RETURNS void\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: net.wait_until_running() (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "net.wake()"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language"
+   ],
+   "live": {
+    "acl": null,
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "c",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "net.wake()",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": null,
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "net.wake()",
+    "definition": "CREATE OR REPLACE FUNCTION net.wake()\n RETURNS void\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: net.wake() (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "net.worker_restart()"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language"
+   ],
+   "live": {
+    "acl": null,
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "c",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "net.worker_restart()",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": null,
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "net.worker_restart()",
+    "definition": "CREATE OR REPLACE FUNCTION net.worker_restart()\n RETURNS boolean\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: net.worker_restart() (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "vault._crypto_aead_det_decrypt(bytea,bytea,bigint,bytea,bytea)"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language",
+    "volatile"
+   ],
+   "live": {
+    "acl": "{postgres=X*/supabase_admin,service_role=X/supabase_admin,supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "c",
+    "parallel": "u",
+    "volatile": "i",
+    "leakproof": false,
+    "signature": "vault._crypto_aead_det_decrypt(bytea,bytea,bigint,bytea,bytea)",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": "{postgres=X*/supabase_admin,service_role=X/supabase_admin,supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "vault._crypto_aead_det_decrypt(bytea,bytea,bigint,bytea,bytea)",
+    "definition": "CREATE OR REPLACE FUNCTION vault._crypto_aead_det_decrypt(message bytea, additional bytea, key_id bigint, context bytea DEFAULT '\\x7067736f6469756d'::bytea, nonce bytea DEFAULT NULL::bytea)\n RETURNS bytea\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: vault._crypto_aead_det_decrypt(bytea,bytea,bigint,bytea,bytea) (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "vault._crypto_aead_det_encrypt(bytea,bytea,bigint,bytea,bytea)"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language",
+    "volatile"
+   ],
+   "live": {
+    "acl": "{supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "c",
+    "parallel": "u",
+    "volatile": "i",
+    "leakproof": false,
+    "signature": "vault._crypto_aead_det_encrypt(bytea,bytea,bigint,bytea,bytea)",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": "{supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "vault._crypto_aead_det_encrypt(bytea,bytea,bigint,bytea,bytea)",
+    "definition": "CREATE OR REPLACE FUNCTION vault._crypto_aead_det_encrypt(message bytea, additional bytea, key_id bigint, context bytea DEFAULT '\\x7067736f6469756d'::bytea, nonce bytea DEFAULT NULL::bytea)\n RETURNS bytea\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: vault._crypto_aead_det_encrypt(bytea,bytea,bigint,bytea,bytea) (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "functions",
+   "object": [
+    "vault._crypto_aead_det_noncegen()"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "função C de extensão substituída por stub plpgsql com assinatura idêntica que lança issue335_stub",
+   "differing_fields": [
+    "definition",
+    "language",
+    "volatile"
+   ],
+   "live": {
+    "acl": "{supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "c",
+    "parallel": "u",
+    "volatile": "i",
+    "leakproof": false,
+    "signature": "vault._crypto_aead_det_noncegen()",
+    "definition": "C/internal"
+   },
+   "local": {
+    "acl": "{supabase_admin=X/supabase_admin}",
+    "kind": "f",
+    "owner": "supabase_admin",
+    "config": null,
+    "secdef": false,
+    "strict": false,
+    "language": "plpgsql",
+    "parallel": "u",
+    "volatile": "v",
+    "leakproof": false,
+    "signature": "vault._crypto_aead_det_noncegen()",
+    "definition": "CREATE OR REPLACE FUNCTION vault._crypto_aead_det_noncegen()\n RETURNS bytea\n LANGUAGE plpgsql\nAS $function$BEGIN RAISE EXCEPTION 'issue335_stub: vault._crypto_aead_det_noncegen() (C) não reproduzida localmente'; END$function$\n"
+   }
+  },
+  {
+   "category": "views",
+   "object": [
+    "v_song_link_blitz_targets"
+   ],
+   "status": "different",
+   "explained": true,
+   "reason": "normalização do deparser de literais: (- 7.1195) em Live vs '-7.1195'::numeric localmente; mesmo valor numérico",
+   "differing_fields": [
+    "definition"
+   ],
+   "live": {
+    "name": "v_song_link_blitz_targets",
+    "definition": " SELECT prefix,\n    target_city,\n    target_state,\n    target_lat,\n    target_lon\n   FROM ( VALUES ('blitz_jp'::text,'João Pessoa'::text,'PB'::text,(- 7.1195),(- 34.8450)), ('blitz_for'::text,'Fortaleza'::text,'CE'::text,'-3.7319'::numeric,'-38.5267'::numeric), ('blitz_arp'::text,'Arapiraca'::text,'AL'::text,'-9.7525'::numeric,'-36.6611'::numeric), ('blitz_aju'::text,'Aracaju'::text,'SE'::text,'-10.9472'::numeric,'-37.0731'::numeric), ('blitz_nat'::text,'Natal'::text,'RN'::text,'-5.7945'::numeric,'-35.2110'::numeric), ('blitz_tou'::text,'Touros'::text,'RN'::text,'-5.1989'::numeric,'-35.4608'::numeric)) t(prefix, target_city, target_state, target_lat, target_lon);"
+   },
+   "local": {
+    "name": "v_song_link_blitz_targets",
+    "definition": " SELECT prefix,\n    target_city,\n    target_state,\n    target_lat,\n    target_lon\n   FROM ( VALUES ('blitz_jp'::text,'João Pessoa'::text,'PB'::text,'-7.1195'::numeric,'-34.8450'::numeric), ('blitz_for'::text,'Fortaleza'::text,'CE'::text,'-3.7319'::numeric,'-38.5267'::numeric), ('blitz_arp'::text,'Arapiraca'::text,'AL'::text,'-9.7525'::numeric,'-36.6611'::numeric), ('blitz_aju'::text,'Aracaju'::text,'SE'::text,'-10.9472'::numeric,'-37.0731'::numeric), ('blitz_nat'::text,'Natal'::text,'RN'::text,'-5.7945'::numeric,'-35.2110'::numeric), ('blitz_tou'::text,'Touros'::text,'RN'::text,'-5.1989'::numeric,'-35.4608'::numeric)) t(prefix, target_city, target_state, target_lat, target_lon);"
+   }
+  },
+  {
+   "category": "extensions",
+   "object": [
+    "pg_cron"
+   ],
+   "status": "missing",
+   "explained": true,
+   "reason": "extensão não instalável localmente; objectos replicados do catálogo como objectos simples (stub)",
+   "differing_fields": null,
+   "live": {
+    "name": "pg_cron",
+    "schema": "pg_catalog",
+    "version": "1.6.4"
+   },
+   "local": null
+  },
+  {
+   "category": "extensions",
+   "object": [
+    "pg_net"
+   ],
+   "status": "missing",
+   "explained": true,
+   "reason": "extensão não instalável localmente; objectos replicados do catálogo como objectos simples (stub)",
+   "differing_fields": null,
+   "live": {
+    "name": "pg_net",
+    "schema": "public",
+    "version": "0.20.0"
+   },
+   "local": null
+  },
+  {
+   "category": "extensions",
+   "object": [
+    "pg_stat_statements"
+   ],
+   "status": "missing",
+   "explained": true,
+   "reason": "extensão não instalável localmente; objectos replicados do catálogo como objectos simples (stub)",
+   "differing_fields": null,
+   "live": {
+    "name": "pg_stat_statements",
+    "schema": "extensions",
+    "version": "1.11"
+   },
+   "local": null
+  },
+  {
+   "category": "extensions",
+   "object": [
+    "pgmq"
+   ],
+   "status": "missing",
+   "explained": true,
+   "reason": "extensão não instalável localmente; objectos replicados do catálogo como objectos simples (stub)",
+   "differing_fields": null,
+   "live": {
+    "name": "pgmq",
+    "schema": "pgmq",
+    "version": "1.5.1"
+   },
+   "local": null
+  },
+  {
+   "category": "extensions",
+   "object": [
+    "supabase_vault"
+   ],
+   "status": "missing",
+   "explained": true,
+   "reason": "extensão não instalável localmente; objectos replicados do catálogo como objectos simples (stub)",
+   "differing_fields": null,
+   "live": {
+    "name": "supabase_vault",
+    "schema": "vault",
+    "version": "0.3.1"
+   },
+   "local": null
+  }
+ ]
+}

@@ -1,0 +1,6 @@
+FAIL scenarios: psql:/tmp/issue335-phase2h/adapted/scenarios.sql:100: ERROR:  duplicate key value violates unique constraint "uq_bank_line_matched_txn"
+FAIL phase2b: psql:/tmp/issue335-phase2h/adapted/phase2b.sql:72: ERROR:  insert or update on table "event_forecasts" violates foreign key constraint "event_forecasts_category_id_fkey"
+FAIL phase2c: psql:/tmp/issue335-phase2h/adapted/phase2c.sql:16: ERROR:  function issue335_test.fail_write() does not exist
+FAIL phase2d: psql:/tmp/issue335-phase2h/adapted/phase2d.sql:55: ERROR:  null value in column "supplier_id" of relation "event_partners" violates not-null constraint
+FAIL phase2e: psql:/tmp/issue335-phase2h/adapted/phase2e.sql:40: ERROR:  duplicate key value violates unique constraint "profiles_pkey"
+PASS phase2f-negative (2 marcadores PASS)
