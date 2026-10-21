@@ -2,6 +2,9 @@
 BEGIN;
 SET LOCAL lock_timeout='5s';
 DO $$ BEGIN IF EXISTS(SELECT 1 FROM public.transaction_offset_groups) THEN RAISE EXCEPTION 'groups_exist_keep_guards'; END IF; IF to_regprocedure('public.issue335_invariant_counts()') IS NOT NULL THEN RAISE EXCEPTION 'rollback_order: invariants_before_core'; END IF; END $$;
+DO $$ BEGIN IF position('issue335-status-v2l' in pg_get_functiondef('public._derive_paid_amount(uuid)'::regprocedure))>0
+ OR position('issue335-approval-v2l' in pg_get_functiondef('public.enforce_transaction_approval_permission()'::regprocedure))>0
+ THEN RAISE EXCEPTION 'rollback_order: status_and_approval_before_core'; END IF; END $$;
 GRANT issue335_executor TO postgres WITH INHERIT FALSE, SET TRUE;
 DROP TRIGGER IF EXISTS issue335_guard ON public.transaction_offset_groups;
 DROP TRIGGER IF EXISTS issue335_guard ON public.transaction_offset_items;
