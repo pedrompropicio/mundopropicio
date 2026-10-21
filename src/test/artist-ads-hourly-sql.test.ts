@@ -21,13 +21,19 @@ beforeAll(async () => {
     CREATE FUNCTION public.artist_access_check(uuid,text,text) RETURNS uuid LANGUAGE plpgsql AS $$
       BEGIN IF auth.uid() IS NULL THEN RAISE EXCEPTION 'session required'; END IF;
       RETURN '${company}'::uuid; END $$;
-    CREATE TABLE crm.ad_platform_connections(id uuid PRIMARY KEY,company_id uuid,platform text,connection_scope text,artist_id uuid,selected_ad_account_id text);
-    CREATE TABLE crm.ads_insights_breakdown_daily(id uuid,
+    CREATE TABLE crm.ad_platform_connections(id uuid PRIMARY KEY,company_id uuid,platform text,connection_scope text,artist_id uuid,selected_ad_account_id text,status text);
+    CREATE TABLE crm.ads_insights_breakdown_daily(id uuid, company_id uuid, connection_id uuid, platform text,
+      external_campaign_id text, external_adset_id text, external_ad_id text, date_start date,
+      breakdown_value text, impressions bigint NOT NULL, clicks bigint NOT NULL, spend_cents bigint NOT NULL,
+      currency text, source text, raw jsonb, last_synced_at timestamptz,
       breakdown text CONSTRAINT ads_insights_breakdown_daily_breakdown_check CHECK(breakdown IN ('device')),
-      level text CONSTRAINT ads_insights_breakdown_daily_level_check CHECK(level IN ('campaign','adset')));
+      level text CONSTRAINT ads_insights_breakdown_daily_level_check CHECK(level IN ('campaign','adset')),
+      UNIQUE(connection_id,platform,level,external_campaign_id,external_adset_id,external_ad_id,date_start,breakdown,breakdown_value));
     INSERT INTO public.companies VALUES('${company}');
     INSERT INTO public.artists VALUES('${artist}','${company}','ativo');`);
   await db.exec(readFileSync('drizzle/migrations/0218_artist_ads_hourly_fase1.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/manual/20261021_artist_ads_refresh_write.sql', 'utf8'));
+  await db.exec(`INSERT INTO crm.ad_platform_connections VALUES('${artist}','${company}','meta','artist','${artist}','123','active');`);
 }, 30000);
 afterAll(async () => { await db?.close(); });
 
@@ -77,5 +83,19 @@ describe('Traffic Fase 1 exact applied DDL, local PostgreSQL', () => {
       {rolname:'authenticated',table_access:false,claim:true,finish:false},
       {rolname:'sandbox_exec',table_access:false,claim:false,finish:false},
     ]);
+  });
+  it('writer fences stale requests and preserves null rather than zero', async () => {
+    await db.exec("SET test.role='service_role'; SET test.uid=''; UPDATE artist_ads_refresh_control SET lease_until=null,request_id=null;");
+    const accepted = await claim(true);
+    const date = (await db.query<{day:string}>("select to_char(clock_timestamp() AT TIME ZONE 'America/Sao_Paulo','YYYY-MM-DD') day")).rows[0].day;
+    const row = {level:'campaign',external_campaign_id:'456',external_adset_id:'',metric_date:date,metric_hour:0,account_timezone:'America/Sao_Paulo',currency:'BRL',impressions:null,clicks:0,spend_cents:null,raw:{}};
+    const write = (request:string,rows:unknown[],device=false) => db.query<{result:any}>('select artist_ads_refresh_write($1,$2,$3,$4,$5) result',[artist,request,artist,JSON.stringify(rows),device]).then(r=>r.rows[0].result);
+    expect((await write(company,[row])).reason).toBe('stale_request');
+    expect((await write(accepted.request_id,[row])).rows_written).toBe(1);
+    expect((await db.query('select impressions,clicks,spend_cents from crm.ads_insights_hourly')).rows).toEqual([{impressions:null,clicks:0,spend_cents:null}]);
+    await expect(write(accepted.request_id,[{...row,breakdown_value:'iphone'}],true)).rejects.toThrow('device incompleto');
+    expect((await write(accepted.request_id,[{...row,impressions:0,clicks:0,spend_cents:0,breakdown_value:'iphone'}],true)).rows_written).toBe(1);
+    await db.exec('UPDATE artist_ads_refresh_control SET lease_until=null,request_id=null;');
+    expect((await write(accepted.request_id,[row])).reason).toBe('stale_request');
   });
 });

@@ -22,7 +22,7 @@ BEGIN
   END IF;
   IF p_device AND v_conn.platform<>'meta' THEN RAISE EXCEPTION 'device só Meta'; END IF;
   FOR v_row IN SELECT value FROM jsonb_array_elements(p_rows) LOOP
-    IF jsonb_typeof(v_row)<>'object' OR (v_row->>'level') NOT IN ('campaign','adset')
+    IF jsonb_typeof(v_row)<>'object' OR v_row->>'level' IS NULL OR (v_row->>'level') NOT IN ('campaign','adset')
       OR nullif(btrim(v_row->>'external_campaign_id'),'') IS NULL
       OR nullif(v_row->>'metric_date','') IS NULL OR nullif(v_row->>'account_timezone','') IS NULL
       OR (v_row->>'currency') !~ '^[A-Z]{3}$' OR v_row->>'currency' IS NULL
@@ -69,10 +69,10 @@ END $fn$;
 REVOKE ALL ON FUNCTION public.artist_ads_refresh_write(uuid,uuid,uuid,jsonb,boolean) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.artist_ads_refresh_write(uuid,uuid,uuid,jsonb,boolean) TO service_role;
 DO $acl$
-DECLARE role_check record;
+DECLARE acl_role record;
 BEGIN
-  FOR role_check IN SELECT rolname FROM pg_roles WHERE rolname LIKE 'sandbox_exec%' LOOP
-    EXECUTE format('REVOKE ALL ON FUNCTION public.artist_ads_refresh_write(uuid,uuid,uuid,jsonb,boolean) FROM %I',role_check.rolname);
+  FOR acl_role IN SELECT rolname FROM pg_roles WHERE rolname LIKE 'sandbox_exec%' LOOP
+    EXECUTE format('REVOKE ALL ON FUNCTION public.artist_ads_refresh_write(uuid,uuid,uuid,jsonb,boolean) FROM %I',acl_role.rolname);
   END LOOP;
   IF EXISTS(SELECT 1 FROM pg_roles role_check WHERE (role_check.rolname IN ('anon','authenticated') OR role_check.rolname LIKE 'sandbox_exec%')
     AND has_function_privilege(role_check.oid,'public.artist_ads_refresh_write(uuid,uuid,uuid,jsonb,boolean)','EXECUTE')) THEN
