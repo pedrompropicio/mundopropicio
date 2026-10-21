@@ -825,3 +825,8 @@ verify_jwt = true
 
 [functions.ugc-ios-reading-watchdog]
 verify_jwt = true
+
+# JWT de serviço nos modos scheduled/backfill; sessão autenticada no modo today.
+# O código mantém isServiceRoleRequest/getUser e a autorização via artist_ads_refresh_claim.
+[functions.artist-ads-refresh-today]
+verify_jwt = true
