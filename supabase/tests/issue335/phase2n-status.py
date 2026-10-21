@@ -73,7 +73,7 @@ def fixture(status='approved', old_leg=False, no_bp=False, legacy_only=False):
         ev = str(run("INSERT INTO events(company_id,name,date,event_nature,budget_mode) VALUES(%s,'LOCAL 2n M3 historical','2026-10-13','producao_propria','with_bp') RETURNING id", (company,))[0][0])
     ids = []
     for kind, amount in [('income', 100), ('expense', 40)]:
-        st = status if kind == 'income' else 'approved'
+        st = status if kind == 'income' and status != 'paid' else 'approved'
         # Seed legacy-only amount on INSERT solely as a historical local fixture.
         # Never UPDATE paid_amount; all executable financial paths use derivation.
         value = 20 if legacy_only and kind == 'income' else 0
@@ -85,6 +85,9 @@ def fixture(status='approved', old_leg=False, no_bp=False, legacy_only=False):
             # Legacy derivation sets approved for a partial payment; seed the REAL prior
             # partially_paid status without changing its canonically derived paid_amount.
             run('UPDATE transactions SET status=%s WHERE id=%s', (status, tx))
+        if kind == 'income' and status == 'paid':
+            run("INSERT INTO transaction_payments(transaction_id,company_id,amount,payment_date,account_id,payment_method,status) VALUES(%s,%s,100,'2026-10-05',%s,'transfer','paid')", (tx, company, account))
+            run('SELECT _derive_paid_amount(%s)', (tx,))
         ids.append(tx)
     authenticated()
     return ids
