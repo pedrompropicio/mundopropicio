@@ -20,4 +20,5 @@ python3 "$S/phase2f-diff.py" "${P[@]}"
 for f in group_storage core invariants balance; do "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_$f.INERTE.sql" >/dev/null; done
 "${A[@]}" -f "$S/phase2f-negative.sql"
 python3 "$S/phase2f-concurrency.py" "$D" 55445 "$ROOT"
+"${A[@]}" -q -v root="$ROOT" -f "$S/phase2g-approval.sql"
 echo 'PASS 2f separate runner PostgreSQL 17.6; complete phase2f acceptance NOT claimed'
