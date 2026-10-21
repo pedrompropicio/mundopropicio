@@ -55,6 +55,9 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_catalog AS $$
 $$;
 REVOKE ALL ON FUNCTION public.issue335_payment_flow_blocked(uuid) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.issue335_payment_flow_blocked(uuid) TO issue335_executor;
+-- 2j (achado pelo teste 2e de sandbox): o default ACL de Live dá EXECUTE a sandbox_exec* em funções novas.
+DO $$ DECLARE r record; BEGIN FOR r IN SELECT rolname FROM pg_roles WHERE rolname LIKE 'sandbox_exec%' LOOP
+ EXECUTE format('REVOKE ALL ON FUNCTION public.issue335_payment_flow_blocked(uuid) FROM %I',r.rolname); END LOOP; END $$;
 GRANT UPDATE ON public.event_settlements TO issue335_executor;
 GRANT EXECUTE ON FUNCTION public.can_see_confidential(uuid),public.has_permission(uuid,text),public.is_platform_admin(uuid) TO issue335_executor;
 GRANT SELECT,INSERT,UPDATE ON public.event_forecasts,public.transactions,public.transaction_payments,public.transaction_offsets,public.bank_statement_lines,public.transaction_offset_groups,public.transaction_offset_items TO issue335_executor;

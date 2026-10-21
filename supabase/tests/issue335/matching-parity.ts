@@ -16,6 +16,8 @@ for (const mode of ['empty', 'master', 'conflicting-anchor', 'tie', 'shared', 'l
   // Live trigger sync_forecast_anchor_to_tx forbids creating conflicting anchors today; legacy rows can predate it,
   // so that fixture alone is written with user triggers off (replica) to reproduce the historical state exactly.
   if (mode === 'conflicting-anchor') console.log(`SET session_replication_role=replica;`);
+  // 2j: Live exige category_id existente (FK event_forecasts_category_id_fkey); categoria L3 local por caso.
+  console.log(`INSERT INTO account_categories(id,company_id,code,name,type,parent_id) VALUES(${quote(cat)},${quote(company)},${quote('335.p.'+count)},'LOCAL parity','income','00000000-0000-0000-0000-000000000051');`);
   console.log(`INSERT INTO events(id,company_id,name,parent_event_id) VALUES(${quote(master)},${quote(company)},'parity master',NULL),(${quote(ev)},${quote(company)},'parity',${quote(master)});`);
   for (const x of forecasts) console.log(`INSERT INTO event_forecasts(id,company_id,event_id,category_id,type,description,amount,iva_rate,approved_at) VALUES(${quote(x.id)},${quote(company)},${quote(ev)},${quote(cat)},'income',${quote(x.description)},1,0,now());`);
   for (const t of txs) console.log(`INSERT INTO transactions(id,company_id,event_id,category_id,type,description,amount,iva_rate,date,forecast_id) VALUES(${quote(t.id)},${quote(company)},${quote(t.event_id)},${quote(cat)},'income',${quote(t.description)},1,0,'2026-10-13',${quote(t.forecast_id)});`);
