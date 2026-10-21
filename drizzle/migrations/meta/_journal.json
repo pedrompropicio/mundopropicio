@@ -1646,6 +1646,13 @@
       "when": 1792581159239,
       "tag": "0234_period_report_daily_visitor_read",
       "breakpoints": true
+    },
+    {
+      "idx": 235,
+      "version": "7",
+      "when": 1792583883241,
+      "tag": "0235_campaign_alerts_account_calendar",
+      "breakpoints": true
     }
   ]
 }
