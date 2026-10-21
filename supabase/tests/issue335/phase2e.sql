@@ -37,7 +37,7 @@ END $$;
 BEGIN;
 SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',true);
 INSERT INTO user_roles(id,user_id,role,company_id) VALUES(gen_random_uuid(),'00000000-0000-0000-0000-000000000016','manager','00000000-0000-0000-0000-000000000001');
-INSERT INTO profiles(id,company_id,active_company_id) VALUES('00000000-0000-0000-0000-000000000016','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001');
+INSERT INTO profiles(id,company_id,active_company_id) VALUES('00000000-0000-0000-0000-000000000016','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001') ON CONFLICT (id) DO UPDATE SET company_id=EXCLUDED.company_id;
 DO $$ DECLARE a uuid; b uuid; items jsonb; BEGIN
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id,is_confidential) VALUES('income','2e secret',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020',true) RETURNING id INTO a;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2e public',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
@@ -61,7 +61,8 @@ INSERT INTO public.user_roles(id,user_id,role,company_id) VALUES
  (gen_random_uuid(),'00000000-0000-0000-0000-000000000015','manager','00000000-0000-0000-0000-000000000001');
 INSERT INTO public.profiles(id,company_id,active_company_id) VALUES
  ('00000000-0000-0000-0000-000000000014','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001'),
- ('00000000-0000-0000-0000-000000000015','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001');
+ ('00000000-0000-0000-0000-000000000015','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001')
+ON CONFLICT (id) DO UPDATE SET company_id=EXCLUDED.company_id; -- 2i: perfil criado pelo trigger real
 DO $$ DECLARE a uuid; b uuid; l uuid; req uuid; items jsonb; val text; lid uuid; BEGIN
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('income','2e permission+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2e permission-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
@@ -93,25 +94,35 @@ END $$;
 ROLLBACK;
 BEGIN;
 SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',true);
-DO $$ DECLARE a uuid; b uuid; lid uuid; v text; items jsonb; mov jsonb; n bigint; BEGIN
+DO $$ DECLARE a uuid; b uuid; lid uuid; v text; items jsonb; mov jsonb; n bigint; ev uuid; tos uuid; sc uuid; cs uuid; acc uuid; BEGIN
+ -- 2i: Live tem FK reais em settlement_id/supplier_credit_id/card_session_id; cria-se a linha referenciada real (antes: uuid aleatório).
+ INSERT INTO events(id,company_id,name,date,event_nature) VALUES(gen_random_uuid(),current_company_id(),'2e G','2026-10-13','producao_propria') RETURNING id INTO ev;
+ INSERT INTO financial_accounts(id,company_id,name,type) VALUES(gen_random_uuid(),current_company_id(),'LOCAL bilheteira','ticket_office') RETURNING id INTO acc;
+ INSERT INTO ticket_office_settlements(id,company_id,financial_account_id,event_id) VALUES(gen_random_uuid(),current_company_id(),acc,ev) RETURNING id INTO tos;
+ INSERT INTO supplier_credits(id,company_id,supplier_id,amount) VALUES(gen_random_uuid(),current_company_id(),'00000000-0000-0000-0000-000000000020',10) RETURNING id INTO sc;
+ INSERT INTO financial_accounts(id,company_id,name,type) VALUES(gen_random_uuid(),current_company_id(),'LOCAL cartão','prepaid_card') RETURNING id INTO acc;
+ INSERT INTO card_sessions(id,company_id,card_account_id,holder_name) VALUES(gen_random_uuid(),current_company_id(),acc,'LOCAL') RETURNING id INTO cs;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('income','2e workflow+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2e workflow-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
  items:=jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset'));
  mov:='{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}';
  FOREACH v IN ARRAY ARRAY['settlement_id','supplier_credit_id','is_transitory','card_session_id'] LOOP
   IF v='is_transitory' THEN UPDATE transactions SET is_transitory=true,transitory_reason='caucao' WHERE id=a;
-  ELSE EXECUTE format('UPDATE transactions SET %I=gen_random_uuid() WHERE id=$1',v) USING a; END IF;
+  ELSE EXECUTE format('UPDATE transactions SET %I=$2 WHERE id=$1',v) USING a,CASE v WHEN 'settlement_id' THEN tos WHEN 'supplier_credit_id' THEN sc ELSE cs END; END IF;
   BEGIN PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,mov,'2026-10-13'); RAISE EXCEPTION 'unsupported accepted %',v; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'unsupported_debt' THEN RAISE; END IF; END;
   IF v='is_transitory' THEN UPDATE transactions SET is_transitory=false,transitory_reason=NULL WHERE id=a;
   ELSE EXECUTE format('UPDATE transactions SET %I=NULL WHERE id=$1',v) USING a; END IF;
  END LOOP;
  FOREACH v IN ARRAY ARRAY['draft','pending_approval','approved','revision','partially_approved'] LOOP
-  INSERT INTO payment_lists(id,status) VALUES(gen_random_uuid(),v) RETURNING id INTO lid;
+  INSERT INTO payment_lists(id,title,status) VALUES(gen_random_uuid(),'LOCAL lista '||v,v) RETURNING id INTO lid;
   INSERT INTO payment_list_items(transaction_id,payment_list_id) VALUES(a,lid);
   BEGIN PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,mov,'2026-10-13'); RAISE EXCEPTION 'list accepted %',v; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'unsupported_debt' THEN RAISE; END IF; END;
   DELETE FROM payment_list_items WHERE transaction_id=a;
  END LOOP;
- INSERT INTO payment_list_sepa_exports(id,transaction_ids) VALUES(gen_random_uuid(),ARRAY[a]);
+ -- 2i: schema real exige lista aprovada e metadados do ficheiro; item já removido acima, isolando a guarda SEPA.
+ INSERT INTO payment_lists(id,title,status) VALUES(gen_random_uuid(),'LOCAL lista SEPA','approved') RETURNING id INTO lid;
+ INSERT INTO payment_list_sepa_exports(id,payment_list_id,exported_by,file_name,msg_id,total_amount,n_transactions,transaction_ids)
+  VALUES(gen_random_uuid(),lid,auth.uid()::text,'LOCAL.xml','LOCAL-MSG',100,1,ARRAY[a]);
  BEGIN PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,mov,'2026-10-13'); RAISE EXCEPTION 'SEPA accepted'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'unsupported_debt' THEN RAISE; END IF; END;
  RAISE NOTICE 'PASS 2e G: four fields, five active list statuses and SEPA array refused; held_by unproved separately';
 END $$;

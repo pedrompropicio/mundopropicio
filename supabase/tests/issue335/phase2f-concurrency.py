@@ -9,7 +9,7 @@ import uuid
 import psycopg2
 
 socket, port, root = sys.argv[1:]
-assert socket.startswith('/tmp/issue335phase2f.')
+assert socket.startswith(('/tmp/issue335phase2f.', '/tmp/issue335phase2h.'))  # 2i: também harness fiel
 conns = [psycopg2.connect(host=socket, port=port, user='supabase_admin', dbname='postgres', sslmode='disable', application_name=f'issue335_2f_{i}') for i in range(3)]
 for c in conns:
     c.autocommit = True
@@ -28,7 +28,8 @@ for c in conns:
 def fixture():
     ids=[str(uuid.uuid4()),str(uuid.uuid4())]
     for ident,kind,value in zip(ids,['income','expense'],[100,40]):
-        sql(observer,"INSERT INTO transactions(id,type,description,amount,iva_rate,date,supplier_id) VALUES(%s,%s,'2f concurrent',%s,0,'2026-10-13',%s)",(ident,kind,value,supplier))
+        # 2i: Live tem default status='pending' (o stub tinha 'approved'); mesma adaptação de fixture que phase2h-adapt.py.
+        sql(observer,"INSERT INTO transactions(id,company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(%s,public.current_company_id(),'approved',%s,'2f concurrent',%s,0,'2026-10-13',%s)",(ident,kind,value,supplier))
     return ids
 def call(ids,request):
     items=json.dumps([dict(transaction_id=ids[0],mode='settle'),dict(transaction_id=ids[1],mode='offset')])
@@ -115,7 +116,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
     sql(s1,'RESET ROLE')
     # Real legacy settle holds the chosen document; encounter cannot overlap.
     ids=fixture(); line=str(uuid.uuid4())
-    sql(observer,"INSERT INTO bank_statement_lines(id,company_id,financial_account_id,amount,booking_date) VALUES(%s,%s,%s,1,'2026-10-13')",(line,company,account))
+    sql(observer,"INSERT INTO bank_statement_lines(statement_id,line_hash,id,company_id,financial_account_id,amount,booking_date) VALUES('00000000-0000-0000-0000-000000000040',md5(clock_timestamp()::text||random()::text),%s,%s,%s,1,'2026-10-13')",(line,company,account))
     sql(s1,'BEGIN'); sql(s1,'SET LOCAL ROLE authenticated')
     sql(s1,'SELECT reconcile_bank_line(%s,%s::jsonb)',(line,json.dumps([dict(transaction_id=ids[0],mode='settle',amount=1)])))
     result=outcome(s2,*call(ids,str(uuid.uuid4())))

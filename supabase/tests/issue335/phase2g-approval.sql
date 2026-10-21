@@ -73,7 +73,7 @@ END $$;
 -- (d) approval without permission; (e) attacks. Isolated, rolled back.
 BEGIN;
 INSERT INTO user_roles(id,user_id,role,company_id) VALUES(gen_random_uuid(),'00000000-0000-0000-0000-000000000017','editor','00000000-0000-0000-0000-000000000001');
-INSERT INTO profiles(id,company_id,active_company_id) VALUES('00000000-0000-0000-0000-000000000017','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001');
+INSERT INTO profiles(id,company_id,active_company_id) VALUES('00000000-0000-0000-0000-000000000017','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001') ON CONFLICT (id) DO UPDATE SET company_id=EXCLUDED.company_id;
 DO $$ DECLARE ev uuid; f uuid; n uuid; a uuid; b uuid; g uuid; r int; BEGIN
  INSERT INTO events(id,name,budget_mode,company_id) VALUES(gen_random_uuid(),'2g atk','with_bp','00000000-0000-0000-0000-000000000001') RETURNING id INTO ev;
  INSERT INTO event_forecasts(id,event_id,amount,description,type) VALUES(gen_random_uuid(),ev,1000,'2g ok','expense') RETURNING id INTO f;

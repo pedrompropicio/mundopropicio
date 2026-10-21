@@ -42,7 +42,7 @@ DO $$ DECLARE a uuid; b uuid; acc uuid; partner uuid; ev uuid; items jsonb; val 
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2d whitelist-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
  items:=jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset'));
  INSERT INTO events(id,company_id,name) VALUES(gen_random_uuid(),current_company_id(),'2d partner fixture') RETURNING id INTO ev;
- INSERT INTO event_partners(id,company_id,event_id) VALUES(gen_random_uuid(),current_company_id(),ev) RETURNING id INTO partner;
+ INSERT INTO event_partners(id,company_id,event_id,supplier_id) VALUES(gen_random_uuid(),current_company_id(),ev,'00000000-0000-0000-0000-000000000020') RETURNING id INTO partner;
  FOREACH val IN ARRAY ARRAY['inactive','hidden','restricted','partner','mirror','ticket_office','prepaid_card','other','cash'] LOOP
   INSERT INTO financial_accounts(id,company_id,name,type,is_active,is_hidden,is_restricted,partner_id,mirror_partner_aporte) VALUES(gen_random_uuid(),current_company_id(),'LOCAL whitelist',CASE WHEN val IN('ticket_office','prepaid_card','other','cash') THEN val ELSE 'bank' END,val<>'inactive',val='hidden',val='restricted',CASE WHEN val='partner' THEN partner END,val='mirror') RETURNING id INTO acc;
   snap:=(SELECT count(*) FROM transaction_offset_groups);
@@ -62,17 +62,18 @@ SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010'
 -- Trigger-dependent settlement read, then explicit sealed refusal (including forged GUC).
 DO $$ DECLARE ev uuid; es uuid; a uuid; b uuid; items jsonb; g uuid; BEGIN
  INSERT INTO events(id,company_id,name) VALUES(gen_random_uuid(),current_company_id(),'2d settlement') RETURNING id INTO ev;
- INSERT INTO event_settlements(id,event_id,company_id,is_sealed) VALUES(gen_random_uuid(),ev,current_company_id(),false) RETURNING id INTO es;
+ INSERT INTO event_settlements(id,event_id,company_id,name,is_sealed) VALUES(gen_random_uuid(),ev,current_company_id(),'LOCAL fecho',false) RETURNING id INTO es;
  INSERT INTO transactions(type,event_id,event_settlement_id,description,amount,iva_rate,date,supplier_id) VALUES('income',ev,es,'2d close+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2d close-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
  items:=jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset'));
  SELECT (transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13')->>'group_id')::uuid INTO g;
- UPDATE event_settlements SET is_sealed=true WHERE id=es;
+ PERFORM seal_event_settlement(es,'{"check1":0,"check2":0}'::jsonb,NULL,'LOCAL 2d'); -- 2i: selo real só por RPC
  PERFORM set_config('app.settlement_seal_op','on',true);
  BEGIN PERFORM transaction_offset_reverse(g,gen_random_uuid(),'sealed attack'); RAISE EXCEPTION 'sealed reversed'; EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE 'sealed_settlement:%' THEN RAISE; END IF; END;
- UPDATE event_settlements SET is_sealed=false WHERE id=es;
+ PERFORM unseal_event_settlement(es,'LOCAL 2d reabrir'); -- 2i: reabertura real só por RPC
  PERFORM transaction_offset_reverse(g,gen_random_uuid(),'unsealed');
- UPDATE event_settlements SET is_sealed=true WHERE id=es;
+ -- 2i: em Live o selo só muda por seal_event_settlement (guard_sealed_event_settlement); antes: UPDATE directo.
+ PERFORM seal_event_settlement(es,'{"check1":0,"check2":0}'::jsonb,NULL,'LOCAL 2d');
  BEGIN PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13'); RAISE EXCEPTION 'sealed applied'; EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE 'sealed_settlement:%' THEN RAISE; END IF; END;
  RAISE NOTICE 'PASS 10/seal: settlement-linked document apply/reverse unsealed; sealed apply/reverse denied even with forged seal GUC';
 END $$;
@@ -92,10 +93,15 @@ RESET ROLE;
 DO $$ DECLARE a uuid; b uuid; items jsonb; before_balance numeric; after_balance numeric; BEGIN
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id,account_id) VALUES('income','2d balance+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-000000000030') RETURNING id INTO a;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2d balance-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
- before_balance:=_account_true_balance_raw('00000000-0000-0000-0000-000000000030');
+ -- 2i: no harness fiel o candidato de saldo (2e) já está instalado antes deste ficheiro. A reprodução do defeito
+ -- passa a ser feita contra a cópia byte-igual da função de Live (issue335_test.legacy_*) e exige delta=100;
+ -- a função instalada (candidato) tem de dar exactamente 60. Antes: só a função instalada, sem candidato.
+ before_balance:=issue335_test.legacy_account_true_balance_raw('00000000-0000-0000-0000-000000000030');
+ PERFORM set_config('issue335_test.cand_before',_account_true_balance_raw('00000000-0000-0000-0000-000000000030')::text,true);
  items:=jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset'));
  PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13');
- after_balance:=_account_true_balance_raw('00000000-0000-0000-0000-000000000030');
+ after_balance:=issue335_test.legacy_account_true_balance_raw('00000000-0000-0000-0000-000000000030');
  IF after_balance-before_balance<>100 THEN RAISE EXCEPTION 'canonical balance defect reproduction changed: %',after_balance-before_balance; END IF;
- RAISE WARNING 'OPEN BLOCKER balance: canonical account delta=100 but real cash=60; compensation counted as cash. No financial acceptance.';
+ IF _account_true_balance_raw('00000000-0000-0000-0000-000000000030')-current_setting('issue335_test.cand_before')::numeric<>60 THEN RAISE EXCEPTION 'balance candidate delta <> 60'; END IF;
+ RAISE NOTICE 'PASS 2d/2i balance: Live function delta=100 (defect reproduced), installed candidate delta=60 (real cash)';
 END $$;

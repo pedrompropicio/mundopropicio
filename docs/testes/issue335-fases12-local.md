@@ -600,3 +600,34 @@ Suite #335 no harness fiel (instalação group_storage/core/invariants/balance c
 Defeitos reais do SQL do #335 encontrados: nenhum confirmado até onde a suite correu; as falhas acima são de fixtures/pressupostos dos testes antigos.
 
 Hashes: `docs/testes/issue335-fase2h-hashes.sha256`.
+
+## Fase 2i — suite completa no harness fiel (local, PG 17.6, postgres NOSUPERUSER)
+
+Estado: PARCIAL / não aceite. Nada instalado em Live; sem migrations, DDL/DML Live ou Publish.
+
+Resultado (`ISSUE335_SUITE=1 phase2h-run.sh`, base única, ordem do runner original): 11/11 PASS —
+scenarios 9, phase2b 10, phase2c 2, phase2d 8, phase2e 7, phase2f-negative 2, kill-switch, invariant-matrix 1,
+phase2f-concurrency 5 (3 sessões, arestas de lock observadas), phase2g-approval 3. Vitest 1953 passou; tsgo OK.
+
+Classificação das falhas encontradas:
+- FALHA REAL (corrigida só no SQL inerte): executor `issue335_executor` não tinha policy em
+  `payment_lists`, `payment_list_items`, `payment_list_sepa_exports`, `partner_paid_expenses` (RLS de Live só
+  para authenticated) → lia zero linhas e as guardas de lista/SEPA/despesa de sócio passavam (fail-open).
+  Antes: "list accepted draft". Depois: as cinco situações de lista e o SEPA são recusados. Policy SELECT
+  `issue335_guard_read` por empresa + DROP no rollback.
+- FALHA DE FIXTURE (adaptadas sem enfraquecer asserções): categoria FK, fornecedor/nome em fecho, selo só por
+  RPC, `payment_lists.title`, SEPA exige lista aprovada e metadados, IBAN do fornecedor (trigger bankable),
+  status 'approved' explícito no teste Python, linhas de extrato com statement_id/line_hash, #233 keep com 2.ª
+  transacção (uq_bank_line_matched_txn).
+- 2d saldo: reprodução do defeito passa a usar a cópia byte-igual da função de Live (delta=100) E exige
+  delta=60 no candidato instalado.
+
+Dados de referência: `phase2i-reference-data.py` repete as 27 instruções `role_permissions` de 23 migrações
+versionadas (0 erros). `manage_bp` não existe em nenhuma migração; fixture por `user_permissions` só no admin
+de teste (como a UI faria).
+
+Ainda em aberto: E (restore/janela por coluna), A+camarim (as-of/estorno camarim), paridade de matching
+(`matching-parity.ts`) não portada para a suite 2h; F/I continua REPRODUZIDO-aberto no BEFORE.
+
+Hashes: core.INERTE `95e9c558d653bc9ec3606b8e9209c703652d9c2887156e044c367b18d9e54959`;
+core.ROLLBACK-INERTE `40cd3b313c4040ba80d88022f1c0bfd468c0839bfec54679e6d22db4315cf7de`.
