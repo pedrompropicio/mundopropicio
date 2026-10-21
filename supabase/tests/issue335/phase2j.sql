@@ -260,7 +260,8 @@ INSERT INTO public.financial_accounts(id,company_id,name,type,initial_balance,in
  ('00000000-0000-0000-0000-0000000003a2','00000000-0000-0000-0000-000000000001','LOCAL A2 (X prévio)','bank',0,'2026-10-12')
 ON CONFLICT DO NOTHING;
 RESET ROLE;
-CREATE OR REPLACE FUNCTION issue335_test.a_snap(p_caso text,p_esp1 numeric,p_esp2 numeric,p_asof date DEFAULT NULL) RETURNS void LANGUAGE sql AS $$
+-- helper de teste DEFINER: lê as funções de saldo, que em Live não são executáveis por authenticated.
+CREATE OR REPLACE FUNCTION issue335_test.a_snap(p_caso text,p_esp1 numeric,p_esp2 numeric,p_asof date DEFAULT NULL) RETURNS void LANGUAGE sql SECURITY DEFINER AS $$
  INSERT INTO issue335_test.a_matrix
  SELECT p_caso,n,
   CASE WHEN p_asof IS NULL THEN issue335_test.legacy_account_true_balance_raw(a) ELSE issue335_test.legacy_account_true_balance_asof_raw(a,p_asof) END,
