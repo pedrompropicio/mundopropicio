@@ -1555,6 +1555,13 @@
       "when": 1792574049093,
       "tag": "0221_artist_ads_compare",
       "breakpoints": true
+    },
+    {
+      "idx": 222,
+      "version": "7",
+      "when": 1792574246365,
+      "tag": "0222_artist_ads_compare_perf",
+      "breakpoints": true
     }
   ]
 }
