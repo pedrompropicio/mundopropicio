@@ -74,7 +74,7 @@ ROLLBACK;
 BEGIN;
 SET LOCAL ROLE service_role;
 SELECT public.restore_shadow_prepare(ARRAY['transaction_payments']);
-SELECT public.restore_shadow_load('transaction_payments','[]'::jsonb);
+-- restore_shadow_prepare creates an empty shadow; the real loader rejects [] without columns.
 SELECT public.restore_apply_from_shadow('company','00000000-0000-0000-0000-000000000002',ARRAY['transaction_payments'],NULL);
 RESET ROLE;
 DO $$ BEGIN
