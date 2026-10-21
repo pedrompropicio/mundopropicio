@@ -26,14 +26,18 @@ REVOKE ALL ON FUNCTION public.issue335_normalize(text),public.issue335_score(tex
 -- An INSERT into the command view is equivalent to the RPC: full authorization,
 -- hash, locks and validation still execute. No GUC/caller text is an authorization token.
 DO $$ BEGIN
- IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='issue335_executor') THEN CREATE ROLE issue335_executor NOLOGIN NOINHERIT; END IF;
+ IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='issue335_executor') THEN RAISE EXCEPTION 'executor_role_exists_requires_review'; END IF;
+ CREATE ROLE issue335_executor NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION;
 END $$;
 GRANT USAGE ON SCHEMA public,auth TO issue335_executor;
-GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO issue335_executor;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public,auth TO issue335_executor;
+GRANT SELECT ON public.companies,public.suppliers,public.events,public.financial_accounts,public.partner_paid_expenses TO issue335_executor;
+GRANT SELECT,INSERT,UPDATE ON public.event_forecasts,public.transactions,public.transaction_payments,public.transaction_offsets,public.bank_statement_lines,public.transaction_offset_groups,public.transaction_offset_items TO issue335_executor;
+GRANT SELECT,INSERT,DELETE ON public.bank_line_transactions TO issue335_executor;
+GRANT SELECT,INSERT ON public.forecast_audit_log,public.transaction_audit_log,public.system_audit_log TO issue335_executor;
+GRANT EXECUTE ON FUNCTION auth.uid(),public.current_company_id(),public.has_role(uuid,public.app_role),public.bp_tx_link_allowed(uuid,uuid,uuid,uuid),public._derive_paid_amount(uuid),public.issue335_normalize(text),public.issue335_score(text,text),public.issue335_matching_transactions(uuid) TO issue335_executor;
 DO $$ DECLARE t text; BEGIN
  FOREACH t IN ARRAY ARRAY['companies','suppliers','events','financial_accounts','event_forecasts','transactions','transaction_payments','transaction_offsets','bank_statement_lines','bank_line_transactions','transaction_offset_groups','transaction_offset_items','forecast_audit_log','transaction_audit_log','system_audit_log'] LOOP
-  EXECUTE format('CREATE POLICY issue335_internal ON public.%I FOR ALL TO issue335_executor USING (true) WITH CHECK (true)',t);
+  EXECUTE format('CREATE POLICY issue335_internal ON public.%I FOR ALL TO issue335_executor USING (%s=public.current_company_id()) WITH CHECK (%s=public.current_company_id())',t,CASE WHEN t='companies' THEN 'id' ELSE 'company_id' END,CASE WHEN t='companies' THEN 'id' ELSE 'company_id' END);
  END LOOP;
 END $$;
 
