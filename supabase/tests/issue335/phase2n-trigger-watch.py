@@ -48,8 +48,8 @@ try:
  assert run(admin,'SELECT status FROM transaction_offset_groups WHERE id=%s',(g,))==[('applied',)]
  item,tx=run(admin,'SELECT id,transaction_id FROM transaction_offset_items WHERE group_id=%s ORDER BY id LIMIT 1',(g,))[0]
  # Existing offsets explicitly reference the item: assert target instead of merely counting.
- refs=run(admin,'SELECT id FROM transaction_offsets WHERE receivable_item_id=%s OR payable_item_id=%s',(item,item))
- assert refs, 'item target must be referenced by an offset'
+ refs=run(admin,'SELECT id FROM transaction_payments WHERE offset_item_id=%s',(item,))
+ assert refs, 'item target must be referenced by a payment; offsets have no item FK'
  assert run(admin,'SELECT id FROM transaction_offset_items WHERE group_id=%s',(g,))
  other=str(run(admin,'SELECT id FROM companies WHERE id<>%s ORDER BY id LIMIT 1',(company,))[0][0])
  template=run(admin,'SELECT to_jsonb(i) FROM transaction_offset_items i WHERE id=%s',(item,))[0][0]
