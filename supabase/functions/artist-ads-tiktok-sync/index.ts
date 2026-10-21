@@ -8,6 +8,7 @@ import { ADS_ROLES } from "../_shared/artist-ads.ts";
 import { loadTikTokConnection, tiktokGET, tiktokHost } from "../_shared/tiktok-ads.ts";
 import { deduceTriggerSource, finishSyncRun, resolveStatus, startSyncRun } from "../_shared/sync-run.ts";
 import { marketCountry, regionCountries, type GeoRow } from "./geo.ts";
+import { CAMPAIGN_REPORT, campaignDay } from "./campaign.ts";
 
 const FN = "artist-ads-tiktok-sync";
 const METRICS = [
@@ -131,6 +132,34 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
     rep.push(...r.list);
   }
 
+  // Canonical spend is a separate campaign API report. Never reconstruct it
+  // from currently visible ads/adgroups (removed entities can be missing).
+  const campaignBase = { advertiser_id: adv, ...CAMPAIGN_REPORT };
+  let campaignAccepted = [...METRICS]; const campaignRefused: Record<string, string> = {};
+  c.calls++;
+  const campaignProbe = await tiktokGET<any>(host, "report/integrated/get/", { ...campaignBase,
+    metrics: JSON.stringify(campaignAccepted), start_date: end, end_date: end, page_size: "1" }, tok);
+  if (!campaignProbe.ok) {
+    campaignAccepted = [];
+    for (const metric of METRICS) {
+      c.calls++;
+      const r = await tiktokGET<any>(host, "report/integrated/get/", { ...campaignBase,
+        metrics: JSON.stringify([metric]), start_date: end, end_date: end, page_size: "1" }, tok);
+      if (r.ok) campaignAccepted.push(metric); else campaignRefused[metric] = r.message;
+    }
+  }
+  if (!["spend", "impressions", "clicks"].every((m) => campaignAccepted.includes(m))) {
+    return { ok: false, error: "campanha: métricas canónicas recusadas", campaign_refused: campaignRefused };
+  }
+  const campaignRep: any[] = [];
+  for (let s = start; s <= end; s = addDays(s, 30)) {
+    const e = addDays(s, 29) < end ? addDays(s, 29) : end;
+    const r = await pageAll(host, "report/integrated/get/", { ...campaignBase,
+      metrics: JSON.stringify(campaignAccepted), start_date: s, end_date: e, page_size: "1000" }, tok, c);
+    if (!r.ok) return { ok: false, error: r.error, api_calls: c.calls };
+    campaignRep.push(...r.list);
+  }
+
   // Mapeamento música: mesmo critério da manual (song_id da campanha manual de nome igual).
   const { data: manualCamps } = await admin.schema("crm").from("tiktok_campaign")
     .select("external_campaign_id, name, linked_song_id, linked_song_locked, linked_event_id, source").eq("connection_id", connectionId);
@@ -221,7 +250,8 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
     currency, source: "api", recorded_at: now, raw: { ...a.m, origem: "api", agregado_de: "ad", nota: "reach não é somável entre anúncios" },
   }));
 
-  const counts = { campanhas: campRows.length, grupos: grpRows.length, anuncios: ads.list.length, dias_ad: adDays.length, dias_adgroup: grpDays.length };
+  const campaignDays = campaignRep.map((r) => campaignDay(r, cRow.company_id, connectionId, currency, now));
+  const counts = { campanhas: campRows.length, grupos: grpRows.length, anuncios: ads.list.length, dias_ad: adDays.length, dias_adgroup: grpDays.length, dias_campaign: campaignDays.length };
   if (opts.dryRun) return { ok: true, dry_run: true, api_calls: c.calls, rows: 0, counts, accepted, refused, nao_mapeadas: naoMapeadas, ambiguas, start, end, tz, conta: ai.name ?? null, geo_lacunas: geoGaps, paises: Object.fromEntries(countryByCampaign) };
 
   const crm = admin.schema("crm");
@@ -229,7 +259,7 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
   for (const [tbl, rows, oc] of [
     ["tiktok_campaign", campRows, "connection_id,external_campaign_id"],
     ["tiktok_adgroup", grpRows, "connection_id,external_adgroup_id"],
-    ["tiktok_insights_daily", [...adDays, ...grpDays], "connection_id,level,external_id,date_start"],
+    ["tiktok_insights_daily", [...adDays, ...grpDays, ...campaignDays], "connection_id,level,external_id,date_start"],
   ] as const) {
     for (const ch of chunks(rows as any[])) {
       const { error } = await crm.from(tbl).upsert(ch, { onConflict: oc });
@@ -270,7 +300,7 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
       await crm.from("ad_platform_connections").update({ oauth_meta: { ...(cm?.oauth_meta ?? {}), account_timezone: tz } }).eq("id", connectionId);
     }
   }
-  const rows = campRows.length + grpRows.length + adDays.length + grpDays.length;
+  const rows = campRows.length + grpRows.length + adDays.length + grpDays.length + campaignDays.length;
   return { ok: true, api_calls: c.calls, rows, counts, accepted, refused, nao_mapeadas: naoMapeadas, ambiguas, anuncios_sem_grupo: [...new Set(semGrupo)], substituidas, start, end, tz, conta: ai.name ?? null, currency, market_country: marketCountry, geo_inserts: geoInserted, geo_lacunas: geoGaps, event_links: eventLinks };
 }
 
