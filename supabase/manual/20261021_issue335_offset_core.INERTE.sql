@@ -55,9 +55,22 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_catalog AS $$
 $$;
 REVOKE ALL ON FUNCTION public.issue335_payment_flow_blocked(uuid) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.issue335_payment_flow_blocked(uuid) TO issue335_executor;
+-- 2j (achado J7 camarim): a perna do banco de um movimento de camarim é espelhada na conta da sessão pelo trigger
+-- real camarim_sync_session_leg_payment, que soma TODOS os pagamentos (incl. compensation) como 'transfer'.
+-- Um encontro sobre essa perna criaria dinheiro fictício na sessão → o núcleo recusa pernas de camarim.
+CREATE FUNCTION public.issue335_camarim_leg(p_tx uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_catalog AS $$
+ SELECT EXISTS(SELECT 1 FROM public.camarim_fund_moves m WHERE m.transaction_id=p_tx)
+     OR EXISTS(SELECT 1 FROM public.camarim_fund_moves m CROSS JOIN LATERAL public._camarim_fund_move_legs(m.id) l
+               WHERE m.company_id=(SELECT company_id FROM public.transactions WHERE id=p_tx) AND p_tx IN(l.bank_tx,l.session_tx))
+     OR EXISTS(SELECT 1 FROM public.transactions t JOIN public.financial_accounts a ON a.id=t.account_id
+               WHERE t.id=p_tx AND a.type='camarim_session')
+$$;
+REVOKE ALL ON FUNCTION public.issue335_camarim_leg(uuid) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.issue335_camarim_leg(uuid) TO issue335_executor;
 -- 2j (achado pelo teste 2e de sandbox): o default ACL de Live dá EXECUTE a sandbox_exec* em funções novas.
 DO $$ DECLARE r record; BEGIN FOR r IN SELECT rolname FROM pg_roles WHERE rolname LIKE 'sandbox_exec%' LOOP
- EXECUTE format('REVOKE ALL ON FUNCTION public.issue335_payment_flow_blocked(uuid) FROM %I',r.rolname); END LOOP; END $$;
+ EXECUTE format('REVOKE ALL ON FUNCTION public.issue335_payment_flow_blocked(uuid),public.issue335_camarim_leg(uuid) FROM %I',r.rolname); END LOOP; END $$;
 GRANT UPDATE ON public.event_settlements TO issue335_executor;
 GRANT EXECUTE ON FUNCTION public.can_see_confidential(uuid),public.has_permission(uuid,text),public.is_platform_admin(uuid) TO issue335_executor;
 GRANT SELECT,INSERT,UPDATE ON public.event_forecasts,public.transactions,public.transaction_payments,public.transaction_offsets,public.bank_statement_lines,public.transaction_offset_groups,public.transaction_offset_items TO issue335_executor;
@@ -222,6 +235,7 @@ BEGIN
   END IF;
   IF t.id=ANY(ids) THEN RAISE EXCEPTION 'duplicate_item'; END IF; ids:=array_append(ids,t.id);
   IF t.supplier_id IS DISTINCT FROM p_supplier_id OR t.type NOT IN ('income','expense') OR t.status NOT IN ('approved','partially_paid') OR t.reversed_at IS NOT NULL OR t.is_hidden THEN RAISE EXCEPTION 'invalid_document'; END IF;
+  IF public.issue335_camarim_leg(t.id) THEN RAISE EXCEPTION 'camarim_leg_unsupported: movimentos de camarim não entram no encontro de contas'; END IF;
   IF t.currency<>'EUR' OR t.fx_rate IS NOT NULL OR t.original_amount IS NOT NULL OR t.installment_group_id IS NOT NULL OR t.installment_number IS NOT NULL OR t.installment_total IS NOT NULL OR
      t.card_session_id IS NOT NULL OR t.held_by_supplier_id IS NOT NULL OR t.settlement_id IS NOT NULL OR t.is_transitory OR t.supplier_credit_id IS NOT NULL OR
      public.issue335_payment_flow_blocked(t.id) OR
