@@ -1,3 +1,4 @@
+SET check_function_bodies=off;
 -- LOCAL replay of installed definitions, no Live writes. Auth helpers recorded in catalog.json.
 CREATE OR REPLACE FUNCTION public.log_formalidade_change()
  RETURNS trigger
@@ -3228,3 +3229,5 @@ BEGIN
     FROM public.system_invariants i WHERE i.name = 'maes_rateio_divergentes';
 END $function$
 ;
+
+SET check_function_bodies=on;
