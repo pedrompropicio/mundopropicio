@@ -66,3 +66,10 @@ Fontes do Bloco1 inexistentes como runner versionado: script real era /tmp/issue
 ### Leituras auxiliares anteriores à integração 1c
 - supabase/tests/issue335/phase2h-suite.sh: versão ANTES lida integralmente via view; intervalos 1–42 / 1–50; hash anterior no manifesto 2n1b. Versão após alteração: 66f442d2649f8d3f28f2e839a75d6c7f72df238fd5871d9aa284875003ab2aef (não é hash da leitura anterior).
 - supabase/tests/issue335/phase2l-rollback.py: versão ANTES lida integralmente via view; intervalos 1–42 / 1–50; hash anterior no manifesto 2n1b. Versão após alteração: e41767df157f79c2b42e32eb978d48a27436b960c65208493b006dc82d356acc (não é hash da leitura anterior).
+
+### Precisão da certificação 1c
+- AGENTS.md e supabase/AGENTS.md: limites anteriormente anotados excediam N; leitura integral conforme conteúdo apresentado, intervalo certificado 1..N (N registado acima).
+- Core: leitura parcial exigida de guardas/triggers; NÃO LIDO integral nesta ronda.
+- phase2h-suite.sh / phase2l-rollback.py: hashes ANTES recuperados da versão base por git show (leitura anterior view certificada):
+- supabase/tests/issue335/phase2h-suite.sh: 1–45; sha256=66f442d2649f8d3f28f2e839a75d6c7f72df238fd5871d9aa284875003ab2aef
+- supabase/tests/issue335/phase2l-rollback.py: 1–49; sha256=e41767df157f79c2b42e32eb978d48a27436b960c65208493b006dc82d356acc
