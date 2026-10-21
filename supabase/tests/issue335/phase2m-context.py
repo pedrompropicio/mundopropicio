@@ -91,7 +91,7 @@ for label, role, uid in actors:
             expected=['42501']
         probe(label,role,uid,'direct '+signature,statement,expected,
               'True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability.')
-    for attack,token in [('forged GUC',str(uuid4())),('token from earlier transaction',str(uuid4()))]:
+    for attack,token in [('forged GUC',str(uuid4())),('second random token (not valid replay)',str(uuid4()))]:
         expected=['42501'] if role in ('sandbox_exec','sandbox_exec_sfohvvlqccmmebvjgibx','anon') else ['ok:false']
         probe(label,role,uid,attack,"SELECT set_config('issue335.ctx','"+token+"',true); SELECT public.issue335_context_valid(NULL)",expected,
               'GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token.')
@@ -99,14 +99,17 @@ for label, role, uid in actors:
           ['ok'] if owner else ['42501'], 'True table owner can administer context; application roles cannot forge rows. No claim of protection against owner DDL.')
     probe(label,role,uid,'SET ROLE executor','SET LOCAL ROLE issue335_executor',['42501'],'Installation membership must be revoked; no role may assume executor afterwards.')
     for table in ['companies','suppliers','events','financial_accounts','event_settlements']:
-        probe(label,role,uid,'broad UPDATE privilege '+table,
-              "SELECT has_table_privilege(current_user,'public."+table+"','UPDATE')",['ok','ok:false'],
-              'Observation only: existing legal UPDATE grants are retained. This is not an executed valid-row mutation or a claim that all actors lack UPDATE.')
+        begin(role, uid)
+        q.execute("SELECT has_table_privilege(current_user,'public."+table+"','UPDATE')")
+        privilege=q.fetchone()[0]
+        q.execute('ROLLBACK')
+        rows.append(dict(role=label,attack='broad UPDATE privilege '+table,expected=None,
+                         actual=privilege,pass_=None,justification='Observation only, NOT a test. Existing legal UPDATE grants retained; real-row matrix outstanding.'))
 c.close()
 Path(output).write_text(json.dumps(rows,ensure_ascii=False,indent=2))
-bad=[r for r in rows if not r['pass_']]
+bad=[r for r in rows if r['pass_'] is False]
 for r in bad:
     print('FAIL',r['role'],r['attack'],r['expected'],r['actual'])
-print('matrix',len(rows),'rows;',len(bad),'unexpected; partial: valid cross-session token and five real-row UPDATE matrices outstanding')
+print('matrix',len(rows),'rows (190 assertions, 50 privilege observations);',len(bad),'unexpected; partial: valid cross-session token and five real-row UPDATE matrices outstanding')
 if bad:
     raise SystemExit(1)
