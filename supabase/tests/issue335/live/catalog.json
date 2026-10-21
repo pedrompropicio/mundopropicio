@@ -6640,6 +6640,718 @@
       "default": "current_company_id()",
       "nullable": "NO",
       "position": 4
+    },
+    {
+      "type": "text",
+      "table": "backup_excluded_tables",
+      "column": "schema_name",
+      "default": null,
+      "nullable": "NO",
+      "position": 1
+    },
+    {
+      "type": "text",
+      "table": "backup_excluded_tables",
+      "column": "table_name",
+      "default": null,
+      "nullable": "NO",
+      "position": 2
+    },
+    {
+      "type": "text",
+      "table": "backup_excluded_tables",
+      "column": "reason",
+      "default": null,
+      "nullable": "NO",
+      "position": 3
+    },
+    {
+      "type": "timestamptz",
+      "table": "backup_excluded_tables",
+      "column": "excluded_at",
+      "default": "now()",
+      "nullable": "NO",
+      "position": 4
+    },
+    {
+      "type": "uuid",
+      "table": "backup_runs",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO",
+      "position": 1
+    },
+    {
+      "type": "date",
+      "table": "backup_runs",
+      "column": "run_date",
+      "default": "((now() AT TIME ZONE 'utc'::text))::date",
+      "nullable": "NO",
+      "position": 2
+    },
+    {
+      "type": "text",
+      "table": "backup_runs",
+      "column": "scope",
+      "default": null,
+      "nullable": "NO",
+      "position": 3
+    },
+    {
+      "type": "uuid",
+      "table": "backup_runs",
+      "column": "company_id",
+      "default": null,
+      "nullable": "YES",
+      "position": 4
+    },
+    {
+      "type": "text",
+      "table": "backup_runs",
+      "column": "slug",
+      "default": null,
+      "nullable": "YES",
+      "position": 5
+    },
+    {
+      "type": "text",
+      "table": "backup_runs",
+      "column": "file_name",
+      "default": null,
+      "nullable": "YES",
+      "position": 6
+    },
+    {
+      "type": "text",
+      "table": "backup_runs",
+      "column": "status",
+      "default": null,
+      "nullable": "NO",
+      "position": 7
+    },
+    {
+      "type": "int4",
+      "table": "backup_runs",
+      "column": "tables_count",
+      "default": null,
+      "nullable": "YES",
+      "position": 8
+    },
+    {
+      "type": "int8",
+      "table": "backup_runs",
+      "column": "rows_total",
+      "default": null,
+      "nullable": "YES",
+      "position": 9
+    },
+    {
+      "type": "int8",
+      "table": "backup_runs",
+      "column": "bytes",
+      "default": null,
+      "nullable": "YES",
+      "position": 10
+    },
+    {
+      "type": "text",
+      "table": "backup_runs",
+      "column": "error_text",
+      "default": null,
+      "nullable": "YES",
+      "position": 11
+    },
+    {
+      "type": "timestamptz",
+      "table": "backup_runs",
+      "column": "started_at",
+      "default": "now()",
+      "nullable": "NO",
+      "position": 12
+    },
+    {
+      "type": "timestamptz",
+      "table": "backup_runs",
+      "column": "finished_at",
+      "default": null,
+      "nullable": "YES",
+      "position": 13
+    },
+    {
+      "type": "text",
+      "table": "backup_runs",
+      "column": "folder_path",
+      "default": null,
+      "nullable": "YES",
+      "position": 14
+    },
+    {
+      "type": "jsonb",
+      "table": "backup_runs",
+      "column": "storage_report",
+      "default": null,
+      "nullable": "YES",
+      "position": 15
+    },
+    {
+      "type": "uuid",
+      "table": "camarim_items",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO",
+      "position": 1
+    },
+    {
+      "type": "uuid",
+      "table": "camarim_items",
+      "column": "session_id",
+      "default": null,
+      "nullable": "NO",
+      "position": 2
+    },
+    {
+      "type": "uuid",
+      "table": "camarim_items",
+      "column": "event_id",
+      "default": null,
+      "nullable": "YES",
+      "position": 3
+    },
+    {
+      "type": "uuid",
+      "table": "camarim_items",
+      "column": "supplier_id",
+      "default": null,
+      "nullable": "YES",
+      "position": 4
+    },
+    {
+      "type": "text",
+      "table": "camarim_items",
+      "column": "supplier_name_raw",
+      "default": null,
+      "nullable": "YES",
+      "position": 5
+    },
+    {
+      "type": "text",
+      "table": "camarim_items",
+      "column": "document_type",
+      "default": "'invoice'::text",
+      "nullable": "NO",
+      "position": 6
+    },
+    {
+      "type": "text",
+      "table": "camarim_items",
+      "column": "document_number",
+      "default": null,
+      "nullable": "YES",
+      "position": 7
+    },
+    {
+      "type": "date",
+      "table": "camarim_items",
+      "column": "document_date",
+      "default": null,
+      "nullable": "YES",
+      "position": 8
+    },
+    {
+      "type": "text",
+      "table": "camarim_items",
+      "column": "service_description",
+      "default": null,
+      "nullable": "YES",
+      "position": 9
+    },
+    {
+      "type": "uuid",
+      "table": "camarim_items",
+      "column": "category_id",
+      "default": null,
+      "nullable": "YES",
+      "position": 10
+    },
+    {
+      "type": "text",
+      "table": "camarim_items",
+      "column": "type",
+      "default": "'expense'::text",
+      "nullable": "NO",
+      "position": 11
+    },
+    {
+      "type": "numeric",
+      "table": "camarim_items",
+      "column": "base_amount",
+      "default": "0",
+      "nullable": "NO",
+      "position": 12
+    },
+    {
+      "type": "numeric",
+      "table": "camarim_items",
+      "column": "iva_amount",
+      "default": "0",
+      "nullable": "NO",
+      "position": 13
+    },
+    {
+      "type": "numeric",
+      "table": "camarim_items",
+      "column": "total_amount",
+      "default": "0",
+      "nullable": "NO",
+      "position": 14
+    },
+    {
+      "type": "text",
+      "table": "camarim_items",
+      "column": "currency",
+      "default": "'EUR'::text",
+      "nullable": "NO",
+      "position": 15
+    },
+    {
+      "type": "text",
+      "table": "camarim_items",
+      "column": "payment_origin",
+      "default": null,
+      "nullable": "NO",
+      "position": 16
+    },
+    {
+      "type": "uuid",
+      "table": "camarim_items",
+      "column": "buyer_profile_id",
+      "default": null,
+      "nullable": "YES",
+      "position": 17
+    },
+    {
+      "type": "text",
+      "table": "camarim_items",
+      "column": "ocr_confidence",
+      "default": null,
+      "nullable": "YES",
+      "position": 18
+    },
+    {
+      "type": "jsonb",
+      "table": "camarim_items",
+      "column": "ocr_raw_payload",
+      "default": null,
+      "nullable": "YES",
+      "position": 19
+    },
+    {
+      "type": "text",
+      "table": "camarim_items",
+      "column": "status",
+      "default": "'new'::text",
+      "nullable": "NO",
+      "position": 20
+    },
+    {
+      "type": "bool",
+      "table": "camarim_items",
+      "column": "has_document",
+      "default": "true",
+      "nullable": "NO",
+      "position": 21
+    },
+    {
+      "type": "text",
+      "table": "camarim_items",
+      "column": "document_issue_reason",
+      "default": null,
+      "nullable": "YES",
+      "position": 22
+    },
+    {
+      "type": "bool",
+      "table": "camarim_items",
+      "column": "needs_accounting_review",
+      "default": "false",
+      "nullable": "NO",
+      "position": 23
+    },
+    {
+      "type": "text",
+      "table": "camarim_items",
+      "column": "bp_scope",
+      "default": "'local_city'::text",
+      "nullable": "NO",
+      "position": 24
+    },
+    {
+      "type": "uuid",
+      "table": "camarim_items",
+      "column": "bp_forecast_id",
+      "default": null,
+      "nullable": "YES",
+      "position": 25
+    },
+    {
+      "type": "text",
+      "table": "camarim_items",
+      "column": "integration_mode",
+      "default": "'none'::text",
+      "nullable": "NO",
+      "position": 26
+    },
+    {
+      "type": "uuid",
+      "table": "camarim_items",
+      "column": "transaction_id",
+      "default": null,
+      "nullable": "YES",
+      "position": 27
+    },
+    {
+      "type": "text",
+      "table": "camarim_items",
+      "column": "notes",
+      "default": null,
+      "nullable": "YES",
+      "position": 28
+    },
+    {
+      "type": "uuid",
+      "table": "camarim_items",
+      "column": "created_by",
+      "default": null,
+      "nullable": "YES",
+      "position": 29
+    },
+    {
+      "type": "timestamptz",
+      "table": "camarim_items",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO",
+      "position": 30
+    },
+    {
+      "type": "timestamptz",
+      "table": "camarim_items",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "NO",
+      "position": 31
+    },
+    {
+      "type": "bool",
+      "table": "camarim_items",
+      "column": "approved_without_document",
+      "default": "false",
+      "nullable": "NO",
+      "position": 32
+    },
+    {
+      "type": "text",
+      "table": "camarim_items",
+      "column": "approved_without_document_reason",
+      "default": null,
+      "nullable": "YES",
+      "position": 33
+    },
+    {
+      "type": "text",
+      "table": "camarim_items",
+      "column": "pending_review_reason",
+      "default": null,
+      "nullable": "YES",
+      "position": 34
+    },
+    {
+      "type": "uuid",
+      "table": "camarim_items",
+      "column": "parent_item_id",
+      "default": null,
+      "nullable": "YES",
+      "position": 35
+    },
+    {
+      "type": "uuid",
+      "table": "camarim_items",
+      "column": "financial_account_id",
+      "default": null,
+      "nullable": "YES",
+      "position": 36
+    },
+    {
+      "type": "text",
+      "table": "camarim_items",
+      "column": "analytic_tag",
+      "default": null,
+      "nullable": "YES",
+      "position": 37
+    },
+    {
+      "type": "uuid",
+      "table": "camarim_items",
+      "column": "company_id",
+      "default": "current_company_id()",
+      "nullable": "NO",
+      "position": 38
+    },
+    {
+      "type": "uuid",
+      "table": "email_send_log",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO",
+      "position": 1
+    },
+    {
+      "type": "text",
+      "table": "email_send_log",
+      "column": "message_id",
+      "default": null,
+      "nullable": "YES",
+      "position": 2
+    },
+    {
+      "type": "text",
+      "table": "email_send_log",
+      "column": "template_name",
+      "default": null,
+      "nullable": "NO",
+      "position": 3
+    },
+    {
+      "type": "text",
+      "table": "email_send_log",
+      "column": "recipient_email",
+      "default": null,
+      "nullable": "NO",
+      "position": 4
+    },
+    {
+      "type": "text",
+      "table": "email_send_log",
+      "column": "status",
+      "default": null,
+      "nullable": "NO",
+      "position": 5
+    },
+    {
+      "type": "text",
+      "table": "email_send_log",
+      "column": "error_message",
+      "default": null,
+      "nullable": "YES",
+      "position": 6
+    },
+    {
+      "type": "jsonb",
+      "table": "email_send_log",
+      "column": "metadata",
+      "default": null,
+      "nullable": "YES",
+      "position": 7
+    },
+    {
+      "type": "timestamptz",
+      "table": "email_send_log",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO",
+      "position": 8
+    },
+    {
+      "type": "uuid",
+      "table": "email_send_log",
+      "column": "company_id",
+      "default": "current_company_id()",
+      "nullable": "YES",
+      "position": 9
+    },
+    {
+      "type": "uuid",
+      "table": "partner_aporte_mirror",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO",
+      "position": 1
+    },
+    {
+      "type": "uuid",
+      "table": "partner_aporte_mirror",
+      "column": "company_id",
+      "default": null,
+      "nullable": "NO",
+      "position": 2
+    },
+    {
+      "type": "uuid",
+      "table": "partner_aporte_mirror",
+      "column": "account_id",
+      "default": null,
+      "nullable": "NO",
+      "position": 3
+    },
+    {
+      "type": "uuid",
+      "table": "partner_aporte_mirror",
+      "column": "source_transaction_id",
+      "default": null,
+      "nullable": "NO",
+      "position": 4
+    },
+    {
+      "type": "uuid",
+      "table": "partner_aporte_mirror",
+      "column": "aporte_transaction_id",
+      "default": null,
+      "nullable": "NO",
+      "position": 5
+    },
+    {
+      "type": "timestamptz",
+      "table": "partner_aporte_mirror",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO",
+      "position": 6
+    },
+    {
+      "type": "timestamptz",
+      "table": "partner_aporte_mirror",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "NO",
+      "position": 7
+    },
+    {
+      "type": "uuid",
+      "table": "partner_capital_moves",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO",
+      "position": 1
+    },
+    {
+      "type": "uuid",
+      "table": "partner_capital_moves",
+      "column": "company_id",
+      "default": "current_company_id()",
+      "nullable": "NO",
+      "position": 2
+    },
+    {
+      "type": "uuid",
+      "table": "partner_capital_moves",
+      "column": "event_id",
+      "default": null,
+      "nullable": "NO",
+      "position": 3
+    },
+    {
+      "type": "uuid",
+      "table": "partner_capital_moves",
+      "column": "partner_id",
+      "default": null,
+      "nullable": "NO",
+      "position": 4
+    },
+    {
+      "type": "uuid",
+      "table": "partner_capital_moves",
+      "column": "transaction_id",
+      "default": null,
+      "nullable": "NO",
+      "position": 5
+    },
+    {
+      "type": "text",
+      "table": "partner_capital_moves",
+      "column": "kind",
+      "default": null,
+      "nullable": "NO",
+      "position": 6
+    },
+    {
+      "type": "timestamptz",
+      "table": "partner_capital_moves",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO",
+      "position": 7
+    },
+    {
+      "type": "timestamptz",
+      "table": "partner_capital_moves",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "NO",
+      "position": 8
+    },
+    {
+      "type": "text",
+      "table": "partner_capital_moves",
+      "column": "flow",
+      "default": "'event_cash'::text",
+      "nullable": "NO",
+      "position": 9
+    },
+    {
+      "type": "uuid",
+      "table": "shared_cost_mirror",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO",
+      "position": 1
+    },
+    {
+      "type": "uuid",
+      "table": "shared_cost_mirror",
+      "column": "company_id",
+      "default": null,
+      "nullable": "NO",
+      "position": 2
+    },
+    {
+      "type": "uuid",
+      "table": "shared_cost_mirror",
+      "column": "account_id",
+      "default": null,
+      "nullable": "NO",
+      "position": 3
+    },
+    {
+      "type": "uuid",
+      "table": "shared_cost_mirror",
+      "column": "source_transaction_id",
+      "default": null,
+      "nullable": "NO",
+      "position": 4
+    },
+    {
+      "type": "uuid",
+      "table": "shared_cost_mirror",
+      "column": "mirror_transaction_id",
+      "default": null,
+      "nullable": "NO",
+      "position": 5
+    },
+    {
+      "type": "timestamptz",
+      "table": "shared_cost_mirror",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO",
+      "position": 6
+    },
+    {
+      "type": "timestamptz",
+      "table": "shared_cost_mirror",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "NO",
+      "position": 7
     }
   ]
 }
