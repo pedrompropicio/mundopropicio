@@ -2,7 +2,7 @@
 -- payment derivation/validation/legacy application/reconcile are installed verbatim baselines.
 CREATE SCHEMA auth;
 CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
-CREATE TYPE public.app_role AS ENUM('admin','manager','editor','viewer');
+CREATE TYPE public.app_role AS ENUM('admin','manager','editor','viewer','platform_admin','user','accountant','producer','field_producer','marketing_manager','partner','content_manager');
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULLIF(current_setting('t.uid',true),'')::uuid $$;
 CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT '{}'::jsonb $$;
 CREATE FUNCTION public.current_company_id() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULLIF(current_setting('t.company',true),'')::uuid $$;
