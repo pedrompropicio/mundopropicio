@@ -26,13 +26,13 @@ export async function dailySourceAlerts(admin: any, dryRun: boolean) {
   if (priorError) throw new Error(priorError.message);
   const sent = new Set((prior ?? []).flatMap((x: any) => x.details?.keys ?? []));
   let { data: unsubscribe, error: unsubError } = await admin.from("email_unsubscribe_tokens")
-    .select("token").eq("email", "pedroneto@mundopropicio.com").maybeSingle();
+    .select("token").eq("email", "pedroneto@mundopropicio.com").order("created_at").limit(1).maybeSingle();
   if (!unsubError && !unsubscribe && stale[0]?.company_id) {
-    const { error } = await admin.from("email_unsubscribe_tokens").upsert({
+    const { error } = await admin.from("email_unsubscribe_tokens").insert({
       token: crypto.randomUUID() + crypto.randomUUID(), email: "pedroneto@mundopropicio.com", company_id: stale[0].company_id,
-    }, { onConflict: "email", ignoreDuplicates: true });
+    });
     if (error) throw new Error(`referência unsubscribe: ${error.message}`);
-    const result = await admin.from("email_unsubscribe_tokens").select("token").eq("email", "pedroneto@mundopropicio.com").maybeSingle();
+    const result = await admin.from("email_unsubscribe_tokens").select("token").eq("email", "pedroneto@mundopropicio.com").order("created_at").limit(1).maybeSingle();
     unsubscribe = result.data; unsubError = result.error;
   }
   if (unsubError || !unsubscribe?.token) throw new Error("canal de alertas email sem referência de unsubscribe");
