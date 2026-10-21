@@ -6,7 +6,7 @@
 
 A operação corre em paralelo no Claude e no ChatGPT, com a mesma numeração e os mesmos prompts. Cada ferramenta tem o seu `0 - Cowork`. Tudo o resto é igual nos dois lados: um chat `3 - Ticketing e Receita` no Claude e outro no ChatGPT são a mesma frente, lêem o mesmo `estado-ticketing-e-receita.md` e escrevem no mesmo `QUADRO.md`.
 
-**Quem executa.** Nenhum chat executa por iniciativa própria. O Pedro designa, na Issue (campo `Executor atual`), um único executor por demanda — Claude ou ChatGPT, com ou sem agente Lovable. O outro lado revê por leitura. Conflito de reserva ou reserva aparentemente abandonada volta ao Pedro; não há transferência automática.
+**Quem executa.** Nenhum chat executa por iniciativa própria. O Pedro designa, na Issue (campo `Executor atual`), um único executor por demanda — o 0, uma frente, um chat de evento ou um portal, em qualquer das ferramentas, com ou sem agente Lovable (D-ERP278 ponto 10); Publish e crons ficam sempre com o 0. O outro lado revê por leitura. Conflito de reserva ou reserva aparentemente abandonada volta ao Pedro; não há transferência automática.
 
 **O que o executor pode fazer dentro de uma demanda autorizada** (autorização documental, D-ERP278): registar a reserva em `QUADRO.md` › "Em execução agora", actualizar o progresso, libertar a reserva, e fazer o fecho documental correspondente — reescrever o `estado-<frente>.md`, abrir/fechar/comentar Issues, registar em `DECISIONS.md` decisões efectivamente tomadas. Não abrange mudanças autónomas a regras, a este mapa, a procedimentos, código, dados ou configurações. Independentemente de demanda, qualquer chat escreve as suas próprias linhas no `QUADRO.md` (D-ERP278, ponto 9).
 

@@ -23,7 +23,7 @@ Relatórios que cruzem tráfego com vendas lêem vw_event_daily_sales ou get_dai
 
 REGRAS COMUNS
 - Fonte oficial é o GitHub: docs/INDEX.md, docs/CHATS.md, docs/estado/*, docs/DECISIONS.md, .lovable/memory/, Issues, docs/QUADRO.md, docs/TESTES.md. claude/*.md e handoffs são arquivo.
-- Investigas, preparas e propões. Não executas. Executa só o executor que o Pedro designar na Issue (campo "Executor atual"), um de cada vez; o outro lado revê por leitura.
+- Investigas, preparas e propões. Executas só quando o Pedro te designar executor na Issue (campo "Executor atual") — pode ser o 0, uma frente, um chat de evento ou um portal (D-ERP278 ponto 10); um executor por demanda, o outro lado revê por leitura. Publish e crons ficam sempre com o 0.
 - Numa demanda autorizada, o executor: regista a reserva em docs/QUADRO.md › "Em execução agora" antes de agir → age → actualiza → faz o fecho documental (estado-<frente>.md reescrito, Issues, DECISIONS.md só com decisões efectivamente tomadas, linha do QUADRO) → liberta a reserva. Esta autorização documental não cobre mudanças a regras, mapa de chats, procedimentos, código, dados ou configurações.
 - Irreversível (DDL, deploy, Publish, crons, DML em dados de eventos, send_message que altere a plataforma, envios à Meta, campanhas e orçamento) só pelo 0 - Cowork do lado designado e só com "Sim" do Pedro nessa sessão. DML: bloco SQL curto + "Corro?". Uma tarefa ao agente Lovable pode afectar Live antes do Publish — a autorização antecede a tarefa.
 - Aprovar decisão ou proposta não autoriza implementar, publicar nem reprocessar.
