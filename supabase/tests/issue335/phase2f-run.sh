@@ -15,6 +15,7 @@ P=(env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE psql -X -q -h "
 "${A[@]}" -c "CREATE ROLE postgres LOGIN SUPERUSER; ALTER DATABASE postgres OWNER TO postgres;"
 for f in stub.sql live/dependencies.sql live/functions.sql live/triggers.sql live/phase2c-auth.sql live/phase2d-constraints.sql live/phase2c-invariant-registry.sql live/phase2d-legacy.sql live/phase2e-replay.sql; do "${P[@]}" -f "$S/$f" >/dev/null; done
 "${A[@]}" -f "$S/live/phase2d-role.sql"
+python3 "$S/phase2f-diff.py" "${P[@]}"
 "${P[@]}" -c "DO \$\$ BEGIN IF (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) THEN RAISE EXCEPTION 'superuser deploy'; END IF; END \$\$;"
 for f in group_storage core invariants balance; do "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_$f.INERTE.sql" >/dev/null; done
 "${A[@]}" -f "$S/phase2f-negative.sql"
