@@ -44,6 +44,15 @@ function ymd(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Dias civis (UTC) de since a until, inclusive; cada um vira um pedido de 1 dia à Meta. */
+export function metaDays(since: Date, until: Date): string[] {
+  const out: string[] = [];
+  const d = new Date(`${ymd(since)}T00:00:00Z`);
+  const end = ymd(until);
+  while (ymd(d) <= end) { out.push(ymd(d)); d.setUTCDate(d.getUTCDate() + 1); }
+  return out;
+}
+
 // Apenas omni_purchase: já desduplicado entre Pixel + CAPI + offline + WhatsApp + etc.
 // Fallback a "purchase" se omni_purchase não existir. Nunca somar ambos.
 function sumPurchaseActions(arr: ActionItem[] | undefined): number {
@@ -539,15 +548,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   for (const level of levels) {
     try {
-      const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${adAccountId}/insights`);
-      url.searchParams.set("level", level);
-      url.searchParams.set("fields", fieldsForLevel(level));
-      url.searchParams.set("time_range", timeRange);
-      url.searchParams.set("time_increment", "1");
-      url.searchParams.set("limit", "500");
-      url.searchParams.set("access_token", accessToken);
-
-      const items = await fetchAllInsightsPages(url);
+      // 2026-10-21: com este conjunto de campos, um time_range de vários dias faz a
+      // Meta devolver spend/impressions "0" (desde 18/10). Pedimos um dia de cada vez.
+      const items: any[] = [];
+      for (const day of metaDays(since, today)) {
+        const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${adAccountId}/insights`);
+        url.searchParams.set("level", level);
+        url.searchParams.set("fields", fieldsForLevel(level));
+        url.searchParams.set("time_range", JSON.stringify({ since: day, until: day }));
+        url.searchParams.set("time_increment", "1");
+        url.searchParams.set("limit", "500");
+        url.searchParams.set("access_token", accessToken);
+        const dayItems = await fetchAllInsightsPages(url);
+        if (dayItems.some((it) => it.date_start !== day)) throw new Error(`meta_report_date_mismatch:${day}`);
+        items.push(...dayItems);
+      }
       console.log(`[crm-meta-sync-insights] level=${level} fetched=${items.length}`);
       const rows = items.map((it) => rowFromItem(it, level, ctx));
 

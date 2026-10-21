@@ -31,4 +31,4 @@
 - CRM WhatsApp uses crm_whatsapp_eligible/invoker views. Ledger/member-phone triggers share a contact-locked projection; matching-fingerprint phones only fill empty contacts, avoiding leaks/overwrites.
 
 - Cache payments only via cache_* RPCs (mother/city children); optional line choices use local `cache.line_choices`, server-checked.
-- Separate artist hourly collector; atomic service writer locks claim to fence stale request_id writes, preserving legacy sync.
+- Separate artist hourly collector; service writer fences stale request_id. Function dirs may have own AGENTS.md.
