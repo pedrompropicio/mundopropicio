@@ -9,7 +9,7 @@
  * Corre por esta ordem e pára na primeira camada que casa:
  *   (a) lote SEPA — `payment_list_sepa_exports` pelo total e pela referência
  *       do `msg_id` presente na descrição do banco;
- *   (b) valor exato — mesmo montante absoluto contra `paid_amount` de uma
+ *   (b) valor exato — mesmo montante absoluto contra dinheiro na conta de uma
  *       transação da mesma conta, com data efetiva a ±5 dias;
  *   (c) descrição por semelhança — Dice ≥ 0,8 com o valor a bater ao cêntimo.
  */
@@ -32,6 +32,36 @@ export const DICE_THRESHOLD = 0.8;
 export const AMOUNT_WINDOW_DAYS = 5;
 const CENT = 0.01;
 
+/** #336 / D-ERP289: paid_amount só antes do PRIMEIRO period_from da conta. */
+export const HISTORICAL_CASH_BOUNDARY = "first_bank_statement_period_from";
+
+export interface ReconcilePayment {
+  account_id: string | null;
+  amount: number | null;
+  payment_method: string | null;
+  status: string | null;
+  reversed_at: string | null;
+  withholding_amount?: number | null;
+  credit_amount?: number | null;
+}
+
+/** Falha fechada: pernas não carregadas ou corte desconhecido nunca viram paid_amount. */
+export function reconciliationCash(t: ReconcileTransaction): number {
+  if (!t.payments || !t.reconciliation_account_id) return 0;
+  const legs = t.payments.filter((p) =>
+    p.account_id === t.reconciliation_account_id && p.payment_method !== null &&
+    p.payment_method !== "compensation" && p.status === "paid" && p.reversed_at === null,
+  );
+  if (legs.length) return Math.round(legs.reduce((sum, p) => sum + Number(p.amount ?? 0) -
+    Number(p.withholding_amount ?? 0) - Number(p.credit_amount ?? 0), 0) * 100) / 100;
+  const date = effectiveDate(t);
+  if (t.payments.length === 0 && t.account_id === t.reconciliation_account_id && date &&
+      t.first_statement_from && date < t.first_statement_from.slice(0, 10)) {
+    return Math.abs(Number(t.paid_amount ?? 0));
+  }
+  return 0;
+}
+
 export type MatchLayer = "sepa" | "amount" | "description";
 
 export interface ReconcileLineInput {
@@ -44,6 +74,10 @@ export interface ReconcileLineInput {
 
 export interface ReconcileTransaction {
   id: string;
+  account_id?: string | null;
+  reconciliation_account_id?: string;
+  first_statement_from?: string | null;
+  payments?: ReconcilePayment[];
   description: string | null;
   paid_amount: number | null;
   payment_date: string | null;
@@ -116,13 +150,16 @@ export function reconcileStatement(
   const counts = { sepa: 0, amount: 0, description: 0, unmatched: 0 };
   let retentionTotal = 0;
   const grossById = new Map(transactions.map((t) => [t.id, Math.abs(Number(t.paid_amount ?? 0))]));
+  const cashById = new Map(transactions.map((t) => [t.id, reconciliationCash(t)]));
 
   // ---- Passagem (a): lotes SEPA ------------------------------------------
   for (const line of lines) {
     if (!line.description.toUpperCase().includes(SEPA_BATCH_MARKER)) continue;
     const abs = Math.abs(line.amount);
     const byAmount = sepaExports.filter(
-      (e) => !usedExportIds.has(e.id) && Math.abs(Number(e.total_amount ?? 0) - abs) <= CENT,
+      (e) => !usedExportIds.has(e.id) && e.transaction_ids.length > 0 &&
+        e.transaction_ids.every((id) => cashById.has(id) && !usedTransactionIds.has(id)) &&
+        Math.abs(e.transaction_ids.reduce((sum, id) => sum + (cashById.get(id) ?? 0), 0) - abs) <= CENT,
     );
     // O `msg_id` (PAGAMENTOS-MP-11082026-12080959) não viaja inteiro na
     // descrição do banco: o que viaja é a DATA, ora DDMMAAAA ora abreviada.
@@ -167,7 +204,7 @@ export function reconcileStatement(
     const abs = Math.abs(line.amount);
     const candidates = transactions.filter((t) => {
       if (usedTransactionIds.has(t.id)) return false;
-      const paid = Math.abs(Number(t.paid_amount ?? 0));
+      const paid = reconciliationCash(t);
       if (paid <= 0 || Math.abs(paid - abs) > CENT) return false;
       return daysApart(effectiveDate(t), line.bookingDate) <= AMOUNT_WINDOW_DAYS;
     });
@@ -194,8 +231,8 @@ export function reconcileStatement(
     let best: { t: ReconcileTransaction; score: number } | null = null;
     for (const t of transactions) {
       if (usedTransactionIds.has(t.id)) continue;
-      const paid = Math.abs(Number(t.paid_amount ?? 0));
-      if (Math.abs(paid - abs) > CENT) continue;
+      const paid = reconciliationCash(t);
+      if (paid <= 0 || Math.abs(paid - abs) > CENT) continue;
       const candidateText = [t.description ?? "", t.supplier_name ?? ""].join(" ");
       const score = Math.max(
         stringSimilarity(line.description, t.description ?? ""),
@@ -249,6 +286,7 @@ export function findTransactionsWithoutBankLine(
   const cutoff = cutoffDate ? cutoffDate.slice(0, 10) : null;
   return transactions.filter((t) => {
     if (explainedIds.has(t.id)) return false;
+    if (reconciliationCash(t) <= 0) return false;
     const eff = effectiveDate(t);
     if (!eff) return false;
     if (cutoff && eff <= cutoff) return false;

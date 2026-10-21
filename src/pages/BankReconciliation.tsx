@@ -55,10 +55,12 @@ import { uploadToCompanyBucket } from "@/lib/storage";
 import {
   reconcileStatement,
   findTransactionsWithoutBankLine,
+  reconciliationCash,
   AMOUNT_WINDOW_DAYS,
   type ReconcileResult,
   type ReconcileSepaExport,
   type ReconcileTransaction,
+  type ReconcilePayment,
 } from "@/lib/bank-statement/reconcile";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { parseDateConflicts, withDateActions, type DateAction, type DateConflict } from "@/lib/bank-link-date";
@@ -82,6 +84,25 @@ async function fetchAllPages<T>(
     if (batch.length < PAGE) break;
   }
   return out;
+}
+
+/** #336: leitura paginada das pernas, incluindo compensações e estornos. */
+async function attachReconciliationPayments(rows: any[], accountId: string, firstFrom: string | null) {
+  const payments = new Map<string, ReconcilePayment[]>();
+  for (let start = 0; start < rows.length; start += 100) {
+    const ids = rows.slice(start, start + 100).map((t) => t.id);
+    const legs = await fetchAllPages<any>((from, to) => (supabase as any)
+      .from("transaction_payments")
+      .select("id, transaction_id, account_id, amount, payment_method, status, reversed_at, withholding_amount, credit_amount")
+      .in("transaction_id", ids).order("id").range(from, to));
+    for (const p of legs) {
+      const list = payments.get(p.transaction_id) ?? [];
+      list.push(p);
+      payments.set(p.transaction_id, list);
+    }
+  }
+  return rows.map((t) => ({ ...t, payments: payments.get(t.id) ?? [],
+    reconciliation_account_id: accountId, first_statement_from: firstFrom }));
 }
 
 const LAYER_LABEL: Record<string, string> = {
@@ -192,21 +213,45 @@ export default function BankReconciliation() {
   const isPreCutoff = (bookingDate: string) => !!cutoff && String(bookingDate).slice(0, 10) <= cutoff;
 
 
-  // Transações liquidadas na conta — universo do matching (nunca alteradas).
-  const { data: txns = [] } = useQuery({
-    queryKey: ["bank-recon-txns", accountId],
+  const { data: firstStatementFrom, isSuccess: firstStatementReady } = useQuery({
+    queryKey: ["bank-recon-first-statement", accountId],
     enabled: !!accountId,
     queryFn: async () => {
+      const { data, error } = await supabase.from("bank_statements").select("period_from")
+        .eq("financial_account_id", accountId).order("period_from").limit(1);
+      if (error) throw error;
+      return data?.[0]?.period_from ?? null;
+    },
+  });
+
+  // Universo = conta da transação OU conta das pernas; nunca só paid_amount.
+  const { data: txns = [], isSuccess: cashReady } = useQuery({
+    queryKey: ["bank-recon-txns", accountId, firstStatementFrom],
+    enabled: !!accountId && firstStatementReady,
+    queryFn: async () => {
+      const accountLegs = await fetchAllPages<any>((from, to) => (supabase as any)
+        .from("transaction_payments").select("id, transaction_id")
+        .eq("account_id", accountId).eq("status", "paid").is("reversed_at", null)
+        .neq("payment_method", "compensation").order("id").range(from, to));
       const data = await fetchAllPages<any>((from, to) =>
         supabase
           .from("transactions")
-          .select("id, description, paid_amount, payment_date, date, status, type, supplier_id, suppliers:suppliers!transactions_supplier_id_fkey(name)")
+          .select("id, account_id, description, paid_amount, payment_date, date, status, type, supplier_id, suppliers:suppliers!transactions_supplier_id_fkey(name)")
           .eq("account_id", accountId)
-          .gt("paid_amount", 0)
+          .is("reversed_at", null)
           .order("id")
           .range(from, to) as any,
       );
-      return data.map((t: any) => ({ ...t, supplier_name: t.suppliers?.name ?? null }));
+      const found = new Set(data.map((t) => t.id));
+      const extraIds = [...new Set<string>(accountLegs.map((p) => p.transaction_id))].filter((id) => !found.has(id));
+      for (let start = 0; start < extraIds.length; start += 100) {
+        data.push(...await fetchAllPages<any>((from, to) => (supabase as any).from("transactions")
+          .select("id, account_id, description, paid_amount, payment_date, date, status, type, supplier_id, suppliers:suppliers!transactions_supplier_id_fkey(name)")
+          .in("id", extraIds.slice(start, start + 100)).is("reversed_at", null).order("id").range(from, to)));
+      }
+      const hydrated = await attachReconciliationPayments(data, accountId, firstStatementFrom ?? null);
+      return hydrated.map((t: any) => ({ ...t, supplier_name: t.suppliers?.name ?? null }))
+        .filter((t) => reconciliationCash(t) > 0);
     },
   });
 
@@ -217,8 +262,8 @@ export default function BankReconciliation() {
    * esconderia precisamente o erro de conta que queremos ver.
    */
   const { data: crossAccountTxns = [] } = useQuery({
-    queryKey: ["bank-recon-cross-txns", manualLine?.id, accountId],
-    enabled: !!manualLine && !!accountId,
+    queryKey: ["bank-recon-cross-txns", manualLine?.id, accountId, firstStatementFrom],
+    enabled: !!manualLine && !!accountId && firstStatementReady,
     queryFn: async () => {
       const target = Math.abs(Number(manualLine.amount ?? 0));
       const base = manualLine.value_date ?? manualLine.booking_date;
@@ -228,21 +273,20 @@ export default function BankReconciliation() {
         x.setDate(x.getDate() + days);
         return x.toISOString().slice(0, 10);
       };
-      const { data, error } = await supabase
+      const data = await fetchAllPages<any>((from, to) => supabase
         .from("transactions")
         .select("id, description, type, paid_amount, payment_date, date, account_id, financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
         // O SINAL da linha manda no tipo: crédito só casa com receita.
         .eq("type", Number(manualLine.amount ?? 0) >= 0 ? "income" : "expense")
         .neq("account_id", accountId)
         .not("account_id", "is", null)
-        .gte("paid_amount", target - 0.01)
-        .lte("paid_amount", target + 0.01)
+        .is("reversed_at", null)
         .gte("payment_date", shift(-AMOUNT_WINDOW_DAYS))
         .lte("payment_date", shift(AMOUNT_WINDOW_DAYS))
-        .order("payment_date")
-        .limit(50);
-      if (error) throw error;
-      return (data ?? []).map((t: any) => ({
+        .order("id").range(from, to) as any);
+      const hydrated = await attachReconciliationPayments(data ?? [], accountId, firstStatementFrom ?? null);
+      return hydrated.filter((t) => reconciliationCash(t) > 0 &&
+        Math.abs(reconciliationCash(t) - target) <= 0.01).map((t: any) => ({
         ...t,
         account_name: t.financial_accounts?.name ?? "conta desconhecida",
       }));
@@ -370,19 +414,21 @@ export default function BankReconciliation() {
   const savedLineIds = useMemo(() => (savedLines as any[]).map((l) => l.id), [savedLines]);
 
   const { data: bridgeRows = [] } = useQuery({
-    queryKey: ["bank-recon-bridge", currentStatement?.id, savedLineIds.length],
-    enabled: savedLineIds.length > 0,
+    queryKey: ["bank-recon-bridge", currentStatement?.id, savedLineIds.length, firstStatementFrom],
+    enabled: savedLineIds.length > 0 && firstStatementReady,
     queryFn: async () => {
       const out: any[] = [];
       for (let i = 0; i < savedLineIds.length; i += 200) {
         const { data, error } = await supabase
           .from("bank_line_transactions")
-          .select("id, line_id, transaction_id, transactions(description, paid_amount, payment_date, date)")
+          .select("id, line_id, transaction_id, transactions(id, account_id, description, paid_amount, payment_date, date)")
           .in("line_id", savedLineIds.slice(i, i + 200));
         if (error) throw error;
         out.push(...(data ?? []));
       }
-      return out;
+      const hydrated = await attachReconciliationPayments(out.map((r) => r.transactions).filter(Boolean), accountId, firstStatementFrom ?? null);
+      const byId = new Map(hydrated.map((t) => [t.id, t]));
+      return out.map((r) => ({ ...r, transactions: byId.get(r.transaction_id) }));
     },
   });
 
@@ -775,7 +821,7 @@ export default function BankReconciliation() {
     const unexplainedBank = (savedLines as any[])
       .filter((l) => l.status === "unmatched")
       .reduce((acc, l) => acc + Number(l.amount ?? 0), 0);
-    const unexplainedSystem = txWithoutLine.reduce((acc, t) => acc + Number(t.paid_amount ?? 0), 0);
+    const unexplainedSystem = txWithoutLine.reduce((acc, t) => acc + reconciliationCash(t), 0);
     // Decomposição da diferença (sistema − banco), parcela a parcela:
     //  · linha do banco por explicar: o banco moveu, o sistema não → −amount
     //  · transação sem movimento: o sistema moveu, o banco não → sinal do tipo
@@ -787,7 +833,7 @@ export default function BankReconciliation() {
     const contribSystem =
       Math.round(
         txWithoutLine.reduce(
-          (acc, t: any) => acc + (t.type === "income" ? 1 : -1) * Number(t.paid_amount ?? 0),
+          (acc, t: any) => acc + (t.type === "income" ? 1 : -1) * reconciliationCash(t),
           0,
         ) * 100,
       ) / 100;
@@ -817,6 +863,7 @@ export default function BankReconciliation() {
     }
     try {
       const buf = await file.arrayBuffer();
+      if (!cashReady) throw new Error("A leitura dos pagamentos ainda não está pronta. Aguarde e tente novamente.");
       const p = parseSantanderStatement(buf);
       setParsed(p);
       setFileName(file.name);
@@ -1315,7 +1362,7 @@ export default function BankReconciliation() {
       const t = manualCandidates.get(id);
       const mode = manualModes[id] ?? "link";
       if (mode === "link") {
-        const amount = Math.round(Math.abs(Number(t?.paid_amount ?? 0)) * 100) / 100;
+        const amount = t ? reconciliationCash(t) : 0;
         remaining = Math.round((remaining - amount) * 100) / 100;
         return { id, mode: "link" as const, amount, open: 0, leftover: 0, tx: t };
       }
@@ -1436,6 +1483,10 @@ export default function BankReconciliation() {
    */
   async function rerunReconcile() {
     if (!currentStatement) return;
+    if (!cashReady) {
+      toast.error("A leitura dos pagamentos ainda não está pronta. Aguarde e tente novamente.");
+      return;
+    }
     setRerunning(true);
     try {
       const lines = (savedLines as any[]).filter(
@@ -1853,7 +1904,7 @@ export default function BankReconciliation() {
                             {formatCurrency(
                               Math.round(
                                 (bridgeByLine.get(l.id) ?? []).reduce(
-                                  (a, r) => a + Math.abs(Number(r.transactions?.paid_amount ?? 0)),
+                                  (a, r) => a + (r.transactions ? reconciliationCash(r.transactions) : 0),
                                   0,
                                 ) * 100,
                               ) / 100,
@@ -1861,7 +1912,7 @@ export default function BankReconciliation() {
                           </p>
                           {(bridgeByLine.get(l.id) ?? []).map((r) => (
                             <p key={r.id} className="max-w-[320px] truncate">
-                              {formatCurrency(Math.abs(Number(r.transactions?.paid_amount ?? 0)))} ·{" "}
+                              {formatCurrency(r.transactions ? reconciliationCash(r.transactions) : 0)} ·{" "}
                               {r.transactions?.description ?? "(transação)"}
                             </p>
                           ))}
@@ -2094,7 +2145,7 @@ export default function BankReconciliation() {
                   <TableRow key={t.id}>
                     <TableCell>{formatDatePT(t.payment_date ?? t.date)}</TableCell>
                     <TableCell className="max-w-[420px] truncate">{t.description}</TableCell>
-                    <TableCell className="text-right font-medium text-destructive">{formatCurrency(Number(t.paid_amount ?? 0))}</TableCell>
+                    <TableCell className="text-right font-medium text-destructive">{formatCurrency(reconciliationCash(t))}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -2191,16 +2242,16 @@ export default function BankReconciliation() {
                       )
                       .sort(
                         (a, b) =>
-                          Math.abs(Math.abs(Number(a.paid_amount ?? 0)) - manualTarget) -
-                            Math.abs(Math.abs(Number(b.paid_amount ?? 0)) - manualTarget) ||
+                          Math.abs(reconciliationCash(a) - manualTarget) -
+                            Math.abs(reconciliationCash(b) - manualTarget) ||
                           dateDistance(a.payment_date ?? a.date, manualLine) -
                             dateDistance(b.payment_date ?? b.date, manualLine),
                       )
                       .map((t) => ({
                         value: t.id,
                         group: "Pagas nesta conta, sem movimento no banco",
-                        label: `${formatDatePT(t.payment_date ?? t.date)} · ${formatCurrency(Number(t.paid_amount ?? 0))} · ${t.description}`,
-                        searchText: `${t.description ?? ""} ${t.supplier_name ?? ""} ${t.paid_amount ?? ""}`,
+                        label: `${formatDatePT(t.payment_date ?? t.date)} · ${formatCurrency(reconciliationCash(t))} · ${t.description}`,
+                        searchText: `${t.description ?? ""} ${t.supplier_name ?? ""} ${reconciliationCash(t)}`,
                       })),
                     ...(openTxns as any[])
                       .filter((t) => !manualTxIds.includes(t.id))
@@ -2223,7 +2274,7 @@ export default function BankReconciliation() {
                       .map((t) => ({
                         value: t.id,
                         group: "Pagas noutra conta",
-                        label: `${formatDatePT(t.payment_date ?? t.date)} · ${formatCurrency(Number(t.paid_amount ?? 0))} · ${t.description}`,
+                        label: `${formatDatePT(t.payment_date ?? t.date)} · ${formatCurrency(reconciliationCash(t))} · ${t.description}`,
                         description: `⚠ conta divergente — ${t.account_name}`,
                         searchText: `${t.description ?? ""} ${t.account_name ?? ""}`,
                       })),
