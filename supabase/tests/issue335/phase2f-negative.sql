@@ -24,8 +24,8 @@ DO $$ DECLARE a uuid; b uuid; items jsonb; g uuid; n bigint; BEGIN
  IF (SELECT count(*) FROM transaction_offset_groups)<>n OR EXISTS(SELECT 1 FROM transaction_payments WHERE transaction_id IN(a,b)) THEN RAISE EXCEPTION 'adoption partial'; END IF;
  DELETE FROM transaction_offsets WHERE receivable_transaction_id=a;
  -- Legal held-by fixture: the installed trigger closes it as paid.
- UPDATE transactions SET payment_method='compensation',held_by_supplier_id='00000000-0000-0000-0000-000000000020' WHERE id=b;
- IF (SELECT status FROM transactions WHERE id=b)<>'paid' THEN RAISE EXCEPTION 'legal held_by not paid'; END IF;
+ UPDATE transactions SET payment_method='compensation',held_by_supplier_id='00000000-0000-0000-0000-000000000020' WHERE id=a;
+ IF (SELECT status FROM transactions WHERE id=a)<>'paid' THEN RAISE EXCEPTION 'legal held_by not paid'; END IF;
  BEGIN
   PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,
    '{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13');
