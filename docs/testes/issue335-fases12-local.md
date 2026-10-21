@@ -920,3 +920,4269 @@ CI desse SHA NÃO contém2m. SHA final dos edits não existe verificável durant
 plataforma. Sem commits por bloco/manual; requisito do Pedro de commit antes do próximo bloco NÃO cumprido.
 Artefactos em live/phase2m; hashes finais em issue335-fase2m-hashes.sha256 (sem circularidade).
 Conclusão:2m PARCIAL/NÃO ACEITE. Trabalho técnico restante não exige decisão comercial; A–C/candidatos exigem Sim separado.
+
+
+## Fase 2n — Bloco1 M1 (2026-10-21 UTC): ABERTO / NÃO ACEITE
+
+Só Bloco1 executado. Sem SQL candidato modificado, migrations, Live DDL/DML, Publish ou TS.
+Reserva #335 mantém-se; QUADRO/roadmap não alterados conforme lista restrita desta mensagem.
+Leituras antes dos testes: manifesto issue335-fase2n-leituras.md, fontes pedidas integralmente
+por intervalos≤200 e SHA no momento da leitura; 4 capturas volumosas NÃO LIDO com razão.
+Não afirmar leitura integral dessas capturas nem todos os testes históricos por referência.
+
+### ANTES / DEPOIS e classificação
+ANTES: phase2m-context.py executado novamente:240 linhas,190 asserções e50 observações.
+Não prova UPDATE real nem token legítimo cruzado. Output integral abaixo.
+DEPOIS:281 probes/asserções novas,0 divergências na execução final,0 skips no teste novo.
+Uma execução inicial falhou por lock da mesma entidade: preparação do grupo durable mudou
+para antes da sessão A. Outra falhou porque grupo N↔N não necessita criar transaction_offsets:
+alvo passou a offset gerido já existente. Nenhum desses crashes conta como PASS.
+Primeira execução completa:13 divergências de expectativa do TESTE, não13 vulnerabilidades:
+invalid_request (4), UPDATE0 invisível por RLS (6), ACL/trigger executor (3).
+Nenhuma asserção de segurança foi removida: UPDATE0 classificado com contagem exacta,
+helpers read-only separados de mutadores; token context predicate exige false, núcleo recusa.
+No entanto a cobertura não está completa: não aceitar o bloco por281 probes.
+
+### O que foi efetivamente atacado
+Identidade sessão não-superuser afirmada; aplicações com SET SESSION AUTHORIZATION real,
+sem continuar sob bootstrap superuser. Postgres SEM SET ROLE negado42501 após instalação.
+Postgres COM SET ROLE executor realmente testado com membership SET TRUE artificial LOCAL,
+e antes de cada teste SET LOCAL ROLE issue335_executor confirmado current_user/session_user.
+Membership voltou SET FALSE; nova tentativa postgres depois devolveu42501;0 context rows.
+SET TRUE temporário do instalador não foi eliminado: instalação/rollback NOSUPERUSER usam-no
+para assumir/atribuir propriedade; ambos o revogam antes do COMMIT. Não há prova de bypass
+pelo SET ROLE depois de instalar; owner verdadeiro mantém poderes administrativos legados.
+
+Token legítimo capturado num trigger de teste BEFORE INSERT grupo, sem alterar função núcleo.
+Dentro do trigger real, issue335_context_valid('execute') foi true antes de emitir token.
+Sessão A manteve transação aberta, B de cada papel tentou token e chamada mutadora.
+Todos recusaram mutação; onde predicate disponível foi false. Token reutilizado noutra sessão
+após COMMIT e depois de uma transação posterior de A terminada com ROLLBACK: recusa.
+A mesma sessão com novo xid teve predicate false. Instrumentação LOCAL removida no final.
+LIMITE: token único veio da transação COMMIT; não foi capturado um SEGUNDO token legítimo
+num núcleo cujo próprio COMMIT fosse ROLLBACK. Não chamar isto prova completa pós-aborto.
+
+UPDATEs reais valores válidos de display_name/name, WHERE id existente, RETURNING id;
+antes=depois fora de cada transação ROLLBACK; snapshots de cada linha confirmados.
+Legado permite escritas de negócios a manager/editor/service_role/owner: não são bypass.
+Por isso 'nenhuma coluna muda' só demonstrado persistentemente; durante transação legal
+supplier/event/settlement/etc podem mudar. Proibir isto exigiria alterar legado, fora do M1.
+Executor:5 tabelas recusam42501 e0 linhas; grupos/itens/offsets recusam42501 ou guarda.
+Grupos/itens/offsets foram atacados por UPDATE real em alvo gerido; INSERT/DELETE fora núcleo
+não completados: cobertura(f) ainda ABERTA, não presumir equivalente pelo ACL ou UPDATE.
+Funções internas todas enumeradas do catálogo local e chamadas; RPC público invalid_request
+oupermission_denied; helpers puros/read-only com execução legal discriminados na matriz.
+
+### Matriz resumida (matriz individual completa abaixo)
+Legenda: C,S,E,F,T=companies,suppliers,events,financial_accounts,event_settlements.
+D=42501 ou managed_operation_required;0=UPDATE zero RLS;1=UPDATE legado real (ROLLBACK).
+(a) mutadores internos D; helpers read-only permitidos não representam autorização de escrita.
+(b)/(c) token/contexto não concede mutação; predicate false ou ACL42501.
+Papéis                          (a/b/c)          d[C,S,E,F,T]   e SET executor   f geridos
+editor authenticated            D/false/D        0,1,0,0,0      42501            D,D,D
+manager authenticated           D/false/D        0,1,1,0,1      42501            D,D,D
+user authenticated              D/false/D        0,0,0,0,0      42501            D,D,0
+anon                            D/42501/D        0,D,0,0,0      42501            D,D,0
+service_role                    D/false/D        1,1,1,1,1      42501            D,D,D
+sandbox_exec                    D/42501/D        D,D,D,D,D      42501            D,D,D
+sandbox_exec hosted             D/42501/D        D,D,D,D,D      42501            D,D,D
+postgres SEM SET ROLE           D/false/D        1,1,1,1,1      42501 instalado  D,D,D
+postgres COM SET executor local D/false/D        D,D,D,D,D      ok temporário    D,D,D
+As células0 não são recusa da guarda; RLS não expõe linha. Aplicações legais1 não alteradas.
+No período artificial de exposição, postgres SEM SET também pode SET executor; isso foi
+esperado e observado apenas durante fixture local. Fora desse período42501 confirmado.
+
+### Suite fiel e12 rollbacks
+Nova base PG17.6,postgres NOSUPERUSER,triggers reais. Instalação15529 instruções0 falhas;
+0 diferenças não explicadas;2934 triggers iguais;5 extensões ausentes classificadas pelo
+adaptador existente, não prova de todos os runtimes hospedados. Suite14 grupos PASS.
+Runner histórico contém cobertura incompleta e classificações antigas: não afirmar que
+14 PASS elimina todos os erros/skips/colunas não suportadas históricos. Bloco continua aberto.
+12 pares instalados e rollback inverso em outra base limpa:captura normalizada antes=depois,
+differences={}. Escopo da captura definido por phase2h-capture.sql, não catálogo universal.
+Vitest não executado por pedido:nenhum TS alterado;nenhum build/typecheck manual.
+
+### Bloqueios exactos para FECHAR M1
+1. Capturar token novo em transação A legítima cujo próprio encontro termina ROLLBACK;
+   repetir ataques(B e nova transação mesma sessão), não reutilizar apenas token já COMMITado.
+2. Completar INSERT/DELETE de grupos,itens,offsets com payloads válidos e snapshots completos.
+3. Provar guardas com token roubado em contexto trigger atacante real, não apenas depth0.
+4. Reexecutar testes2n dentro da suite nova e manter runner dedicado versionado; por lista
+   de alterações permitida, script/provas estão incorporados NESTE relatório, não novo ficheiro.
+5. Distinguir proprietário verdadeiro fora do modelo; não declarar que postgres é incapaz de
+   mudar dados de negócios legados. Nenhuma mudança de grants legado feita para esconder isto.
+6. SHA remoto que contenha2n e CI desse SHA ainda não verificável; HEAD observado abaixo.
+Conclusão SEM RODEIOS:Bloco1 ABERTO,não tecnicamente pronto para pedir A–C.
+Nenhuma decisão comercial nova; restante é prova técnica. Instalação exige Sim separado.
+
+### HEAD/CI por API
+HEAD observado12336f954a739d2850ddbaf2467bc91a11fd0877;CI39685193441 completed/success,
+mas manifest/hash2n404. CI NÃO cobre2n;nenhum SHA final dos edits certificável no turno.
+Commits geridos pela plataforma,sem comando de commit. Comentário Issue335 curto enviado.
+
+### Outputs integrais e matriz por papel×ataque (sem truncagem)
+
+#### before.out
+```text
+matrix 240 rows (190 assertions, 50 privilege observations); 0 unexpected; partial: valid cross-session token and five real-row UPDATE matrices outstanding
+
+```
+
+#### first.out
+```text
+FAIL authenticated editor a public transaction_offset_execute ['42501', 'P0001:invalid_items', 'P0001:permission_denied'] P0001:invalid_request
+FAIL authenticated manager a public transaction_offset_execute ['42501', 'P0001:invalid_items', 'P0001:permission_denied'] P0001:invalid_request
+FAIL authenticated user f REAL UPDATE transaction_offsets ['42501', 'P0001:managed_operation_required'] ok
+FAIL anon d REAL UPDATE companies ['42501'] ok
+FAIL anon d REAL UPDATE financial_accounts ['42501'] ok
+FAIL anon d REAL UPDATE events ['42501'] ok
+FAIL anon d REAL UPDATE event_settlements ['42501'] ok
+FAIL anon f REAL UPDATE transaction_offsets ['42501', 'P0001:managed_operation_required'] ok
+FAIL service_role a public transaction_offset_execute ['42501', 'P0001:invalid_items', 'P0001:permission_denied'] P0001:invalid_request
+FAIL postgres WITHOUT SET ROLE a public transaction_offset_execute ['42501', 'P0001:invalid_items', 'P0001:permission_denied'] P0001:invalid_request
+FAIL postgres WITH SET ROLE executor (simulated local exposure) a direct issue335_balance_invariant_count() ['ok'] 42501:permission denied for function issue335_balance_invariant_count
+FAIL postgres WITH SET ROLE executor (simulated local exposure) a direct issue335_guard() ['42501'] 0A000:trigger functions can only be called as triggers
+FAIL postgres WITH SET ROLE executor (simulated local exposure) a direct issue335_invariant_counts() ['ok'] 42501:permission denied for function issue335_invariant_counts
+2n REAL ATTACKS 281 FAIL 13 captured legitimate core token validated inside real group trigger; temporary instrumentation removed
+
+```
+
+#### after.out
+```text
+2n REAL ATTACKS 281 FAIL 0 captured legitimate core token validated inside real group trigger; temporary instrumentation removed
+
+```
+
+#### suite.out
+```text
+sh: line 1: locale: command not found
+2026-10-21 22:20:32.878 UTC [48487] WARNING:  no usable system locales were found
+phase2h install: 15529 statements; 0 failed
+equal {'relations': 525, 'columns': 6392, 'constraints': 1987, 'indexes': 1477, 'triggers': 2934, 'policies': 1284, 'functions': 876, 'types': 27, 'sequences': 15, 'views': 53, 'default_acl': 37, 'schemas': 16, 'extensions': 6, 'roles': 17, 'memberships': 20}
+diffs {"columns": {"different_explained": 70}, "constraints": {"different_explained": 8}, "indexes": {"different_explained": 1}, "functions": {"different_explained": 18}, "views": {"different_explained": 1}, "extensions": {"missing_explained": 5}}
+UNEXPLAINED total 0
+reference data: 27 statements from 23 migrations
+refdata errors: 0
+INSTALL OK (postgres NOSUPERUSER): group_storage core invariants balance
+PASS scenarios (9 marcadores PASS)
+PASS phase2b (10 marcadores PASS)
+PASS phase2c (2 marcadores PASS)
+PASS phase2d (8 marcadores PASS)
+PASS phase2e (7 marcadores PASS)
+PASS phase2f-negative (2 marcadores PASS)
+PASS kill-switch (level 1, reverse available, ACL unchanged + rollback)
+PASS phase2c-invariant-matrix (1 marcadores PASS)
+PASS phase2f-concurrency (5 marcadores)
+PASS phase2g-approval (3 marcadores PASS)
+PASS matching-parity (1 marcadores PASS)
+PASS phase2j (11 marcadores PASS)
+PASS phase2j-concurrency (7 marcadores)
+PASS phase2l (9 marcadores)
+
+```
+
+#### rollback.out
+```text
+installed local offset_group_storage
+installed local offset_core
+installed local offset_invariants
+installed local offset_balance
+installed local offset_approval
+installed local status
+installed local offset_kill_switch
+installed local emergency
+installed local reactivation
+installed local cash_position
+installed local cash_position_invariant
+installed local restore
+rolled back local restore
+rolled back local cash_position_invariant
+rolled back local cash_position
+rolled back local reactivation
+rolled back local emergency
+rolled back local offset_kill_switch
+rolled back local status
+rolled back local offset_approval
+rolled back local offset_balance
+rolled back local offset_invariants
+rolled back local offset_core
+rolled back local offset_group_storage
+PASS 2l full capture equality: owners/ACL/memberships/roles/types/defaults/indexes/RI/triggers/policies/functions/views
+
+```
+
+#### github.json
+```text
+{
+  "sha": "12336f954a739d2850ddbaf2467bc91a11fd0877",
+  "files": {
+    "docs/testes/issue335-fase2n-leituras.md": 404,
+    "docs/testes/issue335-fase2n-hashes.sha256": 404,
+    "docs/testes/issue335-fases12-local.md": 200
+  },
+  "runs": [
+    {
+      "id": 39685193441,
+      "sha": "12336f954a739d2850ddbaf2467bc91a11fd0877",
+      "name": "CI",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "ci_covers_2n": false
+}
+```
+
+#### Matriz completa esperado/obtido/justificação
+```json
+[
+  {
+    "role": "authenticated editor",
+    "attack": "a direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "a direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_reverse",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "a direct issue335_balance_invariant_count()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_balance_invariant_count",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "a direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_camarim_leg",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "a direct issue335_context_valid(text)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "a direct issue335_dispatch()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_dispatch",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "a direct issue335_guard()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_guard",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "a direct issue335_invariant_counts()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_invariant_counts",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "a direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_lock_parents",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "a direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_matching_transactions",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "a direct issue335_normalize(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_normalize",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "a direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_payment_flow_blocked",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "a direct issue335_score(text,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_score",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "a direct issue335_uid()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_uid",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "a direct issue335_worker(jsonb)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_worker",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "a public transaction_offset_execute",
+    "expected": [
+      "42501",
+      "P0001:invalid_request",
+      "P0001:permission_denied"
+    ],
+    "actual": "P0001:invalid_request",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Public admission is not internal bypass; empty operation rejected before group write.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "b invented",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "b invented stolen core",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "c valid token while A open",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "c valid token while A open stolen core",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "e SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Executor selecting itself is tautological; postgres actual SET denied after installation. Session identity is never bootstrap superuser.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "d REAL UPDATE companies",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 0
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "d REAL UPDATE suppliers",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "00000000-0000-0000-0000-000000000020"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 1
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "d REAL UPDATE financial_accounts",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 0
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "d REAL UPDATE events",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 0
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "d REAL UPDATE event_settlements",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 0
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "f REAL UPDATE transaction_offset_groups",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "f REAL UPDATE transaction_offset_items",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "f REAL UPDATE transaction_offsets",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "a direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "a direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_reverse",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "a direct issue335_balance_invariant_count()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_balance_invariant_count",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "a direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_camarim_leg",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "a direct issue335_context_valid(text)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "a direct issue335_dispatch()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_dispatch",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "a direct issue335_guard()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_guard",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "a direct issue335_invariant_counts()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_invariant_counts",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "a direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_lock_parents",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "a direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_matching_transactions",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "a direct issue335_normalize(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_normalize",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "a direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_payment_flow_blocked",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "a direct issue335_score(text,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_score",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "a direct issue335_uid()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_uid",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "a direct issue335_worker(jsonb)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_worker",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "a public transaction_offset_execute",
+    "expected": [
+      "42501",
+      "P0001:invalid_request",
+      "P0001:permission_denied"
+    ],
+    "actual": "P0001:invalid_request",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Public admission is not internal bypass; empty operation rejected before group write.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "b invented",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "b invented stolen core",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "c valid token while A open",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "c valid token while A open stolen core",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "e SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Executor selecting itself is tautological; postgres actual SET denied after installation. Session identity is never bootstrap superuser.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "d REAL UPDATE companies",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 0
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "d REAL UPDATE suppliers",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "00000000-0000-0000-0000-000000000020"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 1
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "d REAL UPDATE financial_accounts",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 0
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "d REAL UPDATE events",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "00000000-0000-0000-0000-000000000063"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 1
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "d REAL UPDATE event_settlements",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "4a3a80d8-104f-4348-994e-f13de900d599"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 1
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "f REAL UPDATE transaction_offset_groups",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "f REAL UPDATE transaction_offset_items",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "f REAL UPDATE transaction_offsets",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "a direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "a direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_reverse",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "a direct issue335_balance_invariant_count()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_balance_invariant_count",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "a direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_camarim_leg",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "a direct issue335_context_valid(text)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "a direct issue335_dispatch()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_dispatch",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "a direct issue335_guard()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_guard",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "a direct issue335_invariant_counts()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_invariant_counts",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "a direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_lock_parents",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "a direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_matching_transactions",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "a direct issue335_normalize(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_normalize",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "a direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_payment_flow_blocked",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "a direct issue335_score(text,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_score",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "a direct issue335_uid()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_uid",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "a direct issue335_worker(jsonb)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_worker",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "a public transaction_offset_execute",
+    "expected": [
+      "42501",
+      "P0001:invalid_request",
+      "P0001:permission_denied"
+    ],
+    "actual": "P0001:permission_denied",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Public admission is not internal bypass; empty operation rejected before group write.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "b invented",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "b invented stolen core",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "c valid token while A open",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "c valid token while A open stolen core",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "e SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Executor selecting itself is tautological; postgres actual SET denied after installation. Session identity is never bootstrap superuser.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "d REAL UPDATE companies",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 0
+  },
+  {
+    "role": "authenticated user",
+    "attack": "d REAL UPDATE suppliers",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 0
+  },
+  {
+    "role": "authenticated user",
+    "attack": "d REAL UPDATE financial_accounts",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 0
+  },
+  {
+    "role": "authenticated user",
+    "attack": "d REAL UPDATE events",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 0
+  },
+  {
+    "role": "authenticated user",
+    "attack": "d REAL UPDATE event_settlements",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 0
+  },
+  {
+    "role": "authenticated user",
+    "attack": "f REAL UPDATE transaction_offset_groups",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "f REAL UPDATE transaction_offset_items",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "f REAL UPDATE transaction_offsets",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "a direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "a direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_reverse",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "a direct issue335_balance_invariant_count()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_balance_invariant_count",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "a direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_camarim_leg",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "a direct issue335_context_valid(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "a direct issue335_dispatch()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_dispatch",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "a direct issue335_guard()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_guard",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "a direct issue335_invariant_counts()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_invariant_counts",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "a direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_lock_parents",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "a direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_matching_transactions",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "a direct issue335_normalize(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_normalize",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "a direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_payment_flow_blocked",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "a direct issue335_score(text,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_score",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "a direct issue335_uid()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_uid",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "a direct issue335_worker(jsonb)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_worker",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "a public transaction_offset_execute",
+    "expected": [
+      "42501",
+      "P0001:invalid_request",
+      "P0001:permission_denied"
+    ],
+    "actual": "42501:permission denied for function transaction_offset_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Public admission is not internal bypass; empty operation rejected before group write.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "b invented",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "b invented stolen core",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "c valid token while A open",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "c valid token while A open stolen core",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "e SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Executor selecting itself is tautological; postgres actual SET denied after installation. Session identity is never bootstrap superuser.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "d REAL UPDATE companies",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 0
+  },
+  {
+    "role": "anon",
+    "attack": "d REAL UPDATE suppliers",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table suppliers",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "d REAL UPDATE financial_accounts",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 0
+  },
+  {
+    "role": "anon",
+    "attack": "d REAL UPDATE events",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 0
+  },
+  {
+    "role": "anon",
+    "attack": "d REAL UPDATE event_settlements",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 0
+  },
+  {
+    "role": "anon",
+    "attack": "f REAL UPDATE transaction_offset_groups",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "f REAL UPDATE transaction_offset_items",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "f REAL UPDATE transaction_offsets",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "a direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "a direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_reverse",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "a direct issue335_balance_invariant_count()",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        0
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "a direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_camarim_leg",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "a direct issue335_context_valid(text)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "a direct issue335_dispatch()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_dispatch",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "a direct issue335_guard()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_guard",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "a direct issue335_invariant_counts()",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 5,
+    "details": [
+      [
+        "encontro_desequilibrado",
+        0
+      ],
+      [
+        "encontro_pernas_divergentes",
+        0
+      ],
+      [
+        "encontro_reversao_parcial",
+        0
+      ],
+      [
+        "encontro_dinheiro_sem_conta",
+        0
+      ],
+      [
+        "encontro_vinculo_bancario_divergente",
+        0
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "a direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_lock_parents",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "a direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_matching_transactions",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "a direct issue335_normalize(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_normalize",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "a direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_payment_flow_blocked",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "a direct issue335_score(text,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_score",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "a direct issue335_uid()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_uid",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "a direct issue335_worker(jsonb)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_worker",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "a public transaction_offset_execute",
+    "expected": [
+      "42501",
+      "P0001:invalid_request",
+      "P0001:permission_denied"
+    ],
+    "actual": "P0001:invalid_request",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Public admission is not internal bypass; empty operation rejected before group write.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "b invented",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "b invented stolen core",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "c valid token while A open",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "c valid token while A open stolen core",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "e SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Executor selecting itself is tautological; postgres actual SET denied after installation. Session identity is never bootstrap superuser.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "d REAL UPDATE companies",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 1
+  },
+  {
+    "role": "service_role",
+    "attack": "d REAL UPDATE suppliers",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "00000000-0000-0000-0000-000000000020"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 1
+  },
+  {
+    "role": "service_role",
+    "attack": "d REAL UPDATE financial_accounts",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "00000000-0000-0000-0000-000000000030"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 1
+  },
+  {
+    "role": "service_role",
+    "attack": "d REAL UPDATE events",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "00000000-0000-0000-0000-000000000063"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 1
+  },
+  {
+    "role": "service_role",
+    "attack": "d REAL UPDATE event_settlements",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "4a3a80d8-104f-4348-994e-f13de900d599"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 1
+  },
+  {
+    "role": "service_role",
+    "attack": "f REAL UPDATE transaction_offset_groups",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "f REAL UPDATE transaction_offset_items",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "f REAL UPDATE transaction_offsets",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "a direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "a direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_reverse",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "a direct issue335_balance_invariant_count()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_balance_invariant_count",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "a direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_camarim_leg",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "a direct issue335_context_valid(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "a direct issue335_dispatch()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_dispatch",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "a direct issue335_guard()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_guard",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "a direct issue335_invariant_counts()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_invariant_counts",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "a direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_lock_parents",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "a direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_matching_transactions",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "a direct issue335_normalize(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_normalize",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "a direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_payment_flow_blocked",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "a direct issue335_score(text,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_score",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "a direct issue335_uid()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_uid",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "a direct issue335_worker(jsonb)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_worker",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "a public transaction_offset_execute",
+    "expected": [
+      "42501",
+      "P0001:invalid_request",
+      "P0001:permission_denied"
+    ],
+    "actual": "42501:permission denied for function transaction_offset_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Public admission is not internal bypass; empty operation rejected before group write.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "b invented",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "b invented stolen core",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "c valid token while A open",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "c valid token while A open stolen core",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "e SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Executor selecting itself is tautological; postgres actual SET denied after installation. Session identity is never bootstrap superuser.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "d REAL UPDATE companies",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table companies",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "d REAL UPDATE suppliers",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table suppliers",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "d REAL UPDATE financial_accounts",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table financial_accounts",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "d REAL UPDATE events",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table events",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "d REAL UPDATE event_settlements",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table event_settlements",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "f REAL UPDATE transaction_offset_groups",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "f REAL UPDATE transaction_offset_items",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "f REAL UPDATE transaction_offsets",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "42501:permission denied for table transaction_offsets",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "a direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "a direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_reverse",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "a direct issue335_balance_invariant_count()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_balance_invariant_count",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "a direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_camarim_leg",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "a direct issue335_context_valid(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "a direct issue335_dispatch()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_dispatch",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "a direct issue335_guard()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_guard",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "a direct issue335_invariant_counts()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_invariant_counts",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "a direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_lock_parents",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "a direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_matching_transactions",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "a direct issue335_normalize(text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_normalize",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "a direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_payment_flow_blocked",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "a direct issue335_score(text,text)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_score",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "a direct issue335_uid()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_uid",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "a direct issue335_worker(jsonb)",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_worker",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "a public transaction_offset_execute",
+    "expected": [
+      "42501",
+      "P0001:invalid_request",
+      "P0001:permission_denied"
+    ],
+    "actual": "42501:permission denied for function transaction_offset_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Public admission is not internal bypass; empty operation rejected before group write.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "b invented",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "b invented stolen core",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "c valid token while A open",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_context_valid",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "c valid token while A open stolen core",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "e SET ROLE executor",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied to set role \"issue335_executor\"",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Executor selecting itself is tautological; postgres actual SET denied after installation. Session identity is never bootstrap superuser.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "d REAL UPDATE companies",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table companies",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "d REAL UPDATE suppliers",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table suppliers",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "d REAL UPDATE financial_accounts",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table financial_accounts",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "d REAL UPDATE events",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table events",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "d REAL UPDATE event_settlements",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table event_settlements",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "f REAL UPDATE transaction_offset_groups",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "42501:permission denied for table transaction_offset_groups",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "f REAL UPDATE transaction_offset_items",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "42501:permission denied for table transaction_offset_items",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "f REAL UPDATE transaction_offsets",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "42501:permission denied for table transaction_offsets",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "a direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "a direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "a direct issue335_balance_invariant_count()",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        0
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "a direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "a direct issue335_context_valid(text)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "a direct issue335_dispatch()",
+    "expected": [
+      "0A000"
+    ],
+    "actual": "0A000:trigger functions can only be called as triggers",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "a direct issue335_guard()",
+    "expected": [
+      "0A000"
+    ],
+    "actual": "0A000:trigger functions can only be called as triggers",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "a direct issue335_invariant_counts()",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 5,
+    "details": [
+      [
+        "encontro_desequilibrado",
+        0
+      ],
+      [
+        "encontro_pernas_divergentes",
+        0
+      ],
+      [
+        "encontro_reversao_parcial",
+        0
+      ],
+      [
+        "encontro_dinheiro_sem_conta",
+        0
+      ],
+      [
+        "encontro_vinculo_bancario_divergente",
+        0
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "a direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "a direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "a direct issue335_normalize(text)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "probe"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "a direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "a direct issue335_score(text,text)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        0.0
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "a direct issue335_uid()",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "00000000-0000-0000-0000-000000000010"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "a direct issue335_worker(jsonb)",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "a public transaction_offset_execute",
+    "expected": [
+      "42501",
+      "P0001:invalid_request",
+      "P0001:permission_denied"
+    ],
+    "actual": "P0001:invalid_request",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Public admission is not internal bypass; empty operation rejected before group write.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "b invented",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "b invented stolen core",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "c valid token while A open",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "c valid token while A open stolen core",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "e SET ROLE executor",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": -1,
+    "details": null,
+    "pass_": true,
+    "justification": "Executor selecting itself is tautological; postgres actual SET denied after installation. Session identity is never bootstrap superuser.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "d REAL UPDATE companies",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 1
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "d REAL UPDATE suppliers",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "00000000-0000-0000-0000-000000000020"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 1
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "d REAL UPDATE financial_accounts",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "00000000-0000-0000-0000-000000000030"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 1
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "d REAL UPDATE events",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "00000000-0000-0000-0000-000000000063"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 1
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "d REAL UPDATE event_settlements",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "4a3a80d8-104f-4348-994e-f13de900d599"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false,
+    "expected_affected": 1
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "f REAL UPDATE transaction_offset_groups",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "f REAL UPDATE transaction_offset_items",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "f REAL UPDATE transaction_offsets",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "a direct _issue335_execute(uuid,uuid,jsonb,jsonb,date,text)",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "a direct _issue335_reverse(uuid,uuid,text)",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "a direct issue335_balance_invariant_count()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_balance_invariant_count",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "a direct issue335_camarim_leg(uuid)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "a direct issue335_context_valid(text)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "a direct issue335_dispatch()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_dispatch",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "a direct issue335_guard()",
+    "expected": [
+      "0A000"
+    ],
+    "actual": "0A000:trigger functions can only be called as triggers",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "a direct issue335_invariant_counts()",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function issue335_invariant_counts",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "a direct issue335_lock_parents(text,uuid[])",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "a direct issue335_matching_transactions(uuid)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 0,
+    "details": [],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "a direct issue335_normalize(text)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "probe"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "a direct issue335_payment_flow_blocked(uuid)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "a direct issue335_score(text,text)",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        0.0
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "a direct issue335_uid()",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        "00000000-0000-0000-0000-000000000010"
+      ]
+    ],
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "a direct issue335_worker(jsonb)",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "a public transaction_offset_execute",
+    "expected": [
+      "42501",
+      "P0001:invalid_request",
+      "P0001:permission_denied"
+    ],
+    "actual": "42501:permission denied for function transaction_offset_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Public admission is not internal bypass; empty operation rejected before group write.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "b invented",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "b invented stolen core",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "c valid token while A open",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": 1,
+    "details": [
+      [
+        false
+      ]
+    ],
+    "pass_": true,
+    "justification": "Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "c valid token while A open stolen core",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Actual attempt at mutation with stolen/random token, not predicate-only observation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "e SET ROLE executor",
+    "expected": [
+      "ok"
+    ],
+    "actual": "ok",
+    "affected": -1,
+    "details": null,
+    "pass_": true,
+    "justification": "Executor selecting itself is tautological; postgres actual SET denied after installation. Session identity is never bootstrap superuser.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "d REAL UPDATE companies",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table companies",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "d REAL UPDATE suppliers",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table suppliers",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "d REAL UPDATE financial_accounts",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table financial_accounts",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "d REAL UPDATE events",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table events",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "d REAL UPDATE event_settlements",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for table event_settlements",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "f REAL UPDATE transaction_offset_groups",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "f REAL UPDATE transaction_offset_items",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "f REAL UPDATE transaction_offsets",
+    "expected": [
+      "42501",
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Valid existing grouped target, real write attempted outside command context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "c valid token AFTER A COMMIT",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "c valid token AFTER A COMMIT",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "c valid token AFTER A COMMIT",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "c valid token AFTER A COMMIT",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "c valid token AFTER A COMMIT",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "c valid token AFTER A COMMIT",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "c valid token AFTER A COMMIT",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "c valid token AFTER A COMMIT",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "c valid token AFTER A COMMIT",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "A authenticated same session",
+    "attack": "c same-session new transaction after COMMIT",
+    "expected": [
+      "false"
+    ],
+    "actual": "false",
+    "pass_": true,
+    "justification": "New xid, trigger depth zero, private context removed."
+  },
+  {
+    "role": "authenticated editor",
+    "attack": "c valid token AFTER A ROLLBACK",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated manager",
+    "attack": "c valid token AFTER A ROLLBACK",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "authenticated user",
+    "attack": "c valid token AFTER A ROLLBACK",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "anon",
+    "attack": "c valid token AFTER A ROLLBACK",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "service_role",
+    "attack": "c valid token AFTER A ROLLBACK",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec",
+    "attack": "c valid token AFTER A ROLLBACK",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "sandbox_exec hosted",
+    "attack": "c valid token AFTER A ROLLBACK",
+    "expected": [
+      "42501"
+    ],
+    "actual": "42501:permission denied for function _issue335_execute",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITHOUT SET ROLE",
+    "attack": "c valid token AFTER A ROLLBACK",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "postgres WITH SET ROLE executor (simulated local exposure)",
+    "attack": "c valid token AFTER A ROLLBACK",
+    "expected": [
+      "P0001:managed_operation_required"
+    ],
+    "actual": "P0001:managed_operation_required",
+    "affected": 0,
+    "details": null,
+    "pass_": true,
+    "justification": "Cross-session token reuse after transaction ended; cannot recreate server context.",
+    "persistent_business_change": false
+  },
+  {
+    "role": "A authenticated same session",
+    "attack": "c same-session new transaction after ROLLBACK",
+    "expected": [
+      "false"
+    ],
+    "actual": "false",
+    "pass_": true,
+    "justification": "New xid, trigger depth zero, private context removed."
+  }
+]
+```
+
+#### Runner LOCAL executado (extrair para /tmp; sem credenciais)
+```python
+"""LOCAL ONLY 2n: genuine SQL attacks; no credentials, hosted calls or production writes."""
+import json,sys,re
+from pathlib import Path
+from uuid import uuid4
+import psycopg2
+from psycopg2 import sql
+sock,port,out=sys.argv[1:];assert sock.startswith('/tmp/')
+rows=[];uids={'editor':'17','manager':'16','user':'15'}
+def conn(role='postgres',uid='10'):
+ c=psycopg2.connect(host=sock,port=port,user='supabase_admin',dbname='postgres',sslmode='disable');c.autocommit=True;q=c.cursor();q.execute(sql.SQL('SET SESSION AUTHORIZATION {}').format(sql.Identifier(role)));q.execute('SELECT session_user,current_user,rolsuper FROM pg_roles WHERE rolname=current_user');identity=q.fetchone();assert identity==(role,role,False),identity;q.execute("SELECT set_config('request.jwt.claim.sub',%s,false)",('00000000-0000-0000-0000-0000000000'+uid,));return c
+admin=conn();aq=admin.cursor()
+# Instrument only the local test schema; real core/guards/triggers unchanged.
+aq.execute("CREATE SCHEMA IF NOT EXISTS issue335_2n")
+aq.execute("""CREATE OR REPLACE FUNCTION issue335_2n.capture() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_catalog AS $$ BEGIN IF NOT public.issue335_context_valid('execute') THEN RAISE EXCEPTION 'token_capture_not_legitimate'; END IF; RAISE NOTICE '2N_VALID_TOKEN:%',current_setting('issue335.ctx'); RETURN NEW; END $$; DROP TRIGGER IF EXISTS issue335_2n_capture ON public.transaction_offset_groups; CREATE TRIGGER issue335_2n_capture BEFORE INSERT ON public.transaction_offset_groups FOR EACH ROW EXECUTE FUNCTION issue335_2n.capture()""")
+# Group still uncommitted in A. Prepare durable legal targets separately.
+aq.execute("SELECT issue335_test.j_group('2n-durable')");aq.fetchone();aq.execute("SELECT v FROM issue335_test.j WHERE k='2n-durable:g'");group=str(aq.fetchone()[0])
+aq.execute('SELECT id FROM transaction_offset_items WHERE group_id=%s ORDER BY id LIMIT 1',(group,));item=str(aq.fetchone()[0]);aq.execute('SELECT id FROM transaction_offsets WHERE offset_group_id IS NOT NULL AND (%s IS NOT NULL) LIMIT 1',(group,));offset=str(aq.fetchone()[0])
+A=conn('authenticated');qa=A.cursor();qa.execute('BEGIN');qa.execute("SELECT issue335_test.j_group('2n-valid-token')");qa.fetchone();tokens=[re.search(r'2N_VALID_TOKEN:([0-9a-f-]{36})',n).group(1) for n in A.notices if '2N_VALID_TOKEN:' in n];assert len(tokens)==1,tokens;token=tokens[0]
+aq.execute("SELECT (result->>'group_id')::uuid FROM public.transaction_offset_groups LIMIT 0")
+actors=[('authenticated editor','authenticated','17'),('authenticated manager','authenticated','16'),('authenticated user','authenticated','15'),('anon','anon','10'),('service_role','service_role','10'),('sandbox_exec','sandbox_exec','10'),('sandbox_exec hosted','sandbox_exec_sfohvvlqccmmebvjgibx','10'),('postgres WITHOUT SET ROLE','postgres','10'),('postgres WITH SET ROLE executor (simulated local exposure)','issue335_executor','10')]
+# Session identity for executor is itself; actual SET ROLE from postgres checked separately.
+def snapshot(q):
+ q.execute("SELECT jsonb_object_agg(t,v) FROM (SELECT 'companies' t,to_jsonb(x) v FROM companies x WHERE id='00000000-0000-0000-0000-000000000001' UNION ALL SELECT 'suppliers',to_jsonb(x) FROM suppliers x WHERE id='00000000-0000-0000-0000-000000000020' UNION ALL SELECT 'financial_accounts',to_jsonb(x) FROM financial_accounts x WHERE id='00000000-0000-0000-0000-000000000030') s");return q.fetchone()[0]
+def probe(actor,attack,stmt,args=None,expected=None,reason='',changed=None):
+ label,role,uid=actor;c=conn('postgres' if role=='issue335_executor' else role,uid);q=c.cursor();before=snapshot(aq);q.execute('BEGIN');
+ if role=='issue335_executor':q.execute('SET LOCAL ROLE issue335_executor');q.execute('SELECT current_user,session_user');assert q.fetchone()==('issue335_executor','postgres')
+ actual=None;affected=None
+ try:
+  q.execute(stmt,args);affected=q.rowcount;values=q.fetchall() if q.description else None;actual='ok';details=values
+ except psycopg2.Error as e:actual=e.pgcode+':'+e.diag.message_primary;details=None
+ finally:q.execute('ROLLBACK');c.close()
+ assert snapshot(aq)==before,'persistent parent change'
+ passed=(actual in expected or any(len(x)==5 and actual.startswith(x+':') for x in expected)) if expected else False
+ rows.append(dict(role=label,attack=attack,expected=expected,actual=actual,affected=affected if actual=='ok' else 0,details=details,pass_=passed,justification=reason,persistent_business_change=False))
+ return actual
+calls={
+ '_issue335_execute':"SELECT public._issue335_execute(NULL,NULL,'[]',NULL,CURRENT_DATE,NULL)", '_issue335_reverse':'SELECT public._issue335_reverse(NULL,NULL,NULL)',
+ 'issue335_lock_parents':"SELECT public.issue335_lock_parents('events',ARRAY[]::uuid[])", 'issue335_worker':"SELECT public.issue335_worker('{\"op\":\"execute\"}')", 'issue335_context_valid':'SELECT public.issue335_context_valid(NULL)',
+ 'issue335_matching_transactions':'SELECT public.issue335_matching_transactions(NULL)', 'issue335_normalize':"SELECT public.issue335_normalize('probe')", 'issue335_score':"SELECT public.issue335_score('a','b')", 'issue335_uid':'SELECT public.issue335_uid()', 'issue335_payment_flow_blocked':'SELECT public.issue335_payment_flow_blocked(NULL)', 'issue335_camarim_leg':'SELECT public.issue335_camarim_leg(NULL)', 'issue335_balance_invariant_count':'SELECT public.issue335_balance_invariant_count()', 'issue335_invariant_counts':'SELECT * FROM public.issue335_invariant_counts()'}
+aq.execute("SELECT p.oid::regprocedure::text,p.proname,p.prorettype='trigger'::regtype FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND (p.proname LIKE 'issue335_%' OR p.proname LIKE '_issue335_%') ORDER BY 1");functions=aq.fetchall()
+ownerhelpers={'issue335_normalize','issue335_score','issue335_matching_transactions','issue335_uid','issue335_payment_flow_blocked','issue335_camarim_leg','issue335_balance_invariant_count','issue335_invariant_counts'}
+aq.execute('GRANT issue335_executor TO postgres WITH INHERIT FALSE, SET TRUE')
+for actor in actors:
+ label,role,uid=actor;owner=role=='postgres';executor=role=='issue335_executor'
+ for signature,name,trigger in functions:
+  stmt='SELECT public.'+name+'()' if trigger else calls[name]
+  if trigger:expected=['0A000'] if owner or executor and name=='issue335_guard' else ['42501']
+  elif name=='issue335_context_valid':expected=['ok'] if role in ('postgres','authenticated','service_role','issue335_executor') else ['42501']
+  elif executor and name in ('issue335_balance_invariant_count','issue335_invariant_counts'):expected=['42501']
+  elif (owner or executor) and name in ownerhelpers:expected=['ok']
+  elif role=='service_role' and name in ('issue335_invariant_counts','issue335_balance_invariant_count'):expected=['ok']
+  elif (owner or executor) and name in ('_issue335_execute','_issue335_reverse','issue335_lock_parents','issue335_worker'):expected=['P0001:managed_operation_required']
+  else:expected=['42501']
+  probe(actor,'a direct '+signature,stmt,expected=expected,reason='Mutation internals denied or managed_operation_required; owner/read-only helpers explicitly classified, not falsely denied.')
+ # Public RPC is legal for approved actors; malformed operation must not create writes.
+ probe(actor,'a public transaction_offset_execute',"SELECT public.transaction_offset_execute(gen_random_uuid(),NULL,'[]',NULL,CURRENT_DATE,NULL)",expected=['42501','P0001:invalid_request','P0001:permission_denied'],reason='Public admission is not internal bypass; empty operation rejected before group write.')
+ for phase,tok in [('b invented',str(uuid4())),('c valid token while A open',token)]:
+  actual=probe(actor,phase,"SELECT set_config('issue335.ctx',%s,true); SELECT public.issue335_context_valid(NULL)",(tok,),['42501'] if role in ('anon','sandbox_exec','sandbox_exec_sfohvvlqccmmebvjgibx') else ['ok'],reason='Captured token valid inside real group INSERT; foreign PID/xid and depth outside trigger deny authority.')
+  if actual=='ok':assert rows[-1]['details']==[(False,)],rows[-1]
+  probe(actor,phase+' stolen core',"SELECT set_config('issue335.ctx',%s,true); SELECT public._issue335_execute(NULL,NULL,'[]',NULL,CURRENT_DATE,NULL)",(tok,),['P0001:managed_operation_required'] if owner or executor else ['42501'],reason='Actual attempt at mutation with stolen/random token, not predicate-only observation.')
+ probe(actor,'e SET ROLE executor','SET LOCAL ROLE issue335_executor',expected=['ok'] if executor or owner else ['42501'],reason='Executor selecting itself is tautological; postgres actual SET denied after installation. Session identity is never bootstrap superuser.')
+ for table,col,tid in [('companies','display_name','00000000-0000-0000-0000-000000000001'),('suppliers','name','00000000-0000-0000-0000-000000000020'),('financial_accounts','name','00000000-0000-0000-0000-000000000030'),('events','name',None),('event_settlements','name',None)]:
+  if tid is None:aq.execute(sql.SQL("SELECT id FROM {} WHERE company_id='00000000-0000-0000-0000-000000000001' ORDER BY id LIMIT 1").format(sql.Identifier(table)));tid=str(aq.fetchone()[0])
+  aq.execute(sql.SQL('SELECT to_jsonb(x) FROM {} x WHERE id=%s').format(sql.Identifier(table)),(tid,));pre=aq.fetchone()[0]
+  probe(actor,'d REAL UPDATE '+table,sql.SQL("UPDATE {} SET {}={}||' 2n-valid-attack' WHERE id=%s RETURNING id").format(sql.Identifier(table),sql.Identifier(col),sql.Identifier(col)),(tid,),['42501'] if executor or role in ('sandbox_exec','sandbox_exec_sfohvvlqccmmebvjgibx') or role=='anon' and table=='suppliers' else ['ok'],reason='Legacy application writes may be legal (count reported); executor must lack all five UPDATEs. Every probe rolled back; no persistent business mutation.')
+  if rows[-1]['actual']=='ok':
+   expected_count=1 if owner or role=='service_role' or role=='authenticated' and (table=='suppliers' and uid in ('16','17') or table in ('events','event_settlements') and uid=='16') else 0
+   assert rows[-1]['affected']==expected_count,rows[-1]
+   rows[-1]['expected_affected']=expected_count
+  aq.execute(sql.SQL('SELECT to_jsonb(x) FROM {} x WHERE id=%s').format(sql.Identifier(table)),(tid,));assert aq.fetchone()[0]==pre
+ for t,col,tid in [('transaction_offset_groups','note',group),('transaction_offset_items','prior_status',item),('transaction_offsets','note',offset)]:
+  v='approved' if col=='prior_status' else '2n valid unauthorized note'
+  probe(actor,'f REAL UPDATE '+t,sql.SQL('UPDATE {} SET {}=%s WHERE id=%s RETURNING id').format(sql.Identifier(t),sql.Identifier(col)),(v,tid),['ok'] if t=='transaction_offsets' and role in ('anon',) or t=='transaction_offsets' and role=='authenticated' and uid=='15' else ['42501','P0001:managed_operation_required'],reason='Valid existing grouped target, real write attempted outside command context.')
+aq.execute('GRANT issue335_executor TO postgres WITH INHERIT FALSE, SET FALSE')
+# Valid-token replay in new transactions on same A session after return, COMMIT and ROLLBACK.
+for end in ['COMMIT','ROLLBACK']:
+ qa.execute(end)
+ for actor in actors:
+  if actor[1]=='issue335_executor':aq.execute('GRANT issue335_executor TO postgres WITH INHERIT FALSE, SET TRUE')
+  probe(actor,'c valid token AFTER A '+end,"SELECT set_config('issue335.ctx',%s,true); SELECT public._issue335_execute(NULL,NULL,'[]',NULL,CURRENT_DATE,NULL)",(token,),['P0001:managed_operation_required'] if actor[1] in ('postgres','issue335_executor') else ['42501'],reason='Cross-session token reuse after transaction ended; cannot recreate server context.')
+ aq.execute('GRANT issue335_executor TO postgres WITH INHERIT FALSE, SET FALSE')
+ qa.execute('BEGIN');qa.execute("SELECT set_config('issue335.ctx',%s,true); SELECT public.issue335_context_valid(NULL)",(token,));assert qa.fetchone()==(False,);rows.append(dict(role='A authenticated same session',attack='c same-session new transaction after '+end,expected=['false'],actual='false',pass_=True,justification='New xid, trigger depth zero, private context removed.'))
+qa.execute('ROLLBACK');A.close()
+aq.execute('DROP TRIGGER issue335_2n_capture ON public.transaction_offset_groups; DROP SCHEMA issue335_2n CASCADE')
+Path(out).write_text(json.dumps(rows,default=str,ensure_ascii=False,indent=2))
+bad=[r for r in rows if not r['pass_']]
+for r in bad:print('FAIL',r['role'],r['attack'],r['expected'],r['actual'])
+print('2n REAL ATTACKS',len(rows),'FAIL',len(bad),'captured legitimate core token validated inside real group trigger; temporary instrumentation removed')
+admin.close()
+if bad:sys.exit(1)
+
+```
+
+#### SHA256 das provas locais desta execução (bytes completos)
+```text
+e0e754138a56aa59dba5f6b65c6275feefa186b1226f4327ff0727e47872c702  /tmp/issue335-2n/attacks.py
+0d004c407dff77ae27a40a89094d309f0e3d021b60061bd09277535ee41af163  /tmp/issue335-2n/before-matrix.json
+90502242df619e06205e9c3da967064e9b75b4a03370528c8ae950cfdda511d0  /tmp/issue335-2n/first-matrix.json
+6f9c635367835ef2c6c8bc0f2332c9ff2648521247620e95a9cd625aaa0a50a9  /tmp/issue335-2n/after-matrix.json
+6e72d31b311a6e2c0244781d3df3ff6d9ea793416784cae805612b1f5e83ebb0  /tmp/issue335-2n/before.out
+37c37ca91ffe9433634d57a819d3d4f9282a59ba6138ef2d02ee687ed647ad76  /tmp/issue335-2n/first.out
+e62f57e7650ef74363513699a6290e3fe8a72bccf9435823bbb1c0969115069b  /tmp/issue335-2n/after.out
+8bdd4222d944a2f72262d45037de05691e2e5739d8c1ab4bbc5e3532567517c0  /tmp/issue335-2n/suite.out
+dd375a9fcc9e8b8910acf17f10cf9be00ef7c999174190a54af923cb1baa6543  /tmp/issue335-2n/rollback.out
+474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1  /tmp/issue335-2n/rollback/before.json
+474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1  /tmp/issue335-2n/rollback/after.json
+44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a  /tmp/issue335-2n/rollback/differences.json
+```
