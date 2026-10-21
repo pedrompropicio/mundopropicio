@@ -34,17 +34,18 @@ async function token(admin: any, c: Conn) {
 const scrubber = (tok: string) => (v: unknown) => { const s = JSON.stringify(v ?? null); return JSON.parse(tok ? s.split(tok).join("***") : s); };
 
 /** Gasto diário gravado (por dia) entre [from, to]. */
-async function dailySpend(admin: any, c: Conn, from: string, to: string): Promise<Record<string, number>> {
+async function dailySpend(admin: any, c: Conn, from: string, to: string, campaigns?: string[]): Promise<Record<string, number>> {
   const t = c.platform === "tiktok" ? "tiktok_insights_daily_carreira" : c.platform === "meta" ? "meta_campaign_insights_daily" : "google_campaign_insights_daily";
   let q = admin.schema("crm").from(t).select("date_start, spend_cents").eq("connection_id", c.id).gte("date_start", from).lte("date_start", to);
   if (c.platform === "tiktok") q = q.eq("level", "adgroup");
+  if (campaigns) q = q.in('external_campaign_id', campaigns);
   const { data } = await q.limit(5000);
   const out: Record<string, number> = {};
   for (const r of data ?? []) out[r.date_start] = (out[r.date_start] ?? 0) + Number(r.spend_cents ?? 0) / 100;
   return out;
 }
-async function avg3d(admin: any, c: Conn, today: string) {
-  const s = await dailySpend(admin, c, addDays(today, -3), addDays(today, -1));
+async function avg3d(admin: any, c: Conn, today: string, campaigns?: string[]) {
+  const s = await dailySpend(admin, c, addDays(today, -3), addDays(today, -1), campaigns);
   const days = [1, 2, 3].map((i) => s[addDays(today, -i)] ?? 0);
   return { avg: days.reduce((a, b) => a + b, 0) / 3, days: Object.fromEntries([1, 2, 3].map((i) => [addDays(today, -i), s[addDays(today, -i)] ?? 0])) };
 }
@@ -164,7 +165,7 @@ async function accountTimezone(admin: any, c: Conn): Promise<string> {
   if (error) throw new Error('account_timezone_write_failed');
   return tz;
 }
-async function activeCampaigns(admin: any, c: Conn, tz: string, now: Date): Promise<number> {
+async function activeCampaigns(admin: any, c: Conn, tz: string, now: Date): Promise<string[]> {
   const crm = admin.schema("crm");
   const table = c.platform === 'google' ? 'google_campaign' : c.platform === 'meta' ? 'meta_campaign_snapshot' : 'tiktok_campaign_carreira';
   const camps: any[] = [];
@@ -180,9 +181,9 @@ async function activeCampaigns(admin: any, c: Conn, tz: string, now: Date): Prom
       if (error) throw new Error('adgroup_read_failed');
       groups.push(...data); if (data.length < 1000) break;
     }
-    return camps.filter(x => ['ENABLE','ACTIVE'].includes(String(x.status).toUpperCase()) && groups.some(g => g.external_campaign_id === x.external_campaign_id && campaignActive(g.status ?? '', timestampDay(g.raw?.schedule_start_time ?? null, tz, true), timestampDay(g.raw?.schedule_end_time ?? null, tz, true), tz, now))).length;
+    return camps.filter(x => ['ENABLE','ACTIVE'].includes(String(x.status).toUpperCase()) && groups.some(g => g.external_campaign_id === x.external_campaign_id && campaignActive(g.status ?? '', timestampDay(g.raw?.schedule_start_time ?? null, tz, true), timestampDay(g.raw?.schedule_end_time ?? null, tz, true), tz, now))).map(x => x.external_campaign_id);
   }
-  return camps.filter(x => campaignActive(x.effective_status ?? x.status ?? '', c.platform === 'meta' ? timestampDay(x.start_time, tz) : x.start_date, c.platform === 'meta' ? timestampDay(x.stop_time, tz) : x.end_date, tz, now)).length;
+  return camps.filter(x => campaignActive(x.effective_status ?? x.status ?? '', c.platform === 'meta' ? timestampDay(x.start_time, tz) : x.start_date, c.platform === 'meta' ? timestampDay(x.stop_time, tz) : x.end_date, tz, now)).map(x => x.external_campaign_id);
 }
 
 async function liveToday(c: Conn, tok: string, today: string): Promise<{ spend: number | null; status: any; problems: { account: string | null; ads: string | null; budget: string | null } }> {
@@ -235,7 +236,7 @@ async function runDelivery(admin: any, conns: Conn[]) {
     const tz = await accountTimezone(admin, c);
     const today = ymd(now, tz); const frac = dayFraction(now, tz);
     const nAct = await activeCampaigns(admin, c, tz, now);
-    if (!nAct) { evaluated.push(c.id); out.push({ conta: label(c), sem_campanhas_activas: true }); continue; }
+    if (!nAct.length) { evaluated.push(c.id); out.push({ conta: label(c), sem_campanhas_activas: true }); continue; }
     const tok = await token(admin, c);
     const live = await liveToday(c, tok, today);
     let spend = live.spend; let fonte = "api_hoje";
@@ -244,7 +245,7 @@ async function runDelivery(admin: any, conns: Conn[]) {
       if (spend === null) { out.push({ conta: label(c), ignorado: "sem gasto de hoje legível", live: scrubber(tok)(live.status) }); continue; }
     }
     evaluated.push(c.id);
-    const a = await avg3d(admin, c, today);
+    const a = await avg3d(admin, c, today, nAct);
     const d = deliveryStopped({ spendToday: spend, avg3d: a.avg, frac });
     const { data: lastR } = await admin.schema("crm").from("artist_ads_balance_readings").select("balance, days_left, read_at")
       .eq("connection_id", c.id).gte("read_at", new Date(now.getTime() - 13 * 3600e3).toISOString()).order("read_at", { ascending: false }).limit(1);
