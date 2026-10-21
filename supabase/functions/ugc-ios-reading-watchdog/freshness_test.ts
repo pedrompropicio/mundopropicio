@@ -54,6 +54,10 @@ Deno.test("unlabelled historical batches on five days cannot create regular cade
   const rows = captures.flatMap((r) => [ { ...r, metric_date: "2026-08-01" }, { ...r, metric_date: "2026-08-02" } ]);
   assertEquals(selectSources(rows, [song], [artist], Date.parse("2026-10-21T11:41:00Z")).length, 0);
 });
+Deno.test("latest batch cannot expose an older stale regular capture", () => {
+  const rows = [...captures, ...["2026-08-01", "2026-08-02"].map((metric_date) => ({ ...captures[0], metric_date, captured_at: "2026-10-21T09:40:00Z" }))];
+  assertEquals(selectSources(rows, [song], [artist], Date.parse("2026-10-21T11:41:00Z")).length, 0);
+});
 Deno.test("multiple missing sources enqueue one summary; existing atomic claim prevents a second enqueue", async () => {
   let calls = 0; let claimed = false;
   const admin = {

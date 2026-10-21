@@ -29,6 +29,7 @@ export function selectSources(rows: any[], songs: any[], artists: any[], now: nu
     const group = groups.get(key) ?? []; group.push(row); groups.set(key, group);
   }
   return [...groups.entries()].map(([key, group]) => {
+    const latest = group.reduce((a, b) => Date.parse(a.captured_at) > Date.parse(b.captured_at) ? a : b);
     const dates = new Map<string, Set<string>>();
     for (const r of group) {
       const day = r.captured_at.slice(0, 10); const set = dates.get(day) ?? new Set<string>();
@@ -36,6 +37,8 @@ export function selectSources(rows: any[], songs: any[], artists: any[], now: nu
     }
     // Unlabelled historical batch: multiple observation dates ingested on one day.
     const scheduled = group.filter((r) => (dates.get(r.captured_at.slice(0, 10))?.size ?? 0) <= 1);
+    // Never fall back to an old regular row when the latest run is a batch.
+    if ((dates.get(latest.captured_at.slice(0, 10))?.size ?? 0) > 1) return null;
     if (!scheduled.length) return null;
     const last = scheduled.reduce((a, b) => Date.parse(a.captured_at) > Date.parse(b.captured_at) ? a : b);
     return { ...last, key, capture_days: regularDays(scheduled, last.captured_at),
