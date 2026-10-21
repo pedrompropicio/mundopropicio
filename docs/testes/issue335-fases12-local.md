@@ -574,3 +574,29 @@ Harness: PostgreSQL 17.6 exacto (`/tmp/issue335-phase2f/pg17.6`), deploy como `p
 Execuções: `phase2f-run.sh` (PG 17.6) exit 0; `run.sh` global em PG 17.6 exit 0; Vitest completo 219/223 ficheiros passaram, 2 falharam por timeout de hook sob carga paralela (newgang-crm-profile-fields, newgang-crm-whatsapp) e passaram isolados 35/35; tsgo exit 0; `tsc` clássico não executado (regra da plataforma).
 
 Hashes: `docs/testes/issue335-fase2g-hashes.sha256`.
+
+## Fase 2h — harness FIEL gerado do catálogo de Live (21/10/2026) — PARCIAL / NÃO ACEITE
+
+Regras cumpridas: tudo local e inerte; só SELECT a pg_catalog/information_schema de Live (sem linhas de dados); nada em migrations; nada instalado em Live; sem Publish. PostgreSQL 17.6 local (Live: 17.6 aarch64; local: x86_64), recompilado com OpenSSL/libuuid para pgcrypto/uuid-ossp; pgvector 0.8.0.
+
+Gerador: `supabase/tests/issue335/live/phase2h-extract.py` (só SELECT, psql persistente read-only) → `live/phase2h-catalog-ddl.json` (15.529 instruções, 16 schemas, todas as tabelas/funções/triggers/policies/ACL/default ACL/papéis). Captura: `live/phase2h-capture.sql`. Instalador: `phase2h-install.py` (como o dono real de cada objecto; postgres NOSUPERUSER). Diferencial: `phase2h-diff.py`. Runner: `phase2h-run.sh`; suite: `phase2h-suite.sh`; fixtures: `phase2h-fixtures.sql` (triggers reais, sem session_replication_role); adaptação de fixtures antigas: `phase2h-adapt.py`.
+
+Instalação: 15.529 instruções, 0 falhas. Bootstrap de administrador documentado: criação do papel postgres e extensões; 78 objectos criados por sessão privilegiada como em Live (75 policies de storage.objects e 1 trigger auth.users.on_auth_user_created — não têm dono; 2 funções realtime com GUC SUSET, entregues depois ao dono real). Índices de tabelas particionadas: "ON ONLY" → "ON" para reproduzir os índices de partição anexados de Live.
+
+Diferencial harness–Live (mesma metodologia 2f, ACL normalizado como conjunto): de 7.856 (1.ª tentativa) para **0 diferenças não explicadas**; 103 explicadas: 70 colunas + 7 CHECK de partições diárias realtime.messages (rodadas pelo serviço Realtime); 1 CHECK e 1 vista com normalização do deparser (mesma semântica); 1 índice inválido em Live (storage); 18 funções C de pg_cron/pg_net/pg_stat_statements/vault em stub que lança erro; 5 extensões não instaláveis localmente (pg_cron, pg_net, pg_stat_statements, pgmq, supabase_vault — objectos replicados como simples). Triggers RI: 2.934 iguais (contagem local = Live).
+
+Certifica: que o harness local reproduz, objecto a objecto, o catálogo capturado de Live (schemas, tabelas, colunas e posições, constraints, índices, funções e corpos, triggers incl. RI, views, RLS, policies, ACL, default ACL, donos, papéis e pertenças) com 0 diferenças não explicadas no schema public. NÃO certifica: dados de Live (tabelas vazias; dados de referência só do código versionado), comportamento de pg_cron/pg_net/vault/pgmq/Realtime/Auth (GoTrue), arquitectura aarch64, nem que os testes do #335 passam no harness fiel.
+
+Suite #335 no harness fiel (instalação group_storage/core/invariants/balance como postgres NOSUPERUSER: OK):
+- scenarios: 6 blocos PASS (Estoril, replay, estorno integral, 4 documentos/IVA, BP atómico, viewer); FALHA no bloco #233 align/keep: o teste liga a mesma transacção a duas linhas e o índice real `uq_bank_line_matched_txn` de Live proíbe-o — pressuposto do teste inválido em Live, não defeito do SQL do #335; por corrigir.
+- phase2b: FALHA em fixture (category_id aleatório viola FK real event_forecasts_category_id_fkey).
+- phase2c: FALHA em cascata (depende de issue335_test.fail_write criada na 2b).
+- phase2d: FALHA em fixture (event_partners.supplier_id NOT NULL em Live).
+- phase2e: FALHA em fixture (profile já criado pelo trigger real on_auth_user_created).
+- phase2f-negative: PASS.
+- Mudança de resultado relevante: o estorno (paid→approved) só passou depois de carregar `role_permissions` do código (migração 20260902231429); sem isso o trigger real de aprovação recusa — confirma que D depende de permissões reais.
+- Não executados nesta fase: phase2g-approval, concorrência, kill-switch, run.sh global no harness fiel; pontos E, A+camarim, G, F.
+
+Defeitos reais do SQL do #335 encontrados: nenhum confirmado até onde a suite correu; as falhas acima são de fixtures/pressupostos dos testes antigos.
+
+Hashes: `docs/testes/issue335-fase2h-hashes.sha256`.
