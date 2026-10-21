@@ -41,5 +41,6 @@
 - [ ] #335 aplicação A–C, UI e provas Live bloqueadas por autorização separada do Pedro.
 - [ ] #335 fase 2c: fechar paridade catálogo/auth, diferencial matching, concorrência cruzada, falhas banco/BP e rollback/invariantes; repetir PG/Vitest e documentar divergências reais, sem aplicação Live.
 
-- [ ] #335 fase 2d: reproduzir papel real/default ACL; verificar e corrigir 12 achados e testes locais completos.
+- [x] #335 fase 2d parcial: postgres não-superuser/default ACL, âncora/reuso, compensação legacy, seis FKs, rollback; PG/Vitest/tsgo passaram; relatório transparente.
+- [ ] #335 fase 2d aceitação técnica: corrigir saldo +100 vs +60 dinheiro e guarda débito; restore/window, metadados geridos/selagem concorrente, paridade integral e scheduler determinístico. Não depende de decisão comercial.
 - [ ] #335 A–C: não aplicar; autorização separada de Pedro obrigatória.
