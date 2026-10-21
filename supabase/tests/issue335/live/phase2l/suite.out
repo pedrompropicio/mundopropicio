@@ -1,5 +1,5 @@
 sh: line 1: locale: command not found
-2026-10-21 21:21:14.236 UTC [47067] WARNING:  no usable system locales were found
+2026-10-21 21:30:12.181 UTC [62884] WARNING:  no usable system locales were found
 phase2h install: 15529 statements; 0 failed
 equal {'relations': 525, 'columns': 6392, 'constraints': 1987, 'indexes': 1477, 'triggers': 2934, 'policies': 1284, 'functions': 876, 'types': 27, 'sequences': 15, 'views': 53, 'default_acl': 37, 'schemas': 16, 'extensions': 6, 'roles': 17, 'memberships': 20}
 diffs {"columns": {"different_explained": 70}, "constraints": {"different_explained": 8}, "indexes": {"different_explained": 1}, "functions": {"different_explained": 18}, "views": {"different_explained": 1}, "extensions": {"missing_explained": 5}}
@@ -20,3 +20,4 @@ PASS phase2g-approval (3 marcadores PASS)
 PASS matching-parity (1 marcadores PASS)
 PASS phase2j (11 marcadores PASS)
 PASS phase2j-concurrency (7 marcadores)
+PASS phase2l (9 marcadores)
