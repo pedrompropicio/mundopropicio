@@ -122,7 +122,17 @@ try:
  assert run(admin,'SELECT * FROM issue335_invariant_counts()')==baseline
  rows.append(dict(step=2,phase='BEFORE',expected='old invariants blind to added trigger',actual='unchanged invariant rows'))
  run(admin,'DROP TRIGGER issue335_2n1c_hostile ON transaction_offset_groups')
+ # Old injection-test triggers are NOT Live allowlisted. Prove detection before
+ # removing only these exact test artifacts; never whitelist or disable legitimate triggers.
+ run(admin,'DROP FUNCTION IF EXISTS public.issue335_trigger_watch()')
  run(admin,(root/'supabase/manual/20261021_issue335_trigger_watch.INERTE.sql').read_text())
+ injected=run(admin,"SELECT c.relname,t.tgname FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace pn ON pn.oid=p.pronamespace WHERE n.nspname='public' AND t.tgname='zzz_issue335_failure' AND pn.nspname='issue335_test' AND p.proname='fail_write'")
+ if injected:
+  result=run(admin,'SELECT current_count,conforme FROM issue335_trigger_watch()')[0]
+  assert result[0]>0 and result[1] is False
+  rows.append(dict(step=2,phase='AFTER-old-test-artifacts-detected',actual=result,artifacts=injected))
+  for table,trigger in injected:
+   run(admin,sql.SQL('DROP TRIGGER {} ON public.{}').format(sql.Identifier(trigger),sql.Identifier(table)))
  legit=run(admin,'SELECT current_count,conforme,sample FROM issue335_trigger_watch()')[0]
  assert legit[0:2]==(0,True),('legitimate catalog false positive',legit)
  rows.append(dict(step=2,phase='AFTER-legitimate',actual=legit))
