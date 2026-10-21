@@ -10,4 +10,10 @@ describe('Traffic hourly rules',()=>{
  it('follows more than 50 pages',async()=>{const rows=await paginate('1',async c=>({rows:[Number(c)],next:Number(c)<51?String(Number(c)+1):undefined}));expect(rows).toHaveLength(51);expect(rows[50]).toBe(51);});
  it('fails rather than commits truncated pages',async()=>{await expect(paginate('1',async c=>{if(c==='2')throw new Error('rate_limit');return {rows:[1],next:'2'};})).rejects.toThrow('rate_limit');});
  it('unknown timezone fails closed',()=>{expect(()=>accountDay(new Date(),'unknown-zone')).toThrow();});
+});import { scopeRows,isArtistCampaign } from '../../supabase/functions/_shared/artist-ads-hourly-core';
+describe('Traffic campaign scope',()=>{
+ it('shared TikTok account drops event campaign (NG27 teaser)',()=>{const s={platform:'tiktok',carreira:new Set(['1878234185487474']),eventLinked:new Set(['1879315304631394'])};const r=scopeRows(s,[{external_campaign_id:'1878234185487474'},{external_campaign_id:'1879315304631394'}]);expect(r.kept).toHaveLength(1);expect(r.skipped).toEqual(['1879315304631394']);});
+ it('TikTok campaign not in carreira is ignored (fail-closed)',()=>{expect(isArtistCampaign({platform:'tiktok',carreira:new Set(),eventLinked:new Set()},'999')).toBe(false);});
+ it('Meta/Google drop event-linked campaigns, keep the rest',()=>{const s={platform:'meta',eventLinked:new Set(['ev1'])};expect(isArtistCampaign(s,'ev1')).toBe(false);expect(isArtistCampaign(s,'a1')).toBe(true);expect(isArtistCampaign({platform:'google',eventLinked:new Set(['g'])},'g')).toBe(false);});
+ it('empty campaign id is never written',()=>{expect(isArtistCampaign({platform:'google',eventLinked:new Set()},'')).toBe(false);});
 });

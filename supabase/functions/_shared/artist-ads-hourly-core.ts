@@ -42,3 +42,15 @@ export async function paginate<T>(first: string, fetchPage: (cursor: string) => 
   }
   return rows;
 }
+/** Campaign scope: tiktok requires membership in the carreira set (fail-closed); every platform drops event-linked campaigns. */
+export type CampaignScope = {platform:string;carreira?:Set<string>;eventLinked:Set<string>};
+export function isArtistCampaign(scope: CampaignScope, campaignId: string): boolean {
+  if (!campaignId || scope.eventLinked.has(campaignId)) return false;
+  if (scope.platform === 'tiktok') return !!scope.carreira?.has(campaignId);
+  return true;
+}
+export function scopeRows<T extends {external_campaign_id?: unknown}>(scope: CampaignScope, rows: T[]) {
+  const kept: T[] = []; const skipped = new Set<string>();
+  for (const r of rows) { const id = String(r.external_campaign_id ?? ''); if (isArtistCampaign(scope,id)) kept.push(r); else skipped.add(id); }
+  return {kept, skipped:[...skipped]};
+}
