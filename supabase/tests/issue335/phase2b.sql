@@ -19,6 +19,38 @@ DO $$ DECLARE g uuid; p uuid; t uuid; BEGIN
  RAISE NOTICE 'PASS attacks: SET ROLE, spoofed GUC, helpers, invented IDs, delete/edit/reverse legs and legacy pairs';
 END $$;
 RESET SESSION AUTHORIZATION;
+-- Roles are real session identities; hosted JWT/company helpers are still local substitutes.
+INSERT INTO public.user_roles VALUES('00000000-0000-0000-0000-000000000012','manager');
+SET SESSION AUTHORIZATION anon;
+DO $$ BEGIN
+ IF has_table_privilege(current_user,'public.transaction_offset_groups','SELECT') OR has_function_privilege(current_user,'public.transaction_offset_execute(uuid,uuid,jsonb,jsonb,date,text)','EXECUTE') OR has_function_privilege(current_user,'public.issue335_dispatch()','EXECUTE') THEN RAISE EXCEPTION 'anon access'; END IF;
+ RAISE NOTICE 'PASS matrix anon: tables/RPCs/helpers denied';
+END $$;
+RESET SESSION AUTHORIZATION;
+SET SESSION AUTHORIZATION authenticated;
+SELECT set_config('t.uid','00000000-0000-0000-0000-000000000099',false);
+DO $$ DECLARE r jsonb; BEGIN
+ IF EXISTS(SELECT 1 FROM transaction_offset_groups) THEN RAISE EXCEPTION 'no-role read'; END IF;
+ BEGIN PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020','[]',NULL,'2026-10-13'); RAISE EXCEPTION 'no-role execute'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'permission_denied' THEN RAISE; END IF; END;
+ RAISE NOTICE 'PASS matrix authenticated without role: no read/no execute';
+END $$;
+SELECT set_config('t.uid','00000000-0000-0000-0000-000000000012',false);
+DO $$ BEGIN
+ IF NOT EXISTS(SELECT 1 FROM transaction_offset_groups) THEN RAISE EXCEPTION 'staff read'; END IF;
+ BEGIN PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020','[]',NULL,'2026-10-13'); RAISE EXCEPTION 'staff validation bypass'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'invalid_request' THEN RAISE; END IF; END;
+ IF has_table_privilege(current_user,'public.transaction_offset_groups','INSERT') OR has_function_privilege(current_user,'public._issue335_reverse(uuid,uuid,text)','EXECUTE') THEN RAISE EXCEPTION 'staff writes/helpers'; END IF;
+ RAISE NOTICE 'PASS matrix staff: read, authorized validation; direct writes/helpers denied';
+END $$;
+RESET SESSION AUTHORIZATION;
+SET SESSION AUTHORIZATION service_role;
+SELECT set_config('t.uid','',false);
+DO $$ BEGIN
+ IF has_table_privilege(current_user,'public.transaction_offset_groups','INSERT') OR has_function_privilege(current_user,'public._issue335_reverse(uuid,uuid,text)','EXECUTE') THEN RAISE EXCEPTION 'service write/helper'; END IF;
+ BEGIN PERFORM transaction_offset_reverse(gen_random_uuid(),gen_random_uuid(),'service no actor'); RAISE EXCEPTION 'service actor bypass'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'permission_denied' THEN RAISE; END IF; END;
+ RAISE NOTICE 'PASS matrix service: read grant, no direct writes/helpers; no actor denied';
+END $$;
+RESET SESSION AUTHORIZATION;
+SELECT set_config('t.uid','00000000-0000-0000-0000-000000000010',false);
 DO $$ DECLARE f uuid; f2 uuid; ev uuid; cat uuid:=gen_random_uuid(); a uuid; b uuid; BEGIN
  INSERT INTO events(id,company_id,name) VALUES(gen_random_uuid(),current_company_id(),'Matching local') RETURNING id INTO ev;
  INSERT INTO event_forecasts(company_id,event_id,category_id,type,description,amount,iva_rate,approved_at) VALUES(current_company_id(),ev,cat,'income','Diárias staff',10,0,now()) RETURNING id INTO f;
