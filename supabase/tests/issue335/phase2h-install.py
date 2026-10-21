@@ -69,6 +69,11 @@ blocks = [['00_roles'], ['01_members'], ['02_schemas'], ['03_schema_acl'], ['04_
           ['16_triggers'], ['16_triggers_state'], ['16_policies'],
           ['19_default_acl']]
 known = {p for b in blocks for p in b}
+# Índices de tabelas particionadas: pg_get_indexdef devolve "ON ONLY" (só o pai); em Live o índice pai está
+# válido porque cada partição tem o seu índice anexado. "ON" recria esse estado com os nomes automáticos do PG.
+for st in ddl['statements']:
+    if st['phase'] == '15_indexes' and ' ON ONLY ' in st['sql']:
+        st['sql'] = st['sql'].replace(' ON ONLY ', ' ON ', 1)
 assert set(phases) <= known, set(phases) - known
 failed = []
 stats = {}
