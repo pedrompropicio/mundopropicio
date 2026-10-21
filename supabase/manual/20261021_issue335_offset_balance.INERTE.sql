@@ -6,7 +6,7 @@ CREATE OR REPLACE FUNCTION public._account_true_balance_raw(_account_id uuid)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
-AS $function$;
+AS $function$
   WITH acc AS (
     SELECT id, COALESCE(initial_balance, 0) AS initial_balance, initial_balance_date
     FROM public.financial_accounts
@@ -62,7 +62,7 @@ CREATE OR REPLACE FUNCTION public._account_true_balance_asof_raw(_account_id uui
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
-AS $function$;
+AS $function$
   WITH acc AS (
     SELECT id, COALESCE(initial_balance, 0) AS initial_balance, initial_balance_date
     FROM public.financial_accounts WHERE id = _account_id

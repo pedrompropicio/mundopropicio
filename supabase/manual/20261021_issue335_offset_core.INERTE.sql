@@ -52,6 +52,14 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_catalog AS $$
                WHERE i.transaction_id=p_tx AND i.removed_at IS NULL AND l.status IN('draft','pending_approval','approved','revision','partially_approved'))
      OR EXISTS(SELECT 1 FROM public.payment_list_sepa_exports e WHERE p_tx=ANY(e.transaction_ids))
      OR EXISTS(SELECT 1 FROM public.partner_paid_expenses x WHERE x.transaction_id=p_tx)
+     OR EXISTS(SELECT 1 FROM public.reimbursement_notes n WHERE n.payment_transaction_id=p_tx)
+     OR EXISTS(SELECT 1 FROM public.card_session_loads l WHERE p_tx IN(l.out_transaction_id,l.in_transaction_id))
+     OR EXISTS(SELECT 1 FROM public.partner_aporte_mirror m WHERE p_tx IN(m.source_transaction_id,m.aporte_transaction_id))
+     OR EXISTS(SELECT 1 FROM public.transactions t JOIN public.financial_accounts a ON a.id=t.account_id
+               WHERE t.id=p_tx AND (a.mirror_partner_aporte OR a.type IN('ticket_office','prepaid_card','camarim_session')))
+     OR EXISTS(SELECT 1 FROM public.transaction_payments p JOIN public.financial_accounts a ON a.id=p.account_id
+               WHERE p.transaction_id=p_tx AND p.status='paid' AND p.reversed_at IS NULL
+                 AND (a.mirror_partner_aporte OR a.type IN('ticket_office','prepaid_card','camarim_session')))
 $$;
 REVOKE ALL ON FUNCTION public.issue335_payment_flow_blocked(uuid) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.issue335_payment_flow_blocked(uuid) TO issue335_executor;
@@ -151,12 +159,16 @@ DECLARE gid uuid; st text; trusted boolean := current_user = 'issue335_executor'
    (NEW.id,NEW.currency,NEW.fx_rate,NEW.original_amount,NEW.installment_group_id,NEW.installment_number,NEW.installment_total,
     NEW.card_session_id,NEW.held_by_supplier_id,NEW.settlement_id,NEW.is_transitory,NEW.supplier_credit_id,NEW.parent_transaction_id,
     NEW.is_reimbursement,NEW.cache_contract_id,NEW.shared_cost_account_id,NEW.declared_withholding_amount,NEW.declared_withholding_rate,
-    NEW.split_percentage,NEW.split_amount,NEW.split_mode,NEW.payment_method,NEW.reversed_by,NEW.reversal_reason)
+    NEW.split_percentage,NEW.split_amount,NEW.split_mode,NEW.payment_method,NEW.reversed_by,NEW.reversal_reason,
+    NEW.paying_partner_id,NEW.ordering_partner_id,NEW.shared_cost_counterparty_id,NEW.category_id,NEW.exclude_from_result,
+    NEW.cache_role,NEW.cache_root_event_id,NEW.cache_artist_supplier_id,NEW.operation_key,NEW.invoice_group_id,NEW.transitory_reason)
    IS DISTINCT FROM
    (OLD.id,OLD.currency,OLD.fx_rate,OLD.original_amount,OLD.installment_group_id,OLD.installment_number,OLD.installment_total,
     OLD.card_session_id,OLD.held_by_supplier_id,OLD.settlement_id,OLD.is_transitory,OLD.supplier_credit_id,OLD.parent_transaction_id,
     OLD.is_reimbursement,OLD.cache_contract_id,OLD.shared_cost_account_id,OLD.declared_withholding_amount,OLD.declared_withholding_rate,
-    OLD.split_percentage,OLD.split_amount,OLD.split_mode,OLD.payment_method,OLD.reversed_by,OLD.reversal_reason) OR
+    OLD.split_percentage,OLD.split_amount,OLD.split_mode,OLD.payment_method,OLD.reversed_by,OLD.reversal_reason,
+    OLD.paying_partner_id,OLD.ordering_partner_id,OLD.shared_cost_counterparty_id,OLD.category_id,OLD.exclude_from_result,
+    OLD.cache_role,OLD.cache_root_event_id,OLD.cache_artist_supplier_id,OLD.operation_key,OLD.invoice_group_id,OLD.transitory_reason) OR
    (NOT trusted AND (NEW.account_id IS DISTINCT FROM OLD.account_id OR
     ((NEW.status IS DISTINCT FROM OLD.status OR NEW.payment_date IS DISTINCT FROM OLD.payment_date OR NEW.paid_amount IS DISTINCT FROM OLD.paid_amount) AND NOT (
       EXISTS(SELECT 1 FROM public.transaction_offset_items gi JOIN public.transaction_offset_groups gg ON gg.id=gi.group_id WHERE gi.transaction_id=OLD.id AND gg.status IN('preparing','reversing')) AND
@@ -248,6 +260,12 @@ BEGIN
   IF t.id=ANY(ids) THEN RAISE EXCEPTION 'duplicate_item'; END IF; ids:=array_append(ids,t.id);
   IF t.supplier_id IS DISTINCT FROM p_supplier_id OR t.type NOT IN ('income','expense') OR t.status NOT IN ('approved','partially_paid') OR t.reversed_at IS NOT NULL OR t.is_hidden THEN RAISE EXCEPTION 'invalid_document'; END IF;
   IF public.issue335_camarim_leg(t.id) THEN RAISE EXCEPTION 'camarim_leg_unsupported: movimentos de camarim não entram no encontro de contas'; END IF;
+  -- 2k M6: não reinterpretar dinheiro legado atribuído a outra conta ao activar um grupo.
+  IF EXISTS(SELECT 1 FROM public.transaction_payments p WHERE p.transaction_id=t.id AND p.status='paid'
+    AND p.reversed_at IS NULL AND p.payment_method IS DISTINCT FROM 'compensation'
+    AND (p.account_id IS NULL OR p.account_id IS DISTINCT FROM t.account_id)) THEN
+   RAISE EXCEPTION 'cash_account_inconsistent: reveja a conta das pernas existentes antes do encontro';
+  END IF;
   IF t.currency<>'EUR' OR t.fx_rate IS NOT NULL OR t.original_amount IS NOT NULL OR t.installment_group_id IS NOT NULL OR t.installment_number IS NOT NULL OR t.installment_total IS NOT NULL OR
      t.card_session_id IS NOT NULL OR t.held_by_supplier_id IS NOT NULL OR t.settlement_id IS NOT NULL OR t.is_transitory OR t.supplier_credit_id IS NOT NULL OR
      public.issue335_payment_flow_blocked(t.id) OR

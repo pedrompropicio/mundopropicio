@@ -1,0 +1,27 @@
+[
+  {
+    "function": "enforce_transaction_approval_permission",
+    "equal": true,
+    "sha256": "46d5cde8357d02321604c670d635dffd33131bd4586a0477e270c4a8276ca858"
+  },
+  {
+    "function": "_run_invariant_checks_extra",
+    "equal": true,
+    "sha256": "a01363206a3d873b80b15490f55038bd73bc209fa7df277b4fe6431ec4e43e8b"
+  },
+  {
+    "function": "get_event_cash_position",
+    "equal": true,
+    "sha256": "ce5c8b9fbfac994ea0aa5a7419267dcc3f1fcdd84ec8ea056f108611a3b18bc1"
+  },
+  {
+    "function": "get_event_cash_position_invariant",
+    "equal": true,
+    "sha256": "efa858e1fb9b92a957fa46923d5e25a5826b05fa6b458c5a5747d678f28a597a"
+  },
+  {
+    "function": "restore_apply_from_shadow",
+    "equal": true,
+    "sha256": "7536494133bad73601e490678a822ce5e998c27b1548bb95c84a5df10688a443"
+  }
+]

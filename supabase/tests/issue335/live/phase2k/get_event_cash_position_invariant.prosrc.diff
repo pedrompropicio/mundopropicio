@@ -1,0 +1,38 @@
+--- Live/get_event_cash_position_invariant
++++ INERTE/get_event_cash_position_invariant
+@@ -25,30 +25,11 @@
+     AND fa.type IN ('bank', 'cash', 'prepaid_card')
+     AND COALESCE(fa.skip_balance_check, false) = false;
+ 
+-  SELECT COALESCE(SUM(bal), 0) INTO v_rhs
+-  FROM (
+-    SELECT fa.initial_balance
+-         + COALESCE((
+-             SELECT SUM(CASE WHEN t.type = 'income' THEN t.paid_amount
+-                             ELSE -t.paid_amount END)
+-             FROM transactions t
+-             WHERE t.account_id = fa.id
+-               AND (fa.initial_balance_date IS NULL
+-                    OR COALESCE(t.payment_date, t.date) > fa.initial_balance_date)
+-           ), 0)
+-         + COALESCE((
+-             SELECT SUM(COALESCE(p.withholding_amount, 0) + COALESCE(p.credit_amount, 0))
+-             FROM transaction_payments p
+-             LEFT JOIN transactions t2 ON t2.id = p.transaction_id
+-             WHERE p.account_id = fa.id
+-               AND (fa.initial_balance_date IS NULL
+-                    OR COALESCE(p.payment_date, t2.payment_date, t2.date) > fa.initial_balance_date)
+-           ), 0) AS bal
+-    FROM financial_accounts fa
+-    WHERE fa.company_id = p_company_id
+-      AND fa.type IN ('bank', 'cash', 'prepaid_card')
+-      AND COALESCE(fa.skip_balance_check, false) = false
+-  ) s;
++  -- #335 2k: compara com o saldo canónico, não repete a fórmula antiga dos dois lados.
++  SELECT coalesce(sum(public._account_true_balance_raw(fa.id)),0) INTO v_rhs
++  FROM public.financial_accounts fa
++  WHERE fa.company_id=p_company_id AND fa.type IN ('bank','cash','prepaid_card')
++    AND coalesce(fa.skip_balance_check,false)=false;
+ 
+   RETURN QUERY
+   SELECT ROUND(v_sum_realized, 2),

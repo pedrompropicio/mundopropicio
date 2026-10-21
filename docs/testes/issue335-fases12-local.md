@@ -689,3 +689,107 @@ pelo executor. Risco: função definer (mitigado por ACL + search_path). Rollbac
 - Matching: paridade 8 casos JS↔SQL no harness fiel PASS.
 - F/I: barreira por `pg_blocking_pids` (aresta observada, polling com prazo 8s, sem sleep fixo), sem erros tolerados. Os testes 2f antigos
   continuam na suite. Não testado: encontro em curso × inclusão em lista (fica legado: lista após pagamento).
+
+## Fase 2k — LOCAL/INERTE, PARCIAL / NÃO ACEITE (21/10/2026)
+
+Nenhuma migration/tool, DDL/DML Live, deploy ou Publish. Só catálogo oficial e contagens agregadas autorizadas.
+Reserva #335 mantida. A–C e cada candidato a objectos instalados continuam sem autorização de aplicação.
+
+### Leituras e revisão independente — limites explícitos
+Relidos AGENTS.md, supabase/AGENTS.md, plano, QUADRO, roadmap, memórias compensacao-ligada/payment-account-ownership,
+questões/hashes 2j, relatório 2h–2j, Issue #335 e TODOS os 11 comentários; os 12 SQL originais e rollbacks,
+phase2h-run/suite/install/fixtures/adapt, phase2j.sql/concurrency/rollback/capture.
+Três agentes independentes só leitura reportaram lacunas; dois não completaram a releitura integral por truncamento.
+Não certifico a releitura integral de TODOS os testes antigos e TODOS os artefactos de live/. JSON completo percorrido
+programaticamente não equivale a revisão semântica integral. A fase 2k não satisfaz ainda este requisito.
+Quarto parecer classificou 26 consumidores; algumas alegações (por exemplo “nenhuma public view”) não foram validadas
+e não são adoptadas como prova. Pesquisa fresca em pg_proc/pg_views: 26 funções com paid_amount+account_id, zero views
+nesse critério textual; não certifica dependências dinâmicas/indirectas nem todos os relatórios cliente.
+
+### ANTES / DEPOIS efectivamente executados
+- A1: harness antes caixa=478,00, saldo=1.158,00; vigia antiga diff=0/is_balanced=true. Candidatos separados
+  get_event_cash_position/get_event_cash_position_invariant: depois caixa=saldo=1.158,00, diff=0.
+  São montantes de fixtures LOCAIS, não dados de Live. committed/pending conservados. Matriz integral por evento,
+  moeda/corte e extractos cliente ainda aberta; adj_agg legado não foi harmonizado e pode continuar divergente.
+- Analíticas: ANTES category_id válido e exclude_from_result=true eram alteráveis num documento gerido.
+  DEPOIS ambos recusados por reverse_entire_group como editor/manager. Tuplo também bloqueia paying/ordering_partner,
+  shared_cost_counterparty, cache_role/root/artist, operation_key, invoice_group_id e transitory_reason.
+  Valores válidos para TODOS estes FKs e matriz completa ainda não executados; não extrapolar estes dois casos.
+- A2/J5: reprodução anterior retida pela suite 2j. Candidato SEPARADO restore_apply_from_shadow recusa antes de
+  DISABLE TRIGGER USER: sete tabelas geridas e global com grupos; nenhuma escrita parcial ou trigger desligado.
+  Escolha conservadora: QUALQUER restauro da empresa com história gerida é recusado, incluindo grupos revertidos;
+  global/rows com qualquer grupo recusados. Sem história na empresa B, restauro real de payments vazio executa.
+  Control é sempre recusado em p_tables/extra_deletes: backup não autoriza reabrir kill-switch. Teste específico
+  control+flag fechada, restauro in-flight e importação de grupos para empresa sem história ainda abertos.
+  Risco funcional declarado: bloqueia também tabelas não geridas da empresa; não é desenho de restauro global coerente.
+- M5: ANTES payment_transaction_id de reimbursement_notes era aceite. DEPOIS unsupported_debt, zero grupo/pernas.
+- M6: ANTES pagamento real em conta diferente de transactions.account_id era aceite. DEPOIS
+  cash_account_inconsistent, sem escritas parciais. Recusa conservadora também conta de perna nula.
+- M4/M7 elegibilidade: helper de leitura agora recusa vínculos de reembolso/card loads/aporte mirror e contas
+  mirror/ticket_office/prepaid_card/camarim_session no documento ou pernas. Testes específicos mirror/card ainda abertos.
+- Body ';': removido do início dos dois corpos candidatos de saldo. Cinco rollbacks comparados byte a byte ao
+  prosrc fresco (approval, invariants, caixa, vigia caixa e restore), iguais; hashes em rollback-body-parity.json.
+
+### Resultados reais
+PG 17.6 exacto, instalação/suite como postgres NOSUPERUSER, triggers reais: 15.529 instruções, 0 falhas;
+diferencial inicial 0 diferenças não explicadas (103 explicadas), 2.934 RI iguais. Suite retida 13/13 PASS fresca
+com core final; seis marcadores focados 2k PASS. Isto NÃO certifica os 13 pontos completos da 2k.
+Rollback NOVO phase2k-rollback.py: nove instalações+nove rollbacks em harness limpo; captura COMPLETA antes=depois,
+incluindo funções/owners/ACL/roles/memberships/default ACL/colunas/defaults/tipos/índices/triggers RI e user/policies/views.
+Corrige a alegação excessiva anterior: phase2j-rollback.sh só comparava fingerprint limitado, não catálogo integral.
+Vitest completo: 221 ficheiros passaram/2 skipped; 1.953 passed, 6 skipped, 11 todo, 189,80s.
+tsgo/tsc NÃO executados nesta fase: regra superior do ambiente proíbe typecheck manual. Resultados 2j não são 2k.
+Build automático observado OK (20:57 UTC); não equivale a tsc.
+Alteração de teste: shadow_prepare já cria sombra vazia; removida chamada restore_shadow_load([]), que o loader real
+recusa por ausência de colunas. Mantida asserção de estado vazio e função real de restauro, nenhuma guarda desligada.
+
+### Catálogo / contagens Live (só números)
+M6: 347 documentos com dinheiro em perna sem conta; 5 com conta diferente; união=352.
+No predicado conservador de elegibilidade consultado: 0/0/0. Não é prova de que futuras pernas inconsistentes
+sejam impossíveis; o teste local acima reproduziu admissão indevida. Nenhum valor monetário/ID/linha retornado.
+Tamanhos agregados: transactions=2013, payments=1462, bank_statement_lines=229, offsets=7.
+Inventário automático backup_table_inventory inclui groups/items como empresa e control como global no harness.
+Não prova que backups existentes contenham estes objectos ou uma fotografia transaccional coerente.
+
+### Inventário dos 26 consumidores — decisão preliminar, não encerramento exaustivo
+Ajustar, candidatos separados preparados: _account_true_balance_raw/_asof_raw, get_event_cash_position,
+get_event_cash_position_invariant. _ticket_office_balance_raw: fonte distinta, recusa conservadora de contas ticket_office
+adicionada, regressão pendente. sync_partner_aporte_mirror: recusar conta/vínculo mirror (regressão pendente).
+camarim_sync_session_leg_payment: core recusa pernas camarim, testes 2j mantidos. card_load_on_out_paid: vínculo card
+agora recusado, regressão pendente. sync_shared_cost_mirror/_cache_create_contract/create_settlement_transfer:
+dívidas shared/cache/settlement/transitórias recusadas por elegibilidade; provar os caminhos legais todos ainda aberto.
+split_transaction_by_bp_lines/renegotiate_transaction_installments: pagamentos/parcelas incompatíveis, manter legado.
+reverse_payment/reverse_transaction/reconcile_bank_line/_apply_transaction_offset: guardas/core preservados;
+ACL reconcile/reverse não alterada nesta fase. save_ticket_office_settlement/reverse_ticket_office_settlement/
+data_entry_assistant_execute_333/launch_from_bank_lines: dependências writers, prova atómica de todas entradas pendente.
+materialize_paid_amount_payment: manter derivação bruto, prova de ausência de materialização fictícia ainda pendente.
+_run_invariant_checks_raw/_paid: bruto pago é liquidação, não caixa; não converter para dinheiro.
+_run_invariant_checks_cards: falso duplicado por account_id/gross possível, classificação/teste pendentes.
+_run_invariant_checks_extra: compensação legada e vigias #335 já no candidato; vigia independente integral pendente.
+Relatórios cliente ReportBankStatement/ReportCashFlow e helpers computeAccountBalance: revisão apontou fórmula antiga;
+NÃO alterados e coerência UI/extracto NÃO provada. Por isso A1 completo permanece aberto apesar do teste SQL passar.
+
+### Achados abertos, por prioridade
+M1 CONFIRMADO local: postgres faz SET ROLE issue335_executor; UPDATE amplo em companies/suppliers/events/accounts/
+event_settlements. Ainda NÃO corrigido; falta contexto estrutural não forjável e superfície mínima de locks/ACL.
+M3: preservar prior_status partially_paid e instalação approval; teste antes/depois e candidato separado pendentes.
+M4 kill-switch: continua um nível, fecha estorno, reactivação/ACL exactos e erro claro ainda pendentes. Nada instalado.
+M5/M7: mapa mirror/reimbursement/camarim/card, serialização company/account e corridas três sessões ainda pendentes.
+M6: vigia independente, união contas documento/perna/grupo e matriz as-of ainda pendentes.
+E: matriz completa valores válidos, classificação todos erros/skips, legado idêntico, ainda pendente.
+Baixos: user_permissions RLS, sandbox_exec real, replay entre utilizadores, ON DELETE RESTRICT/import/upsert,
+índices/lock_timeout/tamanhos ainda não encerrados. Rollback completo e body parity provados no escopo acima.
+
+### A/B/C, ordem e SHA/CI
+A storage; B core + dependências legadas; C registo/invariantes. Adicionais SEPARADOS: saldo, approval,
+restore_apply_from_shadow, get_event_cash_position e get_event_cash_position_invariant, kill-switch/reactivação.
+Ordem local provada: storage→core→invariants→balance→approval→kill-switch→cash→cash-invariant→restore; rollback inverso.
+Esta ordem não é recomendação de aplicação: M1/M3/M4 e regressões em aberto impedem aceitar o pacote.
+Policy issue335_guard_read 2i permanece AUSENTE nos candidatos actuais; helper DEFINER sem GRANT/policy nas quatro
+tabelas, agora lê mais dependências. Novo helper não elimina necessidade de autorização B para policies internas
+e guardas/colunas existentes; candidato restore é autorização adicional explícita.
+Live BEGIN…ROLLBACK não executado/autorizado; depois da aceitação, prova Live de ACL/owners, migração transaccional,
+concorrência/writers reais, backups coerentes e saldos deverá ter autorização separada (não acionar automaticamente).
+API: remoto main=f4cf8d4b9ef977cff4c0088cc11ce25d019c759e, CI success run 39670367135, ficheiro phase2k-focused
+devolve 404 nesse SHA. HEAD local observado ee65756f55da960ab6b6c057846bde72964c22f8. CI NÃO cobre os edits 2k.
+NÃO pronto para pedir A–C. Artefactos e outputs em live/phase2k; hashes em issue335-fase2k-hashes.sha256.

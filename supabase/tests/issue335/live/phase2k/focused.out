@@ -1,0 +1,74 @@
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-000000000010
+(1 row)
+
+BEGIN
+SET
+               j_group                
+--------------------------------------
+ c10fed3a-349e-465c-8f2d-d457f4d55dde
+(1 row)
+
+RESET
+psql:supabase/tests/issue335/phase2k-focused.sql:15: NOTICE:  PASS 2k A1 DEPOIS caixa 1158.00=saldo 1158.00, invariant zero
+DO
+ROLLBACK
+BEGIN
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-000000000010
+(1 row)
+
+SET
+psql:supabase/tests/issue335/phase2k-focused.sql:47: NOTICE:  PASS 2k reimbursement refused atomically (unsupported_debt)
+psql:supabase/tests/issue335/phase2k-focused.sql:47: NOTICE:  PASS 2k cash_account_mismatch refused atomically (cash_account_inconsistent)
+DO
+RESET
+ROLLBACK
+BEGIN
+SET
+               j_group                
+--------------------------------------
+ 30ca0c46-75e2-46c8-8520-297f66263fb1
+(1 row)
+
+RESET
+CREATE TABLE
+INSERT 0 2
+psql:supabase/tests/issue335/phase2k-focused.sql:74: NOTICE:  PASS 2k analytical category_id/exclude_from_result valid values rejected editor/manager
+DO
+ROLLBACK
+BEGIN
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-000000000010
+(1 row)
+
+SET
+               j_group                
+--------------------------------------
+ 2b2f90dc-e4a1-4071-a9ba-1b22244a8fe4
+(1 row)
+
+RESET
+psql:supabase/tests/issue335/phase2k-focused.sql:103: NOTICE:  PASS 2k restore partial 7 tables + global refused before trigger disable; atomic
+DO
+ROLLBACK
+BEGIN
+SET
+psql:supabase/tests/issue335/phase2k-focused.sql:109: NOTICE:  table "public__transaction_payments" does not exist, skipping
+                                                                                                                                                                                                                                                                         restore_shadow_prepare                                                                                                                                                                                                                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {"transaction_payments": ["id", "transaction_id", "amount", "payment_date", "account_id", "payment_method", "payment_entity", "payment_reference", "invoice_ref", "withholding_amount", "credit_amount", "notes", "created_by", "created_at", "updated_at", "company_id", "scheduled_date", "status", "reversal_kind", "reversal_reason", "reversed_at", "reversed_by", "supplier_credit_id", "closes_transaction", "currency", "original_amount", "fx_rate", "fx_rate_source", "offset_id", "payment_list_id", "outside_batch", "offset_group_id", "offset_item_id"]}
+(1 row)
+
+                                                                                         restore_apply_from_shadow                                                                                          
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {"ok": true, "order": ["transaction_payments"], "scope": "company", "deleted": {"transaction_payments": 0}, "inserted": {"transaction_payments": 0}, "company_id": "00000000-0000-0000-0000-000000000002"}
+(1 row)
+
+RESET
+psql:supabase/tests/issue335/phase2k-focused.sql:116: NOTICE:  PASS 2k no-history company real legacy restore executes
+DO
+ROLLBACK

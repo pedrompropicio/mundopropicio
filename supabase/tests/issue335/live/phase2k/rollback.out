@@ -1,0 +1,19 @@
+installed local offset_group_storage
+installed local offset_core
+installed local offset_invariants
+installed local offset_balance
+installed local offset_approval
+installed local offset_kill_switch
+installed local cash_position
+installed local cash_position_invariant
+installed local restore
+rolled back local restore
+rolled back local cash_position_invariant
+rolled back local cash_position
+rolled back local offset_kill_switch
+rolled back local offset_approval
+rolled back local offset_balance
+rolled back local offset_invariants
+rolled back local offset_core
+rolled back local offset_group_storage
+PASS 2k full capture equality: owners/ACL/memberships/roles/types/defaults/indexes/RI/triggers/policies/functions/views
