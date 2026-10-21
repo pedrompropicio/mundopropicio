@@ -42,10 +42,16 @@ INSERT INTO public.user_roles(user_id, role, company_id) VALUES
  ('00000000-0000-0000-0000-000000000019', 'admin',   '00000000-0000-0000-0000-000000000002');
 -- Dados de referência de permissões: copiados do CÓDIGO versionado (não de linhas de Live):
 -- supabase/migrations/20260902231429_5aa81920-cf05-4440-92fb-c6f7f44e98ac.sql
+-- 2i: TODAS as instruções role_permissions das migrações versionadas são repetidas antes deste ficheiro
+-- (phase2i-reference-data.py). Estas linhas ficam como asserção mínima (no-op se já existirem).
 INSERT INTO public.role_permissions(role, permission) VALUES
  ('admin', 'approve_transactions'), ('manager', 'approve_transactions'),
  ('admin', 'raise_budget'), ('manager', 'raise_budget')
 ON CONFLICT (role, permission) DO NOTHING;
+-- manage_bp NÃO existe em nenhuma migração versionada (em Live é concedida pela UI de permissões);
+-- fixture por utilizador (user_permissions), como a UI faria, só para o admin de teste.
+INSERT INTO public.user_permissions(user_id, permission, granted, company_id) VALUES
+ ('00000000-0000-0000-0000-000000000010', 'manage_bp', true, '00000000-0000-0000-0000-000000000001');
 INSERT INTO public.suppliers(id, company_id, name) VALUES
  ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000001', 'Fornecedor local 335');
 INSERT INTO public.financial_accounts(id, company_id, name, type) VALUES
