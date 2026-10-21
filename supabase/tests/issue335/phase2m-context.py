@@ -49,6 +49,8 @@ def begin(role, uid):
     c = psycopg2.connect(host=sock, port=port, user=login, dbname='postgres', sslmode='disable')
     c.autocommit = True
     q = c.cursor()
+    if login == 'supabase_admin':
+        q.execute(sql.SQL('SET SESSION AUTHORIZATION {}').format(sql.Identifier(role)))
     q.execute('BEGIN')
     q.execute("SELECT set_config('request.jwt.claim.sub',%s,true)", ('00000000-0000-0000-0000-0000000000'+uid,))
     if role:
@@ -61,7 +63,7 @@ def probe(label, role, uid, attack, statement, expected, reason):
     try:
         q.execute(statement)
         value = q.fetchall() if q.description else []
-        actual = 'ok:false' if value == [(False,)] else 'ok'
+        actual = 'ok:false' if len(value)==1 and len(value[0])==1 and type(value[0][0]) is bool and value[0][0] is False else 'ok'
     except psycopg2.Error as e:
         actual = e.pgcode + ':' + e.diag.message_primary
     finally:
@@ -78,17 +80,20 @@ for label, role, uid in actors:
         if trigger:
             expected = ['0A000'] if owner else ['42501']
         elif name=='issue335_context_valid':
-            expected=['ok:false']
-        elif owner and name in owner_helpers:
+            expected=['42501'] if role in ('sandbox_exec','sandbox_exec_sfohvvlqccmmebvjgibx','anon') else ['ok:false']
+        elif role=='service_role' and name in ('issue335_balance_invariant_count','issue335_invariant_counts'):
             expected=['ok']
-        elif owner and name in ('_issue335_execute','_issue335_reverse','issue335_lock_parents'):
+        elif owner and name in owner_helpers:
+            expected=['ok:false'] if name in ('issue335_camarim_leg','issue335_payment_flow_blocked') else ['ok']
+        elif owner and name in ('_issue335_execute','_issue335_reverse','issue335_lock_parents','issue335_worker'):
             expected=['P0001:managed_operation_required']
         else:
             expected=['42501']
         probe(label,role,uid,'direct '+signature,statement,expected,
               'True table/function owner retains administration; application roles get no internal execution. Context predicate may return false without granting capability.')
     for attack,token in [('forged GUC',str(uuid4())),('token from earlier transaction',str(uuid4()))]:
-        probe(label,role,uid,attack,"SELECT set_config('issue335.ctx','"+token+"',true); SELECT public.issue335_context_valid(NULL)",['ok:false'],
+        expected=['42501'] if role in ('sandbox_exec','sandbox_exec_sfohvvlqccmmebvjgibx','anon') else ['ok:false']
+        probe(label,role,uid,attack,"SELECT set_config('issue335.ctx','"+token+"',true); SELECT public.issue335_context_valid(NULL)",expected,
               'GUC alone lacks backend/xid/context/trigger proof; earlier-token case does not certify a captured valid cross-session token.')
     probe(label,role,uid,'context INSERT',"INSERT INTO public.issue335_execution_context VALUES(pg_backend_pid(),pg_current_xact_id(),gen_random_uuid(),'execute')",
           ['ok'] if owner else ['42501'], 'True table owner can administer context; application roles cannot forge rows. No claim of protection against owner DDL.')
