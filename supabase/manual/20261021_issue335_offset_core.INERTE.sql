@@ -742,7 +742,7 @@ begin
     elsif v_line.status<>'unmatched' or v_line.matched_transaction_id is not null or v_line.created_transaction_id is not null or exists(select 1 from public.bank_line_transactions where line_id=p_line_id) then
       raise exception 'line_already_matched';
     end if;
-    v_group := public.transaction_offset_execute(v_request,v_supplier,p_items,
+    v_group := public._issue335_execute(v_request,v_supplier,p_items,
       jsonb_build_object('account_id',v_line.financial_account_id,'date',coalesce(v_line.value_date,v_line.booking_date),'amount',v_line.amount),
       coalesce(v_line.value_date,v_line.booking_date),null);
     v_gid := (v_group->>'group_id')::uuid;
