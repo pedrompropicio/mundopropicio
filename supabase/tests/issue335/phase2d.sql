@@ -76,3 +76,26 @@ DO $$ DECLARE ev uuid; es uuid; a uuid; b uuid; items jsonb; g uuid; BEGIN
  BEGIN PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13'); RAISE EXCEPTION 'sealed applied'; EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE 'sealed_settlement:%' THEN RAISE; END IF; END;
  RAISE NOTICE 'PASS 10/seal: settlement-linked document apply/reverse unsealed; sealed apply/reverse denied even with forged seal GUC';
 END $$;
+
+-- #233 alignment message for managed legs (not a generic reverse_entire_group).
+SET ROLE authenticated;
+DO $$ DECLARE a uuid; line uuid; BEGIN
+ SELECT i.transaction_id INTO a FROM transaction_offset_items i JOIN transaction_offset_groups g ON g.id=i.group_id WHERE g.status='applied' AND i.cash_amount>0 LIMIT 1;
+ INSERT INTO bank_statement_lines(id,company_id,financial_account_id,amount,booking_date) VALUES(gen_random_uuid(),current_company_id(),'00000000-0000-0000-0000-000000000030',60,'2026-10-12') RETURNING id INTO line;
+ BEGIN PERFORM reconcile_bank_line(line,jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','link','amount',60,'date_action','align'))); RAISE EXCEPTION 'managed align accepted'; EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE 'managed_group_date_alignment_forbidden:%' THEN RAISE; END IF; END;
+ IF (SELECT status FROM bank_statement_lines WHERE id=line)<>'unmatched' THEN RAISE EXCEPTION 'align partial'; END IF;
+ RAISE NOTICE 'PASS 12: #233 align on managed legs gives specific refusal and leaves bank line unmatched';
+END $$;
+RESET ROLE;
+-- Expose rather than hide canonical balance defect: new compensation changes paid_amount.
+-- This is an OPEN blocker, NOT an assertion that the financial result is acceptable.
+DO $$ DECLARE a uuid; b uuid; items jsonb; before_balance numeric; after_balance numeric; BEGIN
+ INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('income','2d balance+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
+ INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2d balance-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
+ before_balance:=_account_true_balance_raw('00000000-0000-0000-0000-000000000030');
+ items:=jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset'));
+ PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13');
+ after_balance:=_account_true_balance_raw('00000000-0000-0000-0000-000000000030');
+ IF after_balance-before_balance<>100 THEN RAISE EXCEPTION 'canonical balance defect reproduction changed: %',after_balance-before_balance; END IF;
+ RAISE WARNING 'OPEN BLOCKER balance: canonical account delta=100 but real cash=60; compensation counted as cash. No financial acceptance.';
+END $$;
