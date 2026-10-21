@@ -30,7 +30,8 @@ DO $$ BEGIN
  CREATE ROLE issue335_executor NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION;
 END $$;
 GRANT USAGE ON SCHEMA public,auth TO issue335_executor;
-GRANT SELECT ON public.companies,public.suppliers,public.events,public.financial_accounts,public.partner_paid_expenses TO issue335_executor;
+GRANT SELECT,UPDATE ON public.companies,public.suppliers,public.events,public.financial_accounts TO issue335_executor;
+GRANT SELECT ON public.partner_paid_expenses TO issue335_executor;
 GRANT SELECT,INSERT,UPDATE ON public.event_forecasts,public.transactions,public.transaction_payments,public.transaction_offsets,public.bank_statement_lines,public.transaction_offset_groups,public.transaction_offset_items TO issue335_executor;
 GRANT SELECT,INSERT,DELETE ON public.bank_line_transactions TO issue335_executor;
 GRANT SELECT,INSERT ON public.forecast_audit_log,public.transaction_audit_log,public.system_audit_log TO issue335_executor;
