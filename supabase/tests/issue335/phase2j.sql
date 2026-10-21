@@ -178,7 +178,10 @@ RESET ROLE;
 -- real enforce_admin_window_event, atómica (zero grupo/transacção/pagamento).
 DO $$ DECLARE win uuid; ev uuid; cat uuid; f uuid; a uuid; n0 bigint; BEGIN
  SET LOCAL ROLE service_role;
- INSERT INTO public.account_categories(company_id,code,name,type,parent_id,allocate_to_active_event) VALUES('00000000-0000-0000-0000-000000000001','335.1.02','LOCAL janela','income','00000000-0000-0000-0000-000000000051',true) RETURNING id INTO cat;
+ -- 2j: a flag só é aceite em L3 do Grupo 10 (validate_category_allocate_flag real) → plano local 10 > 10.9 > 10.9.35.
+ INSERT INTO public.account_categories(id,company_id,code,name,type,parent_id) VALUES('00000000-0000-0000-0000-000000000060','00000000-0000-0000-0000-000000000001','10','LOCAL G10','expense',NULL) ON CONFLICT DO NOTHING;
+ INSERT INTO public.account_categories(id,company_id,code,name,type,parent_id) VALUES('00000000-0000-0000-0000-000000000061','00000000-0000-0000-0000-000000000001','10.9','LOCAL G10.9','expense','00000000-0000-0000-0000-000000000060') ON CONFLICT DO NOTHING;
+ INSERT INTO public.account_categories(company_id,code,name,type,parent_id,allocate_to_active_event) VALUES('00000000-0000-0000-0000-000000000001','10.9.35','LOCAL janela','expense','00000000-0000-0000-0000-000000000061',true) RETURNING id INTO cat;
  INSERT INTO public.events(id,company_id,name,date,event_nature,absorbs_admin_costs,admin_window_start,admin_window_end) VALUES(gen_random_uuid(),'00000000-0000-0000-0000-000000000001','2j janela','2026-10-01','producao_propria',true,'2026-10-01','2026-10-31') RETURNING id INTO win;
  RESET ROLE;
  INSERT INTO issue335_test.j VALUES('W:cat',cat),('W:win',win) ON CONFLICT(k) DO UPDATE SET v=excluded.v;
@@ -188,10 +191,10 @@ SET ROLE authenticated;
 DO $$ DECLARE ev uuid; f uuid; b uuid; n0 bigint; n1 bigint; BEGIN
  INSERT INTO public.events(id,company_id,budget_mode,name,date,event_nature) VALUES(gen_random_uuid(),public.current_company_id(),'without_bp','2j fora da janela','2026-10-13','producao_propria') RETURNING id INTO ev;
  INSERT INTO public.event_forecasts(id,company_id,event_id,category_id,type,description,amount,iva_rate,approved_at)
-  VALUES(gen_random_uuid(),public.current_company_id(),ev,(SELECT v FROM issue335_test.j WHERE k='W:cat'),'income','2j janela BP',100,0,now()) RETURNING id INTO f;
- INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(public.current_company_id(),'approved','expense','2j janela-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
+  VALUES(gen_random_uuid(),public.current_company_id(),ev,(SELECT v FROM issue335_test.j WHERE k='W:cat'),'expense','2j janela BP',100,0,now()) RETURNING id INTO f;
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(public.current_company_id(),'approved','income','2j janela+',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
  SELECT count(*) INTO n0 FROM public.transactions;
- BEGIN PERFORM public.transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',jsonb_build_array(jsonb_build_object('forecast_id',f,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset')),'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13'); RAISE EXCEPTION 'J3 janela contornada';
+ BEGIN PERFORM public.transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',jsonb_build_array(jsonb_build_object('forecast_id',f,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset')),'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":-60}','2026-10-13'); RAISE EXCEPTION 'J3 janela contornada';
  EXCEPTION WHEN OTHERS THEN IF SQLSTATE<>'42501' OR SQLERRM NOT LIKE 'Esta conta é custo do evento%' THEN RAISE; END IF; END;
  SELECT count(*) INTO n1 FROM public.transactions;
  IF n1<>n0 OR EXISTS(SELECT 1 FROM public.transaction_payments WHERE transaction_id=b) THEN RAISE EXCEPTION 'J3 escrita parcial'; END IF;
