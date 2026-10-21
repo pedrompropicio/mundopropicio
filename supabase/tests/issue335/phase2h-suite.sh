@@ -39,4 +39,7 @@ if "${P[@]}" -v root="$ROOT" -f "$S/phase2l.sql" > "$OUT/phase2l.out" 2>&1; then
 if python3 "$S/phase2n-context.py" "$D" "$PORT" "$OUT/phase2n-context.json" > "$OUT/phase2n-context.out" 2>&1; then
   echo 'PASS phase2n-context execution (item1/2 assertions; item3 OPEN owner-trigger boundary, NOT security acceptance)' | tee -a "$res"
 else echo "FAIL phase2n-context: $(tail -1 "$OUT/phase2n-context.out")" | tee -a "$res"; fi
+if python3 "$S/phase2n-trigger-watch.py" "$D" "$PORT" "$ROOT" "$OUT/phase2n-trigger-watch.json" > "$OUT/phase2n-trigger-watch.out" 2>&1; then
+  echo 'PASS phase2n-trigger-watch (full row snapshots and detector)' | tee -a "$res"
+else echo "FAIL phase2n-trigger-watch: $(tail -1 "$OUT/phase2n-trigger-watch.out")" | tee -a "$res"; fi
 if grep -q '^FAIL' "$res"; then exit 1; fi

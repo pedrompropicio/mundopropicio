@@ -6222,3 +6222,109 @@ dd375a9fcc9e8b8910acf17f10cf9be00ef7c999174190a54af923cb1baa6543  /tmp/issue335-
 ```
 
 Questões/decisões em aberto:nenhuma instalação autorizada;itens2/3 exigem prova/desenho técnico,modelo owner deve ser explicitamente aceite só após candidatos/testes. Recomendada:manter M1 aberto e não instalar.
+
+
+## Fase 2n-Bloco1c — fecho final do M1 (21/10/2026)
+
+Âmbito: só passos 1–2; LOCAL/INERTE, sem TS, migrations, DDL/DML Live ou Publish. Live exclusivamente SELECT pg_trigger para lista permitida. A–C e trigger_watch exigem Sim separado.
+
+### Resultado
+- Passo 1 FECHADO sobre o schema real: INSERT de item com valores válidos em grupo applied, inexistente e company_id de outra empresa; DELETE de grupo com itens e de item REFERENCIADO. 45 ataques reais (5×9 papéis), zero alterações das 8 tabelas de negócio.
+- Precisão importante: transaction_offsets NÃO tem FK de item; a referência real ao item é transaction_payments.offset_item_id (FK composta). Não foi inventada uma coluna receivable_item_id. Grupo tem itens; item tem pagamento com offset: alvos reais certificados. DELETE de item é recusado pela guarda invalid_group_state antes da FK (NEW ausente em DELETE); não se afirma que a FK foi alcançada. Nenhum SQL core alterado.
+- ANTES: 1b não certificava applied/referências nem conteúdo completo; agora controlo positivo INSERT1 com mesmos FKs/valores em grupo preparing, rollback integral das linhas; 5 controlos negativos + controlo específico do DELETE referenciado. Grupo referenciado chega a 23503; item recusa P0001:invalid_group_state.
+- DEPOIS: snapshots completos de todas as colunas/linhas de transaction_offset_groups, transaction_offset_items, transaction_offsets, companies, suppliers, events, financial_accounts, event_settlements; JSON ordenado + SHA256 POR TABELA, conteúdo integral before/after em cada ataque. Ataque em SAVEPOINT, recusa ou RLS0; termina com COMMIT e compara snapshot externo. Não depende de contagem nem do simples ROLLBACK final.
+- service_role e postgres: bypass legado de offsets NÃO geridos INSERT1/DELETE1 autorizado e explicitamente testado; fixtures novas com saldo disponível, ROLLBACK. Não permite grupo gerido fora do núcleo.
+- Passo 2 FECHADO como DETETIVO, não prevenção: dono DDL é trusted computing base. Trigger SECURITY DEFINER do dono dentro do núcleo não é ataque de editor/manager/user; pode controlar núcleo e vigia. Sem capacidades por escrita.
+- ANTES: adiciona trigger atacante em transaction_offset_groups, invariantes antigos ficam exactamente iguais. DEPOIS: vigia legítima 0/true; trigger real dispara dentro de j_group, lê token em contexto legítimo, vigia 1/false e nome exacto. ROLLBACK: 0/true. Triggers artificiais zzz_issue335_failure dos testes antigos também detectados; removidos só pelo nome+schema+função exactos no harness, nunca incluídos na allowlist Live.
+
+### Candidato adicional / quadro A–C
+supabase/manual/20261021_issue335_trigger_watch.INERTE.sql: cria só função nova issue335_trigger_watch(), SQL STABLE SECURITY INVOKER, leitura catálogo, ACL service_role. Retorna name/current_count/reference_count/conforme/sample; sample lista TODOS os triggers de utilizador nas 11 tabelas, allowed por par tabela/nome. Lista versionada: nomes capturados por SELECT Live + issue335_guard das tabelas vigiadas. Não altera funções/triggers existentes, dados, registry ou cron. Requer execução periódica/canonical integration numa decisão futura; aqui runner chama explicitamente. No quadro A/B/C entra APÓS storage+core/invariants como candidato adicional DETETIVO, Sim separado, nunca embutido em A–C.
+Rollback: supabase/manual/20261021_issue335_trigger_watch.ROLLBACK-INERTE.sql, DROP apenas da nova função; instalação recusa função preexistente, lock_timeout 5s. Risco residual: dono pode substituir corpo de trigger permitido, desativá-lo, substituir/remover vigia; allowlist por nome não mede hashes de funções. Não se afirma prevenção nem deteção de substituição com o mesmo nome.
+
+### Testes e classificação de erros
+Harness exato PostgreSQL 17.6 (embedded-postgres 17.6.0), postgres NOSUPERUSER, identidades de sessão por papel, triggers reais. pgvector 0.8.0 compilado localmente com headers 17.9 compatíveis do mesmo major; servidor permanece 17.6. psycopg2 instalado só em /tmp. Tentativas iniciais: 24 erros por extensão ausente/script 0.8.0 indisponível; nunca contadas como PASS. Repetição final: 15.529 statements, 0 falhas; catálogo 2.934 RI iguais, 0 diferenças não explicadas. Classificações hospedadas pré-existentes do diferencial preservadas (5 extensões de ambiente não replicáveis explicadas).
+Suite completa final: 14 grupos históricos PASS + phase2n-context 84 probes + phase2n-trigger-watch PASS; zero skips de ataques. Antigo output item3 OPEN é histórico do modelo DENY, supersedido SOMENTE pela decisão explícita de confiança DDL e controlo detetivo 1c, não ocultado. Notices DROP IF EXISTS e aviso locale ausente não são testes saltados. Avisos pré-existentes de fixture coala supplier_id mantidos nos logs, sem falsificar aprovação.
+Falhas novas corrigidas só nas fixtures/teste: bypass com receita já saturada (23514) → novas transações com saldo; 11 triggers artificiais correctamente detectados → limpeza exacta de fixtures; expectativa FK item errada → assert da guarda real P0001 (continua recusa, schema não alterado). Asserção atacante real adicionada antes da execução final. Nenhum TS tocado, Vitest não solicitado/executado.
+Rollback 13 pares (12 anteriores + trigger_watch): captura COMPLETA do catálogo, NORMALIZADA apenas na ordem das linhas e ACL, before=after, diferenças {}. Não é captura byte-a-byte de pg_dump nem dados de negócio; snapshots dos ataques são conteúdo integral de linhas com ordenação determinística.
+
+### Matriz papel × ataque (esperado e obtido)
+Todos esperam DENY/RLS0 e conteúdo before=after; motivos concretos abaixo. Service_role/postgres legado: INSERT1+DELETE1 esperado e obtido, ROLLBACK.
+
+editor:
+- INSERT applied group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- INSERT missing group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- INSERT other company: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- DELETE referenced group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_groups; affected=0; 8 snapshots completos iguais.
+- DELETE referenced item: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+
+manager:
+- INSERT applied group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- INSERT missing group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- INSERT other company: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- DELETE referenced group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_groups; affected=0; 8 snapshots completos iguais.
+- DELETE referenced item: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+
+user:
+- INSERT applied group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- INSERT missing group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- INSERT other company: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- DELETE referenced group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_groups; affected=0; 8 snapshots completos iguais.
+- DELETE referenced item: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+
+anon:
+- INSERT applied group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- INSERT missing group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- INSERT other company: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- DELETE referenced group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_groups; affected=0; 8 snapshots completos iguais.
+- DELETE referenced item: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+
+service_role:
+- INSERT applied group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- INSERT missing group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- INSERT other company: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- DELETE referenced group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_groups; affected=0; 8 snapshots completos iguais.
+- DELETE referenced item: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+
+sandbox_exec:
+- INSERT applied group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- INSERT missing group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- INSERT other company: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- DELETE referenced group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_groups; affected=0; 8 snapshots completos iguais.
+- DELETE referenced item: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+
+sandbox_exec specific:
+- INSERT applied group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- INSERT missing group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- INSERT other company: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+- DELETE referenced group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_groups; affected=0; 8 snapshots completos iguais.
+- DELETE referenced item: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+
+postgres:
+- INSERT applied group: esperado DENY/RLS0; obtido P0001:managed_operation_required; affected=0; 8 snapshots completos iguais.
+- INSERT missing group: esperado DENY/RLS0; obtido P0001:managed_operation_required; affected=0; 8 snapshots completos iguais.
+- INSERT other company: esperado DENY/RLS0; obtido P0001:managed_operation_required; affected=0; 8 snapshots completos iguais.
+- DELETE referenced group: esperado DENY/RLS0; obtido P0001:managed_operation_required; affected=0; 8 snapshots completos iguais.
+- DELETE referenced item: esperado DENY/RLS0; obtido P0001:managed_operation_required; affected=0; 8 snapshots completos iguais.
+
+postgres SET executor:
+- INSERT applied group: esperado DENY/RLS0; obtido P0001:managed_operation_required; affected=0; 8 snapshots completos iguais.
+- INSERT missing group: esperado DENY/RLS0; obtido P0001:managed_operation_required; affected=0; 8 snapshots completos iguais.
+- INSERT other company: esperado DENY/RLS0; obtido P0001:managed_operation_required; affected=0; 8 snapshots completos iguais.
+- DELETE referenced group: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_groups; affected=0; 8 snapshots completos iguais.
+- DELETE referenced item: esperado DENY/RLS0; obtido 42501:permission denied for table transaction_offset_items; affected=0; 8 snapshots completos iguais.
+
+### Evidência local integral (hashes; ficheiros temporários não substituem runner versionado)
+```text
+0a90c59b4a2049030030ae8bc0e3e57b3eb5ac1e315003ed1b27f91dfaeb4e33  /tmp/issue335-1c/suite-final.out
+25637be5482c8d8bcd85c0387cebd43989069f7fd5ca6d1766a52b1f8d24a157  /tmp/issue335-1c/suite-final/phase2n-trigger-watch.json
+cec62127d8cad7825d45acaabd79e2b21a3f44658e80fa33a51b4e24f17dd8a7  /tmp/issue335-1c/suite-final/phase2n-context.json
+474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1  /tmp/issue335-1c/rollback-final/before.json
+474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1  /tmp/issue335-1c/rollback-final/after.json
+44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a  /tmp/issue335-1c/rollback-final/differences.json
+0c92d9b089cd58817d66367aa9bdc7245717bc36531c9ca70b74a91d3dfa5317  /tmp/issue335-1c/rollback-final.out
+```
+
+M1 FECHADO tecnicamente neste âmbito de modelo de confiança DDL + ataques pedidos sobre schema real. A referência item→offset não existe no schema; testada a referência pagamento→item real, com offset no pagamento. Não implica aceitação das outras fases, A–C, instalação ou CI remoto.
+
+### GitHub e CI (API, fecho 1c)
+HEAD main observado 40743f624213643f517b7bc54a32699369370799; novo runner e candidato HTTP404; relatório remoto não contém edits 1c. Run 39687730567 success desse HEAD só cobre versão anterior. CI 1c NÃO VERIFICADA; não verde. Comentário #335 enviado após fechar relatório; nenhuma instalação.
