@@ -65,7 +65,7 @@ ROLLBACK;
 SET ROLE authenticated;
 BEGIN;
 DO $$ DECLARE a uuid; b uuid; ev uuid; BEGIN
- INSERT INTO public.events(id,company_id,name,date,event_nature) VALUES(gen_random_uuid(),public.current_company_id(),'2j sócio','2026-10-13','producao_propria') RETURNING id INTO ev;
+ INSERT INTO public.events(id,company_id,budget_mode,name,date,event_nature) VALUES(gen_random_uuid(),public.current_company_id(),'without_bp','2j sócio','2026-10-13','producao_propria') RETURNING id INTO ev;
  INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(public.current_company_id(),'approved','income','2j ppe+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
  INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id,event_id) VALUES(public.current_company_id(),'approved','expense','2j ppe-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020',ev) RETURNING id INTO b;
  INSERT INTO public.partner_paid_expenses(event_id,partner_id,transaction_id) VALUES(ev,'00000000-0000-0000-0000-000000000020',b);
@@ -152,7 +152,7 @@ END $$;
 -- Encontro recusado em transacção de fecho selado; estorno do grupo recusado depois de selar; reabrir → estorno ok.
 SET ROLE authenticated;
 DO $$ DECLARE ev uuid; es uuid; g uuid; BEGIN
- INSERT INTO public.events(id,company_id,name,date,event_nature) VALUES(gen_random_uuid(),public.current_company_id(),'2j selo','2026-10-13','producao_propria') RETURNING id INTO ev;
+ INSERT INTO public.events(id,company_id,budget_mode,name,date,event_nature) VALUES(gen_random_uuid(),public.current_company_id(),'without_bp','2j selo','2026-10-13','producao_propria') RETURNING id INTO ev;
  INSERT INTO public.event_settlements(id,event_id,company_id,name,is_sealed) VALUES(gen_random_uuid(),ev,public.current_company_id(),'LOCAL 2j',false) RETURNING id INTO es;
  g:=issue335_test.j_group('S',jsonb_build_object('event_id',ev,'event_settlement_id',es));
  PERFORM public.seal_event_settlement(es,'{"check1":0,"check2":0}'::jsonb,NULL,'LOCAL 2j');
@@ -181,7 +181,7 @@ EXCEPTION WHEN undefined_column THEN RAISE NOTICE 'J3 colunas de janela diferent
 END $$;
 SET ROLE authenticated;
 DO $$ DECLARE ev uuid; f uuid; b uuid; n0 bigint; n1 bigint; BEGIN
- INSERT INTO public.events(id,company_id,name,date,event_nature) VALUES(gen_random_uuid(),public.current_company_id(),'2j fora da janela','2026-10-13','producao_propria') RETURNING id INTO ev;
+ INSERT INTO public.events(id,company_id,budget_mode,name,date,event_nature) VALUES(gen_random_uuid(),public.current_company_id(),'without_bp','2j fora da janela','2026-10-13','producao_propria') RETURNING id INTO ev;
  INSERT INTO public.event_forecasts(id,company_id,event_id,category_id,type,description,amount,iva_rate,approved_at)
   VALUES(gen_random_uuid(),public.current_company_id(),ev,(SELECT v FROM issue335_test.j WHERE k='W:cat'),'income','2j janela BP',100,0,now()) RETURNING id INTO f;
  INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(public.current_company_id(),'approved','expense','2j janela-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
@@ -202,7 +202,7 @@ END $$;
 
 -- ===================== J4 — fecho/reabertura de evento =====================
 DO $$ DECLARE ev uuid; f uuid; b uuid; g uuid; BEGIN
- INSERT INTO public.events(id,company_id,name,date,event_nature) VALUES(gen_random_uuid(),public.current_company_id(),'2j fecho','2026-10-13','producao_propria') RETURNING id INTO ev;
+ INSERT INTO public.events(id,company_id,budget_mode,name,date,event_nature) VALUES(gen_random_uuid(),public.current_company_id(),'without_bp','2j fecho','2026-10-13','producao_propria') RETURNING id INTO ev;
  g:=issue335_test.j_group('C',jsonb_build_object('event_id',ev));
  UPDATE public.events SET status='completed' WHERE id=ev;  -- enforce_event_close_blockers real: grupo não é bloqueio
  INSERT INTO public.event_forecasts(id,company_id,event_id,category_id,type,description,amount,iva_rate,approved_at) VALUES(gen_random_uuid(),public.current_company_id(),ev,'00000000-0000-0000-0000-000000000052','income','2j fechado BP',100,0,now()) RETURNING id INTO f;
