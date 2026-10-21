@@ -61,4 +61,6 @@
 - [ ] #335 2l NÃO ACEITE: leituras completas, M1 role matrix, M3 parcial com pernas anteriores, M4 emergency concorrente, M5/M7 novas corridas, M6 vigia independente, E matriz válida, baixas e cliente. Lacunas técnicas sem decisão comercial; não instalar.
 - [ ] #335 2l fecho remoto: presença/hash/CI dos edits após sincronização; remoto observado ainda SHA59e8fe03 CI39676081024 com phase2l HTTP404. Reserva mantida; A–C exigem Sim separado.
 
-- [ ] #335 fase 2m: leituras certificadas e blocos 1–8 locais/inertes; reserva mantida; testes/rollback/hash/CI e relatório final pendentes, sem A–C/Live/Publish.
+- [x] #335 fase 2m parcial: regressão PG14/14, matriz190 asserções/50 observações, rollback12 pares catálogo igual, Vitest1953; relatório/hashes e manifesto incompleto registados; sem A–C/Live/Publish.
+- [ ] #335 fase 2m NÃO ACEITE: leituras completas e blocos1–8 (token válido/UPDATE real, status/pernas anteriores, emergência/flags, writers/corridas, vigia independente, E válida, baixas, inventário cliente completo); reserva mantida. São trabalho técnico por concluir, não bloqueios que exijam decisão comercial.
+- [ ] #335 fase 2m fecho remoto: SHA final/presença/hash/CI dos edits após sincronização da plataforma; b798a59d CI39679753365 não contém2m. Nenhum commit manual; A–C/candidatos exigem Sim separado.
