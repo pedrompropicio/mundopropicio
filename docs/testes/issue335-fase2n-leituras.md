@@ -53,3 +53,12 @@ Fontes do Bloco1 inexistentes como runner versionado: script real era /tmp/issue
 - supabase/tests/issue335/phase2j.sql: intervalos 1–45; SHA actual 84b08bc489e68ee3b754692d9ca565613df3b4303e5455b76489c61527f6cb0f; novo runner actual tem linhas adicionadas após leitura, não afirmar versão actual integralmente relida.
 - supabase/tests/issue335/phase2n-context.py: intervalos 1–200,201–222 (versão inicial antes do patch); SHA actual 67c31a48bcd38ee3dcbbb6394d5bc91453acc00ed04802d6fe55af6be5df4f9f; novo runner actual tem linhas adicionadas após leitura, não afirmar versão actual integralmente relida.
 - supabase/tests/issue335/phase2l-rollback.py: intervalos 1–49 (já em contexto da mesma conversa); SHA actual eaa73e57553011903fc83b6b404fef8204f1dbf988e58fc8bdd020b2a1282297; novo runner actual tem linhas adicionadas após leitura, não afirmar versão actual integralmente relida.
+
+## Bloco1c — leituras ANTES dos novos testes (21/10/2026 22:43 UTC)
+- supabase/tests/issue335/phase2n-context.py | N=229 | sha256=67c31a48bcd38ee3dcbbb6394d5bc91453acc00ed04802d6fe55af6be5df4f9f | LIDO INTEGRAL | intervalos 1–200,201–229
+- supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql | N=91 | sha256=ea8632f3dfb3d997678c03ff33092088b2838cc7ab9e38eeb3f4a29ae60abecc | LIDO INTEGRAL | intervalos 1–91
+- supabase/manual/20261021_issue335_offset_core.INERTE.sql | N=1130 | sha256=e3153a10868d726687581ec7abee1e7b260426ff270bab62ff96effba659b772 | NÃO LIDO integral nesta ronda; partes pedidas | intervalos 1–200,201–225,1064–1130
+- supabase/manual/20261021_issue335_offset_invariants.INERTE.sql | N=287 | sha256=1e3bae7e62d80c116f0cb29c7e41a647500d751f0b817b3cc3e93c4aa53626ee | LIDO INTEGRAL | intervalos 1–200,201–287
+- docs/testes/issue335-fases12-local.md | N=6224 | sha256=92ed5770bdddff2b551ddd55b5e29def0d35dbf52891b2f4f3f8006b29680c9b | secção1b LIDA INTEGRAL sub_szabsc1n; ficheiro NÃO LIDO integral nesta ronda | intervalos 5191–5390,5391–5590,5591–5790,5791–5990,5991–6190,6191–6224
+- AGENTS.md | N=40 | sha256=8fe01f2a6f608a47b082f06cf0819049a582bb634417cc04d5e859bec3ee6926 | LIDO INTEGRAL | intervalos 1–40
+- supabase/AGENTS.md | N=3 | sha256=c4a593a91c43a79de00879fea8e566841a74d212962ee9a3dda8ffca46237b17 | LIDO INTEGRAL | intervalos 1–3
