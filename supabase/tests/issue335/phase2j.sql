@@ -1,0 +1,181 @@
+-- #335 fase 2j — LOCAL ONLY, harness fiel PG 17.6. Nada aqui corre em Live.
+-- J0 superfície da leitura de listas/SEPA/sócio; J1 matriz E coluna-a-coluna; J2 fecho selado;
+-- J3 janela administrativa; J4 reabertura/fecho de evento; J5 restauro; J6 saldo A + débito; J7 camarim.
+\set ON_ERROR_STOP 1
+CREATE SCHEMA IF NOT EXISTS issue335_test;
+SET ROLE service_role;
+INSERT INTO public.user_roles(user_id,role,company_id) VALUES
+ ('00000000-0000-0000-0000-000000000016','manager','00000000-0000-0000-0000-000000000001'),
+ ('00000000-0000-0000-0000-000000000017','editor','00000000-0000-0000-0000-000000000001')
+ON CONFLICT DO NOTHING;
+RESET ROLE;
+CREATE TABLE IF NOT EXISTS issue335_test.j(k text PRIMARY KEY, v uuid);
+
+-- Cria um encontro aplicado (+100 receita / −40 despesa / movimento 60) como o admin de teste.
+CREATE OR REPLACE FUNCTION issue335_test.j_group(p_k text, p_extra jsonb DEFAULT '{}') RETURNS uuid LANGUAGE plpgsql AS $$
+DECLARE a uuid; b uuid; g uuid; BEGIN
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id,event_id,event_settlement_id)
+  VALUES(public.current_company_id(),'approved','income','2j '||p_k||'+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020',
+         (p_extra->>'event_id')::uuid,(p_extra->>'event_settlement_id')::uuid) RETURNING id INTO a;
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id)
+  VALUES(public.current_company_id(),'approved','expense','2j '||p_k||'-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
+ SELECT (public.transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',
+   jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset')),
+   '{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13')->>'group_id')::uuid INTO g;
+ INSERT INTO issue335_test.j VALUES(p_k||':a',a),(p_k||':b',b),(p_k||':g',g) ON CONFLICT(k) DO UPDATE SET v=excluded.v;
+ RETURN g;
+END $$;
+GRANT USAGE ON SCHEMA issue335_test TO authenticated;
+GRANT ALL ON issue335_test.j TO authenticated;
+GRANT EXECUTE ON FUNCTION issue335_test.j_group(text,jsonb) TO authenticated;
+
+-- ===================== J0 — superfície da leitura (alternativa à policy da 2i) =====================
+DO $$ DECLARE t text; r text; BEGIN
+ FOREACH t IN ARRAY ARRAY['payment_lists','payment_list_items','payment_list_sepa_exports','partner_paid_expenses'] LOOP
+  IF EXISTS(SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename=t AND policyname LIKE 'issue335%') THEN RAISE EXCEPTION 'J0 policy issue335 em %',t; END IF;
+  IF has_table_privilege('issue335_executor','public.'||t,'SELECT') THEN RAISE EXCEPTION 'J0 executor com SELECT em %',t; END IF;
+ END LOOP;
+ FOREACH r IN ARRAY ARRAY['anon','authenticated','service_role','sandbox_exec','sandbox_exec_sfohvvlqccmmebvjgibx'] LOOP
+  IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname=r) AND has_function_privilege(r,'public.issue335_payment_flow_blocked(uuid)','EXECUTE') THEN RAISE EXCEPTION 'J0 % executa a função de leitura',r; END IF;
+ END LOOP;
+ IF NOT has_function_privilege('issue335_executor','public.issue335_payment_flow_blocked(uuid)','EXECUTE') THEN RAISE EXCEPTION 'J0 executor sem EXECUTE'; END IF;
+ IF NOT (SELECT prosecdef AND proconfig @> ARRAY['search_path=public, pg_catalog'] FROM pg_proc WHERE oid='public.issue335_payment_flow_blocked(uuid)'::regprocedure) THEN RAISE EXCEPTION 'J0 definer/search_path'; END IF;
+ IF (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid='public.issue335_payment_flow_blocked(uuid)'::regprocedure)<>'postgres' THEN RAISE EXCEPTION 'J0 dono'; END IF;
+ RAISE NOTICE 'PASS 2j J0 superfície: zero policies/GRANTs novos nas 4 tabelas; função DEFINER dono postgres, search_path fixo, EXECUTE só executor';
+END $$;
+-- ANTES/DEPOIS na mesma base: com o GRANT de tabela da 2h (sem policy) o executor vê ZERO linhas (fail-open);
+-- a função vê a linha. Reposto por ROLLBACK.
+SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false);
+BEGIN;
+DO $$ DECLARE a uuid; l uuid; raw int; fn boolean; BEGIN
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(public.current_company_id(),'approved','expense','2j J0',10,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
+ INSERT INTO public.payment_lists(id,title,status,company_id) VALUES(gen_random_uuid(),'LOCAL J0','draft',public.current_company_id()) RETURNING id INTO l;
+ INSERT INTO public.payment_list_items(transaction_id,payment_list_id,company_id) VALUES(a,l,public.current_company_id());
+ GRANT SELECT ON public.payment_lists,public.payment_list_items TO issue335_executor; -- estado 2h, só nesta transacção
+ SET LOCAL ROLE issue335_executor;
+ SELECT count(*) INTO raw FROM public.payment_list_items WHERE transaction_id=a;
+ fn:=public.issue335_payment_flow_blocked(a);
+ RESET ROLE;
+ IF raw<>0 THEN RAISE EXCEPTION 'J0 ANTES: esperado 0 linhas visíveis sob RLS, obtido %',raw; END IF;
+ IF fn IS NOT TRUE THEN RAISE EXCEPTION 'J0 DEPOIS: função não vê a lista'; END IF;
+ RAISE NOTICE 'PASS 2j J0 ANTES (GRANT sem policy) executor vê % linhas = fail-open; DEPOIS função = %',raw,fn;
+END $$;
+ROLLBACK;
+-- Despesa de sócio (partner_paid_expenses) também recusa pela função (unsupported_debt).
+SET ROLE authenticated;
+BEGIN;
+DO $$ DECLARE a uuid; b uuid; ev uuid; BEGIN
+ INSERT INTO public.events(id,company_id,name,date,event_nature) VALUES(gen_random_uuid(),public.current_company_id(),'2j sócio','2026-10-13','producao_propria') RETURNING id INTO ev;
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(public.current_company_id(),'approved','income','2j ppe+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id,event_id) VALUES(public.current_company_id(),'approved','expense','2j ppe-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020',ev) RETURNING id INTO b;
+ INSERT INTO public.partner_paid_expenses(event_id,partner_id,transaction_id) VALUES(ev,'00000000-0000-0000-0000-000000000020',b);
+ BEGIN PERFORM public.transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset')),'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13'); RAISE EXCEPTION 'J0 ppe aceite';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'unsupported_debt' THEN RAISE; END IF; END;
+ RAISE NOTICE 'PASS 2j J0 despesa paga por sócio recusada (unsupported_debt)';
+END $$;
+ROLLBACK;
+RESET ROLE;
+
+-- ===================== J1 — E: matriz coluna-a-coluna =====================
+SET ROLE authenticated;
+SELECT issue335_test.j_group('E');
+INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id)
+ VALUES(public.current_company_id(),'approved','income','2j legado',50,0,'2026-10-13','00000000-0000-0000-0000-000000000020');
+INSERT INTO issue335_test.j SELECT 'E:legacy',id FROM public.transactions WHERE description='2j legado';
+INSERT INTO public.transaction_payments(transaction_id,amount,payment_date,account_id,payment_method)
+ SELECT v,10,'2026-10-13','00000000-0000-0000-0000-000000000030','transfer' FROM issue335_test.j WHERE k='E:legacy';
+RESET ROLE;
+CREATE OR REPLACE FUNCTION issue335_test.e_value(p_udt text,p_col text) RETURNS text LANGUAGE sql IMMUTABLE AS $$
+ SELECT CASE
+  WHEN p_udt='uuid' THEN 'gen_random_uuid()'
+  WHEN p_udt IN('text','varchar') THEN quote_literal('j2e-'||p_col)
+  WHEN p_udt='bool' THEN format('NOT coalesce(%I,false)',p_col)
+  WHEN p_udt IN('numeric','int4','int8','float8') THEN format('coalesce(%I,0)+1',p_col)
+  WHEN p_udt='date' THEN format('coalesce(%I,DATE ''2026-10-13'')+1',p_col)
+  WHEN p_udt='timestamptz' THEN format('coalesce(%I,now())+interval ''1 day''',p_col)
+  WHEN p_udt='jsonb' THEN '''{"j2e":1}''::jsonb'
+  ELSE NULL END
+$$;
+CREATE TABLE IF NOT EXISTS issue335_test.e_matrix(tbl text,col text,actor text,target text,state text,msg text);
+TRUNCATE issue335_test.e_matrix;
+DO $$ DECLARE c record; w record; tg record; v text; n int; st text; m text; BEGIN
+ FOR w IN SELECT * FROM (VALUES('manager','00000000-0000-0000-0000-000000000016'),('editor','00000000-0000-0000-0000-000000000017')) x(r,u) LOOP
+  FOR tg IN SELECT 'transactions' tbl,'gerido' tgt,v id FROM issue335_test.j WHERE k='E:a'
+            UNION ALL SELECT 'transactions','legado',v FROM issue335_test.j WHERE k='E:legacy'
+            UNION ALL SELECT 'transaction_payments','gerido',(SELECT p.id FROM public.transaction_payments p JOIN issue335_test.j j ON j.v=p.transaction_id AND j.k='E:a' WHERE p.payment_method='transfer')
+            UNION ALL SELECT 'transaction_payments','legado',(SELECT p.id FROM public.transaction_payments p JOIN issue335_test.j j ON j.v=p.transaction_id AND j.k='E:legacy') LOOP
+   FOR c IN SELECT column_name,udt_name FROM information_schema.columns WHERE table_schema='public' AND table_name=tg.tbl AND is_generated='NEVER' ORDER BY ordinal_position LOOP
+    v:=issue335_test.e_value(c.udt_name,c.column_name);
+    IF v IS NULL THEN INSERT INTO issue335_test.e_matrix VALUES(tg.tbl,c.column_name,w.r,tg.tgt,'skip','tipo '||c.udt_name); CONTINUE; END IF;
+    PERFORM set_config('request.jwt.claim.sub',w.u,true);
+    EXECUTE 'SET LOCAL ROLE authenticated';
+    BEGIN
+     EXECUTE format('UPDATE public.%I SET %I=%s WHERE id=$1',tg.tbl,c.column_name,v) USING tg.id;
+     GET DIAGNOSTICS n=ROW_COUNT;
+     RAISE EXCEPTION 'j2e_applied:%',n USING ERRCODE='P0335';
+    EXCEPTION WHEN OTHERS THEN st:=SQLSTATE; m:=SQLERRM; END;
+    EXECUTE 'RESET ROLE';
+    INSERT INTO issue335_test.e_matrix VALUES(tg.tbl,c.column_name,w.r,tg.tgt,st,left(m,160));
+   END LOOP;
+  END LOOP;
+ END LOOP;
+ PERFORM set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false);
+END $$;
+-- Colunas que, num documento gerido, TÊM de ser recusadas (mudam dinheiro, partes, ligação ao grupo, ou são
+-- condições de elegibilidade que o encontro verificou e não podem passar a verdadeiras depois).
+CREATE TABLE IF NOT EXISTS issue335_test.e_required(tbl text,col text);
+TRUNCATE issue335_test.e_required;
+INSERT INTO issue335_test.e_required SELECT 'transactions',unnest(ARRAY[
+ 'id','company_id','type','supplier_id','amount','iva_rate','status','paid_amount','payment_date','account_id','event_id','forecast_id',
+ 'is_hidden','reversed_at','reversal_kind','reversal_reason','reversed_by','event_settlement_id',
+ 'currency','fx_rate','original_amount','installment_group_id','installment_number','installment_total','card_session_id','held_by_supplier_id',
+ 'settlement_id','is_transitory','supplier_credit_id','parent_transaction_id','is_reimbursement','cache_contract_id','shared_cost_account_id',
+ 'declared_withholding_amount','declared_withholding_rate','split_percentage','split_amount','split_mode','payment_method']);
+INSERT INTO issue335_test.e_required SELECT 'transaction_payments',column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='transaction_payments' AND is_generated='NEVER';
+-- Relatório completo (vai para o .out e é anexado ao relatório).
+SELECT tbl,col,actor,target,state,msg FROM issue335_test.e_matrix ORDER BY tbl,target,col,actor;
+DO $$ DECLARE bad text; leg text; BEGIN
+ -- Gerido: cada coluna obrigatória tem de ser recusada por um trigger/RLS ANTES de qualquer FK/CHECK
+ -- (23503/23514 = só a FK/CHECK travou: com um valor válido passaria) e nunca aplicada.
+ SELECT string_agg(DISTINCT m.tbl||'.'||m.col||'('||m.actor||':'||m.state||')',', ') INTO bad
+  FROM issue335_test.e_matrix m JOIN issue335_test.e_required r USING(tbl,col)
+  WHERE m.target='gerido' AND m.state<>'skip' AND (m.state IN('P0335','23503','23514','23502','22P02','22007') AND m.msg NOT LIKE 'j2e_applied:0');
+ IF bad IS NOT NULL THEN RAISE EXCEPTION 'E coluna obrigatória não protegida em documento gerido: %',bad; END IF;
+ -- Legado: nenhuma recusa vem da guarda do #335.
+ SELECT string_agg(DISTINCT m.tbl||'.'||m.col,', ') INTO leg FROM issue335_test.e_matrix m
+  WHERE m.target='legado' AND m.msg IN('reverse_entire_group','managed_operation_required','managed_bank_anchor_immutable');
+ IF leg IS NOT NULL THEN RAISE EXCEPTION 'E documento sem grupo afectado pela guarda #335: %',leg; END IF;
+ RAISE NOTICE 'PASS 2j J1 E: % ataques; colunas obrigatórias recusadas em documento gerido (manager e editor); legado sem guarda #335',(SELECT count(*) FROM issue335_test.e_matrix);
+END $$;
+
+-- ===================== J2 — fecho selado =====================
+-- Encontro recusado em transacção de fecho selado; estorno do grupo recusado depois de selar; reabrir → estorno ok.
+SET ROLE authenticated;
+DO $$ DECLARE ev uuid; es uuid; g uuid; BEGIN
+ INSERT INTO public.events(id,company_id,name,date,event_nature) VALUES(gen_random_uuid(),public.current_company_id(),'2j selo','2026-10-13','producao_propria') RETURNING id INTO ev;
+ INSERT INTO public.event_settlements(id,event_id,company_id,name,is_sealed) VALUES(gen_random_uuid(),ev,public.current_company_id(),'LOCAL 2j',false) RETURNING id INTO es;
+ g:=issue335_test.j_group('S',jsonb_build_object('event_id',ev,'event_settlement_id',es));
+ PERFORM public.seal_event_settlement(es,'{"check1":0,"check2":0}'::jsonb,NULL,'LOCAL 2j');
+ BEGIN PERFORM public.transaction_offset_reverse(g,gen_random_uuid(),'2j selado'); RAISE EXCEPTION 'J2 estorno aceite em fecho selado';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE 'sealed_settlement%' THEN RAISE; END IF; END;
+ -- writer existente: reverse_payment num pagamento gerido continua recusado (guarda #335) — não contorna o selo.
+ BEGIN PERFORM public.reverse_payment((SELECT id FROM public.transaction_payments WHERE offset_group_id=g AND payment_method='transfer'),'cash_refund','2j',NULL,NULL); RAISE EXCEPTION 'J2 reverse_payment aceite';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT IN('reverse_entire_group','managed_operation_required') AND SQLERRM NOT LIKE '%selad%' THEN RAISE; END IF; END;
+ PERFORM public.unseal_event_settlement(es,'LOCAL 2j reabrir');
+ PERFORM public.transaction_offset_reverse(g,gen_random_uuid(),'2j após reabrir');
+ IF (SELECT status FROM public.transaction_offset_groups WHERE id=g)<>'reversed' THEN RAISE EXCEPTION 'J2 estorno após reabrir'; END IF;
+ RAISE NOTICE 'PASS 2j J2 fecho selado: estorno recusado selado, reverse_payment recusado, estorno ok após reabrir';
+END $$;
+RESET ROLE;
+
+-- ===================== J3 — janela administrativa =====================
+-- Linha BP com categoria allocate_to_active_event dentro de uma janela de outro evento: criação recusada pelo trigger
+-- real enforce_admin_window_event, atómica (zero grupo/transacção/pagamento).
+DO $$ DECLARE win uuid; ev uuid; cat uuid; f uuid; a uuid; n0 bigint; BEGIN
+ SET LOCAL ROLE service_role;
+ INSERT INTO public.account_categories(company_id,code,name,type,parent_id,allocate_to_active_event) VALUES('00000000-0000-0000-0000-000000000001','335.1.02','LOCAL janela','income','00000000-0000-0000-0000-000000000051',true) RETURNING id INTO cat;
+ INSERT INTO public.events(id,company_id,name,date,event_nature,absorbs_admin_costs,admin_window_start,admin_window_end) VALUES(gen_random_uuid(),'00000000-0000-0000-0000-000000000001','2j janela','2026-10-01','producao_propria',true,'2026-10-01','2026-10-31') RETURNING id INTO win;
+ RESET ROLE;
+ INSERT INTO issue335_test.j VALUES('W:cat',cat),('W:win',win) ON CONFLICT(k) DO UPDATE SET v=excluded.v;
+EXCEPTION WHEN undefined_column THEN RAISE NOTICE 'J3 colunas de janela diferentes: %',SQLERRM; RAISE;
+END $$;
