@@ -62,7 +62,7 @@ SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010'
 -- Trigger-dependent settlement read, then explicit sealed refusal (including forged GUC).
 DO $$ DECLARE ev uuid; es uuid; a uuid; b uuid; items jsonb; g uuid; BEGIN
  INSERT INTO events(id,company_id,name) VALUES(gen_random_uuid(),current_company_id(),'2d settlement') RETURNING id INTO ev;
- INSERT INTO event_settlements(id,event_id,company_id,is_sealed) VALUES(gen_random_uuid(),ev,current_company_id(),false) RETURNING id INTO es;
+ INSERT INTO event_settlements(id,event_id,company_id,name,is_sealed) VALUES(gen_random_uuid(),ev,current_company_id(),'LOCAL fecho',false) RETURNING id INTO es;
  INSERT INTO transactions(type,event_id,event_settlement_id,description,amount,iva_rate,date,supplier_id) VALUES('income',ev,es,'2d close+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2d close-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
  items:=jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset'));
