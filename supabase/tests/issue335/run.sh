@@ -33,3 +33,10 @@ DO $$ BEGIN
  RAISE NOTICE 'PASS two concurrent sessions, one group and three legs';
 END $$;
 SQL
+
+# Technical rollback refuses existing history, rather than silently restoring unilateral writers.
+if "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_core.ROLLBACK-INERTE.sql" >"$D/rollback" 2>&1; then
+ echo 'ERROR rollback accepted retained groups'; exit 1
+fi
+grep -q groups_exist_keep_guards "$D/rollback"
+echo 'PASS rollback refuses retained groups'
