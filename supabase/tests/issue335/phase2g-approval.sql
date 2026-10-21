@@ -16,8 +16,8 @@ BEGIN
   -- Historic over-budget approval: legacy identity-less writer (crons/syncs) path of Live trigger.
   PERFORM set_config('request.jwt.claim.sub','',true);
  END IF;
- INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id,event_id,forecast_id)
-  VALUES('expense','2g '||p_k,40,0,'2026-10-13','00000000-0000-0000-0000-000000000020',ev,f) RETURNING id INTO b;
+ INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id,event_id,forecast_id,company_id)
+  VALUES('expense','2g '||p_k,40,0,'2026-10-13','00000000-0000-0000-0000-000000000020',ev,f,'00000000-0000-0000-0000-000000000001') RETURNING id INTO b;
  PERFORM set_config('request.jwt.claim.sub',uid,true);
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id)
   VALUES('income','2g '||p_k||'+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
