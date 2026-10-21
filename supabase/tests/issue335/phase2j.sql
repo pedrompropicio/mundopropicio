@@ -239,3 +239,89 @@ DO $$ DECLARE g uuid:=(SELECT v FROM issue335_test.j WHERE k='R:g'); before bigi
  RAISE NOTICE 'ACHADO 2j J5: restauro por tabela contorna a guarda (triggers desligados por desenho) e deixa grupo applied sem pernas; DETECTADO pelas vigias #335 (% → %). Não impedido.',before,after;
 END $$;
 ROLLBACK;
+
+-- ===================== J6 — A: matriz de saldo lado a lado com as funções de Live =====================
+-- legacy_* = cópias byte-iguais das funções instaladas em Live (live/phase2e-balance-baseline.sql).
+CREATE TABLE IF NOT EXISTS issue335_test.a_matrix(caso text,conta text,live numeric,candidato numeric,esperado numeric);
+TRUNCATE issue335_test.a_matrix;
+SET ROLE service_role;
+INSERT INTO public.financial_accounts(id,company_id,name,type,initial_balance,initial_balance_date) VALUES
+ ('00000000-0000-0000-0000-0000000003a1','00000000-0000-0000-0000-000000000001','LOCAL A1','bank',0,'2026-10-12'),
+ ('00000000-0000-0000-0000-0000000003a2','00000000-0000-0000-0000-000000000001','LOCAL A2 (X prévio)','bank',0,'2026-10-12')
+ON CONFLICT DO NOTHING;
+RESET ROLE;
+CREATE OR REPLACE FUNCTION issue335_test.a_snap(p_caso text,p_esp1 numeric,p_esp2 numeric,p_asof date DEFAULT NULL) RETURNS void LANGUAGE sql AS $$
+ INSERT INTO issue335_test.a_matrix
+ SELECT p_caso,n,
+  CASE WHEN p_asof IS NULL THEN issue335_test.legacy_account_true_balance_raw(a) ELSE issue335_test.legacy_account_true_balance_asof_raw(a,p_asof) END,
+  CASE WHEN p_asof IS NULL THEN public._account_true_balance_raw(a) ELSE public._account_true_balance_asof_raw(a,p_asof) END, e
+ FROM (VALUES('A1','00000000-0000-0000-0000-0000000003a1'::uuid,p_esp1),('A2','00000000-0000-0000-0000-0000000003a2'::uuid,p_esp2)) v(n,a,e)
+$$;
+SET ROLE authenticated;
+DO $$ DECLARE a uuid; b uuid; c uuid; d uuid; g uuid; o uuid; BEGIN
+ -- 1) legado: pagamento real na própria conta.
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id,account_id) VALUES(public.current_company_id(),'approved','income','A legado',50,0,'2026-10-13','00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-0000000003a1') RETURNING id INTO a;
+ INSERT INTO public.transaction_payments(transaction_id,amount,payment_date,account_id,payment_method) VALUES(a,50,'2026-10-13','00000000-0000-0000-0000-0000000003a1','transfer');
+ PERFORM issue335_test.a_snap('1 legado transfer',50,0);
+ -- 2) payment_method='compensation' na transacção: trigger real limpa a conta → não conta em lado nenhum.
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id,account_id,payment_method) VALUES(public.current_company_id(),'approved','income','A comp',30,0,'2026-10-13','00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-0000000003a1','compensation') RETURNING id INTO b;
+ IF (SELECT account_id FROM public.transactions WHERE id=b) IS NOT NULL THEN RAISE EXCEPTION 'A2 trigger compensation não limpou conta'; END IF;
+ PERFORM issue335_test.a_snap('2 método compensation na tx',50,0);
+ -- 3) compensação legada par-a-par (transaction_offsets): receita paga 100 em A1, despesa compensada sem conta.
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id,account_id) VALUES(public.current_company_id(),'approved','income','A par+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-0000000003a1') RETURNING id INTO c;
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(public.current_company_id(),'approved','expense','A par-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO d;
+ INSERT INTO public.transaction_offsets(receivable_transaction_id,payable_transaction_id,amount) VALUES(c,d,40);
+ INSERT INTO public.transaction_payments(transaction_id,amount,payment_date,account_id,payment_method) VALUES(c,100,'2026-10-13','00000000-0000-0000-0000-0000000003a1','transfer');
+ IF (SELECT paid_amount FROM public.transactions WHERE id=d)<>40 THEN RAISE EXCEPTION 'A3 par legado não compensou'; END IF;
+ PERFORM issue335_test.a_snap('3 par legado transaction_offsets',150,0);
+ -- 4) encontro com account_id PRÉVIO X=A2 na receita; dinheiro entra em A1.
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id,account_id) VALUES(public.current_company_id(),'approved','income','A enc+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-0000000003a2') RETURNING id INTO a;
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(public.current_company_id(),'approved','expense','A enc-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
+ g:=(public.transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset')),'{"account_id":"00000000-0000-0000-0000-0000000003a1","date":"2026-10-13","amount":60}','2026-10-13')->>'group_id')::uuid;
+ IF (SELECT account_id FROM public.transactions WHERE id=a)<>'00000000-0000-0000-0000-0000000003a2' THEN RAISE EXCEPTION 'A4 núcleo reatribuiu account_id'; END IF;
+ PERFORM issue335_test.a_snap('4 encontro, conta X prévia',210,0);
+ -- 5) as-of: antes do corte (12/10) zero; no dia (13/10) igual ao total.
+ PERFORM issue335_test.a_snap('5a as-of 12/10',0,0,'2026-10-12');
+ PERFORM issue335_test.a_snap('5b as-of 13/10',210,0,'2026-10-13');
+ -- 6) guarda de débito no servidor: account_has_balance_for usa _account_true_balance_raw.
+ IF NOT public.account_has_balance_for('00000000-0000-0000-0000-0000000003a1',210) OR public.account_has_balance_for('00000000-0000-0000-0000-0000000003a1',210.01) THEN RAISE EXCEPTION 'A6 débito A1'; END IF;
+ IF public.account_has_balance_for('00000000-0000-0000-0000-0000000003a2',0.01) THEN RAISE EXCEPTION 'A6 débito A2: saldo fantasma autoriza saída'; END IF;
+ -- 7) estorno integral do encontro.
+ PERFORM public.transaction_offset_reverse(g,gen_random_uuid(),'A estorno');
+ PERFORM issue335_test.a_snap('7 após estorno',150,0);
+ -- 8) encontro a débito (despesas > receitas), dinheiro sai de A1.
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(public.current_company_id(),'approved','income','A deb+',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(public.current_company_id(),'approved','expense','A deb-',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
+ PERFORM public.transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',jsonb_build_array(jsonb_build_object('transaction_id',b,'mode','settle'),jsonb_build_object('transaction_id',a,'mode','offset')),'{"account_id":"00000000-0000-0000-0000-0000000003a1","date":"2026-10-13","amount":-60}','2026-10-13');
+ PERFORM issue335_test.a_snap('8 encontro a débito',90,0);
+END $$;
+RESET ROLE;
+SELECT caso,conta,live,candidato,esperado,CASE WHEN live<>candidato THEN 'DIFERE' ELSE '' END FROM issue335_test.a_matrix ORDER BY caso,conta;
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM issue335_test.a_matrix WHERE candidato IS DISTINCT FROM esperado) THEN
+  RAISE EXCEPTION 'A candidato ≠ esperado: %',(SELECT string_agg(caso||'/'||conta||' '||candidato||'≠'||esperado,'; ') FROM issue335_test.a_matrix WHERE candidato IS DISTINCT FROM esperado); END IF;
+ IF EXISTS(SELECT 1 FROM issue335_test.a_matrix WHERE caso<'4' AND live IS DISTINCT FROM candidato) THEN RAISE EXCEPTION 'A legado diverge do Live sem encontro'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM issue335_test.a_matrix WHERE caso LIKE '4%' AND live<>candidato) THEN RAISE EXCEPTION 'A defeito Live não reproduzido no caso 4'; END IF;
+ RAISE NOTICE 'PASS 2j J6 A: 8 casos; legado igual ao Live; encontro: candidato = dinheiro real, Live difere (defeito reproduzido); débito servidor coerente';
+END $$;
+
+-- ===================== J7 — camarim (triggers reais) =====================
+SET ROLE authenticated;
+DO $$ DECLARE s uuid; sa uuid; bk uuid; st uuid; inc uuid; mv uuid; r text; BEGIN
+ INSERT INTO public.camarim_sessions(id,title,company_id) VALUES(gen_random_uuid(),'LOCAL 2j camarim',public.current_company_id()) RETURNING id,advance_account_id INTO s,sa;
+ IF sa IS NULL THEN RAISE EXCEPTION 'J7 trigger real não criou conta da sessão'; END IF;
+ -- adiantamento: saída do banco (expense, conta banco) + gémea na conta da sessão (income), como o modal cria.
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id,account_id) VALUES(public.current_company_id(),'approved','expense','Camarim adiantamento 2j',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-000000000030') RETURNING id INTO bk;
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,account_id) VALUES(public.current_company_id(),'approved','income','Camarim adiantamento 2j',40,0,'2026-10-13',sa) RETURNING id INTO st;
+ INSERT INTO public.camarim_fund_moves(session_id,move_type,amount,move_date,transaction_id,company_id) VALUES(s,'advance',40,'2026-10-13',bk,public.current_company_id()) RETURNING id INTO mv;
+ IF NOT EXISTS(SELECT 1 FROM public._camarim_fund_move_legs(mv) l WHERE l.bank_tx=bk AND l.session_tx=st) THEN RAISE EXCEPTION 'J7 pernas camarim não reconhecidas'; END IF;
+ INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(public.current_company_id(),'approved','income','2j camarim+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO inc;
+ BEGIN
+  PERFORM public.transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',jsonb_build_array(jsonb_build_object('transaction_id',inc,'mode','settle'),jsonb_build_object('transaction_id',bk,'mode','offset')),'{"account_id":"00000000-0000-0000-0000-000000000030","date":"2026-10-13","amount":60}','2026-10-13');
+  r:='aceite; espelho na sessão='||coalesce((SELECT sum(amount)::text FROM public.transaction_payments WHERE transaction_id=st AND status='paid'),'0')||' método '||coalesce((SELECT string_agg(payment_method,',') FROM public.transaction_payments WHERE transaction_id=st),'-');
+  RAISE EXCEPTION 'J7 ANTES: encontro sobre perna de camarim %',r;
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE 'camarim_leg_unsupported%' THEN RAISE; END IF; END;
+ IF EXISTS(SELECT 1 FROM public.transaction_payments WHERE transaction_id IN(bk,st,inc)) THEN RAISE EXCEPTION 'J7 escrita parcial'; END IF;
+ RAISE NOTICE 'PASS 2j J7 camarim: perna de adiantamento recusada (camarim_leg_unsupported), zero pagamentos, conta da sessão intacta';
+END $$;
+RESET ROLE;
