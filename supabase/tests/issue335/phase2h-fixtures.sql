@@ -52,8 +52,9 @@ ON CONFLICT (role, permission) DO NOTHING;
 -- fixture por utilizador (user_permissions), como a UI faria, só para o admin de teste.
 INSERT INTO public.user_permissions(user_id, permission, granted, company_id) VALUES
  ('00000000-0000-0000-0000-000000000010', 'manage_bp', true, '00000000-0000-0000-0000-000000000001');
-INSERT INTO public.suppliers(id, company_id, name) VALUES
- ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000001', 'Fornecedor local 335');
+-- 2i: IBAN de exemplo (formato público do Banco de Portugal); trg_payment_list_items_bankable exige IBAN resolvível.
+INSERT INTO public.suppliers(id, company_id, name, iban) VALUES
+ ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000001', 'Fornecedor local 335', 'PT50000201231234567890154');
 INSERT INTO public.financial_accounts(id, company_id, name, type) VALUES
  ('00000000-0000-0000-0000-000000000030', '00000000-0000-0000-0000-000000000001', 'LOCAL banco', 'bank'),
  ('00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000001', 'LOCAL caixa', 'cash');
