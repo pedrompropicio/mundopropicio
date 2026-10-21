@@ -17259,6 +17259,165 @@ export type Database = {
           },
         ]
       }
+      song_link_report_hourly: {
+        Row: {
+          artist_id: string
+          company_id: string
+          dim: Json
+          hour_utc: string
+          n: number
+          updated_at: string
+        }
+        Insert: {
+          artist_id: string
+          company_id: string
+          dim: Json
+          hour_utc: string
+          n?: number
+          updated_at?: string
+        }
+        Update: {
+          artist_id?: string
+          company_id?: string
+          dim?: Json
+          hour_utc?: string
+          n?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      song_link_report_hourly_log: {
+        Row: {
+          artist_id: string
+          created_at: string
+          divergent_rows: number | null
+          error_code: string | null
+          hour_utc: string
+          id: string
+          kind: string
+          repaired_at: string | null
+        }
+        Insert: {
+          artist_id: string
+          created_at?: string
+          divergent_rows?: number | null
+          error_code?: string | null
+          hour_utc: string
+          id?: string
+          kind: string
+          repaired_at?: string | null
+        }
+        Update: {
+          artist_id?: string
+          created_at?: string
+          divergent_rows?: number | null
+          error_code?: string | null
+          hour_utc?: string
+          id?: string
+          kind?: string
+          repaired_at?: string | null
+        }
+        Relationships: []
+      }
+      song_link_report_hourly_state: {
+        Row: {
+          artist_id: string
+          ready: boolean
+          verified_at: string | null
+        }
+        Insert: {
+          artist_id: string
+          ready?: boolean
+          verified_at?: string | null
+        }
+        Update: {
+          artist_id?: string
+          ready?: boolean
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
+      song_link_report_visitor_refs_daily: {
+        Row: {
+          artist_id: string
+          day_utc: string
+          dim: Json
+          kind: string
+          n: number
+          scope: string
+        }
+        Insert: {
+          artist_id: string
+          day_utc: string
+          dim: Json
+          kind: string
+          n?: number
+          scope: string
+        }
+        Update: {
+          artist_id?: string
+          day_utc?: string
+          dim?: Json
+          kind?: string
+          n?: number
+          scope?: string
+        }
+        Relationships: []
+      }
+      song_link_report_visitor_totals_daily: {
+        Row: {
+          artist_id: string
+          day_utc: string
+          dim: Json
+          kind: string
+          scope: string
+          v: number
+        }
+        Insert: {
+          artist_id: string
+          day_utc: string
+          dim: Json
+          kind: string
+          scope: string
+          v?: number
+        }
+        Update: {
+          artist_id?: string
+          day_utc?: string
+          dim?: Json
+          kind?: string
+          scope?: string
+          v?: number
+        }
+        Relationships: []
+      }
+      song_link_report_visitors_hourly: {
+        Row: {
+          artist_id: string
+          company_id: string
+          dim: Json
+          hour_utc: string
+          kind: string
+          n: number
+        }
+        Insert: {
+          artist_id: string
+          company_id: string
+          dim: Json
+          hour_utc: string
+          kind: string
+          n?: number
+        }
+        Update: {
+          artist_id?: string
+          company_id?: string
+          dim?: Json
+          hour_utc?: string
+          kind?: string
+          n?: number
+        }
+        Relationships: []
+      }
       song_links: {
         Row: {
           active: boolean
@@ -26369,6 +26528,42 @@ export type Database = {
           tiktok_pixel_id: string
           title: string
         }[]
+      }
+      song_link_report_arrivals: {
+        Args: {
+          p_artist_id: string
+          p_country: string
+          p_from: string
+          p_to: string
+        }
+        Returns: {
+          canal: string
+          k: string
+          kind: string
+          n: number
+          sp: number
+          src: string
+          v: number
+        }[]
+      }
+      song_link_report_hour_delta: {
+        Args: {
+          p_delta: number
+          p_event: Database["public"]["Tables"]["song_link_events"]["Row"]
+        }
+        Returns: undefined
+      }
+      song_link_report_hourly_rebuild: {
+        Args: { p_artist: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      song_link_report_hourly_validate: {
+        Args: { p_artist: string }
+        Returns: Json
+      }
+      song_link_report_visitor_daily_delta: {
+        Args: { a: string; d: Json; delta: number; h: string; k: string }
+        Returns: undefined
       }
       song_link_utm_slug: { Args: { p: string }; Returns: string }
       split_transaction_by_bp_lines: {

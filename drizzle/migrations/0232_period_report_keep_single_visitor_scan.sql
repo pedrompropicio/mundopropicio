@@ -1,0 +1,1 @@
+SET LOCAL lock_timeout='5s'; DO $opt$ DECLARE d text; BEGIN d:=pg_get_functiondef('public.song_link_report_arrivals(uuid,date,date,text)'::regprocedure); IF position('members AS NOT MATERIALIZED' IN d)=0 THEN RAISE EXCEPTION 'helper drift';END IF;EXECUTE replace(d,'members AS NOT MATERIALIZED','members AS MATERIALIZED');END $opt$;
