@@ -17,6 +17,7 @@ DROP FUNCTION IF EXISTS public._issue335_execute(uuid,uuid,jsonb,jsonb,date,text
 DROP FUNCTION IF EXISTS public._issue335_reverse(uuid,uuid,text);
 DROP FUNCTION IF EXISTS public.issue335_guard();
 DROP POLICY IF EXISTS issue335_company_membership ON public.user_roles;
+DROP POLICY IF EXISTS issue335_control_read ON public.transaction_offset_control;
 DROP FUNCTION IF EXISTS public.issue335_uid();
 DROP FUNCTION IF EXISTS public.issue335_matching_transactions(uuid);
 DROP FUNCTION IF EXISTS public.issue335_score(text,text);

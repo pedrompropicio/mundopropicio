@@ -39,6 +39,7 @@ GRANT SELECT ON public.user_roles TO issue335_executor;
 CREATE POLICY issue335_company_membership ON public.user_roles FOR SELECT TO issue335_executor USING (user_id=public.issue335_uid());
 GRANT SELECT,UPDATE ON public.companies,public.suppliers,public.events,public.financial_accounts TO issue335_executor;
 GRANT SELECT ON public.transaction_offset_control TO issue335_executor;
+CREATE POLICY issue335_control_read ON public.transaction_offset_control FOR SELECT TO issue335_executor USING(true);
 GRANT SELECT ON public.partner_paid_expenses,public.event_settlements,public.payment_list_items,public.payment_lists,public.payment_list_sepa_exports TO issue335_executor;
 GRANT UPDATE ON public.event_settlements TO issue335_executor;
 GRANT EXECUTE ON FUNCTION public.can_see_confidential(uuid),public.has_permission(uuid,text),public.is_platform_admin(uuid) TO issue335_executor;
