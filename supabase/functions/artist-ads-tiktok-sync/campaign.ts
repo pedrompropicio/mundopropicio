@@ -1,7 +1,7 @@
 export const CAMPAIGN_REPORT = { report_type: "BASIC", data_level: "AUCTION_CAMPAIGN", dimensions: JSON.stringify(["campaign_id", "stat_time_day"]) };
 const number = (v: unknown) => v == null || v === "" || !Number.isFinite(Number(v)) ? null : Number(v);
 const integer = (v: unknown) => { const n = number(v); return n === null ? null : Math.round(n); };
-export function campaignDay(r: any, company: string, connection: string, currency: string, now: string) {
+export function campaignDay(r: any, company: string, connection: string, currency: string | null, now: string) {
   const m = r.metrics ?? {}; const id = String(r.dimensions?.campaign_id ?? "");
   const date = String(r.dimensions?.stat_time_day ?? "").slice(0, 10);
   if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("relatório campanha: dimensão inválida");
