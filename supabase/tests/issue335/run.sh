@@ -43,7 +43,7 @@ PRE=$(catalog)
 
 # Full scenarios on top of the real installed auth model.
 "${P[@]}" -c "DO \$\$ BEGIN IF (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) THEN RAISE EXCEPTION 'deployment_is_superuser'; END IF; END \$\$;"
-for f in storage core invariants; do "${P[@]}" -f "$(ls "$ROOT/supabase/manual/20261021_issue335_offset_"*"$f.INERTE.sql")" >/dev/null; done
+for f in storage core invariants; do "${P[@]}" -f "$(ls "$ROOT/supabase/manual/20261021_issue335_offset_"*"$f.INERTE.sql")" >/dev/null; if [ "$f" = storage ]; then "${P[@]}" -f "$S/storage-only.sql"; fi; done
 "${ADMIN[@]}" -f "$S/scenarios.sql"
 "${ADMIN[@]}" -f "$S/phase2d.sql"
 "${ADMIN[@]}" -f "$S/phase2b.sql"
@@ -127,7 +127,7 @@ INV="SELECT jsonb_agg(jsonb_build_object('n',name,'c',current_count,'r',referenc
 BEFORE=$("${P[@]}" -At -c "$INV")
 PRE=$(catalog)
 "${P[@]}" -c "DO \$\$ BEGIN IF (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) THEN RAISE EXCEPTION 'deployment_is_superuser'; END IF; END \$\$;"
-for f in storage core invariants; do "${P[@]}" -f "$(ls "$ROOT/supabase/manual/20261021_issue335_offset_"*"$f.INERTE.sql")" >/dev/null; done
+for f in storage core invariants; do "${P[@]}" -f "$(ls "$ROOT/supabase/manual/20261021_issue335_offset_"*"$f.INERTE.sql")" >/dev/null; if [ "$f" = storage ]; then "${P[@]}" -f "$S/storage-only.sql"; fi; done
 "${ADMIN[@]}" -f "$S/phase2c-invariant-matrix.sql"
 for f in core group_storage; do
  if "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_$f.ROLLBACK-INERTE.sql" >"$D/wrong-order" 2>&1; then echo "ERROR wrong rollback order accepted $f"; exit 1; fi

@@ -14,6 +14,7 @@ SET ROLE authenticated;
 DO $$ DECLARE a uuid; b uuid; r uuid; g uuid; items jsonb; line uuid; p uuid; n int; BEGIN
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('income','2d reuse+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2d reuse-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
+ INSERT INTO transaction_offsets(receivable_transaction_id,payable_transaction_id,amount) VALUES(a,b,40);
  items:=jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset'));
  INSERT INTO bank_statement_lines(id,company_id,financial_account_id,amount,booking_date) VALUES(gen_random_uuid(),current_company_id(),'00000000-0000-0000-0000-000000000030',60,'2026-10-13') RETURNING id INTO line;
  r:=gen_random_uuid(); items:=jsonb_set(items,'{0,request_id}',to_jsonb(r::text)); items:=jsonb_set(items,'{0,supplier_id}',to_jsonb('00000000-0000-0000-0000-000000000020'::text));

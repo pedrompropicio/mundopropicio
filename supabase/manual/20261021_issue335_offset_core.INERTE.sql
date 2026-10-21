@@ -194,6 +194,7 @@ BEGIN
   VALUES(company,p_supplier_id,p_request_id,h,p_date,acc,amount,p_note,uid) RETURNING id INTO gid;
  -- Adopt existing un-applied internal pairs; reject external or already-applied pairs.
  FOR existing IN SELECT * FROM public.transaction_offsets WHERE receivable_transaction_id=ANY(ids) OR payable_transaction_id=ANY(ids) ORDER BY id FOR NO KEY UPDATE NOWAIT LOOP
+  IF existing.offset_group_id IS NOT NULL AND EXISTS(SELECT 1 FROM public.transaction_offset_groups oldg WHERE oldg.id=existing.offset_group_id AND oldg.status='reversed') AND NOT EXISTS(SELECT 1 FROM public.transaction_payments p WHERE p.offset_id=existing.id AND p.status='paid' AND p.reversed_at IS NULL) THEN CONTINUE; END IF;
   IF NOT(existing.receivable_transaction_id=ANY(ids) AND existing.payable_transaction_id=ANY(ids)) OR existing.offset_group_id IS NOT NULL OR
      EXISTS(SELECT 1 FROM public.transaction_payments WHERE offset_id=existing.id AND status='paid' AND reversed_at IS NULL) THEN RAISE EXCEPTION 'legacy_offset_requires_review'; END IF;
   UPDATE public.transaction_offsets SET offset_group_id=gid WHERE id=existing.id;
