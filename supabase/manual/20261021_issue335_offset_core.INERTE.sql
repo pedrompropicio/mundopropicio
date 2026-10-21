@@ -1,6 +1,27 @@
 -- INERTE: reviewed only in disposable PostgreSQL. No Live application authorized.
 BEGIN;
 SET LOCAL lock_timeout='5s';
+-- LOCAL/INERTE SQL port of src/lib/bp-tx-matching.ts; same explicit union and token winner.
+CREATE OR REPLACE FUNCTION public.issue335_normalize(s text) RETURNS text LANGUAGE sql IMMUTABLE SET search_path=public,pg_catalog AS $$
+ SELECT btrim(regexp_replace(regexp_replace(lower(normalize(coalesce(s,''),NFD)),U&'[\0300-\036f]','','g'),'[^a-z0-9]+',' ','g'))
+$$;
+CREATE OR REPLACE FUNCTION public.issue335_score(f text,t text) RETURNS double precision LANGUAGE sql IMMUTABLE SET search_path=public,pg_catalog AS $$
+ WITH n AS(SELECT issue335_normalize(f) f,issue335_normalize(t) t),
+ ft AS(SELECT DISTINCT tok FROM n,regexp_split_to_table(n.f,' ') tok WHERE length(tok)>=3),
+ tt AS(SELECT DISTINCT tok FROM n,regexp_split_to_table(n.t,' ') tok WHERE length(tok)>=3),
+ c AS(SELECT (SELECT count(*) FROM ft JOIN tt USING(tok))::double precision shared,(SELECT count(*) FROM ft)::double precision fn)
+ SELECT CASE WHEN n.f='' AND n.t='' THEN 0 WHEN n.f=n.t THEN 1000 WHEN n.f='' OR n.t='' OR c.shared=0 THEN 0 ELSE c.shared*100+c.shared/nullif(c.fn,0)*10-abs(length(n.f)-length(n.t))::double precision/10000 END FROM n,c
+$$;
+CREATE OR REPLACE FUNCTION public.issue335_matching_transactions(p_forecast uuid) RETURNS SETOF uuid LANGUAGE sql STABLE SECURITY INVOKER SET search_path=public,pg_catalog AS $$
+ WITH f AS(SELECT f.*,e.parent_event_id master_id FROM event_forecasts f LEFT JOIN events e ON e.id=f.event_id WHERE f.id=p_forecast),
+ allf AS(SELECT x.* FROM event_forecasts x,f WHERE x.company_id=f.company_id AND x.version_id IS NULL AND x.event_id IN(f.event_id,f.master_id)),
+ direct AS(SELECT t.id FROM transactions t,f WHERE t.company_id=f.company_id AND (t.forecast_id=f.id OR t.id=f.transaction_id)),
+ cat AS(SELECT t.id,t.description FROM transactions t,f WHERE f.category_id IS NOT NULL AND t.company_id=f.company_id AND t.event_id IN(f.event_id,f.master_id) AND t.category_id=f.category_id AND t.type=f.type AND (t.forecast_id IS NULL OR t.forecast_id=f.id) AND NOT EXISTS(SELECT 1 FROM allf x WHERE x.id<>f.id AND x.transaction_id=t.id)),
+ samef AS(SELECT x.* FROM allf x,f WHERE x.category_id=f.category_id AND x.type=f.type AND x.event_id=f.event_id)
+ SELECT id FROM direct UNION SELECT c.id FROM cat c,f WHERE (SELECT count(*) FROM samef)<=1 OR (issue335_score(f.description,c.description)>0 AND issue335_score(f.description,c.description)>coalesce((SELECT max(issue335_score(x.description,c.description)) FROM samef x WHERE x.id<>f.id),0))
+$$;
+REVOKE ALL ON FUNCTION public.issue335_normalize(text),public.issue335_score(text,text),public.issue335_matching_transactions(uuid) FROM PUBLIC,anon,authenticated;
+
 -- INERTE phase2b: dedicated NOLOGIN execution identity, never granted to app roles.
 -- An INSERT into the command view is equivalent to the RPC: full authorization,
 -- hash, locks and validation still execute. No GUC/caller text is an authorization token.
@@ -87,22 +108,22 @@ BEGIN
   IF g.status NOT IN ('applied','reversed') THEN RAISE EXCEPTION 'request_incomplete'; END IF;
   RETURN g.result || jsonb_build_object('status',g.status);
  END IF;
- PERFORM 1 FROM public.companies WHERE id=company FOR UPDATE;
- PERFORM 1 FROM public.suppliers WHERE id=p_supplier_id AND company_id=company FOR UPDATE;
+ PERFORM 1 FROM public.companies WHERE id=company FOR UPDATE NOWAIT;
+ PERFORM 1 FROM public.suppliers WHERE id=p_supplier_id AND company_id=company FOR UPDATE NOWAIT;
  IF NOT FOUND THEN RAISE EXCEPTION 'supplier_not_found'; END IF;
  IF p_movement IS NULL THEN amount:=0; acc:=NULL; pd:=p_date;
  ELSE
   IF jsonb_typeof(p_movement) IS DISTINCT FROM 'object' THEN RAISE EXCEPTION 'invalid_movement'; END IF;
   amount:=(p_movement->>'amount')::numeric; acc:=(p_movement->>'account_id')::uuid; pd:=(p_movement->>'date')::date;
   IF amount IS NULL OR amount<>round(amount,2) OR amount=0 OR acc IS NULL OR pd IS DISTINCT FROM p_date THEN RAISE EXCEPTION 'invalid_movement'; END IF;
-  PERFORM 1 FROM public.financial_accounts WHERE id=acc AND company_id=company AND type NOT IN ('cash','camarim_session') FOR UPDATE;
+  PERFORM 1 FROM public.financial_accounts WHERE id=acc AND company_id=company AND type NOT IN ('cash','camarim_session') FOR UPDATE NOWAIT;
   IF NOT FOUND THEN RAISE EXCEPTION 'account_not_allowed'; END IF;
  END IF;
- PERFORM 1 FROM public.events WHERE id IN (SELECT lock_f.event_id FROM public.event_forecasts lock_f WHERE lock_f.id IN (SELECT (v->>'forecast_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'forecast_id') UNION SELECT lock_t.event_id FROM public.transactions lock_t WHERE lock_t.id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id')) ORDER BY id FOR UPDATE;
+ PERFORM 1 FROM public.events WHERE id IN (SELECT lock_f.event_id FROM public.event_forecasts lock_f WHERE lock_f.id IN (SELECT (v->>'forecast_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'forecast_id') UNION SELECT lock_t.event_id FROM public.transactions lock_t WHERE lock_t.id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id')) ORDER BY id FOR UPDATE NOWAIT;
  -- All BP and existing transaction locks are obtained in UUID order, not display order.
- PERFORM 1 FROM public.event_forecasts WHERE id IN (SELECT (v->>'forecast_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'forecast_id') ORDER BY id FOR UPDATE;
- PERFORM 1 FROM public.transactions WHERE id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id') ORDER BY id FOR UPDATE;
- PERFORM 1 FROM public.transaction_payments WHERE transaction_id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id') ORDER BY id FOR UPDATE;
+ PERFORM 1 FROM public.event_forecasts WHERE id IN (SELECT (v->>'forecast_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'forecast_id') ORDER BY id FOR UPDATE NOWAIT;
+ PERFORM 1 FROM public.transactions WHERE id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id') ORDER BY id FOR UPDATE NOWAIT;
+ PERFORM 1 FROM public.transaction_payments WHERE transaction_id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id') ORDER BY id FOR UPDATE NOWAIT;
  -- Resolve all items and validate before financial writes. BP creation stays in this transaction.
  FOR j IN SELECT v FROM jsonb_array_elements(p_items) v ORDER BY COALESCE((v->>'cash_order')::integer,0),COALESCE(v->>'transaction_id',v->>'forecast_id') LOOP
   IF (j ? 'transaction_id')=(j ? 'forecast_id') THEN RAISE EXCEPTION 'invalid_item'; END IF;
@@ -146,7 +167,7 @@ BEGIN
  INSERT INTO public.transaction_offset_groups(company_id,supplier_id,request_id,request_hash,operation_date,account_id,movement_amount,note,created_by)
   VALUES(company,p_supplier_id,p_request_id,h,p_date,acc,amount,p_note,uid) RETURNING id INTO gid;
  -- Adopt existing un-applied internal pairs; reject external or already-applied pairs.
- FOR existing IN SELECT * FROM public.transaction_offsets WHERE receivable_transaction_id=ANY(ids) OR payable_transaction_id=ANY(ids) ORDER BY id FOR UPDATE LOOP
+ FOR existing IN SELECT * FROM public.transaction_offsets WHERE receivable_transaction_id=ANY(ids) OR payable_transaction_id=ANY(ids) ORDER BY id FOR UPDATE NOWAIT LOOP
   IF NOT(existing.receivable_transaction_id=ANY(ids) AND existing.payable_transaction_id=ANY(ids)) OR existing.offset_group_id IS NOT NULL OR
      EXISTS(SELECT 1 FROM public.transaction_payments WHERE offset_id=existing.id AND status='paid' AND reversed_at IS NULL) THEN RAISE EXCEPTION 'legacy_offset_requires_review'; END IF;
   UPDATE public.transaction_offsets SET offset_group_id=gid WHERE id=existing.id;
@@ -177,17 +198,20 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $$
 DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid uuid; BEGIN
  IF auth.uid() IS NULL OR NOT (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'manager') OR public.has_role(auth.uid(),'editor')) THEN RAISE EXCEPTION 'permission_denied'; END IF;
  IF p_request_id IS NULL OR nullif(trim(p_reason),'') IS NULL THEN RAISE EXCEPTION 'reason_required'; END IF;
- -- Bank anchor is locked before group, matching execute adapter order.
- PERFORM 1 FROM public.bank_statement_lines WHERE offset_group_id=p_group_id ORDER BY id FOR UPDATE;
- SELECT * INTO g FROM public.transaction_offset_groups WHERE id=p_group_id AND company_id=public.current_company_id() FOR UPDATE;
+ -- Nonwaiting locks prevent cycles with legacy writers (which use inverted orders).
+ PERFORM 1 FROM public.companies WHERE id=public.current_company_id() FOR UPDATE NOWAIT;
+ PERFORM 1 FROM public.suppliers WHERE id IN (SELECT supplier_id FROM public.transaction_offset_groups WHERE id=p_group_id AND company_id=public.current_company_id()) ORDER BY id FOR UPDATE NOWAIT;
+ -- Bank anchor before group, matching execute adapter order.
+ PERFORM 1 FROM public.bank_statement_lines WHERE offset_group_id=p_group_id ORDER BY id FOR UPDATE NOWAIT;
+ SELECT * INTO g FROM public.transaction_offset_groups WHERE id=p_group_id AND company_id=public.current_company_id() FOR UPDATE NOWAIT;
  IF NOT FOUND THEN RAISE EXCEPTION 'group_not_found'; END IF;
  IF g.status='reversed' THEN
   IF g.reversal_request_id=p_request_id AND g.reversal_reason=p_reason THEN RETURN g.result||jsonb_build_object('status','reversed'); END IF;
   RAISE EXCEPTION 'already_reversed';
  END IF;
  IF g.status<>'applied' THEN RAISE EXCEPTION 'invalid_group_state'; END IF;
- PERFORM 1 FROM public.transactions WHERE id IN(SELECT transaction_id FROM public.transaction_offset_items WHERE group_id=g.id) ORDER BY id FOR UPDATE;
- PERFORM 1 FROM public.transaction_payments WHERE offset_group_id=g.id ORDER BY id FOR UPDATE;
+ PERFORM 1 FROM public.transactions WHERE id IN(SELECT transaction_id FROM public.transaction_offset_items WHERE group_id=g.id) ORDER BY id FOR UPDATE NOWAIT;
+ PERFORM 1 FROM public.transaction_payments WHERE offset_group_id=g.id ORDER BY id FOR UPDATE NOWAIT;
  IF EXISTS(SELECT 1 FROM public.transaction_payments WHERE offset_group_id=g.id AND (status<>'paid' OR reversed_at IS NOT NULL)) THEN RAISE EXCEPTION 'group_ledger_divergent'; END IF;
  INSERT INTO public.system_audit_log(entity_type,entity_id,action,changed_by,old_data,company_id) SELECT 'transaction_payment',id::text,'issue335_reverse',auth.uid()::text,to_jsonb(p),g.company_id FROM public.transaction_payments p WHERE offset_group_id=g.id;
  INSERT INTO public.transaction_audit_log(transaction_id,changed_by,changed_at,field_name,old_value,new_value,company_id) SELECT transaction_id,auth.uid()::text,now(),'issue335_reverse',g.id::text,p_reason,g.company_id FROM public.transaction_offset_items WHERE group_id=g.id;
@@ -323,7 +347,7 @@ BEGIN
     RAISE EXCEPTION 'reason_required: motivo do estorno é obrigatório';
   END IF;
 
-  SELECT * INTO v_payment FROM public.transaction_payments WHERE id = p_payment_id FOR UPDATE;
+  SELECT * INTO v_payment FROM public.transaction_payments WHERE id = p_payment_id FOR UPDATE NOWAIT;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'payment_not_found: %', p_payment_id;
   END IF;
@@ -336,7 +360,7 @@ BEGIN
     RAISE EXCEPTION 'payment_not_paid: só parcelas pagas podem ser estornadas (status atual: %)', v_payment.status;
   END IF;
 
-  SELECT * INTO v_tx FROM public.transactions WHERE id = v_payment.transaction_id FOR UPDATE;
+  SELECT * INTO v_tx FROM public.transactions WHERE id = v_payment.transaction_id FOR UPDATE NOWAIT;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'transaction_not_found';
   END IF;
@@ -478,7 +502,7 @@ BEGIN
     RAISE EXCEPTION 'Motivo é obrigatório';
   END IF;
 
-  SELECT * INTO v_tx FROM public.transactions WHERE id = p_tx_id FOR UPDATE;
+  SELECT * INTO v_tx FROM public.transactions WHERE id = p_tx_id FOR UPDATE NOWAIT;
   IF NOT FOUND THEN RAISE EXCEPTION 'Transação não encontrada'; END IF;
   IF v_tx.status = 'reversed' THEN RAISE EXCEPTION 'Transação já está estornada'; END IF;
   IF coalesce(v_tx.paid_amount,0) <= 0 AND v_tx.status <> 'paid' THEN
@@ -670,7 +694,7 @@ begin
     raise exception 'Nada a conciliar: p_items tem de ser um array com pelo menos um item.';
   end if;
 
-  select * into v_line from public.bank_statement_lines where id = p_line_id FOR UPDATE;
+  select * into v_line from public.bank_statement_lines where id = p_line_id FOR UPDATE NOWAIT;
   if v_line.id is null then
     raise exception 'Linha do banco inexistente ou sem acesso: %', p_line_id;
   end if;

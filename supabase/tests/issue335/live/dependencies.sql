@@ -831,3 +831,5 @@ ALTER TABLE public.shared_cost_mirror ADD COLUMN IF NOT EXISTS updated_at timest
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO authenticated,service_role;
 
 CREATE FUNCTION public.is_platform_admin() RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT false $$;
+
+ALTER TABLE coala_supplier_category_map ADD CONSTRAINT coala_scm_unique UNIQUE (company_id, supplier_id, description_normalized);

@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS public.transaction_offset_groups (
 );
 REVOKE ALL ON public.transaction_offset_groups FROM PUBLIC, anon;
 GRANT SELECT ON public.transaction_offset_groups TO authenticated;
-GRANT ALL ON public.transaction_offset_groups TO service_role;
+GRANT SELECT ON public.transaction_offset_groups TO service_role;
 ALTER TABLE public.transaction_offset_groups ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS offset_groups_staff ON public.transaction_offset_groups;
 CREATE POLICY offset_groups_staff ON public.transaction_offset_groups FOR SELECT TO authenticated USING(public.has_staff_role(auth.uid()));
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS public.transaction_offset_items (
 );
 REVOKE ALL ON public.transaction_offset_items FROM PUBLIC, anon;
 GRANT SELECT ON public.transaction_offset_items TO authenticated;
-GRANT ALL ON public.transaction_offset_items TO service_role;
+GRANT SELECT ON public.transaction_offset_items TO service_role;
 ALTER TABLE public.transaction_offset_items ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS offset_items_staff ON public.transaction_offset_items;
 CREATE POLICY offset_items_staff ON public.transaction_offset_items FOR SELECT TO authenticated USING(public.has_staff_role(auth.uid()));

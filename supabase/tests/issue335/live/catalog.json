@@ -7353,5 +7353,764 @@
       "nullable": "NO",
       "position": 7
     }
+  ],
+  "live_grants": [
+    {
+      "role": "postgres",
+      "table": "event_forecasts",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "postgres",
+      "table": "event_forecasts",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "postgres",
+      "table": "event_forecasts",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "postgres",
+      "table": "event_forecasts",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "postgres",
+      "table": "event_forecasts",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "postgres",
+      "table": "event_forecasts",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "postgres",
+      "table": "event_forecasts",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "postgres",
+      "table": "event_forecasts",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "anon",
+      "table": "event_forecasts",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "event_forecasts",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "event_forecasts",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "event_forecasts",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "event_forecasts",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "event_forecasts",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "anon",
+      "table": "event_forecasts",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "anon",
+      "table": "event_forecasts",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "authenticated",
+      "table": "event_forecasts",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "event_forecasts",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "event_forecasts",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "event_forecasts",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "event_forecasts",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "event_forecasts",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "authenticated",
+      "table": "event_forecasts",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "authenticated",
+      "table": "event_forecasts",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "service_role",
+      "table": "event_forecasts",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "service_role",
+      "table": "event_forecasts",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "service_role",
+      "table": "event_forecasts",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "service_role",
+      "table": "event_forecasts",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "service_role",
+      "table": "event_forecasts",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "service_role",
+      "table": "event_forecasts",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "service_role",
+      "table": "event_forecasts",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "service_role",
+      "table": "event_forecasts",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "sandbox_exec_sfohvvlqccmmebvjgibx",
+      "table": "event_forecasts",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "sandbox_exec_sfohvvlqccmmebvjgibx",
+      "table": "event_forecasts",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "sandbox_exec",
+      "table": "event_forecasts",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "sandbox_exec",
+      "table": "event_forecasts",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "postgres",
+      "table": "transaction_offsets",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "postgres",
+      "table": "transaction_offsets",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "postgres",
+      "table": "transaction_offsets",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "postgres",
+      "table": "transaction_offsets",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "postgres",
+      "table": "transaction_offsets",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "postgres",
+      "table": "transaction_offsets",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "postgres",
+      "table": "transaction_offsets",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "postgres",
+      "table": "transaction_offsets",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "anon",
+      "table": "transaction_offsets",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "transaction_offsets",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "transaction_offsets",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "transaction_offsets",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "transaction_offsets",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "transaction_offsets",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "anon",
+      "table": "transaction_offsets",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "anon",
+      "table": "transaction_offsets",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "authenticated",
+      "table": "transaction_offsets",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "transaction_offsets",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "transaction_offsets",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "transaction_offsets",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "transaction_offsets",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "transaction_offsets",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "authenticated",
+      "table": "transaction_offsets",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "authenticated",
+      "table": "transaction_offsets",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "service_role",
+      "table": "transaction_offsets",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "service_role",
+      "table": "transaction_offsets",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "service_role",
+      "table": "transaction_offsets",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "service_role",
+      "table": "transaction_offsets",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "service_role",
+      "table": "transaction_offsets",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "service_role",
+      "table": "transaction_offsets",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "service_role",
+      "table": "transaction_offsets",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "service_role",
+      "table": "transaction_offsets",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "sandbox_exec_sfohvvlqccmmebvjgibx",
+      "table": "transaction_offsets",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "sandbox_exec_sfohvvlqccmmebvjgibx",
+      "table": "transaction_offsets",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "sandbox_exec",
+      "table": "transaction_offsets",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "sandbox_exec",
+      "table": "transaction_offsets",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "postgres",
+      "table": "transaction_payments",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "postgres",
+      "table": "transaction_payments",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "postgres",
+      "table": "transaction_payments",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "postgres",
+      "table": "transaction_payments",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "postgres",
+      "table": "transaction_payments",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "postgres",
+      "table": "transaction_payments",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "postgres",
+      "table": "transaction_payments",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "postgres",
+      "table": "transaction_payments",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "anon",
+      "table": "transaction_payments",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "transaction_payments",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "transaction_payments",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "transaction_payments",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "transaction_payments",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "transaction_payments",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "anon",
+      "table": "transaction_payments",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "anon",
+      "table": "transaction_payments",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "authenticated",
+      "table": "transaction_payments",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "transaction_payments",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "transaction_payments",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "transaction_payments",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "transaction_payments",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "transaction_payments",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "authenticated",
+      "table": "transaction_payments",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "authenticated",
+      "table": "transaction_payments",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "service_role",
+      "table": "transaction_payments",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "service_role",
+      "table": "transaction_payments",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "service_role",
+      "table": "transaction_payments",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "service_role",
+      "table": "transaction_payments",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "service_role",
+      "table": "transaction_payments",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "service_role",
+      "table": "transaction_payments",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "service_role",
+      "table": "transaction_payments",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "service_role",
+      "table": "transaction_payments",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "sandbox_exec_sfohvvlqccmmebvjgibx",
+      "table": "transaction_payments",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "sandbox_exec_sfohvvlqccmmebvjgibx",
+      "table": "transaction_payments",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "sandbox_exec",
+      "table": "transaction_payments",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "sandbox_exec",
+      "table": "transaction_payments",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "postgres",
+      "table": "transactions",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "postgres",
+      "table": "transactions",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "postgres",
+      "table": "transactions",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "postgres",
+      "table": "transactions",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "postgres",
+      "table": "transactions",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "postgres",
+      "table": "transactions",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "postgres",
+      "table": "transactions",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "postgres",
+      "table": "transactions",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "anon",
+      "table": "transactions",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "anon",
+      "table": "transactions",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "anon",
+      "table": "transactions",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "table": "transactions",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "anon",
+      "table": "transactions",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "table": "transactions",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "anon",
+      "table": "transactions",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "anon",
+      "table": "transactions",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "authenticated",
+      "table": "transactions",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "table": "transactions",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "authenticated",
+      "table": "transactions",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "transactions",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "table": "transactions",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "table": "transactions",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "authenticated",
+      "table": "transactions",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "authenticated",
+      "table": "transactions",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "service_role",
+      "table": "transactions",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "service_role",
+      "table": "transactions",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "service_role",
+      "table": "transactions",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "service_role",
+      "table": "transactions",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "service_role",
+      "table": "transactions",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "service_role",
+      "table": "transactions",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "service_role",
+      "table": "transactions",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "service_role",
+      "table": "transactions",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "sandbox_exec_sfohvvlqccmmebvjgibx",
+      "table": "transactions",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "sandbox_exec_sfohvvlqccmmebvjgibx",
+      "table": "transactions",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "sandbox_exec",
+      "table": "transactions",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "sandbox_exec",
+      "table": "transactions",
+      "privilege": "SELECT"
+    }
+  ],
+  "additional_constraints": [
+    {
+      "name": "coala_scm_matched_via_chk",
+      "table": "coala_supplier_category_map",
+      "definition": "CHECK ((matched_via = ANY (ARRAY['inline_edit'::text, 'audit_ia'::text, 'manual'::text, 'wizard'::text])))"
+    },
+    {
+      "name": "coala_scm_unique",
+      "table": "coala_supplier_category_map",
+      "definition": "UNIQUE (company_id, supplier_id, description_normalized)"
+    },
+    {
+      "name": "coala_supplier_category_map_category_id_fkey",
+      "table": "coala_supplier_category_map",
+      "definition": "FOREIGN KEY (category_id) REFERENCES account_categories(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "coala_supplier_category_map_company_id_fkey",
+      "table": "coala_supplier_category_map",
+      "definition": "FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "coala_supplier_category_map_created_by_fkey",
+      "table": "coala_supplier_category_map",
+      "definition": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+    },
+    {
+      "name": "coala_supplier_category_map_pkey",
+      "table": "coala_supplier_category_map",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "coala_supplier_category_map_supplier_id_fkey",
+      "table": "coala_supplier_category_map",
+      "definition": "FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE"
+    }
   ]
 }
