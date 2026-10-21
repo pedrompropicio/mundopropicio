@@ -244,7 +244,7 @@ for tbl, iname, idef, owner in q(f"""SELECT i.indrelid::regclass::text, c.relnam
 for oid, name, owner, kind, opts in q(f"""SELECT c.oid, format('%%I.%%I',n.nspname,c.relname), pg_get_userbyid(c.relowner), c.relkind, c.reloptions
         FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
         WHERE n.nspname = ANY(%s) AND c.relkind IN ('v','m') AND c.oid NOT IN {ext_member} ORDER BY 2""", (schemas, 'pg_class', real)):
-    body = q('SELECT pg_get_viewdef(%s)', (oid,))[0][0].rstrip().rstrip(';')
+    body = q('SELECT pg_get_viewdef(%s::oid)', (oid,))[0][0].rstrip().rstrip(';')
     w = f" WITH ({', '.join(opts)})" if opts else ''
     emit('10_views', owner, 'view:' + name, (f'CREATE MATERIALIZED VIEW {name}{w} AS {body} WITH NO DATA' if kind == 'm' else f'CREATE VIEW {name}{w} AS {body}'))
     acl_stmts('17_acl_tables', 'vacl:' + name, 'TABLE', name, aclx('relacl', f'FROM pg_class WHERE oid={oid}'), owner)
