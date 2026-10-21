@@ -1141,7 +1141,7 @@
    "phase": "07_tables",
    "role": "supabase_auth_admin",
    "key": "table:auth.oauth_clients",
-   "sql": "CREATE TABLE auth.oauth_clients (id uuid NOT NULL, client_secret_hash text, registration_type auth.oauth_registration_type NOT NULL, redirect_uris text NOT NULL, grant_types text NOT NULL, client_name text, client_uri text, logo_uri text, created_at timestamp with time zone NOT NULL, updated_at timestamp with time zone NOT NULL, deleted_at timestamp with time zone, client_type auth.oauth_client_type NOT NULL, token_endpoint_auth_method text NOT NULL)"
+   "sql": "CREATE TABLE auth.oauth_clients (id uuid NOT NULL, issue335_dropped_2 integer, client_secret_hash text, registration_type auth.oauth_registration_type NOT NULL, redirect_uris text NOT NULL, grant_types text NOT NULL, client_name text, client_uri text, logo_uri text, created_at timestamp with time zone NOT NULL, updated_at timestamp with time zone NOT NULL, deleted_at timestamp with time zone, client_type auth.oauth_client_type NOT NULL, token_endpoint_auth_method text NOT NULL)"
   },
   {
    "phase": "07_tables",
@@ -1171,7 +1171,7 @@
    "phase": "07_tables",
    "role": "supabase_auth_admin",
    "key": "table:auth.saml_relay_states",
-   "sql": "CREATE TABLE auth.saml_relay_states (id uuid NOT NULL, sso_provider_id uuid NOT NULL, request_id text NOT NULL, for_email text, redirect_to text, created_at timestamp with time zone, updated_at timestamp with time zone, flow_state_id uuid)"
+   "sql": "CREATE TABLE auth.saml_relay_states (id uuid NOT NULL, sso_provider_id uuid NOT NULL, request_id text NOT NULL, for_email text, redirect_to text, issue335_dropped_6 integer, created_at timestamp with time zone, updated_at timestamp with time zone, flow_state_id uuid)"
   },
   {
    "phase": "07_tables",
@@ -1693,7 +1693,7 @@
    "phase": "07_tables",
    "role": "postgres",
    "key": "table:public.account_categories",
-   "sql": "CREATE TABLE public.account_categories (id uuid NOT NULL, code text NOT NULL, name text NOT NULL, type text NOT NULL, parent_id uuid, is_active boolean NOT NULL, created_at timestamp with time zone NOT NULL, updated_at timestamp with time zone NOT NULL, event_required boolean NOT NULL, company_id uuid NOT NULL, allocate_to_active_event boolean NOT NULL, ebitda_class text)"
+   "sql": "CREATE TABLE public.account_categories (id uuid NOT NULL, code text NOT NULL, name text NOT NULL, type text NOT NULL, parent_id uuid, is_active boolean NOT NULL, created_at timestamp with time zone NOT NULL, updated_at timestamp with time zone NOT NULL, event_required boolean NOT NULL, issue335_dropped_10 integer, company_id uuid NOT NULL, allocate_to_active_event boolean NOT NULL, ebitda_class text)"
   },
   {
    "phase": "07_tables",
@@ -1873,7 +1873,7 @@
    "phase": "07_tables",
    "role": "postgres",
    "key": "table:public.artist_songs",
-   "sql": "CREATE TABLE public.artist_songs (id uuid NOT NULL, company_id uuid NOT NULL, artist_id uuid NOT NULL, title text NOT NULL, featuring text[] NOT NULL, soundcharts_uuid text, isrc text, release_date date, cover_url text, tracking_status text NOT NULL, is_launch boolean NOT NULL, launch_started_at date, notes text, created_at timestamp with time zone NOT NULL, updated_at timestamp with time zone NOT NULL, is_reference boolean NOT NULL, report_stale_at timestamp with time zone, tiktok_hashtags text[], tiktok_song_id text)"
+   "sql": "CREATE TABLE public.artist_songs (id uuid NOT NULL, company_id uuid NOT NULL, artist_id uuid NOT NULL, title text NOT NULL, featuring text[] NOT NULL, soundcharts_uuid text, isrc text, release_date date, cover_url text, tracking_status text NOT NULL, is_launch boolean NOT NULL, launch_started_at date, notes text, created_at timestamp with time zone NOT NULL, updated_at timestamp with time zone NOT NULL, is_reference boolean NOT NULL, issue335_dropped_17 integer, report_stale_at timestamp with time zone, tiktok_hashtags text[], tiktok_song_id text)"
   },
   {
    "phase": "07_tables",
@@ -2803,7 +2803,7 @@
    "phase": "07_tables",
    "role": "postgres",
    "key": "table:public.event_ticket_lots",
-   "sql": "CREATE TABLE public.event_ticket_lots (id uuid NOT NULL, zone_id uuid NOT NULL, lot_number integer NOT NULL, name text NOT NULL, quantity integer NOT NULL, price numeric NOT NULL, created_at timestamp with time zone NOT NULL, iva_rate integer NOT NULL, lot_type text NOT NULL, version_id uuid, company_id uuid NOT NULL, applies_to_days integer NOT NULL, lot_kind text NOT NULL, combo_benefits text, combo_description text, consumes_zone_ids uuid[] NOT NULL, is_combo boolean NOT NULL, ticket_type_id uuid, sales_window_start timestamp with time zone, sales_window_end timestamp with time zone, campaign_label text, sync_generated boolean NOT NULL)"
+   "sql": "CREATE TABLE public.event_ticket_lots (id uuid NOT NULL, zone_id uuid NOT NULL, lot_number integer NOT NULL, name text NOT NULL, quantity integer NOT NULL, price numeric NOT NULL, created_at timestamp with time zone NOT NULL, iva_rate integer NOT NULL, lot_type text NOT NULL, version_id uuid, company_id uuid NOT NULL, applies_to_days integer NOT NULL, lot_kind text NOT NULL, combo_benefits text, combo_description text, consumes_zone_ids uuid[] NOT NULL, is_combo boolean NOT NULL, ticket_type_id uuid, sales_window_start timestamp with time zone, sales_window_end timestamp with time zone, issue335_dropped_21 integer, campaign_label text, sync_generated boolean NOT NULL)"
   },
   {
    "phase": "07_tables",
@@ -2815,7 +2815,7 @@
    "phase": "07_tables",
    "role": "postgres",
    "key": "table:public.event_ticket_office_assignments",
-   "sql": "CREATE TABLE public.event_ticket_office_assignments (id uuid NOT NULL, event_id uuid NOT NULL, event_date_id uuid, commission_notes text, commission_type text NOT NULL, is_conciliated boolean NOT NULL, conciliated_at timestamp with time zone, conciliated_by text, created_at timestamp with time zone NOT NULL, updated_at timestamp with time zone NOT NULL, financial_account_id uuid NOT NULL, company_id uuid NOT NULL)"
+   "sql": "CREATE TABLE public.event_ticket_office_assignments (id uuid NOT NULL, event_id uuid NOT NULL, issue335_dropped_3 integer, event_date_id uuid, commission_notes text, commission_type text NOT NULL, is_conciliated boolean NOT NULL, conciliated_at timestamp with time zone, conciliated_by text, created_at timestamp with time zone NOT NULL, updated_at timestamp with time zone NOT NULL, financial_account_id uuid NOT NULL, company_id uuid NOT NULL)"
   },
   {
    "phase": "07_tables",
@@ -2851,7 +2851,7 @@
    "phase": "07_tables",
    "role": "postgres",
    "key": "table:public.events",
-   "sql": "CREATE TABLE public.events (id uuid NOT NULL, name text NOT NULL, date date NOT NULL, location text, status text NOT NULL, budget numeric NOT NULL, tickets_sold integer NOT NULL, tickets_total integer NOT NULL, created_at timestamp with time zone NOT NULL, updated_at timestamp with time zone NOT NULL, event_type text NOT NULL, parent_event_id uuid, city_id uuid, venue_id uuid, pl_mode text NOT NULL, partner_calc_basis text NOT NULL, last_sales_date date, company_id uuid NOT NULL, absorbs_admin_costs boolean NOT NULL, admin_window_end date, admin_window_start date, import_template text, ticketing_url text, ticketing_provider text, operacao_mode text, ticketline_event_id text, description_en text, description_pt text, hero_image_url text, location_en text, location_pt text, meta_pixel_id text, portal_featured boolean NOT NULL, portal_visible boolean NOT NULL, poster_image_url text, slug text, title_en text, title_pt text, venue_directions_url text, venue_map_url text, management_type text NOT NULL, partner_name text, vip_coupon_code text, vip_coupon_discount_label text, vip_coupon_valid_until timestamp with time zone, meta_audience_id text, meta_audience_name text, ad_destination_url text, target_roas numeric, format text, title_es text, description_es text, location_es text, budget_mode text, ticketing_baseline_net numeric, ticketing_baseline_at timestamp with time zone, ab_baseline_net numeric, ab_baseline_at timestamp with time zone, sponsorship_closed_at timestamp with time zone, ads_allocation_level text NOT NULL, ads_match_aliases text[] NOT NULL, cost_expense_source text NOT NULL, cost_include_overhead boolean NOT NULL, event_nature text NOT NULL)"
+   "sql": "CREATE TABLE public.events (id uuid NOT NULL, name text NOT NULL, date date NOT NULL, location text, status text NOT NULL, budget numeric NOT NULL, tickets_sold integer NOT NULL, tickets_total integer NOT NULL, created_at timestamp with time zone NOT NULL, updated_at timestamp with time zone NOT NULL, event_type text NOT NULL, parent_event_id uuid, city_id uuid, venue_id uuid, pl_mode text NOT NULL, partner_calc_basis text NOT NULL, last_sales_date date, company_id uuid NOT NULL, absorbs_admin_costs boolean NOT NULL, admin_window_end date, admin_window_start date, import_template text, ticketing_url text, ticketing_provider text, operacao_mode text, ticketline_event_id text, issue335_dropped_27 integer, issue335_dropped_28 integer, issue335_dropped_29 integer, issue335_dropped_30 integer, issue335_dropped_31 integer, issue335_dropped_32 integer, issue335_dropped_33 integer, issue335_dropped_34 integer, issue335_dropped_35 integer, issue335_dropped_36 integer, issue335_dropped_37 integer, issue335_dropped_38 integer, issue335_dropped_39 integer, issue335_dropped_40 integer, description_en text, description_pt text, hero_image_url text, location_en text, location_pt text, meta_pixel_id text, portal_featured boolean NOT NULL, portal_visible boolean NOT NULL, poster_image_url text, slug text, title_en text, title_pt text, venue_directions_url text, venue_map_url text, management_type text NOT NULL, partner_name text, vip_coupon_code text, vip_coupon_discount_label text, vip_coupon_valid_until timestamp with time zone, meta_audience_id text, meta_audience_name text, ad_destination_url text, target_roas numeric, format text, title_es text, description_es text, location_es text, budget_mode text, ticketing_baseline_net numeric, ticketing_baseline_at timestamp with time zone, ab_baseline_net numeric, ab_baseline_at timestamp with time zone, sponsorship_closed_at timestamp with time zone, ads_allocation_level text NOT NULL, ads_match_aliases text[] NOT NULL, cost_expense_source text NOT NULL, cost_include_overhead boolean NOT NULL, event_nature text NOT NULL)"
   },
   {
    "phase": "07_tables",
@@ -3469,7 +3469,7 @@
    "phase": "07_tables",
    "role": "postgres",
    "key": "table:public.suppliers",
-   "sql": "CREATE TABLE public.suppliers (id uuid NOT NULL, name text NOT NULL, nif text, contact_name text, email text, phone text, address text, iban text, payment_terms text, category text, notes text, is_active boolean NOT NULL, created_at timestamp with time zone NOT NULL, updated_at timestamp with time zone NOT NULL, swift_bic text, trade_name text, is_partner boolean NOT NULL, iban_2 text, iban_3 text, swift_bic_2 text, swift_bic_3 text, company_id uuid NOT NULL, doc_locale text NOT NULL, country text NOT NULL)"
+   "sql": "CREATE TABLE public.suppliers (id uuid NOT NULL, name text NOT NULL, nif text, contact_name text, email text, phone text, address text, iban text, payment_terms text, category text, issue335_dropped_11 integer, notes text, is_active boolean NOT NULL, created_at timestamp with time zone NOT NULL, updated_at timestamp with time zone NOT NULL, swift_bic text, trade_name text, is_partner boolean NOT NULL, iban_2 text, iban_3 text, swift_bic_2 text, swift_bic_3 text, company_id uuid NOT NULL, doc_locale text NOT NULL, country text NOT NULL)"
   },
   {
    "phase": "07_tables",
@@ -3517,7 +3517,7 @@
    "phase": "07_tables",
    "role": "postgres",
    "key": "table:public.ticket_import_logs",
-   "sql": "CREATE TABLE public.ticket_import_logs (id uuid NOT NULL, event_id uuid, import_type text NOT NULL, period_from date NOT NULL, period_to date NOT NULL, file_name text, rows_imported integer NOT NULL, rows_skipped integer NOT NULL, zones_created integer NOT NULL, lots_created integer NOT NULL, imported_by uuid NOT NULL, created_at timestamp with time zone NOT NULL, report_url text, financial_account_id uuid, company_id uuid NOT NULL)"
+   "sql": "CREATE TABLE public.ticket_import_logs (id uuid NOT NULL, event_id uuid, issue335_dropped_3 integer, import_type text NOT NULL, period_from date NOT NULL, period_to date NOT NULL, file_name text, rows_imported integer NOT NULL, rows_skipped integer NOT NULL, zones_created integer NOT NULL, lots_created integer NOT NULL, imported_by uuid NOT NULL, created_at timestamp with time zone NOT NULL, report_url text, financial_account_id uuid, company_id uuid NOT NULL)"
   },
   {
    "phase": "07_tables",
@@ -3547,7 +3547,7 @@
    "phase": "07_tables",
    "role": "postgres",
    "key": "table:public.ticket_sales",
-   "sql": "CREATE TABLE public.ticket_sales (id uuid NOT NULL, lot_id uuid, sale_date date NOT NULL, quantity integer NOT NULL, unit_price numeric NOT NULL, notes text, created_by text NOT NULL, created_at timestamp with time zone NOT NULL, zone_id uuid, source text NOT NULL, sale_date_to date, financial_account_id uuid, import_batch_id uuid, total_value numeric, company_id uuid NOT NULL)"
+   "sql": "CREATE TABLE public.ticket_sales (id uuid NOT NULL, lot_id uuid, sale_date date NOT NULL, quantity integer NOT NULL, unit_price numeric NOT NULL, notes text, created_by text NOT NULL, created_at timestamp with time zone NOT NULL, zone_id uuid, issue335_dropped_10 integer, source text NOT NULL, sale_date_to date, financial_account_id uuid, import_batch_id uuid, total_value numeric, company_id uuid NOT NULL, issue335_dropped_17 integer)"
   },
   {
    "phase": "07_tables",
@@ -3685,7 +3685,7 @@
    "phase": "07_tables",
    "role": "supabase_realtime_admin",
    "key": "table:realtime.messages",
-   "sql": "CREATE TABLE realtime.messages (topic text NOT NULL, extension text NOT NULL, payload jsonb, event text, private boolean, updated_at timestamp without time zone NOT NULL, inserted_at timestamp without time zone NOT NULL, id uuid NOT NULL, binary_payload bytea, skip_broadcast boolean NOT NULL) PARTITION BY RANGE (inserted_at)"
+   "sql": "CREATE TABLE realtime.messages (issue335_dropped_1 integer, issue335_dropped_2 integer, topic text NOT NULL, extension text NOT NULL, payload jsonb, event text, private boolean, updated_at timestamp without time zone NOT NULL, inserted_at timestamp without time zone NOT NULL, id uuid NOT NULL, binary_payload bytea, skip_broadcast boolean NOT NULL) PARTITION BY RANGE (inserted_at)"
   },
   {
    "phase": "07_tables",
@@ -3739,7 +3739,7 @@
    "phase": "07_tables",
    "role": "supabase_realtime_admin",
    "key": "table:realtime.subscription",
-   "sql": "CREATE TABLE realtime.subscription (id bigint GENERATED ALWAYS AS IDENTITY NOT NULL, subscription_id uuid NOT NULL, entity regclass NOT NULL, filters realtime.user_defined_filter[] NOT NULL, claims jsonb NOT NULL, claims_role regrole GENERATED ALWAYS AS (realtime.to_regrole((claims ->> 'role'::text))) STORED NOT NULL, created_at timestamp without time zone NOT NULL, action_filter text, selected_columns text[])"
+   "sql": "CREATE TABLE realtime.subscription (id bigint GENERATED ALWAYS AS IDENTITY NOT NULL, subscription_id uuid NOT NULL, issue335_dropped_3 integer, entity regclass NOT NULL, filters realtime.user_defined_filter[] NOT NULL, issue335_dropped_6 integer, claims jsonb NOT NULL, claims_role regrole GENERATED ALWAYS AS (realtime.to_regrole((claims ->> 'role'::text))) STORED NOT NULL, created_at timestamp without time zone NOT NULL, action_filter text, selected_columns text[])"
   },
   {
    "phase": "07_tables",
@@ -3800,6 +3800,174 @@
    "role": "supabase_admin",
    "key": "table:vault.secrets",
    "sql": "CREATE TABLE vault.secrets (id uuid NOT NULL, name text, description text NOT NULL, secret text NOT NULL, key_id uuid, nonce bytea, created_at timestamp with time zone NOT NULL, updated_at timestamp with time zone NOT NULL)"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "supabase_auth_admin",
+   "key": "drop:auth.oauth_clients.issue335_dropped_2",
+   "sql": "ALTER TABLE auth.oauth_clients DROP COLUMN issue335_dropped_2"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "supabase_auth_admin",
+   "key": "drop:auth.saml_relay_states.issue335_dropped_6",
+   "sql": "ALTER TABLE auth.saml_relay_states DROP COLUMN issue335_dropped_6"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.account_categories.issue335_dropped_10",
+   "sql": "ALTER TABLE public.account_categories DROP COLUMN issue335_dropped_10"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.artist_songs.issue335_dropped_17",
+   "sql": "ALTER TABLE public.artist_songs DROP COLUMN issue335_dropped_17"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.event_ticket_lots.issue335_dropped_21",
+   "sql": "ALTER TABLE public.event_ticket_lots DROP COLUMN issue335_dropped_21"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.event_ticket_office_assignments.issue335_dropped_3",
+   "sql": "ALTER TABLE public.event_ticket_office_assignments DROP COLUMN issue335_dropped_3"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.events.issue335_dropped_27",
+   "sql": "ALTER TABLE public.events DROP COLUMN issue335_dropped_27"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.events.issue335_dropped_28",
+   "sql": "ALTER TABLE public.events DROP COLUMN issue335_dropped_28"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.events.issue335_dropped_29",
+   "sql": "ALTER TABLE public.events DROP COLUMN issue335_dropped_29"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.events.issue335_dropped_30",
+   "sql": "ALTER TABLE public.events DROP COLUMN issue335_dropped_30"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.events.issue335_dropped_31",
+   "sql": "ALTER TABLE public.events DROP COLUMN issue335_dropped_31"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.events.issue335_dropped_32",
+   "sql": "ALTER TABLE public.events DROP COLUMN issue335_dropped_32"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.events.issue335_dropped_33",
+   "sql": "ALTER TABLE public.events DROP COLUMN issue335_dropped_33"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.events.issue335_dropped_34",
+   "sql": "ALTER TABLE public.events DROP COLUMN issue335_dropped_34"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.events.issue335_dropped_35",
+   "sql": "ALTER TABLE public.events DROP COLUMN issue335_dropped_35"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.events.issue335_dropped_36",
+   "sql": "ALTER TABLE public.events DROP COLUMN issue335_dropped_36"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.events.issue335_dropped_37",
+   "sql": "ALTER TABLE public.events DROP COLUMN issue335_dropped_37"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.events.issue335_dropped_38",
+   "sql": "ALTER TABLE public.events DROP COLUMN issue335_dropped_38"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.events.issue335_dropped_39",
+   "sql": "ALTER TABLE public.events DROP COLUMN issue335_dropped_39"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.events.issue335_dropped_40",
+   "sql": "ALTER TABLE public.events DROP COLUMN issue335_dropped_40"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.suppliers.issue335_dropped_11",
+   "sql": "ALTER TABLE public.suppliers DROP COLUMN issue335_dropped_11"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.ticket_import_logs.issue335_dropped_3",
+   "sql": "ALTER TABLE public.ticket_import_logs DROP COLUMN issue335_dropped_3"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.ticket_sales.issue335_dropped_10",
+   "sql": "ALTER TABLE public.ticket_sales DROP COLUMN issue335_dropped_10"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "postgres",
+   "key": "drop:public.ticket_sales.issue335_dropped_17",
+   "sql": "ALTER TABLE public.ticket_sales DROP COLUMN issue335_dropped_17"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "supabase_realtime_admin",
+   "key": "drop:realtime.messages.issue335_dropped_1",
+   "sql": "ALTER TABLE realtime.messages DROP COLUMN issue335_dropped_1"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "supabase_realtime_admin",
+   "key": "drop:realtime.messages.issue335_dropped_2",
+   "sql": "ALTER TABLE realtime.messages DROP COLUMN issue335_dropped_2"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "supabase_realtime_admin",
+   "key": "drop:realtime.subscription.issue335_dropped_3",
+   "sql": "ALTER TABLE realtime.subscription DROP COLUMN issue335_dropped_3"
+  },
+  {
+   "phase": "08_dropped_columns",
+   "role": "supabase_realtime_admin",
+   "key": "drop:realtime.subscription.issue335_dropped_6",
+   "sql": "ALTER TABLE realtime.subscription DROP COLUMN issue335_dropped_6"
   },
   {
    "phase": "09_functions",
