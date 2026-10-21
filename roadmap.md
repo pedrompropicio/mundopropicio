@@ -15,3 +15,4 @@
 - [ ] Cachê contratos: verificação em Live pelo Pedro (migração, privilégios, cenários, #323 intocada) e CI.
 - [x] Ajuste D-ERP288: linha BP 2.1.01 como tecto, congelar, adiantamentos, UI modal+BP, testes, docs (migração 0216).
 - [ ] Ajuste D-ERP288: verificação em Live pelo Pedro e CI do commit.
+- [ ] Visão comparativa Fase 1: aplicação abortada no bloco ACL por `r.rolname` ambíguo; rollback confirmado (cinco objetos ausentes). Aguarda autorização do DDL corrigido; sync, testes/deploy, backfill e crons não iniciados.
