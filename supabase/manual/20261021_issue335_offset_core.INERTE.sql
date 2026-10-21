@@ -38,7 +38,10 @@ GRANT EXECUTE ON FUNCTION public.issue335_uid() TO issue335_executor;
 GRANT SELECT ON public.user_roles TO issue335_executor;
 CREATE POLICY issue335_company_membership ON public.user_roles FOR SELECT TO issue335_executor USING (user_id=public.issue335_uid());
 GRANT SELECT,UPDATE ON public.companies,public.suppliers,public.events,public.financial_accounts TO issue335_executor;
-GRANT SELECT ON public.partner_paid_expenses,public.event_settlements TO issue335_executor;
+GRANT SELECT ON public.transaction_offset_control TO issue335_executor;
+GRANT SELECT ON public.partner_paid_expenses,public.event_settlements,public.payment_list_items,public.payment_lists,public.payment_list_sepa_exports TO issue335_executor;
+GRANT UPDATE ON public.event_settlements TO issue335_executor;
+GRANT EXECUTE ON FUNCTION public.can_see_confidential(uuid),public.has_permission(uuid,text),public.is_platform_admin(uuid) TO issue335_executor;
 GRANT SELECT,INSERT,UPDATE ON public.event_forecasts,public.transactions,public.transaction_payments,public.transaction_offsets,public.bank_statement_lines,public.transaction_offset_groups,public.transaction_offset_items TO issue335_executor;
 GRANT SELECT,INSERT,DELETE ON public.bank_line_transactions TO issue335_executor;
 GRANT SELECT,INSERT ON public.forecast_audit_log,public.transaction_audit_log,public.system_audit_log TO issue335_executor;
@@ -58,10 +61,10 @@ DECLARE gid uuid; st text; trusted boolean := current_user = 'issue335_executor'
    SELECT status INTO st FROM public.transaction_offset_groups WHERE id=NEW.group_id AND company_id=NEW.company_id;
    IF st IS DISTINCT FROM 'preparing' THEN RAISE EXCEPTION 'invalid_group_state'; END IF;
   END IF;
-  RETURN NEW;
+  RETURN CASE WHEN TG_OP='DELETE' THEN OLD ELSE NEW END;
  END IF;
  IF TG_TABLE_NAME='transaction_payments' THEN
-  gid := CASE WHEN TG_OP='DELETE' THEN OLD.offset_group_id ELSE COALESCE(OLD.offset_group_id,NEW.offset_group_id) END;
+  gid := CASE WHEN TG_OP='DELETE' THEN OLD.offset_group_id WHEN TG_OP='INSERT' THEN NEW.offset_group_id ELSE COALESCE(OLD.offset_group_id,NEW.offset_group_id) END;
   IF gid IS NULL THEN RETURN CASE WHEN TG_OP='DELETE' THEN OLD ELSE NEW END; END IF;
   IF TG_OP='INSERT' THEN
    SELECT g.status INTO st FROM public.transaction_offset_groups g JOIN public.transaction_offset_items i ON i.group_id=g.id
@@ -80,12 +83,12 @@ DECLARE gid uuid; st text; trusted boolean := current_user = 'issue335_executor'
   END IF;
  END IF;
  IF TG_TABLE_NAME='transaction_offsets' THEN
- IF (CASE WHEN TG_OP='DELETE' THEN OLD.offset_group_id ELSE COALESCE(OLD.offset_group_id,NEW.offset_group_id) END) IS NOT NULL THEN
+ IF (CASE WHEN TG_OP='DELETE' THEN OLD.offset_group_id WHEN TG_OP='INSERT' THEN NEW.offset_group_id ELSE COALESCE(OLD.offset_group_id,NEW.offset_group_id) END) IS NOT NULL THEN
   IF TG_OP='DELETE' OR NOT trusted THEN RAISE EXCEPTION 'managed_operation_required'; END IF;
  END IF;
  END IF;
  IF TG_TABLE_NAME='bank_statement_lines' THEN
-  gid := CASE WHEN TG_OP='DELETE' THEN OLD.offset_group_id ELSE COALESCE(OLD.offset_group_id,NEW.offset_group_id) END;
+  gid := CASE WHEN TG_OP='DELETE' THEN OLD.offset_group_id WHEN TG_OP='INSERT' THEN NEW.offset_group_id ELSE COALESCE(OLD.offset_group_id,NEW.offset_group_id) END;
   IF gid IS NOT NULL AND NOT trusted THEN RAISE EXCEPTION 'managed_bank_anchor_immutable'; END IF;
   IF gid IS NOT NULL AND TG_OP='DELETE' THEN RAISE EXCEPTION 'reverse_entire_group'; END IF;
  END IF;
@@ -95,12 +98,19 @@ DECLARE gid uuid; st text; trusted boolean := current_user = 'issue335_executor'
    RAISE EXCEPTION 'managed_bank_anchor_immutable';
   END IF;
  END IF;
- IF TG_TABLE_NAME='transactions' THEN
+ IF TG_TABLE_NAME='transactions' AND TG_OP<>'INSERT' THEN
  IF EXISTS(SELECT 1 FROM public.transaction_offset_items i JOIN public.transaction_offset_groups g ON g.id=i.group_id WHERE i.transaction_id=OLD.id AND g.status IN ('preparing','applied','reversing')) THEN
   IF TG_OP='DELETE' THEN RAISE EXCEPTION 'reverse_entire_group'; END IF;
   IF NEW.reversed_at IS DISTINCT FROM OLD.reversed_at OR NEW.reversal_kind IS DISTINCT FROM OLD.reversal_kind OR
    NEW.amount IS DISTINCT FROM OLD.amount OR NEW.iva_rate IS DISTINCT FROM OLD.iva_rate OR NEW.supplier_id IS DISTINCT FROM OLD.supplier_id OR
-   NEW.company_id IS DISTINCT FROM OLD.company_id OR NEW.type IS DISTINCT FROM OLD.type OR NEW.forecast_id IS DISTINCT FROM OLD.forecast_id THEN RAISE EXCEPTION 'reverse_entire_group'; END IF;
+   NEW.company_id IS DISTINCT FROM OLD.company_id OR NEW.type IS DISTINCT FROM OLD.type OR NEW.forecast_id IS DISTINCT FROM OLD.forecast_id OR
+   NEW.event_id IS DISTINCT FROM OLD.event_id OR NEW.is_hidden IS DISTINCT FROM OLD.is_hidden OR
+   NEW.event_settlement_id IS DISTINCT FROM OLD.event_settlement_id OR
+   (NOT trusted AND (NEW.account_id IS DISTINCT FROM OLD.account_id OR
+    ((NEW.status IS DISTINCT FROM OLD.status OR NEW.payment_date IS DISTINCT FROM OLD.payment_date OR NEW.paid_amount IS DISTINCT FROM OLD.paid_amount) AND NOT (
+      EXISTS(SELECT 1 FROM public.transaction_offset_items gi JOIN public.transaction_offset_groups gg ON gg.id=gi.group_id WHERE gi.transaction_id=OLD.id AND gg.status IN('preparing','reversing')) AND
+      NEW.paid_amount IS NOT DISTINCT FROM (SELECT coalesce(sum(gp.amount),0) FROM public.transaction_payments gp WHERE gp.transaction_id=OLD.id AND gp.status='paid')
+    )))) THEN RAISE EXCEPTION 'reverse_entire_group'; END IF;
  END IF;
  END IF;
  RETURN CASE WHEN TG_OP='DELETE' THEN OLD ELSE NEW END;
@@ -120,8 +130,10 @@ DECLARE company uuid:=public.current_company_id(); uid uuid:=public.issue335_uid
  has_income boolean:=false; has_expense boolean:=false; ids uuid[]:='{}'; prepared jsonb:='[]'; x jsonb; cash_type text; existing public.transaction_offsets;
 BEGIN
  PERFORM set_config('lock_timeout','5s',true);
+ IF EXISTS(SELECT 1 FROM public.transaction_offset_control WHERE NOT enabled) THEN RAISE EXCEPTION 'encontro_desativado'; END IF;
  IF uid IS NULL OR company IS NULL OR NOT (public.has_role(uid,'admin') OR public.has_role(uid,'manager') OR public.has_role(uid,'editor')) THEN RAISE EXCEPTION 'permission_denied'; END IF;
  IF p_request_id IS NULL OR p_supplier_id IS NULL OR p_date IS NULL OR jsonb_typeof(p_items) IS DISTINCT FROM 'array' OR jsonb_array_length(p_items)<2 THEN RAISE EXCEPTION 'invalid_request'; END IF;
+ IF jsonb_array_length(p_items)>50 THEN RAISE EXCEPTION 'too_many_items: máximo 50 documentos por encontro'; END IF;
  IF p_items::text ~ '"(amount|paid_amount|iva_rate)"' THEN RAISE EXCEPTION 'document_values_not_editable'; END IF;
  h:=encode(sha256(convert_to(jsonb_build_object('supplier',p_supplier_id,'items',p_items,'movement',p_movement,'date',p_date,'note',p_note)::text,'UTF8')),'hex');
  -- Request identity is serialized before checking the durable result.
@@ -144,6 +156,10 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'account_not_allowed'; END IF;
  END IF;
  PERFORM 1 FROM public.events WHERE id IN (SELECT lock_f.event_id FROM public.event_forecasts lock_f WHERE lock_f.id IN (SELECT (v->>'forecast_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'forecast_id') UNION SELECT lock_t.event_id FROM public.transactions lock_t WHERE lock_t.id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id')) ORDER BY id FOR NO KEY UPDATE NOWAIT;
+ PERFORM 1 FROM public.event_settlements WHERE id IN
+ (SELECT seal_tx.event_settlement_id FROM public.transactions seal_tx WHERE seal_tx.id IN
+  (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id'))
+ ORDER BY id FOR NO KEY UPDATE NOWAIT;
  -- All BP and existing transaction locks are obtained in UUID order, not display order.
  PERFORM 1 FROM public.event_forecasts WHERE id IN (SELECT (v->>'forecast_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'forecast_id') ORDER BY id FOR NO KEY UPDATE NOWAIT;
  PERFORM 1 FROM public.transactions WHERE id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id') ORDER BY id FOR NO KEY UPDATE NOWAIT;
@@ -167,9 +183,16 @@ BEGIN
    SELECT * INTO t FROM public.transactions WHERE id=(j->>'transaction_id')::uuid AND company_id=company;
    IF NOT FOUND THEN RAISE EXCEPTION 'transaction_not_found'; END IF;
   END IF;
+  -- Match the installed authenticated restrictive confidential policy before any value-bearing error.
+  IF NOT public.can_see_confidential(uid) AND (COALESCE(t.is_confidential,false) OR EXISTS(SELECT 1 FROM public.financial_accounts a WHERE a.id=t.account_id AND a.is_restricted)) THEN
+   RAISE EXCEPTION 'document_not_available: documento inexistente ou sem acesso';
+  END IF;
   IF t.id=ANY(ids) THEN RAISE EXCEPTION 'duplicate_item'; END IF; ids:=array_append(ids,t.id);
   IF t.supplier_id IS DISTINCT FROM p_supplier_id OR t.type NOT IN ('income','expense') OR t.status NOT IN ('approved','partially_paid') OR t.reversed_at IS NOT NULL OR t.is_hidden THEN RAISE EXCEPTION 'invalid_document'; END IF;
   IF t.currency<>'EUR' OR t.fx_rate IS NOT NULL OR t.original_amount IS NOT NULL OR t.installment_group_id IS NOT NULL OR t.installment_number IS NOT NULL OR t.installment_total IS NOT NULL OR
+     t.card_session_id IS NOT NULL OR t.held_by_supplier_id IS NOT NULL OR t.settlement_id IS NOT NULL OR t.is_transitory OR t.supplier_credit_id IS NOT NULL OR
+     EXISTS(SELECT 1 FROM public.payment_list_items i JOIN public.payment_lists l ON l.id=i.payment_list_id WHERE i.transaction_id=t.id AND i.removed_at IS NULL AND l.status IN('draft','pending_approval','approved','revision','partially_approved')) OR
+     EXISTS(SELECT 1 FROM public.payment_list_sepa_exports e WHERE t.id=ANY(e.transaction_ids)) OR
      t.parent_transaction_id IS NOT NULL OR t.is_reimbursement OR t.cache_contract_id IS NOT NULL OR t.shared_cost_account_id IS NOT NULL OR
      COALESCE(t.declared_withholding_amount,0)<>0 OR COALESCE(t.declared_withholding_rate,0)<>0 OR EXISTS(SELECT 1 FROM public.partner_paid_expenses WHERE transaction_id=t.id) OR
      EXISTS(SELECT 1 FROM public.transaction_payments WHERE transaction_id=t.id AND (status='planned' OR (status='paid' AND reversed_at IS NULL AND (credit_amount<>0 OR withholding_amount<>0 OR currency<>'EUR' OR fx_rate IS NOT NULL OR reversal_kind='supplier_credit' OR offset_group_id IS NOT NULL)))) THEN RAISE EXCEPTION 'unsupported_debt'; END IF;
@@ -197,6 +220,9 @@ BEGIN
   IF existing.offset_group_id IS NOT NULL AND EXISTS(SELECT 1 FROM public.transaction_offset_groups oldg WHERE oldg.id=existing.offset_group_id AND oldg.status='reversed') AND NOT EXISTS(SELECT 1 FROM public.transaction_payments p WHERE p.offset_id=existing.id AND p.status='paid' AND p.reversed_at IS NULL) THEN CONTINUE; END IF;
   IF NOT(existing.receivable_transaction_id=ANY(ids) AND existing.payable_transaction_id=ANY(ids)) OR existing.offset_group_id IS NOT NULL OR
      EXISTS(SELECT 1 FROM public.transaction_payments WHERE offset_id=existing.id AND status='paid' AND reversed_at IS NULL) THEN RAISE EXCEPTION 'legacy_offset_requires_review'; END IF;
+  IF existing.amount IS DISTINCT FROM least(
+    (SELECT (v->>'debt')::numeric - CASE WHEN v->>'type'=cash_type THEN greatest(least((v->>'debt')::numeric,abs(amount)-coalesce((SELECT sum((z->>'debt')::numeric) FROM jsonb_array_elements(prepared) z WHERE z->>'type'=cash_type AND (z->>'order',z->>'id')<(v->>'order',v->>'id')),0)),0) ELSE 0 END FROM jsonb_array_elements(prepared) v WHERE (v->>'id')::uuid=existing.receivable_transaction_id),
+    (SELECT (v->>'debt')::numeric FROM jsonb_array_elements(prepared) v WHERE (v->>'id')::uuid=existing.payable_transaction_id)) THEN RAISE EXCEPTION 'legacy_offset_amount_mismatch'; END IF;
   UPDATE public.transaction_offsets SET offset_group_id=gid WHERE id=existing.id;
  END LOOP;
  remaining:=abs(amount);
@@ -207,7 +233,7 @@ BEGIN
   IF cash>0 THEN
    INSERT INTO public.transaction_payments(transaction_id,company_id,amount,payment_date,account_id,payment_method,status,created_by,offset_group_id,offset_item_id)
     VALUES((x->>'id')::uuid,company,cash,p_date,acc,'transfer','paid',uid::text,gid,iid);
-   UPDATE public.transactions SET account_id=acc WHERE id=(x->>'id')::uuid AND account_id IS NULL;
+   -- Preserve the document account (including prior X / compensation NULL); balance uses the cash-leg account.
   END IF;
   IF debt-cash>0 THEN
    INSERT INTO public.transaction_payments(transaction_id,company_id,amount,payment_date,account_id,payment_method,status,created_by,offset_group_id,offset_item_id)
@@ -217,6 +243,9 @@ BEGIN
  FOR txid IN SELECT transaction_id FROM public.transaction_offset_items WHERE group_id=gid ORDER BY transaction_id LOOP PERFORM public._derive_paid_amount(txid); END LOOP;
  INSERT INTO public.transaction_audit_log(transaction_id,changed_by,changed_at,field_name,old_value,new_value,company_id) SELECT transaction_id,uid::text,now(),'issue335_apply',prior_paid_amount::text,jsonb_build_object('group_id',gid,'cash',cash_amount,'compensation',compensation_amount)::text,company FROM public.transaction_offset_items WHERE group_id=gid;
  INSERT INTO public.system_audit_log(entity_type,entity_id,action,changed_by,new_data,company_id) SELECT 'transaction_payment',id::text,'issue335_create',uid::text,to_jsonb(p),company FROM public.transaction_payments p WHERE offset_group_id=gid;
+ IF EXISTS(SELECT 1 FROM public.transaction_offset_items i JOIN public.transactions final_tx ON final_tx.id=i.transaction_id WHERE i.group_id=gid AND
+  (i.prior_paid_amount+i.open_amount IS DISTINCT FROM (SELECT coalesce(sum(p.amount),0) FROM public.transaction_payments p WHERE p.transaction_id=i.transaction_id AND p.status='paid' AND p.reversed_at IS NULL) OR
+   i.gross_amount IS DISTINCT FROM round(final_tx.amount*(1+final_tx.iva_rate/100.0),2))) THEN RAISE EXCEPTION 'encontro_em_conflito: dívida alterada durante a operação' USING ERRCODE='55P03'; END IF;
  UPDATE public.transaction_offset_groups SET status='applied',result=jsonb_build_object('group_id',gid,'status','applied','movement_amount',amount,'transaction_ids',to_jsonb(ids)) WHERE id=gid RETURNING * INTO g;
  RETURN g.result;
 END $$;
@@ -238,6 +267,7 @@ DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid 
   RAISE EXCEPTION 'already_reversed';
  END IF;
  IF g.status<>'applied' THEN RAISE EXCEPTION 'invalid_group_state'; END IF;
+ PERFORM 1 FROM public.event_settlements WHERE id IN(SELECT t.event_settlement_id FROM public.transactions t JOIN public.transaction_offset_items i ON i.transaction_id=t.id WHERE i.group_id=g.id) ORDER BY id FOR NO KEY UPDATE NOWAIT;
  PERFORM 1 FROM public.transactions WHERE id IN(SELECT transaction_id FROM public.transaction_offset_items WHERE group_id=g.id) ORDER BY id FOR NO KEY UPDATE NOWAIT;
  PERFORM 1 FROM public.transaction_payments WHERE offset_group_id=g.id ORDER BY id FOR NO KEY UPDATE NOWAIT;
  IF EXISTS(SELECT 1 FROM public.transaction_payments WHERE offset_group_id=g.id AND (status<>'paid' OR reversed_at IS NOT NULL)) THEN RAISE EXCEPTION 'group_ledger_divergent'; END IF;
@@ -738,7 +768,11 @@ begin
     raise exception 'A linha do banco pertence a outra empresa (%) — empresa activa %.', v_line.company_id, v_current;
   end if;
 
+  if current_user='issue335_executor' and not exists(select 1 from jsonb_array_elements(p_items) i where i->>'mode'='offset') then
+    raise exception 'invalid_operation: executor não pode entrar no ramo legado';
+  end if;
   if exists(select 1 from jsonb_array_elements(p_items) i where i->>'mode'='offset') then
+    if not (public.is_platform_admin(public.issue335_uid()) or public.has_role(public.issue335_uid(),'admin') or public.has_role(public.issue335_uid(),'manager') or public.has_permission(public.issue335_uid(),'manage_bank_reconciliation')) then raise exception 'permission_denied'; end if;
     v_request := (p_items->0->>'request_id')::uuid;
     v_supplier := (p_items->0->>'supplier_id')::uuid;
     if v_line.offset_group_id is not null then
@@ -912,7 +946,7 @@ GRANT EXECUTE ON FUNCTION public.reconcile_bank_line(uuid,jsonb),public.reverse_
 DO $$ DECLARE r record; BEGIN
  FOR r IN SELECT p.oid,n.nspname,p.proname,pg_get_function_identity_arguments(p.oid) args,a.grantee
  FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a
- WHERE n.nspname='public' AND p.proname IN ('transaction_offset_execute','transaction_offset_reverse','_issue335_execute','_issue335_reverse','issue335_dispatch','issue335_guard','reconcile_bank_line','reverse_payment','reverse_transaction') AND a.grantee<>p.proowner AND a.grantee<>0 AND a.grantee NOT IN(SELECT oid FROM pg_roles WHERE rolname IN ('authenticated','service_role')) LOOP
+ WHERE n.nspname='public' AND p.proname IN ('transaction_offset_execute','transaction_offset_reverse','_issue335_execute','_issue335_reverse','issue335_dispatch','issue335_guard') AND a.grantee<>p.proowner AND a.grantee<>0 AND a.grantee NOT IN(SELECT oid FROM pg_roles WHERE rolname IN ('authenticated','service_role')) LOOP
  EXECUTE format('REVOKE ALL ON FUNCTION %I.%I(%s) FROM %I',r.nspname,r.proname,r.args,(SELECT rolname FROM pg_roles WHERE oid=r.grantee));
  END LOOP;
 END $$;
@@ -937,6 +971,7 @@ EXCEPTION WHEN lock_not_available OR deadlock_detected THEN
 END $$;
 REVOKE ALL ON FUNCTION public.issue335_dispatch() FROM PUBLIC,anon,authenticated,service_role;
 CREATE TRIGGER issue335_dispatch INSTEAD OF INSERT ON public.issue335_commands FOR EACH ROW EXECUTE FUNCTION public.issue335_dispatch();
+DO $$ DECLARE r record; BEGIN FOR r IN SELECT rolname FROM pg_roles WHERE rolname LIKE 'sandbox_exec%' LOOP EXECUTE format('REVOKE ALL ON FUNCTION public.issue335_dispatch() FROM %I',r.rolname); END LOOP; END $$;
 ALTER FUNCTION public.issue335_dispatch() OWNER TO issue335_executor;
 REVOKE CREATE ON SCHEMA public FROM issue335_executor;
 GRANT EXECUTE ON FUNCTION public.reconcile_bank_line(uuid,jsonb) TO issue335_executor;
@@ -950,5 +985,12 @@ DECLARE r jsonb; BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.transaction_offset_execute(uuid,uuid,jsonb,jsonb,date,text),public.transaction_offset_reverse(uuid,uuid,text) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.transaction_offset_execute(uuid,uuid,jsonb,jsonb,date,text),public.transaction_offset_reverse(uuid,uuid,text) TO authenticated,service_role;
+
+DO $$ DECLARE r record; BEGIN
+ FOR r IN SELECT rolname FROM pg_roles WHERE rolname IN('sandbox_exec','sandbox_exec_sfohvvlqccmmebvjgibx') LOOP
+  EXECUTE format('REVOKE ALL ON public.issue335_commands FROM %I',r.rolname);
+  EXECUTE format('REVOKE ALL ON FUNCTION public.transaction_offset_execute(uuid,uuid,jsonb,jsonb,date,text),public.transaction_offset_reverse(uuid,uuid,text),public._issue335_execute(uuid,uuid,jsonb,jsonb,date,text),public._issue335_reverse(uuid,uuid,text),public.issue335_guard(),public.issue335_uid(),public.issue335_normalize(text),public.issue335_score(text,text),public.issue335_matching_transactions(uuid) FROM %I',r.rolname);
+ END LOOP;
+END $$;
 
 COMMIT;

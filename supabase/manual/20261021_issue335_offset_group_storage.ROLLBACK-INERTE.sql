@@ -7,4 +7,5 @@ ALTER TABLE public.transaction_offsets DROP COLUMN offset_group_id;
 ALTER TABLE public.bank_statement_lines DROP COLUMN offset_group_id;
 DROP TABLE public.transaction_offset_items;
 DROP TABLE public.transaction_offset_groups;
+DROP TABLE public.transaction_offset_control;
 COMMIT;

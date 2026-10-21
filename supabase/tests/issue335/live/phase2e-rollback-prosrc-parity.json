@@ -1,0 +1,38 @@
+[
+  {
+    "signature": "_apply_transaction_offset(uuid,uuid)",
+    "equal_bytes": true,
+    "live_sha256": "72231cbdf30beb485869a653156b0871ec67075316b1c9ad31d7d2ba8f1a6f62",
+    "rollback_sha256": "72231cbdf30beb485869a653156b0871ec67075316b1c9ad31d7d2ba8f1a6f62"
+  },
+  {
+    "signature": "_reverse_transaction_offsets_for(uuid)",
+    "equal_bytes": true,
+    "live_sha256": "3a934ab0c88252529ba9dc2d57dfe05566bb206d5e868ccc4380033e9828f147",
+    "rollback_sha256": "3a934ab0c88252529ba9dc2d57dfe05566bb206d5e868ccc4380033e9828f147"
+  },
+  {
+    "signature": "reconcile_bank_line(uuid,jsonb)",
+    "equal_bytes": true,
+    "live_sha256": "99e6ad2b531f6d9641b2b28d2101bd2139d469b96835e5806865446cdcd6c318",
+    "rollback_sha256": "99e6ad2b531f6d9641b2b28d2101bd2139d469b96835e5806865446cdcd6c318"
+  },
+  {
+    "signature": "reverse_payment(uuid,text,text,date,numeric)",
+    "equal_bytes": true,
+    "live_sha256": "030182da6de4a005271d0db60f4088cceb5b456c1879300931b874a4cfc28832",
+    "rollback_sha256": "030182da6de4a005271d0db60f4088cceb5b456c1879300931b874a4cfc28832"
+  },
+  {
+    "signature": "reverse_transaction(uuid,text,text,date,boolean)",
+    "equal_bytes": true,
+    "live_sha256": "e2cbae3efb29c369e3f19b32920d66f0c5b31024e4a57875e7441e1a396e55cd",
+    "rollback_sha256": "e2cbae3efb29c369e3f19b32920d66f0c5b31024e4a57875e7441e1a396e55cd"
+  },
+  {
+    "signature": "reverse_transaction(uuid,text,text,date)",
+    "equal_bytes": true,
+    "live_sha256": "8c8fcf45dc23d7b91c387c9473e8ed28004705e2e9528a8e4b33addfc0afc0e9",
+    "rollback_sha256": "8c8fcf45dc23d7b91c387c9473e8ed28004705e2e9528a8e4b33addfc0afc0e9"
+  }
+]

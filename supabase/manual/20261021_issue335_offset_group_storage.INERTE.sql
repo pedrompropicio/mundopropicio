@@ -81,4 +81,9 @@ DO $$ DECLARE r record; t text; BEGIN
   END LOOP;
  END LOOP;
 END $$;
+CREATE TABLE public.transaction_offset_control (singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),enabled boolean NOT NULL DEFAULT true);
+REVOKE ALL ON public.transaction_offset_control FROM PUBLIC,anon,authenticated,service_role,sandbox_exec,sandbox_exec_sfohvvlqccmmebvjgibx;
+GRANT SELECT ON public.transaction_offset_control TO service_role;
+ALTER TABLE public.transaction_offset_control ENABLE ROW LEVEL SECURITY;
+INSERT INTO public.transaction_offset_control(singleton,enabled) VALUES(true,true);
 COMMIT;
