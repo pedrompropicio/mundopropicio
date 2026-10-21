@@ -1,0 +1,5383 @@
+[
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "bank_line_transactions",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "line_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "transaction_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "bank_line_transactions",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_bank_line_transactions",
+    "schemaname": "public",
+    "with_check": "(company_id = current_company_id())"
+   },
+   {
+    "cmd": "ALL",
+    "qual": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_permission(( SELECT auth.uid() AS uid), 'manage_bank_reconciliation'::text))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "bank_line_transactions",
+    "permissive": "PERMISSIVE",
+    "policyname": "Bank line transactions manageable by authorized users",
+    "schemaname": "public",
+    "with_check": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_permission(( SELECT auth.uid() AS uid), 'manage_bank_reconciliation'::text))"
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_permission(( SELECT auth.uid() AS uid), 'manage_bank_reconciliation'::text) OR (EXISTS ( SELECT 1\n   FROM (bank_statement_lines bsl\n     JOIN financial_account_access faa ON ((faa.account_id = bsl.financial_account_id)))\n  WHERE ((bsl.id = bank_line_transactions.line_id) AND (faa.user_id = ( SELECT auth.uid() AS uid))))))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "bank_line_transactions",
+    "permissive": "PERMISSIVE",
+    "policyname": "Bank line transactions viewable by authorized users",
+    "schemaname": "public",
+    "with_check": null
+   }
+  ],
+  "constraints": [
+   {
+    "name": "bank_line_transactions_line_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (line_id) REFERENCES bank_statement_lines(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "bank_line_transactions_line_id_transaction_id_key",
+    "type": "u",
+    "validated": true,
+    "definition": "UNIQUE (line_id, transaction_id)"
+   },
+   {
+    "name": "bank_line_transactions_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "bank_line_transactions_transaction_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "bank_statement_lines",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "statement_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "financial_account_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "booking_date",
+    "type": "date",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "value_date",
+    "type": "date",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "description",
+    "type": "text",
+    "default": "''::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "amount",
+    "type": "numeric",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "balance_after",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "raw",
+    "type": "jsonb",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "line_hash",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "status",
+    "type": "text",
+    "default": "'unmatched'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "matched_transaction_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "matched_payment_list_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "matched_sepa_export_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "created_transaction_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "matched_by",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "matched_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "note",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "bank_ref",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "date_divergence",
+    "type": "jsonb",
+    "default": null,
+    "notnull": false
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "bank_statement_lines",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_bank_statement_lines",
+    "schemaname": "public",
+    "with_check": "(company_id = current_company_id())"
+   },
+   {
+    "cmd": "ALL",
+    "qual": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_permission(( SELECT auth.uid() AS uid), 'manage_bank_reconciliation'::text))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "bank_statement_lines",
+    "permissive": "PERMISSIVE",
+    "policyname": "Bank statement lines manageable by authorized users",
+    "schemaname": "public",
+    "with_check": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_permission(( SELECT auth.uid() AS uid), 'manage_bank_reconciliation'::text))"
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_permission(( SELECT auth.uid() AS uid), 'manage_bank_reconciliation'::text) OR (EXISTS ( SELECT 1\n   FROM financial_account_access faa\n  WHERE ((faa.account_id = bank_statement_lines.financial_account_id) AND (faa.user_id = ( SELECT auth.uid() AS uid))))))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "bank_statement_lines",
+    "permissive": "PERMISSIVE",
+    "policyname": "Bank statement lines viewable by authorized users",
+    "schemaname": "public",
+    "with_check": null
+   }
+  ],
+  "constraints": [
+   {
+    "name": "bank_statement_lines_created_transaction_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (created_transaction_id) REFERENCES transactions(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "bank_statement_lines_financial_account_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (financial_account_id) REFERENCES financial_accounts(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "bank_statement_lines_hash_uniq",
+    "type": "u",
+    "validated": true,
+    "definition": "UNIQUE (financial_account_id, line_hash)"
+   },
+   {
+    "name": "bank_statement_lines_matched_payment_list_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (matched_payment_list_id) REFERENCES payment_lists(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "bank_statement_lines_matched_sepa_export_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (matched_sepa_export_id) REFERENCES payment_list_sepa_exports(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "bank_statement_lines_matched_transaction_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (matched_transaction_id) REFERENCES transactions(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "bank_statement_lines_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "bank_statement_lines_statement_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (statement_id) REFERENCES bank_statements(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "bank_statement_lines_status_chk",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((status = ANY (ARRAY['unmatched'::text, 'matched'::text, 'ignored'::text, 'pre_cutoff'::text])))"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "companies",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "legal_name",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "display_name",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "slug",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "tax_id",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "country",
+    "type": "text",
+    "default": "'PT'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "currency",
+    "type": "text",
+    "default": "'EUR'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "timezone",
+    "type": "text",
+    "default": "'Europe/Lisbon'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "logo_url",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "favicon_url",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "theme_config",
+    "type": "jsonb",
+    "default": "'{}'::jsonb",
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "address",
+    "type": "jsonb",
+    "default": "'{}'::jsonb",
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "contact_email",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "status",
+    "type": "text",
+    "default": "'active'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "feature_tickets_v2",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "tickets_config",
+    "type": "jsonb",
+    "default": "'{}'::jsonb",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "public_portal",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "default_budget_mode",
+    "type": "text",
+    "default": "'with_bp'::text",
+    "notnull": true
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "ALL",
+    "qual": "is_platform_admin()",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "companies",
+    "permissive": "PERMISSIVE",
+    "policyname": "Platform admin manages companies",
+    "schemaname": "public",
+    "with_check": "is_platform_admin()"
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "(is_platform_admin() OR (id = current_company_id()) OR (EXISTS ( SELECT 1\n   FROM user_roles ur\n  WHERE ((ur.user_id = ( SELECT auth.uid() AS uid)) AND (ur.company_id = companies.id)))))",
+    "roles": [
+     "public"
+    ],
+    "tablename": "companies",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users see their member companies",
+    "schemaname": "public",
+    "with_check": null
+   }
+  ],
+  "constraints": [
+   {
+    "name": "companies_default_budget_mode_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((default_budget_mode = ANY (ARRAY['with_bp'::text, 'without_bp'::text])))"
+   },
+   {
+    "name": "companies_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "companies_slug_key",
+    "type": "u",
+    "validated": true,
+    "definition": "UNIQUE (slug)"
+   },
+   {
+    "name": "companies_status_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'trial'::text])))"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "company_features",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "feature_key",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "enabled",
+    "type": "boolean",
+    "default": "true",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "config",
+    "type": "jsonb",
+    "default": "'{}'::jsonb",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "enabled_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "enabled_by",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "DELETE",
+    "qual": "is_platform_admin(( SELECT auth.uid() AS uid))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "company_features",
+    "permissive": "PERMISSIVE",
+    "policyname": "company_features_delete_platform_admin",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "INSERT",
+    "qual": null,
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "company_features",
+    "permissive": "PERMISSIVE",
+    "policyname": "company_features_insert_platform_admin",
+    "schemaname": "public",
+    "with_check": "is_platform_admin(( SELECT auth.uid() AS uid))"
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR (company_id = current_company_id()))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "company_features",
+    "permissive": "PERMISSIVE",
+    "policyname": "company_features_select_members",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "UPDATE",
+    "qual": "is_platform_admin(( SELECT auth.uid() AS uid))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "company_features",
+    "permissive": "PERMISSIVE",
+    "policyname": "company_features_update_platform_admin",
+    "schemaname": "public",
+    "with_check": "is_platform_admin(( SELECT auth.uid() AS uid))"
+   }
+  ],
+  "constraints": [
+   {
+    "name": "company_features_company_id_feature_key_key",
+    "type": "u",
+    "validated": true,
+    "definition": "UNIQUE (company_id, feature_key)"
+   },
+   {
+    "name": "company_features_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "company_features_enabled_by_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (enabled_by) REFERENCES auth.users(id)"
+   },
+   {
+    "name": "company_features_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "event_forecasts",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "event_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "category_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "type",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "description",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "amount",
+    "type": "numeric",
+    "default": "0",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "iva_rate",
+    "type": "integer",
+    "default": "23",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "notes",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "status",
+    "type": "text",
+    "default": "'draft'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "approved_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "approved_by",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "transaction_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "specification",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "formula_type",
+    "type": "text",
+    "default": "'fixed'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "formula_value",
+    "type": "numeric",
+    "default": "0",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "cache_config_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "exclude_from_result",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "is_transitory",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "master_forecast_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "attachment_refs",
+    "type": "jsonb",
+    "default": "'[]'::jsonb",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "currency",
+    "type": "text",
+    "default": "'EUR'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "fx_rate",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "fx_rate_source",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "original_amount",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "invoice_group_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "is_overhead",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "formalidade",
+    "type": "bp_formalidade",
+    "default": "'estimado'::bp_formalidade",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "formalidade_changed_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "formalidade_changed_by",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "historic_overrides",
+    "type": "jsonb",
+    "default": "'[]'::jsonb",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "is_retroactive_override",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "version_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "ordering_partner_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "paying_partner_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "baseline_amount",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "event_settlement_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "addback_settlement_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "addback_reason",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "vat_non_recoverable",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "formula_params",
+    "type": "jsonb",
+    "default": null,
+    "notnull": false
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_forecasts",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_event_forecasts",
+    "schemaname": "public",
+    "with_check": "(company_id = current_company_id())"
+   },
+   {
+    "cmd": "INSERT",
+    "qual": null,
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_forecasts",
+    "permissive": "PERMISSIVE",
+    "policyname": "Event forecasts insertable by privileged roles",
+    "schemaname": "public",
+    "with_check": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))"
+   },
+   {
+    "cmd": "DELETE",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_forecasts",
+    "permissive": "PERMISSIVE",
+    "policyname": "Event forecasts deletable by admin or manager",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "UPDATE",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_forecasts",
+    "permissive": "PERMISSIVE",
+    "policyname": "Event forecasts updatable by privileged roles",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "ALL",
+    "qual": "((version_id IS NULL) OR (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role)))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_forecasts",
+    "permissive": "PERMISSIVE",
+    "policyname": "Staff can manage scenario forecasts",
+    "schemaname": "public",
+    "with_check": "((version_id IS NULL) OR (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role)))"
+   },
+   {
+    "cmd": "DELETE",
+    "qual": "(has_permission(( SELECT auth.uid() AS uid), 'edit_approved_bp'::text) AND (EXISTS ( SELECT 1\n   FROM partner_event_access pea\n  WHERE ((pea.user_id = ( SELECT auth.uid() AS uid)) AND (pea.event_id = event_forecasts.event_id) AND (pea.is_active = true) AND (pea.can_edit_bp = true)))) AND (COALESCE(is_overhead, false) = false) AND (COALESCE(exclude_from_result, false) = false) AND (master_forecast_id IS NULL) AND (COALESCE(is_retroactive_override, false) = false))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_forecasts",
+    "permissive": "PERMISSIVE",
+    "policyname": "event_forecasts_delete_partner",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "INSERT",
+    "qual": null,
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_forecasts",
+    "permissive": "PERMISSIVE",
+    "policyname": "event_forecasts_insert_partner",
+    "schemaname": "public",
+    "with_check": "(has_permission(( SELECT auth.uid() AS uid), 'edit_approved_bp'::text) AND (EXISTS ( SELECT 1\n   FROM partner_event_access pea\n  WHERE ((pea.user_id = ( SELECT auth.uid() AS uid)) AND (pea.event_id = event_forecasts.event_id) AND (pea.is_active = true) AND (pea.can_edit_bp = true)))) AND (company_id = current_company_id()) AND (type = 'expense'::text) AND (COALESCE(is_overhead, false) = false) AND (COALESCE(exclude_from_result, false) = false) AND (master_forecast_id IS NULL) AND (COALESCE(is_retroactive_override, false) = false))"
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "user_has_event_access(( SELECT auth.uid() AS uid), event_id)",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_forecasts",
+    "permissive": "PERMISSIVE",
+    "policyname": "event_forecasts_select_partner",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "(is_platform_admin() OR ((company_id = current_company_id()) AND has_permission(( SELECT auth.uid() AS uid), 'view_bp'::text)))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_forecasts",
+    "permissive": "PERMISSIVE",
+    "policyname": "event_forecasts_select_view_bp",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "UPDATE",
+    "qual": "(has_permission(( SELECT auth.uid() AS uid), 'edit_approved_bp'::text) AND (EXISTS ( SELECT 1\n   FROM partner_event_access pea\n  WHERE ((pea.user_id = ( SELECT auth.uid() AS uid)) AND (pea.event_id = event_forecasts.event_id) AND (pea.is_active = true) AND (pea.can_edit_bp = true)))))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_forecasts",
+    "permissive": "PERMISSIVE",
+    "policyname": "event_forecasts_update_partner",
+    "schemaname": "public",
+    "with_check": "(has_permission(( SELECT auth.uid() AS uid), 'edit_approved_bp'::text) AND (EXISTS ( SELECT 1\n   FROM partner_event_access pea\n  WHERE ((pea.user_id = ( SELECT auth.uid() AS uid)) AND (pea.event_id = event_forecasts.event_id) AND (pea.is_active = true) AND (pea.can_edit_bp = true)))) AND (company_id = current_company_id()))"
+   }
+  ],
+  "constraints": [
+   {
+    "name": "event_forecasts_addback_settlement_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (addback_settlement_id) REFERENCES event_settlements(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "event_forecasts_addback_xor_perimeter",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK (((addback_settlement_id IS NULL) OR (event_settlement_id IS NULL)))"
+   },
+   {
+    "name": "event_forecasts_cache_config_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (cache_config_id) REFERENCES event_cache_configs(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "event_forecasts_category_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (category_id) REFERENCES account_categories(id)"
+   },
+   {
+    "name": "event_forecasts_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT"
+   },
+   {
+    "name": "event_forecasts_currency_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((currency = ANY (ARRAY['EUR'::text, 'BRL'::text, 'USD'::text])))"
+   },
+   {
+    "name": "event_forecasts_event_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "event_forecasts_event_settlement_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (event_settlement_id) REFERENCES event_settlements(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "event_forecasts_formalidade_changed_by_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (formalidade_changed_by) REFERENCES profiles(id)"
+   },
+   {
+    "name": "event_forecasts_master_forecast_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (master_forecast_id) REFERENCES event_forecasts(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "event_forecasts_ordering_partner_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (ordering_partner_id) REFERENCES event_partners(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "event_forecasts_paying_partner_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (paying_partner_id) REFERENCES event_partners(id)"
+   },
+   {
+    "name": "event_forecasts_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "event_forecasts_transaction_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (transaction_id) REFERENCES transactions(id) DEFERRABLE"
+   },
+   {
+    "name": "event_forecasts_type_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((type = ANY (ARRAY['income'::text, 'expense'::text])))"
+   },
+   {
+    "name": "event_forecasts_version_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (version_id) REFERENCES bp_versions(id) ON DELETE CASCADE"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "event_partners",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "event_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "supplier_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "percentage",
+    "type": "numeric",
+    "default": "0",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "expense_includes_iva",
+    "type": "boolean",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "notes",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "loss_percentage",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "can_order",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "can_pay",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_partners",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_event_partners",
+    "schemaname": "public",
+    "with_check": "(company_id = current_company_id())"
+   },
+   {
+    "cmd": "DELETE",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_partners",
+    "permissive": "PERMISSIVE",
+    "policyname": "Event partners deletable by admin or manager",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "INSERT",
+    "qual": null,
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_partners",
+    "permissive": "PERMISSIVE",
+    "policyname": "Event partners insertable by admin or manager",
+    "schemaname": "public",
+    "with_check": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))"
+   },
+   {
+    "cmd": "UPDATE",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_partners",
+    "permissive": "PERMISSIVE",
+    "policyname": "Event partners updatable by admin or manager",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "(user_has_event_access(( SELECT auth.uid() AS uid), event_id) AND (supplier_id IS NOT NULL) AND (supplier_id = user_supplier_id(( SELECT auth.uid() AS uid))))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_partners",
+    "permissive": "PERMISSIVE",
+    "policyname": "event_partners_select_partner",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "has_staff_role(( SELECT auth.uid() AS uid))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_partners",
+    "permissive": "PERMISSIVE",
+    "policyname": "event_partners_select_privileged_roles",
+    "schemaname": "public",
+    "with_check": null
+   }
+  ],
+  "constraints": [
+   {
+    "name": "event_partners_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT"
+   },
+   {
+    "name": "event_partners_event_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "event_partners_event_id_supplier_id_key",
+    "type": "u",
+    "validated": true,
+    "definition": "UNIQUE (event_id, supplier_id)"
+   },
+   {
+    "name": "event_partners_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "event_partners_supplier_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "percentage_range",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK (((percentage >= (0)::numeric) AND (percentage <= (100)::numeric)))"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "event_team_members",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "event_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "profile_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "role",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "scope",
+    "type": "text",
+    "default": "'full'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "created_by",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "SELECT",
+    "qual": "((profile_id = ( SELECT auth.uid() AS uid)) OR is_platform_admin(( SELECT auth.uid() AS uid)) OR has_permission(( SELECT auth.uid() AS uid), 'manage_operacao_frentes'::text) OR can_manage_event_operacao_full(event_id, ( SELECT auth.uid() AS uid)))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_team_members",
+    "permissive": "PERMISSIVE",
+    "policyname": "ETM \u2014 SELECT",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "ALL",
+    "qual": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_permission(( SELECT auth.uid() AS uid), 'manage_operacao_frentes'::text) OR can_manage_event_operacao_full(event_id, ( SELECT auth.uid() AS uid)))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_team_members",
+    "permissive": "PERMISSIVE",
+    "policyname": "ETM \u2014 Write",
+    "schemaname": "public",
+    "with_check": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_permission(( SELECT auth.uid() AS uid), 'manage_operacao_frentes'::text) OR can_manage_event_operacao_full(event_id, ( SELECT auth.uid() AS uid)))"
+   },
+   {
+    "cmd": "ALL",
+    "qual": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR (company_id = current_company_id()))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "event_team_members",
+    "permissive": "RESTRICTIVE",
+    "policyname": "ETM \u2014 tenant isolation",
+    "schemaname": "public",
+    "with_check": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR (company_id = current_company_id()))"
+   }
+  ],
+  "constraints": [
+   {
+    "name": "event_team_members_created_by_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "event_team_members_event_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "event_team_members_event_id_profile_id_role_key",
+    "type": "u",
+    "validated": true,
+    "definition": "UNIQUE (event_id, profile_id, role)"
+   },
+   {
+    "name": "event_team_members_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "event_team_members_profile_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "event_team_members_role_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((role = ANY (ARRAY['director'::text, 'general_producer'::text])))"
+   },
+   {
+    "name": "event_team_members_scope_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((scope = ANY (ARRAY['full'::text, 'zones'::text])))"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "events",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "name",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "date",
+    "type": "date",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "location",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "status",
+    "type": "text",
+    "default": "'planning'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "budget",
+    "type": "numeric",
+    "default": "0",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "tickets_sold",
+    "type": "integer",
+    "default": "0",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "tickets_total",
+    "type": "integer",
+    "default": "0",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "event_type",
+    "type": "text",
+    "default": "'simple'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "parent_event_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "city_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "venue_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "pl_mode",
+    "type": "text",
+    "default": "'passive'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "partner_calc_basis",
+    "type": "text",
+    "default": "'net_result'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "last_sales_date",
+    "type": "date",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "absorbs_admin_costs",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "admin_window_end",
+    "type": "date",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "admin_window_start",
+    "type": "date",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "import_template",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "ticketing_url",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "ticketing_provider",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "operacao_mode",
+    "type": "text",
+    "default": "'planning'::text",
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "ticketline_event_id",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "description_en",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "description_pt",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "hero_image_url",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "location_en",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "location_pt",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "meta_pixel_id",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "portal_featured",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "portal_visible",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "poster_image_url",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "slug",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "title_en",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "title_pt",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "venue_directions_url",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "venue_map_url",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "management_type",
+    "type": "text",
+    "default": "'own'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "partner_name",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "vip_coupon_code",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "vip_coupon_discount_label",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "vip_coupon_valid_until",
+    "type": "timestamp with time zone",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "meta_audience_id",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "meta_audience_name",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "ad_destination_url",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "target_roas",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "format",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "title_es",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "description_es",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "location_es",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "budget_mode",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "ticketing_baseline_net",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "ticketing_baseline_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "ab_baseline_net",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "ab_baseline_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "sponsorship_closed_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "ads_allocation_level",
+    "type": "text",
+    "default": "'tour'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "ads_match_aliases",
+    "type": "text[]",
+    "default": "'{}'::text[]",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "cost_expense_source",
+    "type": "text",
+    "default": "'committed'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "cost_include_overhead",
+    "type": "boolean",
+    "default": "true",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "event_nature",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "events",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_events",
+    "schemaname": "public",
+    "with_check": "(company_id = current_company_id())"
+   },
+   {
+    "cmd": "DELETE",
+    "qual": "has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "events",
+    "permissive": "PERMISSIVE",
+    "policyname": "Events deletable by admin only",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "INSERT",
+    "qual": null,
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "events",
+    "permissive": "PERMISSIVE",
+    "policyname": "Events insertable by privileged roles",
+    "schemaname": "public",
+    "with_check": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'content_manager'::app_role))"
+   },
+   {
+    "cmd": "UPDATE",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'content_manager'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "events",
+    "permissive": "PERMISSIVE",
+    "policyname": "Events updatable by privileged roles",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "(user_has_event_access(( SELECT auth.uid() AS uid), id) OR ((parent_event_id IS NOT NULL) AND user_has_event_access(( SELECT auth.uid() AS uid), parent_event_id)))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "events",
+    "permissive": "PERMISSIVE",
+    "policyname": "events_select_partner",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "has_staff_role(( SELECT auth.uid() AS uid))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "events",
+    "permissive": "PERMISSIVE",
+    "policyname": "events_select_privileged_roles",
+    "schemaname": "public",
+    "with_check": null
+   }
+  ],
+  "constraints": [
+   {
+    "name": "events_admin_window_required",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK (((NOT absorbs_admin_costs) OR ((admin_window_start IS NOT NULL) AND ((admin_window_end IS NULL) OR (admin_window_start <= admin_window_end)))))"
+   },
+   {
+    "name": "events_ads_allocation_level_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((ads_allocation_level = ANY (ARRAY['tour'::text, 'cidade'::text, 'externo'::text])))"
+   },
+   {
+    "name": "events_budget_mode_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK (((budget_mode IS NULL) OR (budget_mode = ANY (ARRAY['with_bp'::text, 'without_bp'::text]))))"
+   },
+   {
+    "name": "events_city_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (city_id) REFERENCES cities(id)"
+   },
+   {
+    "name": "events_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT"
+   },
+   {
+    "name": "events_cost_expense_source_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((cost_expense_source = ANY (ARRAY['realized'::text, 'committed'::text])))"
+   },
+   {
+    "name": "events_event_nature_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((event_nature = ANY (ARRAY['producao_propria'::text, 'intermediacao'::text, 'coproducao'::text, 'parceiro_local'::text, 'temporada'::text])))"
+   },
+   {
+    "name": "events_management_type_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((management_type = ANY (ARRAY['own'::text, 'partner_managed'::text])))"
+   },
+   {
+    "name": "events_operacao_mode_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((operacao_mode = ANY (ARRAY['planning'::text, 'montagem'::text, 'evento'::text, 'post'::text])))"
+   },
+   {
+    "name": "events_parent_event_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (parent_event_id) REFERENCES events(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "events_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "events_status_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((status = ANY (ARRAY['planning'::text, 'active'::text, 'completed'::text, 'cancelled'::text])))"
+   },
+   {
+    "name": "events_ticketing_provider_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK (((ticketing_provider IS NULL) OR (ticketing_provider = ANY (ARRAY['ticketline'::text, 'blueticket'::text, 'bol'::text, 'see_tickets'::text, 'fnac_tickets'::text, 'eventbrite'::text, 'ingresse'::text, 'sympla'::text, 'other'::text]))))"
+   },
+   {
+    "name": "events_venue_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (venue_id) REFERENCES venues(id)"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "financial_account_access",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "user_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "account_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": true
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "financial_account_access",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_financial_account_access",
+    "schemaname": "public",
+    "with_check": "(company_id = current_company_id())"
+   },
+   {
+    "cmd": "ALL",
+    "qual": "has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "financial_account_access",
+    "permissive": "PERMISSIVE",
+    "policyname": "Account access manageable by admin",
+    "schemaname": "public",
+    "with_check": "has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)"
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "((user_id = ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "financial_account_access",
+    "permissive": "PERMISSIVE",
+    "policyname": "Account access viewable by own user or privileged",
+    "schemaname": "public",
+    "with_check": null
+   }
+  ],
+  "constraints": [
+   {
+    "name": "financial_account_access_account_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (account_id) REFERENCES financial_accounts(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "financial_account_access_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)"
+   },
+   {
+    "name": "financial_account_access_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "financial_account_access_user_id_account_id_key",
+    "type": "u",
+    "validated": true,
+    "definition": "UNIQUE (user_id, account_id)"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "financial_accounts",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "name",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "type",
+    "type": "text",
+    "default": "'bank'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "description",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "initial_balance",
+    "type": "numeric",
+    "default": "0",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "is_active",
+    "type": "boolean",
+    "default": "true",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "balance_visible_to_all",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "iban",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "card_number",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "skip_balance_check",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "contact_name",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "email_contact",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "phone",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "withholds_revenue",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "is_hidden",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "is_accounting",
+    "type": "boolean",
+    "default": "true",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "partner_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "mirror_partner_aporte",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "advance_retention_pct",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "initial_balance_date",
+    "type": "date",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "is_restricted",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "is_circuit_account",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "SELECT",
+    "qual": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR ((company_id = current_company_id()) AND (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR can_see_confidential(( SELECT auth.uid() AS uid)) OR ((COALESCE(is_restricted, false) = false) AND has_role(( SELECT auth.uid() AS uid), 'manager'::app_role)) OR (EXISTS ( SELECT 1\n   FROM financial_account_access faa\n  WHERE ((faa.account_id = financial_accounts.id) AND (faa.user_id = ( SELECT auth.uid() AS uid))))))))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "financial_accounts",
+    "permissive": "PERMISSIVE",
+    "policyname": "Financial accounts viewable by authorized users",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "financial_accounts",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_financial_accounts",
+    "schemaname": "public",
+    "with_check": "(company_id = current_company_id())"
+   },
+   {
+    "cmd": "ALL",
+    "qual": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR ((company_id = current_company_id()) AND has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "financial_accounts",
+    "permissive": "PERMISSIVE",
+    "policyname": "Financial accounts manageable by admin",
+    "schemaname": "public",
+    "with_check": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR ((company_id = current_company_id()) AND has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)))"
+   }
+  ],
+  "constraints": [
+   {
+    "name": "financial_accounts_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)"
+   },
+   {
+    "name": "financial_accounts_partner_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (partner_id) REFERENCES event_partners(id)"
+   },
+   {
+    "name": "financial_accounts_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "forecast_audit_log",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "forecast_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "changed_by",
+    "type": "text",
+    "default": "''::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "field_name",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "old_value",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "new_value",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "observation",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": true
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "forecast_audit_log",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_forecast_audit_log",
+    "schemaname": "public",
+    "with_check": "(company_id = current_company_id())"
+   },
+   {
+    "cmd": "INSERT",
+    "qual": null,
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "forecast_audit_log",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins and managers can insert forecast audit logs",
+    "schemaname": "public",
+    "with_check": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))"
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "has_staff_role(( SELECT auth.uid() AS uid))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "forecast_audit_log",
+    "permissive": "PERMISSIVE",
+    "policyname": "forecast_audit_log_select_privileged_roles",
+    "schemaname": "public",
+    "with_check": null
+   }
+  ],
+  "constraints": [
+   {
+    "name": "forecast_audit_log_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT"
+   },
+   {
+    "name": "forecast_audit_log_forecast_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (forecast_id) REFERENCES event_forecasts(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "forecast_audit_log_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "partner_paid_expenses",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "event_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "partner_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "transaction_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "notes",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "paid_date",
+    "type": "date",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "status",
+    "type": "text",
+    "default": "'approved'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "proposed_by",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "approved_by",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "approved_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "notnull": false
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "DELETE",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "partner_paid_expenses",
+    "permissive": "PERMISSIVE",
+    "policyname": "Admins and managers can delete partner paid expenses",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "partner_paid_expenses",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_partner_paid_expenses",
+    "schemaname": "public",
+    "with_check": "(company_id = current_company_id())"
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'platform_admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'accountant'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'viewer'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "partner_paid_expenses",
+    "permissive": "PERMISSIVE",
+    "policyname": "Partner paid expenses viewable by privileged roles",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "(user_has_event_access(( SELECT auth.uid() AS uid), event_id) AND (EXISTS ( SELECT 1\n   FROM event_partners ep\n  WHERE ((ep.id = partner_paid_expenses.partner_id) AND (ep.supplier_id = user_supplier_id(( SELECT auth.uid() AS uid)))))))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "partner_paid_expenses",
+    "permissive": "PERMISSIVE",
+    "policyname": "partner_paid_expenses_select_partner",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "DELETE",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'editor'::app_role) AND (status = 'pending_approval'::text) AND (proposed_by = ( SELECT auth.uid() AS uid)))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "partner_paid_expenses",
+    "permissive": "PERMISSIVE",
+    "policyname": "ppe_delete_editor_own_pending",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "INSERT",
+    "qual": null,
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "partner_paid_expenses",
+    "permissive": "PERMISSIVE",
+    "policyname": "ppe_insert_admin_manager",
+    "schemaname": "public",
+    "with_check": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))"
+   },
+   {
+    "cmd": "INSERT",
+    "qual": null,
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "partner_paid_expenses",
+    "permissive": "PERMISSIVE",
+    "policyname": "ppe_insert_editor_pending",
+    "schemaname": "public",
+    "with_check": "(has_role(( SELECT auth.uid() AS uid), 'editor'::app_role) AND (status = 'pending_approval'::text) AND (proposed_by = ( SELECT auth.uid() AS uid)))"
+   },
+   {
+    "cmd": "UPDATE",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "partner_paid_expenses",
+    "permissive": "PERMISSIVE",
+    "policyname": "ppe_update_admin_manager",
+    "schemaname": "public",
+    "with_check": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))"
+   }
+  ],
+  "constraints": [
+   {
+    "name": "partner_paid_expenses_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)"
+   },
+   {
+    "name": "partner_paid_expenses_event_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "partner_paid_expenses_partner_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (partner_id) REFERENCES event_partners(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "partner_paid_expenses_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "partner_paid_expenses_status_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((status = ANY (ARRAY['approved'::text, 'pending_approval'::text])))"
+   },
+   {
+    "name": "partner_paid_expenses_transaction_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "partner_paid_expenses_transaction_id_key",
+    "type": "u",
+    "validated": true,
+    "definition": "UNIQUE (transaction_id)"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "profiles",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "full_name",
+    "type": "text",
+    "default": "''::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "email",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "active_company_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "archived_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "phone",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "profile_type",
+    "type": "text",
+    "default": "'user'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "whatsapp_phone",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "first_access_consumed_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "first_access_token",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "is_operacao_only",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "linked_supplier_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "SELECT",
+    "qual": "((id = ( SELECT auth.uid() AS uid)) OR is_platform_admin(( SELECT auth.uid() AS uid)) OR (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) AND (company_id = current_company_id())))",
+    "roles": [
+     "public"
+    ],
+    "tablename": "profiles",
+    "permissive": "PERMISSIVE",
+    "policyname": "Profiles visible to self or admins",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "UPDATE",
+    "qual": "(id = ( SELECT auth.uid() AS uid))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "profiles",
+    "permissive": "PERMISSIVE",
+    "policyname": "Users can update own profile",
+    "schemaname": "public",
+    "with_check": "(id = ( SELECT auth.uid() AS uid))"
+   }
+  ],
+  "constraints": [
+   {
+    "name": "profiles_active_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (active_company_id) REFERENCES companies(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "profiles_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "profiles_first_access_token_key",
+    "type": "u",
+    "validated": true,
+    "definition": "UNIQUE (first_access_token)"
+   },
+   {
+    "name": "profiles_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "profiles_linked_supplier_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (linked_supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "profiles_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "profiles_profile_type_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((profile_type = ANY (ARRAY['user'::text, 'field_staff'::text])))"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "role_permissions",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "role",
+    "type": "app_role",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "permission",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "SELECT",
+    "qual": "(EXISTS ( SELECT 1\n   FROM user_roles ur\n  WHERE ((ur.user_id = ( SELECT auth.uid() AS uid)) AND (ur.role = role_permissions.role))))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "role_permissions",
+    "permissive": "PERMISSIVE",
+    "policyname": "role_permissions_select_own_roles",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "ALL",
+    "qual": "has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "role_permissions",
+    "permissive": "PERMISSIVE",
+    "policyname": "Role permissions manageable by admin",
+    "schemaname": "public",
+    "with_check": "has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)"
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "has_staff_role(( SELECT auth.uid() AS uid))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "role_permissions",
+    "permissive": "PERMISSIVE",
+    "policyname": "role_permissions_select_privileged_roles",
+    "schemaname": "public",
+    "with_check": null
+   }
+  ],
+  "constraints": [
+   {
+    "name": "role_permissions_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "role_permissions_role_permission_key",
+    "type": "u",
+    "validated": true,
+    "definition": "UNIQUE (role, permission)"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,authenticated=awdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "suppliers",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": "{authenticated=r/postgres}",
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": "{authenticated=r/postgres}",
+    "name": "name",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": "{authenticated=r/postgres}",
+    "name": "nif",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": "{authenticated=r/postgres}",
+    "name": "contact_name",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": "{authenticated=r/postgres}",
+    "name": "email",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": "{authenticated=r/postgres}",
+    "name": "phone",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": "{authenticated=r/postgres}",
+    "name": "address",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "iban",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": "{authenticated=r/postgres}",
+    "name": "payment_terms",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": "{authenticated=r/postgres}",
+    "name": "category",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": "{authenticated=r/postgres}",
+    "name": "notes",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": "{authenticated=r/postgres}",
+    "name": "is_active",
+    "type": "boolean",
+    "default": "true",
+    "notnull": true
+   },
+   {
+    "acl": "{authenticated=r/postgres}",
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": "{authenticated=r/postgres}",
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "swift_bic",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": "{authenticated=r/postgres}",
+    "name": "trade_name",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": "{authenticated=r/postgres}",
+    "name": "is_partner",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "iban_2",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "iban_3",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "swift_bic_2",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "swift_bic_3",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": "{authenticated=r/postgres}",
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "doc_locale",
+    "type": "text",
+    "default": "'pt-PT'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "country",
+    "type": "text",
+    "default": "'PT'::text",
+    "notnull": true
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "suppliers",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_suppliers",
+    "schemaname": "public",
+    "with_check": "(company_id = current_company_id())"
+   },
+   {
+    "cmd": "DELETE",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "suppliers",
+    "permissive": "PERMISSIVE",
+    "policyname": "Suppliers deletable by admin or manager",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "INSERT",
+    "qual": null,
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "suppliers",
+    "permissive": "PERMISSIVE",
+    "policyname": "Suppliers insertable by admin, manager or editor",
+    "schemaname": "public",
+    "with_check": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))"
+   },
+   {
+    "cmd": "UPDATE",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "suppliers",
+    "permissive": "PERMISSIVE",
+    "policyname": "Suppliers updatable by admin, manager or editor",
+    "schemaname": "public",
+    "with_check": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))"
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'marketing_manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'viewer'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'producer'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'field_producer'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'accountant'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "suppliers",
+    "permissive": "PERMISSIVE",
+    "policyname": "Suppliers viewable by tenant members",
+    "schemaname": "public",
+    "with_check": null
+   }
+  ],
+  "constraints": [
+   {
+    "name": "suppliers_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)"
+   },
+   {
+    "name": "suppliers_country_iso2",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((country ~ '^[A-Z]{2}$'::text))"
+   },
+   {
+    "name": "suppliers_doc_locale_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((doc_locale = ANY (ARRAY['pt-PT'::text, 'pt-BR'::text])))"
+   },
+   {
+    "name": "suppliers_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "system_audit_log",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "entity_type",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "entity_id",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "action",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "changed_by",
+    "type": "text",
+    "default": "'system'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "old_data",
+    "type": "jsonb",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "new_data",
+    "type": "jsonb",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "metadata",
+    "type": "jsonb",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": false
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "SELECT",
+    "qual": "((has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role)) AND ((company_id IS NOT NULL) OR is_platform_admin()))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "system_audit_log",
+    "permissive": "PERMISSIVE",
+    "policyname": "System audit log viewable by admin or manager",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "INSERT",
+    "qual": null,
+    "roles": [
+     "public"
+    ],
+    "tablename": "system_audit_log",
+    "permissive": "PERMISSIVE",
+    "policyname": "System audit log insertable by service role",
+    "schemaname": "public",
+    "with_check": "(auth.role() = 'service_role'::text)"
+   },
+   {
+    "cmd": "ALL",
+    "qual": "row_belongs_to_current_company(company_id)",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "system_audit_log",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_system_audit_log",
+    "schemaname": "public",
+    "with_check": "row_belongs_to_current_company(company_id)"
+   },
+   {
+    "cmd": "INSERT",
+    "qual": null,
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "system_audit_log",
+    "permissive": "PERMISSIVE",
+    "policyname": "System audit log insertable by privileged roles",
+    "schemaname": "public",
+    "with_check": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))"
+   }
+  ],
+  "constraints": [
+   {
+    "name": "system_audit_log_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)"
+   },
+   {
+    "name": "system_audit_log_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "system_invariants",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "name",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "description",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "severity",
+    "type": "text",
+    "default": "'error'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "reference_count",
+    "type": "bigint",
+    "default": "0",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "notes",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "reference_updated_by",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "reference_updated_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "scope",
+    "type": "text",
+    "default": "'global'::text",
+    "notnull": true
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "SELECT",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'platform_admin'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "system_invariants",
+    "permissive": "PERMISSIVE",
+    "policyname": "system_invariants_select_admins",
+    "schemaname": "public",
+    "with_check": null
+   }
+  ],
+  "constraints": [
+   {
+    "name": "system_invariants_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (name)"
+   },
+   {
+    "name": "system_invariants_reference_updated_by_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (reference_updated_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "system_invariants_scope_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((scope = ANY (ARRAY['empresa'::text, 'global'::text])))"
+   },
+   {
+    "name": "system_invariants_severity_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((severity = ANY (ARRAY['error'::text, 'warn'::text])))"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "transaction_audit_log",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "transaction_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "changed_by",
+    "type": "text",
+    "default": "'system'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "changed_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "field_name",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "old_value",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "new_value",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": true
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transaction_audit_log",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_transaction_audit_log",
+    "schemaname": "public",
+    "with_check": "(company_id = current_company_id())"
+   },
+   {
+    "cmd": "INSERT",
+    "qual": null,
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transaction_audit_log",
+    "permissive": "PERMISSIVE",
+    "policyname": "Transaction audit log insertable by privileged roles",
+    "schemaname": "public",
+    "with_check": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))"
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "has_staff_role(( SELECT auth.uid() AS uid))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transaction_audit_log",
+    "permissive": "PERMISSIVE",
+    "policyname": "transaction_audit_log_select_privileged_roles",
+    "schemaname": "public",
+    "with_check": null
+   }
+  ],
+  "constraints": [
+   {
+    "name": "transaction_audit_log_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)"
+   },
+   {
+    "name": "transaction_audit_log_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "transaction_audit_log_transaction_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "transaction_offsets",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "receivable_transaction_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "payable_transaction_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "amount",
+    "type": "numeric(14,2)",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "note",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "created_by",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "SELECT",
+    "qual": "has_staff_role(( SELECT auth.uid() AS uid))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transaction_offsets",
+    "permissive": "PERMISSIVE",
+    "policyname": "transaction_offsets_select_staff",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "INSERT",
+    "qual": null,
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transaction_offsets",
+    "permissive": "PERMISSIVE",
+    "policyname": "transaction_offsets_insert_privileged",
+    "schemaname": "public",
+    "with_check": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))"
+   },
+   {
+    "cmd": "UPDATE",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transaction_offsets",
+    "permissive": "PERMISSIVE",
+    "policyname": "transaction_offsets_update_privileged",
+    "schemaname": "public",
+    "with_check": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))"
+   },
+   {
+    "cmd": "DELETE",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transaction_offsets",
+    "permissive": "PERMISSIVE",
+    "policyname": "transaction_offsets_delete_privileged",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transaction_offsets",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_transaction_offsets",
+    "schemaname": "public",
+    "with_check": "(company_id = current_company_id())"
+   }
+  ],
+  "constraints": [
+   {
+    "name": "transaction_offsets_amount_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((amount > (0)::numeric))"
+   },
+   {
+    "name": "transaction_offsets_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)"
+   },
+   {
+    "name": "transaction_offsets_pair_unique",
+    "type": "u",
+    "validated": true,
+    "definition": "UNIQUE (receivable_transaction_id, payable_transaction_id)"
+   },
+   {
+    "name": "transaction_offsets_payable_transaction_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (payable_transaction_id) REFERENCES transactions(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "transaction_offsets_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "transaction_offsets_receivable_transaction_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (receivable_transaction_id) REFERENCES transactions(id) ON DELETE CASCADE"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "transaction_payments",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "transaction_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "amount",
+    "type": "numeric",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "payment_date",
+    "type": "date",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "account_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "payment_method",
+    "type": "text",
+    "default": "'transfer'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "payment_entity",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "payment_reference",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "invoice_ref",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "withholding_amount",
+    "type": "numeric",
+    "default": "0",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "credit_amount",
+    "type": "numeric",
+    "default": "0",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "notes",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "created_by",
+    "type": "text",
+    "default": "'sistema'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "scheduled_date",
+    "type": "date",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "status",
+    "type": "text",
+    "default": "'paid'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "reversal_kind",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "reversal_reason",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "reversed_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "reversed_by",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "supplier_credit_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "closes_transaction",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "currency",
+    "type": "text",
+    "default": "'EUR'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "original_amount",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "fx_rate",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "fx_rate_source",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "offset_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "payment_list_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "outside_batch",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "INSERT",
+    "qual": null,
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transaction_payments",
+    "permissive": "PERMISSIVE",
+    "policyname": "Transaction payments insertable by privileged roles",
+    "schemaname": "public",
+    "with_check": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))"
+   },
+   {
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transaction_payments",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_transaction_payments",
+    "schemaname": "public",
+    "with_check": "(company_id = current_company_id())"
+   },
+   {
+    "cmd": "DELETE",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transaction_payments",
+    "permissive": "PERMISSIVE",
+    "policyname": "Transaction payments deletable by privileged roles",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "UPDATE",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transaction_payments",
+    "permissive": "PERMISSIVE",
+    "policyname": "Transaction payments updatable by privileged roles",
+    "schemaname": "public",
+    "with_check": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))"
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "has_staff_role(( SELECT auth.uid() AS uid))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transaction_payments",
+    "permissive": "PERMISSIVE",
+    "policyname": "transaction_payments_select_privileged_roles",
+    "schemaname": "public",
+    "with_check": null
+   }
+  ],
+  "constraints": [
+   {
+    "name": "transaction_payments_account_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (account_id) REFERENCES financial_accounts(id)"
+   },
+   {
+    "name": "transaction_payments_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)"
+   },
+   {
+    "name": "transaction_payments_fx_required",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK (((currency = 'EUR'::text) OR ((original_amount IS NOT NULL) AND (fx_rate IS NOT NULL))))"
+   },
+   {
+    "name": "transaction_payments_offset_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (offset_id) REFERENCES transaction_offsets(id) ON DELETE RESTRICT"
+   },
+   {
+    "name": "transaction_payments_payment_list_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (payment_list_id) REFERENCES payment_lists(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "transaction_payments_payment_method_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK (((payment_method IS NULL) OR (payment_method = ANY (ARRAY['transfer'::text, 'service_payment'::text, 'direct_debit'::text, 'state_payment'::text, 'compensation'::text]))))"
+   },
+   {
+    "name": "transaction_payments_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "transaction_payments_reversal_kind_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK (((reversal_kind IS NULL) OR (reversal_kind = ANY (ARRAY['cash_refund'::text, 'supplier_credit'::text]))))"
+   },
+   {
+    "name": "transaction_payments_status_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((status = ANY (ARRAY['planned'::text, 'paid'::text, 'cancelled'::text, 'reversed'::text])))"
+   },
+   {
+    "name": "transaction_payments_supplier_credit_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (supplier_credit_id) REFERENCES supplier_credits(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "transaction_payments_transaction_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "transactions",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "event_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "type",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "category_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "description",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "amount",
+    "type": "numeric",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "iva_rate",
+    "type": "integer",
+    "default": "23",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "date",
+    "type": "date",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "status",
+    "type": "text",
+    "default": "'pending'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "supplier_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "paid_amount",
+    "type": "numeric",
+    "default": "0",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "due_date",
+    "type": "date",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "specification",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "account_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "payment_date",
+    "type": "date",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "invoice_ref",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "pl_override_note",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "parent_transaction_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "split_percentage",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "is_reimbursement",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "reimbursement_to",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "is_hidden",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "exclude_from_result",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "is_transitory",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "payment_entity",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "payment_method",
+    "type": "text",
+    "default": "'transfer'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "payment_reference",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "split_amount",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "split_mode",
+    "type": "text",
+    "default": "'percentage'::text",
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "settlement_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "currency",
+    "type": "text",
+    "default": "'EUR'::text",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "fx_rate",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "fx_rate_source",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "original_amount",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "invoice_group_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "declared_withholding_amount",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "declared_withholding_rate",
+    "type": "numeric",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "iban_override",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "reversal_kind",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "reversal_reason",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "reversed_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "reversed_by",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "supplier_credit_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "card_session_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "ordering_partner_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "paying_partner_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "forecast_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "installment_group_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "installment_number",
+    "type": "integer",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "installment_total",
+    "type": "integer",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "is_confidential",
+    "type": "boolean",
+    "default": "false",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "operation_key",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "event_settlement_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "held_by_supplier_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "shared_cost_account_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "shared_cost_counterparty_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "transitory_reason",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "cache_contract_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "cache_role",
+    "type": "text",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "cache_root_event_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   },
+   {
+    "acl": null,
+    "name": "cache_artist_supplier_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": false
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "ALL",
+    "qual": "(company_id = current_company_id())",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transactions",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_transactions",
+    "schemaname": "public",
+    "with_check": "(company_id = current_company_id())"
+   },
+   {
+    "cmd": "DELETE",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transactions",
+    "permissive": "PERMISSIVE",
+    "policyname": "Transactions deletable by admin or manager",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "INSERT",
+    "qual": null,
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transactions",
+    "permissive": "PERMISSIVE",
+    "policyname": "Transactions insertable by privileged roles",
+    "schemaname": "public",
+    "with_check": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))"
+   },
+   {
+    "cmd": "UPDATE",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transactions",
+    "permissive": "PERMISSIVE",
+    "policyname": "Transactions updatable by privileged roles",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "(can_see_confidential(( SELECT auth.uid() AS uid)) OR ((COALESCE(is_confidential, false) = false) AND ((account_id IS NULL) OR (NOT (EXISTS ( SELECT 1\n   FROM financial_accounts a\n  WHERE ((a.id = transactions.account_id) AND a.is_restricted)))))))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transactions",
+    "permissive": "RESTRICTIVE",
+    "policyname": "transactions_confidential_guard",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "((event_id IS NOT NULL) AND user_has_event_access(( SELECT auth.uid() AS uid), event_id) AND has_permission(( SELECT auth.uid() AS uid), 'view_partner_transactions'::text))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transactions",
+    "permissive": "PERMISSIVE",
+    "policyname": "transactions_select_partner",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'platform_admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'viewer'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'accountant'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "transactions",
+    "permissive": "PERMISSIVE",
+    "policyname": "transactions_select_privileged_roles",
+    "schemaname": "public",
+    "with_check": null
+   }
+  ],
+  "constraints": [
+   {
+    "name": "transactions_account_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (account_id) REFERENCES financial_accounts(id)"
+   },
+   {
+    "name": "transactions_cache_contract_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (cache_contract_id) REFERENCES cache_payment_contracts(id)"
+   },
+   {
+    "name": "transactions_cache_role_check",
+    "type": "c",
+    "validated": false,
+    "definition": "CHECK (((cache_role IS NULL) OR (cache_role = ANY (ARRAY['artist_balance'::text, 'withholding'::text, 'advance'::text])))) NOT VALID"
+   },
+   {
+    "name": "transactions_card_session_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (card_session_id) REFERENCES card_sessions(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "transactions_category_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (category_id) REFERENCES account_categories(id)"
+   },
+   {
+    "name": "transactions_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)"
+   },
+   {
+    "name": "transactions_currency_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((currency = ANY (ARRAY['EUR'::text, 'BRL'::text, 'USD'::text])))"
+   },
+   {
+    "name": "transactions_declared_withholding_nonneg",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((((declared_withholding_rate IS NULL) OR (declared_withholding_rate >= (0)::numeric)) AND ((declared_withholding_amount IS NULL) OR (declared_withholding_amount >= (0)::numeric))))"
+   },
+   {
+    "name": "transactions_event_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "transactions_event_settlement_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (event_settlement_id) REFERENCES event_settlements(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "transactions_forecast_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (forecast_id) REFERENCES event_forecasts(id) ON DELETE SET NULL DEFERRABLE"
+   },
+   {
+    "name": "transactions_held_by_only_compensation_income",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK (((held_by_supplier_id IS NULL) OR ((payment_method = 'compensation'::text) AND (type = 'income'::text))))"
+   },
+   {
+    "name": "transactions_held_by_supplier_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (held_by_supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "transactions_iva_rate_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((iva_rate = ANY (ARRAY[23, 13, 6, 0, 21, 10, 4])))"
+   },
+   {
+    "name": "transactions_operation_key_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK (((operation_key IS NULL) OR (operation_key ~ '^[A-Z0-9]+(-[A-Z0-9]+)+$'::text)))"
+   },
+   {
+    "name": "transactions_ordering_partner_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (ordering_partner_id) REFERENCES event_partners(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "transactions_parent_transaction_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (parent_transaction_id) REFERENCES transactions(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "transactions_paying_partner_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (paying_partner_id) REFERENCES event_partners(id)"
+   },
+   {
+    "name": "transactions_payment_method_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK (((payment_method IS NULL) OR (payment_method = ANY (ARRAY['transfer'::text, 'service_payment'::text, 'direct_debit'::text, 'state_payment'::text, 'compensation'::text]))))"
+   },
+   {
+    "name": "transactions_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "transactions_reversal_kind_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK (((reversal_kind IS NULL) OR (reversal_kind = ANY (ARRAY['cash_refund'::text, 'supplier_credit'::text]))))"
+   },
+   {
+    "name": "transactions_service_payment_requires_mb",
+    "type": "c",
+    "validated": false,
+    "definition": "CHECK (((payment_method <> 'service_payment'::text) OR ((payment_entity ~ '^\\d{5}$'::text) AND (payment_reference ~ '^\\d{9}$'::text)))) NOT VALID"
+   },
+   {
+    "name": "transactions_settlement_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (settlement_id) REFERENCES ticket_office_settlements(id) ON DELETE SET NULL DEFERRABLE"
+   },
+   {
+    "name": "transactions_shared_cost_account_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (shared_cost_account_id) REFERENCES financial_accounts(id)"
+   },
+   {
+    "name": "transactions_shared_cost_counterparty_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (shared_cost_counterparty_id) REFERENCES suppliers(id)"
+   },
+   {
+    "name": "transactions_status_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'paid'::text, 'overdue'::text, 'partially_paid'::text, 'reversed'::text])))"
+   },
+   {
+    "name": "transactions_supplier_credit_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (supplier_credit_id) REFERENCES supplier_credits(id) ON DELETE SET NULL"
+   },
+   {
+    "name": "transactions_supplier_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (supplier_id) REFERENCES suppliers(id)"
+   },
+   {
+    "name": "transactions_transitory_reason_domain",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK (((transitory_reason IS NULL) OR (transitory_reason = ANY (ARRAY['partner_advance'::text, 'repasse'::text, 'caucao'::text, 'emprestimo_socio'::text, 'carga_cartao'::text, 'aporte_socio'::text, 'entrada_a_repassar'::text, 'devolucao_socio'::text]))))"
+   },
+   {
+    "name": "transactions_transitory_reason_required",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK (((NOT is_transitory) OR (transitory_reason IS NOT NULL)))"
+   },
+   {
+    "name": "transactions_type_check",
+    "type": "c",
+    "validated": true,
+    "definition": "CHECK ((type = ANY (ARRAY['income'::text, 'expense'::text])))"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "user_permissions",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "user_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "permission",
+    "type": "text",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "granted",
+    "type": "boolean",
+    "default": "true",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": true
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "ALL",
+    "qual": "has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "user_permissions",
+    "permissive": "PERMISSIVE",
+    "policyname": "User permissions manageable by admin",
+    "schemaname": "public",
+    "with_check": "has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)"
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "((user_id = ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "user_permissions",
+    "permissive": "PERMISSIVE",
+    "policyname": "User permissions viewable by own user or admin",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "ALL",
+    "qual": "((user_id = ( SELECT auth.uid() AS uid)) OR (company_id = current_company_id()) OR is_platform_admin())",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "user_permissions",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_user_permissions",
+    "schemaname": "public",
+    "with_check": "((user_id = ( SELECT auth.uid() AS uid)) OR (company_id = current_company_id()) OR is_platform_admin())"
+   }
+  ],
+  "constraints": [
+   {
+    "name": "user_permissions_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "user_permissions_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "user_permissions_user_company_permission_key",
+    "type": "u",
+    "validated": true,
+    "definition": "UNIQUE (user_id, company_id, permission)"
+   },
+   {
+    "name": "user_permissions_user_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+   }
+  ]
+ },
+ {
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "name": "user_roles",
+  "force": false,
+  "owner": "postgres",
+  "schema": "public",
+  "columns": [
+   {
+    "acl": null,
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "user_id",
+    "type": "uuid",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "role",
+    "type": "app_role",
+    "default": null,
+    "notnull": true
+   },
+   {
+    "acl": null,
+    "name": "company_id",
+    "type": "uuid",
+    "default": "current_company_id()",
+    "notnull": true
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "ALL",
+    "qual": "has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "user_roles",
+    "permissive": "PERMISSIVE",
+    "policyname": "Only admins can manage roles",
+    "schemaname": "public",
+    "with_check": "has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)"
+   },
+   {
+    "cmd": "SELECT",
+    "qual": "((user_id = ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "user_roles",
+    "permissive": "PERMISSIVE",
+    "policyname": "User roles viewable by own user or privileged",
+    "schemaname": "public",
+    "with_check": null
+   },
+   {
+    "cmd": "ALL",
+    "qual": "((user_id = ( SELECT auth.uid() AS uid)) OR (company_id = current_company_id()) OR is_platform_admin())",
+    "roles": [
+     "authenticated"
+    ],
+    "tablename": "user_roles",
+    "permissive": "RESTRICTIVE",
+    "policyname": "company_isolation_user_roles",
+    "schemaname": "public",
+    "with_check": "((user_id = ( SELECT auth.uid() AS uid)) OR (company_id = current_company_id()) OR is_platform_admin())"
+   }
+  ],
+  "constraints": [
+   {
+    "name": "user_roles_company_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE"
+   },
+   {
+    "name": "user_roles_pkey",
+    "type": "p",
+    "validated": true,
+    "definition": "PRIMARY KEY (id)"
+   },
+   {
+    "name": "user_roles_user_company_role_key",
+    "type": "u",
+    "validated": true,
+    "definition": "UNIQUE (user_id, company_id, role)"
+   },
+   {
+    "name": "user_roles_user_id_fkey",
+    "type": "f",
+    "validated": true,
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+   }
+  ]
+ },
+ {
+  "name": "partner_event_access",
+  "owner": "postgres",
+  "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+  "rls": true,
+  "constraints": [],
+  "policies": [
+   {
+    "policyname": "company_isolation_partner_event_access",
+    "permissive": "RESTRICTIVE",
+    "cmd": "ALL",
+    "roles": [
+     "authenticated"
+    ],
+    "qual": "(company_id = current_company_id())",
+    "with_check": "(company_id = current_company_id())"
+   },
+   {
+    "policyname": "Partner access manageable by admin",
+    "permissive": "PERMISSIVE",
+    "cmd": "ALL",
+    "roles": [
+     "authenticated"
+    ],
+    "qual": "has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)",
+    "with_check": "has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)"
+   },
+   {
+    "policyname": "Partner access viewable by own user or admin",
+    "permissive": "PERMISSIVE",
+    "cmd": "SELECT",
+    "roles": [
+     "authenticated"
+    ],
+    "qual": "((user_id = ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))",
+    "with_check": null
+   }
+  ]
+ }
+]

@@ -1,5 +1,5 @@
 SET ROLE authenticated;
-SELECT set_config('t.uid','00000000-0000-0000-0000-000000000010',false),set_config('t.company','00000000-0000-0000-0000-000000000001',false);
+SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false),set_config('issue335.ignored_company','00000000-0000-0000-0000-000000000001',false);
 INSERT INTO transactions(id,company_id,type,description,amount,iva_rate,date,supplier_id) VALUES
  ('00000000-0000-0000-0000-000000000101',current_company_id(),'income','Estoril',25200,23,'2026-10-13','00000000-0000-0000-0000-000000000020'),
  ('00000000-0000-0000-0000-000000000102',current_company_id(),'expense','Staff',6716.81,13,'2026-10-13','00000000-0000-0000-0000-000000000020');
@@ -72,19 +72,19 @@ DO $$ DECLARE f uuid; e uuid; a uuid; items jsonb; n bigint; BEGIN
  IF (SELECT count(*) FROM transactions WHERE forecast_id=f)<>1 THEN RAISE EXCEPTION 'BP anchor missing'; END IF;
  RAISE NOTICE 'PASS BP atomic creation and rollback';
 END $$;
-SELECT set_config('t.uid','00000000-0000-0000-0000-000000000011',false);
+SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000011',false);
 DO $$ BEGIN
  BEGIN PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020','[]',NULL,'2026-10-13'); RAISE EXCEPTION 'viewer wrote'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'permission_denied' THEN RAISE; END IF; END;
  RAISE NOTICE 'PASS viewer denied';
 END $$;
-SELECT set_config('t.company','00000000-0000-0000-0000-000000000002',false);
+SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000013',false);
 DO $$ BEGIN IF EXISTS(SELECT 1 FROM transaction_offset_groups) THEN RAISE EXCEPTION 'tenant leak'; END IF; RAISE NOTICE 'PASS tenant isolation'; END $$;
 RESET ROLE;
-SELECT set_config('t.company','00000000-0000-0000-0000-000000000001',false);
+SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false);
 DO $$ BEGIN IF EXISTS(SELECT 1 FROM issue335_invariant_counts() WHERE current_count<>0) THEN RAISE EXCEPTION 'invariants failed'; END IF; RAISE NOTICE 'PASS all five bilateral invariants'; END $$;
 -- Installed #233 protocol preserved: explicit keep vs align, pending mismatch, audit.
 SET ROLE authenticated;
-SELECT set_config('t.uid','00000000-0000-0000-0000-000000000010',false);
+SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false);
 DO $$ DECLARE a uuid; b uuid; payload jsonb; BEGIN
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id,account_id) VALUES('income','Legacy align',100,0,'2026-10-12','00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-000000000030') RETURNING id INTO a;
  INSERT INTO transaction_payments(transaction_id,amount,payment_date,account_id) VALUES(a,100,'2026-10-12','00000000-0000-0000-0000-000000000030');
