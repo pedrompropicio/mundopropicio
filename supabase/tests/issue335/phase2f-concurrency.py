@@ -116,7 +116,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
     sql(s1,'RESET ROLE')
     # Real legacy settle holds the chosen document; encounter cannot overlap.
     ids=fixture(); line=str(uuid.uuid4())
-    sql(observer,"INSERT INTO bank_statement_lines(id,company_id,financial_account_id,amount,booking_date) VALUES(%s,%s,%s,1,'2026-10-13')",(line,company,account))
+    sql(observer,"INSERT INTO bank_statement_lines(statement_id,line_hash,id,company_id,financial_account_id,amount,booking_date) VALUES('00000000-0000-0000-0000-000000000040',md5(clock_timestamp()::text||random()::text),%s,%s,%s,1,'2026-10-13')",(line,company,account))
     sql(s1,'BEGIN'); sql(s1,'SET LOCAL ROLE authenticated')
     sql(s1,'SELECT reconcile_bank_line(%s,%s::jsonb)',(line,json.dumps([dict(transaction_id=ids[0],mode='settle',amount=1)])))
     result=outcome(s2,*call(ids,str(uuid.uuid4())))
