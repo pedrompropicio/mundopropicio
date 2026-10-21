@@ -100,10 +100,12 @@ try:
    rows.append(dict(step=1,phase='AFTER',role=label,attack=name,expected='DENY/RLS0',actual=actual,affected=0,before=before,after=after))
  # Explicit expected unmanaged offset bypass, using exact known valid legacy pair.
  for role in ('service_role','postgres'):
-  before=snapshot(admin);b=connect(role);run(b,'BEGIN')
-  pair=run(admin,"SELECT receivable_transaction_id,payable_transaction_id FROM transaction_offsets WHERE offset_group_id IS NULL ORDER BY id LIMIT 1")
-  assert pair,'existing valid legacy offset required'
-  oid=str(run(b,'INSERT INTO transaction_offsets(company_id,receivable_transaction_id,payable_transaction_id,amount) VALUES(%s,%s,%s,1) RETURNING id',(company,*pair[0]))[0][0])
+  b=connect(role);run(b,'BEGIN')
+  pair=[]
+  for kind in ('income','expense'):
+   pair.append(run(b,"INSERT INTO transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id) VALUES(%s,'approved',%s,'2n1c legacy bypass',10,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id",(company,kind))[0][0])
+  before=snapshot(admin)
+  oid=str(run(b,'INSERT INTO transaction_offsets(company_id,receivable_transaction_id,payable_transaction_id,amount) VALUES(%s,%s,%s,1) RETURNING id',(company,*pair))[0][0])
   assert str(run(b,'DELETE FROM transaction_offsets WHERE id=%s RETURNING id',(oid,))[0][0])==oid
   run(b,'ROLLBACK');b.close();assert snapshot(admin)==before
   rows.append(dict(step=1,phase='legacy-bypass',role=role,expected='INSERT1 DELETE1 authorized unmanaged bypass',actual='INSERT1 DELETE1; rolled back',before=before,after=snapshot(admin)))
