@@ -84,7 +84,7 @@ SET ROLE authenticated;
 SELECT issue335_test.j_group('E');
 INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id)
  VALUES(public.current_company_id(),'approved','income','2j legado',50,0,'2026-10-13','00000000-0000-0000-0000-000000000020');
-INSERT INTO issue335_test.j SELECT 'E:legacy',id FROM public.transactions WHERE description='2j legado';
+INSERT INTO issue335_test.j SELECT 'E:legacy',id FROM public.transactions WHERE description='2j legado' ORDER BY created_at DESC LIMIT 1 ON CONFLICT(k) DO UPDATE SET v=excluded.v;
 INSERT INTO public.transaction_payments(transaction_id,amount,payment_date,account_id,payment_method)
  SELECT v,10,'2026-10-13','00000000-0000-0000-0000-000000000030','transfer' FROM issue335_test.j WHERE k='E:legacy';
 RESET ROLE;
