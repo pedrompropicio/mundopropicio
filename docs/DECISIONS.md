@@ -6102,3 +6102,14 @@ Decisão do Pedro (21/10/2026), depois de o erro se repetir e de ter de ser expl
 **O que se exige a quem apresenta o número.** Dizer qual o corte usado. Se apresentar o universo inteiro, dizer explicitamente que é o universo inteiro e porque é que isso é relevante para aquela decisão. Um número sem corte declarado não serve de base a decisão nenhuma.
 
 Relacionada: D-ERP278 (nunca concluir a partir de verificação incompleta).
+
+## D-ERP290 — Entrada de dados: a porta é o tipo de documento, e quem pagou decide avulsa ou transação (21/10/2026)
+
+Decisões do Pedro a 21/10/2026, depois de três faturas do TikTok terem sido lançadas à mão em vez de pelo fluxo próprio.
+
+1. **Faturas de plataformas de anúncios entram pelas Faturas Ads** (`/faturas-plataformas`, `ads-invoice-ingest`/`ads-invoice-apply`), nunca como transação feita à mão. Vale para Meta, Google e TikTok (TikTok desde D-ERP248). O PDF é a fonte de verdade (D-ERP31).
+2. **Quem pagou decide o caminho:** conta da empresa → transação com conta e pagamento; conta pessoal do sócio → Fatura Avulsa com `paid_by_partner_id`.
+3. **O valor é o do documento.** Converte-se pelo BCE à data da fatura (`fx_rates_daily`) apenas quando o documento não traz o valor em euros.
+4. **Os emails que servem de fonte a um lançamento não se apagam** — arquivam-se depois do anexo estar na plataforma e conferido.
+
+Procedimento: `docs/procedimentos/PROC-entrada-de-dados.md`, lido no arranque do chat 10.

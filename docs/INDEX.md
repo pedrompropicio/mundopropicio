@@ -41,6 +41,7 @@ Numeração única 0–11, igual no Claude e no ChatGPT, mais `coala-portal`, `n
 | Custo partilhado com terceiros (rateio) | `procedimentos/PROC-rateio-dayoffs-turne.md` |
 | Arranque de chat (Bloco Comum, moldes por tipo, prompts em `docs/prompts/`) | `procedimentos/PROC-arranque-chat.md` |
 | Recuperação da plataforma num projeto Supabase novo | `procedimentos/PROC-recuperacao-plataforma.md` |
+| Entrada de dados (faturas e lançamentos) | `procedimentos/PROC-entrada-de-dados.md` |
 
 ## Manual de Orientação (em construção)
 
