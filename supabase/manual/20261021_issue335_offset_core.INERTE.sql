@@ -42,6 +42,13 @@ GRANT SELECT ON public.transaction_offset_control TO issue335_executor;
 CREATE POLICY issue335_control_read ON public.transaction_offset_control FOR SELECT TO issue335_executor USING(true);
 GRANT SELECT ON public.partner_paid_expenses,public.event_settlements,public.payment_list_items,public.payment_lists,public.payment_list_sepa_exports TO issue335_executor;
 GRANT UPDATE ON public.event_settlements TO issue335_executor;
+-- 2i (achado real no harness fiel): estas quatro tabelas têm RLS em Live só para authenticated; sem policy o
+-- executor lia ZERO linhas e as guardas de lista/SEPA/despesa de sócio passavam (fail-open). Leitura por empresa.
+DO $$ DECLARE t text; BEGIN
+ FOREACH t IN ARRAY ARRAY['partner_paid_expenses','payment_list_items','payment_lists','payment_list_sepa_exports'] LOOP
+  EXECUTE format('CREATE POLICY issue335_guard_read ON public.%I FOR SELECT TO issue335_executor USING (company_id=public.current_company_id())',t);
+ END LOOP;
+END $$;
 GRANT EXECUTE ON FUNCTION public.can_see_confidential(uuid),public.has_permission(uuid,text),public.is_platform_admin(uuid) TO issue335_executor;
 GRANT SELECT,INSERT,UPDATE ON public.event_forecasts,public.transactions,public.transaction_payments,public.transaction_offsets,public.bank_statement_lines,public.transaction_offset_groups,public.transaction_offset_items TO issue335_executor;
 GRANT SELECT,INSERT,DELETE ON public.bank_line_transactions TO issue335_executor;
