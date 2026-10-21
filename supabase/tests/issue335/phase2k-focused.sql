@@ -15,6 +15,39 @@ DO $$ DECLARE ev numeric; bal numeric; d numeric; ok boolean; BEGIN
 END $$;
 ROLLBACK;
 
+-- M5/M6: related reimbursement payment and inconsistent existing cash account refuse atomically.
+BEGIN;
+SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',true);
+SET LOCAL ROLE authenticated;
+DO $$ DECLARE kind text; a uuid; b uuid; n bigint; expected text; BEGIN
+ FOREACH kind IN ARRAY ARRAY['reimbursement','cash_account_mismatch'] LOOP
+  INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id,account_id)
+  VALUES(public.current_company_id(),'approved','income','2k guarded+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-000000000030') RETURNING id INTO a;
+  INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id,account_id)
+  VALUES(public.current_company_id(),'approved','expense','2k guarded-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-000000000030') RETURNING id INTO b;
+  IF kind='reimbursement' THEN
+   INSERT INTO public.reimbursement_notes(company_id,employee_name,payment_transaction_id,status)
+   VALUES(public.current_company_id(),'LOCAL 2k',b,'approved');
+   expected:='unsupported_debt';
+  ELSE
+   INSERT INTO public.transaction_payments(transaction_id,amount,payment_date,account_id,payment_method)
+   VALUES(a,10,'2026-10-13','00000000-0000-0000-0000-000000000031','transfer');
+   expected:='cash_account_inconsistent';
+  END IF;
+  SELECT count(*) INTO n FROM public.transaction_payments;
+  BEGIN
+   PERFORM public.transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',
+    jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset')),
+    jsonb_build_object('account_id','00000000-0000-0000-0000-000000000030','date','2026-10-13','amount',CASE WHEN kind='reimbursement' THEN 60 ELSE 50 END),'2026-10-13');
+   RAISE EXCEPTION 'debt_accepted:%',kind;
+  EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE expected||'%' THEN RAISE; END IF; END;
+  IF n<>(SELECT count(*) FROM public.transaction_payments) OR EXISTS(SELECT 1 FROM public.transaction_offset_items WHERE transaction_id IN(a,b)) THEN RAISE EXCEPTION 'debt_partial_write'; END IF;
+  RAISE NOTICE 'PASS 2k % refused atomically (%)',kind,expected;
+ END LOOP;
+END $$;
+RESET ROLE;
+ROLLBACK;
+
 -- Values are valid existing FKs or booleans: the guard must reject, not a FK/check.
 BEGIN;
 SET LOCAL ROLE authenticated;
