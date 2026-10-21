@@ -21,6 +21,7 @@ baseline() {
  "${P[@]}" -f "$S/live/phase2d-constraints.sql" >/dev/null
  "${P[@]}" -f "$S/live/phase2c-invariant-registry.sql" >/dev/null
  "${P[@]}" -f "$S/live/phase2d-legacy.sql" >/dev/null
+ "${P[@]}" -f "$S/live/phase2e-replay.sql" >/dev/null
  "${ADMIN[@]}" -f "$S/live/phase2d-role.sql" >/dev/null
 }
 catalog() { "${P[@]}" -At -c "SELECT jsonb_build_object(
@@ -47,6 +48,12 @@ PRE=$(catalog)
 for f in storage core invariants; do "${P[@]}" -f "$(ls "$ROOT/supabase/manual/20261021_issue335_offset_"*"$f.INERTE.sql")" >/dev/null; if [ "$f" = storage ]; then "${P[@]}" -f "$S/storage-only.sql"; fi; done
 "${ADMIN[@]}" -f "$S/scenarios.sql"
 "${ADMIN[@]}" -f "$S/phase2d.sql"
+"${ADMIN[@]}" -f "$S/live/phase2e-balance-baseline.sql"
+"${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_balance.INERTE.sql"
+"${ADMIN[@]}" -f "$S/phase2e.sql"
+"${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_kill_switch.INERTE.sql"
+"${ADMIN[@]}" -c "DO \$\$ BEGIN IF (SELECT enabled FROM transaction_offset_control) OR has_function_privilege('authenticated','transaction_offset_execute(uuid,uuid,jsonb,jsonb,date,text)','EXECUTE') OR has_table_privilege('authenticated','issue335_commands','INSERT') THEN RAISE EXCEPTION 'kill_switch_failed'; END IF; RAISE NOTICE 'PASS 2e I5 kill-switch flag and both entry ACL closures'; END \$\$;"
+"${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_kill_switch.ROLLBACK-INERTE.sql"
 "${ADMIN[@]}" -f "$S/phase2b.sql"
 "${ADMIN[@]}" -f "$S/phase2c.sql"
 (cd "$ROOT" && bun "$S/matching-parity.ts") >"$D/parity.sql"
@@ -113,7 +120,7 @@ wait "$A" || true; wait "$B" || true
 "${P[@]}" -c "DO \$\$ BEGIN IF (SELECT count(*) FROM transaction_offset_groups WHERE request_id='00000000-0000-0000-0000-000000000777')<>1 OR (SELECT count(*) FROM transaction_payments WHERE transaction_id IN('00000000-0000-0000-0000-000000000701','00000000-0000-0000-0000-000000000702'))<>3 THEN RAISE EXCEPTION 'race duplicated'; END IF; RAISE NOTICE 'PASS two concurrent sessions, one group and three legs'; END \$\$;"
 
 # Technical rollback refuses existing history, rather than silently restoring unilateral writers.
-for f in invariants core group_storage; do
+for f in balance invariants core group_storage; do
  if "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_$f.ROLLBACK-INERTE.sql" >"$D/rollback" 2>&1; then echo "ERROR $f rollback accepted retained groups"; exit 1; fi
  grep -q groups_exist_keep_guards "$D/rollback"
 done
@@ -129,13 +136,14 @@ BEFORE=$("${P[@]}" -At -c "$INV")
 PRE=$(catalog)
 "${P[@]}" -c "DO \$\$ BEGIN IF (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) THEN RAISE EXCEPTION 'deployment_is_superuser'; END IF; END \$\$;"
 for f in storage core invariants; do "${P[@]}" -f "$(ls "$ROOT/supabase/manual/20261021_issue335_offset_"*"$f.INERTE.sql")" >/dev/null; if [ "$f" = storage ]; then "${P[@]}" -f "$S/storage-only.sql"; fi; done
+"${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_balance.INERTE.sql"
 "${ADMIN[@]}" -f "$S/phase2c-invariant-matrix.sql"
 for f in core group_storage; do
  if "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_$f.ROLLBACK-INERTE.sql" >"$D/wrong-order" 2>&1; then echo "ERROR wrong rollback order accepted $f"; exit 1; fi
  grep -q rollback_order "$D/wrong-order"
 done
 echo 'PASS 11: rollback wrong order refused without groups; correct order invariants -> core -> storage follows'
-for f in invariants core group_storage; do "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_$f.ROLLBACK-INERTE.sql" >/dev/null; done
+for f in balance invariants core group_storage; do "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_$f.ROLLBACK-INERTE.sql" >/dev/null; done
 POST=$(catalog)
 AFTER=$("${P[@]}" -At -c "$INV")
 python3 - "$PRE" "$POST" <<'PY'

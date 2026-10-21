@@ -71,7 +71,7 @@ DO $$ DECLARE f uuid; f2 uuid; ev uuid; cat uuid:=gen_random_uuid(); a uuid; b u
  RAISE NOTICE 'PASS canonical matching 0/1/1002, multiple entities, direct/anchor union, unique winner/zero, foreign claims and accents';
 END $$;
 -- Failure after EVERY physical write, including nested production triggers and audit.
-CREATE SCHEMA issue335_test;
+CREATE SCHEMA IF NOT EXISTS issue335_test;
 CREATE FUNCTION issue335_test.fail_write() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n int; BEGIN
  IF coalesce(current_setting('issue335_test.fail_at',true),'')<>'' THEN
   n:=coalesce(nullif(current_setting('issue335_test.write_count',true),''),'0')::int+1;

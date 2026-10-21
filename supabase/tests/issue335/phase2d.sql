@@ -90,7 +90,7 @@ RESET ROLE;
 -- Expose rather than hide canonical balance defect: new compensation changes paid_amount.
 -- This is an OPEN blocker, NOT an assertion that the financial result is acceptable.
 DO $$ DECLARE a uuid; b uuid; items jsonb; before_balance numeric; after_balance numeric; BEGIN
- INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('income','2d balance+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
+ INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id,account_id) VALUES('income','2d balance+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-000000000030') RETURNING id INTO a;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2d balance-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;
  before_balance:=_account_true_balance_raw('00000000-0000-0000-0000-000000000030');
  items:=jsonb_build_array(jsonb_build_object('transaction_id',a,'mode','settle'),jsonb_build_object('transaction_id',b,'mode','offset'));

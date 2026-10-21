@@ -1,0 +1,1154 @@
+{
+  "columns": [
+    {
+      "column": "id",
+      "table": "payment_list_items",
+      "type": "uuid"
+    },
+    {
+      "column": "payment_list_id",
+      "table": "payment_list_items",
+      "type": "uuid"
+    },
+    {
+      "column": "transaction_id",
+      "table": "payment_list_items",
+      "type": "uuid"
+    },
+    {
+      "column": "created_at",
+      "table": "payment_list_items",
+      "type": "timestamp with time zone"
+    },
+    {
+      "column": "manually_marked_paid",
+      "table": "payment_list_items",
+      "type": "boolean"
+    },
+    {
+      "column": "company_id",
+      "table": "payment_list_items",
+      "type": "uuid"
+    },
+    {
+      "column": "removed_at",
+      "table": "payment_list_items",
+      "type": "timestamp with time zone"
+    },
+    {
+      "column": "removed_by",
+      "table": "payment_list_items",
+      "type": "text"
+    },
+    {
+      "column": "removed_reason",
+      "table": "payment_list_items",
+      "type": "text"
+    },
+    {
+      "column": "id",
+      "table": "payment_list_sepa_exports",
+      "type": "uuid"
+    },
+    {
+      "column": "payment_list_id",
+      "table": "payment_list_sepa_exports",
+      "type": "uuid"
+    },
+    {
+      "column": "company_id",
+      "table": "payment_list_sepa_exports",
+      "type": "uuid"
+    },
+    {
+      "column": "exported_by",
+      "table": "payment_list_sepa_exports",
+      "type": "text"
+    },
+    {
+      "column": "exported_at",
+      "table": "payment_list_sepa_exports",
+      "type": "timestamp with time zone"
+    },
+    {
+      "column": "file_name",
+      "table": "payment_list_sepa_exports",
+      "type": "text"
+    },
+    {
+      "column": "msg_id",
+      "table": "payment_list_sepa_exports",
+      "type": "text"
+    },
+    {
+      "column": "total_amount",
+      "table": "payment_list_sepa_exports",
+      "type": "numeric"
+    },
+    {
+      "column": "n_transactions",
+      "table": "payment_list_sepa_exports",
+      "type": "integer"
+    },
+    {
+      "column": "transaction_ids",
+      "table": "payment_list_sepa_exports",
+      "type": "ARRAY"
+    },
+    {
+      "column": "id",
+      "table": "payment_lists",
+      "type": "uuid"
+    },
+    {
+      "column": "title",
+      "table": "payment_lists",
+      "type": "text"
+    },
+    {
+      "column": "payment_date",
+      "table": "payment_lists",
+      "type": "date"
+    },
+    {
+      "column": "status",
+      "table": "payment_lists",
+      "type": "text"
+    },
+    {
+      "column": "created_by",
+      "table": "payment_lists",
+      "type": "text"
+    },
+    {
+      "column": "approved_by",
+      "table": "payment_lists",
+      "type": "text"
+    },
+    {
+      "column": "approved_at",
+      "table": "payment_lists",
+      "type": "timestamp with time zone"
+    },
+    {
+      "column": "notes",
+      "table": "payment_lists",
+      "type": "text"
+    },
+    {
+      "column": "created_at",
+      "table": "payment_lists",
+      "type": "timestamp with time zone"
+    },
+    {
+      "column": "updated_at",
+      "table": "payment_lists",
+      "type": "timestamp with time zone"
+    },
+    {
+      "column": "revision_notes",
+      "table": "payment_lists",
+      "type": "text"
+    },
+    {
+      "column": "company_id",
+      "table": "payment_lists",
+      "type": "uuid"
+    },
+    {
+      "column": "id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "event_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "type",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "category_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "description",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "amount",
+      "table": "transactions",
+      "type": "numeric"
+    },
+    {
+      "column": "iva_rate",
+      "table": "transactions",
+      "type": "integer"
+    },
+    {
+      "column": "date",
+      "table": "transactions",
+      "type": "date"
+    },
+    {
+      "column": "status",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "supplier_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "created_at",
+      "table": "transactions",
+      "type": "timestamp with time zone"
+    },
+    {
+      "column": "updated_at",
+      "table": "transactions",
+      "type": "timestamp with time zone"
+    },
+    {
+      "column": "paid_amount",
+      "table": "transactions",
+      "type": "numeric"
+    },
+    {
+      "column": "due_date",
+      "table": "transactions",
+      "type": "date"
+    },
+    {
+      "column": "specification",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "account_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "payment_date",
+      "table": "transactions",
+      "type": "date"
+    },
+    {
+      "column": "invoice_ref",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "pl_override_note",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "parent_transaction_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "split_percentage",
+      "table": "transactions",
+      "type": "numeric"
+    },
+    {
+      "column": "is_reimbursement",
+      "table": "transactions",
+      "type": "boolean"
+    },
+    {
+      "column": "reimbursement_to",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "is_hidden",
+      "table": "transactions",
+      "type": "boolean"
+    },
+    {
+      "column": "exclude_from_result",
+      "table": "transactions",
+      "type": "boolean"
+    },
+    {
+      "column": "is_transitory",
+      "table": "transactions",
+      "type": "boolean"
+    },
+    {
+      "column": "payment_entity",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "payment_method",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "payment_reference",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "split_amount",
+      "table": "transactions",
+      "type": "numeric"
+    },
+    {
+      "column": "split_mode",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "settlement_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "currency",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "fx_rate",
+      "table": "transactions",
+      "type": "numeric"
+    },
+    {
+      "column": "fx_rate_source",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "original_amount",
+      "table": "transactions",
+      "type": "numeric"
+    },
+    {
+      "column": "invoice_group_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "declared_withholding_amount",
+      "table": "transactions",
+      "type": "numeric"
+    },
+    {
+      "column": "declared_withholding_rate",
+      "table": "transactions",
+      "type": "numeric"
+    },
+    {
+      "column": "company_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "iban_override",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "reversal_kind",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "reversal_reason",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "reversed_at",
+      "table": "transactions",
+      "type": "timestamp with time zone"
+    },
+    {
+      "column": "reversed_by",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "supplier_credit_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "card_session_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "ordering_partner_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "paying_partner_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "forecast_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "installment_group_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "installment_number",
+      "table": "transactions",
+      "type": "integer"
+    },
+    {
+      "column": "installment_total",
+      "table": "transactions",
+      "type": "integer"
+    },
+    {
+      "column": "is_confidential",
+      "table": "transactions",
+      "type": "boolean"
+    },
+    {
+      "column": "operation_key",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "event_settlement_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "held_by_supplier_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "shared_cost_account_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "shared_cost_counterparty_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "transitory_reason",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "cache_contract_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "cache_role",
+      "table": "transactions",
+      "type": "text"
+    },
+    {
+      "column": "cache_root_event_id",
+      "table": "transactions",
+      "type": "uuid"
+    },
+    {
+      "column": "cache_artist_supplier_id",
+      "table": "transactions",
+      "type": "uuid"
+    }
+  ],
+  "constraints": [
+    {
+      "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)",
+      "name": "payment_lists_company_id_fkey",
+      "table": "payment_lists"
+    },
+    {
+      "definition": "PRIMARY KEY (id)",
+      "name": "payment_lists_pkey",
+      "table": "payment_lists"
+    },
+    {
+      "definition": "CHECK ((status = ANY (ARRAY['draft'::text, 'pending_approval'::text, 'approved'::text, 'rejected'::text, 'revision'::text, 'partially_approved'::text])))",
+      "name": "payment_lists_status_check",
+      "table": "payment_lists"
+    },
+    {
+      "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)",
+      "name": "payment_list_items_company_id_fkey",
+      "table": "payment_list_items"
+    },
+    {
+      "definition": "FOREIGN KEY (payment_list_id) REFERENCES payment_lists(id) ON DELETE CASCADE",
+      "name": "payment_list_items_payment_list_id_fkey",
+      "table": "payment_list_items"
+    },
+    {
+      "definition": "PRIMARY KEY (id)",
+      "name": "payment_list_items_pkey",
+      "table": "payment_list_items"
+    },
+    {
+      "definition": "FOREIGN KEY (transaction_id) REFERENCES transactions(id)",
+      "name": "payment_list_items_transaction_id_fkey",
+      "table": "payment_list_items"
+    },
+    {
+      "definition": "FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE",
+      "name": "payment_list_sepa_exports_company_id_fkey",
+      "table": "payment_list_sepa_exports"
+    },
+    {
+      "definition": "FOREIGN KEY (payment_list_id) REFERENCES payment_lists(id) ON DELETE CASCADE",
+      "name": "payment_list_sepa_exports_payment_list_id_fkey",
+      "table": "payment_list_sepa_exports"
+    },
+    {
+      "definition": "PRIMARY KEY (id)",
+      "name": "payment_list_sepa_exports_pkey",
+      "table": "payment_list_sepa_exports"
+    }
+  ],
+  "defaults": [
+    {
+      "acl": "{postgres=rwU/supabase_admin,anon=rwU/supabase_admin,authenticated=rwU/supabase_admin,service_role=rwU/supabase_admin}",
+      "kind": "S",
+      "owner": "supabase_admin",
+      "schema": "public"
+    },
+    {
+      "acl": "{postgres=arwdDxtm/supabase_admin,anon=arwdDxtm/supabase_admin,authenticated=arwdDxtm/supabase_admin,service_role=arwdDxtm/supabase_admin}",
+      "kind": "r",
+      "owner": "supabase_admin",
+      "schema": "public"
+    },
+    {
+      "acl": "{postgres=X/supabase_admin,anon=X/supabase_admin,authenticated=X/supabase_admin,service_role=X/supabase_admin}",
+      "kind": "f",
+      "owner": "supabase_admin",
+      "schema": "public"
+    },
+    {
+      "acl": "{postgres=arwdDxtm/supabase_auth_admin,dashboard_user=arwdDxtm/supabase_auth_admin}",
+      "kind": "r",
+      "owner": "supabase_auth_admin",
+      "schema": "auth"
+    },
+    {
+      "acl": "{postgres=rwU/supabase_auth_admin,dashboard_user=rwU/supabase_auth_admin}",
+      "kind": "S",
+      "owner": "supabase_auth_admin",
+      "schema": "auth"
+    },
+    {
+      "acl": "{postgres=X/supabase_auth_admin,dashboard_user=X/supabase_auth_admin}",
+      "kind": "f",
+      "owner": "supabase_auth_admin",
+      "schema": "auth"
+    },
+    {
+      "acl": "{postgres=rwU/supabase_admin,dashboard_user=rwU/supabase_admin}",
+      "kind": "S",
+      "owner": "supabase_admin",
+      "schema": "realtime"
+    },
+    {
+      "acl": "{postgres=X/supabase_admin,dashboard_user=X/supabase_admin}",
+      "kind": "f",
+      "owner": "supabase_admin",
+      "schema": "realtime"
+    },
+    {
+      "acl": "{postgres=rwU/supabase_admin,anon=rwU/supabase_admin,authenticated=rwU/supabase_admin,service_role=rwU/supabase_admin}",
+      "kind": "S",
+      "owner": "supabase_admin",
+      "schema": "graphql_public"
+    },
+    {
+      "acl": "{postgres=arwdDxtm/supabase_admin,anon=arwdDxtm/supabase_admin,authenticated=arwdDxtm/supabase_admin,service_role=arwdDxtm/supabase_admin}",
+      "kind": "r",
+      "owner": "supabase_admin",
+      "schema": "graphql_public"
+    },
+    {
+      "acl": "{postgres=X/supabase_admin,anon=X/supabase_admin,authenticated=X/supabase_admin,service_role=X/supabase_admin}",
+      "kind": "f",
+      "owner": "supabase_admin",
+      "schema": "graphql_public"
+    },
+    {
+      "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=rU/postgres,sandbox_exec=rU/postgres}",
+      "kind": "S",
+      "owner": "postgres",
+      "schema": "public"
+    },
+    {
+      "acl": "{postgres=a*r*w*d*D*x*t*m*/supabase_admin}",
+      "kind": "r",
+      "owner": "supabase_admin",
+      "schema": "extensions"
+    },
+    {
+      "acl": "{postgres=X*/supabase_admin}",
+      "kind": "f",
+      "owner": "supabase_admin",
+      "schema": "extensions"
+    },
+    {
+      "acl": "{postgres=r*w*U*/supabase_admin}",
+      "kind": "S",
+      "owner": "supabase_admin",
+      "schema": "extensions"
+    },
+    {
+      "acl": "{postgres=arwdDxtm/supabase_admin,anon=arwdDxtm/supabase_admin,authenticated=arwdDxtm/supabase_admin,service_role=arwdDxtm/supabase_admin}",
+      "kind": "r",
+      "owner": "supabase_admin",
+      "schema": "graphql"
+    },
+    {
+      "acl": "{postgres=X/supabase_admin,anon=X/supabase_admin,authenticated=X/supabase_admin,service_role=X/supabase_admin}",
+      "kind": "f",
+      "owner": "supabase_admin",
+      "schema": "graphql"
+    },
+    {
+      "acl": "{postgres=rwU/supabase_admin,anon=rwU/supabase_admin,authenticated=rwU/supabase_admin,service_role=rwU/supabase_admin}",
+      "kind": "S",
+      "owner": "supabase_admin",
+      "schema": "graphql"
+    },
+    {
+      "acl": "{pg_monitor=r/postgres}",
+      "kind": "r",
+      "owner": "postgres",
+      "schema": "pgmq"
+    },
+    {
+      "acl": "{pg_monitor=r/postgres}",
+      "kind": "S",
+      "owner": "postgres",
+      "schema": "pgmq"
+    },
+    {
+      "acl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+      "kind": "f",
+      "owner": "postgres",
+      "schema": "public"
+    },
+    {
+      "acl": "{sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+      "kind": "r",
+      "owner": "postgres",
+      "schema": "auth"
+    },
+    {
+      "acl": "{sandbox_exec_sfohvvlqccmmebvjgibx=rU/postgres,sandbox_exec=rU/postgres}",
+      "kind": "S",
+      "owner": "postgres",
+      "schema": "auth"
+    },
+    {
+      "acl": "{sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+      "kind": "f",
+      "owner": "postgres",
+      "schema": "auth"
+    },
+    {
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+      "kind": "r",
+      "owner": "postgres",
+      "schema": "storage"
+    },
+    {
+      "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=rU/postgres,sandbox_exec=rU/postgres}",
+      "kind": "S",
+      "owner": "postgres",
+      "schema": "storage"
+    },
+    {
+      "acl": "{postgres=r*w*U*/supabase_admin}",
+      "kind": "S",
+      "owner": "supabase_admin",
+      "schema": "cron"
+    },
+    {
+      "acl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+      "kind": "f",
+      "owner": "postgres",
+      "schema": "storage"
+    },
+    {
+      "acl": "{sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+      "kind": "r",
+      "owner": "postgres",
+      "schema": "extensions"
+    },
+    {
+      "acl": "{postgres=a*r*w*d*D*x*t*m*/supabase_admin}",
+      "kind": "r",
+      "owner": "supabase_admin",
+      "schema": "cron"
+    },
+    {
+      "acl": "{sandbox_exec_sfohvvlqccmmebvjgibx=rU/postgres,sandbox_exec=rU/postgres}",
+      "kind": "S",
+      "owner": "postgres",
+      "schema": "extensions"
+    },
+    {
+      "acl": "{sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+      "kind": "f",
+      "owner": "postgres",
+      "schema": "extensions"
+    },
+    {
+      "acl": "{postgres=X*/supabase_admin}",
+      "kind": "f",
+      "owner": "supabase_admin",
+      "schema": "cron"
+    },
+    {
+      "acl": "{service_role=arwd/postgres}",
+      "kind": "r",
+      "owner": "postgres",
+      "schema": "crm"
+    },
+    {
+      "acl": "{authenticated=X/postgres,service_role=X/postgres}",
+      "kind": "f",
+      "owner": "postgres",
+      "schema": "crm"
+    },
+    {
+      "acl": "{postgres=a*r*wdDxtm/supabase_admin,dashboard_user=arwdDxtm/supabase_admin}",
+      "kind": "r",
+      "owner": "supabase_admin",
+      "schema": "realtime"
+    },
+    {
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+      "kind": "r",
+      "owner": "postgres",
+      "schema": "public"
+    }
+  ],
+  "policies": [
+    {
+      "cmd": "ALL",
+      "permissive": "RESTRICTIVE",
+      "policyname": "company_isolation_bank_statement_lines",
+      "qual": "(company_id = current_company_id())",
+      "roles": [
+        "authenticated"
+      ],
+      "schemaname": "public",
+      "tablename": "bank_statement_lines",
+      "with_check": "(company_id = current_company_id())"
+    },
+    {
+      "cmd": "ALL",
+      "permissive": "PERMISSIVE",
+      "policyname": "Bank statement lines manageable by authorized users",
+      "qual": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_permission(( SELECT auth.uid() AS uid), 'manage_bank_reconciliation'::text))",
+      "roles": [
+        "authenticated"
+      ],
+      "schemaname": "public",
+      "tablename": "bank_statement_lines",
+      "with_check": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_permission(( SELECT auth.uid() AS uid), 'manage_bank_reconciliation'::text))"
+    },
+    {
+      "cmd": "SELECT",
+      "permissive": "PERMISSIVE",
+      "policyname": "Bank statement lines viewable by authorized users",
+      "qual": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_permission(( SELECT auth.uid() AS uid), 'manage_bank_reconciliation'::text) OR (EXISTS ( SELECT 1\n   FROM financial_account_access faa\n  WHERE ((faa.account_id = bank_statement_lines.financial_account_id) AND (faa.user_id = ( SELECT auth.uid() AS uid))))))",
+      "roles": [
+        "authenticated"
+      ],
+      "schemaname": "public",
+      "tablename": "bank_statement_lines",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "permissive": "PERMISSIVE",
+      "policyname": "Platform admin manages companies",
+      "qual": "is_platform_admin()",
+      "roles": [
+        "authenticated"
+      ],
+      "schemaname": "public",
+      "tablename": "companies",
+      "with_check": "is_platform_admin()"
+    },
+    {
+      "cmd": "SELECT",
+      "permissive": "PERMISSIVE",
+      "policyname": "Users see their member companies",
+      "qual": "(is_platform_admin() OR (id = current_company_id()) OR (EXISTS ( SELECT 1\n   FROM user_roles ur\n  WHERE ((ur.user_id = ( SELECT auth.uid() AS uid)) AND (ur.company_id = companies.id)))))",
+      "roles": [
+        "public"
+      ],
+      "schemaname": "public",
+      "tablename": "companies",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "permissive": "PERMISSIVE",
+      "policyname": "Financial accounts viewable by authorized users",
+      "qual": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR ((company_id = current_company_id()) AND (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR can_see_confidential(( SELECT auth.uid() AS uid)) OR ((COALESCE(is_restricted, false) = false) AND has_role(( SELECT auth.uid() AS uid), 'manager'::app_role)) OR (EXISTS ( SELECT 1\n   FROM financial_account_access faa\n  WHERE ((faa.account_id = financial_accounts.id) AND (faa.user_id = ( SELECT auth.uid() AS uid))))))))",
+      "roles": [
+        "authenticated"
+      ],
+      "schemaname": "public",
+      "tablename": "financial_accounts",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "permissive": "RESTRICTIVE",
+      "policyname": "company_isolation_financial_accounts",
+      "qual": "(company_id = current_company_id())",
+      "roles": [
+        "authenticated"
+      ],
+      "schemaname": "public",
+      "tablename": "financial_accounts",
+      "with_check": "(company_id = current_company_id())"
+    },
+    {
+      "cmd": "ALL",
+      "permissive": "PERMISSIVE",
+      "policyname": "Financial accounts manageable by admin",
+      "qual": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR ((company_id = current_company_id()) AND has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)))",
+      "roles": [
+        "authenticated"
+      ],
+      "schemaname": "public",
+      "tablename": "financial_accounts",
+      "with_check": "(is_platform_admin(( SELECT auth.uid() AS uid)) OR ((company_id = current_company_id()) AND has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)))"
+    },
+    {
+      "cmd": "ALL",
+      "permissive": "RESTRICTIVE",
+      "policyname": "company_isolation_transactions",
+      "qual": "(company_id = current_company_id())",
+      "roles": [
+        "authenticated"
+      ],
+      "schemaname": "public",
+      "tablename": "transactions",
+      "with_check": "(company_id = current_company_id())"
+    },
+    {
+      "cmd": "DELETE",
+      "permissive": "PERMISSIVE",
+      "policyname": "Transactions deletable by admin or manager",
+      "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))",
+      "roles": [
+        "authenticated"
+      ],
+      "schemaname": "public",
+      "tablename": "transactions",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "permissive": "PERMISSIVE",
+      "policyname": "Transactions insertable by privileged roles",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "schemaname": "public",
+      "tablename": "transactions",
+      "with_check": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))"
+    },
+    {
+      "cmd": "UPDATE",
+      "permissive": "PERMISSIVE",
+      "policyname": "Transactions updatable by privileged roles",
+      "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))",
+      "roles": [
+        "authenticated"
+      ],
+      "schemaname": "public",
+      "tablename": "transactions",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "permissive": "RESTRICTIVE",
+      "policyname": "transactions_confidential_guard",
+      "qual": "(can_see_confidential(( SELECT auth.uid() AS uid)) OR ((COALESCE(is_confidential, false) = false) AND ((account_id IS NULL) OR (NOT (EXISTS ( SELECT 1\n   FROM financial_accounts a\n  WHERE ((a.id = transactions.account_id) AND a.is_restricted)))))))",
+      "roles": [
+        "authenticated"
+      ],
+      "schemaname": "public",
+      "tablename": "transactions",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "permissive": "PERMISSIVE",
+      "policyname": "transactions_select_partner",
+      "qual": "((event_id IS NOT NULL) AND user_has_event_access(( SELECT auth.uid() AS uid), event_id) AND has_permission(( SELECT auth.uid() AS uid), 'view_partner_transactions'::text))",
+      "roles": [
+        "authenticated"
+      ],
+      "schemaname": "public",
+      "tablename": "transactions",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "permissive": "PERMISSIVE",
+      "policyname": "transactions_select_privileged_roles",
+      "qual": "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'platform_admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'viewer'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'accountant'::app_role))",
+      "roles": [
+        "authenticated"
+      ],
+      "schemaname": "public",
+      "tablename": "transactions",
+      "with_check": null
+    }
+  ],
+  "triggers": [
+    {
+      "definition": "CREATE TRIGGER enforce_paid_payment_date BEFORE INSERT OR UPDATE ON public.transactions FOR EACH ROW EXECUTE FUNCTION validate_paid_requires_payment_date()",
+      "name": "enforce_paid_payment_date",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER enforce_transaction_approval_permission BEFORE INSERT OR UPDATE ON public.transactions FOR EACH ROW EXECUTE FUNCTION enforce_transaction_approval_permission()",
+      "name": "enforce_transaction_approval_permission",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_card_load_on_out_delete BEFORE DELETE ON public.transactions FOR EACH ROW EXECUTE FUNCTION card_load_on_out_delete()",
+      "name": "trg_card_load_on_out_delete",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_card_load_on_out_paid AFTER UPDATE OF status ON public.transactions FOR EACH ROW EXECUTE FUNCTION card_load_on_out_paid()",
+      "name": "trg_card_load_on_out_paid",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_coala_capture_category_change AFTER INSERT OR UPDATE OF category_id ON public.transactions FOR EACH ROW EXECUTE FUNCTION coala_capture_category_change()",
+      "name": "trg_coala_capture_category_change",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_enforce_tx_paid_requires_account BEFORE INSERT ON public.transactions FOR EACH ROW EXECUTE FUNCTION enforce_tx_paid_requires_account()",
+      "name": "trg_enforce_tx_paid_requires_account",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_force_confidential_restricted_account BEFORE INSERT OR UPDATE ON public.transactions FOR EACH ROW EXECUTE FUNCTION force_confidential_for_restricted_account()",
+      "name": "trg_force_confidential_restricted_account",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_force_no_account_on_compensation BEFORE INSERT OR UPDATE ON public.transactions FOR EACH ROW EXECUTE FUNCTION force_no_account_on_compensation()",
+      "name": "trg_force_no_account_on_compensation",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_realign_tx_category_from_forecast AFTER UPDATE OF category_id ON public.transactions FOR EACH ROW EXECUTE FUNCTION realign_tx_category_from_forecast()",
+      "name": "trg_realign_tx_category_from_forecast",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_reimbursement_propagate_payment AFTER INSERT OR UPDATE OF status, paid_amount, payment_date ON public.transactions FOR EACH ROW EXECUTE FUNCTION reimbursement_propagate_payment()",
+      "name": "trg_reimbursement_propagate_payment",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_reimbursement_revert_on_tx_delete BEFORE DELETE ON public.transactions FOR EACH ROW EXECUTE FUNCTION reimbursement_revert_on_tx_delete()",
+      "name": "trg_reimbursement_revert_on_tx_delete",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_set_company_id BEFORE INSERT ON public.transactions FOR EACH ROW EXECUTE FUNCTION set_company_id_on_insert()",
+      "name": "trg_set_company_id",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_sync_partner_aporte_mirror AFTER INSERT OR UPDATE OF paid_amount, account_id, status, payment_date, reversed_at, description ON public.transactions FOR EACH ROW EXECUTE FUNCTION sync_partner_aporte_mirror()",
+      "name": "trg_sync_partner_aporte_mirror",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_sync_partner_aporte_mirror_del BEFORE DELETE ON public.transactions FOR EACH ROW EXECUTE FUNCTION sync_partner_aporte_mirror()",
+      "name": "trg_sync_partner_aporte_mirror_del",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_sync_tx_forecast_to_anchor AFTER INSERT OR UPDATE OF forecast_id ON public.transactions FOR EACH ROW EXECUTE FUNCTION sync_tx_forecast_to_anchor()",
+      "name": "trg_sync_tx_forecast_to_anchor",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_unlink_forecasts_on_tx_event_change AFTER UPDATE OF event_id ON public.transactions FOR EACH ROW EXECUTE FUNCTION unlink_forecasts_on_tx_event_change()",
+      "name": "trg_unlink_forecasts_on_tx_event_change",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_validate_paid_amount_not_exceeds_gross BEFORE UPDATE ON public.transactions FOR EACH ROW EXECUTE FUNCTION validate_paid_amount_not_exceeds_gross()",
+      "name": "trg_validate_paid_amount_not_exceeds_gross",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON public.transactions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+      "name": "update_transactions_updated_at",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER validate_transaction_event_settlement BEFORE INSERT OR UPDATE OF event_settlement_id, event_id ON public.transactions FOR EACH ROW EXECUTE FUNCTION validate_transaction_event_settlement()",
+      "name": "validate_transaction_event_settlement",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_set_company_id BEFORE INSERT ON public.transaction_payments FOR EACH ROW EXECUTE FUNCTION set_company_id_on_insert()",
+      "name": "trg_set_company_id",
+      "table": "transaction_payments"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_sync_paid_amount_from_payments AFTER INSERT OR DELETE OR UPDATE ON public.transaction_payments FOR EACH ROW EXECUTE FUNCTION sync_paid_amount_from_payments()",
+      "name": "trg_sync_paid_amount_from_payments",
+      "table": "transaction_payments"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_validate_installments_total BEFORE INSERT OR UPDATE ON public.transaction_payments FOR EACH ROW EXECUTE FUNCTION validate_installments_total()",
+      "name": "trg_validate_installments_total",
+      "table": "transaction_payments"
+    },
+    {
+      "definition": "CREATE TRIGGER update_transaction_payments_updated_at BEFORE UPDATE ON public.transaction_payments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+      "name": "update_transaction_payments_updated_at",
+      "table": "transaction_payments"
+    },
+    {
+      "definition": "CREATE TRIGGER update_event_settlements_updated_at BEFORE UPDATE ON public.event_settlements FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+      "name": "update_event_settlements_updated_at",
+      "table": "event_settlements"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_set_company_id BEFORE INSERT ON public.event_settlements FOR EACH ROW EXECUTE FUNCTION set_company_id_on_insert()",
+      "name": "trg_set_company_id",
+      "table": "event_settlements"
+    },
+    {
+      "definition": "CREATE TRIGGER prevent_delete_event_settlement_with_lines BEFORE DELETE ON public.event_settlements FOR EACH ROW EXECUTE FUNCTION prevent_delete_event_settlement_with_lines()",
+      "name": "prevent_delete_event_settlement_with_lines",
+      "table": "event_settlements"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_guard_sealed_event_settlement BEFORE INSERT OR DELETE OR UPDATE ON public.event_settlements FOR EACH ROW EXECUTE FUNCTION guard_sealed_event_settlement()",
+      "name": "trg_guard_sealed_event_settlement",
+      "table": "event_settlements"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_enforce_held_revenue_is_paid BEFORE INSERT OR UPDATE OF held_by_supplier_id, status ON public.transactions FOR EACH ROW EXECUTE FUNCTION enforce_held_revenue_is_paid()",
+      "name": "trg_enforce_held_revenue_is_paid",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_force_exclude_result_shared_cost BEFORE INSERT OR UPDATE ON public.transactions FOR EACH ROW EXECUTE FUNCTION force_exclude_from_result_for_shared_cost()",
+      "name": "trg_force_exclude_result_shared_cost",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_sync_shared_cost_mirror AFTER INSERT OR UPDATE ON public.transactions FOR EACH ROW EXECUTE FUNCTION sync_shared_cost_mirror()",
+      "name": "trg_sync_shared_cost_mirror",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_sync_shared_cost_mirror_del BEFORE DELETE ON public.transactions FOR EACH ROW EXECUTE FUNCTION sync_shared_cost_mirror()",
+      "name": "trg_sync_shared_cost_mirror_del",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_force_transitory_capital BEFORE INSERT OR UPDATE OF category_id, is_transitory ON public.transactions FOR EACH ROW EXECUTE FUNCTION force_transitory_for_capital_branch()",
+      "name": "trg_force_transitory_capital",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER zz_rederive_paid_amount_on_amount_change AFTER UPDATE OF amount, iva_rate ON public.transactions FOR EACH ROW EXECUTE FUNCTION rederive_paid_amount_on_amount_change()",
+      "name": "zz_rederive_paid_amount_on_amount_change",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_clear_reversal_on_repay AFTER INSERT ON public.transaction_payments FOR EACH ROW EXECUTE FUNCTION clear_reversal_on_repay()",
+      "name": "trg_clear_reversal_on_repay",
+      "table": "transaction_payments"
+    },
+    {
+      "definition": "CREATE TRIGGER zz_audit_transactions_change AFTER INSERT OR DELETE OR UPDATE ON public.transactions FOR EACH ROW EXECUTE FUNCTION audit_transactions_change()",
+      "name": "zz_audit_transactions_change",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER enforce_payment_date_not_future BEFORE INSERT OR UPDATE ON public.transaction_payments FOR EACH ROW EXECUTE FUNCTION validate_payment_date_not_future()",
+      "name": "enforce_payment_date_not_future",
+      "table": "transaction_payments"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_enforce_admin_window_event BEFORE INSERT OR UPDATE OF event_id, category_id, date, company_id, type ON public.transactions FOR EACH ROW EXECUTE FUNCTION enforce_admin_window_event()",
+      "name": "trg_enforce_admin_window_event",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER zz_camarim_session_leg_follows_bank AFTER INSERT OR DELETE OR UPDATE ON public.transaction_payments FOR EACH ROW EXECUTE FUNCTION trg_camarim_session_leg_follows_bank()",
+      "name": "zz_camarim_session_leg_follows_bank",
+      "table": "transaction_payments"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_enforce_payment_list_batch_channel BEFORE INSERT ON public.transaction_payments FOR EACH ROW EXECUTE FUNCTION enforce_payment_list_batch_channel()",
+      "name": "trg_enforce_payment_list_batch_channel",
+      "table": "transaction_payments"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_enforce_tx_forecast_same_event BEFORE INSERT OR UPDATE OF forecast_id, event_id ON public.transactions FOR EACH ROW EXECUTE FUNCTION enforce_tx_forecast_same_event()",
+      "name": "trg_enforce_tx_forecast_same_event",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER trg_apply_transaction_offsets AFTER INSERT OR DELETE OR UPDATE OF status, reversed_at ON public.transaction_payments FOR EACH ROW EXECUTE FUNCTION apply_transaction_offsets()",
+      "name": "trg_apply_transaction_offsets",
+      "table": "transaction_payments"
+    },
+    {
+      "definition": "CREATE TRIGGER zz_guard_paid_amount_vs_payments BEFORE UPDATE OF paid_amount ON public.transactions FOR EACH ROW EXECUTE FUNCTION guard_paid_amount_vs_payments()",
+      "name": "zz_guard_paid_amount_vs_payments",
+      "table": "transactions"
+    },
+    {
+      "definition": "CREATE TRIGGER zz_materialize_paid_amount_payment AFTER INSERT OR UPDATE OF paid_amount ON public.transactions FOR EACH ROW EXECUTE FUNCTION materialize_paid_amount_payment()",
+      "name": "zz_materialize_paid_amount_payment",
+      "table": "transactions"
+    }
+  ]
+}
