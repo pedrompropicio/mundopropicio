@@ -48,6 +48,8 @@ FROM (VALUES ('2026-10-18 12:15+00'::timestamptz),('2026-10-18 13:15+00')) x(h);
 DO $$ BEGIN
  -- Legacy 0228 counts DISTINCT tuple rows, including one NULL identity per day/key.
  IF (SELECT count(*) FROM (SELECT DISTINCT hour_utc::date,dim->>0,dim->>2 FROM song_link_report_visitors_hourly WHERE kind='channel' AND n>0) x)<>2 THEN RAISE EXCEPTION 'NULL identity must match legacy tuple DISTINCT'; END IF;
+ IF (SELECT sum(v) FROM song_link_report_visitor_totals_daily WHERE kind='channel' AND scope='all')<>2 THEN RAISE EXCEPTION 'daily total deduplicates NULL and cross-hour visitors'; END IF;
+ IF (SELECT sum(n) FROM song_link_report_visitor_refs_daily WHERE kind='channel' AND scope='all')<>4 THEN RAISE EXCEPTION 'daily references retain all four arrivals'; END IF;
 END $$;
 SELECT song_link_report_hourly_validate('00000000-0000-0000-0000-000000000001');
 DO $$ BEGIN
