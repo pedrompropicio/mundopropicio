@@ -162,7 +162,14 @@ for oid, name, owner, kind, pers, ispart, partkey, parent, bound, rls, frls, opt
               pg_get_expr(d.adbin,d.adrelid),
               CASE WHEN a.attcollation<>0 AND a.attcollation<>(SELECT typcollation FROM pg_type WHERE oid=a.atttypid) THEN (SELECT format('%%I.%%I',cn.nspname,co.collname) FROM pg_collation co JOIN pg_namespace cn ON cn.oid=co.collnamespace WHERE co.oid=a.attcollation) END
               FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
-              WHERE a.attrelid=%s AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum""", (oid,)):
+              WHERE a.attrelid=%s AND a.attnum>0 ORDER BY a.attnum""", (oid,)):
+        if an.startswith('........pg.dropped.'):
+            # coluna apagada em Live: reproduz-se a posição (attnum) criando e apagando um marcador
+            if not ispart:
+                ph = f'issue335_dropped_{len(cols) + 1}'
+                cols.append(f'{ph} integer')
+                emit('08_dropped_columns', owner, f'drop:{name}.{ph}', f'ALTER TABLE {name} DROP COLUMN {ph}')
+            continue
         c = f'{ident(an)} {typ}' + (f' COLLATE {coll}' if coll else '')
         if gen == 's':
             c += f' GENERATED ALWAYS AS ({expr}) STORED'
