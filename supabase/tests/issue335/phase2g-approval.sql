@@ -5,7 +5,9 @@
 CREATE SCHEMA IF NOT EXISTS issue335_test;
 SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false);
 CREATE TABLE IF NOT EXISTS issue335_test.g2(k text PRIMARY KEY, v uuid);
+\i :root/supabase/manual/20261021_issue335_offset_approval.ROLLBACK-INERTE.sql
 CREATE TABLE IF NOT EXISTS issue335_test.g2_prosrc AS SELECT prosrc FROM pg_proc WHERE oid='public.enforce_transaction_approval_permission'::regproc;
+DO $$ BEGIN IF position('issue335-approval-v2l' in (SELECT prosrc FROM issue335_test.g2_prosrc))>0 THEN RAISE EXCEPTION '2g captured body is not Live'; END IF; END $$;
 CREATE OR REPLACE FUNCTION issue335_test.g2_case(p_k text) RETURNS void LANGUAGE plpgsql AS $$
 DECLARE ev uuid:=gen_random_uuid(); f uuid; a uuid; b uuid; g uuid; uid text:=current_setting('request.jwt.claim.sub');
 BEGIN
