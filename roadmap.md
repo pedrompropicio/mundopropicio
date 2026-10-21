@@ -33,5 +33,7 @@
 - [x] SEPA Lisboa: datas/carimbos e data inicial da lista corrigidos; 18 testes em Brasil e Lisboa, DST e validação automática OK; reserva libertada, sem dados/DDL/DML/Publish. Aceitação bancária depende do próximo upload do Pedro.
 - [x] #336: dinheiro por conta nas camadas/manual/lista, leitura paginada, fronteira histórica estrita, testes e SELECT MP 0/Coala 10 · 29.629,84 €; consulta visual sem gravar; sem DDL/DML/Publish.
 - [ ] #336: controller confirmar CI / quality verde no SHA final; aceitação da ligação real pelo Pedro (não executada para preservar a restrição sem DML).
-- [ ] #335 fases 1–2: prévia pura/testes; SQL e rollback INERTES; PostgreSQL local com triggers reais; suite completa e relatório/hashes/Issue. Sem aplicação Live; reserva mantida.
+- [x] #335 fase 1: prévia pura e 19 testes; 1.952 testes passaram na suite completa. Sem writers.
+- [x] #335 fase 2 preparação: três conjuntos SQL e rollback INERTES, PostgreSQL local com triggers instalados; Estoril/BP/reversão/concorrência/#233 passaram; relatório e hashes.
+- [ ] #335 fase 2 aceitação: reforçar ACL/guardas não baseadas em PG_CONTEXT, matching canónico BP, locks de eventos e drift, auditoria integral, matriz falhas/ACL/rollback antes de autorizar aplicação. Sem aplicação Live; reserva mantida.
 - [ ] #335 aplicação A–C, UI e provas Live bloqueadas por autorização separada do Pedro.
