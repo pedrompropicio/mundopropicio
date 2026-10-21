@@ -51,7 +51,9 @@
 - [ ] #335 fase 2e fecho: hashes/diff, Issue, SHA sincronizado e CI concluído; reserva mantida.
 - [x] #335 fase 2f parcial: PG17.6, before/after kill-switch determinístico, drain, dois encontros/reconcile/FK, negativos 51/adoção/held_by, saldo runner, catálogo/diff byte-exato e candidato approval separado; PG/Vitest/tsgo passam.
 - [ ] #335 fase 2f NÃO ACEITE: D candidato não validado; F offset_create/selagem/listas/reabertura/sleeps antigos; J paridade/83 FKs/camarim; A matriz/débito; E campos/restore; G fixtures restantes; L SHA/CI final. Reserva mantida; aplicação exige Sim separado.
-- [x] #335 fase 2j: suite fiel 13/13, rollback byte-idêntico, E 388 ataques, A+camarim, paridade matching, F1–F4; 5 achados corrigidos no SQL inerte.
+- [x] #335 fase 2j: suite fiel 13/13, fingerprint rollback limitado (não catálogo integral), E 388 ataques, A+camarim, matching/F1–F4; achados locais corrigidos, limites detalhados no relatório 2k.
 - [x] #335 decisões 2k: J5 exige candidato preventivo; bloquear colunas analíticas geridas; débito mantém legado (fora da #335).
 - [ ] #335 fase 2k: confirmar revisão 1–11 no catálogo/harness, reproduzir ANTES e corrigir DEPOIS; candidatos separados caixa/restauro/reactivação, suite/rollback completo e hashes.
 - [ ] #335 fase 2k fecho: relatório e questões, Issue, SHA remoto com ficheiros/hash presentes e CI desse SHA; reserva mantida, sem A–C/Live/Publish.
+- [x] #335 fase 2k parcial: candidatos separados caixa/vigia/restauro preventivo, analíticas category/exclude e elegibilidade reembolso/contas; ANTES/DEPOIS local, suite retida 13/13 + 6 focados, rollback completo 9 pares, Vitest 1953.
+- [ ] #335 2k NÃO ACEITE: M1 executor/locks; M3 prior_status; M4 dois níveis; M5/M7 corridas; A1 relatórios/extracto; M6 vigia; E valores válidos completos; baixas/releitura integral/CI final. Não depende de nova decisão comercial; não aplicar.
