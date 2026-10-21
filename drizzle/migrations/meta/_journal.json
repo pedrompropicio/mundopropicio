@@ -1625,6 +1625,13 @@
       "when": 1792580977609,
       "tag": "0231_period_report_visitor_filter_pushdown",
       "breakpoints": true
+    },
+    {
+      "idx": 232,
+      "version": "7",
+      "when": 1792581049046,
+      "tag": "0232_period_report_keep_single_visitor_scan",
+      "breakpoints": true
     }
   ]
 }
