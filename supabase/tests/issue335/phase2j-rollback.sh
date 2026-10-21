@@ -7,7 +7,7 @@ S=$(cd "$(dirname "$0")" && pwd); ROOT=$(cd "$S/../../.." && pwd); D=$1; PORT=$2
 P=(env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE psql -X -q -At -h "$D" -p "$PORT" -U postgres -d postgres -v ON_ERROR_STOP=1)
 FP="SELECT md5(string_agg(x,E'\n' ORDER BY x)) FROM (
  SELECT 'f '||p.oid::regprocedure||' '||md5(p.prosrc)||' '||p.prosecdef||' '||coalesce(p.proacl::text,'')||' '||coalesce(array_to_string(p.proconfig,','),'') x FROM pg_proc p WHERE p.pronamespace='public'::regnamespace
- UNION ALL SELECT 't '||tgrelid::regclass||' '||tgname||' '||tgenabled FROM pg_trigger WHERE NOT tgisinternal
+ UNION ALL SELECT 't '||tgrelid::regclass||' '||tgname||' '||tgenabled::text FROM pg_trigger WHERE NOT tgisinternal
  UNION ALL SELECT 'p '||tablename||' '||policyname||' '||coalesce(qual,'')||' '||coalesce(with_check,'') FROM pg_policies WHERE schemaname='public'
  UNION ALL SELECT 'a '||c.oid::regclass||' '||coalesce(c.relacl::text,'') FROM pg_class c WHERE c.relnamespace='public'::regnamespace
  UNION ALL SELECT 'c '||attrelid::regclass||' '||attname FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid WHERE c.relnamespace='public'::regnamespace AND attnum>0 AND NOT attisdropped
