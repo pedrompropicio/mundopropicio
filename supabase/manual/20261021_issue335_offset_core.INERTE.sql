@@ -166,6 +166,7 @@ BEGIN
     VALUES((x->>'id')::uuid,company,debt-cash,p_date,NULL,'compensation','paid',uid::text,gid,iid);
   END IF;
  END LOOP;
+ FOR txid IN SELECT transaction_id FROM public.transaction_offset_items WHERE group_id=gid ORDER BY transaction_id LOOP PERFORM public._derive_paid_amount(txid); END LOOP;
  INSERT INTO public.transaction_audit_log(transaction_id,changed_by,changed_at,field_name,old_value,new_value,company_id) SELECT transaction_id,uid::text,now(),'issue335_apply',prior_paid_amount::text,jsonb_build_object('group_id',gid,'cash',cash_amount,'compensation',compensation_amount)::text,company FROM public.transaction_offset_items WHERE group_id=gid;
  INSERT INTO public.system_audit_log(entity_type,entity_id,action,changed_by,new_data,company_id) SELECT 'transaction_payment',id::text,'issue335_create',uid::text,to_jsonb(p),company FROM public.transaction_payments p WHERE offset_group_id=gid;
  UPDATE public.transaction_offset_groups SET status='applied',result=jsonb_build_object('group_id',gid,'status','applied','movement_amount',amount,'transaction_ids',to_jsonb(ids)) WHERE id=gid RETURNING * INTO g;
@@ -173,7 +174,7 @@ BEGIN
 END $$;
 CREATE OR REPLACE FUNCTION public._issue335_reverse(p_group_id uuid,p_request_id uuid,p_reason text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $$
-DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; BEGIN
+DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid uuid; BEGIN
  IF auth.uid() IS NULL OR NOT (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'manager') OR public.has_role(auth.uid(),'editor')) THEN RAISE EXCEPTION 'permission_denied'; END IF;
  IF p_request_id IS NULL OR nullif(trim(p_reason),'') IS NULL THEN RAISE EXCEPTION 'reason_required'; END IF;
  -- Bank anchor is locked before group, matching execute adapter order.
@@ -192,6 +193,7 @@ DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; BEGIN
  INSERT INTO public.transaction_audit_log(transaction_id,changed_by,changed_at,field_name,old_value,new_value,company_id) SELECT transaction_id,auth.uid()::text,now(),'issue335_reverse',g.id::text,p_reason,g.company_id FROM public.transaction_offset_items WHERE group_id=g.id;
  UPDATE public.transaction_offset_groups SET status='reversing' WHERE id=g.id;
  UPDATE public.transaction_payments SET status='reversed',reversed_at=now(),reversed_by=auth.uid(),reversal_reason=p_reason WHERE offset_group_id=g.id;
+ FOR txid IN SELECT transaction_id FROM public.transaction_offset_items WHERE group_id=g.id ORDER BY transaction_id LOOP PERFORM public._derive_paid_amount(txid); END LOOP;
  FOR l IN SELECT * FROM public.bank_statement_lines WHERE offset_group_id=g.id LOOP
   DELETE FROM public.bank_line_transactions WHERE line_id=l.id;
   UPDATE public.bank_statement_lines SET status='unmatched',offset_group_id=NULL,matched_transaction_id=NULL,matched_by=NULL,matched_at=NULL WHERE id=l.id;
