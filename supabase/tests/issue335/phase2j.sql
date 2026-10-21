@@ -101,19 +101,19 @@ CREATE OR REPLACE FUNCTION issue335_test.e_value(p_udt text,p_col text) RETURNS 
 $$;
 CREATE TABLE IF NOT EXISTS issue335_test.e_matrix(tbl text,col text,actor text,target text,state text,msg text);
 TRUNCATE issue335_test.e_matrix;
-DO $$ DECLARE c record; w record; tg record; v text; n int; st text; m text; BEGIN
+DO $$ DECLARE c record; w record; tg record; val text; n int; st text; m text; BEGIN
  FOR w IN SELECT * FROM (VALUES('manager','00000000-0000-0000-0000-000000000016'),('editor','00000000-0000-0000-0000-000000000017')) x(r,u) LOOP
   FOR tg IN SELECT 'transactions' tbl,'gerido' tgt,v id FROM issue335_test.j WHERE k='E:a'
             UNION ALL SELECT 'transactions','legado',v FROM issue335_test.j WHERE k='E:legacy'
             UNION ALL SELECT 'transaction_payments','gerido',(SELECT p.id FROM public.transaction_payments p JOIN issue335_test.j j ON j.v=p.transaction_id AND j.k='E:a' WHERE p.payment_method='transfer')
             UNION ALL SELECT 'transaction_payments','legado',(SELECT p.id FROM public.transaction_payments p JOIN issue335_test.j j ON j.v=p.transaction_id AND j.k='E:legacy') LOOP
    FOR c IN SELECT column_name,udt_name FROM information_schema.columns WHERE table_schema='public' AND table_name=tg.tbl AND is_generated='NEVER' ORDER BY ordinal_position LOOP
-    v:=issue335_test.e_value(c.udt_name,c.column_name);
-    IF v IS NULL THEN INSERT INTO issue335_test.e_matrix VALUES(tg.tbl,c.column_name,w.r,tg.tgt,'skip','tipo '||c.udt_name); CONTINUE; END IF;
+    val:=issue335_test.e_value(c.udt_name,c.column_name);
+    IF val IS NULL THEN INSERT INTO issue335_test.e_matrix VALUES(tg.tbl,c.column_name,w.r,tg.tgt,'skip','tipo '||c.udt_name); CONTINUE; END IF;
     PERFORM set_config('request.jwt.claim.sub',w.u,true);
     EXECUTE 'SET LOCAL ROLE authenticated';
     BEGIN
-     EXECUTE format('UPDATE public.%I SET %I=%s WHERE id=$1',tg.tbl,c.column_name,v) USING tg.id;
+     EXECUTE format('UPDATE public.%I SET %I=%s WHERE id=$1',tg.tbl,c.column_name,val) USING tg.id;
      GET DIAGNOSTICS n=ROW_COUNT;
      RAISE EXCEPTION 'j2e_applied:%',n USING ERRCODE='P0335';
     EXCEPTION WHEN OTHERS THEN st:=SQLSTATE; m:=SQLERRM; END;
