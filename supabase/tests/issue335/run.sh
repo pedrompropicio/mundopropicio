@@ -19,6 +19,7 @@ baseline() {
  "${P[@]}" -f "$S/live/triggers.sql" >/dev/null
  "${P[@]}" -f "$S/live/phase2c-auth.sql" >/dev/null
  "${P[@]}" -f "$S/live/phase2c-invariant-registry.sql" >/dev/null
+ "${P[@]}" -f "$S/live/phase2d-legacy.sql" >/dev/null
  "${A[@]}" -f "$S/live/phase2d-role.sql" >/dev/null
 }
 catalog() { "${P[@]}" -At -c "SELECT jsonb_build_object(
