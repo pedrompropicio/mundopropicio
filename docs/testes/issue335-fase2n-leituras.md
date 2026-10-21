@@ -1,0 +1,40 @@
+# #335 Fase 2n — Bloco1, manifesto de leituras
+
+2026-10-21 UTC. Leituras concluídas antes de criar/escrever qualquer teste2n. Intervalos individuais≤200 linhas. SHA cobre bytes exactos; N inclui última linha sem LF. Leituras delegadas identificadas, não leitura pessoal alegada.
+
+Nomes pedidos storage/core/invariants resolvidos para offset_group_storage/offset_core/offset_invariants existentes; não há ficheiros literais storage/core/invariants sem offset.
+
+- AGENTS.md | N=40 | sha256=8fe01f2a6f608a47b082f06cf0819049a582bb634417cc04d5e859bec3ee6926 | LIDO INTEGRAL — executor; intervalos 1–40
+- supabase/AGENTS.md | N=3 | sha256=c4a593a91c43a79de00879fea8e566841a74d212962ee9a3dda8ffca46237b17 | LIDO INTEGRAL — executor; intervalos 1–3
+- docs/QUADRO.md | N=279 | sha256=6241719895ee818b1b5fb6a9d1ee9af1985dc6be593e485136f99fbbcb3e63da | LIDO INTEGRAL — sub_kz9h61mb; intervalos 1–20,21–40,41–60,61–80,81–100,101–120,121–140,141–160,161–180,181–200,201–220,221–240,241–260,261–279
+- docs/testes/issue335-fases12-local.md | N=922 | sha256=c872b22364a8c3e442eb8711f4aa0b2c7d68880ece49b992df4d05f3c0b67808 | LIDO INTEGRAL — sub_kz9h61mb; intervalos 1–80,81–160,161–240,241–320,321–400,401–480,481–560,561–640,641–720,721–800,801–880,881–922
+- supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql | N=91 | sha256=ea8632f3dfb3d997678c03ff33092088b2838cc7ab9e38eeb3f4a29ae60abecc | LIDO INTEGRAL — executor; intervalos 1–91
+- supabase/manual/20261021_issue335_offset_group_storage.ROLLBACK-INERTE.sql | N=11 | sha256=3caeb7b7583c74cf9b95a8a12f27a10904bb95e81d7b77d48ccee6409e3f7164 | LIDO INTEGRAL — executor; intervalos 1–11
+- supabase/manual/20261021_issue335_offset_core.INERTE.sql | N=1130 | sha256=e3153a10868d726687581ec7abee1e7b260426ff270bab62ff96effba659b772 | LIDO INTEGRAL — executor; intervalos 1–200,201–400,401–600,601–800,801–1000,1001–1130
+- supabase/manual/20261021_issue335_offset_core.ROLLBACK-INERTE.sql | N=714 | sha256=9371b4a265c5b4a5d509ce0d2e275371c8554559bc06e23cebefc74b19ca785c | LIDO INTEGRAL — executor; intervalos 1–200,201–400,401–600,601–714
+- supabase/manual/20261021_issue335_offset_invariants.INERTE.sql | N=287 | sha256=1e3bae7e62d80c116f0cb29c7e41a647500d751f0b817b3cc3e93c4aa53626ee | LIDO INTEGRAL — executor; intervalos 1–200,201–287
+- supabase/manual/20261021_issue335_offset_invariants.ROLLBACK-INERTE.sql | N=267 | sha256=edd924cd48d5378180e80a50547b5a5a4bbe378596155fc384fe127f051c5571 | LIDO INTEGRAL — executor; intervalos 1–200,201–267
+- supabase/tests/issue335/phase2h-adapt.py | N=64 | sha256=a7ad624d1dc94ebe9e175e2f28cbcb04d3dd163689e1cd73c2fdb3f7848bf1a7 | LIDO INTEGRAL — sub_a0b00mnk; intervalos 1–64
+- supabase/tests/issue335/phase2h-diff.py | N=68 | sha256=00a54da88556b6dc218791cf79c14b48b528b2575fc2e151efb589c2e5933a4c | LIDO INTEGRAL — sub_a0b00mnk; intervalos 1–68
+- supabase/tests/issue335/phase2h-fixtures.sql | N=75 | sha256=0e18c816017d5db7f3f46f4a2e69250a73690e851665647ed713b8a66bfcbb03 | LIDO INTEGRAL — sub_a0b00mnk; intervalos 1–75
+- supabase/tests/issue335/phase2h-install.py | N=135 | sha256=01e1dc9641e84163cfe0f1426abddf595036521e9f05fdad8f5fd9a443603e96 | LIDO INTEGRAL — sub_a0b00mnk; intervalos 1–135
+- supabase/tests/issue335/phase2h-run.sh | N=23 | sha256=65299cf90cf0e194d32636d8d4a91d1a4fcf63930e6bbc40606aa59ccbe01c52 | LIDO INTEGRAL — sub_a0b00mnk; intervalos 1–23
+- supabase/tests/issue335/phase2h-suite.sh | N=39 | sha256=ce3a01bf9a38337a6b86a476090ff34f557c0a762f60626243bce9bbf9561d17 | LIDO INTEGRAL — sub_a0b00mnk; intervalos 1–39
+- supabase/tests/issue335/phase2j-concurrency.py | N=124 | sha256=54f4c8939a5fa16690c9919d94047a80177e80ec26b489e3e3592b4a93a61965 | LIDO INTEGRAL — sub_a0b00mnk; intervalos 1–124
+- supabase/tests/issue335/phase2j-rollback.sh | N=23 | sha256=c9b7910eb4b4642be6fe4e08d947872a728126c3cf2433f9b6570ff4010bb43e | LIDO INTEGRAL — sub_a0b00mnk; intervalos 1–23
+- supabase/tests/issue335/phase2j.sql | N=345 | sha256=84b08bc489e68ee3b754692d9ca565613df3b4303e5455b76489c61527f6cb0f | LIDO INTEGRAL — sub_a0b00mnk; intervalos 1–100,101–200,201–275,276–345
+- supabase/tests/issue335/phase2l-rollback.py | N=49 | sha256=eaa73e57553011903fc83b6b404fef8204f1dbf988e58fc8bdd020b2a1282297 | LIDO INTEGRAL — sub_a0b00mnk; intervalos 1–49
+- supabase/tests/issue335/phase2l.sql | N=114 | sha256=e8b54b5a46e0f44aedb950828ef79c0b7bee322d71230821c069b4f52693212b | LIDO INTEGRAL — sub_a0b00mnk; intervalos 1–114
+- supabase/tests/issue335/phase2m-context.py | N=115 | sha256=29986a0ab18acd230307f3ae228eff26600e28e00bc8e623122c11a49408d962 | LIDO INTEGRAL — sub_a0b00mnk; intervalos 1–115
+- supabase/tests/issue335/live/phase2m/ci-observed.json | N=27 | sha256=284712b1fb3a9966c11643ee21dbe0bfd16092b07707dba85c63a05880f41a4a | LIDO INTEGRAL — executor; intervalos 1–27
+- supabase/tests/issue335/live/phase2m/context-matrix.json | N=2302 | sha256=0d004c407dff77ae27a40a89094d309f0e3d021b60061bd09277535ee41af163 | NÃO LIDO — captura volumosa/resultados não integralmente revistos; não alegar leitura por execução/hashing
+- supabase/tests/issue335/live/phase2m/context.out | N=1 | sha256=6e72d31b311a6e2c0244781d3df3ff6d9ea793416784cae805612b1f5e83ebb0 | LIDO INTEGRAL — executor; intervalos 1–1
+- supabase/tests/issue335/live/phase2m/rollback-after.json | N=173125 | sha256=474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1 | NÃO LIDO — captura volumosa/resultados não integralmente revistos; não alegar leitura por execução/hashing
+- supabase/tests/issue335/live/phase2m/rollback-before.json | N=173125 | sha256=474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1 | NÃO LIDO — captura volumosa/resultados não integralmente revistos; não alegar leitura por execução/hashing
+- supabase/tests/issue335/live/phase2m/rollback-bootstrap.out | N=6 | sha256=2897d02af3082363b01ffadc6edf2a596c3e6a147cd420c366c9703b56c59bd6 | LIDO INTEGRAL — executor; intervalos 1–6
+- supabase/tests/issue335/live/phase2m/rollback-differences.json | N=1 | sha256=44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a | LIDO INTEGRAL — executor; intervalos 1–1
+- supabase/tests/issue335/live/phase2m/rollback.out | N=25 | sha256=dd375a9fcc9e8b8910acf17f10cf9be00ef7c999174190a54af923cb1baa6543 | LIDO INTEGRAL — executor; intervalos 1–25
+- supabase/tests/issue335/live/phase2m/suite.out | N=23 | sha256=8b3df4e277f91cd5eb9070ef9006d7fe6d8f1007ef16d5c09873f82b7ba046f6 | LIDO INTEGRAL — executor; intervalos 1–23
+- supabase/tests/issue335/live/phase2m/vitest.out | N=361 | sha256=6c33fc8f30a55cb7ef7faa3197e06fad090c46ef961b3b6016ad16d4261d47f1 | NÃO LIDO — captura volumosa/resultados não integralmente revistos; não alegar leitura por execução/hashing
+
+Conjunto fontes M1 pedido integralmente lido; capturas volumosas NÃO LIDO acima. Não certifica todos os artefactos históricos nem outros blocos.
