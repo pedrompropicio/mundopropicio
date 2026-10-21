@@ -19,7 +19,7 @@
 - Arrival geo uses local DB-IP before paid APIs; monthly Range+inflate parts avoid edge CPU limits. Never store visitor IPs.
 - Camarim cash cards, previews and session PDFs share the pure session cash helper, keeping amounts/labels consistent.
 - Calculated cards refresh through the central event-financials invalidation helper plus debounced Realtime subscriptions; panel-local invalidation misses card keys.
-- Brand-exclusive menus and routes are gated by company_features keys (RequireFeature + sidebar filter), never by company name; keeps one codebase for every tenant.
+- Brand menus/routes use company_features (RequireFeature + sidebar), never company names, preserving one tenant codebase.
 - Google Wallet artwork is resolved by the shared object builder; class-logo updates use a separate PATCH-only helper with UNDER_REVIEW. LoyaltyObject ignores hexBackgroundColor, so never claim per-object colors are applied or duplicate the established class without authorization.
 - Artist-cache reports use only src/lib/cache-report.ts over the Cachê-tab core (useRealCacheCalculation + computeCacheTabAmount); no second formula, to prevent disagreement.
 - Coala test invites follow base counts and the normal path in a separate campaign, preserving buyer statistics. EXPLAIN legacy PostgreSQL calls: trailing defaults can make overloads ambiguous.
@@ -31,7 +31,8 @@
 - CRM WhatsApp uses crm_whatsapp_eligible/invoker views. Ledger/member-phone triggers share a contact-locked projection; matching-fingerprint phones only fill empty contacts, avoiding leaks/overwrites.
 
 - Cache payments only via cache_* RPCs (mother/city children); optional line choices use local `cache.line_choices`, server-checked.
-- Separate artist hourly collector; service writer fences stale request_id. Function dirs may have own AGENTS.md.
+- Separate artist hourly collector; service writer fences stale request_id. Read nested AGENTS.md, including supabase/ and function directories.
 <!-- LOVABLE:BEGIN -->
 - Arrival comparison uses UTC hourly raw counts, not unique visitors. Nonwaiting artist/hour trigger locks preserve capture; bounded rebuilds acknowledge only pending IDs captured before their source snapshot, retaining late commits for repair.
 <!-- LOVABLE:END -->
+

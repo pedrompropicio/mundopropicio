@@ -177,3 +177,151 @@ edd924cd48d5378180e80a50547b5a5a4bbe378596155fc384fe127f051c5571 invariants.ROLL
 - Matching SQL não infere master por parent_event_id (JS só usa master quando o chamador o passa); paridade provada nesse contrato.
 - Teste encontro×encontro usa barreira advisory para sincronizar arranque; corrida sem barreira não medida.
 - Aplicação A–C exige autorização separada do Pedro.
+
+
+## Fase 2d — PARCIAL, NÃO ACEITE (21/10/2026)
+
+Lidos: docs/QUADRO.md, AGENTS.md, .lovable/plan.md,
+docs/testes/issue335-fases12-local.md, docs/questoes-issue335-fases12-local.md,
+os seis supabase/manual/20261021_issue335_offset_*.sql (INERTE e ROLLBACK),
+supabase/tests/issue335/run.sh, stub.sql, scenarios.sql, phase2b.sql, phase2c.sql,
+phase2c-invariant-matrix.sql, concurrency.sql, matching-parity.ts, matching.INERTE.sql,
+catalog-diff.py, live/README.md, dependencies.sql, functions.sql, triggers.sql,
+phase2c-auth.sql, phase2c-invariant-registry.sql e snapshots JSON de catálogo;
+Issue #335 e comentários. Também DECISIONS e memórias compensacao-ligada/payment-account-ownership.
+
+CI inicial main de634168d81e03fccac9abf456af1c82e42ca08f: success,
+run 39621045842. Não é o SHA final nem CI final destes candidatos.
+Primeira reprodução: ERROR must be able to SET ROLE issue335_executor;
+GRANT auth/uid sem grant option produzia warnings. Corrigido nos candidatos locais.
+
+Resultados por achado (numeração das provas phase2d):
+1. PASS aplicação/rollback como postgres NOSUPERUSER CREATEROLE BYPASSRLS;
+executor NOLOGIN; SET membership temporária restrita ao deploy; sem grants auth.
+2. PASS defaults Live-like ALL/EXECUTE neutralizados no storage; ataques authenticated
+INSERT/UPDATE/DELETE/TRUNCATE recusados com apenas storage instalado, antes dos guards.
+3. PASS transaction_offset_create autenticada continua a criar compensation e fechar despesa;
+EXECUTE legado em _apply_transaction_offset preservado, não revogado globalmente.
+4. PASS âncora bancária durável bank_line_id; detach/delete de links recusados;
+vigia LEFT JOIN deteta origem desligada. Falhas bancárias continuam atómicas.
+5. PASS aplicar/estornar/reaplicar documentos com par legado retido; histórico não revive.
+6. PASS três sessões encounter/FK insert/read; NO KEY UPDATE permite KEY SHARE;
+cenários anteriores encounter/reversal/payment e BP edit passam, sem deadlock no log.
+NÃO é prova exaustiva de todas as esperas transitivas; ainda existem sleeps/barreiras.
+7. PASS recusa inactive/hidden/restricted/partner/mirror/ticket_office/prepaid_card/other/cash.
+BLOQUEADO saldo: nova compensation dá delta canónico +100 quando dinheiro é +60.
+A reprodução local ASSERTA o defeito e emite WARNING; NÃO é aceitação da invariante.
+Não há guarda server de saldo disponível para débito nem prova concorrente de não-overdraft.
+8. PASS manager não estorna; admin requerido como reverse_payment legado.
+BLOQUEADO restore atomic/admin window reais; guarda de metadados geridos incompleta
+(account_id, event_id, payment_date, event_settlement_id não integralmente bloqueados).
+9. PASS removidas policies identity/profiles desnecessárias. Correção da nota 2c:
+current_company_id/has_role/has_staff_role são DEFINER, não INVOKER.
+Mantida policy restrita self em user_roles porque companies PUBLIC SELECT lê user_roles
+no contexto do caller; README explica o caminho. Modelo global de papéis não certificado.
+10. PASS settlement não selado aplica/estorna; selado recusa mesmo GUC forjada;
+executor tem leitura necessária ao trigger real. BLOQUEADO corrida selagem/dispatch
+sem lock settlement e ataques detach/reassign antes da selagem, auth real nesses casos.
+11. PASS rollback ordem errada recusado; invariants -> core -> storage; grupos retidos
+recusam rollback; sem grupos diff catálogo pré/pós vazio no escopo capturado.
+DROP OWNED removido, dependências inesperadas falham atomicamente.
+12. PASS precisão >2 decimais recusada explicitamente sem conversão silenciosa;
+#233 align de documento gerido produz managed_group_date_alignment_forbidden sem parcial;
+keep/align/auditoria legacy mantidos. Restore/window e saldo ainda NÃO aceites.
+
+Testes finais:
+- bash supabase/tests/issue335/run.sh: exit 0 (inclui reprodução explícita do BLOQUEIO saldo).
+- 14 apply + 12 reverse writes do core; banco/BP 25 apply + 17 reverse writes:
+snapshots de todas tabelas públicas iguais após cada falha; logs/vínculo incluídos.
+- matching JS/SQL 8 casos, 1002 transações; matriz 17 invariantes e cinco vigias passam
+no escopo fixture. Isso não cobre o defeito de saldo explicitamente reproduzido.
+- bunx vitest run --maxWorkers=2: 221 files passed, 2 skipped;
+1953 passed, 6 skipped, 11 todo; exit 0, 299.53s.
+- focados prévia/#336: 19 + 9 = 28 passed. reconcile.ts e fronteira histórica intocados.
+- bunx -p @typescript/native-preview tsgo -p tsconfig.app.json --noEmit: exit 0.
+Executado tsgo, NÃO tsc clássico. Build automático observado OK.
+
+Diferencial reforçado: antes comparava só nomes constraints; agora tipo/validated/definição.
+Revelou seis divergências reais CASCADE/RESTRICT/DEFERRABLE, corrigidas no bootstrap local
+phase2d-constraints.sql com definições do snapshot Live. Resultado final:
+390 objetos; 368 iguais; 22 FK ausentes explicadas; 0 divergências não explicadas NESSE ESCOPO.
+Isto NÃO certifica paridade integral: 22 FK faltam, índices/objetos extras/ACL globais e
+normalização de literais em funções continuam incompletos. Falta teste negativo do comparator.
+Diferencial completo anexado abaixo, sem suprimir dependências ausentes.
+
+Bloqueios técnicos remanescentes: saldo canónico/débito, restore/window real,
+metadados geridos, selagem concorrente, paridade transitiva completa e scheduler determinístico.
+Não dependem de decisão comercial nova do Pedro. A–C permanecem não aplicados;
+exigem autorização própria depois da aceitação técnica. Reserva #335 mantida fase 2d.
+Sem migration tool, migrations, dados financeiros Live, DDL/DML Live, deploy ou Publish.
+
+### SHA256 fase 2d (todos os candidatos e harness; exatos)
+```text
+cebe9d61d7e14f04146f147174485b14f72826de953b5b72268a513384a2a254  supabase/manual/20261021_issue335_offset_core.INERTE.sql
+ad2031470c9d15d4505218b1af3a5598d51efdb73ccdc0c52c03f361e4075e0d  supabase/manual/20261021_issue335_offset_core.ROLLBACK-INERTE.sql
+5b4f724ebcfa6ebc602c43e1ad8b111f861a8ad21f2f9e3fd681599849285bb9  supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql
+028195c5a8289fee40bb7d8e2e402b9398f3a0a1bbbf07d8e928bf85414fa5b0  supabase/manual/20261021_issue335_offset_group_storage.ROLLBACK-INERTE.sql
+7d3eb9f66dec56413cf9473aa76427dd3282efd35e315f6666c9f6b497f642af  supabase/manual/20261021_issue335_offset_invariants.INERTE.sql
+edd924cd48d5378180e80a50547b5a5a4bbe378596155fc384fe127f051c5571  supabase/manual/20261021_issue335_offset_invariants.ROLLBACK-INERTE.sql
+e2fbe083ede332a403100ef8e800bd62062a09bcf34efbfbd2af13ccedccb82d  supabase/tests/issue335/catalog-diff.py
+07068a430688eb963d4ade7b5305c88f41ccb41e7d429a59c009bca158f26bb6  supabase/tests/issue335/concurrency.sql
+7f058a732181e963365cbf800eb6d9e6b342efa2fad5423fa7f12cb5aaa967cb  supabase/tests/issue335/derive.LIVE-BASELINE.sql
+8fc00e86050fe3ed1981193ccb1120bc25cd452a60f93d08737ddf8dc68cd004  supabase/tests/issue335/live/README.md
+090752c7e3b24d2375348239fb91d92bcbb7d58f177159125e8cee8ffa78e8c3  supabase/tests/issue335/live/catalog.json
+fb1a7398949ce2fb73c0d5749c73591aa91ca1552a8430618ae2bee67c74ed21  supabase/tests/issue335/live/dependencies.sql
+55e6b6d91a977aa97dcd8001c50dffb9df71a290b047f24e0703634686181bf1  supabase/tests/issue335/live/functions.sql
+2d9fbac90b0d979e7bbfb536a0d328c14042c43ebf861524ab010cc47a764d9e  supabase/tests/issue335/live/phase2c-auth.json
+fb4768371f61b502634a2ea4d647f3924760a7db733edf8f38e6e13f3c06660f  supabase/tests/issue335/live/phase2c-auth.sql
+eb0f266cebe4881c6a87ed0f7f31052e07e1f2fcb7a253565269075ea38ee256  supabase/tests/issue335/live/phase2c-catalog-diff.md
+244fb56591b2ac48f6a51dec135c7d400e6a9346bb52150693a1678c4348a4f4  supabase/tests/issue335/live/phase2c-invariant-registry.sql
+6bfd30c6cee7f10c3d763d586d9d8d66501844a988853086c4f1ce069b5ee1ef  supabase/tests/issue335/live/phase2c-relations.json
+c9f6a641341ee94f06791c0ec31db70d029e3fd2c178a583b3c2e03c052e0fa1  supabase/tests/issue335/live/phase2c-touched.json
+df750b597e544a9ef7f67b0888372ec5f33382c3c289de9cfe46cbef49e6222f  supabase/tests/issue335/live/phase2c-transitive.json
+122ba034d0868e3af650b4c04fab9b658464403a7b0706d5ed24a70e24e8f9e9  supabase/tests/issue335/live/phase2d-constraints.sql
+ae466ac60343bfdc6c2f68fa416bf68843e3241b5821557fdb01380fe94b170d  supabase/tests/issue335/live/phase2d-legacy.sql
+04d5157048dc9a4f6ce178d9ee3056a087548919a850e7d793af9ce011b82eee  supabase/tests/issue335/live/phase2d-role.sql
+ffb8ec79f61e7aa040810efc79d895fbbfd30fd1904308bc83397420c347c1fb  supabase/tests/issue335/live/triggers.sql
+4f9cb6b789fffea75d1c232413ea35a60ef5cda95d06d7000e943ef2adb91522  supabase/tests/issue335/matching-parity.ts
+0f6e803bff83c2cf51e39d4ba09900daec20cbaab4ccb1943ccfb72d7c434d0e  supabase/tests/issue335/matching.INERTE.sql
+13f345a723a352133bc5f0750df3f647b91fb2342556230b8e6116e56723db74  supabase/tests/issue335/phase2b.sql
+9403e5892a7f3ea103633fa28569034b4a2e85d1ee9f41e609c849676c0be693  supabase/tests/issue335/phase2c-invariant-matrix.sql
+240fd14e2a97496e910132ad7a5650b6f8b73f2405ba12dc4628b1bed06b9baa  supabase/tests/issue335/phase2c.sql
+c735d3364f0f2ab620ffb57a70df1d6ed91f948cb2eaff1ffbd965d337f94763  supabase/tests/issue335/phase2d.sql
+59ad9b2c68647da79c837cf4786d9550af7beeb3fe2bc39797404439bbd43b49  supabase/tests/issue335/reconcile_bank_line.LIVE-BASELINE.sql
+17c9fe850d443bb5c86eccbfa3db7c8ac1b03cafa7f58a70c78b86712c46d8ac  supabase/tests/issue335/run.sh
+ceed9e6b392595fc2db6347426fc5aa7c35cdc583a531f7cc754788ff4a630da  supabase/tests/issue335/scenarios.sql
+25e2c812180ab99e4ae8aaa4cf0a5a39c470760e4cd2d232015ac5ba094ff5b0  supabase/tests/issue335/storage-only.sql
+9afe41632efe76fbe43ebf4774d661fb6ecece12d125335d40b34dd81c2baeec  supabase/tests/issue335/stub.sql
+6212eddfc81236f3c3fe31c8414a62d382fcdc0789c5c75ddcd830481139777c  supabase/tests/issue335/sync.LIVE-BASELINE.sql
+4c4d5c91cc3502a066dc4ccbf79bf1930a6cd1dad88ac6b9e1c353e2dac0436b  supabase/tests/issue335/triggers.sql
+a685a81bcee780949e1348e5ec7ff59bdc1bc23500c74e8930181946ac43f8d2  supabase/tests/issue335/validate.LIVE-BASELINE.sql
+```
+
+# #335 fase 2c — diferencial catálogo Live × harness local
+
+Total: 390; iguais: 368; explicadas: 22; DIVERGENTES: 0
+
+| objeto | resultado | nota |
+|---|---|---|
+| constraint:bank_statement_lines.bank_statement_lines_matched_payment_list_id_fkey | explicada | fixture dependency absent locally: there is no unique constraint matching given keys for referenced table "payment_lists" |
+| constraint:bank_statement_lines.bank_statement_lines_matched_sepa_export_id_fkey | explicada | fixture dependency absent locally: there is no unique constraint matching given keys for referenced table "payment_list_sepa_exports" |
+| constraint:bank_statement_lines.bank_statement_lines_statement_id_fkey | explicada | fixture dependency absent locally: relation "bank_statements" does not exist |
+| constraint:event_forecasts.event_forecasts_addback_settlement_id_fkey | explicada | fixture dependency absent locally: there is no unique constraint matching given keys for referenced table "event_settlements" |
+| constraint:event_forecasts.event_forecasts_cache_config_id_fkey | explicada | fixture dependency absent locally: there is no unique constraint matching given keys for referenced table "event_cache_configs" |
+| constraint:event_forecasts.event_forecasts_category_id_fkey | explicada | fixture dependency absent locally: there is no unique constraint matching given keys for referenced table "account_categories" |
+| constraint:event_forecasts.event_forecasts_event_settlement_id_fkey | explicada | fixture dependency absent locally: there is no unique constraint matching given keys for referenced table "event_settlements" |
+| constraint:event_forecasts.event_forecasts_ordering_partner_id_fkey | explicada | fixture dependency absent locally: there is no unique constraint matching given keys for referenced table "event_partners" |
+| constraint:event_forecasts.event_forecasts_paying_partner_id_fkey | explicada | fixture dependency absent locally: there is no unique constraint matching given keys for referenced table "event_partners" |
+| constraint:event_forecasts.event_forecasts_version_id_fkey | explicada | fixture dependency absent locally: relation "bp_versions" does not exist |
+| constraint:events.events_city_id_fkey | explicada | fixture dependency absent locally: relation "cities" does not exist |
+| constraint:events.events_venue_id_fkey | explicada | fixture dependency absent locally: relation "venues" does not exist |
+| constraint:profiles.profiles_id_fkey | explicada | fixture dependency absent locally: insert or update on table "profiles" violates foreign key constraint "profiles_id_fkey" |
+| constraint:transaction_payments.transaction_payments_payment_list_id_fkey | explicada | fixture dependency absent locally: there is no unique constraint matching given keys for referenced table "payment_lists" |
+| constraint:transaction_payments.transaction_payments_supplier_credit_id_fkey | explicada | fixture dependency absent locally: there is no unique constraint matching given keys for referenced table "supplier_credits" |
+| constraint:transactions.transactions_cache_contract_id_fkey | explicada | fixture dependency absent locally: there is no unique constraint matching given keys for referenced table "cache_payment_contracts" |
+| constraint:transactions.transactions_card_session_id_fkey | explicada | fixture dependency absent locally: there is no unique constraint matching given keys for referenced table "card_sessions" |
+| constraint:transactions.transactions_category_id_fkey | explicada | fixture dependency absent locally: there is no unique constraint matching given keys for referenced table "account_categories" |
+| constraint:transactions.transactions_event_settlement_id_fkey | explicada | fixture dependency absent locally: there is no unique constraint matching given keys for referenced table "event_settlements" |
+| constraint:transactions.transactions_settlement_id_fkey | explicada | fixture dependency absent locally: relation "ticket_office_settlements" does not exist |
+| constraint:transactions.transactions_supplier_credit_id_fkey | explicada | fixture dependency absent locally: there is no unique constraint matching given keys for referenced table "supplier_credits" |
+| constraint:user_roles.user_roles_user_id_fkey | explicada | fixture dependency absent locally: insert or update on table "user_roles" violates foreign key constraint "user_roles_user_id_fkey" |

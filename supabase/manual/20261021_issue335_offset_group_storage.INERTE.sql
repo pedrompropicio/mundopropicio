@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS public.transaction_offset_groups (
  request_id uuid NOT NULL,
  request_hash text NOT NULL,
  operation_date date NOT NULL,
+ bank_line_id uuid REFERENCES public.bank_statement_lines(id) ON DELETE RESTRICT,
  account_id uuid REFERENCES public.financial_accounts(id),
  movement_amount numeric(14,2) NOT NULL,
  note text,
@@ -21,14 +22,13 @@ CREATE TABLE IF NOT EXISTS public.transaction_offset_groups (
  UNIQUE(company_id,request_id),
  CHECK((movement_amount = 0 AND account_id IS NULL) OR (movement_amount <> 0 AND account_id IS NOT NULL))
 );
-REVOKE ALL ON public.transaction_offset_groups FROM PUBLIC, anon;
+REVOKE ALL ON public.transaction_offset_groups FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT ON public.transaction_offset_groups TO authenticated;
 GRANT SELECT ON public.transaction_offset_groups TO service_role;
 ALTER TABLE public.transaction_offset_groups ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS offset_groups_staff ON public.transaction_offset_groups;
 CREATE POLICY offset_groups_staff ON public.transaction_offset_groups FOR SELECT TO authenticated USING(public.has_staff_role(auth.uid()));
 DROP POLICY IF EXISTS offset_groups_writer ON public.transaction_offset_groups;
-CREATE POLICY offset_groups_writer ON public.transaction_offset_groups FOR ALL TO authenticated USING(public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'manager') OR public.has_role(auth.uid(),'editor')) WITH CHECK(public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'manager') OR public.has_role(auth.uid(),'editor'));
 DROP POLICY IF EXISTS offset_groups_company ON public.transaction_offset_groups;
 CREATE POLICY offset_groups_company ON public.transaction_offset_groups AS RESTRICTIVE FOR ALL TO authenticated USING(company_id=public.current_company_id()) WITH CHECK(company_id=public.current_company_id());
 CREATE TABLE IF NOT EXISTS public.transaction_offset_items (
@@ -49,14 +49,13 @@ CREATE TABLE IF NOT EXISTS public.transaction_offset_items (
  UNIQUE(group_id,transaction_id), UNIQUE(group_id,id,transaction_id),
  CHECK(cash_amount+compensation_amount=open_amount)
 );
-REVOKE ALL ON public.transaction_offset_items FROM PUBLIC, anon;
+REVOKE ALL ON public.transaction_offset_items FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT ON public.transaction_offset_items TO authenticated;
 GRANT SELECT ON public.transaction_offset_items TO service_role;
 ALTER TABLE public.transaction_offset_items ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS offset_items_staff ON public.transaction_offset_items;
 CREATE POLICY offset_items_staff ON public.transaction_offset_items FOR SELECT TO authenticated USING(public.has_staff_role(auth.uid()));
 DROP POLICY IF EXISTS offset_items_writer ON public.transaction_offset_items;
-CREATE POLICY offset_items_writer ON public.transaction_offset_items FOR INSERT TO authenticated WITH CHECK(public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'manager') OR public.has_role(auth.uid(),'editor'));
 DROP POLICY IF EXISTS offset_items_company ON public.transaction_offset_items;
 CREATE POLICY offset_items_company ON public.transaction_offset_items AS RESTRICTIVE FOR ALL TO authenticated USING(company_id=public.current_company_id()) WITH CHECK(company_id=public.current_company_id());
 ALTER TABLE public.transaction_payments ADD COLUMN IF NOT EXISTS offset_group_id uuid REFERENCES public.transaction_offset_groups(id) ON DELETE RESTRICT;
