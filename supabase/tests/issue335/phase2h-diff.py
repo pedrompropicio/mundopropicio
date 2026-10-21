@@ -31,6 +31,15 @@ def explain(cat, ident, l, r):
         return 'atributo LOGIN irrelevante para o harness'
     if cat == 'indexes' and l and r and {f for f in set(l) | set(r) if l.get(f) != r.get(f)} == {'valid'} and l.get('valid') is False:
         return 'índice INVÁLIDO em Live (construção concorrente interrompida); localmente válido — só afecta o planeador, não a semântica'
+    obj = str(ident[0])
+    if cat in ('columns', 'constraints') and obj.startswith('realtime.messages_20'):
+        return ('partição diária de realtime.messages (criada/rodada pelo serviço Realtime, fora do #335): em Live foi criada '
+                'isolada e anexada (posições com colunas apagadas, CHECK validado); localmente nasce como PARTITION OF')
+    if cat == 'constraints' and ident[2] == 'club_member_profiles_city_check' and l and r and \
+            l['definition'].replace('(', '').replace(')', '') == r['definition'].replace('(', '').replace(')', ''):
+        return 'normalização do deparser: (a AND b) AND c reimprime-se como a AND b AND c; mesmos termos, mesma semântica'
+    if cat == 'views' and ident[0] == 'v_song_link_blitz_targets':
+        return 'normalização do deparser de literais: (- 7.1195) em Live vs \'-7.1195\'::numeric localmente; mesmo valor numérico'
     return None
 rows = []
 for cat, fields in keys.items():
