@@ -33,6 +33,10 @@ GRANT USAGE,CREATE ON SCHEMA public TO issue335_executor;
 CREATE FUNCTION public.issue335_uid() RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_catalog AS $$ SELECT auth.uid() $$;
 REVOKE ALL ON FUNCTION public.issue335_uid() FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.issue335_uid() TO issue335_executor;
+-- PUBLIC companies policy directly reads user_roles (not through has_role).
+-- Minimal caller-scoped SELECT is therefore necessary even with DEFINER identity helpers.
+GRANT SELECT ON public.user_roles TO issue335_executor;
+CREATE POLICY issue335_company_membership ON public.user_roles FOR SELECT TO issue335_executor USING (user_id=public.issue335_uid());
 GRANT SELECT,UPDATE ON public.companies,public.suppliers,public.events,public.financial_accounts TO issue335_executor;
 GRANT SELECT ON public.partner_paid_expenses,public.event_settlements TO issue335_executor;
 GRANT SELECT,INSERT,UPDATE ON public.event_forecasts,public.transactions,public.transaction_payments,public.transaction_offsets,public.bank_statement_lines,public.transaction_offset_groups,public.transaction_offset_items TO issue335_executor;

@@ -16,6 +16,7 @@ DROP FUNCTION IF EXISTS public.issue335_dispatch();
 DROP FUNCTION IF EXISTS public._issue335_execute(uuid,uuid,jsonb,jsonb,date,text);
 DROP FUNCTION IF EXISTS public._issue335_reverse(uuid,uuid,text);
 DROP FUNCTION IF EXISTS public.issue335_guard();
+DROP POLICY IF EXISTS issue335_company_membership ON public.user_roles;
 DROP FUNCTION IF EXISTS public.issue335_uid();
 DROP FUNCTION IF EXISTS public.issue335_matching_transactions(uuid);
 DROP FUNCTION IF EXISTS public.issue335_score(text,text);
@@ -670,6 +671,8 @@ GRANT EXECUTE ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, 
 GRANT EXECUTE ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date, p_release_for_repayment boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date, p_release_for_repayment boolean) TO service_role;
 GRANT EXECUTE ON FUNCTION public.reverse_transaction(p_tx_id uuid, p_kind text, p_reason text, p_valid_until date, p_release_for_repayment boolean) TO sandbox_exec_sfohvvlqccmmebvjgibx;
+DROP POLICY IF EXISTS issue335_company_membership ON public.user_roles;
+REVOKE SELECT ON public.user_roles FROM issue335_executor;
 DROP POLICY IF EXISTS issue335_internal ON public.companies;
 DROP POLICY IF EXISTS issue335_internal ON public.suppliers;
 DROP POLICY IF EXISTS issue335_internal ON public.events;
