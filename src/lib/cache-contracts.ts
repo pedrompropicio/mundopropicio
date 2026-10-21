@@ -127,3 +127,24 @@ export function cachePaymentGates(s: Pick<CacheStatus, "has_config" | "frozen" |
     needsFreeze: s.has_config && !s.frozen,
   };
 }
+
+/** Unidade de introdução de valores no painel: euros ou percentagem de uma base. */
+export type AmountUnit = "eur" | "pct";
+
+/** Arredonda a 2 casas (cêntimos). */
+export const roundCents = (n: number) => e(c(n));
+
+/**
+ * Converte o que o utilizador escreveu para euros (o que se grava).
+ * % é sobre `base` (cachê efetivo; adiantamento dentro de contrato: saldo disponível).
+ * Devolve NaN quando inválido (vazio, negativo, % acima de 100).
+ */
+export function inputToEuros(input: string, unit: AmountUnit, base: number): number {
+  const raw = String(input ?? "").trim().replace(",", ".");
+  if (raw === "") return NaN;
+  const v = Number(raw);
+  if (!Number.isFinite(v) || v < 0) return NaN;
+  if (unit === "eur") return v;
+  if (v > 100) return NaN;
+  return roundCents((Math.max(0, base) * v) / 100);
+}

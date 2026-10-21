@@ -12,7 +12,7 @@ import {
   useCacheContractContext, useInvalidateCacheContracts,
   type CacheContextContract, type CacheContractContext,
 } from "@/hooks/useCacheContractContext";
-import { MAX_CACHE_CONTRACTS, previewContract, remainingToContract, cacheErrorMessage, cachePaymentGates, type CacheStatus } from "@/lib/cache-contracts";
+import { MAX_CACHE_CONTRACTS, previewContract, remainingToContract, inputToEuros, type AmountUnit, cacheErrorMessage, cachePaymentGates, type CacheStatus } from "@/lib/cache-contracts";
 
 interface Props {
   eventId: string;
@@ -218,7 +218,7 @@ export function CacheContractsPanel({ eventId, config, canEdit, initialLineChoic
           onClose={() => setDialog(null)} onDone={() => { setDialog(null); invalidate(); }} />
       )}
       {dialog?.kind === "advance" && (
-        <AdvanceDialog eventId={eventId} config={config} contract={dialog.contract} remaining={remaining} lineChoices={choicesArg}
+        <AdvanceDialog eventId={eventId} config={config} contract={dialog.contract} remaining={remaining} totalCap={totalCap} lineChoices={choicesArg}
           onClose={() => setDialog(null)} onDone={() => { setDialog(null); invalidate(); }} />
       )}
     </div>
@@ -260,6 +260,7 @@ function ContractDialog({ ctx, eventId, config, edit, lineChoices, onClose, onDo
   const [label, setLabel] = useState(edit?.label ?? "");
   const [beneficiary, setBeneficiary] = useState<string>(edit?.beneficiary_supplier_id ?? config.supplier_id ?? "");
   const [gross, setGross] = useState(edit ? String(edit.gross) : "");
+  const [grossUnit, setGrossUnit] = useState<AmountUnit>("eur");
   // Pergunta obrigatória, sem resposta pré-marcada.
   const [wh, setWh] = useState<null | boolean>(edit ? edit.withholding_applies : null);
   const defaultRate = config.withholding_rate != null ? Number(config.withholding_rate) : 25;
@@ -313,7 +314,7 @@ function ContractDialog({ ctx, eventId, config, edit, lineChoices, onClose, onDo
     return out;
   }, [options, chosen]);
 
-  const grossNum = Number(String(gross).replace(",", "."));
+  const grossNum = inputToEuros(gross, grossUnit, totalCap);
   const rateNum = Number(String(rate).replace(",", "."));
   const preview = grossNum > 0 && ctx.cities.length > 0
     ? previewContract({ cities: ctx.cities.map((c) => ({ ...c, cap: Number(c.cap) })), gross: grossNum, withholdingRate: wh ? rateNum : null, advancesByCity })
@@ -366,11 +367,11 @@ function ContractDialog({ ctx, eventId, config, edit, lineChoices, onClose, onDo
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <label className="text-xs text-muted-foreground">Valor bruto (categoria 2.1.01, IVA 0)</label>
-          <button type="button" onClick={() => setGross(remaining.toFixed(2))} className="text-[11px] text-primary hover:underline">
+          <button type="button" onClick={() => { setGrossUnit("eur"); setGross(remaining.toFixed(2)); }} className="text-[11px] text-primary hover:underline">
             Usar o restante por contratar ({formatCurrency(remaining)})
           </button>
         </div>
-        <input inputMode="decimal" value={gross} onChange={(e) => setGross(e.target.value)} className="w-full rounded-md border border-border bg-background px-2 py-1.5 font-mono text-sm" />
+        <AmountWithUnit value={gross} unit={grossUnit} onValue={setGross} onUnit={setGrossUnit} euros={grossNum} baseLabel={`do cachê efetivo (${formatCurrency(totalCap)})`} />
       </div>
 
       <div className="space-y-2 rounded-md border border-border p-3">
@@ -456,15 +457,18 @@ function ContractDialog({ ctx, eventId, config, edit, lineChoices, onClose, onDo
   );
 }
 
-function AdvanceDialog({ eventId, config, contract, remaining, lineChoices, onClose, onDone }: {
-  eventId: string; config: any; contract?: CacheContextContract; remaining: number; lineChoices: Record<string, string> | null; onClose: () => void; onDone: () => void;
+function AdvanceDialog({ eventId, config, contract, remaining, totalCap, lineChoices, onClose, onDone }: {
+  eventId: string; config: any; contract?: CacheContextContract; remaining: number; totalCap: number; lineChoices: Record<string, string> | null; onClose: () => void; onDone: () => void;
 }) {
   const [key] = useState(newKey);
   const [amount, setAmount] = useState("");
+  const [unit, setUnit] = useState<AmountUnit>("eur");
   const [due, setDue] = useState("");
   const [desc, setDesc] = useState("");
   const max = contract ? Number(contract.artist_mother?.amount ?? 0) - Number(contract.artist_mother?.paid ?? 0) : remaining;
-  const n = Number(String(amount).replace(",", "."));
+  // % sobre o cachê efetivo; dentro de contrato, sobre o saldo disponível.
+  const pctBase = contract ? max : totalCap;
+  const n = inputToEuros(amount, unit, pctBase);
   const problem = !(n > 0) ? "Indique o valor." : n > max + 0.005 ? `Máximo ${formatCurrency(max)}.` : null;
 
   const save = useMutation({
@@ -493,7 +497,8 @@ function AdvanceDialog({ eventId, config, contract, remaining, lineChoices, onCl
       </p>
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground">Valor (máx. {formatCurrency(max)})</label>
-        <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full rounded-md border border-border bg-background px-2 py-1.5 font-mono text-sm" />
+        <AmountWithUnit value={amount} unit={unit} onValue={setAmount} onUnit={setUnit} euros={n}
+          baseLabel={contract ? `do saldo disponível (${formatCurrency(pctBase)})` : `do cachê efetivo (${formatCurrency(pctBase)})`} />
       </div>
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground">Descrição</label>
@@ -505,5 +510,30 @@ function AdvanceDialog({ eventId, config, contract, remaining, lineChoices, onCl
       </div>
       {problem && <p className="text-[11px] text-warning">{problem}</p>}
     </Shell>
+  );
+}
+
+/** Campo de valor com escolha € / %. Grava sempre euros (calculados e arredondados a 2 casas). */
+function AmountWithUnit({ value, unit, onValue, onUnit, euros, baseLabel }: {
+  value: string; unit: AmountUnit; onValue: (v: string) => void; onUnit: (u: AmountUnit) => void; euros: number; baseLabel: string;
+}) {
+  const btn = (u: AmountUnit, txt: string) => (
+    <button type="button" aria-pressed={unit === u} onClick={() => { if (u !== unit) { onUnit(u); onValue(""); } }}
+      className={`px-2 py-1 text-xs ${unit === u ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>{txt}</button>
+  );
+  return (
+    <div className="space-y-1">
+      <div className="flex gap-2">
+        <input inputMode="decimal" value={value} onChange={(e) => onValue(e.target.value)} className="w-full rounded-md border border-border bg-background px-2 py-1.5 font-mono text-sm" />
+        <div className="flex overflow-hidden rounded-md border border-border" role="group" aria-label="Unidade do valor">
+          {btn("eur", "€")}{btn("pct", "%")}
+        </div>
+      </div>
+      {unit === "pct" && (
+        <p className="text-[11px] text-muted-foreground">
+          {Number.isFinite(euros) ? `${value}% ${baseLabel} = ${formatCurrency(euros)}` : "Indique uma percentagem entre 0 e 100."}
+        </p>
+      )}
+    </div>
   );
 }
