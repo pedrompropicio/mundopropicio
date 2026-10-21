@@ -118,7 +118,7 @@ diff=[k for k in a if a[k]!=b[k]]
 if diff:
   for k in diff:
     x={json.dumps(i,sort_keys=True) for i in a[k] or []}; y={json.dumps(i,sort_keys=True) for i in b[k] or []}
-    print(k,'only-before',list(x-y)[:5],'only-after',list(y-x)[:5])
+    print(k,"only-before",sorted(json.loads(i).get("f") or json.loads(i).get("n") or i for i in x-y),"only-after",sorted(json.loads(i).get("f") or json.loads(i).get("n") or i for i in y-x))
   raise SystemExit('catalog diff not empty')
 print('PASS zero-history rollback: catalog diff empty for functions/ACL/owners, relations, columns, policies, triggers, constraints and roles')
 PY
