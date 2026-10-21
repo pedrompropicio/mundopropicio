@@ -1,0 +1,1 @@
+- Request Meta insights one civil day per call: multi-day time_range with the full field set returns spend/impressions 0 (since 18/10/2026).
