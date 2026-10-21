@@ -41,10 +41,20 @@ calls = {
 rows = []
 
 def begin(role, uid):
+    global c, q
+    c.close()
+    # Bootstrap administrator can select hosted roles without changing their membership;
+    # commands still execute as the selected role, never as superuser.
+    login = 'postgres' if role in (None, 'postgres', 'authenticated') else 'supabase_admin'
+    c = psycopg2.connect(host=sock, port=port, user=login, dbname='postgres', sslmode='disable')
+    c.autocommit = True
+    q = c.cursor()
     q.execute('BEGIN')
     q.execute("SELECT set_config('request.jwt.claim.sub',%s,true)", ('00000000-0000-0000-0000-0000000000'+uid,))
     if role:
         q.execute(sql.SQL('SET LOCAL ROLE {}').format(sql.Identifier(role)))
+    q.execute('SELECT rolsuper FROM pg_roles WHERE rolname=current_user')
+    assert q.fetchone() == (False,)
 
 def probe(label, role, uid, attack, statement, expected, reason):
     begin(role, uid)
