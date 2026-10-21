@@ -5,6 +5,8 @@ S=$(cd "$(dirname "$0")" && pwd); ROOT=$(cd "$S/../../.." && pwd); D=$1; PORT=$2
 OUT=${ISSUE335_OUT:-/tmp/issue335-phase2h}; T=$OUT/adapted; mkdir -p "$T"
 A=(env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE psql -X -q -h "$D" -p "$PORT" -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -v VERBOSITY=verbose)
 P=(env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE psql -X -q -h "$D" -p "$PORT" -U postgres -d postgres -v ON_ERROR_STOP=1)
+python3 "$S/phase2i-reference-data.py" "$ROOT/supabase/migrations" "$OUT/refdata.sql" "$OUT/refdata.json"
+"${A[@]}" -v ON_ERROR_STOP=0 -f "$OUT/refdata.sql" > "$OUT/refdata.out" 2>&1; echo "refdata errors: $(grep -c ERROR "$OUT/refdata.out")"
 "${A[@]}" -f "$S/phase2h-fixtures.sql" >/dev/null || { echo 'FIXTURES FAIL'; exit 1; }
 "${P[@]}" -c "DO \$\$ BEGIN IF (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) THEN RAISE EXCEPTION 'superuser deploy'; END IF; END \$\$;"
 for f in group_storage core invariants balance; do "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_$f.INERTE.sql" >/dev/null 2>"$OUT/install-$f.err" || { echo "INSTALL FAIL $f"; cat "$OUT/install-$f.err"; exit 1; }; done

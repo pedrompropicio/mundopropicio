@@ -114,7 +114,7 @@ DO $$ DECLARE a uuid; b uuid; lid uuid; v text; items jsonb; mov jsonb; n bigint
   ELSE EXECUTE format('UPDATE transactions SET %I=NULL WHERE id=$1',v) USING a; END IF;
  END LOOP;
  FOREACH v IN ARRAY ARRAY['draft','pending_approval','approved','revision','partially_approved'] LOOP
-  INSERT INTO payment_lists(id,status) VALUES(gen_random_uuid(),v) RETURNING id INTO lid;
+  INSERT INTO payment_lists(id,title,status) VALUES(gen_random_uuid(),'LOCAL lista '||v,v) RETURNING id INTO lid;
   INSERT INTO payment_list_items(transaction_id,payment_list_id) VALUES(a,lid);
   BEGIN PERFORM transaction_offset_execute(gen_random_uuid(),'00000000-0000-0000-0000-000000000020',items,mov,'2026-10-13'); RAISE EXCEPTION 'list accepted %',v; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'unsupported_debt' THEN RAISE; END IF; END;
   DELETE FROM payment_list_items WHERE transaction_id=a;
