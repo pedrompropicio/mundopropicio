@@ -102,7 +102,7 @@ BEGIN
    IF NOT FOUND THEN RAISE EXCEPTION 'transaction_not_found'; END IF;
   END IF;
   IF t.id=ANY(ids) THEN RAISE EXCEPTION 'duplicate_item'; END IF; ids:=array_append(ids,t.id);
-  IF t.supplier_id IS DISTINCT FROM p_supplier_id OR t.type NOT IN ('income','expense') OR t.status<>'approved' OR t.reversed_at IS NOT NULL OR t.is_hidden THEN RAISE EXCEPTION 'invalid_document'; END IF;
+  IF t.supplier_id IS DISTINCT FROM p_supplier_id OR t.type NOT IN ('income','expense') OR t.status NOT IN ('approved','partially_paid') OR t.reversed_at IS NOT NULL OR t.is_hidden THEN RAISE EXCEPTION 'invalid_document'; END IF;
   IF t.currency<>'EUR' OR t.fx_rate IS NOT NULL OR t.original_amount IS NOT NULL OR t.installment_group_id IS NOT NULL OR t.installment_number IS NOT NULL OR t.installment_total IS NOT NULL OR
      t.parent_transaction_id IS NOT NULL OR t.is_reimbursement OR t.cache_contract_id IS NOT NULL OR t.shared_cost_account_id IS NOT NULL OR
      COALESCE(t.declared_withholding_amount,0)<>0 OR COALESCE(t.declared_withholding_rate,0)<>0 OR EXISTS(SELECT 1 FROM public.partner_paid_expenses WHERE transaction_id=t.id) OR
@@ -114,7 +114,7 @@ BEGIN
   IF debt<=0 THEN RAISE EXCEPTION 'no_open_debt'; END IF;
   IF j ? 'expected_open_cents' AND (j->>'expected_open_cents')::bigint<>debt*100 THEN RAISE EXCEPTION 'preview_changed'; END IF;
   cash_type:=CASE WHEN amount<0 THEN 'expense' ELSE 'income' END;
-  IF amount<>0 AND (j->>'mode') IS DISTINCT FROM CASE WHEN t.type=cash_type THEN 'settle' ELSE 'offset' END THEN RAISE EXCEPTION 'invalid_mode_sign'; END IF;
+  IF amount<>0 AND (j->>'mode') IS DISTINCT FROM (CASE WHEN t.type=cash_type THEN 'settle' ELSE 'offset' END) THEN RAISE EXCEPTION 'invalid_mode_sign'; END IF;
   IF amount=0 AND (j->>'mode') IS DISTINCT FROM 'offset' THEN RAISE EXCEPTION 'invalid_mode_sign'; END IF;
   net:=net+CASE WHEN t.type='income' THEN debt ELSE -debt END;
   has_income:=has_income OR t.type='income'; has_expense:=has_expense OR t.type='expense';
