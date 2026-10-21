@@ -38,9 +38,7 @@ GRANT EXECUTE ON FUNCTION public.issue335_uid() TO issue335_executor;
 GRANT SELECT ON public.user_roles TO issue335_executor;
 CREATE POLICY issue335_company_membership ON public.user_roles FOR SELECT TO issue335_executor USING (user_id=public.issue335_uid());
 GRANT SELECT,UPDATE ON public.companies,public.suppliers,public.events,public.financial_accounts TO issue335_executor;
-GRANT SELECT,UPDATE ON public.transaction_offset_control TO issue335_executor;
--- UPDATE privilege permits row locking; no UPDATE RLS policy permits mutation.
-CREATE POLICY issue335_control_read ON public.transaction_offset_control FOR SELECT TO issue335_executor USING(true);
+GRANT SELECT ON public.transaction_offset_control TO issue335_executor;
 GRANT SELECT ON public.partner_paid_expenses,public.event_settlements,public.payment_list_items,public.payment_lists,public.payment_list_sepa_exports TO issue335_executor;
 GRANT UPDATE ON public.event_settlements TO issue335_executor;
 GRANT EXECUTE ON FUNCTION public.can_see_confidential(uuid),public.has_permission(uuid,text),public.is_platform_admin(uuid) TO issue335_executor;
@@ -141,8 +139,9 @@ BEGIN
  -- Request identity is serialized before checking the durable result.
  PERFORM pg_advisory_xact_lock(hashtextextended(company::text||p_request_id::text,335));
  -- Admission fence: recheck after the potentially waiting request lock, and
- -- retain SHARE until commit. Closure drains admitted writes before returning.
- PERFORM 1 FROM public.transaction_offset_control WHERE singleton AND enabled FOR SHARE;
+ -- retain shared advisory fence until commit. Closure drains admitted writes.
+ PERFORM pg_advisory_xact_lock_shared(335,1);
+ PERFORM 1 FROM public.transaction_offset_control WHERE singleton AND enabled;
  IF NOT FOUND THEN RAISE EXCEPTION 'encontro_desativado'; END IF;
  SELECT * INTO g FROM public.transaction_offset_groups WHERE company_id=company AND request_id=p_request_id;
  IF FOUND THEN
@@ -261,7 +260,8 @@ DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid 
  PERFORM set_config('lock_timeout','5s',true);
  IF public.issue335_uid() IS NULL OR NOT public.has_role(public.issue335_uid(),'admin') THEN RAISE EXCEPTION 'permission_denied'; END IF;
  IF p_request_id IS NULL OR nullif(trim(p_reason),'') IS NULL THEN RAISE EXCEPTION 'reason_required'; END IF;
- PERFORM 1 FROM public.transaction_offset_control WHERE singleton AND enabled FOR SHARE;
+ PERFORM pg_advisory_xact_lock_shared(335,1);
+ PERFORM 1 FROM public.transaction_offset_control WHERE singleton AND enabled;
  IF NOT FOUND THEN RAISE EXCEPTION 'encontro_desativado'; END IF;
  -- Nonwaiting locks prevent cycles with legacy writers (which use inverted orders).
  PERFORM 1 FROM public.companies WHERE id=public.current_company_id() FOR NO KEY UPDATE NOWAIT;

@@ -47,8 +47,9 @@ def blocked(waiter,holder):
     raise AssertionError('expected exact lock edge not observed')
 original=sql(observer,"SELECT pg_get_functiondef('public._issue335_execute(uuid,uuid,jsonb,jsonb,date,text)'::regprocedure)")[0][0]
 fence=""" -- Admission fence: recheck after the potentially waiting request lock, and
- -- retain SHARE until commit. Closure drains admitted writes before returning.
- PERFORM 1 FROM public.transaction_offset_control WHERE singleton AND enabled FOR SHARE;
+ -- retain shared advisory fence until commit. Closure drains admitted writes.
+ PERFORM pg_advisory_xact_lock_shared(335,1);
+ PERFORM 1 FROM public.transaction_offset_control WHERE singleton AND enabled;
  IF NOT FOUND THEN RAISE EXCEPTION 'encontro_desativado'; END IF;
 """
 assert fence in original

@@ -1,6 +1,7 @@
 -- LOCAL/INERTE ONLY. Emergency closure; separate authorization required for Live.
 BEGIN;
 SET LOCAL lock_timeout='5s';
+SELECT pg_advisory_xact_lock(335,1);
 UPDATE public.transaction_offset_control SET enabled=false WHERE singleton;
 REVOKE EXECUTE ON FUNCTION public.transaction_offset_execute(uuid,uuid,jsonb,jsonb,date,text),public.transaction_offset_reverse(uuid,uuid,text) FROM authenticated,service_role;
 REVOKE INSERT ON public.issue335_commands FROM authenticated,service_role;
