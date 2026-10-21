@@ -252,6 +252,8 @@ ROLLBACK;
 -- legacy_* = cópias byte-iguais das funções instaladas em Live (live/phase2e-balance-baseline.sql).
 CREATE TABLE IF NOT EXISTS issue335_test.a_matrix(caso text,conta text,live numeric,candidato numeric,esperado numeric);
 TRUNCATE issue335_test.a_matrix;
+GRANT ALL ON issue335_test.a_matrix TO authenticated;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA issue335_test TO authenticated;
 SET ROLE service_role;
 INSERT INTO public.financial_accounts(id,company_id,name,type,initial_balance,initial_balance_date) VALUES
  ('00000000-0000-0000-0000-0000000003a1','00000000-0000-0000-0000-000000000001','LOCAL A1','bank',0,'2026-10-12'),
