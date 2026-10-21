@@ -686,4 +686,7 @@ DROP POLICY IF EXISTS issue335_internal ON public.transaction_audit_log;
 DROP POLICY IF EXISTS issue335_internal ON public.system_audit_log;
 DROP OWNED BY issue335_executor;
 DROP ROLE issue335_executor;
+-- Restore the exact Live ACL of shared helpers that the core granted to the executor (catalog snapshot).
+REVOKE ALL ON FUNCTION public._derive_paid_amount(uuid),public.bp_tx_link_allowed(uuid,uuid,uuid,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public._derive_paid_amount(uuid),public.bp_tx_link_allowed(uuid,uuid,uuid,uuid) TO service_role,sandbox_exec_sfohvvlqccmmebvjgibx;
 COMMIT;

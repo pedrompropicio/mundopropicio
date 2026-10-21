@@ -1465,3 +1465,7 @@ ALTER TABLE public.partner_event_access ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "company_isolation_partner_event_access" ON public.partner_event_access AS RESTRICTIVE FOR ALL TO authenticated USING ((company_id = current_company_id())) WITH CHECK ((company_id = current_company_id()));
 CREATE POLICY "Partner access manageable by admin" ON public.partner_event_access AS PERMISSIVE FOR ALL TO authenticated USING (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)) WITH CHECK (has_role(( SELECT auth.uid() AS uid), 'admin'::app_role));
 CREATE POLICY "Partner access viewable by own user or admin" ON public.partner_event_access AS PERMISSIVE FOR SELECT TO authenticated USING (((user_id = ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role)));
+
+-- Live ACL of shared helpers used by the core.
+REVOKE ALL ON FUNCTION public._derive_paid_amount(uuid),public.bp_tx_link_allowed(uuid,uuid,uuid,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public._derive_paid_amount(uuid),public.bp_tx_link_allowed(uuid,uuid,uuid,uuid) TO service_role,sandbox_exec_sfohvvlqccmmebvjgibx;
