@@ -16,3 +16,20 @@ for f in storage core invariants; do
  "${P[@]}" -f "$path" >/dev/null
  done
 "${P[@]}" -f "$S/scenarios.sql"
+
+"${P[@]}" <<'SQL'
+SELECT set_config('t.uid','00000000-0000-0000-0000-000000000010',false),set_config('t.company','00000000-0000-0000-0000-000000000001',false);
+INSERT INTO transactions(id,type,description,amount,iva_rate,date,supplier_id) VALUES
+('00000000-0000-0000-0000-000000000701','income','Race+',30996,0,'2026-10-13','00000000-0000-0000-0000-000000000020'),
+('00000000-0000-0000-0000-000000000702','expense','Race-',7590,0,'2026-10-13','00000000-0000-0000-0000-000000000020');
+SQL
+"${P[@]}" -f "$S/concurrency.sql" >"$D/race1" 2>&1 & A=$!
+"${P[@]}" -f "$S/concurrency.sql" >"$D/race2" 2>&1 & B=$!
+wait "$A"; wait "$B"
+"${P[@]}" <<'SQL'
+DO $$ BEGIN
+ IF (SELECT count(*) FROM transaction_offset_groups WHERE request_id='00000000-0000-0000-0000-000000000777')<>1 OR
+    (SELECT count(*) FROM transaction_payments WHERE transaction_id IN('00000000-0000-0000-0000-000000000701','00000000-0000-0000-0000-000000000702'))<>3 THEN RAISE EXCEPTION 'race duplicated'; END IF;
+ RAISE NOTICE 'PASS two concurrent sessions, one group and three legs';
+END $$;
+SQL
