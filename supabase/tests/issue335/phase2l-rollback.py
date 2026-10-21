@@ -1,4 +1,4 @@
-"""LOCAL ONLY: complete catalog before/after twelve inert candidate pairs."""
+"""LOCAL ONLY: complete catalog before/after thirteen inert candidate pairs."""
 import json
 import sys
 from pathlib import Path
@@ -29,7 +29,7 @@ def snapshot():
 before = snapshot()
 (out / 'before.json').write_text(json.dumps(before, indent=2, ensure_ascii=False))
 names = ['offset_group_storage', 'offset_core', 'offset_invariants', 'offset_balance', 'offset_approval',
-         'status', 'offset_kill_switch', 'emergency', 'reactivation', 'cash_position', 'cash_position_invariant', 'restore']
+         'status', 'offset_kill_switch', 'emergency', 'reactivation', 'cash_position', 'cash_position_invariant', 'restore', 'trigger_watch']
 with c.cursor() as q:
     q.execute('SELECT rolsuper FROM pg_roles WHERE rolname=current_user')
     assert q.fetchone()[0] is False
