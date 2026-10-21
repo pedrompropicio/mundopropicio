@@ -238,7 +238,7 @@ DO $$ DECLARE g uuid:=(SELECT v FROM issue335_test.j WHERE k='R:g'); before bigi
  SELECT coalesce(sum(current_count),0) INTO before FROM public.issue335_invariant_counts();
  SET LOCAL ROLE service_role;
  PERFORM public.restore_shadow_prepare(ARRAY['transaction_payments']);
- EXECUTE 'INSERT INTO restore_shadow.public__transaction_payments SELECT * FROM public.transaction_payments WHERE offset_group_id IS DISTINCT FROM $1' USING g;
+ PERFORM public.restore_shadow_load('transaction_payments',(SELECT coalesce(jsonb_agg(to_jsonb(p)),'[]') FROM public.transaction_payments p WHERE p.offset_group_id IS DISTINCT FROM g)); -- carregador real da edge function
  PERFORM public.restore_apply_from_shadow('company','00000000-0000-0000-0000-000000000001',ARRAY['transaction_payments'],NULL);
  RESET ROLE;
  SELECT coalesce(sum(current_count),0) INTO after FROM public.issue335_invariant_counts();
