@@ -62,3 +62,7 @@ Fontes do Bloco1 inexistentes como runner versionado: script real era /tmp/issue
 - docs/testes/issue335-fases12-local.md | N=6224 | sha256=92ed5770bdddff2b551ddd55b5e29def0d35dbf52891b2f4f3f8006b29680c9b | secção1b LIDA INTEGRAL sub_szabsc1n; ficheiro NÃO LIDO integral nesta ronda | intervalos 5191–5390,5391–5590,5591–5790,5791–5990,5991–6190,6191–6224
 - AGENTS.md | N=40 | sha256=8fe01f2a6f608a47b082f06cf0819049a582bb634417cc04d5e859bec3ee6926 | LIDO INTEGRAL | intervalos 1–40
 - supabase/AGENTS.md | N=3 | sha256=c4a593a91c43a79de00879fea8e566841a74d212962ee9a3dda8ffca46237b17 | LIDO INTEGRAL | intervalos 1–3
+
+### Leituras auxiliares anteriores à integração 1c
+- supabase/tests/issue335/phase2h-suite.sh: versão ANTES lida integralmente via view; intervalos 1–42 / 1–50; hash anterior no manifesto 2n1b. Versão após alteração: 66f442d2649f8d3f28f2e839a75d6c7f72df238fd5871d9aa284875003ab2aef (não é hash da leitura anterior).
+- supabase/tests/issue335/phase2l-rollback.py: versão ANTES lida integralmente via view; intervalos 1–42 / 1–50; hash anterior no manifesto 2n1b. Versão após alteração: e41767df157f79c2b42e32eb978d48a27436b960c65208493b006dc82d356acc (não é hash da leitura anterior).
