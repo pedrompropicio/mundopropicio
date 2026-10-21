@@ -24,3 +24,6 @@
 - [x] Chegadas horárias: backfill completo e igualdade por dimensão; compare preservada, diferenças só novas capturas em curso; 0,141–0,153 s no banco, teste isolado +1/−1 e reconciliação 0 divergências.
 - [x] Period_report opção B: plano aditivo aprovado; protótipo e testes locais de referências exatas, mudança de identidade/canal e reparação passaram; origem preservada, sem Publish.
 - [x] Period_report opção B: migrações 0229–0234, backfill integral, 239075=239075, zero divergências e pendências; nove JSON idênticos exceto gerado_em; 30d 0,036–0,089 s e 90d 0,029–0,088 s no banco; testes locais passaram, sem Publish.
+- [ ] Litto 1: confirmar países pela segmentação TikTok, corrigir sincronização futura e duas campanhas; auditar Meta/Google com gasto sem país, sem DDL/apagar.
+- [ ] Litto 2: diagnosticar TikTok for Artists parado, corrigir ou indicar reconexão; alerta de fonte diária sem captura >48 h, sem DDL/apagar.
+- [ ] Litto 3: comparar TikTok campanha/adgroup/ad dia a dia com API, corrigir nível campaign e backfill 30 dias; sem DDL/apagar.
