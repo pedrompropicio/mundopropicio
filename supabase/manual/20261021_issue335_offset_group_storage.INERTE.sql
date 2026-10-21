@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS public.transaction_offset_groups (
  CHECK((movement_amount = 0 AND account_id IS NULL) OR (movement_amount <> 0 AND account_id IS NOT NULL))
 );
 REVOKE ALL ON public.transaction_offset_groups FROM PUBLIC, anon;
-GRANT SELECT,INSERT,UPDATE ON public.transaction_offset_groups TO authenticated;
-GRANT ALL ON public.transaction_offset_groups TO service_role;
+GRANT SELECT ON public.transaction_offset_groups TO authenticated;
+GRANT SELECT ON public.transaction_offset_groups TO service_role;
 ALTER TABLE public.transaction_offset_groups ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS offset_groups_staff ON public.transaction_offset_groups;
 CREATE POLICY offset_groups_staff ON public.transaction_offset_groups FOR SELECT TO authenticated USING(public.has_staff_role(auth.uid()));
@@ -50,8 +50,8 @@ CREATE TABLE IF NOT EXISTS public.transaction_offset_items (
  CHECK(cash_amount+compensation_amount=open_amount)
 );
 REVOKE ALL ON public.transaction_offset_items FROM PUBLIC, anon;
-GRANT SELECT,INSERT ON public.transaction_offset_items TO authenticated;
-GRANT ALL ON public.transaction_offset_items TO service_role;
+GRANT SELECT ON public.transaction_offset_items TO authenticated;
+GRANT SELECT ON public.transaction_offset_items TO service_role;
 ALTER TABLE public.transaction_offset_items ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS offset_items_staff ON public.transaction_offset_items;
 CREATE POLICY offset_items_staff ON public.transaction_offset_items FOR SELECT TO authenticated USING(public.has_staff_role(auth.uid()));

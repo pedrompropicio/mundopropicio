@@ -36,4 +36,6 @@
 - [x] #335 fase 1: prévia pura e 19 testes; 1.952 testes passaram na suite completa. Sem writers.
 - [x] #335 fase 2 preparação: três conjuntos SQL e rollback INERTES, PostgreSQL local com triggers instalados; Estoril/BP/reversão/concorrência/#233 passaram; relatório e hashes.
 - [ ] #335 fase 2 aceitação: reforçar ACL/guardas não baseadas em PG_CONTEXT, matching canónico BP, locks de eventos e drift, auditoria integral, matriz falhas/ACL/rollback antes de autorizar aplicação. Sem aplicação Live; reserva mantida.
+- [x] #335 fase 2b parcial: identidade executor/ataques, matching 0/1/1002, matriz local, auditoria, 14+12 falhas físicas, 54 triggers carregados, #336 e cinco vigias; suite completa passada; relatório distingue provas locais de Live.
+- [ ] #335 fase 2b aceitação bloqueada tecnicamente: reproduzir auth/RLS/ACL/constraints transitivas reais; diferencial BP master/âncoras/empates; concorrência cruzada entre writers; falhas em criação BP/adaptador banco; rollback ACL integral. Tipos manuais não executados por regra da plataforma. Não requer decisão comercial para corrigir estes pontos.
 - [ ] #335 aplicação A–C, UI e provas Live bloqueadas por autorização separada do Pedro.

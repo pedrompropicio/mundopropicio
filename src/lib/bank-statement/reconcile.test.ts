@@ -16,6 +16,16 @@ const line = (date = "2026-10-01", amount = 23406, description = "Casino Estoril
 });
 
 describe("#336 dinheiro por conta, nunca compensação", () => {
+  it("#335 Estoril: grupo aplicado conta 23406; revertido conta zero, sem fallback histórico", () => {
+    const legs = [payment(23406), payment(7590, { payment_method: "compensation", account_id: null })];
+    expect(reconciliationCash(txn({ payments: legs }))).toBe(23406);
+    expect(reconciliationCash(txn({ payment_date: "2026-08-01", payments: legs.map((p) => ({
+      ...p, status: "reversed", reversed_at: "2026-10-21",
+    })) }))).toBe(0);
+    expect(reconciliationCash(txn({ paid_amount: 7590, account_id: null, payments: [
+      payment(7590, { payment_method: "compensation", account_id: null }),
+    ] }))).toBe(0);
+  });
   it("Casino: camada b casa 23.406,00 dinheiro, não 30.996,00 liquidado", () => {
     expect(reconcileStatement([line()], [txn()], []).matches.get("line")?.layer).toBe("amount");
     expect(reconcileStatement([line(undefined, 30996)], [txn()], []).counts.unmatched).toBe(1);
