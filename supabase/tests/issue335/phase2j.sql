@@ -37,6 +37,7 @@ DO $$ DECLARE t text; r text; BEGIN
  END LOOP;
  FOREACH r IN ARRAY ARRAY['anon','authenticated','service_role','sandbox_exec','sandbox_exec_sfohvvlqccmmebvjgibx'] LOOP
   IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname=r) AND has_function_privilege(r,'public.issue335_payment_flow_blocked(uuid)','EXECUTE') THEN RAISE EXCEPTION 'J0 % executa a função de leitura',r; END IF;
+  IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname=r) AND has_function_privilege(r,'public.issue335_camarim_leg(uuid)','EXECUTE') THEN RAISE EXCEPTION 'J0 % executa issue335_camarim_leg',r; END IF;
  END LOOP;
  IF NOT has_function_privilege('issue335_executor','public.issue335_payment_flow_blocked(uuid)','EXECUTE') THEN RAISE EXCEPTION 'J0 executor sem EXECUTE'; END IF;
  IF NOT (SELECT prosecdef AND proconfig @> ARRAY['search_path=public, pg_catalog'] FROM pg_proc WHERE oid='public.issue335_payment_flow_blocked(uuid)'::regprocedure) THEN RAISE EXCEPTION 'J0 definer/search_path'; END IF;
