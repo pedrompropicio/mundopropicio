@@ -2,6 +2,7 @@
 -- Phase BEFORE runs against the captured Live trigger; AFTER installs the separate
 -- inert approval candidate only in this harness, then its rollback restores Live prosrc.
 \set ON_ERROR_STOP 1
+CREATE SCHEMA IF NOT EXISTS issue335_test;
 SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false);
 CREATE TABLE IF NOT EXISTS issue335_test.g2(k text PRIMARY KEY, v uuid);
 CREATE TABLE IF NOT EXISTS issue335_test.g2_prosrc AS SELECT prosrc FROM pg_proc WHERE oid='public.enforce_transaction_approval_permission'::regproc;
