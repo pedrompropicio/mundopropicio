@@ -176,51 +176,68 @@ export function acceptCompaction(original: string, candidate: string, limit = US
 
 // ────────────────────────────── datas / nomes ──────────────────────────────
 
-function toLocalDate(iso: string): Date {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, (m ?? 1) - 1, d ?? 1);
+const lisbonFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Lisbon",
+  year: "numeric", month: "2-digit", day: "2-digit",
+  hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+});
+
+// Capture an instant; only the formatter derives business dates/hours from it.
+function currentInstant(): Date {
+  return new Date(Date.now());
 }
 
+function lisbonParts(instant: Date) {
+  const parts = lisbonFormatter.formatToParts(instant);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+  return {
+    year: part("year"), month: part("month"), day: part("day"),
+    hour: part("hour"), minute: part("minute"), second: part("second"),
+  };
+}
+
+/** Calendar date in Lisbon, regardless of the browser's timezone. */
 export function formatLocalDate(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  const { year, month, day } = lisbonParts(d);
+  return `${year}-${month}-${day}`;
 }
 
 /**
  * Data de execução: se cair em fim de semana ou no passado, avança para o
  * próximo dia útil. (Feriados não são considerados — o banco reagenda.)
  */
-export function resolveExecutionDate(requested: string | null | undefined, today = new Date()): string {
+export function resolveExecutionDate(requested: string | null | undefined, today = currentInstant()): string {
   const todayIso = formatLocalDate(today);
-  let d = requested ? toLocalDate(requested) : toLocalDate(todayIso);
-  if (formatLocalDate(d) < todayIso) d = toLocalDate(todayIso);
-  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
-  return formatLocalDate(d);
+  const executionDay = requested && requested >= todayIso ? requested : todayIso;
+  // UTC here is only calendar arithmetic on an explicit civil date, not "today".
+  const d = new Date(`${executionDay}T00:00:00Z`);
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
 }
 
-/** yyyymmddHHmmss local, para o MsgId. */
-export function timestampId(now = new Date()): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
+/** yyyymmddHHmmss em Lisboa. */
+export function timestampId(now = currentInstant()): string {
+  const { year, month, day, hour, minute, second } = lisbonParts(now);
+  return `${year}${month}${day}${hour}${minute}${second}`;
 }
 
 /**
  * Referência legível do lote: PAGAMENTOS-MP-<DDMMYYYY da lista>-<DDMMHHMM do envio>.
  * 31 chars; com o sufixo -P1 do PmtInfId fica em 34 (limite do formato = 35).
  */
-export function buildBatchReference(listDate: string | null | undefined, now = new Date()): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  const d = listDate ? toLocalDate(listDate) : now;
-  const listPart = `${p(d.getDate())}${p(d.getMonth() + 1)}${d.getFullYear()}`;
-  const sentPart = `${p(now.getDate())}${p(now.getMonth() + 1)}${p(now.getHours())}${p(now.getMinutes())}`;
+export function buildBatchReference(listDate: string | null | undefined, now = currentInstant()): string {
+  const { day, month, hour, minute } = lisbonParts(now);
+  const [listYear, listMonth, listDay] = (listDate || formatLocalDate(now)).split("-");
+  const listPart = `${listDay}${listMonth}${listYear}`;
+  const sentPart = `${day}${month}${hour}${minute}`;
   return `PAGAMENTOS-MP-${listPart}-${sentPart}`;
 }
 
 
-/** CreDtTm ISO local sem timezone (o banco aceita sem offset). */
-export function creationDateTime(now = new Date()): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}T${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`;
+/** CreDtTm ISO em Lisboa sem offset, preservando o formato aceite pelo banco. */
+export function creationDateTime(now = currentInstant()): string {
+  const { year, month, day, hour, minute, second } = lisbonParts(now);
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
 }
 
 export function slugify(input: string): string {
@@ -284,8 +301,10 @@ export const SANTANDER_PT_BIC = "TOTAPTPL";
 export const DEFAULT_DEBTOR_IBAN = "PT50001800034889774802033";
 
 export function buildPain001(input: SepaFileInput): SepaFileOutput {
-  const now = input.now ?? new Date();
-  const msgId = buildBatchReference(input.listDate ?? input.executionDate, now).slice(0, 32);
+  const now = input.now ?? currentInstant();
+  // Revalidate at generation time: a modal may have remained open past midnight.
+  const executionDate = resolveExecutionDate(input.executionDate, now);
+  const msgId = buildBatchReference(input.listDate ?? executionDate, now).slice(0, 32);
   const pmtInfId = `${msgId}-P1`.slice(0, 35);
 
 
@@ -329,7 +348,7 @@ export function buildPain001(input: SepaFileInput): SepaFileOutput {
     `      <NbOfTxs>${rows.length}</NbOfTxs>`,
     `      <CtrlSum>${controlSum}</CtrlSum>`,
     `      <PmtTpInf><SvcLvl><Cd>SEPA</Cd></SvcLvl></PmtTpInf>`,
-    `      <ReqdExctnDt><Dt>${input.executionDate}</Dt></ReqdExctnDt>`,
+    `      <ReqdExctnDt><Dt>${executionDate}</Dt></ReqdExctnDt>`,
     `      <Dbtr><Nm>${xmlEscape(debtorName)}</Nm></Dbtr>`,
     `      <DbtrAcct><Id><IBAN>${xmlEscape(normalizeIban(input.debtorIban))}</IBAN></Id><Ccy>EUR</Ccy></DbtrAcct>`,
     `      <DbtrAgt><FinInstnId><BICFI>${xmlEscape(input.debtorBic || SANTANDER_PT_BIC)}</BICFI></FinInstnId></DbtrAgt>`,
@@ -341,7 +360,7 @@ export function buildPain001(input: SepaFileInput): SepaFileOutput {
     ``,
   ];
 
-  const stamp = input.executionDate.replace(/-/g, "");
+  const stamp = executionDate.replace(/-/g, "");
   const fileName = `transferencias_${slugify(input.listTitle)}_${stamp}${input.isTest ? "_TESTE" : ""}.xml`;
 
   return {
