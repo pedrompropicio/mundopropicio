@@ -85,7 +85,7 @@ DO $$ BEGIN IF EXISTS(SELECT 1 FROM issue335_invariant_counts() WHERE current_co
 -- Installed #233 protocol preserved: explicit keep vs align, pending mismatch, audit.
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false);
-DO $$ DECLARE a uuid; b uuid; payload jsonb; BEGIN
+DO $$ DECLARE a uuid; a2 uuid; b uuid; payload jsonb; BEGIN
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id,account_id) VALUES('income','Legacy align',100,0,'2026-10-12','00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-000000000030') RETURNING id INTO a;
  INSERT INTO transaction_payments(transaction_id,amount,payment_date,account_id) VALUES(a,100,'2026-10-12','00000000-0000-0000-0000-000000000030');
  INSERT INTO bank_statement_lines(id,company_id,financial_account_id,amount,booking_date) VALUES(gen_random_uuid(),current_company_id(),'00000000-0000-0000-0000-000000000030',100,'2026-10-13') RETURNING id INTO b;
@@ -93,9 +93,13 @@ DO $$ DECLARE a uuid; b uuid; payload jsonb; BEGIN
  BEGIN PERFORM reconcile_bank_line(b,payload); RAISE EXCEPTION 'pending date bypass'; EXCEPTION WHEN SQLSTATE 'P0410' THEN NULL; END;
  PERFORM reconcile_bank_line(b,jsonb_set(payload,'{0,date_action}','"align"'));
  IF (SELECT payment_date FROM transactions WHERE id=a)<>'2026-10-13' OR NOT EXISTS(SELECT 1 FROM transaction_audit_log WHERE transaction_id=a AND field_name='payment_date') THEN RAISE EXCEPTION 'align audit lost'; END IF;
+ -- 2i (decisão 1 do Pedro): uq_bank_line_matched_txn de Live proíbe ligar a mesma transacção a 2 linhas; keep usa 2.ª transacção com pagamento a 13/10.
+ INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id,account_id) VALUES('income','Legacy keep',100,0,'2026-10-12','00000000-0000-0000-0000-000000000020','00000000-0000-0000-0000-000000000030') RETURNING id INTO a2;
+ INSERT INTO transaction_payments(transaction_id,amount,payment_date,account_id) VALUES(a2,100,'2026-10-13','00000000-0000-0000-0000-000000000030');
  INSERT INTO bank_statement_lines(id,company_id,financial_account_id,amount,booking_date) VALUES(gen_random_uuid(),current_company_id(),'00000000-0000-0000-0000-000000000030',100,'2026-10-14') RETURNING id INTO b;
- PERFORM reconcile_bank_line(b,jsonb_set(payload,'{0,date_action}','"keep"'));
- IF (SELECT payment_date FROM transactions WHERE id=a)<>'2026-10-13' OR (SELECT date_divergence FROM bank_statement_lines WHERE id=b) IS NULL THEN RAISE EXCEPTION 'keep lost'; END IF;
+ BEGIN PERFORM reconcile_bank_line(b,jsonb_set(payload,'{0,transaction_id}',to_jsonb(a2))); RAISE EXCEPTION 'pending date bypass (keep)'; EXCEPTION WHEN SQLSTATE 'P0410' THEN NULL; END;
+ PERFORM reconcile_bank_line(b,jsonb_set(jsonb_set(payload,'{0,transaction_id}',to_jsonb(a2)),'{0,date_action}','"keep"'));
+ IF (SELECT payment_date FROM transactions WHERE id=a)<>'2026-10-13' OR (SELECT payment_date FROM transactions WHERE id=a2)<>'2026-10-13' OR (SELECT date_divergence FROM bank_statement_lines WHERE id=b) IS NULL THEN RAISE EXCEPTION 'keep lost'; END IF;
  RAISE NOTICE 'PASS #233 pending/align/keep and installed audit';
 END $$;
 RESET ROLE;

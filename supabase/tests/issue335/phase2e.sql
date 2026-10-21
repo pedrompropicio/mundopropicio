@@ -61,7 +61,8 @@ INSERT INTO public.user_roles(id,user_id,role,company_id) VALUES
  (gen_random_uuid(),'00000000-0000-0000-0000-000000000015','manager','00000000-0000-0000-0000-000000000001');
 INSERT INTO public.profiles(id,company_id,active_company_id) VALUES
  ('00000000-0000-0000-0000-000000000014','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001'),
- ('00000000-0000-0000-0000-000000000015','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001');
+ ('00000000-0000-0000-0000-000000000015','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001')
+ON CONFLICT (id) DO UPDATE SET company_id=EXCLUDED.company_id,active_company_id=EXCLUDED.active_company_id; -- 2i: perfil criado pelo trigger real
 DO $$ DECLARE a uuid; b uuid; l uuid; req uuid; items jsonb; val text; lid uuid; BEGIN
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('income','2e permission+',100,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO a;
  INSERT INTO transactions(type,description,amount,iva_rate,date,supplier_id) VALUES('expense','2e permission-',40,0,'2026-10-13','00000000-0000-0000-0000-000000000020') RETURNING id INTO b;

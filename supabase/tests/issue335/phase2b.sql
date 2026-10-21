@@ -53,7 +53,7 @@ RESET SESSION AUTHORIZATION;
 SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false);
 DO $$ DECLARE f uuid; f2 uuid; ev uuid; cat uuid; a uuid; b uuid; BEGIN
  -- 2i: Live exige category_id existente (FK); categoria L3 local nova, isolada como o uuid aleatório antigo.
- INSERT INTO account_categories(company_id,code,name,type,parent_id) VALUES(current_company_id(),'335.'||substr(md5(random()::text),1,8),'LOCAL matching','income','00000000-0000-0000-0000-000000000052') RETURNING id INTO cat;
+ INSERT INTO account_categories(company_id,code,name,type,parent_id) VALUES(current_company_id(),'335.'||substr(md5(random()::text),1,8),'LOCAL matching','income','00000000-0000-0000-0000-000000000051') RETURNING id INTO cat;
  INSERT INTO events(id,company_id,name) VALUES(gen_random_uuid(),current_company_id(),'Matching local') RETURNING id INTO ev;
  INSERT INTO event_forecasts(company_id,event_id,category_id,type,description,amount,iva_rate,approved_at) VALUES(current_company_id(),ev,cat,'income','Diárias staff',10,0,now()) RETURNING id INTO f;
  IF EXISTS(SELECT 1 FROM issue335_matching_transactions(f)) THEN RAISE EXCEPTION 'zero matching'; END IF;
