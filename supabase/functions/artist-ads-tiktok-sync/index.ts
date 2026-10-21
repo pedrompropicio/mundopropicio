@@ -7,7 +7,7 @@ import { adminClient, authorize, corsHeaders, json } from "../_shared/artist-met
 import { ADS_ROLES } from "../_shared/artist-ads.ts";
 import { loadTikTokConnection, tiktokGET, tiktokHost } from "../_shared/tiktok-ads.ts";
 import { deduceTriggerSource, finishSyncRun, resolveStatus, startSyncRun } from "../_shared/sync-run.ts";
-import { marketCountry, regionCountries, type GeoRow } from "./geo.ts";
+import { marketCountry as resolveMarketCountry, regionCountries, type GeoRow } from "./geo.ts";
 import { CAMPAIGN_REPORT, campaignDay } from "./campaign.ts";
 
 const FN = "artist-ads-tiktok-sync";
@@ -103,7 +103,7 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
   for (const camp of camps.list) {
     const ids = [...new Set<string>(groups.list.filter((g: any) => String(g.campaign_id) === String(camp.campaign_id))
       .flatMap((g: any) => (g.location_ids ?? []).map(String)))];
-    const result = marketCountry(ids, geoMap, camp.campaign_name ?? "");
+    const result = resolveMarketCountry(ids, geoMap, camp.campaign_name ?? "");
     countryByCampaign.set(String(camp.campaign_id), result);
     if (result.gap) geoGaps.push(`${camp.campaign_id}: ${result.gap}`);
   }
