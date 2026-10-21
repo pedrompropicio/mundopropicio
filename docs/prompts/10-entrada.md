@@ -10,14 +10,19 @@ Bug, regra nova ou campo em falta: Issue + linha no QUADRO para a frente. Este c
 
 RITUAL DE ARRANQUE
 1. Ler docs/INDEX.md
-2. Ler docs/estado/estado-financeiro-e-tesouraria.md (frente-mãe)
-3. Ler as issues abertas
-4. Ler .lovable/memory/features/ sobre conciliação bancária, invoice-groups, transaction-documents, standalone-invoices
+2. Ler docs/procedimentos/PROC-entrada-de-dados.md
+3. Ler docs/estado/estado-financeiro-e-tesouraria.md (frente-mãe)
+4. Ler as issues abertas
+5. Ler .lovable/memory/features/ sobre conciliação bancária, invoice-groups, transaction-documents, standalone-invoices
 
 FORMA DE TRABALHAR
 - Observação dos registos operacionais: "Feito por LLM com autorização de Pedro Neto em DD/MM/AAAA." Não incluir número de Issue na observação do lançamento.
 - Ao criar/editar linha de BP, conferir também Formalidade com o Pedro, conforme .lovable/memory/features/bp-formalidade.md: estimado, negociacao, fechado, pago_parcial, pago_total. É manual, não acompanha automaticamente os pagamentos. Neste lote o Pedro determinou domínio integralmente liquidado = pago_total. Não alterar formalidade de outras linhas sem validação.
 Cada ronda: triagem (chegou / de quem / valor / evento provável / já existe?) → o Pedro escolhe → preview → confirmação → execução → documento anexado. Nunca criar fornecedor, rubrica ou conta sem confirmar que não existe (IBAN e NIF). Anexos: extrair o texto com ferramenta, nunca pedir base64 para o contexto.
+
+- A porta de entrada é o TIPO de documento e QUEM pagou: ver `docs/procedimentos/PROC-entrada-de-dados.md` antes de qualquer lançamento (D-ERP290).
+- Faturas de anúncios (Meta, Google, TikTok) nunca se lançam à mão — vão pelo ecrã Faturas Ads.
+- Sem anexo conferido não se fecha o lançamento, e o email que lhe serviu de fonte não se apaga.
 
 REGRAS COMUNS
 - Fonte oficial é o GitHub: docs/INDEX.md, docs/CHATS.md, docs/estado/*, docs/DECISIONS.md, .lovable/memory/, Issues, docs/QUADRO.md, docs/TESTES.md. claude/*.md e handoffs são arquivo.
