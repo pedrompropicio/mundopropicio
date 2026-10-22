@@ -6113,3 +6113,26 @@ Decisões do Pedro a 21/10/2026, depois de três faturas do TikTok terem sido la
 4. **Os emails que servem de fonte a um lançamento não se apagam** — arquivam-se depois do anexo estar na plataforma e conferido.
 
 Procedimento: `docs/procedimentos/PROC-entrada-de-dados.md`, lido no arranque do chat 10.
+
+---
+
+## D-ERP291 — Classes de risco e rituais proporcionais (22/10/2026)
+
+**Decisão (Pedro, 22/10/2026).** Os rituais de D-ERP278 passam a ser proporcionais ao risco da alteração. Três classes:
+
+- **R0 — documentação.** docs/QUADRO.md, docs/estado/*, docs/TESTES.md, docs/DECISIONS.md, docs/handoffs/, Issues (abrir, comentar, fechar), .lovable/memory/ só texto. Sem reserva, sem modo plano, sem "Sim". O chat escreve e segue, pelo conector GitHub da sua ferramenta; o agente Lovable só se não houver conector. Limite: um escritor de cada vez (#329) — com o agente a correr, a escrita R0 espera ou vai para comentário na Issue e passa ao QUADRO depois.
+- **R1 — código com testes, sem DDL nem dados.** UI, lógica, RPCs e vistas só de leitura, edge functions sem segredos novos. Ritual: reserva de uma linha em "Em execução agora" → uma única tarefa ao agente (plano e implementação no mesmo turno; suite vitest + tsc obrigatórios) → CI verde → fecho R0. Um "Sim" do Pedro, no despacho da tarefa, na sessão do executor. Sem "Sim" por passo, sem modo plano separado.
+- **R2 — irreversível.** DDL em Live, DML em dados de eventos, edge functions que alterem fluxos em produção ou segredos, crons, envios à Meta, campanhas e orçamento, pagamentos, OAuth, apagar dados. Ritual completo de D-ERP278: modo plano → "Sim" → implementação → verificação em Live por query própria → "Sim" por passo irreversível → fecho. DML: bloco SQL curto + "Corro?".
+
+Regras complementares:
+1. **Executor por defeito = frente dona do tema** (tabela tema→chat de docs/CHATS.md). O Pedro só designa quando há conflito, quando a demanda cruza frentes, ou quando quer outro executor. O campo "Executor atual" da Issue continua a existir e prevalece quando preenchido.
+2. **Publish em janela.** O 0 - Cowork reúne o que está verde em CI e pede um único "Sim" por janela (uma por dia, ou quando o Pedro pedir). As frentes não pedem Publish por demanda; registam "pronto para Publish" na linha do QUADRO. R2 que exija Publish imediato diz-o na Issue.
+3. **QUADRO leve.** "Tratados" e linhas com mais de 30 dias vão para docs/arquivo/QUADRO-tratados.md. O ritual de arranque lê docs/INDEX.md, "Em execução agora", a própria secção do QUADRO e o estado da frente; as Issues abertas lêem-se filtradas pelo módulo da frente.
+4. **Double-check é um.** Quem mede regista o predicado e a origem; quem revê confere o predicado, não mede de novo. Uma segunda medição só quando o predicado está errado ou em falta.
+5. Classificação: o chat que prepara a demanda indica a classe na Issue (R0/R1/R2). Dúvida entre R1 e R2 é R2. O Pedro pode reclassificar.
+
+**Não muda.** Agente Lovable único com `get_project` → `agentFinished = true` antes de cada tarefa; regra #329 (um escritor por projeto, HEAD confirmado); Gate CI verde antes de dispatch não corretivo e antes de Publish; nenhum segredo em chats, Issues ou documentos; scanner pré-Publish "Ignore issue"; conflito ou reserva abandonada volta ao Pedro; interruptor de Publish automático DESLIGADO (D-ERP278 ponto 8); D-ERP285 (chat 10); D-ERP278 ponto 10 (frente executora).
+
+**Porquê.** O custo do ritual único estava na documentação e nas passagens de mão, não na segurança: cada linha de quadro era um turno do agente partilhado, e uma correcção com testes seguia o mesmo caminho que uma migração. Evidência: a #336 levou 2 dias entre Issue e plano aprovado, com 5 commits do agente só de documentação e 0 de código nesse intervalo. R0 e R1 cobrem a maioria das demandas; R2 mantém o que protege a base e a produção.
+
+**Substitui.** D-ERP278 pontos 3 (designação sempre pelo Pedro), 4 (reserva e fecho só dentro de demanda autorizada, para R0) e 5 (Sim por sessão para toda a tarefa ao agente — passa a valer só para R2). Mantém o resto de D-ERP278.
