@@ -2,8 +2,11 @@
 
 ## Estado em Live (22/10/2026)
 - A (storage): INSTALADO.
-- B (core + approval + status): INSTALADO (inerte até C).
-- C: por planear (R2, Sim próprio).
+- B (core + approval + status): INSTALADO.
+- C (invariants + balance + cash_position + cash_position_invariant + restore): INSTALADO num único BEGIN…COMMIT, com Sim do Pedro, após prova BEGIN…ROLLBACK verde, incluindo ROLLBACK e md5/dono/ACL iguais à baseline (zero deriva).
+- Origem: query do 0·Cowork em Live, 22/10/2026, após COMMIT, comunicada pelo Pedro. Guarda A satisfeita pelos marcadores issue335-balance-v2l, issue335-cash-position-v2l e issue335-cash-position-invariant-v2l; transaction_offset_execute/reverse podem correr em Live (sem UI nova; 0 grupos; nenhum encontro real executado). Verificação completa na secção "Passo C instalado em Live (22/10/2026)" de `docs/testes/issue335-fases12-local.md`.
+- Sem Publish; types.ts por regenerar no próximo Publish; CI remoto NÃO VERIFICADO; sem reserva R2 aberta para C. Fora de A–C, por instalar com Sim próprio para cada um: kill_switch/emergency/reactivation e trigger_watch/cash_watch.
+- Pendentes: fases 3b/3c, #337, Bloco 8 (decisões), lacunas abaixo e Issue #341 (divergência estado/pagamentos em 163 transações). A instalação não fecha estas lacunas nem altera o histórico das provas locais abaixo.
 
 ## Pronto para pedir A–C: SIM (só localmente)
 Todos os pontos A–G foram reproduzidos e corrigidos, excepto as partes de C não reproduzidas (ver abaixo). Todas as execuções pedidas passaram, com resultados reais.

@@ -6924,3 +6924,22 @@ DDL de `supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql` aplic
 ## Passo B instalado em Live (22/10/2026)
 
 Núcleo + approval + status instalados em Live num único BEGIN…COMMIT. Verificação por query do 0·Cowork após COMMIT: md5(prosrc) das 14 funções iguais às do ficheiro local (issue335_guard c612e3a605fa45821147a9ab12864212); marcadores issue335-approval-v2l e issue335-status-v2l presentes; 7 triggers issue335_guard + 1 issue335_dispatch; 18 policies issue335*; papel issue335_executor sem super/login/bypassrls/inherit, única pertença postgres com set=false, inherit=false (admin implícito PG16); dono de issue335_worker = issue335_executor; transaction_offset_execute/reverse com EXECUTE só para authenticated e service_role; contagens inalteradas (transaction_payments 1463, transaction_offsets 7, bank_statement_lines 229, transactions 2022, grupos 0, itens 0); controlo (enabled, reverse_enabled = true). B INERTE até ao passo C (`installation_order: balance_candidate_required`). Sem Publish; types.ts por regenerar no próximo Publish. CI remoto NÃO VERIFICADO.
+
+## Passo C instalado em Live (22/10/2026)
+
+Facto comunicado pelo Pedro, verificado em Live por query do 0·Cowork a 22/10/2026 após COMMIT; este registo documental não executou nova consulta à BD.
+
+Passo C (invariants + balance + cash_position + cash_position_invariant + restore) INSTALADO em Live num único BEGIN…COMMIT, com Sim do Pedro, depois de prova BEGIN…ROLLBACK verde. A prova inclui execução dos ROLLBACK e comparação de md5/dono/ACL com a baseline: iguais, zero deriva.
+
+Verificação pós-COMMIT:
+- Marcadores `issue335-balance-v2l`, `issue335-cash-position-v2l` e `issue335-cash-position-invariant-v2l` presentes; guarda A do núcleo satisfeita.
+- Novas funções `issue335_invariant_counts` e `issue335_balance_invariant_count` só para postgres e service_role; ACL e dono das 6 funções substituídas inalterados.
+- 6 invariantes novas `encontro_*` em `system_invariants`: referência 0, severidade error, âmbito empresa; total 57 → 63. Todas a 0 e conformes.
+- `_run_invariant_checks_extra` com 16 linhas; 10 antigas sem diferença.
+- Hash dos saldos das 27 contas igual ao anterior: `e1799d10a53b0e5c0d0f51a4938be86a`; asof 01/10/2026: `99a478d7c52e33339dd2a2fa4a7074e4`.
+- Contagens inalteradas: transaction_payments 1463, transaction_offsets 7, bank_statement_lines 229, transactions 2022, grupos 0, itens 0.
+- 7 guard + 1 dispatch + 18 policies; controlo `enabled = true`, `reverse_enabled = true`.
+
+Efeito: A, B e C instalados; o núcleo deixa de recusar com `installation_order` e `transaction_offset_execute/reverse` passam a poder correr em Live. Sem UI nova; 0 grupos; nenhum encontro real executado em Live. O estado "B INERTE até C" da secção anterior descreve o momento anterior à instalação de C e fica superado por este registo.
+
+Sem Publish; types.ts por regenerar no próximo Publish; CI remoto NÃO VERIFICADO. Reserva R2 de C encerrada. Fora de A–C, cada um com Sim próprio e por instalar: kill_switch/emergency/reactivation e trigger_watch/cash_watch. Pendentes: fases 3b/3c, #337, Bloco 8 (decisões), lacunas registadas em `docs/testes/issue335-quadro-final.md` e Issue #341 (divergência estado/pagamentos em 163 transações). D-ERP292 existe em `docs/DECISIONS.md` e define os passos A/B/C; nenhuma decisão nova criada neste fecho.

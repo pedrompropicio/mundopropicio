@@ -26020,12 +26020,20 @@ export type Database = {
         Returns: boolean
       }
       is_settlement_staff: { Args: { _user: string }; Returns: boolean }
+      issue335_balance_invariant_count: { Args: never; Returns: number }
       issue335_camarim_leg: { Args: { p_tx: string }; Returns: boolean }
       issue335_context_valid: {
         Args: { p_operation?: string }
         Returns: boolean
       }
       issue335_group_visible: { Args: { _g: string }; Returns: boolean }
+      issue335_invariant_counts: {
+        Args: never
+        Returns: {
+          current_count: number
+          name: string
+        }[]
+      }
       issue335_lock_parents: {
         Args: { p_ids: string[]; p_table: string }
         Returns: undefined
