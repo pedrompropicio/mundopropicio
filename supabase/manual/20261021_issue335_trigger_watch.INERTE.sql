@@ -1,4 +1,5 @@
 -- INERTE / LOCAL ONLY. Additional candidate; separate Pedro Sim required.
+-- Ordem de instalação única (correcção D, docs/testes/issue335-quadro-final.md): storage → core → approval → status → invariants → balance → cash_position → cash_position_invariant → restore → kill_switch/emergency/reactivation → trigger_watch/cash_watch; ROLLBACK na ordem inversa.
 -- Allowlist: Live SELECT pg_trigger names captured 2026-10-21 22:43 UTC + #335 guards.
 -- Detects unlisted USER triggers, not hostile owner replacement of allowlisted bodies.
 -- DDL owner is the trusted computing base: can replace this watcher too.

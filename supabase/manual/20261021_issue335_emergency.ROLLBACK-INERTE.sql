@@ -1,4 +1,5 @@
 -- LOCAL/INERTE ONLY. #335 operational script `emergency_rollback`. Return from level 2 to level 1 (N2 -> N1); new admissions stay closed. Separate Sim required.
+-- Ordem de instalação única (correcção D, docs/testes/issue335-quadro-final.md): storage → core → approval → status → invariants → balance → cash_position → cash_position_invariant → restore → kill_switch/emergency/reactivation → trigger_watch/cash_watch; ROLLBACK na ordem inversa.
 -- 2n-Bloco3: origin-state guard. States: N0=(enabled,reverse_enabled)=(t,t); N1=(f,t); N2=(f,f).
 -- Accepted origin: N2 -> N1. Origin already N1: no change (idempotent, NOTICE).
 -- Any other origin (other level, (t,f) invalid, missing/extra control row) RAISES estado_origem_inesperado

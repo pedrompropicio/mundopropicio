@@ -28,8 +28,9 @@ def snapshot():
 
 before = snapshot()
 (out / 'before.json').write_text(json.dumps(before, indent=2, ensure_ascii=False))
-names = ['offset_group_storage', 'offset_core', 'offset_invariants', 'offset_balance', 'offset_approval',
-         'offset_kill_switch', 'cash_position', 'cash_position_invariant', 'restore']
+# Ordem única (correcção D); subconjunto 2k sem status/watchers.
+names = ['offset_group_storage', 'offset_core', 'offset_approval', 'status', 'offset_invariants', 'offset_balance',
+         'cash_position', 'cash_position_invariant', 'restore', 'offset_kill_switch']
 with c.cursor() as q:
     q.execute('SELECT rolsuper FROM pg_roles WHERE rolname=current_user')
     assert q.fetchone()[0] is False

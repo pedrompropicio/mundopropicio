@@ -1,4 +1,5 @@
 -- LOCAL/INERTE 2n-Bloco5 rollback: restores the offset_balance body of issue335_balance_invariant_count exactly.
+-- Ordem de instalação única (correcção D, docs/testes/issue335-quadro-final.md): storage → core → approval → status → invariants → balance → cash_position → cash_position_invariant → restore → kill_switch/emergency/reactivation → trigger_watch/cash_watch; ROLLBACK na ordem inversa.
 BEGIN;
 SET LOCAL lock_timeout='5s';
 CREATE OR REPLACE FUNCTION public.issue335_balance_invariant_count() RETURNS bigint

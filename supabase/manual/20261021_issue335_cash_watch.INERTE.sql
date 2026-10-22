@@ -1,4 +1,5 @@
 -- LOCAL/INERTE 2n-Bloco5 (M6). Separate Pedro Sim required; never installed in Live.
+-- Ordem de instalação única (correcção D, docs/testes/issue335-quadro-final.md): storage → core → approval → status → invariants → balance → cash_position → cash_position_invariant → restore → kill_switch/emergency/reactivation → trigger_watch/cash_watch; ROLLBACK na ordem inversa.
 -- Independent watch: compares encounter legs against the bank statement and against the encounter's
 -- own amounts. It never reads transactions.paid_amount, financial_accounts.initial_balance(_date),
 -- the "managed" set nor _account_true_balance*; so it cannot share a defect with the balance formula.

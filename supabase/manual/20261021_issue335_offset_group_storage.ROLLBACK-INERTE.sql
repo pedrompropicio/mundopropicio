@@ -1,4 +1,5 @@
 -- INERTE: only pristine zero-history restoration; managed history is never removed.
+-- Ordem de instalação única (correcção D, docs/testes/issue335-quadro-final.md): storage → core → approval → status → invariants → balance → cash_position → cash_position_invariant → restore → kill_switch/emergency/reactivation → trigger_watch/cash_watch; ROLLBACK na ordem inversa.
 BEGIN;
 SET LOCAL lock_timeout='5s';
 DO $$ BEGIN IF EXISTS(SELECT 1 FROM public.transaction_offset_groups) THEN RAISE EXCEPTION 'groups_exist_keep_guards'; END IF; IF to_regprocedure('public.issue335_dispatch()') IS NOT NULL OR to_regprocedure('public.issue335_invariant_counts()') IS NOT NULL THEN RAISE EXCEPTION 'rollback_order: invariants_core_before_storage'; END IF; END $$;
