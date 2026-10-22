@@ -316,25 +316,31 @@ export function BankLineOffsetModal({ line, accountName, onClose, onDone, servic
           {step === "preview" && (
             <div className="space-y-3">
               <p className="font-medium">4. Prévia</p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
+              <div>
+                <table className="w-full table-fixed text-xs" data-testid="preview-table">
+                  <colgroup>
+                    <col />
+                    <col className="w-[6.75rem]" />
+                    <col className="w-[6.75rem]" />
+                    <col className="w-[6.75rem]" />
+                  </colgroup>
                   <thead className="text-muted-foreground">
                     <tr>
-                      <th className="text-left">Documento</th>
-                      <th className="text-right">Em aberto</th>
-                      <th className="text-right">Dinheiro</th>
-                      <th className="text-right">Compensação</th>
+                      <th className="break-words px-1 text-left align-bottom">Documento</th>
+                      <th className="break-words px-1 text-right align-bottom">Em aberto</th>
+                      <th className="break-words px-1 text-right align-bottom">Dinheiro</th>
+                      <th className="break-words px-1 text-right align-bottom">Compensação</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(plan.ok ? plan.items : []).map((it) => (
-                      <tr key={it.document_id} data-testid="preview-row">
-                        <td className="truncate">
+                      <tr key={it.document_id} data-testid="preview-row" className="align-top">
+                        <td className="whitespace-normal break-words px-1 py-1">
                           {it.sign === "income" ? "Receita" : "Despesa"} · {byId.get(it.document_id)?.label}
                         </td>
-                        <td className="text-right font-mono">{formatEurCents(it.open_cents)}</td>
-                        <td className="text-right font-mono">{formatEurCents(it.cash_cents)}</td>
-                        <td className="text-right font-mono">{formatEurCents(it.offset_cents)}</td>
+                        <td className="whitespace-nowrap px-1 py-1 text-right font-mono">{formatEurCents(it.open_cents)}</td>
+                        <td className="whitespace-nowrap px-1 py-1 text-right font-mono">{formatEurCents(it.cash_cents)}</td>
+                        <td className="whitespace-nowrap px-1 py-1 text-right font-mono">{formatEurCents(it.offset_cents)}</td>
                       </tr>
                     ))}
                   </tbody>
