@@ -231,31 +231,40 @@ scen('(iii) estorno em voo aborta x nível 2', 'grupo continua applied byte-idê
      rk[0] == 'ok' and state() == 'N2' and applied_group(a) == g and no_partial(), snapshot() == snap)
 
 # (iv) dois activadores em simultâneo (barreira: detentor do fence exclusivo)
-def two_activators(first, second, expect_first, expect_second, final, label, origin='N0'):
+def two_activators(first, second, expect_first, expect_second, final, label, origin='N0', before=False):
     set_state(origin); snap = snapshot()
     gate = S[3]; sql(gate, 'RESET ROLE'); sql(gate, 'BEGIN'); sql(gate, 'SELECT pg_advisory_xact_lock(335,1)')
     o2 = conn('postgres', 'i335_b3_ops2')
-    f1 = pool.submit(run_script, ops, first); blocked(ops.get_backend_pid(), gate.get_backend_pid())
-    f2 = pool.submit(run_script, o2, second); blocked(o2.get_backend_pid(), gate.get_backend_pid())
+    f1 = pool.submit(run_script, ops, first, before); blocked(ops.get_backend_pid(), gate.get_backend_pid())
+    f2 = pool.submit(run_script, o2, second, before); blocked(o2.get_backend_pid(), gate.get_backend_pid())
     blocked(o2.get_backend_pid(), ops.get_backend_pid())   # ordem de fila determinística: first à frente de second
     sql(gate, 'COMMIT'); sql(gate, 'SET ROLE authenticated')
     r1, r2 = f1.result(15), f2.result(15); o2.close()
     got = (r1[0] if r1[0] == 'ok' else r1[1].split(':')[0], r2[0] if r2[0] == 'ok' else r2[1].split(':')[0], state())
+    if before:
+        report['concurrency'].append(dict(cenario='ANTES '+label, obtido=got)); print('ANTES', label, got); return
     scen(label, (expect_first, expect_second, final), got, got == (expect_first, expect_second, final), snapshot() == snap)
+for args in ((KS, EM, 'nível 1 depois nível 2'), (EM, KS, 'nível 2 depois nível 1'), (EMR, KSR, 'regresso N2->N1 e reabertura N1->N0 em simultâneo'), (KSR, EMR, 'reabertura N1->N0 e regresso N2->N1 em simultâneo')):
+    two_activators(args[0], args[1], None, None, None, '(iv) '+args[2], origin='N2' if args[0] == EMR else ('N1' if args[0] == KSR else 'N0'), before=True)
+two_activators(EMR, KSR, 'ok', 'ok', 'N0', '(iv) regresso N2->N1 depois reabertura N1->N0 (sequência legítima)', origin='N2')
+two_activators(KSR, EMR, 'ok', 'estado_origem_inesperado', 'N0', '(iv) reabertura N1->N0 depois regresso N2->N1 (recusado: origem N0)', origin='N1')
 two_activators(KS, KS, 'ok', 'ok', 'N1', '(iv) dois níveis 1 em simultâneo (segundo idempotente)')
 two_activators(KS, EM, 'ok', 'ok', 'N2', '(iv) nível 1 depois nível 2')
 two_activators(EM, KS, 'ok', 'estado_origem_inesperado', 'N2', '(iv) nível 2 depois nível 1 (recusado, fica N2)')
 two_activators(EM, EM, 'ok', 'ok', 'N2', '(iv) dois níveis 2 em simultâneo')
 
 # (v) activação durante reactivação
-def during_reactivation(origin, act, finish, final, expect_act, label):
+def during_reactivation(origin, act, finish, final, expect_act, label, before=False):
     set_state(origin); snap = snapshot()
-    body = script(RE).replace('BEGIN;', '', 1).replace('COMMIT;', '')
+    body = script(RE, before).replace('BEGIN;', '', 1).replace('COMMIT;', '')
     holder = conn('postgres', 'i335_b3_holder'); sql(holder, 'BEGIN'); sql(holder, body)
-    f = pool.submit(run_script, ops, act); blocked(ops.get_backend_pid(), holder.get_backend_pid())
+    f = pool.submit(run_script, ops, act, before); blocked(ops.get_backend_pid(), holder.get_backend_pid())
     sql(holder, finish); holder.close(); r = f.result(15)
     got = (r[0] if r[0] == 'ok' else r[1].split(':')[0], state())
+    if before:
+        report['concurrency'].append(dict(cenario='ANTES '+label, obtido=got)); print('ANTES', label, got); return
     scen(label, (expect_act, final), got, got == (expect_act, final) and no_partial(), snapshot() == snap)
+during_reactivation('N2', KS, 'ROLLBACK', None, None, '(v) nível 1 durante reactivação abortada', before=True)
 during_reactivation('N2', KS, 'COMMIT', 'N1', 'ok', '(v) nível 1 durante reactivação N2->N0 (commit): N0->N1')
 during_reactivation('N1', EM, 'COMMIT', 'N2', 'ok', '(v) nível 2 durante reactivação N1->N0 (commit): N0->N2')
 during_reactivation('N2', KS, 'ROLLBACK', 'N2', 'estado_origem_inesperado', '(v) nível 1 durante reactivação abortada: origem N2 recusada, fica N2')
