@@ -6911,5 +6911,8 @@ Diff contra `a073a8466^`: só `docs/QUADRO.md`, este relatório e `src/lib/offse
 Importadores de `transaction-offset-plan` (só leitura): `src/lib/transaction-offset-plan.test.ts:2`.
 Lido: AGENTS.md, docs/QUADRO.md, ficheiros acima. Não lido: restantes. Reserva "#335 fase 3a" mantida. CI remoto não verificado.
 
-## Fecho (fase local/inerte, 22/10/2026)
-HEAD bb0e645a2. Suite 22/22 PASS exit 0; runner E FECHADO 202/0/0; rollback 14 pares differences={}, SHA 474947e2…2af1a1; vitest 1986 PASS exit 0; tsgo 0. CI remoto NÃO VERIFICADO. Pronto para pedir A–C: NÃO (owner-trigger OPEN, guardas de rollback em falta em approval/cash_position, ordem approval divergente, decisões Bloco 8). Detalhe: docs/testes/issue335-quadro-final.md.
+## Fecho (fase local/inerte, 22/10/2026 — revisto após a correcção inerte)
+Os achados A–G da revisão independente foram reproduzidos primeiro e depois corrigidos (phase2o-corr: antes 19 FAIL, depois 27/27 PASS). Na parte "grupos vivos" de C, status, balance, core e storage não se reproduziram, porque já tinham a guarda.
+Estado final: suite 22/22 PASS; runner E PASS; 14 pares de rollback com differences={} (SHA 474947e2…2af1a1); vitest 1986 PASS; tsgo rc=0.
+Pronto para pedir A–C: sim, só localmente. O CI remoto está NÃO VERIFICADO e as lacunas ficam abertas.
+Detalhe, manifesto e lacunas: `docs/testes/issue335-quadro-final.md`. Âmbito: só supabase/manual/20261021_issue335_*.sql, supabase/tests/issue335/** e docs/.

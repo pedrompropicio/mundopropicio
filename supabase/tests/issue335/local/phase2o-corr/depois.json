@@ -1,0 +1,141 @@
+{
+ "manual_dir": "/dev-server/supabase/manual",
+ "results": [
+  {
+   "test": "B offset_approval sem storage",
+   "result": "PASS",
+   "detail": "esperado \"installation_order: storage_required\"; obtido 'installation_order: storage_required'; catálogo intacto=True"
+  },
+  {
+   "test": "B status sem storage",
+   "result": "PASS",
+   "detail": "esperado \"installation_order: storage_required\"; obtido 'installation_order: storage_required'; catálogo intacto=True"
+  },
+  {
+   "test": "B cash_position sem storage",
+   "result": "PASS",
+   "detail": "esperado \"installation_order: storage_required\"; obtido 'installation_order: storage_required'; catálogo intacto=True"
+  },
+  {
+   "test": "B offset_approval sem core",
+   "result": "PASS",
+   "detail": "esperado \"installation_order: core_required\"; obtido 'installation_order: core_required'; catálogo intacto=True"
+  },
+  {
+   "test": "A execute sem offset_balance",
+   "result": "PASS",
+   "detail": "esperado \"installation_order: balance_candidate_required\"; obtido 'installation_order: balance_candidate_required'"
+  },
+  {
+   "test": "A execute sem cash_position",
+   "result": "PASS",
+   "detail": "esperado \"installation_order: cash_position_candidate_required\"; obtido 'installation_order: cash_position_candidate_required'"
+  },
+  {
+   "test": "A execute sem cash_position_invariant",
+   "result": "PASS",
+   "detail": "esperado \"installation_order: cash_position_invariant_candidate_required\"; obtido 'installation_order: cash_position_invariant_candidate_required'"
+  },
+  {
+   "test": "A execute com todos os candidatos",
+   "result": "PASS",
+   "detail": "erro=None"
+  },
+  {
+   "test": "C approval.ROLLBACK com status instalado",
+   "result": "PASS",
+   "detail": "esperado \"rollback_order: status_first\"; obtido 'rollback_order: status_first'; catálogo intacto=True"
+  },
+  {
+   "test": "C cash_position.ROLLBACK com invariante instalado",
+   "result": "PASS",
+   "detail": "esperado \"rollback_order: cash_position_invariant_first\"; obtido 'rollback_order: cash_position_invariant_first'; catálogo intacto=True"
+  },
+  {
+   "test": "C offset_balance.ROLLBACK com cash_watch instalado",
+   "result": "PASS",
+   "detail": "esperado \"rollback_order: cash_watch_first\"; obtido 'rollback_order: cash_watch_first'; catálogo intacto=True"
+  },
+  {
+   "test": "G parcial: retirados até core, balance mantido; storage.ROLLBACK com consumidores",
+   "result": "PASS",
+   "detail": "esperado \"rollback_order: consumers_installed\"; obtido 'rollback_order: consumers_installed'; catálogo intacto=True"
+  },
+  {
+   "test": "E par legado 50 adoptado (P2 ordem 3: dinheiro 100, compensação 50)",
+   "result": "PASS",
+   "detail": "erro=None"
+  },
+  {
+   "test": "E par ligado ao grupo e alocação por ordem inteira",
+   "result": "PASS",
+   "detail": "offset_group=5c9935a7-f9ca-48cd-8a61-fb41ebfe1ed0 itens=[(0, Decimal('0.00'), Decimal('10.00')), (0, Decimal('0.00'), Decimal('120.00')), (3, Decimal('100.00'), Decimal('50.00')), (12, Decimal('0.00'), Decimal('80.00'))]"
+  },
+  {
+   "test": "F staff sem can_see_confidential não lê item confidencial",
+   "result": "PASS",
+   "detail": "itens=[(0,)] erro=None"
+  },
+  {
+   "test": "F staff sem can_see_confidential não lê grupo com item confidencial",
+   "result": "PASS",
+   "detail": "grupos=[(0,)] erro=None"
+  },
+  {
+   "test": "F com permissão lê itens e grupo",
+   "result": "PASS",
+   "detail": "itens=[(4,)] grupos=[(1,)]"
+  },
+  {
+   "test": "F staff sem permissão continua a ler itens não confidenciais",
+   "result": "PASS",
+   "detail": "itens=[(3,)] erro=None"
+  },
+  {
+   "test": "F staff sem can_see_confidential não lê grupo de conta restrita",
+   "result": "PASS",
+   "detail": "grupos=[(0,)] erro=None"
+  },
+  {
+   "test": "F com permissão lê grupo de conta restrita",
+   "result": "PASS",
+   "detail": "grupos=[(1,)] erro=None"
+  },
+  {
+   "test": "G offset_approval.ROLLBACK com grupos vivos",
+   "result": "PASS",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido 'groups_exist_keep_guards'; catálogo intacto=True"
+  },
+  {
+   "test": "G cash_position.ROLLBACK com grupos vivos",
+   "result": "PASS",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido 'groups_exist_keep_guards'; catálogo intacto=True"
+  },
+  {
+   "test": "G cash_position_invariant.ROLLBACK com grupos vivos",
+   "result": "PASS",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido 'groups_exist_keep_guards'; catálogo intacto=True"
+  },
+  {
+   "test": "G status.ROLLBACK com grupos vivos",
+   "result": "PASS",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido 'groups_exist_keep_guards'; catálogo intacto=True"
+  },
+  {
+   "test": "G offset_balance.ROLLBACK com grupos vivos",
+   "result": "PASS",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido 'groups_exist_keep_guards'; catálogo intacto=True"
+  },
+  {
+   "test": "G offset_core.ROLLBACK com grupos vivos",
+   "result": "PASS",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido 'groups_exist_keep_guards'; catálogo intacto=True"
+  },
+  {
+   "test": "G offset_group_storage.ROLLBACK com grupos vivos",
+   "result": "PASS",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido 'groups_exist_keep_guards'; catálogo intacto=True"
+  }
+ ],
+ "fails": 0
+}

@@ -1,5 +1,5 @@
 -- LOCAL/INERTE SEPARATE APPROVAL CANDIDATE. Instalado pelos runners locais (phase2h-install); nunca em Live sem Sim.
--- Ordem de instalação (D): storage → core → approval → status → invariants → balance → cash_position → cash_position_invariant → restore → kill_switch/emergency/reactivation → trigger_watch/cash_watch; rollback na inversa.
+-- Ordem de instalação única (correcção D, docs/testes/issue335-quadro-final.md): storage → core → approval → status → invariants → balance → cash_position → cash_position_invariant → restore → kill_switch/emergency/reactivation → trigger_watch/cash_watch; ROLLBACK na ordem inversa.
 BEGIN;
 SET LOCAL lock_timeout='5s';
 DO $$ BEGIN

@@ -17,7 +17,8 @@ for f in stub.sql live/dependencies.sql live/functions.sql live/triggers.sql liv
 "${A[@]}" -f "$S/live/phase2d-role.sql"
 python3 "$S/phase2f-diff.py" "${P[@]}"
 "${P[@]}" -c "DO \$\$ BEGIN IF (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) THEN RAISE EXCEPTION 'superuser deploy'; END IF; END \$\$;"
-for f in group_storage core invariants balance; do "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_$f.INERTE.sql" >/dev/null; done
+# Ordem única (correcção D)
+for f in offset_group_storage offset_core offset_approval status offset_invariants offset_balance cash_position cash_position_invariant; do "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_$f.INERTE.sql" >/dev/null; done
 "${A[@]}" -f "$S/phase2f-negative.sql"
 python3 "$S/phase2f-concurrency.py" "$D" 55445 "$ROOT"
 "${A[@]}" -q -v root="$ROOT" -f "$S/phase2g-approval.sql"

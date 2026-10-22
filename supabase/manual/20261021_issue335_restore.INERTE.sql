@@ -1,4 +1,5 @@
 -- LOCAL/INERTE 2k. Separate Sim required; never installed in Live.
+-- Ordem de instalação única (correcção D, docs/testes/issue335-quadro-final.md): storage → core → approval → status → invariants → balance → cash_position → cash_position_invariant → restore → kill_switch/emergency/reactivation → trigger_watch/cash_watch; ROLLBACK na ordem inversa.
 BEGIN;
 SET LOCAL lock_timeout='5s';
 CREATE OR REPLACE FUNCTION public.restore_apply_from_shadow(p_scope text, p_company_id uuid, p_tables text[], p_extra_deletes jsonb DEFAULT '{}'::jsonb)

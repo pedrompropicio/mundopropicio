@@ -1,4 +1,5 @@
 -- INERTE: LOCAL ONLY. Never automatically apply or place in migrations.
+-- Ordem de instalação única (correcção D, docs/testes/issue335-quadro-final.md): storage → core → approval → status → invariants → balance → cash_position → cash_position_invariant → restore → kill_switch/emergency/reactivation → trigger_watch/cash_watch; ROLLBACK na ordem inversa.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 CREATE TABLE IF NOT EXISTS public.transaction_offset_groups (
@@ -63,6 +64,26 @@ CREATE POLICY offset_items_staff ON public.transaction_offset_items FOR SELECT T
 DROP POLICY IF EXISTS offset_items_writer ON public.transaction_offset_items;
 DROP POLICY IF EXISTS offset_items_company ON public.transaction_offset_items;
 CREATE POLICY offset_items_company ON public.transaction_offset_items AS RESTRICTIVE FOR ALL TO authenticated USING(company_id=public.current_company_id()) WITH CHECK(company_id=public.current_company_id());
+-- Correcção F: leitura replica transactions_confidential_guard
+-- (supabase/migrations/20260911000848_829d57de-eff8-4584-96e2-db36cc0888fa.sql:48-60).
+CREATE OR REPLACE FUNCTION public.issue335_tx_visible(_tx uuid) RETURNS boolean
+ LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS $f$
+ SELECT public.can_see_confidential(auth.uid()) OR EXISTS(SELECT 1 FROM public.transactions t WHERE t.id=_tx
+  AND COALESCE(t.is_confidential,false)=false
+  AND (t.account_id IS NULL OR NOT EXISTS(SELECT 1 FROM public.financial_accounts a WHERE a.id=t.account_id AND a.is_restricted)))
+$f$;
+CREATE OR REPLACE FUNCTION public.issue335_group_visible(_g uuid) RETURNS boolean
+ LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS $f$
+ SELECT public.can_see_confidential(auth.uid()) OR (
+  NOT EXISTS(SELECT 1 FROM public.transaction_offset_groups g JOIN public.financial_accounts a ON a.id=g.account_id WHERE g.id=_g AND a.is_restricted)
+  AND NOT EXISTS(SELECT 1 FROM public.transaction_offset_items i WHERE i.group_id=_g AND NOT public.issue335_tx_visible(i.transaction_id)))
+$f$;
+REVOKE ALL ON FUNCTION public.issue335_tx_visible(uuid), public.issue335_group_visible(uuid) FROM PUBLIC, anon, sandbox_exec, sandbox_exec_sfohvvlqccmmebvjgibx;
+GRANT EXECUTE ON FUNCTION public.issue335_tx_visible(uuid), public.issue335_group_visible(uuid) TO authenticated, service_role;
+DROP POLICY IF EXISTS offset_items_confidential ON public.transaction_offset_items;
+CREATE POLICY offset_items_confidential ON public.transaction_offset_items AS RESTRICTIVE FOR SELECT TO authenticated USING(public.issue335_tx_visible(transaction_id));
+DROP POLICY IF EXISTS offset_groups_confidential ON public.transaction_offset_groups;
+CREATE POLICY offset_groups_confidential ON public.transaction_offset_groups AS RESTRICTIVE FOR SELECT TO authenticated USING(public.issue335_group_visible(id));
 ALTER TABLE public.transaction_payments ADD COLUMN IF NOT EXISTS offset_group_id uuid REFERENCES public.transaction_offset_groups(id) ON DELETE RESTRICT;
 ALTER TABLE public.transaction_payments ADD COLUMN IF NOT EXISTS offset_item_id uuid;
 DO $$ BEGIN

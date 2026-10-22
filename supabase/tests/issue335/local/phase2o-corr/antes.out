@@ -1,0 +1,28 @@
+FAIL B offset_approval sem storage :: esperado "installation_order: storage_required"; obtido None; catálogo intacto=True
+FAIL B status sem storage :: esperado "installation_order: storage_required"; obtido 'installation_order: approval_before_status'; catálogo intacto=True
+FAIL B cash_position sem storage :: esperado "installation_order: storage_required"; obtido None; catálogo intacto=True
+FAIL B offset_approval sem core :: esperado "installation_order: core_required"; obtido None; catálogo intacto=True
+FAIL A execute sem offset_balance :: esperado "installation_order: balance_candidate_required"; obtido None
+FAIL A execute sem cash_position :: esperado "installation_order: cash_position_candidate_required"; obtido None
+FAIL A execute sem cash_position_invariant :: esperado "installation_order: cash_position_invariant_candidate_required"; obtido None
+PASS A execute com todos os candidatos :: erro=None
+FAIL C approval.ROLLBACK com status instalado :: esperado "rollback_order: status_first"; obtido None; catálogo intacto=True
+FAIL C cash_position.ROLLBACK com invariante instalado :: esperado "rollback_order: cash_position_invariant_first"; obtido None; catálogo intacto=True
+FAIL C offset_balance.ROLLBACK com cash_watch instalado :: esperado "rollback_order: cash_watch_first"; obtido None; catálogo intacto=True
+FAIL G parcial: retirados até core, balance mantido; storage.ROLLBACK com consumidores :: esperado "rollback_order: consumers_installed"; obtido None; catálogo intacto=True
+FAIL E par legado 50 adoptado (P2 ordem 3: dinheiro 100, compensação 50) :: erro='legacy_offset_amount_mismatch'
+PASS G/F grupo real alternativo criado pelo core :: erro=None
+FAIL F staff sem can_see_confidential não lê item confidencial :: itens=[(1,)] erro=None
+FAIL F staff sem can_see_confidential não lê grupo com item confidencial :: grupos=[(1,)] erro=None
+PASS F com permissão lê itens e grupo :: itens=[(2,)] grupos=[(1,)]
+FAIL F staff sem permissão continua a ler itens não confidenciais :: itens=[(2,)] erro=None
+FAIL F staff sem can_see_confidential não lê grupo de conta restrita :: grupos=[(1,)] erro=None
+PASS F com permissão lê grupo de conta restrita :: grupos=[(1,)] erro=None
+FAIL G offset_approval.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido None; catálogo intacto=True
+FAIL G cash_position.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido None; catálogo intacto=True
+FAIL G cash_position_invariant.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido None; catálogo intacto=True
+PASS G status.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido 'groups_exist_keep_guards'; catálogo intacto=True
+PASS G offset_balance.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido 'groups_exist_keep_guards'; catálogo intacto=True
+PASS G offset_core.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido 'groups_exist_keep_guards'; catálogo intacto=True
+PASS G offset_group_storage.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido 'groups_exist_keep_guards'; catálogo intacto=True
+TOTAL 27 PASS 8 FAIL 19
