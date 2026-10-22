@@ -48,10 +48,31 @@ export const OFFSET_ERROR_CODES = [
   "document_values_not_editable",
   "invalid_movement",
   "amount_mismatch",
+  // Restantes códigos levantados por supabase/manual/20261021_issue335_offset_core.INERTE.sql
+  "duplicate_item",
+  "executor_role_exists_requires_review",
+  "group_ledger_divergent",
+  "invalid_amount",
+  "invalid_item",
+  "invalid_kind",
+  "invalid_mode_sign",
+  "invalid_operation",
+  "invalid_request",
+  "legacy_offset_amount_mismatch",
+  "legacy_offset_requires_review",
+  "managed_bank_anchor_immutable",
+  "no_supplier",
+  "paid_ledger_divergent",
+  "payment_not_found",
+  "payment_not_paid",
+  "request_incomplete",
+  "supplier_not_found",
+  "transaction_not_found",
 ] as const;
 
 export type OffsetErrorCode = (typeof OFFSET_ERROR_CODES)[number];
 
+/** Mapa mantido ao lado de supabase/manual/20261021_issue335_offset_core.INERTE.sql (fonte dos códigos). */
 export const OFFSET_ERROR_MESSAGES: Record<OffsetErrorCode, string> = {
   encontro_desativado: "Encontros de contas estão temporariamente desativados.",
   encontro_em_conflito:
@@ -91,13 +112,47 @@ export const OFFSET_ERROR_MESSAGES: Record<OffsetErrorCode, string> = {
   document_values_not_editable: "Os valores deste documento não podem ser alterados.",
   invalid_movement: "O movimento tem de ter valor superior a zero.",
   amount_mismatch: "O total dos documentos não corresponde ao movimento.",
+  duplicate_item: "O mesmo documento foi escolhido mais de uma vez.",
+  executor_role_exists_requires_review: "Erro interno de instalação. Contacte o suporte.",
+  group_ledger_divergent:
+    "Os registos deste encontro estão divergentes. Contacte o suporte antes de continuar.",
+  invalid_amount: "Valor inválido no pedido. Recomece a operação.",
+  invalid_item: "Item inválido no pedido. Recomece a operação.",
+  invalid_kind: "Tipo de documento inválido. Recomece a operação.",
+  invalid_mode_sign: "Um documento está com o sinal errado para o movimento. Recarregue a prévia.",
+  invalid_operation: "Operação inválida. Recomece a operação.",
+  invalid_request: "Pedido inválido. Recomece a operação.",
+  legacy_offset_amount_mismatch:
+    "A compensação antiga deste documento não bate com o valor; precisa de revisão.",
+  legacy_offset_requires_review: "A compensação antiga deste documento precisa de revisão.",
+  managed_bank_anchor_immutable:
+    "A linha do banco deste encontro não pode ser alterada; estorne o encontro inteiro.",
+  no_supplier: "Escolha a entidade (fornecedor/cliente) do encontro.",
+  paid_ledger_divergent:
+    "Os pagamentos deste documento não batem com o valor pago; corrija antes.",
+  payment_not_found: "Pagamento não encontrado.",
+  payment_not_paid: "Este pagamento não está liquidado.",
+  request_incomplete: "Pedido incompleto. Recomece a operação.",
+  supplier_not_found: "Entidade não encontrada.",
+  transaction_not_found: "Transação não encontrada.",
 };
 
+/**
+ * Extrai o código de uma mensagem do núcleo ("code: detalhe" ou "code").
+ * Devolve o primeiro token em minúsculas/underscore; se nada reconhecível, null.
+ */
+export function parseOffsetErrorCode(message: string | null | undefined): string | null {
+  if (!message) return null;
+  const m = /^\s*([a-z][a-z0-9_]*)\s*(?::|$)/.exec(message);
+  return m ? m[1] : null;
+}
+
 /** Mensagem pt-PT para um código do núcleo; código desconhecido -> genérica com o código. */
-export function offsetErrorMessage(code: string): string {
+export function offsetErrorMessage(codeOrMessage: string): string {
+  const code = parseOffsetErrorCode(codeOrMessage) ?? codeOrMessage;
   return (
     (OFFSET_ERROR_MESSAGES as Record<string, string>)[code] ??
-    `Erro inesperado (${code}). Recomece a operação.`
+    `Erro inesperado (${codeOrMessage}). Recomece a operação.`
   );
 }
 
