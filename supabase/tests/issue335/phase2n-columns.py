@@ -223,6 +223,8 @@ def effects(group):
                 if row['id']==uid(20) and outcome=='allowed':
                     assert row[col]!=old[col]
                     row[col]=old[col];row['updated_at']=old['updated_at']
+            if normalized!=original:
+                (out.parent/'effects-failure.json').write_text(json.dumps({'column':col,'role':role,'before':original,'after':normalized},default=str,indent=2)+'\n')
             assert normalized==original, (col,'financial effect detected')
             actor(installed,ADMIN);execute(installed,'SET LOCAL ROLE authenticated')
             execute(installed,"SELECT transaction_offset_reverse(%s,%s,'LOCAL E parity reverse')",(group,uid(90)))
