@@ -45,7 +45,16 @@ function pdfText(mode: "detailed" | "totalOnly" | undefined) {
   const doc = buildPartnerStatementDoc({ ...input, expenseColumns: mode });
   const pdf = buildStatementPdf(doc);
   const pages = (pdf as any).internal.pages as string[];
-  return { doc, text: pages.join("\n") };
+  return { doc, text: normalizePdf(pages.join("\n")) };
+}
+
+/** Desfaz os escapes do PDF (\( \)) e normaliza NBSP/símbolo do euro. */
+function normalizePdf(s: string) {
+  return s
+    .replace(/\\\(/g, "(")
+    .replace(/\\\)/g, ")")
+    .replace(/ /g, " ")
+    .replace(/€/g, "");
 }
 
 describe("(g18 · #342) documento do sócio — colunas das despesas", () => {
