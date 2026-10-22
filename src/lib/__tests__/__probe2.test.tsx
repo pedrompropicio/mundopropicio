@@ -11,8 +11,8 @@ it("probe2", () => {
   });
   const pages = (buildStatementPdf(doc) as any).internal.pages as string[];
   const t = pages.join("\n");
-  const i = t.indexOf("475");
+  const i = t.indexOf("000,00");
   console.log(JSON.stringify(t.slice(i - 60, i + 40)));
-  const j = t.indexOf("RECEITAS");
+  const j = t.indexOf("369");
   console.log(JSON.stringify(t.slice(j - 40, j + 40)));
 });
