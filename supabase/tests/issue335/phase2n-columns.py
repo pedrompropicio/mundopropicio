@@ -192,8 +192,8 @@ def digest(data):
 
 def effects(group):
     evidence=[]
-    for role,user in ACTORS.items():
-        for col in ['description','date','due_date','category_id','cache_role','operation_key','invoice_group_id']:
+    for role,user in {**ACTORS, 'authorized_admin': ADMIN}.items():
+        for col in (['is_confidential'] if role == 'authorized_admin' else ['description','date','due_date','category_id','cache_role','operation_key','invoice_group_id']):
             actor(installed,ADMIN)
             execute(installed,'BEGIN')
             before=financial_snapshot(installed,group)
@@ -206,7 +206,7 @@ def effects(group):
             execute(installed,"SELECT set_config('request.jwt.claim.sub',%s,true)",(user,))
             execute(installed,'SET LOCAL ROLE authenticated')
             execute(installed,'SAVEPOINT mutation')
-            val=value(installed,'transactions',col,'date' if col in ('date','due_date') else 'text',uid(20))
+            val=value(installed,'transactions',col,'bool' if col=='is_confidential' else 'date' if col in ('date','due_date') else 'text',uid(20))
             try:
                 execute(installed,sql.SQL('UPDATE transactions SET {}=%s WHERE id=%s').format(sql.Identifier(col)),(val,uid(20)))
                 outcome='allowed'
@@ -240,10 +240,15 @@ def effects(group):
             execute(installed,'ROLLBACK')
     return evidence
 
-def probe(c, table, col, val, user, row_id, op='UPDATE'):
+def probe(c, table, col, val, user, row_id, op='UPDATE', integral=False):
     actor(c, user)
     execute(c, 'BEGIN')
     before = snapshot(c, table, row_id)
+    if integral:
+        actor(c, ADMIN)
+        full_before = financial_snapshot(c, None) if c is installed else legacy_snapshot(c)
+        actor(c, user)
+        execute(c, 'SAVEPOINT full_probe')
     execute(c, 'SET LOCAL ROLE authenticated')
     try:
         if op == 'UPDATE':
@@ -265,11 +270,100 @@ def probe(c, table, col, val, user, row_id, op='UPDATE'):
         lookup_id = val if op == 'UPDATE' and col == 'id' else row_id if op == 'UPDATE' or table=='transactions' else uid(70)
         after = None if op == 'DELETE' else snapshot(c, table, lookup_id)
         changed = [] if after is None else [k for k in before if before[k] != after.get(k)]
-        return {'state': '00000' if n == 1 else 'ROW_FILTERED', 'origin': 'permitido' if n == 1 else 'RLS linha não atingida', 'message': '', 'rowcount': n, 'changed': changed, 'effective': after}
+        result = {'state': '00000' if n == 1 else 'ROW_FILTERED', 'origin': 'permitido' if n == 1 else 'RLS linha não atingida', 'message': '', 'rowcount': n, 'changed': changed, 'effective': after}
+        if integral:
+            actor(c, ADMIN)
+            result.update(before=full_before, after=financial_snapshot(c,None) if c is installed else legacy_snapshot(c))
+        return result
     except psycopg2.Error as e:
-        return {'state': e.pgcode, 'origin': origin(e), 'message': e.diag.message_primary, 'context': e.diag.context, 'constraint': e.diag.constraint_name, 'rowcount': 0}
+        result = {'state': e.pgcode, 'origin': origin(e), 'message': e.diag.message_primary, 'context': e.diag.context, 'constraint': e.diag.constraint_name, 'rowcount': 0}
+        if integral:
+            execute(c,'ROLLBACK TO SAVEPOINT full_probe'); execute(c,'RESET ROLE'); actor(c,ADMIN)
+            after = financial_snapshot(c,None) if c is installed else legacy_snapshot(c)
+            assert full_before == after, 'refused statement changed integral snapshot'
+            result.update(before=full_before, after=after, before_hash=digest(full_before), after_hash=digest(after))
+        return result
     finally:
         execute(c, 'ROLLBACK')
+
+def legacy_snapshot(c):
+    result={}
+    for table in ['transactions','transaction_payments','transaction_offsets','bank_statement_lines','bank_line_transactions']:
+        result[table]=[r[0] for r in execute(c,sql.SQL('SELECT to_jsonb(t) FROM public.{} t ORDER BY id').format(sql.Identifier(table)))]
+    result['balances']=execute(c,'SELECT id::text,account_true_balance(id) FROM financial_accounts ORDER BY id')
+    return result
+
+def closing_evidence():
+    """Positive catalog predicates and real partial->fully-covered RPC path; no ACL changes."""
+    evidence={'confidential':{},'payment_status':{}}
+    policies=[]
+    for c in (baseline,installed):
+        policy=execute(c,"SELECT policyname,permissive,roles,cmd,qual,with_check FROM pg_policies WHERE schemaname='public' AND tablename='transactions' AND policyname='transactions_confidential_guard'")
+        assert len(policy)==1 and policy[0][1:4]==('RESTRICTIVE',['authenticated'],'SELECT')
+        assert 'can_see_confidential' in policy[0][4] and 'is_confidential' in policy[0][4]
+        policies.append(policy)
+    assert policies[0]==policies[1]
+    authorized=[]
+    for c in (baseline,installed):
+        result=probe(c,'transactions','is_confidential',True,ADMIN,uid(20),integral=True)
+        assert result['state']=='00000' and result['effective']['is_confidential'] is True
+        assert 'is_confidential' in result['changed']
+        authorized.append(result)
+    evidence['confidential']['authorized_admin_parity']=authorized
+    constraints=execute(installed,"SELECT conname,pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='public.transaction_offset_items'::regclass AND contype='c' AND conname='transaction_offset_items_check'")
+    assert constraints==[('transaction_offset_items_check','CHECK (((cash_amount + compensation_amount) = open_amount))')]
+    evidence['payment_status']['coverage_constraint']=constraints
+    for role,user in ACTORS.items():
+        predicates=[]
+        for c in (baseline,installed):
+            actor(c,user);execute(c,'BEGIN');execute(c,'SET LOCAL ROLE authenticated')
+            predicate=execute(c,"SELECT auth.uid()::text, can_see_confidential(auth.uid()), can_see_confidential(auth.uid()) OR (COALESCE(true,false)=false AND true)")[0]
+            assert predicate==(user,False,False), (role,'confidential policy did not reject proposed true')
+            predicates.append(predicate);execute(c,'ROLLBACK')
+        evidence['confidential'][role]={'policy_before':policies[0],'policy_after':policies[1], 'proposed_true_predicates':predicates,
+            'baseline_refusal':probe(baseline,'transactions','is_confidential',True,user,uid(20),integral=True),
+            'group_refusal':probe(installed,'transactions','is_confidential',True,user,uid(20),integral=True)}
+        assert evidence['confidential'][role]['baseline_refusal']['state']=='42501'
+        assert evidence['confidential'][role]['group_refusal']['state']=='42501'
+    for c in (baseline,installed):
+        actor(c,ADMIN);execute(c,'BEGIN')
+        for n,kind,amount in [(81,'income',100),(82,'expense',40)]:
+            execute(c,"INSERT INTO transactions(id,company_id,type,status,description,amount,iva_rate,date,supplier_id,event_id,account_id,payment_method) VALUES(%s,%s,%s,'approved','LOCAL 6c partial origin',%s,0,'2026-10-13','00000000-0000-0000-0000-000000000020',%s,'00000000-0000-0000-0000-000000000030','transfer')",(uid(n),COMPANY,kind,amount,uid(2)))
+        execute(c,"INSERT INTO transaction_payments(id,transaction_id,company_id,amount,payment_date,account_id,payment_method) VALUES(%s,%s,%s,10,'2026-10-13','00000000-0000-0000-0000-000000000030','transfer')",(uid(83),uid(81),COMPANY))
+        partial=snapshot(c,'transactions',uid(81))
+        assert partial['paid_amount']==10 and partial['amount']==100 and partial['status']=='approved'
+        if c is installed:
+            execute(c,'SET LOCAL ROLE authenticated')
+            g=execute(c,"SELECT transaction_offset_execute(%s,'00000000-0000-0000-0000-000000000020',%s::jsonb,%s::jsonb,'2026-10-13')",(uid(84),json.dumps([{'transaction_id':uid(81),'mode':'settle'},{'transaction_id':uid(82),'mode':'offset'}]),json.dumps({'amount':50,'account_id':'00000000-0000-0000-0000-000000000030','date':'2026-10-13'})))[0][0]
+            execute(c,'RESET ROLE')
+            pay=execute(c,"SELECT id::text FROM transaction_payments WHERE transaction_id=%s AND offset_group_id=%s AND payment_method='transfer'",(uid(81),g['group_id']))[0][0]
+            obligations=execute(c,"SELECT i.prior_paid_amount,i.open_amount,i.cash_amount,i.compensation_amount,i.gross_amount,t.paid_amount,t.status,g.status FROM transaction_offset_items i JOIN transactions t ON t.id=i.transaction_id JOIN transaction_offset_groups g ON g.id=i.group_id WHERE i.transaction_id=%s",(uid(81),))
+            assert obligations==[(10,90,50,40,100,100,'paid','applied')], obligations
+        else:
+            pay=uid(85)
+            for pid,amount,method,acc in [(pay,50,'transfer','00000000-0000-0000-0000-000000000030'),(uid(86),40,'compensation',None)]:
+                execute(c,"INSERT INTO transaction_payments(id,transaction_id,company_id,amount,payment_date,account_id,payment_method) VALUES(%s,%s,%s,%s,'2026-10-13',%s,%s)",(pid,uid(81),COMPANY,amount,acc,method))
+            obligations=None
+        covered=snapshot(c,'transactions',uid(81));assert covered['paid_amount']==100 and covered['status']=='paid'
+        execute(c,'COMMIT')
+        evidence['payment_status']['installed' if c is installed else 'baseline']={'partial_origin':partial,'covered':covered,'obligations':obligations,
+            'cancel_partial_control':probe(c,'transaction_payments','status','cancelled',ACTORS['editor'],uid(30),integral=True),
+            'cancel_covered':probe(c,'transaction_payments','status','cancelled',ACTORS['editor'],pay,integral=True),
+            'cancel_covered_without_group':probe(c,'transaction_payments','status','cancelled',ACTORS['editor'],uid(32),integral=True),
+            'derive_definition':execute(c,"SELECT pg_get_functiondef('public._derive_paid_amount(uuid)'::regprocedure)")[0][0],
+            'approval_definition':execute(c,"SELECT pg_get_functiondef('public.enforce_transaction_approval_permission()'::regprocedure)")[0][0]}
+    b=evidence['payment_status']['baseline'];a=evidence['payment_status']['installed']
+    for v in (b,a):
+        assert v['cancel_partial_control']['state']=='00000' and 'status' in v['cancel_partial_control']['changed']
+        assert v['cancel_covered_without_group']['state']=='42501'
+        assert 'enforce_transaction_approval_permission' in v['cancel_covered_without_group']['context']
+    assert (b['cancel_covered_without_group']['state'],b['cancel_covered_without_group']['message'])==(a['cancel_covered_without_group']['state'],a['cancel_covered_without_group']['message'])
+    assert b['cancel_covered']['state']=='42501' and 'enforce_transaction_approval_permission' in b['cancel_covered']['context']
+    assert a['cancel_covered']['origin']=='guarda #335'
+    core=(root/'supabase/manual/20261021_issue335_offset_core.INERTE.sql').read_text()
+    assert 'cash,debt-cash' in core and 'i.prior_paid_amount+i.open_amount IS DISTINCT FROM' in core
+    evidence['payment_status']['coverage_source_sha256']=hashlib.sha256(core.encode()).hexdigest()
+    return evidence
 
 rows = []
 findings = []
@@ -277,6 +371,7 @@ try:
     gid, mp = setup(installed, True)
     _, bp = setup(baseline, False)
     offsets = {id(installed):prepare_controls(installed),id(baseline):prepare_controls(baseline)}
+    closure=closing_evidence()
     for table in ('transactions', 'transaction_payments'):
         livecols = columns(baseline, table)
         installedcols = columns(installed, table)
@@ -333,7 +428,8 @@ try:
                     valid = correct = True
                 elif col == 'is_confidential':
                     assert (bmanaged['state'],amanaged['state'])==('42501','42501') and parity
-                    classification = 'legacy RLS refusal identical; NOT an allowed harmless update for this actor'
+                    assert closure['confidential'][role]['proposed_true_predicates']==[(user,False,False),(user,False,False)]
+                    classification = 'positively unreachable for this unprivileged actor: exact restrictive SELECT policy evaluates false for proposed true; authorized admin effective mutation tested separately'
                     valid = False
                     correct = True
                     expected = 'recusado RLS legado'
@@ -341,10 +437,12 @@ try:
                     assert blegacy['state']=='00000' and alegacy['state']=='00000'
                     assert bmanaged['state']=='42501' and 'enforce_transaction_approval_permission' in bmanaged['context']
                     assert amanaged['origin']=='guarda #335'
-                    classification='legacy approval refusal on fully covered parent; valid partial-parent mutation accepted identically without group; guard does not open approval'
+                    assert closure['payment_status']['installed']['obligations']==[(10,90,50,40,100,100,'paid','applied')]
+                    classification='positively unreachable partial applied parent via real RPC: prior10+cash50+compensation40=gross100; paired full-parent legacy approval refusal; guard does not open approval'
                     valid = False
                     correct = True
-                verdict = 'PASS' if parity and valid and correct else 'ABERTO'
+                proven_unreachable = (col=='is_confidential' or (table=='transaction_payments' and col=='status' and role=='editor'))
+                verdict = 'PASS' if parity and (valid or proven_unreachable) and correct else 'ABERTO'
                 if verdict != 'PASS':
                     findings.append({'table': table, 'column': col, 'role': role, 'parity': parity, 'valid_same_state_without_guard': valid, 'expected_observed': correct})
                 rows.append({'table': table, 'column': col, 'role': role, 'operation': 'UPDATE', 'value': str(val), 'baseline_value':str(baseline_val),'classification':classification,'expected_group': expected, 'reason': reason, 'without_group_before': blegacy, 'without_group_after': alegacy, 'with_group_state_before_no_335': bmanaged, 'with_group_after': amanaged, 'legacy_parity': parity, 'valid_same_state_without_guard': valid, 'verdict': verdict})
@@ -370,7 +468,7 @@ try:
     effect_evidence=effects(gid)
     result = {'status': 'FECHADO' if not findings else 'ABERTO', 'rows': rows, 'findings': findings, 'skips': 0,
               'origins': dict(Counter(x[k]['origin'] for x in rows for k in ('without_group_before', 'without_group_after', 'with_group_state_before_no_335', 'with_group_after') if x.get(k))),
-              'effects':effect_evidence,'limits': ['baseline twin is a legacy paid-document control, not a group without #335; atomic transitory/held/FX probes explicitly modify dependent columns', 'reverse equality against unedited reference includes retained reversed history; user metadata intentionally persists, transactions.updated_at is documented exception']}
+              'effects':effect_evidence,'closure_6c':closure,'limits': ['baseline twin is a legacy paid-document control, not a group without #335; atomic transitory/held/FX probes explicitly modify dependent columns', 'reverse equality against unedited reference includes retained reversed history; user metadata intentionally persists, transactions.updated_at is documented exception', 'three 6c cells remain valid_same_state_without_guard=false: PASS means positively proven unreachable for actor/state, not successful mutation']}
     out.write_text(json.dumps(result, indent=2, ensure_ascii=False, default=str) + '\n')
     print(json.dumps({'status': result['status'], 'rows': len(rows), 'open': len(findings), 'skips': 0, 'origins': result['origins']}, ensure_ascii=False))
     assert not findings, 'E acceptance OPEN: see per-column findings; no skipped cases promoted to PASS'

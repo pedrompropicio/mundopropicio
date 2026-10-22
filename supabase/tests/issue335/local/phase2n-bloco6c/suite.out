@@ -1,0 +1,30 @@
+sh: line 1: locale: command not found
+2026-10-22 02:04:34.499 UTC [25933] WARNING:  no usable system locales were found
+phase2h install: 15529 statements; 0 failed
+equal {'relations': 525, 'columns': 6392, 'constraints': 1987, 'indexes': 1477, 'triggers': 2934, 'policies': 1284, 'functions': 876, 'types': 27, 'sequences': 15, 'views': 53, 'default_acl': 37, 'schemas': 16, 'extensions': 6, 'roles': 17, 'memberships': 20}
+diffs {"columns": {"different_explained": 70}, "constraints": {"different_explained": 8}, "indexes": {"different_explained": 1}, "functions": {"different_explained": 18}, "views": {"different_explained": 1}, "extensions": {"missing_explained": 5}}
+UNEXPLAINED total 0
+reference data: 27 statements from 23 migrations
+refdata errors: 0
+INSTALL OK (postgres NOSUPERUSER): group_storage core approval invariants balance (2n-Bloco2b order)
+PASS scenarios (9 marcadores PASS)
+PASS phase2b (10 marcadores PASS)
+PASS phase2c (2 marcadores PASS)
+PASS phase2d (8 marcadores PASS)
+PASS phase2e (8 marcadores PASS)
+PASS phase2f-negative (2 marcadores PASS)
+PASS kill-switch (level 1, reverse available, ACL unchanged + rollback)
+PASS phase2c-invariant-matrix (1 marcadores PASS)
+PASS phase2f-concurrency (5 marcadores)
+PASS phase2g-approval (4 marcadores PASS)
+PASS matching-parity (1 marcadores PASS)
+PASS phase2j (11 marcadores PASS)
+PASS phase2j-concurrency (7 marcadores)
+PASS phase2l (9 marcadores)
+PASS phase2n-context execution (item1/2 assertions; item3 OPEN owner-trigger boundary, NOT security acceptance)
+PASS phase2n-trigger-watch (full row snapshots and detector)
+PASS phase2n-status (M3 2n-Bloco2b: order, case c, exact comparison + negative tests)
+PASS phase2n-killswitch (M4 2n-Bloco3: 64 marcadores; níveis, concorrência, ACL, origens)
+PASS phase2n-locks (M5/M7 2n-Bloco4: 62 marcadores; ciclo BP, laterais, regressão, remoção de conta)
+PASS phase2n-cashwatch (M6 2n-Bloco5: 88 marcadores; vigia independente, contas, as-of, corrupção)
+PASS phase2n-columns (E valid columns and paired legacy evidence)

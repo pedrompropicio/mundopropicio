@@ -1,0 +1,188 @@
+{
+  "source_sha256": "966e50ae7db9e19d1cc01b6456b49cdbd241570b43b46345a85e90dcb68c36cc",
+  "raw_results_sha256": "cbd21322d373b1be832175f09d111a430088f879009ee33869648705d7b3e44c",
+  "status": "FECHADO",
+  "rows": 202,
+  "open": 0,
+  "skips": 0,
+  "suite_exit": 0,
+  "rollback_exit": 0,
+  "target_cells": [
+    {
+      "table": "transactions",
+      "column": "is_confidential",
+      "role": "manager",
+      "verdict": "PASS",
+      "valid_same_state_without_guard": false,
+      "classification": "positively unreachable for this unprivileged actor: exact restrictive SELECT policy evaluates false for proposed true; authorized admin effective mutation tested separately"
+    },
+    {
+      "table": "transactions",
+      "column": "is_confidential",
+      "role": "editor",
+      "verdict": "PASS",
+      "valid_same_state_without_guard": false,
+      "classification": "positively unreachable for this unprivileged actor: exact restrictive SELECT policy evaluates false for proposed true; authorized admin effective mutation tested separately"
+    },
+    {
+      "table": "transaction_payments",
+      "column": "status",
+      "role": "editor",
+      "verdict": "PASS",
+      "valid_same_state_without_guard": false,
+      "classification": "positively unreachable partial applied parent via real RPC: prior10+cash50+compensation40=gross100; paired full-parent legacy approval refusal; guard does not open approval"
+    }
+  ],
+  "effects": [
+    {
+      "role": "manager",
+      "column": "description",
+      "outcome": "allowed",
+      "before_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "normalized_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "reference_reverse_hash": "5bac714ba103557094974dbbc75090fc02a91452814b31b94d6917d7ead381bf",
+      "restored_normalized_hash": "5bac714ba103557094974dbbc75090fc02a91452814b31b94d6917d7ead381bf"
+    },
+    {
+      "role": "manager",
+      "column": "date",
+      "outcome": "allowed",
+      "before_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "normalized_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "reference_reverse_hash": "aeaea8a5ac258206468c02dfa8f939b476e117f8841d9ea1a5721e349624db73",
+      "restored_normalized_hash": "aeaea8a5ac258206468c02dfa8f939b476e117f8841d9ea1a5721e349624db73"
+    },
+    {
+      "role": "manager",
+      "column": "due_date",
+      "outcome": "allowed",
+      "before_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "normalized_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "reference_reverse_hash": "f69082726e6e0d7f6c5e579213b837bcb36023a4d631963827186030cc88ced0",
+      "restored_normalized_hash": "f69082726e6e0d7f6c5e579213b837bcb36023a4d631963827186030cc88ced0"
+    },
+    {
+      "role": "manager",
+      "column": "category_id",
+      "outcome": "guard refused",
+      "before_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "normalized_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "reference_reverse_hash": "11009186816cabc5a73007dc6cd6818ecd8ac2dc76042eb6b29b48f0eaf89276",
+      "restored_normalized_hash": "11009186816cabc5a73007dc6cd6818ecd8ac2dc76042eb6b29b48f0eaf89276"
+    },
+    {
+      "role": "manager",
+      "column": "cache_role",
+      "outcome": "guard refused",
+      "before_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "normalized_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "reference_reverse_hash": "2da21a612c98e148b6f4a6782e918678ceff187e082ff6c12427dcae36dd788d",
+      "restored_normalized_hash": "2da21a612c98e148b6f4a6782e918678ceff187e082ff6c12427dcae36dd788d"
+    },
+    {
+      "role": "manager",
+      "column": "operation_key",
+      "outcome": "guard refused",
+      "before_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "normalized_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "reference_reverse_hash": "a4f63c5f448b7c66fc6ccd91f295037d0a52963bf8cb26b72b7f805137dfddcb",
+      "restored_normalized_hash": "a4f63c5f448b7c66fc6ccd91f295037d0a52963bf8cb26b72b7f805137dfddcb"
+    },
+    {
+      "role": "manager",
+      "column": "invoice_group_id",
+      "outcome": "guard refused",
+      "before_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "normalized_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "reference_reverse_hash": "d9bf753efe7ae6528c7195e32c448b4c85a1572d947eb3cb72bb33f18d6a608b",
+      "restored_normalized_hash": "d9bf753efe7ae6528c7195e32c448b4c85a1572d947eb3cb72bb33f18d6a608b"
+    },
+    {
+      "role": "editor",
+      "column": "description",
+      "outcome": "allowed",
+      "before_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "normalized_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "reference_reverse_hash": "a4cc7cbabc148e62fec4b63d31e004d1e8fe01517025c534568787e36969c6c7",
+      "restored_normalized_hash": "a4cc7cbabc148e62fec4b63d31e004d1e8fe01517025c534568787e36969c6c7"
+    },
+    {
+      "role": "editor",
+      "column": "date",
+      "outcome": "allowed",
+      "before_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "normalized_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "reference_reverse_hash": "62e61c5bf16d0b728f3c89421cb4105d80b8dc40f63ea81b39a3d5120623c628",
+      "restored_normalized_hash": "62e61c5bf16d0b728f3c89421cb4105d80b8dc40f63ea81b39a3d5120623c628"
+    },
+    {
+      "role": "editor",
+      "column": "due_date",
+      "outcome": "allowed",
+      "before_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "normalized_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "reference_reverse_hash": "347ca29e5d63584f13c6efcc99db23e5b253f72767f81030a9c6e8394ae0969c",
+      "restored_normalized_hash": "347ca29e5d63584f13c6efcc99db23e5b253f72767f81030a9c6e8394ae0969c"
+    },
+    {
+      "role": "editor",
+      "column": "category_id",
+      "outcome": "guard refused",
+      "before_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "normalized_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "reference_reverse_hash": "0bda8a97afbf89e0d53b9c293934a2c496e67c9e03d55d18a287d4d023d5f2ad",
+      "restored_normalized_hash": "0bda8a97afbf89e0d53b9c293934a2c496e67c9e03d55d18a287d4d023d5f2ad"
+    },
+    {
+      "role": "editor",
+      "column": "cache_role",
+      "outcome": "guard refused",
+      "before_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "normalized_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "reference_reverse_hash": "040f2b011b74172faf64d05a52c869d2bfcee6ef553431b55e9a4097c3de48ab",
+      "restored_normalized_hash": "040f2b011b74172faf64d05a52c869d2bfcee6ef553431b55e9a4097c3de48ab"
+    },
+    {
+      "role": "editor",
+      "column": "operation_key",
+      "outcome": "guard refused",
+      "before_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "normalized_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "reference_reverse_hash": "435e4ebfbc0b565f32abf832f436679e20b31d7e2fe793f5663f49d7a1b32a8b",
+      "restored_normalized_hash": "435e4ebfbc0b565f32abf832f436679e20b31d7e2fe793f5663f49d7a1b32a8b"
+    },
+    {
+      "role": "editor",
+      "column": "invoice_group_id",
+      "outcome": "guard refused",
+      "before_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "normalized_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "reference_reverse_hash": "6b56ce96ab2374c173abfaa3a8cc53f3980336ecbf502c7bbd0b690963575699",
+      "restored_normalized_hash": "6b56ce96ab2374c173abfaa3a8cc53f3980336ecbf502c7bbd0b690963575699"
+    },
+    {
+      "role": "authorized_admin",
+      "column": "is_confidential",
+      "outcome": "allowed",
+      "before_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "normalized_hash": "f3396dbdf28b6ce7632844b043b8e070a7253f7f7ba6c00f1195b2c6157def43",
+      "reference_reverse_hash": "44fce43a58e60a88f95b1e2d7366faf95ec8159eee1cc26929462b8319db560d",
+      "restored_normalized_hash": "44fce43a58e60a88f95b1e2d7366faf95ec8159eee1cc26929462b8319db560d"
+    }
+  ],
+  "coverage_constraint": [
+    [
+      "transaction_offset_items_check",
+      "CHECK (((cash_amount + compensation_amount) = open_amount))"
+    ]
+  ],
+  "rollback_before_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1",
+  "rollback_after_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1",
+  "independent_review": "sub_cwsdc84z reviewed pre-final source; final additions executed in new clean final-suite and keys verified; not remote CI",
+  "log_counts": {
+    "NOTICE": 397,
+    "WARNING": 18,
+    "ERROR": 0,
+    "AssertionError": 0
+  }
+}

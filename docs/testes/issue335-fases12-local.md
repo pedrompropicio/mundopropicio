@@ -6717,3 +6717,54 @@ f2b225fda7e6438faec1709cef7f78b7253935a23cfba6993ad422f818f438e9 /tmp/issue335-6
 
 ### Questões/decisões em aberto
 E ABERTO: is_confidential×2 e payment.status/editor carecem prova válida de grupo; não dependem de autorização de produção para continuar teste local futuro. CI runner actual pendente sincronização/run. Coala: opção recomendada investigar fonte canónica do fornecedor em tarefa separada; alternativa manter WARNING assumido. A–C e instalação de qualquer candidato exigem Sim separado. Parar neste bloco; sem Publish.
+
+
+## 2n-Bloco6c — E FECHADO LOCALMENTE, 22/10/2026 UTC
+
+Autorização Pedro 01:57 UTC: só três células, runner E, suite completa, rollback e documentação. Reserva QUADRO mantida byte-a-byte (SHA f316973e871ea2e37954ce3d18c9759c2d066529d11ff50707c3963917459121). #322/#323 intactas. Nenhum acesso SQL Live (nem SELECT nesta continuação), TS, migrations, deploy, Publish ou instalação de produção. Candidatos apenas executados nos catálogos efémeros /tmp para testes autorizados; nenhum SQL candidato editado.
+
+### Fecho positivo das três células — não promover recusa a mutação válida
+
+1. T.is_confidential/manager e editor: SELECT do catálogo local nos DOIS catálogos retorna a mesma policy transactions_confidential_guard, RESTRICTIVE, authenticated, SELECT:
+```sql
+can_see_confidential((SELECT auth.uid())) OR
+(COALESCE(is_confidential,false)=false AND
+(account_id IS NULL OR NOT EXISTS
+ (SELECT 1 FROM financial_accounts a WHERE a.id=transactions.account_id AND a.is_restricted)))
+```
+can_see_confidential = is_platform_admin OR has_role(admin) OR has_permission(view_confidential). Sob cada identidade manager/editor, auth.uid é o actor esperado, can_see_confidential=false e o predicado para NEW.is_confidential=true=false nos dois catálogos. Não é ausência de teste nem impossibilidade global: é inalcançabilidade destes actores sem essa permissão. UPDATE true alcança row e recusa 42501; capturas integrais antes/depois iguais. Controlo positivo autorizado: ADMIN altera efectivamente false→true tanto no legado como no documento de grupo aplicado; rowcount1, changed contém is_confidential. Nenhuma permissão concedida ou role/policy substituída. Efeito financeiro/estorno do ADMIN testado separadamente.
+
+2. P.status/editor: fixture nova por INSERT real + pagamento real, pai100/paid10/status approved (parcial monetário, não inventar status partially_paid). RPC transaction_offset_execute aplica saldo50 e compensação40: item prior_paid10/open90/cash50/compensation40/gross100; pai paid100/status paid; grupo applied. Prova positiva local da constraint transaction_offset_items_check:
+```sql
+CHECK (((cash_amount + compensation_amount) = open_amount))
+```
+Core valida prior_paid + open = soma das pernas pagas, após calcular open=gross-paid. Portanto o caminho aplicado normal fecha integralmente, não cria pai parcialmente coberto; estados posteriormente corrompidos não são fixtures válidas. Fonte core SHA 2c08b10602862d0e7cae08be6715970f8ce7c43d2efb4e1a7690e6161a50659a; linhas 320–368. Não alegar constraint isolada suficiente: cobertura combina CHECK, validação final e deriva.
+
+Paridade positiva: cancelar pagamento do pai parcial fora de grupo é efectivamente aceite nos DOIS catálogos; cancelar perna do pai plenamente coberto fora de grupo recusa 42501 pela enforce_transaction_approval_permission nos DOIS catálogos, mesma mensagem. Deriva legada, ao passar abaixo de gross-0.05, escreve approved; transição paid→approved exige approve_transactions. Definições integrais e snapshots retidos. No grupo a guarda #335 recusa antes da deriva; snapshot integral igual. Não remover a guarda para simular um grupo sem #335: twin legado é controlo de documento/pernas equivalentes, explicitamente sem grupo. Sem abrir aprovação para editor.
+
+As três células continuam valid_same_state_without_guard=false. PASS significa prova positiva de inalcançabilidade no actor/estado especificado, não mutação válida aceite. AssertionError final e todas as asserções anteriores mantidos; catches só psycopg2.Error. Nenhum AssertionError convertido em PASS.
+
+### Execução final / efeitos / rollback
+
+Runner E standalone inicial exit0. Versão final acrescentou paridade ADMIN e CHECK exacto; repetida em novos catálogos limpos via suite oficial phase2h-run.sh/phase2h-suite.sh: exit0, 21 grupos PASS, matriz202 linhas, abertas0, skips0. PG17.6 exacto, postgres NOSUPERUSER, triggers reais; catálogo15529 statements/0falhas, diferencial inexplicado0. Matching TS existente apenas executado pela suite, nenhum TS editado.
+
+15 efeitos: 14 existentes + is_confidential ADMIN. Integral transactions/payments/offsets/groups/items/bank_statement_lines/bank_line_transactions/balances antes/depois e estorno versus referência sem edição. Apenas metadata realmente alterada + transactions.updated_at normalizados; todos before_hash=normalized_hash e reference_reverse_hash=restored_normalized_hash. Retém histórico reversed; não alegar byte-a-byte da row editada. Logs finais397 NOTICE,18 WARNING Coala conhecidos,0 ERROR SQL,0 AssertionError; aviso locale missing ambiental, não ocultado. Limite residual owner-created triggers do Bloco1 continua, não é aceitação global de segurança.
+
+Rollback14 pares num terceiro catálogo limpo exit0; before/after completos comparados por conteúdo normalizado (ordem ACL/listas):
+474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1 = ambos.
+differences={} SHA44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a.
+Inclui owners/ACL/memberships/roles/types/defaults/indexes/RI/triggers/policies/functions/views, não só fingerprint reduzido; capturas gzip completas retidas.
+
+### Artefactos / revisão / SHAs
+
+Artefactos em supabase/tests/issue335/local/phase2n-bloco6c (LOCAL, nome não significa Live): summary.json; suite.out/results; rollback.out/bootstrap/differences; rollback-before/after.json.gz; columns-results.json.gz.part01–03 e parts.json. Concatenar partes pela ordem de parts.json e descomprimir para recuperar JSON integral; SHA por parte e gzip no manifesto. Sem cortes de dados ou snapshots. Cada parte <10MB.
+
+Runner final SHA 966e50ae7db9e19d1cc01b6456b49cdbd241570b43b46345a85e90dcb68c36cc.
+JSON final descomprimido SHA cbd21322d373b1be832175f09d111a430088f879009ee33869648705d7b3e44c.
+Revisão read-only sub_cwsdc84z confirmou matriz202/0abertas/0skips, provas e15 efeitos. Revisão abrangia primeira versão: additions ADMIN parity/CHECK chegaram durante leitura; não alegar revisão independente da execução final. Nova suite limpa final executada e chaves verificadas após essas adições, sem falhas. CI remoto deste SHA NÃO VERIFICADO; nenhum commit/push manual, sincronização gerida pela plataforma.
+
+Leituras em issue335-fase2n-leituras.md, com hashes/intervalos≤200 e limites explícitos. QUADRO integral delegado, mantido; source original integral lido antes dos edits; core parcial218–400; relatório histórico só6610–6719; restantes não relidos fora âmbito. JSON grande parseado/asserts, NÃO LIDO textual linha-a-linha. Arquivos de rollback comparados integralmente por máquina, NÃO LIDO textual linha-a-linha. Root AGENTS e supabase AGENTS lidos, não editados. Roadmap lido mas não editado para cumprir âmbito exclusivo docs/, supabase/manual, supabase/tests.
+
+### Questões/decisões em aberto — parar neste bloco
+
+Nenhuma das três células E permanece aberta localmente. Fecho remoto SHA/CI continua por verificar, não confundir suite local com CI. Coala: decisão recomendada investigar fonte canónica do fornecedor em tarefa separada; alternativa manter WARNING assumido. Não corrigido neste bloco. A–C/instalação exigem Sim separado; sem nova autorização implícita. Não avançar outros blocos.

@@ -1,0 +1,21 @@
+{
+  "format": "ordered byte parts of one gzip stream; concatenate in listed order, then decompress",
+  "gzip_sha256": "06bdd69536a75bed8828ac59232cc01f0fe1652f2560c9990488af844ead7e58",
+  "parts": [
+    {
+      "file": "columns-results.json.gz.part01",
+      "bytes": 5000000,
+      "sha256": "0d28e1366d238a6db777eb96c9993d212691c58f12d1b1318d37ed790cb1935e"
+    },
+    {
+      "file": "columns-results.json.gz.part02",
+      "bytes": 5000000,
+      "sha256": "6ae301ab144800a77a48ac5b576e19ca155abcabc6f4538dab8037a2c32188a0"
+    },
+    {
+      "file": "columns-results.json.gz.part03",
+      "bytes": 734107,
+      "sha256": "57e96e2477ec495103dfbb21a90e3f3ab09df3ce3be9b871c68128f611f1e7aa"
+    }
+  ]
+}
