@@ -23,3 +23,6 @@ Pós-deploy: OPTIONS200 / semAuth401 / anon401. Readback antes=depois: executor 
 Estado: assistente efetivamente FECHADO (sem linha de âmbito → 503). Janela NÃO aberta.
 UI: /transacoes → modal entrada de dados mostra "O que pretende fazer?" só quando status.capabilities.assistant===true (fonte atual; preview https://id-preview--ab7cf7e3-a5fc-4737-9cc1-2ba7cf43887f.lovable.app/transacoes exige sessão, não inspecionado autenticado). Domínio publicado pode não ter a UI (sem Publish).
 Abrir com Pedro presente: janela sha256 e3aad296…2b4d; precondições atuais cumpridas (executor false, scope vazio, control closed/idle). Fechar: de31ad4a…c156.
+
+## Correção 22/10/2026
+Falha do teste 23:38 UTC diagnosticada e corrigida no código (sem deploy). Script de abrir janela substituído (sha256 87610e2a03cee71b5267e81ca45f1844692c5eb105f24dfd76f0619d9ad2e2f3; o e3aad296…2b4d acima é inválido pela CHECK). Ver fase12j-correcao-conversa.md.
