@@ -1,3 +1,4 @@
+import { buildCardSessionSpecification } from "../_shared/session-specification.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
@@ -656,25 +657,15 @@ Deno.serve(async (req) => {
         `Cartão ${cardName.name} — ${cat?.name ?? "despesas"} (${itemCount} ${receiptWord}, IVA ${rate}%)`
           .slice(0, 250);
 
-      const supplierList = [...new Set(
-        groupItems.map((g) => (g.raw.supplier_name as string | null)?.trim()).filter(Boolean) as string[],
-      )].slice(0, 8).join(", ");
-      const detail = groupItems
-        .map((g) =>
-          `${g.raw.item_date} · ${(g.raw.supplier_name ?? "—")} · ${(g.raw.description ?? "—")} · ${g.total.toFixed(2)}€`
-        )
-        .join("\n");
-
-      const specification = [
-        `Sessão de cartão: ${cardName.name} · portador ${(session as any).holder_name}`,
-        ev ? `Evento: ${ev.name}` : "Sem evento (custo de estrutura)",
-        `Rubrica: ${cat?.code ?? "?"} — ${cat?.name ?? "?"}`,
-        `Itens consolidados: ${itemCount}`,
-        supplierList ? `Fornecedores: ${supplierList}` : null,
-        `IVA: ${rate}%`,
-        "",
-        detail,
-      ].filter((x) => x !== null).join("\n");
+      const specification = buildCardSessionSpecification({
+        cardName: cardName.name,
+        holderName: (session as any).holder_name,
+        eventName: ev?.name ?? null,
+        catCode: cat?.code ?? null,
+        catName: cat?.name ?? null,
+        itemCount,
+        ivaRate: rate,
+      });
 
       const txPayload: Record<string, unknown> = {
         description,
