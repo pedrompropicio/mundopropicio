@@ -13774,6 +13774,27 @@ export type Database = {
         }
         Relationships: []
       }
+      issue335_execution_context: {
+        Row: {
+          backend_pid: number
+          operation: string
+          token: string
+          transaction_id: unknown
+        }
+        Insert: {
+          backend_pid: number
+          operation: string
+          token: string
+          transaction_id: unknown
+        }
+        Update: {
+          backend_pid?: number
+          operation?: string
+          token?: string
+          transaction_id?: unknown
+        }
+        Relationships: []
+      }
       lead_capture: {
         Row: {
           client_event_id: string | null
@@ -21390,6 +21411,13 @@ export type Database = {
           },
         ]
       }
+      issue335_commands: {
+        Row: {
+          command: Json | null
+          result: Json | null
+        }
+        Relationships: []
+      }
       portal_settings_public: {
         Row: {
           category: string | null
@@ -23118,6 +23146,21 @@ export type Database = {
       _derive_paid_amount: { Args: { p_tx_id: string }; Returns: undefined }
       _effective_permissions_for: {
         Args: { _company_id: string; _universe?: string[]; _user_id: string }
+        Returns: Json
+      }
+      _issue335_execute: {
+        Args: {
+          p_date: string
+          p_items: Json
+          p_movement: Json
+          p_note?: string
+          p_request_id: string
+          p_supplier_id: string
+        }
+        Returns: Json
+      }
+      _issue335_reverse: {
+        Args: { p_group_id: string; p_reason: string; p_request_id: string }
         Returns: Json
       }
       _paid_guard_is_exempt: {
@@ -25977,8 +26020,29 @@ export type Database = {
         Returns: boolean
       }
       is_settlement_staff: { Args: { _user: string }; Returns: boolean }
+      issue335_camarim_leg: { Args: { p_tx: string }; Returns: boolean }
+      issue335_context_valid: {
+        Args: { p_operation?: string }
+        Returns: boolean
+      }
       issue335_group_visible: { Args: { _g: string }; Returns: boolean }
+      issue335_lock_parents: {
+        Args: { p_ids: string[]; p_table: string }
+        Returns: undefined
+      }
+      issue335_matching_transactions: {
+        Args: { p_forecast: string }
+        Returns: string[]
+      }
+      issue335_normalize: { Args: { s: string }; Returns: string }
+      issue335_payment_flow_blocked: {
+        Args: { p_tx: string }
+        Returns: boolean
+      }
+      issue335_score: { Args: { f: string; t: string }; Returns: number }
       issue335_tx_visible: { Args: { _tx: string }; Returns: boolean }
+      issue335_uid: { Args: never; Returns: string }
+      issue335_worker: { Args: { p_command: Json }; Returns: Json }
       launch_from_bank_lines: { Args: { p_items: Json }; Returns: string[] }
       list_bp_versions: {
         Args: { _event_id: string }
@@ -26960,9 +27024,24 @@ export type Database = {
         }
         Returns: string
       }
+      transaction_offset_execute: {
+        Args: {
+          p_date: string
+          p_items: Json
+          p_movement: Json
+          p_note?: string
+          p_request_id: string
+          p_supplier_id: string
+        }
+        Returns: Json
+      }
       transaction_offset_remove: {
         Args: { p_offset_id: string }
         Returns: undefined
+      }
+      transaction_offset_reverse: {
+        Args: { p_group_id: string; p_reason: string; p_request_id: string }
+        Returns: Json
       }
       tx_has_installment_schedule: {
         Args: { _tx_id: string }
