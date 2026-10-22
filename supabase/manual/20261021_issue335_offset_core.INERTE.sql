@@ -265,6 +265,10 @@ BEGIN
  -- o documento (transaction_offsets, payment_list_items, transaction_payments) → recusa 55P03 em vez de aplicar em paralelo.
  PERFORM 1 FROM public.transactions WHERE id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id') ORDER BY id FOR UPDATE NOWAIT;
  PERFORM 1 FROM public.transaction_payments WHERE transaction_id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id') ORDER BY id FOR NO KEY UPDATE NOWAIT;
+ -- Correcção A: sem saldo/posição de caixa candidatos, pernas de compensação entrariam no saldo e a perna sem conta em nenhum.
+ IF position('issue335-balance-v2l' in pg_get_functiondef('public._account_true_balance_raw(uuid)'::regprocedure))=0 THEN RAISE EXCEPTION 'installation_order: balance_candidate_required'; END IF;
+ IF position('issue335-cash-position-v2l' in pg_get_functiondef('public.get_event_cash_position(uuid,date,date)'::regprocedure))=0 THEN RAISE EXCEPTION 'installation_order: cash_position_candidate_required'; END IF;
+ IF position('issue335-cash-position-invariant-v2l' in pg_get_functiondef('public.get_event_cash_position_invariant(uuid)'::regprocedure))=0 THEN RAISE EXCEPTION 'installation_order: cash_position_invariant_candidate_required'; END IF;
  -- Resolve all items and validate before financial writes. BP creation stays in this transaction.
  FOR j IN SELECT v FROM jsonb_array_elements(p_items) v ORDER BY COALESCE((v->>'cash_order')::integer,0),COALESCE(v->>'transaction_id',v->>'forecast_id') LOOP
   IF (j ? 'transaction_id')=(j ? 'forecast_id') THEN RAISE EXCEPTION 'invalid_item'; END IF;
@@ -340,8 +344,8 @@ BEGIN
   IF NOT(existing.receivable_transaction_id=ANY(ids) AND existing.payable_transaction_id=ANY(ids)) OR existing.offset_group_id IS NOT NULL OR
      EXISTS(SELECT 1 FROM public.transaction_payments WHERE offset_id=existing.id AND status='paid' AND reversed_at IS NULL) THEN RAISE EXCEPTION 'legacy_offset_requires_review'; END IF;
   IF existing.amount IS DISTINCT FROM least(
-    (SELECT (v->>'debt')::numeric - CASE WHEN v->>'type'=cash_type THEN greatest(least((v->>'debt')::numeric,abs(amount)-coalesce((SELECT sum((z->>'debt')::numeric) FROM jsonb_array_elements(prepared) z WHERE z->>'type'=cash_type AND (z->>'order',z->>'id')<(v->>'order',v->>'id')),0)),0) ELSE 0 END FROM jsonb_array_elements(prepared) v WHERE (v->>'id')::uuid=existing.receivable_transaction_id),
-    (SELECT (v->>'debt')::numeric FROM jsonb_array_elements(prepared) v WHERE (v->>'id')::uuid=existing.payable_transaction_id)) THEN RAISE EXCEPTION 'legacy_offset_amount_mismatch'; END IF;
+    (SELECT (v->>'debt')::numeric - CASE WHEN v->>'type'=cash_type THEN greatest(least((v->>'debt')::numeric,abs(amount)-coalesce((SELECT sum((z->>'debt')::numeric) FROM jsonb_array_elements(prepared) z WHERE z->>'type'=cash_type AND ((z->>'order')::integer,z->>'id')<((v->>'order')::integer,v->>'id')),0)),0) ELSE 0 END FROM jsonb_array_elements(prepared) v WHERE (v->>'id')::uuid=existing.receivable_transaction_id),
+    (SELECT (v->>'debt')::numeric - CASE WHEN v->>'type'=cash_type THEN greatest(least((v->>'debt')::numeric,abs(amount)-coalesce((SELECT sum((z->>'debt')::numeric) FROM jsonb_array_elements(prepared) z WHERE z->>'type'=cash_type AND ((z->>'order')::integer,z->>'id')<((v->>'order')::integer,v->>'id')),0)),0) ELSE 0 END FROM jsonb_array_elements(prepared) v WHERE (v->>'id')::uuid=existing.payable_transaction_id)) THEN RAISE EXCEPTION 'legacy_offset_amount_mismatch'; END IF;
   UPDATE public.transaction_offsets SET offset_group_id=gid WHERE id=existing.id;
  END LOOP;
  remaining:=abs(amount);
@@ -396,6 +400,10 @@ DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid 
   RETURN g.result||jsonb_build_object('status','reversed');
  END IF;
  IF g.status<>'applied' THEN RAISE EXCEPTION 'invalid_group_state'; END IF;
+ -- Correcção A: sem saldo/posição de caixa candidatos, pernas de compensação entrariam no saldo e a perna sem conta em nenhum.
+ IF position('issue335-balance-v2l' in pg_get_functiondef('public._account_true_balance_raw(uuid)'::regprocedure))=0 THEN RAISE EXCEPTION 'installation_order: balance_candidate_required'; END IF;
+ IF position('issue335-cash-position-v2l' in pg_get_functiondef('public.get_event_cash_position(uuid,date,date)'::regprocedure))=0 THEN RAISE EXCEPTION 'installation_order: cash_position_candidate_required'; END IF;
+ IF position('issue335-cash-position-invariant-v2l' in pg_get_functiondef('public.get_event_cash_position_invariant(uuid)'::regprocedure))=0 THEN RAISE EXCEPTION 'installation_order: cash_position_invariant_candidate_required'; END IF;
  -- 2n-Bloco2b: candidate removed after apply -> clear atomic refusal instead of a late 42501.
  IF EXISTS(SELECT 1 FROM public.transaction_offset_items WHERE group_id=g.id AND prior_status='approved')
     AND position('issue335-approval-v2l' in pg_get_functiondef('public.enforce_transaction_approval_permission()'::regprocedure))=0 THEN

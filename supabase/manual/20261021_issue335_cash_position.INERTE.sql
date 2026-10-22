@@ -1,6 +1,10 @@
 -- LOCAL/INERTE 2k. Separate Sim required; never installed in Live.
 BEGIN;
 SET LOCAL lock_timeout='5s';
+DO $$ BEGIN
+ IF to_regclass('public.transaction_offset_items') IS NULL THEN RAISE EXCEPTION 'installation_order: storage_required'; END IF;
+ IF to_regprocedure('public.issue335_context_valid(text)') IS NULL THEN RAISE EXCEPTION 'installation_order: core_required'; END IF;
+END $$;
 CREATE OR REPLACE FUNCTION public.get_event_cash_position(p_company_id uuid, p_date_from date DEFAULT NULL::date, p_date_to date DEFAULT NULL::date)
  RETURNS TABLE(level text, event_id uuid, master_event_id uuid, parent_event_id uuid, event_name text, event_date date, is_sub boolean, realized numeric, committed numeric, pending numeric)
  LANGUAGE plpgsql
@@ -9,6 +13,7 @@ CREATE OR REPLACE FUNCTION public.get_event_cash_position(p_company_id uuid, p_d
 AS $function$
 #variable_conflict use_column
 BEGIN
+  -- issue335-cash-position-v2l
   IF p_company_id IS DISTINCT FROM public.current_company_id()
      AND NOT public.is_platform_admin() THEN
     RAISE EXCEPTION 'forbidden: company mismatch';
