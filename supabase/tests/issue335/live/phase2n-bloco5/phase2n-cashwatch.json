@@ -1,0 +1,879 @@
+{
+ "fp_estado_acumulado": {
+  "grupos": [
+   [
+    "applied",
+    37
+   ],
+   [
+    "reversed",
+    19
+   ]
+  ],
+  "adoptados": 3,
+  "vigia": {
+   "vigia_extracto_conta_data": 0,
+   "vigia_extracto_ligacoes": 0,
+   "vigia_perna_documento": 0,
+   "vigia_perna_grupo": 0,
+   "vigia_estado_grupo": 0,
+   "vigia_offset_adoptado": 0,
+   "vigia_contas_uniao": 0
+  }
+ },
+ "contas": [
+  {
+   "fase": "ANTES",
+   "caso": "B1 compensação legada sem ligação, documento com conta X",
+   "esperado": "ok",
+   "obtido": "ok",
+   "erro": null,
+   "saldo_conta_antes": "-10",
+   "saldo_conta_depois": "0",
+   "vigia_novo": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 1
+   },
+   "grupo": "345398d2-8820-4a5c-81b9-42c09e16e86d",
+   "estorno": "ok"
+  },
+  {
+   "fase": "ANTES",
+   "caso": "L4 legítimo (2e): documento com conta X, dinheiro novo na conta do grupo Y",
+   "esperado": "ok",
+   "obtido": "ok",
+   "erro": null,
+   "saldo_conta_antes": "-10",
+   "saldo_conta_depois": "-10",
+   "vigia_novo": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "grupo": "18884527-9842-4b9c-9a5a-533b634ac2a0"
+  },
+  {
+   "fase": "ANTES",
+   "caso": "B3 perna legada em dinheiro sem conta (2k)",
+   "esperado": "P0001",
+   "obtido": "P0001",
+   "erro": "cash_account_inconsistent: reveja a conta das pernas existentes antes do encontro",
+   "saldo_conta_antes": "2046.00",
+   "saldo_conta_depois": "2046.00",
+   "snapshot_igual": true
+  },
+  {
+   "fase": "ANTES",
+   "caso": "B4 perna legada em conta diferente do documento (2k)",
+   "esperado": "P0001",
+   "obtido": "P0001",
+   "erro": "cash_account_inconsistent: reveja a conta das pernas existentes antes do encontro",
+   "saldo_conta_antes": "-10",
+   "saldo_conta_depois": "-10",
+   "snapshot_igual": true
+  },
+  {
+   "fase": "ANTES",
+   "caso": "L1 legítimo: documento com conta = conta do grupo, perna legada nessa conta",
+   "esperado": "ok",
+   "obtido": "ok",
+   "erro": null,
+   "saldo_conta_antes": "2086.00",
+   "saldo_conta_depois": "2126.00",
+   "vigia_novo": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "grupo": "4c54165c-928f-4550-9a06-911613a8d3da"
+  },
+  {
+   "fase": "ANTES",
+   "caso": "L2 legítimo: documentos sem conta, sem pernas",
+   "esperado": "ok",
+   "obtido": "ok",
+   "erro": null,
+   "saldo_conta_antes": "2126.00",
+   "saldo_conta_depois": "2186.00",
+   "vigia_novo": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "grupo": "4a62c7cd-d041-4b21-84c9-67d035ddd507"
+  },
+  {
+   "fase": "ANTES",
+   "caso": "L3 legítimo: compensação pura, documento offset com conta X (sem dinheiro novo)",
+   "esperado": "ok",
+   "obtido": "ok",
+   "erro": null,
+   "saldo_conta_antes": "-10",
+   "saldo_conta_depois": "-10",
+   "vigia_novo": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "grupo": "142d982b-c925-4200-ba32-1af5a955a7f8"
+  },
+  {
+   "fase": "DEPOIS",
+   "caso": "B1 compensação legada sem ligação, documento com conta X",
+   "esperado": "P0001",
+   "obtido": "P0001",
+   "erro": "cash_account_inconsistent: reveja a conta das pernas existentes antes do encontro",
+   "saldo_conta_antes": "-20",
+   "saldo_conta_depois": "-20",
+   "snapshot_igual": true
+  },
+  {
+   "fase": "DEPOIS",
+   "caso": "L4 legítimo (2e): documento com conta X, dinheiro novo na conta do grupo Y",
+   "esperado": "ok",
+   "obtido": "ok",
+   "erro": null,
+   "saldo_conta_antes": "-20",
+   "saldo_conta_depois": "-20",
+   "vigia_novo": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "grupo": "fc0d8a0b-f797-4a0c-8acc-014c4e5b7502"
+  },
+  {
+   "fase": "DEPOIS",
+   "caso": "B3 perna legada em dinheiro sem conta (2k)",
+   "esperado": "P0001",
+   "obtido": "P0001",
+   "erro": "cash_account_inconsistent: reveja a conta das pernas existentes antes do encontro",
+   "saldo_conta_antes": "2246.00",
+   "saldo_conta_depois": "2246.00",
+   "snapshot_igual": true
+  },
+  {
+   "fase": "DEPOIS",
+   "caso": "B4 perna legada em conta diferente do documento (2k)",
+   "esperado": "P0001",
+   "obtido": "P0001",
+   "erro": "cash_account_inconsistent: reveja a conta das pernas existentes antes do encontro",
+   "saldo_conta_antes": "-20",
+   "saldo_conta_depois": "-20",
+   "snapshot_igual": true
+  },
+  {
+   "fase": "DEPOIS",
+   "caso": "L1 legítimo: documento com conta = conta do grupo, perna legada nessa conta",
+   "esperado": "ok",
+   "obtido": "ok",
+   "erro": null,
+   "saldo_conta_antes": "2286.00",
+   "saldo_conta_depois": "2326.00",
+   "vigia_novo": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "grupo": "80de8bee-2e7a-45cc-9a13-d6f5a54e0a5a"
+  },
+  {
+   "fase": "DEPOIS",
+   "caso": "L2 legítimo: documentos sem conta, sem pernas",
+   "esperado": "ok",
+   "obtido": "ok",
+   "erro": null,
+   "saldo_conta_antes": "2326.00",
+   "saldo_conta_depois": "2386.00",
+   "vigia_novo": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "grupo": "b6267e0e-31ab-40a6-a399-0e8f96d3addd"
+  },
+  {
+   "fase": "DEPOIS",
+   "caso": "L3 legítimo: compensação pura, documento offset com conta X (sem dinheiro novo)",
+   "esperado": "ok",
+   "obtido": "ok",
+   "erro": null,
+   "saldo_conta_antes": "-20",
+   "saldo_conta_depois": "-20",
+   "vigia_novo": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "grupo": "35321e72-373b-4566-9b74-1d23b06f4287"
+  }
+ ],
+ "asof": [
+  {
+   "fase": "aplicado",
+   "conta": "banco (corte 30/09)",
+   "data": "2026-09-30",
+   "esperado": "1000",
+   "obtido": "1000"
+  },
+  {
+   "fase": "aplicado",
+   "conta": "banco",
+   "data": "2026-10-04",
+   "esperado": "1000",
+   "obtido": "1000"
+  },
+  {
+   "fase": "aplicado",
+   "conta": "banco",
+   "data": "2026-10-05",
+   "esperado": "1200",
+   "obtido": "1200"
+  },
+  {
+   "fase": "aplicado",
+   "conta": "banco",
+   "data": "2026-10-12",
+   "esperado": "1200",
+   "obtido": "1200"
+  },
+  {
+   "fase": "aplicado",
+   "conta": "banco (data-valor = data do pagamento)",
+   "data": "2026-10-13",
+   "esperado": "1260",
+   "obtido": "1260"
+  },
+  {
+   "fase": "aplicado",
+   "conta": "banco (data de lançamento)",
+   "data": "2026-10-14",
+   "esperado": "1260",
+   "obtido": "1260"
+  },
+  {
+   "fase": "aplicado",
+   "conta": "banco (fim de mês)",
+   "data": "2026-10-31",
+   "esperado": "1260",
+   "obtido": "1260"
+  },
+  {
+   "fase": "aplicado",
+   "conta": "banco",
+   "data": "sem data (actual)",
+   "esperado": "1260",
+   "obtido": "1260"
+  },
+  {
+   "fase": "aplicado",
+   "conta": "conta com corte 20/10 (perna anterior ao corte já no saldo inicial)",
+   "data": "2026-10-13",
+   "esperado": "500",
+   "obtido": "500"
+  },
+  {
+   "fase": "aplicado",
+   "conta": "conta com corte 20/10",
+   "data": "2026-10-31",
+   "esperado": "500",
+   "obtido": "500"
+  },
+  {
+   "fase": "aplicado",
+   "vigia": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   }
+  },
+  {
+   "fase": "estornado",
+   "conta": "banco",
+   "data": "2026-10-12",
+   "esperado": "1200",
+   "obtido": "1200"
+  },
+  {
+   "fase": "estornado",
+   "conta": "banco (perna reversed deixa de contar)",
+   "data": "2026-10-13",
+   "esperado": "1200",
+   "obtido": "1200"
+  },
+  {
+   "fase": "estornado",
+   "conta": "banco (fim de mês)",
+   "data": "2026-10-31",
+   "esperado": "1200",
+   "obtido": "1200"
+  },
+  {
+   "fase": "estornado",
+   "conta": "banco",
+   "data": "sem data (actual)",
+   "esperado": "1200",
+   "obtido": "1200"
+  },
+  {
+   "fase": "estornado",
+   "vigia": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   }
+  }
+ ],
+ "corrupcao": [
+  {
+   "fase": "ANTES",
+   "corrupcao": "perna alterada (valor da perna em dinheiro)",
+   "base": {
+    "saldo": 0,
+    "encontro_desequilibrado": 0,
+    "encontro_pernas_divergentes": 0,
+    "encontro_reversao_parcial": 0,
+    "encontro_dinheiro_sem_conta": 0,
+    "encontro_vinculo_bancario_divergente": 0
+   },
+   "detectado_por": {
+    "encontro_pernas_divergentes": 1
+   },
+   "vigia_saldo_detecta": false
+  },
+  {
+   "fase": "ANTES",
+   "corrupcao": "conta trocada (perna em dinheiro noutra conta)",
+   "base": {
+    "saldo": 0,
+    "encontro_desequilibrado": 0,
+    "encontro_pernas_divergentes": 0,
+    "encontro_reversao_parcial": 0,
+    "encontro_dinheiro_sem_conta": 0,
+    "encontro_vinculo_bancario_divergente": 0
+   },
+   "detectado_por": {
+    "encontro_dinheiro_sem_conta": 1
+   },
+   "vigia_saldo_detecta": false
+  },
+  {
+   "fase": "ANTES",
+   "corrupcao": "conta trocada (perna em dinheiro sem conta)",
+   "base": {
+    "saldo": 0,
+    "encontro_desequilibrado": 0,
+    "encontro_pernas_divergentes": 0,
+    "encontro_reversao_parcial": 0,
+    "encontro_dinheiro_sem_conta": 0,
+    "encontro_vinculo_bancario_divergente": 0
+   },
+   "detectado_por": {
+    "encontro_dinheiro_sem_conta": 1
+   },
+   "vigia_saldo_detecta": false
+  },
+  {
+   "fase": "ANTES",
+   "corrupcao": "conta trocada (perna legada do documento gerido)",
+   "base": {
+    "saldo": 0,
+    "encontro_desequilibrado": 0,
+    "encontro_pernas_divergentes": 0,
+    "encontro_reversao_parcial": 0,
+    "encontro_dinheiro_sem_conta": 0,
+    "encontro_vinculo_bancario_divergente": 0
+   },
+   "detectado_por": {},
+   "vigia_saldo_detecta": false
+  },
+  {
+   "fase": "ANTES",
+   "corrupcao": "perna apagada (dinheiro)",
+   "base": {
+    "saldo": 0,
+    "encontro_desequilibrado": 0,
+    "encontro_pernas_divergentes": 0,
+    "encontro_reversao_parcial": 0,
+    "encontro_dinheiro_sem_conta": 0,
+    "encontro_vinculo_bancario_divergente": 0
+   },
+   "detectado_por": {
+    "encontro_pernas_divergentes": 1
+   },
+   "vigia_saldo_detecta": false
+  },
+  {
+   "fase": "ANTES",
+   "corrupcao": "perna apagada (compensação: item/offset sem perna)",
+   "base": {
+    "saldo": 0,
+    "encontro_desequilibrado": 0,
+    "encontro_pernas_divergentes": 0,
+    "encontro_reversao_parcial": 0,
+    "encontro_dinheiro_sem_conta": 0,
+    "encontro_vinculo_bancario_divergente": 0
+   },
+   "detectado_por": {
+    "encontro_pernas_divergentes": 1
+   },
+   "vigia_saldo_detecta": false
+  },
+  {
+   "fase": "ANTES",
+   "corrupcao": "offset adoptado sem perna no grupo",
+   "base": {
+    "saldo": 0,
+    "encontro_desequilibrado": 0,
+    "encontro_pernas_divergentes": 0,
+    "encontro_reversao_parcial": 0,
+    "encontro_dinheiro_sem_conta": 0,
+    "encontro_vinculo_bancario_divergente": 0
+   },
+   "detectado_por": {},
+   "vigia_saldo_detecta": false
+  },
+  {
+   "fase": "ANTES",
+   "corrupcao": "perna sem offset (dinheiro num item só de compensação)",
+   "base": {
+    "saldo": 0,
+    "encontro_desequilibrado": 0,
+    "encontro_pernas_divergentes": 0,
+    "encontro_reversao_parcial": 0,
+    "encontro_dinheiro_sem_conta": 0,
+    "encontro_vinculo_bancario_divergente": 0
+   },
+   "detectado_por": {
+    "encontro_pernas_divergentes": 1
+   },
+   "vigia_saldo_detecta": false
+  },
+  {
+   "fase": "ANTES",
+   "corrupcao": "perna estornada com grupo aplicado",
+   "base": {
+    "saldo": 0,
+    "encontro_desequilibrado": 0,
+    "encontro_pernas_divergentes": 0,
+    "encontro_reversao_parcial": 0,
+    "encontro_dinheiro_sem_conta": 0,
+    "encontro_vinculo_bancario_divergente": 0
+   },
+   "detectado_por": {
+    "encontro_pernas_divergentes": 1,
+    "encontro_reversao_parcial": 1
+   },
+   "vigia_saldo_detecta": false
+  },
+  {
+   "fase": "ANTES",
+   "corrupcao": "extracto divergente (valor da linha)",
+   "base": {
+    "saldo": 0,
+    "encontro_desequilibrado": 0,
+    "encontro_pernas_divergentes": 0,
+    "encontro_reversao_parcial": 0,
+    "encontro_dinheiro_sem_conta": 0,
+    "encontro_vinculo_bancario_divergente": 0
+   },
+   "detectado_por": {
+    "encontro_vinculo_bancario_divergente": 1
+   },
+   "vigia_saldo_detecta": false
+  },
+  {
+   "fase": "ANTES",
+   "corrupcao": "extracto divergente (data da linha)",
+   "base": {
+    "saldo": 0,
+    "encontro_desequilibrado": 0,
+    "encontro_pernas_divergentes": 0,
+    "encontro_reversao_parcial": 0,
+    "encontro_dinheiro_sem_conta": 0,
+    "encontro_vinculo_bancario_divergente": 0
+   },
+   "detectado_por": {},
+   "vigia_saldo_detecta": false
+  },
+  {
+   "fase": "ANTES",
+   "corrupcao": "extracto divergente (ligação ao documento errado)",
+   "base": {
+    "saldo": 0,
+    "encontro_desequilibrado": 0,
+    "encontro_pernas_divergentes": 0,
+    "encontro_reversao_parcial": 0,
+    "encontro_dinheiro_sem_conta": 0,
+    "encontro_vinculo_bancario_divergente": 0
+   },
+   "detectado_por": {
+    "encontro_vinculo_bancario_divergente": 1
+   },
+   "vigia_saldo_detecta": false
+  },
+  {
+   "fase": "ANTES",
+   "corrupcao": "soma dupla (perna legada igual na mesma conta e data)",
+   "base": {
+    "saldo": 0,
+    "encontro_desequilibrado": 0,
+    "encontro_pernas_divergentes": 0,
+    "encontro_reversao_parcial": 0,
+    "encontro_dinheiro_sem_conta": 0,
+    "encontro_vinculo_bancario_divergente": 0
+   },
+   "detectado_por": {},
+   "vigia_saldo_detecta": false
+  },
+  {
+   "fase": "ANTES",
+   "corrupcao": "soma dupla (segunda linha de extracto do mesmo movimento)",
+   "base": {
+    "saldo": 0,
+    "encontro_desequilibrado": 0,
+    "encontro_pernas_divergentes": 0,
+    "encontro_reversao_parcial": 0,
+    "encontro_dinheiro_sem_conta": 0,
+    "encontro_vinculo_bancario_divergente": 0
+   },
+   "detectado_por": {
+    "impedido_pela_base": "23505"
+   },
+   "vigia_saldo_detecta": false
+  },
+  {
+   "fase": "DEPOIS",
+   "corrupcao": "perna alterada (valor da perna em dinheiro)",
+   "base": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "detectado_por": {
+    "vigia_extracto_conta_data": 1,
+    "vigia_perna_documento": 1,
+    "vigia_perna_grupo": 1
+   },
+   "vigia_saldo_detecta": null
+  },
+  {
+   "fase": "DEPOIS",
+   "corrupcao": "conta trocada (perna em dinheiro noutra conta)",
+   "base": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "detectado_por": {
+    "vigia_extracto_conta_data": 2,
+    "vigia_perna_grupo": 1
+   },
+   "vigia_saldo_detecta": null
+  },
+  {
+   "fase": "DEPOIS",
+   "corrupcao": "conta trocada (perna em dinheiro sem conta)",
+   "base": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "detectado_por": {
+    "vigia_extracto_conta_data": 2,
+    "vigia_perna_grupo": 1
+   },
+   "vigia_saldo_detecta": null
+  },
+  {
+   "fase": "DEPOIS",
+   "corrupcao": "conta trocada (perna legada do documento gerido)",
+   "base": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "detectado_por": {
+    "vigia_contas_uniao": 1
+   },
+   "vigia_saldo_detecta": null
+  },
+  {
+   "fase": "DEPOIS",
+   "corrupcao": "perna apagada (dinheiro)",
+   "base": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "detectado_por": {
+    "vigia_extracto_conta_data": 1,
+    "vigia_extracto_ligacoes": 1,
+    "vigia_perna_documento": 1,
+    "vigia_perna_grupo": 1
+   },
+   "vigia_saldo_detecta": null
+  },
+  {
+   "fase": "DEPOIS",
+   "corrupcao": "perna apagada (compensação: item/offset sem perna)",
+   "base": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "detectado_por": {
+    "vigia_perna_documento": 1,
+    "vigia_perna_grupo": 1
+   },
+   "vigia_saldo_detecta": null
+  },
+  {
+   "fase": "DEPOIS",
+   "corrupcao": "offset adoptado sem perna no grupo",
+   "base": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "detectado_por": {
+    "vigia_offset_adoptado": 1
+   },
+   "vigia_saldo_detecta": null
+  },
+  {
+   "fase": "DEPOIS",
+   "corrupcao": "perna sem offset (dinheiro num item só de compensação)",
+   "base": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "detectado_por": {
+    "vigia_extracto_conta_data": 1,
+    "vigia_extracto_ligacoes": 1,
+    "vigia_perna_documento": 1,
+    "vigia_perna_grupo": 1
+   },
+   "vigia_saldo_detecta": null
+  },
+  {
+   "fase": "DEPOIS",
+   "corrupcao": "perna estornada com grupo aplicado",
+   "base": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "detectado_por": {
+    "vigia_perna_documento": 1,
+    "vigia_perna_grupo": 1,
+    "vigia_estado_grupo": 1
+   },
+   "vigia_saldo_detecta": null
+  },
+  {
+   "fase": "DEPOIS",
+   "corrupcao": "extracto divergente (valor da linha)",
+   "base": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "detectado_por": {
+    "vigia_extracto_conta_data": 1
+   },
+   "vigia_saldo_detecta": null
+  },
+  {
+   "fase": "DEPOIS",
+   "corrupcao": "extracto divergente (data da linha)",
+   "base": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "detectado_por": {
+    "vigia_extracto_conta_data": 2
+   },
+   "vigia_saldo_detecta": null
+  },
+  {
+   "fase": "DEPOIS",
+   "corrupcao": "extracto divergente (ligação ao documento errado)",
+   "base": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "detectado_por": {
+    "vigia_extracto_ligacoes": 1
+   },
+   "vigia_saldo_detecta": null
+  },
+  {
+   "fase": "DEPOIS",
+   "corrupcao": "soma dupla (perna legada igual na mesma conta e data)",
+   "base": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "detectado_por": {
+    "vigia_perna_documento": 1
+   },
+   "vigia_saldo_detecta": null
+  },
+  {
+   "fase": "DEPOIS",
+   "corrupcao": "soma dupla (segunda linha de extracto do mesmo movimento)",
+   "base": {
+    "vigia_extracto_conta_data": 0,
+    "vigia_extracto_ligacoes": 0,
+    "vigia_perna_documento": 0,
+    "vigia_perna_grupo": 0,
+    "vigia_estado_grupo": 0,
+    "vigia_offset_adoptado": 0,
+    "vigia_contas_uniao": 0
+   },
+   "detectado_por": {
+    "impedido_pela_base": "23505"
+   },
+   "vigia_saldo_detecta": null
+  }
+ ],
+ "legitimos": {
+  "casos": [
+   "encontro bancário aplicado",
+   "dois encontros sem linha de banco, mesma conta e mesmo dia",
+   "compensação pura (movimento 0)",
+   "saída de dinheiro (movimento negativo)",
+   "estornado e reaplicado (mesmos documentos)"
+  ],
+  "vigia": {
+   "vigia_extracto_conta_data": 0,
+   "vigia_extracto_ligacoes": 0,
+   "vigia_perna_documento": 0,
+   "vigia_perna_grupo": 0,
+   "vigia_estado_grupo": 0,
+   "vigia_offset_adoptado": 0,
+   "vigia_contas_uniao": 0
+  }
+ },
+ "independencia": {
+  "paid_amount": false,
+  "initial_balance": false,
+  "_account_true_balance": false,
+  "managed": false,
+  "get_event_cash_position": false
+ },
+ "antes_resumo": {
+  "total": 14,
+  "detectadas_por_alguma_vigia_antiga": 10,
+  "nao_detectadas": [
+   "conta trocada (perna legada do documento gerido)",
+   "offset adoptado sem perna no grupo",
+   "extracto divergente (data da linha)",
+   "soma dupla (perna legada igual na mesma conta e data)",
+   "soma dupla (segunda linha de extracto do mesmo movimento)"
+  ],
+  "detectadas_ignorando_impedidas": 9
+ }
+}

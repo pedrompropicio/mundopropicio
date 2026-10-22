@@ -1,0 +1,6 @@
+{"fonte":"Live, só SELECT agregado 22/10/2026 ~01:10 UTC; nenhum id/linha",
+ "perna_sem_conta":{"total":347,"paid_doc_sem_conta_com_fornecedor":317,"paid_filha_rateio_doc_sem_conta":3,"paid_doc_sem_conta_sem_fornecedor":27},
+ "conta_diferente":{"total":5,"approved_aberto_doc_sem_conta_sem_fornecedor":1,"paid_doc_com_conta_com_fornecedor":2,"paid_doc_com_conta_sem_fornecedor":1,"paid_doc_sem_conta_com_fornecedor":1},
+ "uniao":352,"abertos_entre_352":1,"empresas":1,
+ "compensacao_viva":64,"compensacao_sem_offset_id":58,"compensacao_com_conta":0,"compensacao_em_docs_abertos":16,"docs_abertos_comp_com_conta_doc":0,
+ "abertos_com_fornecedor":102,"linhas_banco":229,"linhas_valor_diferente_lancamento":8}
