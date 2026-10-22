@@ -334,14 +334,16 @@ try:
                 elif col == 'is_confidential':
                     assert (bmanaged['state'],amanaged['state'])==('42501','42501') and parity
                     classification = 'legacy RLS refusal identical; NOT an allowed harmless update for this actor'
-                    valid = correct = True
+                    valid = False
+                    correct = True
                     expected = 'recusado RLS legado'
                 elif table=='transaction_payments' and col=='status' and role=='editor':
                     assert blegacy['state']=='00000' and alegacy['state']=='00000'
                     assert bmanaged['state']=='42501' and 'enforce_transaction_approval_permission' in bmanaged['context']
                     assert amanaged['origin']=='guarda #335'
                     classification='legacy approval refusal on fully covered parent; valid partial-parent mutation accepted identically without group; guard does not open approval'
-                    valid = correct = True
+                    valid = False
+                    correct = True
                 verdict = 'PASS' if parity and valid and correct else 'ABERTO'
                 if verdict != 'PASS':
                     findings.append({'table': table, 'column': col, 'role': role, 'parity': parity, 'valid_same_state_without_guard': valid, 'expected_observed': correct})
