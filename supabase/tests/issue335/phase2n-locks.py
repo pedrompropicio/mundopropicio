@@ -78,24 +78,27 @@ def forecast_fixture():
     sql(obs, "INSERT INTO event_forecasts(id,company_id,event_id,type,description,amount,iva_rate,approved_at) VALUES(%s,%s,%s,'expense','2n-B4 linha',100,0,now())", (f, COMPANY, ev))
     inc = tx('income', 40); return ev, f, inc
 def forecast_cycle(label, e_deadlock, finish='COMMIT'):
-    """L (legado): transacção pendente que referencia a linha F (KEY SHARE pela FK) e depois a aprova (FOR UPDATE OF f
-    no trigger real). E (encontro): cria a despesa a partir de F."""
+    """Sequência real de um INSERT legado de transacção com forecast_id=F: o RI_ConstraintTrigger (KEY SHARE em F)
+    corre antes do AFTER trg_sync_tx_forecast_to_anchor (UPDATE em F). Tornada determinística: o KEY SHARE de L
+    vem de uma linha de auditoria real (forecast_audit_log.forecast_id FK) e o INSERT legado entra depois de o
+    encontro E estar observado em espera (aresta pg_blocking_pids)."""
     ev, f, inc = forecast_fixture(); before = snapshot()
     L = conn('i335_b4_L', dl='1s'); E = conn('i335_b4_E', dl=e_deadlock)
     pend = str(uuid.uuid4())
-    sql(L, 'BEGIN'); sql(L, "INSERT INTO transactions(id,company_id,status,type,description,amount,iva_rate,date,supplier_id,event_id,forecast_id) VALUES(%s,%s,'pending','expense','2n-B4 legado',10,0,'2026-10-13',%s,%s,%s)", (pend, COMPANY, SUPPLIER, ev, f))
+    sql(L, 'BEGIN'); sql(L, "INSERT INTO forecast_audit_log(forecast_id,changed_by,field_name,old_value,new_value,company_id) VALUES(%s,%s,'2n-B4 legado',NULL,'x',%s)", (f, UID, COMPANY))
     req = str(uuid.uuid4()); items = [dict(forecast_id=f, mode='settle'), dict(transaction_id=inc, mode='offset')]
     fe = pool.submit(execute, E, items, -60, req)
+    LEG = "INSERT INTO transactions(id,company_id,status,type,description,amount,iva_rate,date,supplier_id,event_id,forecast_id) VALUES(%s,%s,'pending','expense','2n-B4 legado',10,0,'2026-10-13',%s,%s,%s)"
+    args = (pend, COMPANY, SUPPLIER, ev, f)
     try:
         blocked(E, L); e_waited = True
     except AssertionError:
         e_waited = False
     if e_waited:
-        fl = pool.submit(outcome, L, "UPDATE transactions SET status='approved' WHERE id=%s", (pend,))
-        re_, rl = fe.result(30), fl.result(30)
+        fl = pool.submit(outcome, L, LEG, args); re_, rl = fe.result(30), fl.result(30)
     else:
-        re_ = fe.result(30); rl = outcome(L, "UPDATE transactions SET status='approved' WHERE id=%s", (pend,))
-    lfin = outcome(L, finish) if L.get_transaction_status() != psycopg2.extensions.TRANSACTION_STATUS_IDLE else ('ok', 'rolled back')
+        re_ = fe.result(30); rl = outcome(L, LEG, args)
+    lfin = outcome(L, finish) if L.get_transaction_status() != psycopg2.extensions.TRANSACTION_STATUS_IDLE else ('ok', 'abortado pelo deadlock')
     L.close()
     return dict(cenario=label, encontro_esperou=e_waited, encontro=re_, legado=rl, legado_fim=lfin, req=req, items=items, f=f, inc=inc, pend=pend, E=E, before=before)
 # ANTES: núcleo com o lock anterior (NO KEY UPDATE) reinstalado temporariamente na função.
@@ -155,7 +158,7 @@ def lat_card_load():
     b = tx('expense', 40, account_id=ACCOUNT)
     load = sql(obs, "INSERT INTO card_session_loads(id,company_id,session_id,source_account_id,amount,load_date,out_transaction_id) VALUES(gen_random_uuid(),%s,%s,%s,40,'2026-10-13',%s) RETURNING id", (COMPANY, sess, ACCOUNT, b))[0][0]
     def effect(): return sql(obs, "SELECT l.in_transaction_id IS NOT NULL,(SELECT t.amount::text||'/'||t.account_id::text FROM transactions t WHERE t.id=l.in_transaction_id) FROM card_session_loads l WHERE l.id=%s", (load,))[0]
-    return b, ACCOUNT, 40, effect, (True, f'40.00/{card}'), 'unsupported_debt'
+    return b, ACCOUNT, 40, effect, (True, f'40/{card}'), 'unsupported_debt'
 def lat_aporte():
     g10 = fixture_cat('10', 'LOCAL G10', None); fixture_cat('10.1', 'LOCAL 10.1', '10'); fixture_cat('10.1.01', 'LOCAL aporte', '10.1')
     ev = str(uuid.uuid4()); sql(obs, "INSERT INTO events(id,company_id,name,date,event_nature) VALUES(%s,%s,'2n-B4 sócio','2026-10-13','producao_propria')", (ev, COMPANY))
@@ -163,18 +166,18 @@ def lat_aporte():
     acc = account('bank', partner_id=partner, mirror_partner_aporte=True)
     b = tx('expense', 40, account_id=acc)
     def effect(): return sql(obs, "SELECT count(*),(SELECT t.amount::text FROM partner_aporte_mirror m JOIN transactions t ON t.id=m.aporte_transaction_id WHERE m.source_transaction_id=%s) FROM partner_capital_moves c JOIN partner_aporte_mirror m ON m.aporte_transaction_id=c.transaction_id WHERE m.source_transaction_id=%s", (b, b))[0]
-    return b, acc, 40, effect, (1, '40.00'), 'unsupported_debt'
+    return b, acc, 40, effect, (1, '40'), 'unsupported_debt'
 def lat_shared_cost():
     fixture_cat('10', 'LOCAL G10', None); fixture_cat('10.12', 'LOCAL 10.12', '10'); fixture_cat('10.12.01', 'LOCAL partilhado', '10.12')
     acc2 = account('bank'); b = tx('expense', 40, account_id=ACCOUNT, shared_cost_account_id=acc2, shared_cost_counterparty_id=SUPPLIER)
     def effect(): return sql(obs, "SELECT t.amount::text,t.account_id::text FROM shared_cost_mirror m JOIN transactions t ON t.id=m.mirror_transaction_id WHERE m.source_transaction_id=%s", (b,))[0] if sql(obs, "SELECT 1 FROM shared_cost_mirror WHERE source_transaction_id=%s", (b,)) else None
-    return b, ACCOUNT, 40, effect, ('40.00', acc2), 'unsupported_debt'
+    return b, ACCOUNT, 40, effect, ('40', acc2), 'unsupported_debt'
 def lat_camarim():
     s, sa = sql(obs, "INSERT INTO camarim_sessions(id,title,company_id) VALUES(gen_random_uuid(),'2n-B4 camarim',%s) RETURNING id,advance_account_id", (COMPANY,))[0]
     b = tx('expense', 40, account_id=ACCOUNT, description='Camarim 2n-B4'); st = tx('income', 40, account_id=sa, supplier_id=None, description='Camarim 2n-B4')
     sql(obs, "INSERT INTO camarim_fund_moves(session_id,move_type,amount,move_date,transaction_id,company_id) VALUES(%s,'advance',40,'2026-10-13',%s,%s)", (s, b, COMPANY))
     def effect(): return sql(obs, "SELECT coalesce(sum(amount),0)::text,string_agg(created_by,',') FROM transaction_payments WHERE transaction_id=%s AND status='paid'", (st,))[0]
-    return b, ACCOUNT, 40, effect, ('40.00', 'base #287'), 'camarim_leg_unsupported'
+    return b, ACCOUNT, 40, effect, ('40', 'base #287'), 'camarim_leg_unsupported'
 def lat_ticket_office():
     to = account('ticket_office'); b = tx('expense', 40, account_id=to)
     def effect(): return sql(obs, "SELECT public._ticket_office_balance_raw(%s)::text", (to,))[0]
