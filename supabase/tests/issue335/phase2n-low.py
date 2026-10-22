@@ -207,13 +207,26 @@ reverse_request = str(uuid4())
 actor(admin)
 reversed_result = run('SELECT transaction_offset_reverse(%s,%s,%s)', (group, reverse_request, 'LOCAL replay'))[0][0]
 after = snapshot(ids, line)
-actor(uid)
-second_admin = run('SELECT transaction_offset_reverse(%s,%s,%s)', (group, reverse_request, 'LOCAL replay'))[0][0]
-assert second_admin == reversed_result
+# 2n-Bloco7b: replay do estorno vinculado ao actor e ao conteúdo do pedido.
+actor(admin)
+same_admin = run('SELECT transaction_offset_reverse(%s,%s,%s)', (group, reverse_request, 'LOCAL replay'))[0][0]
+assert same_admin == reversed_result
 assert snapshot(ids, line) == after
-rows.append({'case': 'bank_and_reverse_replay', 'bank_other_actor': result, 'reverse_other_admin': 'accepted identical result; no mutation', 'classification': 'open: reversal replay is not actor-bound'})
+actor(uid)
+other_admin = attempt(lambda: run('SELECT transaction_offset_reverse(%s,%s,%s)', (group, reverse_request, 'LOCAL replay')))
+assert other_admin['outcome'] == 'P0001' and other_admin['message'] == 'request_actor_mismatch', other_admin
+assert snapshot(ids, line) == after
+actor(admin)
+changed = attempt(lambda: run('SELECT transaction_offset_reverse(%s,%s,%s)', (group, reverse_request, 'LOCAL replay ALTERADO')))
+assert changed['outcome'] == 'P0001' and changed['message'] == 'request_changed', changed
+assert snapshot(ids, line) == after
+actor(uid)
+new_request = attempt(lambda: run('SELECT transaction_offset_reverse(%s,%s,%s)', (group, str(uuid4()), 'LOCAL novo estorno')))
+assert new_request['outcome'] == 'P0001' and new_request['message'] == 'already_reversed', new_request
+assert snapshot(ids, line) == after
+rows.append({'case': 'reverse_replay_actor_bound', 'bank_other_actor': result, 'same_admin': same_admin, 'other_admin': other_admin, 'changed_request': changed, 'new_request_other_admin': new_request, 'before': after, 'after': snapshot(ids, line)})
 run('ROLLBACK')
-print('PASS bank replay; CLASSIFIED OPEN reversal replay permits second admin (no new write)')
+print('PASS bank replay; reversal replay actor-bound: same admin identical, other admin mismatch, changed content request_changed, new request already_reversed')
 
 # ACL/row-RLS distinction: TRUNCATE does not evaluate row policies.
 for role in ('user', 'anon'):
