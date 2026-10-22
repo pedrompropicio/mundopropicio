@@ -6136,3 +6136,9 @@ Regras complementares:
 **Porquê.** O custo do ritual único estava na documentação e nas passagens de mão, não na segurança: cada linha de quadro era um turno do agente partilhado, e uma correcção com testes seguia o mesmo caminho que uma migração. Evidência: a #336 levou 2 dias entre Issue e plano aprovado, com 5 commits do agente só de documentação e 0 de código nesse intervalo. R0 e R1 cobrem a maioria das demandas; R2 mantém o que protege a base e a produção.
 
 **Substitui.** D-ERP278 pontos 3 (designação sempre pelo Pedro), 4 (reserva e fecho só dentro de demanda autorizada, para R0) e 5 (Sim por sessão para toda a tarefa ao agente — passa a valer só para R2). Mantém o resto de D-ERP278.
+
+## D-ERP292 — #335: definição dos passos de instalação (22/10/2026)
+
+**Decisão (Pedro, 22/10/2026).** #335 — definição dos passos de instalação: A = storage (offset_group_storage); B = core + approval + status; C = invariantes + saldo + caixa (cash_position + cash_position_invariant) (+ restauro); kill-switch, emergency, reactivation, trigger_watch e cash_watch fora de A–C, cada um com Sim separado; ordem única: storage → core → approval → status → invariants → balance → cash_position → cash_position_invariant → restore → kill_switch/emergency/reactivation → trigger_watch/cash_watch; rollback na inversa.
+
+Passo A instalado em Live a 22/10/2026 com Sim do Pedro.
