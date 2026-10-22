@@ -1,0 +1,2582 @@
+[
+  {
+    "file": "scenarios.out",
+    "line": 11,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/scenarios.sql:16: NOTICE:  00000: PASS Estoril, bilateral payments, adopted legacy, cash, bank bridge",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "scenarios.out",
+    "line": 18,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/scenarios.sql:22: NOTICE:  00000: PASS same replay, individual reversal denied",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "scenarios.out",
+    "line": 25,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/scenarios.sql:28: NOTICE:  00000: PASS integral reversal derived; documents/history retained",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "scenarios.out",
+    "line": 36,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/scenarios.sql:62: NOTICE:  00000: PASS four VAT docs, cents rollback, changed replay, guards, debit, zero",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "scenarios.out",
+    "line": 38,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/scenarios.sql:74: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "scenarios.out",
+    "line": 40,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/scenarios.sql:74: NOTICE:  00000: PASS BP atomic creation and rollback",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "scenarios.out",
+    "line": 47,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/scenarios.sql:79: NOTICE:  00000: PASS viewer denied",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "scenarios.out",
+    "line": 54,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/scenarios.sql:81: NOTICE:  00000: PASS tenant isolation",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "scenarios.out",
+    "line": 61,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/scenarios.sql:84: NOTICE:  00000: PASS all five bilateral invariants",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "scenarios.out",
+    "line": 68,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/scenarios.sql:104: NOTICE:  00000: PASS #233 pending/align/keep and installed audit",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2b.out",
+    "line": 6,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2b.sql:20: NOTICE:  00000: PASS attacks: SET ROLE, spoofed GUC, helpers, invented IDs, delete/edit/reverse legs and legacy pairs",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2b.out",
+    "line": 8,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2b.sql:28: NOTICE:  00000: PASS matrix anon: tables/RPCs/helpers denied",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2b.out",
+    "line": 15,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2b.sql:36: NOTICE:  00000: PASS matrix authenticated without role: no read/no execute",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2b.out",
+    "line": 22,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2b.sql:43: NOTICE:  00000: PASS matrix staff: read, authorized validation; direct writes/helpers denied",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2b.out",
+    "line": 29,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2b.sql:51: NOTICE:  00000: PASS matrix service: read grant, no direct writes/helpers; no actor denied",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2b.out",
+    "line": 36,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2b.sql:74: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "phase2b.out",
+    "line": 38,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2b.sql:74: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "phase2b.out",
+    "line": 40,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2b.sql:74: NOTICE:  00000: PASS canonical matching 0/1/1002, multiple entities, direct/anchor union, unique winner/zero, foreign claims and accents",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2b.out",
+    "line": 42,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2b.sql:76: NOTICE:  42P06: schema \"issue335_test\" already exists, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2b.out",
+    "line": 44,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2b.sql:120: NOTICE:  00000: PASS injected failure after every apply write: 14 physical writes including audit; total rollback",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2b.out",
+    "line": 46,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2b.sql:120: NOTICE:  00000: PASS injected failure after every reversal write: 12 physical writes including audit; total rollback",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2b.out",
+    "line": 48,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2b.sql:120: NOTICE:  00000: PASS installed audit plus explicit payment/transaction/forecast ledgers",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2b.out",
+    "line": 50,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2b.sql:156: NOTICE:  00000: PASS all five watchers detect injected corruption and return to zero",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 6,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_ads_country_benchmarks\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 8,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.app_secrets\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 10,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_ads_campaign_goals\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 12,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_ads_alert_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 14,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_releases\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 16,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_song_identifiers\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 18,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_metrics_daily\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 20,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_oauth_states\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 22,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_release_metrics_daily\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 24,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_content_metrics_daily\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 26,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.backup_excluded_tables\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 28,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.audience_snapshots\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 30,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artists\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 32,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.audiences\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 34,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.backup_runs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 36,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.audience_members\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 38,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_user_access\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 40,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.bp_orphan_attachments\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 42,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.bp_tx_reconciliation_ignored\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 44,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.bp_version_audit_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 46,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.bp_versions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 48,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.bol_sync_config\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 50,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.br_estados\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 52,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.bol_sync_runs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 54,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.cache_payment_contract_cities\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 56,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.capi_dispatch_control\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 58,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.card_item_documents\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 60,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.capi_v2_targets\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 62,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.card_integrations\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 64,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.capi_v2_events\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 66,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.capi_alerts\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 68,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.card_session_items\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 70,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_member_email_consents\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 72,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_member_sessions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 74,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_member_profiles\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 76,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_member_whatsapp_consents\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 78,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_member_marketing_consents\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 80,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_legacy_consumption\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 82,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_level_floors\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 84,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_referral_events\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 86,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_wallet_passes\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 88,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_points_cutover_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 90,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_terms\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 92,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_profile_countries\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 94,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_purchase_evidence\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 96,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.coala_sync_row_state\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 98,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.communication_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 100,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.companies\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 102,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.coala_sync_value_changes\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 104,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.coala_sync_runs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 106,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.coala_sync_decisions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 108,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.coala_sync_deletes\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 110,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_analysis_control_333\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 112,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_assistant_review_settings_333\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 114,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_assistant_review_versions_333\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 116,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_assistant_authorizations_333\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 118,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_gmail_connections\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 120,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_assistant_scope_333\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 122,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_analysis_audit_333\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 124,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_gmail_pending\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 126,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_assistant_reviews_333\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 128,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_assistant_executions_333\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 130,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_bp_line_reviews\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 132,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.entity_documents\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 134,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_ab_config\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 136,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_ab_attachments\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 138,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_settings\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 140,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.email_send_state\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 142,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.email_unsubscribe_tokens\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 144,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_forecast_formalidade_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 146,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_dates\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 148,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_faqs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 150,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_forecast_attachments\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 152,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_forecast_partners\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 154,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_courtesies\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 156,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_closing_costs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 158,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_sessions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 160,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_simulator_inputs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 162,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_settlement_participants\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 164,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_simulator_cost_lines\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 166,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_simulator_config\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 168,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_settlements\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 170,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_portal_endorsements\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 172,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_ticket_zones\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 174,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_ticket_type_zones\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 176,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_ticket_types\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 178,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_trackers\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 180,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_zone_capacities\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 182,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_ticket_office_advances\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 184,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.help_chunks\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 186,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.help_sections\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 188,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.import_cost_center_map\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 190,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.invariant_runs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 192,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.fx_rates_daily\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 194,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.home_videos\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 196,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.help_questions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 198,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.meta_custom_audiences\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 200,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.mfa_trusted_devices\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 202,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.mfa_recovery_codes\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 204,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.marketing_consent_subjects\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 206,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.marketing_consent_policies\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 208,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.meta_campaign_recommendations\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 210,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.marketing_consent_events\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 212,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.operacao_etapas\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 214,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.operacao_etapa_suppliers\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 216,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.operacao_mentions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 218,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.operacao_frentes\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 220,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.operacao_frente_team\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 222,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.operacao_etapa_assignees\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 224,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.operacao_registro_media\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 226,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.payment_list_documents\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 228,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.payment_list_items\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 230,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.portal_rate_limits\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 232,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.payment_list_sepa_exports\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 234,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.payment_lists\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 236,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.portal_error_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 238,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.permission_snapshot_311\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 240,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.rls_legacy_audit_reports\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 242,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.reimbursement_notes\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 244,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.song_link_arrivals_hourly\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 246,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.song_link_arrivals_hourly_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 248,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.role_permissions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 250,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.secret_expirations\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 252,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.shared_cost_mirror\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 254,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.reimbursement_note_items\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 256,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.song_link_report_visitors_hourly\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 258,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.song_link_report_hourly\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 260,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.song_link_report_visitor_refs_daily\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 262,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.song_link_report_visitor_totals_daily\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 264,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.song_link_report_hourly_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 266,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.song_link_report_hourly_state\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 268,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.spotify_chart_daily\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 270,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.sync_runs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 272,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.sync_notifications_sent\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 274,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.supplier_similarity_flags\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 276,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.supplier_documents\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 278,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.suppressed_emails\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 280,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ticketline_daily_ticket_types\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 282,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ticketline_crosscheck_runs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 284,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ticketline_sync_config\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 286,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ticketline_sync_runs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 288,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.tickets_v2_sync_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 290,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ticketline_daily_sales\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 292,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.venue_reservations\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 294,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.user_permissions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 296,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.user_preferences\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 298,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.venues\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 300,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.undo_actions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 302,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.user_roles\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 304,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.user_activity_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 306,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.camarim_item_documents\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 308,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.camarim_session_events\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 310,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_songs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 312,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ads_invoice_line\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 314,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_ads_refresh_control\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 316,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_audience_demographics\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 318,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.bilheteira_sync_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 320,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_channel_seed_codes\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 322,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.accounting_exports\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 324,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_song_playlist_streams\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 326,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.bilheteira_zone_snapshots\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 328,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_comparables\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 330,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_song_tiktok_sound_daily\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 332,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_song_tiktok_groups\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 334,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_song_playlists\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 336,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.bol_daily_sales\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 338,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.camarim_fund_moves\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 340,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.cache_payment_contracts\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 342,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.camarim_item_reviews\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 344,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_channel_connections\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 346,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.camarim_sessions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 348,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.bank_line_documents\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 350,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.accountant_transaction_reviews\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 352,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_mission_submissions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 354,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_attendance_claims\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 356,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.coala_sync_config\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 358,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.card_sessions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 360,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.company_invitations\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 362,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_points\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 364,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_guesses\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 366,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_previews\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 368,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_welcome_reservations\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 370,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_missions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 372,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_messages\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 374,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_profile_settings\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 376,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_levels\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 378,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.coala_ai_classification_suggestions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 380,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_points_config\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 382,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.coala_supplier_category_map\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 384,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_crew_members\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 386,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.coala_invites\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 388,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.consent_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 390,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_storage_receipts\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 392,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_documents\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 394,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_assistant_executor_settings_333\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 396,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_pilot8_allowlist\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 398,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_sessions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 400,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.card_session_loads\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 402,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.fever_sync_config\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 404,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_ticket_office_assignments\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 406,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_partners_mirror_inversion_proof\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 408,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_simulator_pax_benchmarks\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 410,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_cache_payments\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 412,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_ab_zones\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 414,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_cash_allocations\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 416,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_team_members\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 418,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_simulator_zone_config\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 420,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_lineup_reveals\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 422,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_operation_participations\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 424,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_lineups\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 426,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_partner_extras\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 428,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_sponsorship_targets\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 430,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_third_party_operations\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 432,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.fever_sync_runs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 434,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.fever_buyers\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 436,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_cache_configs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 438,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.email_send_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 440,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.events\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 442,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_cache_extras\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 444,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.financial_accounts\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 446,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.login_attempts\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 448,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.partner_paid_expenses\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 450,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.partner_capital_moves\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 452,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.onebox_sync_runs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 454,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.redirect_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 456,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.profiles\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 458,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.payment_list_bank_executions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 460,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ip_geo_cache\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 462,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.operacao_staff_invites\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 464,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.lead_capture\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 466,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.portugal_municipalities_ref\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 468,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.portal_sites\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 470,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.notification_optin\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 472,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.meta_audience_upload_members\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 474,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.onebox_daily_sales\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 476,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.partner_aporte_mirror\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 478,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.operacao_chamado_sla\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 480,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.invoice_group_audit\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 482,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.recurring_transactions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 484,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.leads\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 486,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.push_subscriptions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 488,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.operacao_registros\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 490,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.song_link_delivery_slots\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 492,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ip_city_ranges\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 494,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.notification_queue\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 496,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.standalone_attempt_audit_333\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 498,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.sponsorship_segments\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 500,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.static_pages\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 502,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.system_reminders\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 504,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.suppliers\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 506,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.standalone_attempts_333\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 508,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ticket_office_statement_documents\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 510,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.trash\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 512,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.storage_deletion_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 514,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.supplier_credits\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 516,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ticket_office_settlements\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 518,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ticket_sales\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 520,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ugc_watchdog_config\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 522,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ticket_office_statements\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 524,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.sponsorship_pipeline\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 526,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.vip_coupon_email_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 528,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.song_link_diag\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 530,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.song_links\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 532,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.system_reminder_settings\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 534,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.standalone_attempt_settings_333\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 536,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ads_invoice\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 538,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.coala_import_runs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 540,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_song_metrics_daily\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 542,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_rewards\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 544,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.bank_line_rules\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 546,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.bank_statements\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 548,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.cities\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 550,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_point_rules\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 552,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_members\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 554,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.company_features\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 556,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.account_categories\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 558,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.coala_send_runs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 560,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.blog_posts\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 562,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.contacts\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 564,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.camarim_integrations\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 566,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_aliases\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 568,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_song_reports\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 570,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_channels\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 572,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_song_tiktok_sounds\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 574,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.club_crews\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 576,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.camarim_items\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 578,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.festival_editions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 580,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.document_download_audit\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 582,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.email_campaigns\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 584,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_bp_review_acks\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 586,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_cache_deductions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 588,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_cache_tiers\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 590,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_implementations\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 592,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_marketing\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 594,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_partners\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 596,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_simulator_sales_curve_buckets\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 598,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_team_member_zones\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 600,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_ticket_lots\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 602,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.data_entry_results\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 604,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.partner_advance_expenses\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 606,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.operacao_daily_reports\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 608,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.help_articles\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 610,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.song_link_health_daily\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 612,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.transaction_documents\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 614,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.quotations\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 616,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.notification_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 618,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.sponsorship_pipeline_activities\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 620,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.standalone_invoices\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 622,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.supplier_credit_usages\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 624,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ticket_import_logs\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 626,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.financial_account_access\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 628,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.partner_event_access\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 630,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.system_invariants\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 632,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.press_clippings\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 634,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.portal_settings\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 636,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ticket_office_statement_lines\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 638,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.ugc_watchdog_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 640,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.artist_content\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 642,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.coala_list_consents\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 644,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.event_cache_city_settlements\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 646,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.meta_audience_sync_log\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 648,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.notification_templates\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 650,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.song_link_events\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 652,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.issue335_execution_context\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 654,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:16: NOTICE:  00000: trigger \"zzz_issue335_failure\" for relation \"public.transaction_offset_control\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 656,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:49: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 658,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:49: NOTICE:  00000: PASS bank adapter + BP creation: 25 physical injected writes; all public tables identical on rollback",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c.out",
+    "line": 660,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c.sql:49: NOTICE:  00000: PASS bank/BP reversal: 19 physical writes; all public tables identical after every failure",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2d.out",
+    "line": 6,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2d.sql:12: NOTICE:  00000: PASS 1/2/9: private executor, no auth-schema grants, storage SELECT only (including TRUNCATE/REFERENCES/TRIGGER/MAINTAIN), no identity policies",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2d.out",
+    "line": 8,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2d.sql:37: NOTICE:  00000: PASS 4/5: bank detach/delete attacks denied; durable bank origin; apply/reverse/reapply identical documents",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2d.out",
+    "line": 10,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2d.sql:37: NOTICE:  00000: PASS 3: authenticated legacy transaction_offset_create generates compensation and closes opposite document",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2d.out",
+    "line": 12,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2d.sql:55: NOTICE:  00000: PASS 7/12: nine forbidden account classes/flags; legacy three-decimal value explicitly refused",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2d.out",
+    "line": 19,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2d.sql:58: NOTICE:  00000: PASS 8: manager cannot reverse group (admin only, like legacy reverse_payment)",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2d.out",
+    "line": 26,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2d.sql:79: NOTICE:  00000: PASS 10/seal: settlement-linked document apply/reverse unsealed; sealed apply/reverse denied even with forged seal GUC",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2d.out",
+    "line": 28,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2d.sql:89: NOTICE:  00000: PASS 12: #233 align on managed legs gives specific refusal and leaves bank line unmatched",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2d.out",
+    "line": 30,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2d.sql:107: NOTICE:  00000: PASS 2d/2i balance: Live function delta=100 (defect reproduced), installed candidate delta=60 (real cash)",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2e.out",
+    "line": 6,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2e.sql:35: NOTICE:  00000: PASS 2e A/E: mixed 60+40=60, prior X preserved, compensation zero, cutoff/asof, editor account attack, reversal zero",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2e.out",
+    "line": 8,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2e.sql:35: NOTICE:  00000: PASS 2e A: unmanaged legacy balance exact numerical parity, hidden/cutoff/asof",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2e.out",
+    "line": 15,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2e.sql:56: NOTICE:  00000: PASS 2e C: confidential document refused without amount disclosure",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2e.out",
+    "line": 17,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2e.sql:56: NOTICE:  00000: PASS 2e C: restricted source account refused before value-bearing errors",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2e.out",
+    "line": 19,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2e.sql:77: NOTICE:  00000: PASS 2e B: editor without permission denied; manager bank accepted; admin bank exercised in retained scenarios",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2e.out",
+    "line": 26,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2e.sql:95: NOTICE:  00000: PASS 2e D (2n-Bloco2b): with approval candidate installed after core, historical no-BP reversal restores approved/0 and all group legs reversed. JWT not cleared.",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2e.out",
+    "line": 33,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2e.sql:130: NOTICE:  00000: PASS 2e G: four fields, five active list statuses and SEPA array refused; held_by unproved separately",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2e.out",
+    "line": 35,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2e.sql:140: NOTICE:  00000: PASS 2e H: sandbox LOGIN/BYPASSRLS command view and internal helper ACL denied",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2f-negative.out",
+    "line": 6,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2f-negative.sql:37: NOTICE:  00000: PASS 2f I/G: exactly 51 refused, adoption 39 versus required 40 refused, legal compensation held_by becomes paid and refused; atomic",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2f-negative.out",
+    "line": 13,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2f-negative.sql:55: NOTICE:  00000: PASS 2f A runner: registered balance check zero -> corruption nonzero/nonconforme -> zero through global extra runner",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "ks.out",
+    "line": 6,
+    "raw": "psql:/dev-server/supabase/manual/20261021_issue335_offset_kill_switch.INERTE.sql:21: NOTICE:  issue335 kill_switch: N0 -> N1",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "ks.out",
+    "line": 12,
+    "raw": "psql:/dev-server/supabase/manual/20261021_issue335_offset_kill_switch.ROLLBACK-INERTE.sql:21: NOTICE:  issue335 kill_switch_rollback: N1 -> N0",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2c-invariant-matrix.out",
+    "line": 6,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2c-invariant-matrix.sql:33: NOTICE:  00000: PASS invariant matrix (6 checks incl. 5 new) identical before, during and after; five new at zero apply/reverse",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2g-approval.out",
+    "line": 1,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2g-approval.sql:5: NOTICE:  42P06: schema \"issue335_test\" already exists, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2g-approval.out",
+    "line": 8,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2g-approval.sql:53: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "phase2g-approval.out",
+    "line": 10,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2g-approval.sql:53: NOTICE:  00000: PASS 2g D BEFORE (2n-Bloco2b): without approval candidate the encounter is refused at apply (approval_candidate_required), zero groups written",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2g-approval.out",
+    "line": 12,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2g-approval.sql:57: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "phase2g-approval.out",
+    "line": 14,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2g-approval.sql:78: NOTICE:  00000: PASS 2g D AFTER (a)(b)(c): historic reverse restores approved/0; over-budget reverse ok, new approval P0409; no-BP approval 42501",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2g-approval.out",
+    "line": 16,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2g-approval.sql:135: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "phase2g-approval.out",
+    "line": 18,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2g-approval.sql:135: NOTICE:  00000: PASS 2g D (d)(e): editor approval 42501; ungrouped forged-GUC restore 42501 BP; forged group insert/update denied; applied-group direct restore refused; direct internal call 42501; even superuser tamper of group company refused managed_operation_required; other-company group not found",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2g-approval.out",
+    "line": 20,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2g-approval.sql:143: NOTICE:  00000: PASS 2g D (f): rollback prosrc byte-identical to captured Live",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "matching-parity.out",
+    "line": 1,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/matching-parity.sql:4: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "matching-parity.out",
+    "line": 3,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/matching-parity.sql:8: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "matching-parity.out",
+    "line": 5,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/matching-parity.sql:28: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "matching-parity.out",
+    "line": 7,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/matching-parity.sql:29: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "matching-parity.out",
+    "line": 9,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/matching-parity.sql:37: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "matching-parity.out",
+    "line": 11,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/matching-parity.sql:38: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "matching-parity.out",
+    "line": 13,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/matching-parity.sql:46: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "matching-parity.out",
+    "line": 15,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/matching-parity.sql:1052: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "matching-parity.out",
+    "line": 17,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/matching-parity.sql:1059: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "matching-parity.out",
+    "line": 19,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/matching-parity.sql:1074: NOTICE:  00000: PASS BP JS/SQL parity: 8 cases, 1002 transactions, anchors, ties, master exclusion, accents and scores",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2j.out",
+    "line": 1,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2j.sql:5: NOTICE:  42P06: schema \"issue335_test\" already exists, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2j.out",
+    "line": 3,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2j.sql:46: NOTICE:  00000: PASS 2j J0 superfície: zero policies/GRANTs novos nas 4 tabelas; função DEFINER dono postgres, search_path fixo, EXECUTE só executor",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2j.out",
+    "line": 10,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2j.sql:63: NOTICE:  00000: PASS 2j J0 ANTES (GRANT sem policy) executor vê 0 linhas = fail-open; DEPOIS função = t",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2j.out",
+    "line": 12,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2j.sql:79: NOTICE:  00000: PASS 2j J0 despesa paga por sócio recusada (unsupported_debt)",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2j.out",
+    "line": 411,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2j.sql:155: NOTICE:  00000: PASS 2j J1 E: 388 ataques; colunas obrigatórias recusadas em documento gerido (manager e editor); legado sem guarda #335",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2j.out",
+    "line": 413,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2j.sql:174: NOTICE:  00000: PASS 2j J2 fecho selado: estorno recusado selado, reverse_payment recusado, estorno ok após reabrir",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2j.out",
+    "line": 415,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2j.sql:203: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "phase2j.out",
+    "line": 417,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2j.sql:203: NOTICE:  00000: PASS 2j J3 janela administrativa: criação a partir do BP recusada pelo trigger real (42501), atómica",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2j.out",
+    "line": 419,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2j.sql:210: NOTICE:  00000: PASS 2j J3b alteração da janela não toca nas pernas do grupo (3 pagas)",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2j.out",
+    "line": 421,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2j.sql:228: WARNING:  01000: coala_capture_forecast_category_change failed: record \"new\" has no field \"supplier_id\"",
+    "classification": "AVISO LEGADO ABERTO: coala_capture_forecast_category_change referencia NEW.supplier_id ausente em event_forecasts; fora da #335; não corrigido nem tolerado para aceitação"
+  },
+  {
+    "file": "phase2j.out",
+    "line": 423,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2j.sql:228: NOTICE:  00000: PASS 2j J4 fecho real aceita evento com grupo; criação BP em evento fechado recusada; reabertura sem permissão 42501",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2j.out",
+    "line": 430,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2j.sql:249: NOTICE:  00000: table \"public__transaction_payments\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2j.out",
+    "line": 432,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2j.sql:249: NOTICE:  00000: ACHADO 2j J5: restauro por tabela contorna a guarda (triggers desligados por desenho) e deixa grupo applied sem pernas; DETECTADO pelas vigias #335 (0 → 2). Não impedido.",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2j.out",
+    "line": 454,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2j.sql:318: NOTICE:  00000: PASS 2j J6 A: 8 casos; legado igual ao Live; encontro: candidato = dinheiro real, Live difere (defeito reproduzido); débito servidor coerente",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2j.out",
+    "line": 456,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2j.sql:338: NOTICE:  00000: PASS 2j J7 camarim: perna de adiantamento recusada (camarim_leg_unsupported), zero pagamentos, conta da sessão intacta",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2j.out",
+    "line": 458,
+    "raw": "psql:/tmp/issue335-bloco6/final/adapted/phase2j.sql:345: NOTICE:  00000: PASS 2j J7b fixture reconhecido por _camarim_fund_move_legs real (banco→sessão)",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2l.out",
+    "line": 6,
+    "raw": "psql:/dev-server/supabase/tests/issue335/phase2l.sql:10: NOTICE:  PASS 2l M1 postgres SET ROLE denied after install",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2l.out",
+    "line": 7,
+    "raw": "psql:/dev-server/supabase/tests/issue335/phase2l.sql:29: NOTICE:  PASS 2l M1 SET-role simulated: forged token/core/table context/5 UPDATE denied",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2l.out",
+    "line": 8,
+    "raw": "psql:/dev-server/supabase/tests/issue335/phase2l.sql:42: NOTICE:  PASS 2l M1 authenticated GUC false, worker denied, context revoked after RPC",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2l.out",
+    "line": 9,
+    "raw": "psql:/dev-server/supabase/tests/issue335/phase2l.sql:62: NOTICE:  PASS 2l M3 wrong order refuses partial before writes",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2l.out",
+    "line": 10,
+    "raw": "psql:/dev-server/supabase/tests/issue335/phase2l.sql:82: NOTICE:  PASS 2l M3 exact status approved restored by derivation only",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2l.out",
+    "line": 11,
+    "raw": "psql:/dev-server/supabase/tests/issue335/phase2l.sql:82: NOTICE:  PASS 2l M3 exact status partially_paid restored by derivation only",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2l.out",
+    "line": 22,
+    "raw": "psql:/dev-server/supabase/tests/issue335/phase2l.sql:99: NOTICE:  PASS 2l M4 level1 rejects new, reverses existing",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2l.out",
+    "line": 23,
+    "raw": "psql:/dev-server/supabase/tests/issue335/phase2l.sql:107: NOTICE:  PASS 2l M4 level2 reverse rejected encontro_desativado",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2l.out",
+    "line": 24,
+    "raw": "psql:/dev-server/supabase/tests/issue335/phase2l.sql:113: NOTICE:  PASS 2l M4 all levels/reactivation exact legacy/new RPC ACL unchanged",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "phase2n-columns.out",
+    "line": 2,
+    "raw": "Traceback (most recent call last):",
+    "classification": "FALHA DE ACEITAÇÃO E: 24 células abertas; traceback deliberado não convertido em PASS"
+  },
+  {
+    "file": "phase2n-columns.out",
+    "line": 6,
+    "raw": "AssertionError: E acceptance OPEN: see per-column findings; no skipped cases promoted to PASS",
+    "classification": "FALHA DE ACEITAÇÃO E: 24 células abertas; traceback deliberado não convertido em PASS"
+  },
+  {
+    "file": "install-group_storage.err",
+    "line": 1,
+    "raw": "psql:/dev-server/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql:29: NOTICE:  policy \"offset_groups_staff\" for relation \"public.transaction_offset_groups\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "install-group_storage.err",
+    "line": 2,
+    "raw": "psql:/dev-server/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql:31: NOTICE:  policy \"offset_groups_writer\" for relation \"public.transaction_offset_groups\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "install-group_storage.err",
+    "line": 3,
+    "raw": "psql:/dev-server/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql:32: NOTICE:  policy \"offset_groups_company\" for relation \"public.transaction_offset_groups\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "install-group_storage.err",
+    "line": 4,
+    "raw": "psql:/dev-server/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql:58: NOTICE:  policy \"offset_items_staff\" for relation \"public.transaction_offset_items\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "install-group_storage.err",
+    "line": 5,
+    "raw": "psql:/dev-server/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql:60: NOTICE:  policy \"offset_items_writer\" for relation \"public.transaction_offset_items\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "install-group_storage.err",
+    "line": 6,
+    "raw": "psql:/dev-server/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql:61: NOTICE:  policy \"offset_items_company\" for relation \"public.transaction_offset_items\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "install-core.err",
+    "line": 1,
+    "raw": "psql:/dev-server/supabase/manual/20261021_issue335_offset_core.INERTE.sql:213: NOTICE:  trigger \"issue335_guard\" for relation \"public.transaction_offset_groups\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "install-core.err",
+    "line": 2,
+    "raw": "psql:/dev-server/supabase/manual/20261021_issue335_offset_core.INERTE.sql:213: NOTICE:  trigger \"issue335_guard\" for relation \"public.transaction_offset_items\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "install-core.err",
+    "line": 3,
+    "raw": "psql:/dev-server/supabase/manual/20261021_issue335_offset_core.INERTE.sql:213: NOTICE:  trigger \"issue335_guard\" for relation \"public.transaction_payments\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "install-core.err",
+    "line": 4,
+    "raw": "psql:/dev-server/supabase/manual/20261021_issue335_offset_core.INERTE.sql:213: NOTICE:  trigger \"issue335_guard\" for relation \"public.transaction_offsets\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "install-core.err",
+    "line": 5,
+    "raw": "psql:/dev-server/supabase/manual/20261021_issue335_offset_core.INERTE.sql:213: NOTICE:  trigger \"issue335_guard\" for relation \"public.transactions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "install-core.err",
+    "line": 6,
+    "raw": "psql:/dev-server/supabase/manual/20261021_issue335_offset_core.INERTE.sql:213: NOTICE:  trigger \"issue335_guard\" for relation \"public.bank_statement_lines\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  },
+  {
+    "file": "install-core.err",
+    "line": 7,
+    "raw": "psql:/dev-server/supabase/manual/20261021_issue335_offset_core.INERTE.sql:213: NOTICE:  trigger \"issue335_guard\" for relation \"public.bank_line_transactions\" does not exist, skipping",
+    "classification": "NOTICE: PASS/assertion ou idempotência de DDL/limpeza IF EXISTS; não é skip de teste"
+  }
+]
