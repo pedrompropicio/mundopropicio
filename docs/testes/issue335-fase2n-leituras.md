@@ -214,3 +214,9 @@ Leituras delegadas: sub_nhb0edrf, sub_st244trv, sub_87kkt4v6. Chunks ≤200; nã
 - SELECT catálogo Live 20261022-013328-345943 | sha256=bd7affc6a4e210a83b4acec88557a199d9dfa18a9eff1ade51aee56d7d291699 | INTEGRAL delegado sub_hk89x45b | intervalos original1; apresentação lossless 1–58; nenhuma linha de dados
 - SELECT catálogo Live 20261022-013329-880089 | sha256=23278bc3d4a541382962a9dc9f1c9472987df268337c82d4ae729a45c8b6a303 | INTEGRAL delegado sub_hk89x45b | intervalos 1–200,201–400,401–600,601–800,801–1000,1001–1200,1201–1400,1401–1600,1601–1800,1801–2000,2001–2132; nenhuma linha de dados
 - SELECT pg_policies transactions/payment: resultado integral na ferramenta; igualdade company_id=current_company_id impede mudar para empresa diferente no mesmo UPDATE. SELECT funções locais de deriva/materialização/parcelas integral; sem alterar permissões.
+
+### Bloco6b complementares e limites
+- phase2l-rollback.py1–49 integral; phase2k-rollback.py1–49 integral; hashes1–121 integral.
+- Catálogo Coala103–159 relido: AFTER INSERT OR UPDATE OF category_id, sem DELETE; erro capturado.
+- Matriz JSON antiga parse24 apenas, NÃO LIDO textual integral; core restante e status restante NÃO LIDO fora âmbito.
+- Runner pós-edição executado integral; não declarar nova leitura manual integral.
