@@ -26,9 +26,9 @@ SET search_path = public, pg_catalog
 AS $fn$
   SELECT c.enabled, c.reverse_enabled
   FROM public.transaction_offset_control c
+  WHERE c.singleton
 $fn$;
 
-ALTER FUNCTION public.transaction_offset_control_status() OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.transaction_offset_control_status() FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.transaction_offset_control_status() TO authenticated, service_role;
 

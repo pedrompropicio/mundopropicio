@@ -7,7 +7,7 @@
  *    são lidos de p_items->0. Repetir o mesmo pedido (mesmo request_id + mesmo payload)
  *    devolve sem efeitos novos (idempotência durável por request_id + hash).
  *  - transaction_offset_reverse(p_group_id uuid, p_request_id uuid, p_reason text) RETURNS jsonb.
- *  - transaction_offset_control: linha única (enabled, reverse_enabled).
+ *  - transaction_offset_control_status(): RPC que devolve (enabled, reverse_enabled).
  *
  * types.ts só é regenerado no Publish, por isso a tipagem é explícita e o cast é local.
  * O cliente NUNCA envia amount/paid_amount/iva_rate.
@@ -164,16 +164,24 @@ export async function reverseOffsetGroup(
   }
 }
 
-/** Lê o controlo; qualquer falha ou ausência = fechado (falha fechado). */
+/**
+ * Lê o controlo via RPC transaction_offset_control_status() (SECURITY DEFINER;
+ * authenticated não tem SELECT na tabela). Aceita array com 1 linha ou objecto.
+ * Erro, vazio, >1 linha ou valores não booleanos = fechado (falha fechado).
+ */
 export async function readOffsetControl(client: OffsetRpcClient): Promise<OffsetControlRow & { readable: boolean }> {
   const closed = { enabled: false, reverse_enabled: false, readable: false };
   try {
-    const { data, error } = await client
-      .from("transaction_offset_control")
-      .select("enabled, reverse_enabled")
-      .maybeSingle();
-    if (error || !data) return closed;
-    return { enabled: data.enabled === true, reverse_enabled: data.reverse_enabled === true, readable: true };
+    const { data, error } = await client.rpc("transaction_offset_control_status", {});
+    if (error || data == null) return closed;
+    let row: any = data;
+    if (Array.isArray(data)) {
+      if (data.length !== 1) return closed;
+      row = data[0];
+    }
+    if (!row || typeof row !== "object") return closed;
+    if (typeof row.enabled !== "boolean" || typeof row.reverse_enabled !== "boolean") return closed;
+    return { enabled: row.enabled, reverse_enabled: row.reverse_enabled, readable: true };
   } catch {
     return closed;
   }
