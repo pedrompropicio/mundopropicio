@@ -6142,3 +6142,17 @@ Regras complementares:
 **Decisão (Pedro, 22/10/2026).** #335 — definição dos passos de instalação: A = storage (offset_group_storage); B = core + approval + status; C = invariantes + saldo + caixa (cash_position + cash_position_invariant) (+ restauro); kill-switch, emergency, reactivation, trigger_watch e cash_watch fora de A–C, cada um com Sim separado; ordem única: storage → core → approval → status → invariants → balance → cash_position → cash_position_invariant → restore → kill_switch/emergency/reactivation → trigger_watch/cash_watch; rollback na inversa.
 
 Passo A instalado em Live a 22/10/2026 com Sim do Pedro.
+
+## D-ERP293 — #335: encontro de contas aberto só por janela (22/10/2026)
+
+**Decisão (Pedro, 22/10/2026).** O encontro de contas fica fechado (N1) por defeito. Cada janela abre-se (N0, script reactivation) com "Sim" próprio do Pedro, usa-se e volta-se a N1 (script kill_switch). emergency (N2) só em incidente.
+
+## D-ERP294 — #335: platform_admin equivale a admin no cliente do encontro (22/10/2026)
+
+**Decisão (Pedro, 22/10/2026).** No cliente, platform_admin equivale a admin para aplicar e estornar. Aplicar = admin, platform_admin, manager, editor; estornar = admin, platform_admin.
+
+**Porquê.** O ecrã resolvia o papel do Pedro como platform_admin e o botão ficava desactivado (commit a5e7e630).
+
+## D-ERP295 — #335: piloto Estoril feito pelo modal e verificado por consulta própria (22/10/2026)
+
+**Decisão (Pedro, 22/10/2026).** O piloto real (Estoril, grupo 443a1d8e-6934-43a2-9d20-f5e78cb68302) foi feito pelo Pedro no modal "Encontro de contas" e verificado por consulta própria do 0 · Cowork. Prova em `docs/testes/issue335-quadro-final.md`.
