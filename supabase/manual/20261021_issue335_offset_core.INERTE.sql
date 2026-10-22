@@ -256,7 +256,11 @@ BEGIN
  PERFORM public.issue335_lock_parents('event_settlements',ARRAY(SELECT seal_tx.event_settlement_id FROM public.transactions seal_tx WHERE seal_tx.id IN
   (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id')));
  -- All BP and existing transaction locks are obtained in UUID order, not display order.
- PERFORM 1 FROM public.event_forecasts WHERE id IN (SELECT (v->>'forecast_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'forecast_id') ORDER BY id FOR NO KEY UPDATE NOWAIT;
+ -- 2n-Bloco4 (M5/M7): FOR UPDATE (not NO KEY UPDATE). The real approval trigger takes FOR UPDATE OF f
+ -- when the BP-created expense is inserted; upgrading from NO KEY UPDATE waited on concurrent KEY SHARE
+ -- holders (legacy INSERT/UPDATE of a transaction referencing the line) and formed a deadlock cycle with
+ -- their own FOR UPDATE OF f. Taking the strongest lock up front, NOWAIT, makes the encounter fail fast.
+ PERFORM 1 FROM public.event_forecasts WHERE id IN (SELECT (v->>'forecast_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'forecast_id') ORDER BY id FOR UPDATE NOWAIT;
  -- 2j (achado F1/F3): FOR UPDATE (não NO KEY UPDATE) conflitua com o KEY SHARE de inserções por confirmar que referenciam
  -- o documento (transaction_offsets, payment_list_items, transaction_payments) → recusa 55P03 em vez de aplicar em paralelo.
  PERFORM 1 FROM public.transactions WHERE id IN (SELECT (v->>'transaction_id')::uuid FROM jsonb_array_elements(p_items) v WHERE v ? 'transaction_id') ORDER BY id FOR UPDATE NOWAIT;
