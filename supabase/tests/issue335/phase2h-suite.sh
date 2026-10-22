@@ -9,8 +9,9 @@ python3 "$S/phase2i-reference-data.py" "$ROOT/supabase/migrations" "$OUT/refdata
 "${A[@]}" -v ON_ERROR_STOP=0 -f "$OUT/refdata.sql" > "$OUT/refdata.out" 2>&1; echo "refdata errors: $(grep -c ERROR "$OUT/refdata.out")"
 "${A[@]}" -f "$S/phase2h-fixtures.sql" >/dev/null || { echo 'FIXTURES FAIL'; exit 1; }
 "${P[@]}" -c "DO \$\$ BEGIN IF (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) THEN RAISE EXCEPTION 'superuser deploy'; END IF; END \$\$;"
-for f in group_storage core approval invariants balance; do "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_offset_$f.INERTE.sql" >/dev/null 2>"$OUT/install-$f.err" || { echo "INSTALL FAIL $f"; cat "$OUT/install-$f.err"; exit 1; }; done
-echo 'INSTALL OK (postgres NOSUPERUSER): group_storage core approval invariants balance (2n-Bloco2b order)'
+# Ordem única (correcção D): storage → core → approval → status → invariants → balance → cash_position → cash_position_invariant.
+for f in offset_group_storage offset_core offset_approval status offset_invariants offset_balance cash_position cash_position_invariant; do "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_$f.INERTE.sql" >/dev/null 2>"$OUT/install-$f.err" || { echo "INSTALL FAIL $f"; cat "$OUT/install-$f.err"; exit 1; }; done
+echo 'INSTALL OK (postgres NOSUPERUSER): storage core approval status invariants balance cash_position cash_position_invariant (ordem D)'
 "${A[@]}" -f "$S/live/phase2e-balance-baseline.sql" >/dev/null   # cópias legadas só para comparação (schema issue335_test)
 res=$OUT/suite-results.txt; : > "$res"
 # Sequencial numa só base, como no runner original (cada fase usa o estado da anterior).
