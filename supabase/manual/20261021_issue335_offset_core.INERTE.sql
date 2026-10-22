@@ -375,6 +375,8 @@ DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid 
  PERFORM set_config('lock_timeout','5s',true);
  IF public.issue335_uid() IS NULL OR NOT public.has_role(public.issue335_uid(),'admin') THEN RAISE EXCEPTION 'permission_denied'; END IF;
  IF p_request_id IS NULL OR nullif(trim(p_reason),'') IS NULL THEN RAISE EXCEPTION 'reason_required'; END IF;
+ -- 2n-Bloco7b: identidade do pedido de estorno (grupo + request_id + motivo), guardada no grupo.
+ h:=encode(sha256(convert_to(jsonb_build_object('group',p_group_id,'request',p_request_id,'reason',p_reason)::text,'UTF8')),'hex');
  PERFORM pg_advisory_xact_lock_shared(335,1);
  PERFORM 1 FROM public.transaction_offset_control WHERE singleton AND reverse_enabled;
  IF NOT FOUND THEN RAISE EXCEPTION 'encontro_desativado'; END IF;
