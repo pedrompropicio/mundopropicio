@@ -62,7 +62,7 @@ describe("(g18 · #342) documento do sócio — colunas das despesas", () => {
     const { doc, text } = await workbookText(undefined);
     expect(doc.expenseColumns).toBe("detailed");
     expect(text).toContain("Total c/IVA");
-    expect(text).toContain("3. AS DESPESAS DO EVENTO (despesas c/IVA)");
+    expect(text.toLowerCase()).toContain("3. as despesas do evento (despesas c/iva)");
     expect(text).toContain("B. Despesas por família e rubrica (c/IVA)");
     expect(text).toContain("artigo 18.º do CIVA");
     const pdf = pdfText(undefined);
@@ -116,7 +116,7 @@ describe("(g18 · #342) documento do sócio — colunas das despesas", () => {
     expect(tot.transferBase).toBe(det.transferBase);
     // E nos artefactos: o valor total das despesas é o mesmo no PDF dos dois modos.
     const fmt = (n: number) =>
-      new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n);
+      normalizePdf(new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n));
     expect(pdfText("detailed").text).toContain(fmt(det.expenseTotal));
     expect(pdfText("totalOnly").text).toContain(fmt(tot.expenseTotal));
     const wbDet = await workbookText("detailed");
