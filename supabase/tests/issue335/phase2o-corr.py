@@ -134,6 +134,14 @@ if gid:
     check('F com permissão lê itens e grupo', ei is None and eg is None and ri[0][0] == ncount and rg[0][0] == 1, f'itens={ri} grupos={rg}')
     ri, ei = as_user(VIEWER, f"SELECT count(*) FROM public.transaction_offset_items WHERE group_id='{gid}'")
     check('F staff sem permissão continua a ler itens não confidenciais', ei is None and ri[0][0] == ncount - 1, f'itens={ri} erro={ei!r}')
+    with A.cursor() as q:
+        q.execute("SET session_replication_role=replica; UPDATE public.transactions SET is_confidential=false WHERE id=%s; UPDATE public.financial_accounts SET is_restricted=true WHERE id=%s; SET session_replication_role=origin", (r[0][2], ACC))
+    rg, eg = as_user(VIEWER, f"SELECT count(*) FROM public.transaction_offset_groups WHERE id='{gid}'")
+    check('F staff sem can_see_confidential não lê grupo de conta restrita', eg is None and rg[0][0] == 0, f'grupos={rg} erro={eg!r}')
+    rg, eg = as_user(ADMIN, f"SELECT count(*) FROM public.transaction_offset_groups WHERE id='{gid}'")
+    check('F com permissão lê grupo de conta restrita', eg is None and rg[0][0] == 1, f'grupos={rg} erro={eg!r}')
+    with A.cursor() as q:
+        q.execute("SET session_replication_role=replica; UPDATE public.financial_accounts SET is_restricted=false WHERE id=%s; SET session_replication_role=origin", (ACC,))
 # ---- G: rollback com grupos vivos (grupo real criado pelo core em E)
 for n in ['offset_approval', 'cash_position', 'cash_position_invariant', 'status', 'offset_balance', 'offset_core', 'offset_group_storage']:
     refuse(f'G {n}.ROLLBACK com grupos vivos', body(n + '.ROLLBACK-INERTE'), 'groups_exist_keep_guards')
