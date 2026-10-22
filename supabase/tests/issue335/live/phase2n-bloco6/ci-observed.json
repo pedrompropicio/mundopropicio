@@ -1,0 +1,30 @@
+{
+  "observed_utc": "2026-10-22T01:23:38.242715+00:00",
+  "head": "e586d365a4571648681297843eeb74d79a483d06",
+  "runs": [
+    {
+      "id": 39701896826,
+      "head_sha": "e586d365a4571648681297843eeb74d79a483d06",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "files": {
+    "supabase/tests/issue335/phase2n-cashwatch.py": {
+      "status": "present",
+      "git_blob_sha": "93b3b5db4be792f54f29bf2cac9413e4bf133945"
+    },
+    "supabase/tests/issue335/phase2n-columns.py": {
+      "http": 404
+    },
+    "supabase/tests/issue335/phase2h-suite.sh": {
+      "status": "present",
+      "git_blob_sha": "76c8128a2d8d261519b8ce13d62e184e5813d57b"
+    },
+    "docs/testes/issue335-fases12-local.md": {
+      "status": "present",
+      "git_blob_sha": "9d05f57cf9237cdbdffbb6170005552f6368f64d"
+    }
+  },
+  "block6_ci": "UNVERIFIED: current edits absent from observed HEAD"
+}
