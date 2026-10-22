@@ -50,13 +50,13 @@ def as_user(uid, sql_text, commit=False):
         P.rollback(); return None, str(e).strip().split('\n')[0]
     finally: P.autocommit = True
 
-PAIR = f"""SELECT public.transaction_offset_execute(gen_random_uuid(),'{SUP}',
+PAIR = f"""WITH a AS (INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id)
+   VALUES(public.current_company_id(),'approved','income','2o A+',100,0,'2026-10-13','{SUP}') RETURNING id),
+ b AS (INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id)
+   VALUES(public.current_company_id(),'approved','expense','2o A-',40,0,'2026-10-13','{SUP}') RETURNING id)
+SELECT public.transaction_offset_execute(gen_random_uuid(),'{SUP}',
  jsonb_build_array(jsonb_build_object('transaction_id',a.id,'mode','settle'),jsonb_build_object('transaction_id',b.id,'mode','offset')),
- '{{"account_id":"{ACC}","date":"2026-10-13","amount":60}}','2026-10-13')
- FROM (INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id)
-   VALUES(public.current_company_id(),'approved','income','2o A+',100,0,'2026-10-13','{SUP}') RETURNING id) a,
-  (INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id)
-   VALUES(public.current_company_id(),'approved','expense','2o A-',40,0,'2026-10-13','{SUP}') RETURNING id) b"""
+ '{{"account_id":"{ACC}","date":"2026-10-13","amount":60}}','2026-10-13') FROM a,b"""
 def a_case(name, expect):
     r, e = as_user(ADMIN, PAIR)
     check(name, e is not None and expect in e, f'esperado "{expect}"; obtido {e!r}')
@@ -80,25 +80,29 @@ install('restore'); install('cash_watch')
 refuse('C approval.ROLLBACK com status instalado', body('offset_approval.ROLLBACK-INERTE'), 'rollback_order: status_first')
 refuse('C cash_position.ROLLBACK com invariante instalado', body('cash_position.ROLLBACK-INERTE'), 'rollback_order: cash_position_invariant_first')
 refuse('C offset_balance.ROLLBACK com cash_watch instalado', body('offset_balance.ROLLBACK-INERTE'), 'rollback_order: cash_watch_first')
-refuse('G parcial: invariants retirado, storage.ROLLBACK com consumidores',
-       body('offset_invariants.ROLLBACK-INERTE') + '\n' + body('offset_group_storage.ROLLBACK-INERTE'), 'rollback_order: consumers_installed')
+refuse('G parcial: retirados até core, balance mantido; storage.ROLLBACK com consumidores',
+       '\n'.join(body(n + '.ROLLBACK-INERTE') for n in ['cash_watch', 'restore', 'cash_position_invariant', 'cash_position', 'status', 'offset_approval', 'offset_invariants', 'offset_core'])
+       + '\n' + body('offset_group_storage.ROLLBACK-INERTE'), 'rollback_order: consumers_installed')
 # ---- E: adopção de par legado (cash_order 12 e 3, movimento -100, pagável com débito 150)
-E = f"""WITH p2 AS (INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id)
+E0 = f"""WITH p2 AS (INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id)
   VALUES(public.current_company_id(),'approved','expense','2o E P2',150,0,'2026-10-13','{SUP}') RETURNING id),
  p1 AS (INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id)
   VALUES(public.current_company_id(),'approved','expense','2o E P1',80,0,'2026-10-13','{SUP}') RETURNING id),
  r1 AS (INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id)
   VALUES(public.current_company_id(),'approved','income','2o E R1',120,0,'2026-10-13','{SUP}') RETURNING id),
  r2 AS (INSERT INTO public.transactions(company_id,status,type,description,amount,iva_rate,date,supplier_id)
-  VALUES(public.current_company_id(),'approved','income','2o E R2',10,0,'2026-10-13','{SUP}') RETURNING id),
- lo AS (INSERT INTO public.transaction_offsets(id,company_id,receivable_transaction_id,payable_transaction_id,amount,created_by,created_at)
-  SELECT gen_random_uuid(),public.current_company_id(),r1.id,p2.id,50,'{ADMIN}',now() FROM r1,p2 RETURNING id)
-SELECT public.transaction_offset_execute(gen_random_uuid(),'{SUP}',
- jsonb_build_array(jsonb_build_object('transaction_id',p2.id,'mode','settle','cash_order',3),
-  jsonb_build_object('transaction_id',p1.id,'mode','settle','cash_order',12),
-  jsonb_build_object('transaction_id',r1.id,'mode','offset'),jsonb_build_object('transaction_id',r2.id,'mode','offset')),
- '{{"account_id":"{ACC}","date":"2026-10-13","amount":-100}}','2026-10-13')->>'group_id', (SELECT id FROM lo), r1.id
-FROM p1,p2,r1,r2"""
+  VALUES(public.current_company_id(),'approved','income','2o E R2',10,0,'2026-10-13','{SUP}') RETURNING id)
+SELECT p2.id::text,p1.id::text,r1.id::text,r2.id::text,public.current_company_id()::text FROM p1,p2,r1,r2"""
+ids, e0 = as_user(ADMIN, E0, commit=True)
+p2, p1, r1, r2, co = ids[0]
+lo = str(uuid.uuid4())
+with A.cursor() as q:  # par legado pré-existente (dados históricos), criado fora do fluxo gerido
+    q.execute("SET session_replication_role=replica; INSERT INTO public.transaction_offsets(id,company_id,receivable_transaction_id,payable_transaction_id,amount,created_by,created_at) VALUES(%s,%s,%s,%s,50,%s,now()); SET session_replication_role=origin", (lo, co, r1, p2, ADMIN))
+E = f"""SELECT public.transaction_offset_execute(gen_random_uuid(),'{SUP}',
+ jsonb_build_array(jsonb_build_object('transaction_id','{p2}','mode','settle','cash_order',3),
+  jsonb_build_object('transaction_id','{p1}','mode','settle','cash_order',12),
+  jsonb_build_object('transaction_id','{r1}','mode','offset'),jsonb_build_object('transaction_id','{r2}','mode','offset')),
+ '{{"account_id":"{ACC}","date":"2026-10-13","amount":-100}}','2026-10-13')->>'group_id', '{lo}', '{r1}'"""
 r, e = as_user(ADMIN, E, commit=True)
 check('E par legado 50 adoptado (P2 ordem 3: dinheiro 100, compensação 50)', e is None, f'erro={e!r}')
 gid = r[0][0] if r else None
