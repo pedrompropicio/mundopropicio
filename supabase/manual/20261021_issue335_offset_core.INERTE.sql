@@ -370,7 +370,7 @@ BEGIN
 END $$;
 CREATE OR REPLACE FUNCTION public._issue335_reverse(p_group_id uuid,p_request_id uuid,p_reason text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $$
-DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid uuid; BEGIN
+DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid uuid; h text; BEGIN
  IF NOT public.issue335_context_valid('reverse') THEN RAISE EXCEPTION 'managed_operation_required'; END IF;
  PERFORM set_config('lock_timeout','5s',true);
  IF public.issue335_uid() IS NULL OR NOT public.has_role(public.issue335_uid(),'admin') THEN RAISE EXCEPTION 'permission_denied'; END IF;

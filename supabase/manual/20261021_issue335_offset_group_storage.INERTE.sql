@@ -18,6 +18,9 @@ CREATE TABLE IF NOT EXISTS public.transaction_offset_groups (
  reversed_at timestamptz,
  reversal_request_id uuid,
  reversal_reason text,
+ -- 2n-Bloco7b: replay do estorno vinculado ao actor e ao conteúdo do pedido.
+ reversal_actor uuid,
+ reversal_hash text,
  result jsonb,
  UNIQUE(company_id,request_id),
  CHECK((movement_amount = 0 AND account_id IS NULL) OR (movement_amount <> 0 AND account_id IS NOT NULL))
