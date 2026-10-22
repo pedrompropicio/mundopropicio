@@ -284,6 +284,37 @@ rows.append({'case': 'scale50', 'documents': 50, 'prior_payments': 100, 'new_pay
 run('ROLLBACK')
 print('PASS scale50: 100 prior payments, 51 new legs; real apply/reverse', elapsed, reverse_elapsed)
 
+# Count-sized local index estimate, not a timing promise for production data/WAL.
+run('BEGIN')
+owner()
+run('CREATE TABLE public.issue335_size_probe(id integer, item uuid, active boolean)')
+run('INSERT INTO issue335_size_probe SELECT n,gen_random_uuid(),true FROM generate_series(1,1463) n')
+run('COMMIT')
+other = psycopg2.connect(host=socket, port=port, user='postgres', dbname='postgres', sslmode='disable')
+other.autocommit = True
+try:
+    run('BEGIN')
+    start = time.perf_counter()
+    run('CREATE UNIQUE INDEX issue335_size_index ON issue335_size_probe(item) WHERE active')
+    index_elapsed = time.perf_counter() - start
+    locks = run("SELECT mode,granted FROM pg_locks WHERE pid=pg_backend_pid() AND relation='issue335_size_probe'::regclass ORDER BY mode")
+    assert ('ShareLock', True) in locks, locks
+    with other.cursor() as q:
+        q.execute('SELECT count(*) FROM issue335_size_probe')
+        assert q.fetchone()[0] == 1463
+        q.execute("SET lock_timeout='50ms'")
+        try:
+            q.execute("INSERT INTO issue335_size_probe VALUES(1464,gen_random_uuid(),true)")
+            raise AssertionError('nonconcurrent index failed to block writer')
+        except psycopg2.Error as e:
+            assert e.pgcode == '55P03', e.pgcode
+    rows.append({'case': 'index_window', 'count': 1463, 'index_seconds': index_elapsed, 'locks': locks, 'other_session_select': 'ok', 'other_session_insert': '55P03', 'limit': 'synthetic count-sized rows; not Live timing or full DDL lock estimate'})
+    run('ROLLBACK')
+finally:
+    other.close()
+    run('DROP TABLE issue335_size_probe')
+print('PASS index estimate: ShareLock blocks writer not reader; local count1463', index_elapsed)
+
 Path(output).write_text(json.dumps({'catalog': catalog, 'results': rows, 'open': ['reversal replay lacks actor binding', 'legacy user_permissions TRUNCATE ACL'], 'skips': 0}, indent=2, default=str))
 c.close()
 print('PASS Bloco7 local runner; assertions preserved; fixtures rolled back')
