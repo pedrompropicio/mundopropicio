@@ -1,0 +1,13 @@
+{
+  "source": "official read_query; aggregate SELECT only; 2026-10-22 UTC",
+  "counts": {
+    "transactions": 2019,
+    "transaction_payments": 1463,
+    "bank_statement_lines": 229,
+    "bank_line_transactions": 8,
+    "transaction_offsets": 7,
+    "payment_count_per_document_max": 2,
+    "payment_count_top50_sum": 57,
+    "documents_with_payments": 1456
+  }
+}
