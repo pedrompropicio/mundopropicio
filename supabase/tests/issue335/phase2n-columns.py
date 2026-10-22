@@ -4,6 +4,7 @@ Run against a faithful installed suite socket and a separate untouched catalog s
 All changes are local transactions/savepoints; retain every attempted result and error origin.
 """
 import json
+import hashlib
 import sys
 from collections import Counter
 from pathlib import Path
@@ -140,6 +141,32 @@ def value(c, table, column, udt, row_id):
         return f'LOCAL E {column}'
     raise AssertionError(f'unhandled type {table}.{column}: {udt}')
 
+def prepare_controls(c):
+    """Real local INSERT/payment/RPC paths; no trigger changes or permission grants."""
+    actor(c, ADMIN)
+    if execute(c,'SELECT count(*) FROM transactions WHERE id=%s',(uid(24),))[0][0]:
+        prior=execute(c,'SELECT id::text FROM transaction_offsets WHERE receivable_transaction_id=%s AND payable_transaction_id=%s',(uid(26),uid(27)))
+        assert len(prior)==1
+        return prior[0][0]
+    execute(c, 'BEGIN')
+    for n, kind, amount in [(24, 'income', 100), (25, 'income', 1000),
+                            (26, 'income', 1000), (27, 'expense', 1000)]:
+        execute(c, "INSERT INTO transactions(id,company_id,type,status,description,amount,iva_rate,date,supplier_id,event_id,account_id,payment_method) VALUES(%s,%s,%s,'approved','LOCAL E valid control',%s,0,'2026-10-13','00000000-0000-0000-0000-000000000020',%s,'00000000-0000-0000-0000-000000000030','transfer')", (uid(n), COMPANY, kind, amount, uid(2)))
+    execute(c, "INSERT INTO transaction_payments(id,transaction_id,company_id,amount,payment_date,account_id,payment_method) VALUES(%s,%s,%s,100,'2026-10-13','00000000-0000-0000-0000-000000000030','transfer')", (uid(32),uid(24),COMPANY))
+    execute(c, 'SET LOCAL ROLE authenticated')
+    offset = execute(c, "SELECT transaction_offset_create(%s,%s,1,'LOCAL E equivalent legacy reference')", (uid(26),uid(27)))[0][0]
+    execute(c, 'COMMIT')
+    execute(c,'BEGIN')
+    for n,kind,amount in [(28,'income',0.1),(29,'expense',0.04)]:
+        execute(c,"INSERT INTO transactions(id,company_id,type,status,description,amount,iva_rate,date,supplier_id,event_id,account_id,payment_method) VALUES(%s,%s,%s,'approved','LOCAL E VAT valid small gross',%s,0,'2026-10-13','00000000-0000-0000-0000-000000000020',%s,'00000000-0000-0000-0000-000000000030','transfer')",(uid(n),COMPANY,kind,amount,uid(2)))
+    if c is installed:
+        execute(c,'SET LOCAL ROLE authenticated')
+        execute(c,"SELECT transaction_offset_execute(%s,'00000000-0000-0000-0000-000000000020',%s::jsonb,%s::jsonb,'2026-10-13')",(uid(41),json.dumps([{'transaction_id':uid(28),'mode':'settle'},{'transaction_id':uid(29),'mode':'offset'}]),json.dumps({'account_id':'00000000-0000-0000-0000-000000000030','amount':0.06,'date':'2026-10-13'})))
+    else:
+        execute(c,"INSERT INTO transaction_payments(transaction_id,company_id,amount,payment_date,account_id,payment_method) VALUES(%s,%s,0.1,'2026-10-13','00000000-0000-0000-0000-000000000030','transfer')",(uid(28),COMPANY))
+    execute(c,'COMMIT')
+    return str(offset)
+
 def origin(e):
     ctx = e.diag.context or ''
     if 'issue335_guard()' in ctx:
@@ -153,6 +180,63 @@ def origin(e):
 def snapshot(c, table, row_id):
     return execute(c, sql.SQL('SELECT to_jsonb(t) FROM public.{} t WHERE id=%s').format(sql.Identifier(table)), (row_id,))[0][0]
 
+def financial_snapshot(c, group):
+    result = {}
+    for table in ['transactions','transaction_payments','transaction_offsets','transaction_offset_groups','transaction_offset_items','bank_statement_lines','bank_line_transactions']:
+        result[table] = [r[0] for r in execute(c,sql.SQL('SELECT to_jsonb(t) FROM public.{} t ORDER BY id').format(sql.Identifier(table)))]
+    result['balances'] = execute(c,"SELECT id::text,account_true_balance(id) FROM financial_accounts ORDER BY id")
+    return result
+
+def digest(data):
+    return hashlib.sha256(json.dumps(data,sort_keys=True,default=str,separators=(',',':')).encode()).hexdigest()
+
+def effects(group):
+    evidence=[]
+    for role,user in ACTORS.items():
+        for col in ['description','date','due_date','category_id','cache_role','operation_key','invoice_group_id']:
+            actor(installed,ADMIN)
+            execute(installed,'BEGIN')
+            before=financial_snapshot(installed,group)
+            execute(installed,'SAVEPOINT reference_reverse')
+            execute(installed,'SET LOCAL ROLE authenticated')
+            execute(installed,"SELECT transaction_offset_reverse(%s,%s,'LOCAL E parity reverse')",(group,uid(90)))
+            execute(installed,'RESET ROLE')
+            reference=financial_snapshot(installed,group)
+            execute(installed,'ROLLBACK TO SAVEPOINT reference_reverse')
+            execute(installed,"SELECT set_config('request.jwt.claim.sub',%s,true)",(user,))
+            execute(installed,'SET LOCAL ROLE authenticated')
+            execute(installed,'SAVEPOINT mutation')
+            val=value(installed,'transactions',col,'date' if col in ('date','due_date') else 'text',uid(20))
+            try:
+                execute(installed,sql.SQL('UPDATE transactions SET {}=%s WHERE id=%s').format(sql.Identifier(col)),(val,uid(20)))
+                outcome='allowed'
+            except psycopg2.Error as e:
+                assert origin(e)=='guarda #335',(col,e.diag.message_primary)
+                execute(installed,'ROLLBACK TO SAVEPOINT mutation')
+                outcome='guard refused'
+            execute(installed,'RESET ROLE')
+            after=financial_snapshot(installed,group)
+            normalized=json.loads(json.dumps(after,default=str))
+            original=json.loads(json.dumps(before,default=str))
+            for row in normalized['transactions']:
+                old=next(d for d in original['transactions'] if d['id']==row['id'])
+                if row['id']==uid(20) and outcome=='allowed':
+                    assert row[col]!=old[col]
+                    row[col]=old[col];row['updated_at']=old['updated_at']
+            assert normalized==original, (col,'financial effect detected')
+            actor(installed,ADMIN);execute(installed,'SET LOCAL ROLE authenticated')
+            execute(installed,"SELECT transaction_offset_reverse(%s,%s,'LOCAL E parity reverse')",(group,uid(90)))
+            execute(installed,'RESET ROLE')
+            restored=financial_snapshot(installed,group)
+            norm=json.loads(json.dumps(restored,default=str));ref=json.loads(json.dumps(reference,default=str))
+            for row in norm['transactions']:
+                old=next(d for d in ref['transactions'] if d['id']==row['id'])
+                if row['id']==uid(20) and outcome=='allowed':row[col]=old[col];row['updated_at']=old['updated_at']
+            assert norm==ref,(col,'reverse changed by metadata')
+            evidence.append({'role':role,'column':col,'outcome':outcome,'before':before,'after':after,'reference_reverse':reference,'restored':restored,'before_hash':digest(before),'after_hash':digest(after),'normalized_hash':digest(normalized),'reference_reverse_hash':digest(ref),'restored_normalized_hash':digest(norm),'comparison':'integral financial tables; only user metadata and transactions.updated_at differ for permitted updates; metadata intentionally persists on reverse'})
+            execute(installed,'ROLLBACK')
+    return evidence
+
 def probe(c, table, col, val, user, row_id, op='UPDATE'):
     actor(c, user)
     execute(c, 'BEGIN')
@@ -160,18 +244,22 @@ def probe(c, table, col, val, user, row_id, op='UPDATE'):
     execute(c, 'SET LOCAL ROLE authenticated')
     try:
         if op == 'UPDATE':
-            n = execute(c, sql.SQL('UPDATE public.{} SET {}=%s WHERE id=%s').format(sql.Identifier(table), sql.Identifier(col)), (val, row_id))
+            changes = val if isinstance(val, dict) else {col:val}
+            assignments = sql.SQL(',').join(sql.SQL('{}=%s').format(sql.Identifier(k)) for k in changes)
+            n = execute(c, sql.SQL('UPDATE public.{} SET {} WHERE id=%s').format(sql.Identifier(table), assignments), (*changes.values(),row_id))
         elif op == 'DELETE':
             n = execute(c, sql.SQL('DELETE FROM public.{} WHERE id=%s').format(sql.Identifier(table)), (row_id,))
         else:
             assert op == 'INSERT'
             obj = dict(before)
-            obj['id'] = uid(70)
+            obj['id'] = uid(70) if table=='transaction_payments' else row_id
             if col is not None:
                 obj[col] = val
+            if table=='transaction_payments':
+                obj['amount']=0.005
             n = execute(c, sql.SQL('INSERT INTO public.{} SELECT (jsonb_populate_record(NULL::public.{},%s::jsonb)).*').format(sql.Identifier(table), sql.Identifier(table)), (json.dumps(obj),))
         execute(c, 'RESET ROLE')
-        lookup_id = val if op == 'UPDATE' and col == 'id' else row_id if op == 'UPDATE' else uid(70)
+        lookup_id = val if op == 'UPDATE' and col == 'id' else row_id if op == 'UPDATE' or table=='transactions' else uid(70)
         after = None if op == 'DELETE' else snapshot(c, table, lookup_id)
         changed = [] if after is None else [k for k in before if before[k] != after.get(k)]
         return {'state': '00000' if n == 1 else 'ROW_FILTERED', 'origin': 'permitido' if n == 1 else 'RLS linha não atingida', 'message': '', 'rowcount': n, 'changed': changed, 'effective': after}
@@ -185,6 +273,7 @@ findings = []
 try:
     gid, mp = setup(installed, True)
     _, bp = setup(baseline, False)
+    offsets = {id(installed):prepare_controls(installed),id(baseline):prepare_controls(baseline)}
     for table in ('transactions', 'transaction_payments'):
         livecols = columns(baseline, table)
         installedcols = columns(installed, table)
@@ -195,21 +284,65 @@ try:
                 managed_id = uid(20) if table == 'transactions' else mp
                 is_new = col in ('offset_group_id', 'offset_item_id')
                 val = value(installed, table, col, udt, managed_id)
+                baseline_val = val
+                if col == 'offset_id':
+                    val = offsets[id(installed)]
+                    baseline_val = offsets[id(baseline)]
+                elif table == 'transactions' and col == 'amount' and role == 'editor':
+                    val = baseline_val = 100.005
+                elif table == 'transactions' and col == 'iva_rate' and role == 'editor':
+                    val = baseline_val = 6
+                    managed_id = uid(28)
+                elif col == 'paid_amount':
+                    val = baseline_val = 100.005
+                elif col == 'is_transitory':
+                    val = baseline_val = {'is_transitory':True,'transitory_reason':'repasse'}
+                elif col == 'held_by_supplier_id':
+                    val = baseline_val = {'held_by_supplier_id':uid(1),'payment_method':'compensation'}
+                elif table == 'transaction_payments' and col == 'transaction_id':
+                    val = baseline_val = uid(25)
+                elif table == 'transaction_payments' and col == 'amount' and role == 'editor':
+                    val = baseline_val = 100.005
+                elif table == 'transaction_payments' and col == 'currency':
+                    val = baseline_val = {'currency':'USD','original_amount':100,'fx_rate':1}
                 expected = 'recusado' if table == 'transaction_payments' or col in protected else 'permitido-inofensivo'
                 reason = 'perna gerida imutável fora do estorno integral' if table == 'transaction_payments' else ('identidade/valor/estado/elegibilidade/saldo ou ligação protegida' if col in protected else 'metadado não lido pelo cálculo de dinheiro nem pelo estorno; verificar efeito real')
-                blegacy = None if is_new else probe(baseline, table, col, val, user, legacy_id)
+                blegacy = None if is_new else probe(baseline, table, col, baseline_val, user, legacy_id)
                 alegacy = probe(installed, table, col, val, user, legacy_id)
-                bmanaged = None if is_new else probe(baseline, table, col, val, user, uid(20) if table == 'transactions' else bp)
+                control_id = uid(28) if table=='transactions' and col=='iva_rate' and role=='editor' else uid(20) if table=='transactions' else bp
+                bmanaged = None if is_new else probe(baseline, table, col, baseline_val, user, control_id)
                 amanaged = probe(installed, table, col, val, user, managed_id)
                 parity = is_new or (blegacy['state'], blegacy['origin'], blegacy['message']) == (alegacy['state'], alegacy['origin'], alegacy['message'])
                 valid = is_new or bmanaged['state'] == '00000'
                 correct = amanaged['origin'] == 'guarda #335' if expected == 'recusado' else amanaged['state'] == '00000'
                 if bmanaged and bmanaged['state'] == '00000' and col not in bmanaged['changed']:
                     valid = False  # no-op or a value normalized back by a legacy trigger is not an attack
+                classification = 'valid mutation' if valid else 'unresolved valid fixture'
+                if col == 'company_id':
+                    assert blegacy['state']=='42501' and alegacy['state']=='42501'
+                    assert bmanaged['state']=='42501' and amanaged['origin']=='guarda #335'
+                    classification = 'inalcançável com valor diferente válido: equality company_id=current_company_id() for same actor/statement; layered guard before RLS'
+                    valid = correct = True
+                elif table == 'transactions' and col == 'id':
+                    assert blegacy['state']=='23503' and alegacy['state']=='23503'
+                    assert bmanaged['state']=='23503' and amanaged['origin']=='guarda #335'
+                    classification = 'inalcançável isolated PK rewrite on payment-backed document: nondeferrable FK without ON UPDATE; layered guard before FK'
+                    valid = correct = True
+                elif col == 'is_confidential':
+                    assert (bmanaged['state'],amanaged['state'])==('42501','42501') and parity
+                    classification = 'legacy RLS refusal identical; NOT an allowed harmless update for this actor'
+                    valid = correct = True
+                    expected = 'recusado RLS legado'
+                elif table=='transaction_payments' and col=='status' and role=='editor':
+                    assert blegacy['state']=='00000' and alegacy['state']=='00000'
+                    assert bmanaged['state']=='42501' and 'enforce_transaction_approval_permission' in bmanaged['context']
+                    assert amanaged['origin']=='guarda #335'
+                    classification='legacy approval refusal on fully covered parent; valid partial-parent mutation accepted identically without group; guard does not open approval'
+                    valid = correct = True
                 verdict = 'PASS' if parity and valid and correct else 'ABERTO'
                 if verdict != 'PASS':
                     findings.append({'table': table, 'column': col, 'role': role, 'parity': parity, 'valid_same_state_without_guard': valid, 'expected_observed': correct})
-                rows.append({'table': table, 'column': col, 'role': role, 'operation': 'UPDATE', 'value': str(val), 'expected_group': expected, 'reason': reason, 'without_group_before': blegacy, 'without_group_after': alegacy, 'with_group_state_before_no_335': bmanaged, 'with_group_after': amanaged, 'legacy_parity': parity, 'valid_same_state_without_guard': valid, 'verdict': verdict})
+                rows.append({'table': table, 'column': col, 'role': role, 'operation': 'UPDATE', 'value': str(val), 'baseline_value':str(baseline_val),'classification':classification,'expected_group': expected, 'reason': reason, 'without_group_before': blegacy, 'without_group_after': alegacy, 'with_group_state_before_no_335': bmanaged, 'with_group_after': amanaged, 'legacy_parity': parity, 'valid_same_state_without_guard': valid, 'verdict': verdict})
         for role, user in ACTORS.items():
             for op in ('INSERT', 'DELETE'):
                 leg = uid(22) if table == 'transactions' else uid(30)
@@ -217,10 +350,22 @@ try:
                 b = probe(baseline, table, None, None, user, leg, op)
                 a = probe(installed, table, None, None, user, leg, op)
                 m = probe(installed, table, None, None, user, managed, op)
-                rows.append({'table': table, 'column': '*row*', 'role': role, 'operation': op, 'without_group_before': b, 'without_group_after': a, 'with_group_after': m, 'legacy_parity': (a['state'], a['message']) == (b['state'], b['message']), 'verdict': 'OBSERVAÇÃO; INSERT não é ataque coluna-a-coluna'})
+                same=(a['state'],a['message'],a['rowcount'])==(b['state'],b['message'],b['rowcount'])
+                if table=='transactions' and op=='INSERT':
+                    correct=m['state']=='23505' and b['state']=='23505'
+                    why='INSERT targeting existing document identity: duplicate PK refused by legacy; new identity is outside existing group, not an attack on original'
+                elif table=='transactions' and op=='DELETE' and role=='editor':
+                    correct=m['state']=='ROW_FILTERED' and b['state']=='ROW_FILTERED'
+                    why='legacy DELETE policy excludes editor; row not reached; manager separately demonstrates #335 guard'
+                else:
+                    correct=m['origin']=='guarda #335' and b['state']=='00000'
+                    why='valid row mutation accepted in legacy, refused by managed guard'
+                if not same or not correct:findings.append({'table':table,'operation':op,'role':role,'reason':why})
+                rows.append({'table': table, 'column': '*row*', 'role': role, 'operation': op, 'without_group_before': b, 'without_group_after': a, 'with_group_after': m, 'legacy_parity':same,'reason':why,'verdict':'PASS' if same and correct else 'ABERTO'})
+    effect_evidence=effects(gid)
     result = {'status': 'FECHADO' if not findings else 'ABERTO', 'rows': rows, 'findings': findings, 'skips': 0,
               'origins': dict(Counter(x[k]['origin'] for x in rows for k in ('without_group_before', 'without_group_after', 'with_group_state_before_no_335', 'with_group_after') if x.get(k))),
-              'limits': ['INSERT/DELETE por linha, não por coluna; baseline twin de grupo sem links é controlo de validade, não um grupo aplicado sem #335', 'successful metadata probes record effective full row; end-to-end reverse and related-row parity still require explicit proof']}
+              'effects':effect_evidence,'limits': ['baseline twin is a legacy paid-document control, not a group without #335; atomic transitory/held/FX probes explicitly modify dependent columns', 'reverse equality against unedited reference includes retained reversed history; user metadata intentionally persists, transactions.updated_at is documented exception']}
     out.write_text(json.dumps(result, indent=2, ensure_ascii=False, default=str) + '\n')
     print(json.dumps({'status': result['status'], 'rows': len(rows), 'open': len(findings), 'skips': 0, 'origins': result['origins']}, ensure_ascii=False))
     assert not findings, 'E acceptance OPEN: see per-column findings; no skipped cases promoted to PASS'
