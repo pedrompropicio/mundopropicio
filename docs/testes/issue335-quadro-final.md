@@ -22,6 +22,12 @@
 - Ecrã (leitura do Pedro, não conferida por consulta): saldo do sistema 642.707,88 € → 666.113,88 € (+23.406,00 €); diferença para o banco −22.900,85 € → 505,15 € (pendências anteriores: 500,00 € "resto sem explicação" e uma linha de 5,15 € Verde Pay por conciliar).
 - Controlo devolvido a N1 após o piloto (kill_switch, Sim do Pedro). **Estado final: N1 (enabled=false, reverse_enabled=true), 1 grupo aplicado.**
 
+### 3.º Publish, teste do estorno e 2.º encontro Estoril (22/10/2026)
+- 3.º Publish (commit 55d64e09, CI verde confirmado pelo Pedro): coluna Valor visível nas linhas por explicar; OFFSET_INVALIDATE_KEYS após aplicar e estornar; etiqueta "Aplicada no encontro" para par legado adoptado por grupo aplicado. Pedro confirmou os ecrãs.
+- Estorno: grupo 443a1d8e estornado pelo Pedro (motivo "Teste do Estorno"). Consulta: grupo reversed; 3 pagamentos reversed; documentos approved com 0 pago; linha a28f3424 unmatched sem ligações; 7 vigias a 0; invariante de saldo a 0. O ecrã não actualizou na altura (corrigido pelo 3.º Publish).
+- 2.º encontro (janela N0 com Sim; reactivation integral): grupo 91d78fbf-e4a6-44a6-9457-48be22a6827d, applied, ligado à linha a28f3424 (23.406,00 €). Itens: receita b873559f dinheiro 23.406,00 € + compensação 7.590,00 €; despesa 0368bca9 compensação 7.590,00 €. Pagamentos: transferência 23.406,00 € na conta 594befaa (Santander Totta); compensação 7.590,00 € em cada documento. Receita paga 30.996,00 €; despesa paga 7.590,00 €; linha matched. Par legado d2e1eaa3 continua no grupo estornado 443a1d8e (não adoptado; ficha "Por aplicar", correcto). 7 vigias a 0; vigia de triggers a 0; invariante de saldo a 0.
+- Controlo devolvido a N1 (kill_switch, Sim do Pedro; RPC: enabled=false, reverse_enabled=true). **Estado final: N1, 1 grupo aplicado (91d78fbf).**
+
 - Pendentes: cada janela N0 exige novo Sim; Issue #341 (R2); #337 (encontro sem extracto); Bloco 8; lacunas abaixo; emergency (N2) só em incidente; ver o ecrã da prévia em N0 com um caso real. #322/#323 intocadas. A Issue #335 não é fechada por este documento.
 
 ## Pronto para pedir A–C: SIM (só localmente)
@@ -77,6 +83,7 @@ _derive_paid_amount(uuid), get_event_cash_position(uuid,date,date), get_event_ca
 - Invariante de saldo tautológica.
 - Replays recusados com encontro_desativado quando desligado.
 - Trigger legado com NEW.supplier_id (por tratar).
+- Produto: o encontro só nasce de uma linha do banco (reconcile_bank_line); sem entrada fora da conciliação — Issue #337 (transaction_offset_execute, núcleo agnóstico), requisito do Pedro. Fora do banco só o fluxo legado (bloco Compensação da ficha e método "Compensação"), fora dos controlos do #335. Melhoria proposta, NÃO autorizada: sugerir a entidade pela descrição do banco em "Conciliar manualmente" e no Encontro de contas, com as transações dessa entidade primeiro.
 - Anteriores: fronteira do trigger do dono (substituição de corpo não detectada); TRUNCATE de user_permissions; CI remoto.
 
 ## Manifesto (SHA-256 dos ficheiros alterados desde 3a28ae85)
