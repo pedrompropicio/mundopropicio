@@ -1,5 +1,10 @@
 # #335 — quadro final da fase local/inerte (reescrito 22/10/2026, correcção inerte)
 
+## Estado em Live (22/10/2026)
+- A (storage): INSTALADO.
+- B (core + approval + status): INSTALADO (inerte até C).
+- C: por planear (R2, Sim próprio).
+
 ## Pronto para pedir A–C: SIM (só localmente)
 Todos os pontos A–G foram reproduzidos e corrigidos, excepto as partes de C não reproduzidas (ver abaixo). Todas as execuções pedidas passaram, com resultados reais.
 Isto não autoriza instalação. Antes de qualquer instalação ficam a faltar: o CI remoto (NÃO VERIFICADO) e as lacunas abertas abaixo. A, B, C e a instalação exigem cada um um "Sim" separado.
