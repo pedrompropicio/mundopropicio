@@ -144,15 +144,13 @@ for phase in ('ANTES', 'DEPOIS'):
         else:
             row['snapshot_igual'] = (snapshot() == s0)
         report['contas'].append(row)
+        if r[0] == 'ok' and name[:2] in ('B1', 'B2'):  # estorno real imediato: não contamina os casos seguintes
+            rv = reverse(r[1]); row['estorno'] = rv[0]; check(rv[0] == 'ok', f'B5(b) estorno do grupo {phase} {name[:2]} aceite', rv)
         ok = r[0] == exp and (r[0] == 'ok' or (row['snapshot_igual'] and 'cash_account_inconsistent' in r[1]))
         if name.startswith('B1') and r[0] == 'ok': ok = ok and b1 != b0  # ANTES: activação reinterpreta o saldo da conta X sem dinheiro
         if name.startswith('B2') and r[0] == 'ok': ok = ok and row['vigia_novo']['vigia_contas_uniao'] > 0
         if name.startswith('L'): ok = ok and b1 - b0 == (amount if affected == ACCOUNT else 0) and sum(row['vigia_novo'].values()) == 0
         check(ok, f'B5(b) {phase} {name}: esperado {exp}', row)
-# limpar os grupos ANTES aceites que a regra nova recusa (estorno real; deixam de contar)
-for row in report['contas']:
-    if row['fase'] == 'ANTES' and row['caso'][:2] in ('B1', 'B2'):
-        rv = reverse(row['grupo']); check(rv[0] == 'ok', f"B5(b) estorno do grupo ANTES {row['caso'][:2]} aceite", rv)
 run_file('cash_watch.INERTE')
 check(sum(new_watch().values()) == 0, 'B5(b) após estorno dos grupos ANTES o vigia volta a zero', new_watch())
 
@@ -205,13 +203,17 @@ CORR = {
  'extracto divergente (data da linha)': "UPDATE bank_statement_lines SET booking_date='2026-10-14' WHERE id=%(line)s",
  'extracto divergente (ligação ao documento errado)': "UPDATE bank_line_transactions SET transaction_id=%(c)s WHERE line_id=%(line)s",
  'soma dupla (perna legada igual na mesma conta e data)': "INSERT INTO transaction_payments(transaction_id,company_id,amount,payment_date,account_id,payment_method,status) VALUES(%(a)s,%(co)s,60,'2026-10-13',%(acc)s,'transfer','paid')",
- 'soma dupla (segunda linha de extracto do mesmo movimento)': "INSERT INTO bank_statement_lines(statement_id,line_hash,company_id,financial_account_id,amount,booking_date,status) VALUES(%(st)s,md5(%(g)s::text||'dup'),%(co)s,%(acc)s,60,'2026-10-13','matched')",
+ 'soma dupla (segunda linha de extracto do mesmo movimento)': "INSERT INTO bank_statement_lines(statement_id,line_hash,company_id,financial_account_id,amount,booking_date,status,offset_group_id) VALUES(%(st)s,md5(%(g)s::text||'dup'),%(co)s,%(acc)s,60,'2026-10-13','matched',%(g)s)",
 }
 def corrupt(name, stmt, measure):
     f = fresh_bank_group(); args = dict(f, acc=ACCOUNT, acc2=ACC2, co=COMPANY, st=STATEMENT)
     base = measure(); s0 = snapshot()
-    sql(obs, 'BEGIN'); sql(obs, 'SET LOCAL session_replication_role=replica'); sql(obs, stmt, args)
-    got = measure(); sql(obs, 'ROLLBACK')
+    sql(obs, 'BEGIN'); sql(obs, 'SET LOCAL session_replication_role=replica')
+    try:
+        sql(obs, stmt, args); got = measure()
+    except psycopg2.Error as e:
+        got = dict(base, impedido_pela_base=e.pgcode)
+    sql(obs, 'ROLLBACK')
     check(snapshot() == s0, f'B5(d) corrupção revertida sem resto: {name}')
     return base, got
 for phase in ('ANTES', 'DEPOIS'):
@@ -223,12 +225,15 @@ for phase in ('ANTES', 'DEPOIS'):
         det = {k: v for k, v in got.items() if v != base.get(k)}
         report['corrupcao'].append(dict(fase=phase, corrupcao=name, base=base, detectado_por=det,
                                         vigia_saldo_detecta=(phase == 'ANTES' and got['saldo'] != base['saldo']) if phase == 'ANTES' else None))
-        if phase == 'DEPOIS':
+        if 'impedido_pela_base' in got:
+            check(got['impedido_pela_base'] == '23505', f'B5(d) {phase} impedido pela base (índice único issue335_bank_group): {name}', got)
+        elif phase == 'DEPOIS':
             check(sum(base.values()) == 0 and det, f'B5(d) DEPOIS detecta: {name}', det)
 ant = [r for r in report['corrupcao'] if r['fase'] == 'ANTES']
 check(not any(r['vigia_saldo_detecta'] for r in ant), 'B5(d) ANTES: o vigia de saldo (cópia da fórmula) não detecta nenhuma corrupção', [r['corrupcao'] for r in ant if r['vigia_saldo_detecta']])
 report['antes_resumo'] = dict(total=len(ant), detectadas_por_alguma_vigia_antiga=sum(1 for r in ant if r['detectado_por']),
-                              nao_detectadas=[r['corrupcao'] for r in ant if not r['detectado_por']])
+                              nao_detectadas=[r['corrupcao'] for r in ant if not r['detectado_por'] or set(r['detectado_por'])=={'impedido_pela_base'}])
+report['antes_resumo']['detectadas_ignorando_impedidas'] = sum(1 for r in ant if r['detectado_por'] and 'impedido_pela_base' not in r['detectado_por'])
 check(report['antes_resumo']['nao_detectadas'], 'B5(d) ANTES: há corrupções que nenhuma vigia antiga detecta', report['antes_resumo'])
 
 # ----------------------------------------------------------------- legítimos adicionais (zero falso positivo DEPOIS)
