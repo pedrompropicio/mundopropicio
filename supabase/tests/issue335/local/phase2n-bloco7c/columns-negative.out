@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/dev-server/supabase/tests/issue335/phase2n-columns.py", line 51, in <module>
+    assert execute(baseline, 'SELECT count(*) FROM public.companies WHERE id=%s', (COMPANY,))[0][0] == 1
+           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dev-server/supabase/tests/issue335/phase2n-columns.py", line 42, in execute
+    q.execute(statement, params)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+psycopg2.errors.UndefinedTable: relation "public.companies" does not exist
+LINE 1: SELECT count(*) FROM public.companies WHERE id='00000000-000...
+                             ^
+

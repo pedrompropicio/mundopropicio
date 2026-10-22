@@ -1,0 +1,9 @@
+PASS permissions: 48 real role/function/override cells; full snapshots
+PASS user_permissions: only admin can grant; self/company restrictive policy is not a grant
+PASS request replay: same actor identical; other authorized actor request_actor_mismatch
+PASS bank replay; reversal replay actor-bound: same admin identical, other admin mismatch, changed content request_changed, new request already_reversed
+CLASSIFIED OPEN legacy user_permissions TRUNCATE allowed to user/anon; local rollback
+PASS import: duplicate ignored unchanged; active writes blocked; reversed history FK RESTRICT
+PASS scale50: 100 prior payments, 51 new legs; real apply/reverse 0.3655053070000349 0.15123938900001122
+PASS index estimate: ShareLock blocks writer not reader; local count1463 0.0011515549999785435
+PASS Bloco7 local runner; assertions preserved; fixtures rolled back

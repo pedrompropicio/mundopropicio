@@ -1,0 +1,1 @@
+{"status": "FECHADO", "rows": 202, "open": 0, "skips": 0, "origins": {"constraint transaction_payments_transaction_id_fkey": 6, "guarda #335": 171, "permitido": 585, "RLS/ACL": 20, "constraint transactions_pkey": 6, "RLS linha não atingida": 3, "trigger legado/permissão": 1}}
