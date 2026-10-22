@@ -16,6 +16,7 @@ import { SharedCostBadge } from "@/components/SharedCostBadge";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import InvoiceGroupAction from "@/components/InvoiceGroupAction";
 import { AccountantReviewRowBadge } from "@/components/AccountantReviewBadge";
+import { SpecificationText } from "@/components/SpecificationText";
 
 import { toast } from "@/hooks/use-toast";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
@@ -541,9 +542,7 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                 <ReimbursementNoteRefBadge transactionId={t.id} />
                 <AccountantReviewRowBadge transactionId={t.id} />
               </div>
-              {t.specification && (
-                <p className="text-xs text-muted-foreground">{t.specification}</p>
-              )}
+              {t.specification && <SpecificationText text={t.specification} />}
               {!isParentSplit && eventName && (
                 <p className="text-xs text-muted-foreground sm:hidden">{eventName}</p>
               )}

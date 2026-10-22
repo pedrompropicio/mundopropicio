@@ -1,3 +1,4 @@
+import { buildCamarimSessionSpecification } from "../_shared/session-specification.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
@@ -659,44 +660,6 @@ Deno.serve(async (req) => {
         `Camarim — ${session.title} (${itemCount} ${receiptWord}, IVA ${first.ivaRate}%)${originSuffix}`
           .slice(0, 250);
 
-      // Aggregate per analytic_tag for the specification field
-      const tagAgg = new Map<string, { count: number; total: number }>();
-      for (const g of groupItems) {
-        const tag = (g.raw.analytic_tag as string | null) ?? "outros";
-        const cur = tagAgg.get(tag) ?? { count: 0, total: 0 };
-        cur.count += 1;
-        cur.total += g.total;
-        tagAgg.set(tag, cur);
-      }
-      const TAG_LABEL: Record<string, string> = {
-        bebidas: "Bebidas",
-        comida: "Comida",
-        higiene: "Higiene e Consumíveis",
-        equipa: "Equipa Camarim",
-        outros: "Outros / Sem classificação",
-      };
-      const tagSummary = Array.from(tagAgg.entries())
-        .sort((a, b) => b[1].total - a[1].total)
-        .map(([tag, v]) => `${TAG_LABEL[tag] ?? tag}: ${v.total.toFixed(2)}€ (${v.count})`)
-        .join(" · ");
-
-      const supplierList = Array.from(
-        new Set(
-          groupItems
-            .map((g) => (g.raw.supplier_name_raw as string | null)?.trim())
-            .filter(Boolean) as string[],
-        ),
-      ).slice(0, 8).join(", ");
-
-      const specification = [
-        `Sessão de Camarim: ${session.title}`,
-        `Itens consolidados: ${itemCount}`,
-        tagSummary ? `Análise: ${tagSummary}` : null,
-        supplierList ? `Fornecedores: ${supplierList}${supplierList.length >= 1 ? "" : "…"}` : null,
-        `Origem: ${originLabel}`,
-        `IVA: ${first.ivaRate}%`,
-      ].filter(Boolean).join("\n");
-
       // D-ERP156: nenhuma despesa do camarim é reembolso individual. Cartão mantém-se
       // como antes (nasce paga). Itens da administradora (adiantamento ou bolso)
       // nascem approved e são pagos por transaction_payments na conta da sessão,
@@ -706,7 +669,7 @@ Deno.serve(async (req) => {
       const txStatus: "paid" | "approved" = isCard ? "paid" : "approved";
 
       const ivaNote = ivaDriftCents > 1
-        ? `\nIVA real do recibo: ${realIvaSum.toFixed(2)}€ · IVA recalculado a ${snappedRate}%: ${ivaAmount.toFixed(2)}€ · desvio ${(ivaDriftCents/100).toFixed(2)}€ (taxas mistas no recibo)`
+        ? `IVA real do recibo: ${realIvaSum.toFixed(2)}€ · IVA recalculado a ${snappedRate}%: ${ivaAmount.toFixed(2)}€ · desvio ${(ivaDriftCents/100).toFixed(2)}€ (taxas mistas no recibo)`
         : "";
 
       const txPayload: Record<string, unknown> = {
@@ -718,7 +681,13 @@ Deno.serve(async (req) => {
         category_id: camarimCategoryId, // FORCED to 2.6.04 — Camarins
         supplier_id: administratorSupplierId, // administradora da sessão (recebeu o adiantamento)
         operation_key: sessionOperationKey,
-        specification: specification + ivaNote,
+        specification: buildCamarimSessionSpecification({
+          title: session.title,
+          itemCount,
+          originLabel,
+          ivaRate: first.ivaRate,
+          ivaDriftNote: ivaNote || null,
+        }),
         date: txDate,
         status: txStatus,
         invoice_ref: null,
