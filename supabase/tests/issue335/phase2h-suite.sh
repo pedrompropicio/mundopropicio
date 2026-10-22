@@ -60,6 +60,6 @@ elif python3 "$S/phase2n-columns.py" "$D" "$PORT" "$ISSUE335_E_BASELINE_SOCKET" 
   echo 'PASS phase2n-columns (E valid columns and paired legacy evidence)' | tee -a "$res"
 else echo "FAIL phase2n-columns: $(tail -1 "$OUT/phase2n-columns.out")" | tee -a "$res"; fi
 if python3 "$S/phase2n-low.py" "$D" "$PORT" "$OUT/phase2n-low.json" > "$OUT/phase2n-low.out" 2>&1; then
-  echo 'PASS phase2n-low (Bloco7 proofs; reversal replay and legacy TRUNCATE classified OPEN, not acceptance)' | tee -a "$res"
+  echo 'PASS phase2n-low (Bloco7+7b proofs; reversal replay actor-bound; legacy TRUNCATE classified OPEN, not acceptance)' | tee -a "$res"
 else echo "FAIL phase2n-low: $(tail -1 "$OUT/phase2n-low.out")" | tee -a "$res"; fi
 if grep -q '^FAIL' "$res"; then exit 1; fi

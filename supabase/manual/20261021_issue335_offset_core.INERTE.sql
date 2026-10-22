@@ -370,11 +370,13 @@ BEGIN
 END $$;
 CREATE OR REPLACE FUNCTION public._issue335_reverse(p_group_id uuid,p_request_id uuid,p_reason text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $$
-DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid uuid; BEGIN
+DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid uuid; h text; BEGIN
  IF NOT public.issue335_context_valid('reverse') THEN RAISE EXCEPTION 'managed_operation_required'; END IF;
  PERFORM set_config('lock_timeout','5s',true);
  IF public.issue335_uid() IS NULL OR NOT public.has_role(public.issue335_uid(),'admin') THEN RAISE EXCEPTION 'permission_denied'; END IF;
  IF p_request_id IS NULL OR nullif(trim(p_reason),'') IS NULL THEN RAISE EXCEPTION 'reason_required'; END IF;
+ -- 2n-Bloco7b: identidade do pedido de estorno (grupo + request_id + motivo), guardada no grupo.
+ h:=encode(sha256(convert_to(jsonb_build_object('group',p_group_id,'request',p_request_id,'reason',p_reason)::text,'UTF8')),'hex');
  PERFORM pg_advisory_xact_lock_shared(335,1);
  PERFORM 1 FROM public.transaction_offset_control WHERE singleton AND reverse_enabled;
  IF NOT FOUND THEN RAISE EXCEPTION 'encontro_desativado'; END IF;
@@ -385,8 +387,13 @@ DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid 
  SELECT * INTO g FROM public.transaction_offset_groups WHERE id=p_group_id AND company_id=public.current_company_id() FOR NO KEY UPDATE NOWAIT;
  IF NOT FOUND THEN RAISE EXCEPTION 'group_not_found'; END IF;
  IF g.status='reversed' THEN
-  IF g.reversal_request_id=p_request_id AND g.reversal_reason=p_reason THEN RETURN g.result||jsonb_build_object('status','reversed'); END IF;
-  RAISE EXCEPTION 'already_reversed';
+  -- 2n-Bloco7b: request_id diferente = pedido novo (already_reversed); mesmo request_id com
+  -- conteúdo alterado = request_changed; mesmo conteúdo com outro actor = request_actor_mismatch;
+  -- só o mesmo actor com o mesmo pedido recebe o resultado idempotente.
+  IF g.reversal_request_id IS DISTINCT FROM p_request_id THEN RAISE EXCEPTION 'already_reversed'; END IF;
+  IF g.reversal_hash IS DISTINCT FROM h THEN RAISE EXCEPTION 'request_changed'; END IF;
+  IF g.reversal_actor IS DISTINCT FROM public.issue335_uid() THEN RAISE EXCEPTION 'request_actor_mismatch'; END IF;
+  RETURN g.result||jsonb_build_object('status','reversed');
  END IF;
  IF g.status<>'applied' THEN RAISE EXCEPTION 'invalid_group_state'; END IF;
  -- 2n-Bloco2b: candidate removed after apply -> clear atomic refusal instead of a late 42501.
@@ -409,7 +416,7 @@ DECLARE g public.transaction_offset_groups; l public.bank_statement_lines; txid 
   UPDATE public.bank_statement_lines SET status='unmatched',offset_group_id=NULL,matched_transaction_id=NULL,matched_by=NULL,matched_at=NULL WHERE id=l.id;
  END LOOP;
  -- Keep adopted legacy links managed by the retained group: old automatic trigger cannot revive them.
- UPDATE public.transaction_offset_groups SET status='reversed',reversed_at=now(),reversal_request_id=p_request_id,reversal_reason=p_reason WHERE id=g.id;
+ UPDATE public.transaction_offset_groups SET status='reversed',reversed_at=now(),reversal_request_id=p_request_id,reversal_reason=p_reason,reversal_actor=public.issue335_uid(),reversal_hash=h WHERE id=g.id;
  RETURN g.result||jsonb_build_object('status','reversed');
 END $$;
 
