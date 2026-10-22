@@ -6823,3 +6823,32 @@ Suite final NOVO catálogo instalado + NOVO catálogo legado sem candidatos:22 g
 Rollback integral14 pares num catálogo limpo:exit0, differences={}, before=after SHA256474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1. Catálogo normalizado completo owners/ACL/roles/memberships/defaults/types/indexes/RI/triggers/policies/functions/views, gzip retido; nenhum fingerprint reduzido. Fixture7 rollback por célula; tabela sintética índice eliminada; clusters efémeros desta tarefa encerrados no fim.
 
 Artefactos: supabase/tests/issue335/local/phase2n-bloco7, low.json integral snapshots/catalog, low.out, suite.out/results, rejected outputs, rollback before/after.gz/differences/output/bootstrap, counts, investigações e summary. Leituras/hashes completos nos manifestos. JSON/snapshots/rollback comparados integralmente por máquina, NÃO LIDOS textualmente linha-a-linha; capturas históricas fora do âmbito não relidas. SHAs finais no bloco7 de issue335-fase2n-hashes.sha256; CI remoto não verificado, nenhum git stateful. Reserva QUADRO mantida, manual/TS/migrations intactos. Parar no fim deste bloco; A–C/instalação exigem Sim separado.
+
+## 2n-Bloco8 — consumidores da fórmula antiga de saldo/caixa INVENTARIADOS, 22/10/2026 UTC
+
+Só leitura/documentação. Sem alterações a código, SQL, migrations, dados; sem instalação, deploy ou Publish. Inventário completo em docs/testes/issue335-bloco8-consumidores.md.
+
+### Resultado
+- Núcleo (b — muda com #335): _account_true_balance_raw, _account_true_balance_asof_raw + wrappers (account_true_balance, account_true_balances_asof, account_has_balance_for), computeAccountBalance (cliente), get_event_cash_position + invariante (par a actualizar em conjunto), _ticket_office_balance_raw/ticket_office_balances + computeTicketOfficeBalance + TicketOffices.tsx bankBalance (condicional a conta bilheteira), saldos de cartões (computeAccountBalance, card-session-balance, close-card-session edge).
+- Herdados (b): Dashboard/Contas (useAccountBalanceCards), TransferFormModal/TransactionPaymentModal/BatchPaymentModal (validação de saldo no servidor), AccountBalanceImplantModal, CardSessions, invariantes camarim/D-ERP238/fecho de evento, lado "sistema" e fallback 3 de BankReconciliation.
+- (a) já correcto: reconciliationCash em src/lib/bank-statement/reconcile.ts:48-62 (único em src/lib que exclui payment_method='compensation'; #336).
+- (c) irrelevantes: relatórios de dívida/BP/sócio, exports payment-list/contas-pagar/aging/bp-pdf, settlement statement/disbursement/cost-basis, close-camarim-session, CRUD/histórico — compensação liquida dívida sem ser caixa, comportamento correcto.
+- ReportTreasuryProjection: projecção (c); saldo inicial herda (b).
+
+### Provas e fontes
+- Definições Live do catálogo guardado supabase/tests/issue335/live/phase2e-functions.json; candidatos inertes supabase/manual/20261021_issue335_offset_balance.INERTE.sql e ..._cash_position.INERTE.sql lidos integralmente (managed + pernas payment_method<>'compensation').
+- Frontend: subagentes read-only sub_2831s69q (src/lib+hooks), sub_pjq8y2n9 (componentes/páginas), sub_z6agye08 (edge/SQL); confirmações próprias em account-balance.ts, reconcile.ts, TicketOffices.tsx:153-162, CardSessions.tsx:45-66, BankReconciliation.tsx:1060-1090, FinancialAccounts.tsx:140-155, export-bank-statement.ts, migrations 20261002103000/20261010184500/20260916032701.
+- Zero chamadores executáveis de get_event_cash_position no frontend/edges (só types.ts gerado e comentário EventDetail.tsx:682); consumidor real é o invariante SQL.
+- Sem grep em sandbox_exec* neste bloco (pedido era só consumidores da fórmula); inventário de escritas directas já existe no Bloco 7.
+
+### Casos de aceitação e mudanças pré-Publish
+12 casos de teste por consumidor (b) com os exemplos canónicos (quatro IVAs 18.860; Estoril 23.406) e lista ordenada por risco (1 RPCs de saldo, 2 fórmula cliente, 3 cash_position+invariante, 4 bilheteiras, 5 cartões, 6 invariantes consumidoras, 7 BankReconciliation) no documento do bloco.
+
+### Lacunas declaradas
+- launch_from_bank_lines/reconcile_bank_line: corpos e chamadores não lidos integralmente (não calculam saldo; leitura em dívida).
+- TicketOfficePositionCards e variantes cartões/camarim classificados pela fórmula partilhada, sem leitura linha-a-linha integral.
+- Grep ~562 ocorrências triado; ocorrências CRUD de paid_amount classificadas (c) por padrão de uso, sem auditoria integral de cada uma.
+- Sem novo SELECT Live; sem cálculo de desvio monetário concreto (depende de dados).
+
+### Âmbito e SHAs
+Alterados/criados apenas em docs/: docs/testes/issue335-bloco8-consumidores.md (novo), docs/testes/issue335-fases12-local.md (append desta secção), docs/testes/issue335-fase2n-leituras.md (append). supabase/manual intacto; sem código, migrations, DML, deploy ou Publish. Reserva do QUADRO mantida. SHAs no fim desta secção (ver manifesto de leituras para o restante).
