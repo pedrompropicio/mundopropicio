@@ -63,7 +63,8 @@ def setup(c, grouped):
     execute(c, "INSERT INTO public.cache_payment_contracts(id,company_id,root_event_id,artist_supplier_id,beneficiary_supplier_id,gross,withholding_applies) VALUES(%s,%s,%s,%s,%s,100,false)", (uid(6), COMPANY, uid(2), uid(1), uid(1)))
     execute(c, "INSERT INTO public.ticket_office_settlements(id,company_id,event_id,financial_account_id,created_by) VALUES(%s,%s,%s,'00000000-0000-0000-0000-000000000030',%s)", (uid(7), COMPANY, uid(2), ADMIN))
     execute(c, "INSERT INTO public.event_forecasts(id,company_id,event_id,category_id,type,description,amount,iva_rate) VALUES(%s,%s,%s,'00000000-0000-0000-0000-000000000052','income','LOCAL E forecast',1000,0)", (uid(8), COMPANY, uid(2)))
-    execute(c, "INSERT INTO public.card_sessions(id,company_id,holder_name,status) VALUES(%s,%s,'LOCAL E holder','open')", (uid(9), COMPANY))
+    execute(c, "INSERT INTO public.financial_accounts(id,company_id,name,type) VALUES(%s,%s,'LOCAL E card','prepaid_card')", (uid(11), COMPANY))
+    execute(c, "INSERT INTO public.card_sessions(id,company_id,card_account_id,holder_name,status) VALUES(%s,%s,%s,'LOCAL E holder','open')", (uid(9), COMPANY, uid(11)))
     execute(c, "INSERT INTO public.payment_lists(id,company_id,title,status) VALUES(%s,%s,'LOCAL E list','draft')", (uid(10), COMPANY))
     execute(c, 'RESET ROLE')
     for n, amount in [(20, 100), (21, 40), (22, 100), (23, 50)]:
