@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/dev-server/supabase/tests/issue335/phase2n-columns.py", line 374, in <module>
+    closure=closing_evidence()
+  File "/dev-server/supabase/tests/issue335/phase2n-columns.py", line 331, in closing_evidence
+    execute(c,"INSERT INTO transactions(id,company_id,type,status,description,amount,iva_rate,date,supplier_id,event_id,account_id,payment_method) VALUES(%s,%s,%s,'approved','LOCAL 6c partial origin',%s,0,'2026-10-13','00000000-0000-0000-0000-000000000020',%s,'00000000-0000-0000-0000-000000000030','transfer')",(uid(n),COMPANY,kind,amount,uid(2)))
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dev-server/supabase/tests/issue335/phase2n-columns.py", line 42, in execute
+    q.execute(statement, params)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+psycopg2.errors.UniqueViolation: duplicate key value violates unique constraint "transactions_pkey"
+DETAIL:  Key (id)=(60000000-0000-0000-0000-000000000081) already exists.
+

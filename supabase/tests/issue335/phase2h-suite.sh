@@ -59,4 +59,7 @@ if [[ -z "${ISSUE335_E_BASELINE_SOCKET:-}" || -z "${ISSUE335_E_BASELINE_PORT:-}"
 elif python3 "$S/phase2n-columns.py" "$D" "$PORT" "$ISSUE335_E_BASELINE_SOCKET" "$ISSUE335_E_BASELINE_PORT" "$ROOT" "$OUT/phase2n-columns.json" > "$OUT/phase2n-columns.out" 2>&1; then
   echo 'PASS phase2n-columns (E valid columns and paired legacy evidence)' | tee -a "$res"
 else echo "FAIL phase2n-columns: $(tail -1 "$OUT/phase2n-columns.out")" | tee -a "$res"; fi
+if python3 "$S/phase2n-low.py" "$D" "$PORT" "$OUT/phase2n-low.json" > "$OUT/phase2n-low.out" 2>&1; then
+  echo 'PASS phase2n-low (Bloco7 proofs; reversal replay and legacy TRUNCATE classified OPEN, not acceptance)' | tee -a "$res"
+else echo "FAIL phase2n-low: $(tail -1 "$OUT/phase2n-low.out")" | tee -a "$res"; fi
 if grep -q '^FAIL' "$res"; then exit 1; fi

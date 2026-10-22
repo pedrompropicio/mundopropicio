@@ -1,0 +1,39 @@
+{
+  "suite_exit": 0,
+  "suite_groups": 22,
+  "rollback_exit": 0,
+  "rollback_pairs": 14,
+  "rollback_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1",
+  "skips": 0,
+  "classified_open": [
+    "reversal replay lacks actor binding",
+    "legacy user_permissions TRUNCATE ACL"
+  ],
+  "manual_changed": false,
+  "live_writes": false,
+  "ci_remote": "not verified",
+  "scale": [
+    {
+      "case": "scale50",
+      "documents": 50,
+      "prior_payments": 100,
+      "new_payments": 51,
+      "apply_seconds": 0.3003005650002706,
+      "reverse_seconds": 0.09778148600025816
+    },
+    {
+      "case": "index_window",
+      "count": 1463,
+      "index_seconds": 0.001511164000021381,
+      "locks": [
+        [
+          "ShareLock",
+          true
+        ]
+      ],
+      "other_session_select": "ok",
+      "other_session_insert": "55P03",
+      "limit": "synthetic count-sized rows; not Live timing or full DDL lock estimate"
+    }
+  ]
+}

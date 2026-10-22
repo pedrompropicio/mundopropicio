@@ -1,0 +1,156 @@
+[
+  [
+    "bank_line_transactions",
+    "Bank line transactions manageable by authorized users",
+    "PERMISSIVE",
+    [
+      "authenticated"
+    ],
+    "ALL",
+    "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_permission(( SELECT auth.uid() AS uid), 'manage_bank_reconciliation'::text))",
+    "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_permission(( SELECT auth.uid() AS uid), 'manage_bank_reconciliation'::text))"
+  ],
+  [
+    "bank_line_transactions",
+    "Bank line transactions viewable by authorized users",
+    "PERMISSIVE",
+    [
+      "authenticated"
+    ],
+    "SELECT",
+    "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_permission(( SELECT auth.uid() AS uid), 'manage_bank_reconciliation'::text) OR (EXISTS ( SELECT 1\n   FROM (bank_statement_lines bsl\n     JOIN financial_account_access faa ON ((faa.account_id = bsl.financial_account_id)))\n  WHERE ((bsl.id = bank_line_transactions.line_id) AND (faa.user_id = ( SELECT auth.uid() AS uid))))))",
+    null
+  ],
+  [
+    "bank_line_transactions",
+    "company_isolation_bank_line_transactions",
+    "RESTRICTIVE",
+    [
+      "authenticated"
+    ],
+    "ALL",
+    "(company_id = current_company_id())",
+    "(company_id = current_company_id())"
+  ],
+  [
+    "bank_statement_lines",
+    "Bank statement lines manageable by authorized users",
+    "PERMISSIVE",
+    [
+      "authenticated"
+    ],
+    "ALL",
+    "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_permission(( SELECT auth.uid() AS uid), 'manage_bank_reconciliation'::text))",
+    "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_permission(( SELECT auth.uid() AS uid), 'manage_bank_reconciliation'::text))"
+  ],
+  [
+    "bank_statement_lines",
+    "Bank statement lines viewable by authorized users",
+    "PERMISSIVE",
+    [
+      "authenticated"
+    ],
+    "SELECT",
+    "(is_platform_admin(( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_permission(( SELECT auth.uid() AS uid), 'manage_bank_reconciliation'::text) OR (EXISTS ( SELECT 1\n   FROM financial_account_access faa\n  WHERE ((faa.account_id = bank_statement_lines.financial_account_id) AND (faa.user_id = ( SELECT auth.uid() AS uid))))))",
+    null
+  ],
+  [
+    "bank_statement_lines",
+    "company_isolation_bank_statement_lines",
+    "RESTRICTIVE",
+    [
+      "authenticated"
+    ],
+    "ALL",
+    "(company_id = current_company_id())",
+    "(company_id = current_company_id())"
+  ],
+  [
+    "transaction_offsets",
+    "company_isolation_transaction_offsets",
+    "RESTRICTIVE",
+    [
+      "authenticated"
+    ],
+    "ALL",
+    "(company_id = current_company_id())",
+    "(company_id = current_company_id())"
+  ],
+  [
+    "transaction_offsets",
+    "transaction_offsets_delete_privileged",
+    "PERMISSIVE",
+    [
+      "authenticated"
+    ],
+    "DELETE",
+    "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))",
+    null
+  ],
+  [
+    "transaction_offsets",
+    "transaction_offsets_insert_privileged",
+    "PERMISSIVE",
+    [
+      "authenticated"
+    ],
+    "INSERT",
+    null,
+    "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))"
+  ],
+  [
+    "transaction_offsets",
+    "transaction_offsets_select_staff",
+    "PERMISSIVE",
+    [
+      "authenticated"
+    ],
+    "SELECT",
+    "has_staff_role(( SELECT auth.uid() AS uid))",
+    null
+  ],
+  [
+    "transaction_offsets",
+    "transaction_offsets_update_privileged",
+    "PERMISSIVE",
+    [
+      "authenticated"
+    ],
+    "UPDATE",
+    "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))",
+    "(has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'editor'::app_role))"
+  ],
+  [
+    "user_permissions",
+    "User permissions manageable by admin",
+    "PERMISSIVE",
+    [
+      "authenticated"
+    ],
+    "ALL",
+    "has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)",
+    "has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)"
+  ],
+  [
+    "user_permissions",
+    "User permissions viewable by own user or admin",
+    "PERMISSIVE",
+    [
+      "authenticated"
+    ],
+    "SELECT",
+    "((user_id = ( SELECT auth.uid() AS uid)) OR has_role(( SELECT auth.uid() AS uid), 'admin'::app_role) OR has_role(( SELECT auth.uid() AS uid), 'manager'::app_role))",
+    null
+  ],
+  [
+    "user_permissions",
+    "company_isolation_user_permissions",
+    "RESTRICTIVE",
+    [
+      "authenticated"
+    ],
+    "ALL",
+    "((user_id = ( SELECT auth.uid() AS uid)) OR (company_id = current_company_id()) OR is_platform_admin())",
+    "((user_id = ( SELECT auth.uid() AS uid)) OR (company_id = current_company_id()) OR is_platform_admin())"
+  ]
+]
