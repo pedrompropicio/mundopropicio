@@ -64,8 +64,9 @@ export function OffsetGroupDetailDialog({ groupId, onClose, detail: detailOverri
         invalidateAfterOffset(qc);
         return;
       }
-      setFailure(r);
-      if (!r.uncertain) pendingRef.current = null;
+      const f = r as OffsetFailure;
+      setFailure(f);
+      if (!f.uncertain) pendingRef.current = null;
     } finally {
       sendingRef.current = false;
       setSending(false);

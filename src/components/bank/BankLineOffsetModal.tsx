@@ -226,10 +226,11 @@ export function BankLineOffsetModal({ line, accountName, onClose, onDone, servic
         onDone?.();
         return;
       }
-      setFailure(r);
-      if (r.reload) setNeedsReload(true);
+      const f = r as OffsetFailure;
+      setFailure(f);
+      if (f.reload) setNeedsReload(true);
       // Resposta incerta: mantém o pedido congelado (mesmo request_id). Outro erro: nova tentativa = novo pedido.
-      if (!r.uncertain) pendingRef.current = null;
+      if (!f.uncertain) pendingRef.current = null;
     } finally {
       sendingRef.current = false;
       setSending(false);

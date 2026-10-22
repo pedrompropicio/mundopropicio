@@ -94,7 +94,7 @@ describe("recuperação por request_id", () => {
     const args = { lineId: "L", requestId: "R-same", supplierId: "s", items: plan.contract_items };
     const a = await applyBankLineOffset(c, args);
     expect(a.ok).toBe(false);
-    expect(!a.ok && a.uncertain).toBe(true);
+    expect((a as any).uncertain).toBe(true);
     const b = await applyBankLineOffset(c, args);
     expect(b.ok).toBe(true);
     expect(c.rpc.mock.calls[0][1]).toEqual(c.rpc.mock.calls[1][1]);
