@@ -6871,3 +6871,29 @@ Suite phase2h-run.sh+phase2h-suite.sh com baseline E dedicado: 22/22 PASS, exit 
 
 ### Hashes, leituras, âmbito (7c, ponto 4)
 SHAs novos: core INERTE 049a4b0ae2c50b37b0801098d7c9e21985fb507ed94c7aee5aa6875a94422852; group_storage INERTE bfda3c14feb229c9ffae718f3b34a23e0e0e02b318bfab6e08f7af1f3ef62c24; phase2n-low.py 11ca105c9c6fee526d0c978af8b3af2b97b33603be6f7701bcd5f635ddbd23d1; phase2h-suite.sh 659450866ed1959b28066bd2edae9912cb86e9d99a5e7d760aa9198bdf7b9390; phase2n-columns.py inalterado 966e50ae7db9e19d1cc01b6456b49cdbd241570b43b46345a85e90dcb68c36cc. Artefactos e SHAs em issue335-fase2n-hashes.sha256 (secção bloco7c). Leituras em issue335-fase2n-leituras.md (secção 7c). Âmbito: supabase/manual tocado apenas em offset_core.INERTE.sql e offset_group_storage.INERTE.sql (fix do 7b, commit 794e2b2db "Corrigiu play-back do estorno"); supabase/tests (phase2n-low.py, phase2h-suite.sh, artefactos local/phase2n-bloco7c/); docs/ (esta secção, leituras, hashes). Sem TS/TSX, migrations, SQL Live, instalação ou Publish. CI remoto não verificado. Reserva QUADRO mantida.
+
+## Fase 3a — função pura da prévia do encontro de contas (22/10/2026 UTC)
+
+### O que foi criado
+Classe R1, só código novo com testes, sem UI/RPC/Supabase:
+- `src/lib/transaction-offset-plan.ts` — `buildOffsetPlan` (função pura: movimento absoluto+sinal em cêntimos, documentos com dívida em aberto, ordem do dinheiro; devolve por documento {cash_cents, offset_cents}, totais, diferença, erros/avisos e itens do contrato com expected_open_cents, nunca amount/paid_amount/iva_rate); `OFFSET_ERROR_MESSAGES` (constante tipada) + `offsetErrorMessage` (código desconhecido → genérica com o código); auxiliares testados `eurosToCents`/`centsToEuros`/`parseEuroAmount`/`formatEurCents` (aritmética só em cêntimos inteiros). Adaptador `previewTransactionOffset` (itens bruto+já pago, movimento assinado, zero = só compensação) e `offsetForecastOffer` (create/existing/unavailable para linhas do BP).
+- `src/lib/__tests__/transaction-offset-plan.test.ts` — 33 testes (convenção do repo: `src/lib/__tests__/`).
+
+### Regras implementadas e provadas
+Igualdade exacta sem tolerância (0,01 € recusada: "Faltam 0,01 €" / "Excedem 0,01 €; corrija a transação ou o BP"); dinheiro alocado pela cash_order aos itens do sinal do movimento, resto compensação, compensação igual dos dois lados; elegibilidade espelhada (dívida >0, só EUR, 2 casas, sem parcelas/crédito/retenção/FX/camarim/reembolso/cartão/aporte/custo partilhado/transitória, evento fechado/acerto selado → recusa com motivo pt-PT); limites 2–50 itens e dois sinais obrigatórios. Casos exactos: exemplo da Issue (12.300/15.900/5.650/3.690 → 18.860; dinheiro 12.300/6.560; compensação 0/9.340/5.650/3.690) e Estoril (30.996 = 23.406 dinheiro + 7.590 compensação; despesa 7.590 compensação). Ordem invertida, débito simétrico, zero, dívida parcial, 50/51 itens, 1 sinal, inelegíveis, 0,1+0,2 sem float, formatação pt-PT e mapa de erros completo.
+
+### Conflito resolvido sem tocar em ficheiros existentes
+O commit externo 4fb02a8ba (03:47 UTC, lado 0 · Cowork) trouxe `src/lib/transaction-offset-plan.test.ts` (19 testes "#335 pure preview" + fronteira #336) que importa de `./transaction-offset-plan` — o módulo que este bloco criou. A primeira suite completa falhou 18/19 testes desse ficheiro (API esperada diferente). Resolução: o módulo novo passou a exportar também a API esperada (`previewTransactionOffset`, `offsetForecastOffer`, tipo `OffsetPlanItem`) como adaptador sobre o núcleo puro; nenhum ficheiro existente foi alterado. Divergência registada: o teste externo exige a mensagem curta "Excedem 0,01 €"; a especificação do Pedro pede "Excedem X €; corrija a transação ou o BP". Ficam as duas: o adaptador devolve a forma curta, `buildOffsetPlan` a forma longa — unificar é decisão do Pedro.
+
+### Resultados reais
+- Vitest isolado dos 2 ficheiros: 52/52 PASS (33 novos + 19 externos).
+- Suite completa final (maxWorkers=2): 222 ficheiros PASS, 2 skip; 1986 testes PASS, 6 skip, 11 todo, exit 0, 179 s. (Execução intermédia com 18 FAIL preservada acima — causa diagnosticada, nenhuma asserção enfraquecida.)
+- tsgo (@typescript/native-preview) --noEmit: exit 0.
+
+### Âmbito, lido/não lido, SHAs
+Âmbito: criados apenas os 2 ficheiros novos; alterados docs/QUADRO.md (reserva) e este relatório. Sem UI, sem RPC/Supabase, sem migrations, sem SQL Live, sem instalação, sem Publish. `supabase/manual` intacto. Lidos integralmente: AGENTS.md, docs/QUADRO.md (secções Regras + Em execução agora), .lovable/memory/features/compensacao-ligada.md, src/lib/transaction-offset-plan.test.ts (externo), vitest.config.ts. Lidos parcialmente: docs/testes/issue335-bloco8-consumidores.md (secções 0–2), src/lib/bank-statement/reconcile.ts (só grep das exportações HISTORICAL_CASH_BOUNDARY/reconciliationCash). Não lidos: restantes memórias .lovable e corpo integral de reconcile.ts (não necessários à função pura). Reserva QUADRO mantida. CI remoto do SHA final NÃO verificado.
+SHAs (SHA-256, antes deste append):
+- src/lib/transaction-offset-plan.ts = 9cd48b931bcab9a915ec2eb6664fd59422a4011a0923364c70daff0a5620e284
+- src/lib/__tests__/transaction-offset-plan.test.ts = ebb6bfe1bba693eac14b1bd5b762db529c723f9171a753c25586bb405e22f37f
+- docs/QUADRO.md = 8968d633807e0de4965baf215afe12eecb772dfdf47443fc1e25dfcf58e7745c
+Commits automáticos da plataforma: a073a8466 (2 ficheiros novos + QUADRO) e cfb155352 (adaptador); commit único não foi possível (gravação automática), como já registado na D-ERP291.
