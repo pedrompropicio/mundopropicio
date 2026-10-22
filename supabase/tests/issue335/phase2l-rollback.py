@@ -28,14 +28,31 @@ def snapshot():
 
 before = snapshot()
 (out / 'before.json').write_text(json.dumps(before, indent=2, ensure_ascii=False))
-names = ['offset_group_storage', 'offset_core', 'offset_invariants', 'offset_balance', 'cash_watch', 'offset_approval',
-         'status', 'offset_kill_switch', 'emergency', 'reactivation', 'cash_position', 'cash_position_invariant', 'restore', 'trigger_watch']
+# Ordem única (correcção D); rollback na inversa.
+names = ['offset_group_storage', 'offset_core', 'offset_approval', 'status', 'offset_invariants', 'offset_balance',
+         'cash_position', 'cash_position_invariant', 'restore', 'offset_kill_switch', 'emergency', 'reactivation',
+         'trigger_watch', 'cash_watch']
+def refused(q, n, expect):
+    # Correcção G: recusa obrigatória com mensagem esperada e catálogo intacto; falha nunca vira aviso.
+    pre = snapshot()
+    try:
+        q.execute((root / f'supabase/manual/20261021_issue335_{n}.ROLLBACK-INERTE.sql').read_text())
+    except Exception as e:
+        q.execute('ROLLBACK')
+        assert expect in str(e), f'{n}: esperado {expect}, obtido {e}'
+        assert snapshot() == pre, f'{n}: catálogo alterado após recusa'
+        print('PASS G refused', n, expect); return
+    raise AssertionError(f'{n}: rollback aceite, esperado {expect}')
 with c.cursor() as q:
     q.execute('SELECT rolsuper FROM pg_roles WHERE rolname=current_user')
     assert q.fetchone()[0] is False
     for n in names:
         q.execute((root / f'supabase/manual/20261021_issue335_{n}.INERTE.sql').read_text())
         print('installed local', n)
+    refused(q, 'offset_group_storage', 'rollback_order: consumers_installed')
+    refused(q, 'offset_balance', 'rollback_order: cash_watch_first')
+    refused(q, 'offset_approval', 'rollback_order: status_first')
+    refused(q, 'cash_position', 'rollback_order: cash_position_invariant_first')
     for n in reversed(names):
         q.execute((root / f'supabase/manual/20261021_issue335_{n}.ROLLBACK-INERTE.sql').read_text())
         print('rolled back local', n)
