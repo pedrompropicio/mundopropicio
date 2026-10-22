@@ -61,6 +61,7 @@ def setup(c, grouped):
         execute(c, 'INSERT INTO public.user_roles(user_id,role,company_id) VALUES(%s,%s,%s) ON CONFLICT DO NOTHING', (user, role, COMPANY))
     execute(c, "INSERT INTO public.suppliers(id,company_id,name) VALUES(%s,%s,'LOCAL E reference')", (uid(1), COMPANY))
     execute(c, "INSERT INTO public.events(id,company_id,name,date,budget_mode,event_nature) VALUES(%s,%s,'LOCAL E event','2026-10-13','without_bp','producao_propria')", (uid(2), COMPANY))
+    execute(c, "INSERT INTO public.events(id,company_id,name,date,budget_mode,event_nature) VALUES(%s,%s,'LOCAL E alternate event','2026-10-13','without_bp','producao_propria')", (uid(12), COMPANY))
     execute(c, "INSERT INTO public.event_settlements(id,company_id,event_id,name,is_sealed) VALUES(%s,%s,%s,'LOCAL E closing',false)", (uid(3), COMPANY, uid(2)))
     execute(c, "INSERT INTO public.event_partners(id,company_id,event_id,supplier_id) VALUES(%s,%s,%s,%s)", (uid(4), COMPANY, uid(2), uid(1)))
     execute(c, "INSERT INTO public.supplier_credits(id,company_id,supplier_id,amount,reason) VALUES(%s,%s,%s,100,'LOCAL E reference')", (uid(5), COMPANY, uid(1)))
@@ -93,7 +94,7 @@ def columns(c, table):
 protected = set('id reversed_at reversal_kind amount iva_rate supplier_id company_id type forecast_id event_id is_hidden event_settlement_id currency fx_rate original_amount installment_group_id installment_number installment_total card_session_id held_by_supplier_id settlement_id is_transitory supplier_credit_id parent_transaction_id is_reimbursement cache_contract_id shared_cost_account_id declared_withholding_amount declared_withholding_rate split_percentage split_amount split_mode payment_method reversed_by reversal_reason paying_partner_id ordering_partner_id shared_cost_counterparty_id category_id exclude_from_result cache_role cache_root_event_id cache_artist_supplier_id operation_key invoice_group_id transitory_reason account_id status payment_date paid_amount'.split())
 special = {
     'supplier_id': uid(1), 'shared_cost_counterparty_id': uid(1), 'held_by_supplier_id': uid(1),
-    'cache_artist_supplier_id': uid(1), 'event_id': uid(2), 'cache_root_event_id': uid(2),
+    'cache_artist_supplier_id': uid(1), 'event_id': uid(12), 'cache_root_event_id': uid(2),
     'event_settlement_id': uid(3), 'ordering_partner_id': uid(4), 'paying_partner_id': uid(4),
     'supplier_credit_id': uid(5), 'cache_contract_id': uid(6), 'settlement_id': uid(7),
     'forecast_id': uid(8), 'card_session_id': uid(9), 'payment_list_id': uid(10),
@@ -113,6 +114,10 @@ def value(c, table, column, udt, row_id):
     old = execute(c, sql.SQL('SELECT {} FROM public.{} WHERE id=%s').format(sql.Identifier(column), sql.Identifier(table)), (row_id,))[0][0]
     if column == 'status':
         return 'cancelled' if table == 'transaction_payments' else 'overdue'
+    if column == 'type':
+        return 'expense' if old == 'income' else 'income'
+    if column == 'paid_amount':
+        return max(0, (old or 0) - 1)
     if column == 'offset_id':
         candidates = execute(c, 'SELECT id FROM public.transaction_offsets ORDER BY id LIMIT 1')
         return candidates[0][0] if candidates else None
@@ -198,6 +203,8 @@ try:
                 parity = is_new or (blegacy['state'], blegacy['origin'], blegacy['message']) == (alegacy['state'], alegacy['origin'], alegacy['message'])
                 valid = is_new or bmanaged['state'] == '00000'
                 correct = amanaged['origin'] == 'guarda #335' if expected == 'recusado' else amanaged['state'] == '00000'
+                if bmanaged and bmanaged['state'] == '00000' and col not in bmanaged['changed']:
+                    valid = False  # no-op or a value normalized back by a legacy trigger is not an attack
                 verdict = 'PASS' if parity and valid and correct else 'ABERTO'
                 if verdict != 'PASS':
                     findings.append({'table': table, 'column': col, 'role': role, 'parity': parity, 'valid_same_state_without_guard': valid, 'expected_observed': correct})
