@@ -33,6 +33,7 @@ import {
   type PaymentMethod,
 } from "@/lib/payment-methods";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { BankLineOffsetModal } from "@/components/bank/BankLineOffsetModal";
 
 interface Props {
   transaction: any;
@@ -79,8 +80,12 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
   const [creditAllocations, setCreditAllocations] = useState<Record<string, string>>({});
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
-    (transaction.payment_method as PaymentMethod) || "transfer"
+    // #337: "Compensação" já não regista pagamento solto — abre o assistente do encontro.
+    (transaction.payment_method && transaction.payment_method !== "compensation"
+      ? (transaction.payment_method as PaymentMethod)
+      : "transfer")
   );
+  const [showOffsetAssistant, setShowOffsetAssistant] = useState(false);
   const [paymentEntity, setPaymentEntity] = useState(transaction.payment_entity ?? "");
   const [paymentReference, setPaymentReference] = useState(transaction.payment_reference ?? "");
   // FX on payment day (only if transaction is in a foreign currency)
@@ -959,7 +964,17 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
                 <button
                   key={m.value}
                   type="button"
-                  onClick={() => setPaymentMethod(m.value)}
+                  onClick={() => {
+                    if (m.value === "compensation") {
+                      if (!transaction.supplier_id) {
+                        toast({ title: "Sem entidade", description: "A transação precisa de fornecedor/cliente para o encontro de contas.", variant: "destructive" });
+                        return;
+                      }
+                      setShowOffsetAssistant(true);
+                      return;
+                    }
+                    setPaymentMethod(m.value);
+                  }}
                   className={cn(
                     "flex flex-col items-center gap-1 rounded-lg border px-2 py-2 text-xs transition-all",
                     paymentMethod === m.value
@@ -1156,6 +1171,18 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
         </div>
       </div>
       </OverlayLayer>
+
+      {showOffsetAssistant && (
+        <BankLineOffsetModal
+          launch={{
+            transactionId: transaction.id,
+            supplierId: transaction.supplier_id,
+            originSign: transaction.type === "income" ? "income" : "expense",
+          }}
+          onClose={() => setShowOffsetAssistant(false)}
+          onDone={() => queryClient.invalidateQueries({ queryKey: ["transactions"] })}
+        />
+      )}
 
       {showDocuments && (
         <TransactionDocumentsModal
