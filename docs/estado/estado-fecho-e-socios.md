@@ -1,6 +1,6 @@
 # Estado — Fecho, Fechamentos e Sócios
 
-Actualizado em 2026-10-22. **Frente sem trabalho em curso.** Publish da #342 pendente na janela do 0 · Cowork.
+Actualizado em 2026-10-22. **Frente sem trabalho em curso.** #342 publicada (22/10/2026).
 
 ## Em vigor
 
@@ -25,7 +25,7 @@ Nenhum.
 
 ## Fechado a 22/10/2026
 
-- **#342** — seletor "Só total pago" na prestação de contas (commit 71d920c; 7 testes novos; suite 2161 PASS / 6 skip / 11 todo; tsgo 0). Verificado no ecrã pelo Pedro com Ivete Clareou 2026 · SUPERSOUNDS (PDF e Excel). CI remoto não verificado pelo chat 7.
+- **#342** — seletor "Só total pago" na prestação de contas (commit 71d920c; 7 testes novos; suite 2161 PASS / 6 skip / 11 todo; tsgo 0). Verificado no ecrã pelo Pedro com Ivete Clareou 2026 · SUPERSOUNDS (PDF e Excel). CI remoto não verificado pelo chat 7. Publicada a 22/10/2026.
 
 ## Factos que não se reinvestigam
 
