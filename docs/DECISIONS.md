@@ -6168,3 +6168,11 @@ Passo A instalado em Live a 22/10/2026 com Sim do Pedro.
 ## D-ERP298 — #337: método planeado "compensation" abre o pagamento em Transferência (22/10/2026)
 
 **Decisão (Pedro, 22/10/2026).** Aceitar que uma transação com método planeado "compensation" abra o pagamento em Transferência; a compensação faz-se só pelo assistente do encontro. Auditoria de 22/10/2026: 2 receitas aprovadas e em aberto (total 40.587,82 €) têm método planeado "compensation"; as restantes já estão pagas e não passam pelo modal de pagamento.
+
+## D-ERP299 — Prestação de contas do sócio: modo "Só total pago" sem qualquer "c/IVA" (22/10/2026, #342)
+
+- Decisão do Pedro: no separador Fecho do evento, seletor "Despesas no documento" (Detalhado / Só total pago) para a prestação de contas do sócio em PDF e Excel.
+- Em "Só total pago" a coluna única das despesas chama-se "Valor" (o total pago com IVA) e nenhuma expressão "c/IVA" aparece no documento: títulos sem rótulo de base, nota do art. 18.º CIVA retirada. Receitas mantêm "(s/IVA)".
+- Só disponível com base efectiva das despesas c/IVA; com base s/IVA a tabela deixaria de somar ao resultado, por isso o seletor fica desactivado e o documento sai detalhado.
+- O modo muda só colunas e rótulos: totais, resultado, parte do sócio e base a transferir iguais ao cêntimo. Portal do Sócio e relatório de gestão inalterados.
+- Implementação: commit 71d920c; memória partner-settlement.md (g18); teste partner-statement-expense-columns.test.tsx.
