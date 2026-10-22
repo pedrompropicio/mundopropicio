@@ -67,7 +67,7 @@ def snapshot(exclude_tx=()):
     where = {
         'transaction_offset_groups': 'NOT (id=ANY(%(g)s::uuid[]))',
         'transaction_offset_items': 'NOT (group_id=ANY(%(g)s::uuid[]))',
-        'transaction_offsets': 'NOT (source_transaction_id=ANY(%(t)s::uuid[]) OR target_transaction_id=ANY(%(t)s::uuid[]))',
+        'transaction_offsets': 'NOT (payable_transaction_id=ANY(%(t)s::uuid[]) OR receivable_transaction_id=ANY(%(t)s::uuid[]))',
         'transaction_payments': 'NOT (transaction_id=ANY(%(t)s::uuid[]))',
         'transactions': 'NOT (id=ANY(%(t)s::uuid[]))',
         'bank_statement_lines': 'NOT (coalesce(offset_group_id::text,\'\')=ANY(%(g)s::text[]))',
@@ -77,7 +77,7 @@ def snapshot(exclude_tx=()):
         res[t] = sql(obs, f'SELECT count(*)||\':\'||coalesce(md5(string_agg(x::text,\'|\' ORDER BY x::text)),\'-\') FROM public.{t} x WHERE {where[t]}', {'g': groups, 't': ex})[0][0]
     return res
 cols = {r[0] for r in sql(obs, "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='transaction_offsets'")}
-assert {'source_transaction_id', 'target_transaction_id'} <= cols, cols
+assert {'payable_transaction_id', 'receivable_transaction_id'} <= cols, cols
 
 def fixture():
     a, b = str(uuid.uuid4()), str(uuid.uuid4())
