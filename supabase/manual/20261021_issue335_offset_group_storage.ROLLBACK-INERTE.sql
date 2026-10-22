@@ -13,6 +13,10 @@ DO $$ BEGIN IF (to_regprocedure('public.issue335_cash_watch()') IS NOT NULL
 ALTER TABLE public.transaction_payments DROP COLUMN offset_item_id, DROP COLUMN offset_group_id;
 ALTER TABLE public.transaction_offsets DROP COLUMN offset_group_id;
 ALTER TABLE public.bank_statement_lines DROP COLUMN offset_group_id;
+DROP POLICY IF EXISTS offset_groups_confidential ON public.transaction_offset_groups;
+DROP POLICY IF EXISTS offset_items_confidential ON public.transaction_offset_items;
+DROP FUNCTION public.issue335_group_visible(uuid);
+DROP FUNCTION public.issue335_tx_visible(uuid);
 DROP TABLE public.transaction_offset_items;
 DROP TABLE public.transaction_offset_groups;
 DROP TABLE public.transaction_offset_control;
