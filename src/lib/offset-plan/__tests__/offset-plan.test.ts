@@ -10,7 +10,7 @@ import {
   OFFSET_ERROR_MESSAGES,
   OFFSET_PLAN_MAX_ITEMS,
   type OffsetDocumentInput,
-} from "../transaction-offset-plan";
+} from "../index";
 
 // Valores em cêntimos (ex.: e(12300) = 12.300,00 €)
 const e = eurosToCents;
