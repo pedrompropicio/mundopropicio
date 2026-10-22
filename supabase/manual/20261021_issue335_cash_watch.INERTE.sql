@@ -27,7 +27,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_catalog AS $$
   SELECT g.account_id,g.operation_date,g.movement_amount FROM g
    WHERE g.status='applied' AND g.movement_amount<>0 AND NOT EXISTS(SELECT 1 FROM public.bank_statement_lines b WHERE b.offset_group_id=g.id)),
  stmt_day AS (SELECT acc,d,sum(v) v FROM stmt_src GROUP BY 1,2),
- w_extracto AS (SELECT count(*) n FROM cash_day c FULL JOIN stmt_day s ON s.acc IS NOT DISTINCT FROM c.acc AND s.d IS NOT DISTINCT FROM c.d
+ w_extracto AS (SELECT count(*) n FROM cash_day c FULL JOIN stmt_day s ON coalesce(s.acc,'00000000-0000-0000-0000-000000000000'::uuid)=coalesce(c.acc,'00000000-0000-0000-0000-000000000000'::uuid) AND coalesce(s.d,'-infinity'::date)=coalesce(c.d,'-infinity'::date)
                  WHERE c.acc IS NULL OR s.acc IS NULL OR coalesce(c.v,0)<>coalesce(s.v,0)),
  -- statement links = documents that actually received cash legs in the group
  w_ligacoes AS (SELECT count(*) n FROM public.bank_statement_lines b JOIN g ON g.id=b.offset_group_id AND g.status='applied'

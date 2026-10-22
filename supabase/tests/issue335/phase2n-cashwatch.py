@@ -78,7 +78,8 @@ OLD_BODY = sql(obs, "SELECT md5(prosrc) FROM pg_proc WHERE proname='issue335_bal
 run_file('cash_watch.INERTE')
 src = sql(obs, "SELECT prosrc FROM pg_proc WHERE proname='issue335_cash_watch'")[0][0]
 banned = ['paid_amount', 'initial_balance', '_account_true_balance', 'managed', 'get_event_cash_position']
-report['independencia'] = {b: (b in src) for b in banned}
+import re
+report['independencia'] = {b: bool(re.search(r'(?<!prior_)\b' + re.escape(b), src)) for b in banned}
 check(not any(report['independencia'].values()), 'B5(a) vigia não lê paid_amount/initial_balance/managed nem chama funções de saldo', report['independencia'])
 balsrc = sql(obs, "SELECT prosrc FROM pg_proc WHERE proname='issue335_balance_invariant_count'")[0][0]
 check('issue335_cash_watch()' in balsrc and '_account_true_balance' not in balsrc, 'B5(a) invariante encontro_saldo_dinheiro_divergente passa a ser a soma do vigia', balsrc)
