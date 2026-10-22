@@ -22,6 +22,8 @@ export interface OffsetEligibilitySnapshot {
   has_withholding?: boolean;
   has_fx?: boolean;
   has_planned_payments?: boolean;
+  /** Outros casos fora da 1.ª versão (cachê, acerto de sócio, parcela-filha, retido por terceiro…). */
+  unsupported_other?: boolean;
   leg_type?: "normal" | "camarim" | "reimbursement" | "card" | "aporte" | "shared_cost" | "transitory";
   cash_account_inconsistent?: boolean;
   event_closed?: boolean;
@@ -66,6 +68,7 @@ export function checkOffsetEligibility(d: OffsetEligibilitySnapshot): OffsetElig
     d.has_credit ||
     d.has_withholding ||
     d.has_planned_payments ||
+    d.unsupported_other ||
     (d.leg_type !== undefined && d.leg_type !== "normal")
   )
     return refuse("unsupported_debt");

@@ -68,6 +68,10 @@ export const OFFSET_ERROR_CODES = [
   "request_incomplete",
   "supplier_not_found",
   "transaction_not_found",
+  // Adaptador reconcile_bank_line (mesmo ficheiro SQL)
+  "line_already_matched",
+  "group_not_applied",
+  "managed_group_date_alignment_forbidden",
 ] as const;
 
 export type OffsetErrorCode = (typeof OFFSET_ERROR_CODES)[number];
@@ -135,6 +139,10 @@ export const OFFSET_ERROR_MESSAGES: Record<OffsetErrorCode, string> = {
   request_incomplete: "Pedido incompleto. Recomece a operação.",
   supplier_not_found: "Entidade não encontrada.",
   transaction_not_found: "Transação não encontrada.",
+  line_already_matched: "Esta linha do banco já está conciliada. Recarregue.",
+  group_not_applied: "O encontro não ficou aplicado. Recarregue a prévia.",
+  managed_group_date_alignment_forbidden:
+    "Esta transação faz parte de um encontro; a data dos pagamentos não pode ser realinhada.",
 };
 
 /**
