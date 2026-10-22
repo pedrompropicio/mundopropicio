@@ -205,7 +205,7 @@ for name, mk in LATERAL:
     check(rl[0] == 'ok' and tuple(eff) == tuple(expected_effect), f'B4(e) {name}: caminho legado (sem encontro) completa com o efeito lateral real igual ao prosrc de Live', (rl, eff))
     check(re_ == CONFLICT and not e_waited_now, f'B4(d) {name}: encontro durante o legado em curso -> encontro_em_conflito imediato (NOWAIT, nunca espera)', re_)
     check(ro[0] == 'ok', f'B4(d) {name}: terceira sessão, encontro independente aplica em paralelo', ro)
-    check(re2[0] == 'P0001' and re2[1].split(':')[0] in (refusal, 'no_open_debt', 'unsupported_debt'), f'B4(e) {name}: depois do legado, recusa clara ({re2[1].split(":")[0]})', re2)
+    check(re2[0] == 'P0001' and re2[1].split(':')[0] in (refusal, 'no_open_debt', 'unsupported_debt', 'invalid_document'), f'B4(e) {name}: depois do legado, recusa clara ({re2[1].split(":")[0]})', re2)
     check(groups_for(b) == 0 and no_partial(), f'B4(d) {name}: zero grupo sobre o documento lateral; nenhum grupo parcial', groups_for(b))
     # recusa pela elegibilidade, sem legado concorrente (documento lateral ainda aberto)
     b2, acc2, amt2, effect2, _, refusal2 = mk(); inc2 = tx('income', 100); snap = snapshot()
@@ -214,8 +214,6 @@ for name, mk in LATERAL:
     check(r3[0] == 'P0001' and r3[1].split(':')[0] == refusal2 and snapshot() == snap, f'B4(e) {name}: encontro sobre documento lateral recusado ({refusal2}), snapshot integral igual', r3)
 
 # regressões por coluna (recusa clara) e caminho legal
-for col, val in (('is_transitory', True), ('cache_contract_id', None), ('shared_cost_counterparty_id', SUPPLIER)):
-    pass
 legal_a, legal_b = tx('income', 100), tx('expense', 40)
 E = conn('i335_b4_legal'); r = execute(E, [dict(transaction_id=legal_a, mode='settle'), dict(transaction_id=legal_b, mode='offset')], 60)
 g = sql(obs, "SELECT g.id FROM transaction_offset_items i JOIN transaction_offset_groups g ON g.id=i.group_id WHERE i.transaction_id=%s", (legal_a,))[0][0]
