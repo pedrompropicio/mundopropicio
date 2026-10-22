@@ -1,6 +1,22 @@
--- LOCAL/INERTE: undo reactivation to emergency level 2, preserve all GRANTs and history.
+-- LOCAL/INERTE ONLY. #335 operational script `reactivation_rollback`. Undo reactivation conservatively (N0 -> N2, most closed). If the origin was N1, run emergency ROLLBACK afterwards to return to N1.
+-- 2n-Bloco3: origin-state guard. States: N0=(enabled,reverse_enabled)=(t,t); N1=(f,t); N2=(f,f).
+-- Accepted origin: N0 -> N2. Origin already N2: no change (idempotent, NOTICE).
+-- Any other origin (other level, (t,f) invalid, missing/extra control row) RAISES estado_origem_inesperado
+-- and writes nothing. ACLs are NEVER changed by any level script: closure is a flag checked by the core
+-- (error encontro_desativado), so reactivation restores the captured ACL by construction.
 BEGIN;
 SET LOCAL lock_timeout='5s';
 SELECT pg_advisory_xact_lock(335,1);
-UPDATE public.transaction_offset_control SET enabled=false,reverse_enabled=false WHERE singleton;
+DO $issue335_ops$ DECLARE n bigint; e boolean; r boolean; origem text; BEGIN
+ SELECT count(*) INTO n FROM public.transaction_offset_control;
+ IF n<>1 THEN RAISE EXCEPTION 'estado_origem_inesperado: script=reactivation_rollback origem=desconhecido (linhas de controlo=%)',n; END IF;
+ SELECT enabled,reverse_enabled INTO e,r FROM public.transaction_offset_control WHERE singleton FOR UPDATE;
+ origem:=CASE WHEN e AND r THEN 'N0' WHEN NOT e AND r THEN 'N1' WHEN NOT e AND NOT r THEN 'N2' ELSE 'invalido' END;
+ IF origem='N2' THEN RAISE NOTICE 'issue335 reactivation_rollback: origem já N2, sem alteração'; RETURN; END IF;
+ IF origem NOT IN ('N0') THEN
+  RAISE EXCEPTION 'estado_origem_inesperado: script=reactivation_rollback origem=% (aceite: N0; destino N2)',origem;
+ END IF;
+ UPDATE public.transaction_offset_control SET enabled=false,reverse_enabled=false WHERE singleton;
+ RAISE NOTICE 'issue335 reactivation_rollback: % -> N2',origem;
+END $issue335_ops$;
 COMMIT;

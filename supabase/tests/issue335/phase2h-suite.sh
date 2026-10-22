@@ -45,4 +45,7 @@ else echo "FAIL phase2n-trigger-watch: $(tail -1 "$OUT/phase2n-trigger-watch.out
 if python3 "$S/phase2n-status.py" "$D" "$PORT" "$ROOT" "$OUT/phase2n-status.json" > "$OUT/phase2n-status.out" 2>&1; then
   echo "PASS phase2n-status (M3 2n-Bloco2b: order, case c, exact comparison + negative tests)" | tee -a "$res"
 else echo "FAIL phase2n-status: $(tail -3 "$OUT/phase2n-status.out" | tr '\n' ' ')" | tee -a "$res"; fi
+if python3 "$S/phase2n-killswitch.py" "$D" "$PORT" "$ROOT" "$OUT/phase2n-killswitch.json" > "$OUT/phase2n-killswitch.out" 2>&1; then
+  echo "PASS phase2n-killswitch (M4 2n-Bloco3: $(grep -c '^PASS' "$OUT/phase2n-killswitch.out") marcadores; níveis, concorrência, ACL, origens)" | tee -a "$res"
+else echo "FAIL phase2n-killswitch: $(grep -m3 '^FAIL\|Error' "$OUT/phase2n-killswitch.out" | tr '\n' ' ')" | tee -a "$res"; fi
 if grep -q '^FAIL' "$res"; then exit 1; fi

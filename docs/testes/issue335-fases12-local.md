@@ -6396,3 +6396,46 @@ Resultado: a/b/e/misto violações [], colunas alteradas só updated_at, 3 perna
 phase2h-suite.sh corre phase2n-status.py no fim. Suite completa: 17 linhas PASS, zero FAIL, zero skips (scenarios, 2b–2f, kill-switch, matriz, 2f-conc, 2g, matching, 2j, 2j-conc, 2l, 2n-context, trigger-watch, phase2n-status). JSON M3 sha256 31cbbaa5dade25157b73a58e011937d7c3e824b99630567a7b39a6e5d2f13231.
 Rollback 13 pares em harness limpo: before=after, differences={}; captura completa NORMALIZADA (ordem de linhas/ACL), não byte-a-byte. SHA before/after 474947e2…, differences 44136fa3….
 Ambiente: harness reconstruído em /tmp (PG 17.6 npm beta.15, pgvector 0.8.2 do nix com script 0.8.0 copiado — ambiental, 0 falhas de instalação, UNEXPLAINED 0).
+
+## Fase 2n-Bloco3 — M4 kill-switch em dois níveis, emergência concorrente, reactivação (21/10/2026)
+
+ESTADO: FECHADO localmente (harness fiel PG 17.6, postgres NOSUPERUSER, triggers reais). Nada em Live, sem migrations, sem TS, sem Publish. Nada instalado; os seis scripts operacionais continuam candidatos inertes (Sim separado).
+Runner novo `supabase/tests/issue335/phase2n-killswitch.py` (integrado em phase2h-suite.sh): 64 PASS, 0 FAIL, 0 skips. Barreiras = aresta observada em pg_blocking_pids (espera Lock/advisory); sem sleeps. Snapshot integral = count+md5 do conteúdo completo (todas as colunas, linha a linha) de groups/items/offsets/payments/transactions/bank_statement_lines/bank_line_transactions; o efeito esperado (grupo em voo) é excluído e verificado à parte (estado, 2 itens, 3 pernas paid ou reversed, zero grupos preparing/reversing).
+Estados: N0=(enabled,reverse_enabled)=(t,t) aberto; N1=(f,t) nível 1; N2=(f,f) nível 2; (t,f) inválido; linha ausente = desconhecido.
+
+### (a) erro claro por nível e caminho: FECHADO
+N1 e N2: transaction_offset_execute, INSERT directo na view issue335_commands e reconcile_bank_line mode 'offset' -> P0001 encontro_desativado (não 42501). Estorno de grupo existente: N1 conclui (grupo reversed); N2 -> encontro_desativado, grupo intacto. Zero escrita fora do grupo esperado (snapshot igual). Conciliação legada não gerida (settle simples) continua a funcionar em N1/N2: fora do âmbito do kill-switch, por desenho. reverse_payment/reverse_transaction legados também não são afectados (não fazem parte do encontro).
+
+### (b) concorrência: FECHADO. Semântica in-flight = DRENA
+Operação admitida (fence partilhada 335,1) termina; o script de nível espera o seu COMMIT/ROLLBACK; pedidos novos ficam na fila atrás do fecho e, ao entrar, relêem a flag -> encontro_desativado.
+- (i) encontro em voo x N1: em voo aplica completo (2 itens, 3 pernas), fecho conclui N1, terceiro pedido -> encontro_desativado; variante em voo aborta: zero grupo, snapshot igual.
+- (ii) encontro em voo x N2: idem, final N2.
+- (iii) estorno em voo x N2: estorno conclui completo (grupo reversed, nenhuma perna paid), N2, segundo estorno -> encontro_desativado, outro grupo applied intacto; variante aborta: grupo applied byte-idêntico.
+- (iv) dois activadores (detentor do fence como barreira, ordem de fila observada): N1+N1 -> segundo idempotente, N1; N1 depois N2 -> N2; N2 depois N1 -> N1 recusado estado_origem_inesperado, fica N2; N2+N2 -> N2; regresso N2->N1 depois reabertura -> N0 (sequência legítima); reabertura N1->N0 depois regresso N2->N1 -> recusado, fica N0. ANTES (scripts antigos): esta última dá ok/ok e deixa N1 em silêncio (sobrescreve a reabertura).
+- (v) activação durante reactivação: N1 durante N2->N0 -> N0->N1; N2 durante N1->N0 -> N0->N2; reactivação abortada -> N1 recusado, fica N2. ANTES: ok, N2 (aceite em silêncio).
+Deadlock: não observado; scripts de nível só tomam o fence exclusivo (335,1) e a linha de controlo; encontro/estorno tomam pedido -> fence partilhado, ordem fixa.
+
+### (c) reactivação e ACL: FECHADO (comparação normalizada por conjunto de aclitems)
+Nenhum script de nível mexe em GRANT; a reactivação repõe a flag. Reactivar de N1 e de N2: ACL integral do harness (2.291 entradas: funções, relações, colunas, memberships do schema public) igual antes/durante/depois, diferenças={}. Live (SELECT ao catálogo, 17 objectos: reconcile_bank_line, reverse_payment, reverse_transaction x2, _apply_transaction_offset, _reverse_transaction_offsets_for, _derive_paid_amount e as 10 tabelas) em `live/phase2n-bloco3/live-acl.json`: os níveis/reactivação acrescentam diferenças={}; os únicos deltas face a Live são GRANTs a issue335_executor feitos pelo core na instalação (verificado item a item). Ordem interna dos aclitems difere entre Live e harness; por isso a comparação é por conjunto.
+
+### (d) estados de origem: FECHADO (correcção nos 6 scripts)
+ANTES (cópias exactas em live/phase2n-bloco3/before/): 16 de 30 combinações aceitam/sobrescrevem origem inesperada; os graves: kill_switch ROLLBACK a partir de N2 cria (t,f) — admissões abertas com estorno fechado; emergency ROLLBACK a partir de N0 fecha em silêncio; reactivação a partir de (t,f) e qualquer script com linha ausente devolvem ok sem efeito.
+DEPOIS: cada script, sob o fence exclusivo e FOR UPDATE da linha, classifica a origem; destino já atingido -> sem alteração (NOTICE); origem não aceite -> P0001 estado_origem_inesperado, zero escrita. Matriz DEPOIS 30/30 PASS:
+kill_switch: N0->N1 | N1 = | N2,(t,f),ausente R
+kill_switch ROLLBACK: N1->N0 | N0 = | N2,(t,f),ausente R
+emergency: N0,N1->N2 | N2 = | (t,f),ausente R
+emergency ROLLBACK: N2->N1 | N1 = | N0,(t,f),ausente R
+reactivation: N1,N2->N0 | N0 = | (t,f),ausente R
+reactivation ROLLBACK: N0->N2 | N2 = | N1,(t,f),ausente R
+Limite declarado: o rollback da reactivação não sabe se a origem era N1 ou N2 (sem DDL nova para a registar); volta sempre a N2 (mais fechado). Se a origem era N1: correr depois emergency ROLLBACK (N2->N1). Estados (t,f)/ausente só se corrigem com decisão manual, nunca por script.
+
+### (e) procedimento operacional
+Quem: só o Pedro autoriza; executa o agente/0 como postgres pelo canal de migração aprovado (nunca SQL Editor directo em Live). Quando: N1 perante suspeita de defeito no encontro (estornos continuam); N2 só se o próprio estorno estiver em causa.
+Passos: 1) SELECT enabled,reverse_enabled da linha de controlo e registar a origem; 2) correr o script (espera que as operações admitidas terminem; lock_timeout 5s -> se falhar, repetir, não forçar); 3) verificar o NOTICE "origem -> destino" e reler a flag; 4) confirmar com chamada de teste que execute dá encontro_desativado (e reverse, em N2); 5) registar na Issue. Reabrir: N2->N1 emergency ROLLBACK; N1->N0 reactivation (ou kill_switch ROLLBACK) só após revisão e Sim.
+NUNCA: UPDATE manual à linha de controlo; REVOKE/GRANT como forma de fechar; apagar a linha; terminar sessões em voo para "acelerar"; reabrir com estado (t,f) ou desconhecido; usar restauro para reabrir (control nunca restaurável).
+
+### Fecho
+Suite completa (harness novo, 15.529 instruções/0 falhas/UNEXPLAINED 0): 18 grupos PASS, 0 FAIL (17 anteriores + phase2n-killswitch 64 marcadores). Os testes anteriores que correm os scripts (2f, 2j F4/F4b, suite kill-switch, rollback) passam sem alteração: partem de origens aceites.
+Rollback 13 pares em harness limpo (storage…trigger_watch e inverso, incluindo N0->N1->N2->N0 e regresso): before=after, differences={}, sha256 captura 474947e2… (igual); captura NORMALIZADA (ordem de linhas/aclitems), não byte-a-byte.
+Ambiente reconstruído em /tmp: PG 17.6 (npm embedded-postgres 17.6.0-beta.15), ICU 60 e libstdc++ do nix, pgvector 0.8.2 do nix com script 0.8.0 copiado; ambiental.
+M4: FECHADO localmente. Falta só: CI remoto que contenha estes ficheiros e Sim para instalar.

@@ -1,0 +1,70 @@
+PASS B3(d) DEPOIS offset_kill_switch.INERTE origem=N0 esperado=N1
+PASS B3(d) DEPOIS offset_kill_switch.INERTE origem=N1 esperado=N1
+PASS B3(d) DEPOIS offset_kill_switch.INERTE origem=N2 esperado=R
+PASS B3(d) DEPOIS offset_kill_switch.INERTE origem=invalido esperado=R
+PASS B3(d) DEPOIS offset_kill_switch.INERTE origem=ausente esperado=R
+PASS B3(d) DEPOIS offset_kill_switch.ROLLBACK-INERTE origem=N0 esperado=N0
+PASS B3(d) DEPOIS offset_kill_switch.ROLLBACK-INERTE origem=N1 esperado=N0
+PASS B3(d) DEPOIS offset_kill_switch.ROLLBACK-INERTE origem=N2 esperado=R
+PASS B3(d) DEPOIS offset_kill_switch.ROLLBACK-INERTE origem=invalido esperado=R
+PASS B3(d) DEPOIS offset_kill_switch.ROLLBACK-INERTE origem=ausente esperado=R
+PASS B3(d) DEPOIS emergency.INERTE origem=N0 esperado=N2
+PASS B3(d) DEPOIS emergency.INERTE origem=N1 esperado=N2
+PASS B3(d) DEPOIS emergency.INERTE origem=N2 esperado=N2
+PASS B3(d) DEPOIS emergency.INERTE origem=invalido esperado=R
+PASS B3(d) DEPOIS emergency.INERTE origem=ausente esperado=R
+PASS B3(d) DEPOIS emergency.ROLLBACK-INERTE origem=N0 esperado=R
+PASS B3(d) DEPOIS emergency.ROLLBACK-INERTE origem=N1 esperado=N1
+PASS B3(d) DEPOIS emergency.ROLLBACK-INERTE origem=N2 esperado=N1
+PASS B3(d) DEPOIS emergency.ROLLBACK-INERTE origem=invalido esperado=R
+PASS B3(d) DEPOIS emergency.ROLLBACK-INERTE origem=ausente esperado=R
+PASS B3(d) DEPOIS reactivation.INERTE origem=N0 esperado=N0
+PASS B3(d) DEPOIS reactivation.INERTE origem=N1 esperado=N0
+PASS B3(d) DEPOIS reactivation.INERTE origem=N2 esperado=N0
+PASS B3(d) DEPOIS reactivation.INERTE origem=invalido esperado=R
+PASS B3(d) DEPOIS reactivation.INERTE origem=ausente esperado=R
+PASS B3(d) DEPOIS reactivation.ROLLBACK-INERTE origem=N0 esperado=N2
+PASS B3(d) DEPOIS reactivation.ROLLBACK-INERTE origem=N1 esperado=R
+PASS B3(d) DEPOIS reactivation.ROLLBACK-INERTE origem=N2 esperado=N2
+PASS B3(d) DEPOIS reactivation.ROLLBACK-INERTE origem=invalido esperado=R
+PASS B3(d) DEPOIS reactivation.ROLLBACK-INERTE origem=ausente esperado=R
+PASS B3(d) ANTES: scripts sem guarda sobrescrevem/aceitam origem inesperada em 16 casos (defeito reproduzido)
+PASS B3(a) N1 transaction_offset_execute -> encontro_desativado
+PASS B3(a) N1 issue335_commands (INSERT na view) -> encontro_desativado
+PASS B3(a) N1 reconcile_bank_line mode 'offset' -> encontro_desativado
+PASS B3(a) N1 estorno de grupo existente disponível
+PASS B3(a) N1: nenhuma escrita fora do grupo esperado (snapshot integral)
+PASS B3(a) N1 conciliação legada não gerida inalterada
+PASS B3(a) N2 transaction_offset_execute -> encontro_desativado
+PASS B3(a) N2 issue335_commands (INSERT na view) -> encontro_desativado
+PASS B3(a) N2 reconcile_bank_line mode 'offset' -> encontro_desativado
+PASS B3(a) N2 estorno -> encontro_desativado, grupo intacto
+PASS B3(a) N2: nenhuma escrita fora do grupo esperado (snapshot integral)
+PASS B3(a) N2 conciliação legada não gerida inalterada
+PASS B3(b) (i) encontro em voo x nível 1
+PASS B3(b) (i) encontro em voo x nível 1 (em voo aborta)
+PASS B3(b) (ii) encontro em voo x nível 2
+PASS B3(b) (ii) encontro em voo x nível 2 (em voo aborta)
+PASS B3(b) (iii) estorno em voo x nível 2
+PASS B3(b) (iii) estorno em voo aborta x nível 2
+ANTES (iv) nível 1 depois nível 2 ('ok', 'ok', 'N2')
+ANTES (iv) nível 2 depois nível 1 ('ok', 'ok', 'N2')
+ANTES (iv) regresso N2->N1 e reabertura N1->N0 em simultâneo ('ok', 'ok', 'N0')
+ANTES (iv) reabertura N1->N0 e regresso N2->N1 em simultâneo ('ok', 'ok', 'N1')
+PASS B3(b) (iv) regresso N2->N1 depois reabertura N1->N0 (sequência legítima)
+PASS B3(b) (iv) reabertura N1->N0 depois regresso N2->N1 (recusado: origem N0)
+PASS B3(b) (iv) dois níveis 1 em simultâneo (segundo idempotente)
+PASS B3(b) (iv) nível 1 depois nível 2
+PASS B3(b) (iv) nível 2 depois nível 1 (recusado, fica N2)
+PASS B3(b) (iv) dois níveis 2 em simultâneo
+ANTES (v) nível 1 durante reactivação abortada ('ok', 'N2')
+PASS B3(b) (v) nível 1 durante reactivação N2->N0 (commit): N0->N1
+PASS B3(b) (v) nível 2 durante reactivação N1->N0 (commit): N0->N2
+PASS B3(b) (v) nível 1 durante reactivação abortada: origem N2 recusada, fica N2
+PASS B3(c) N1: deltas Live vs instalação são só GRANTs a issue335_executor do core
+PASS B3(c) reactivar de N1: ACL integral (2291 entradas) igual antes/durante/depois, diferenças={}
+PASS B3(c) reactivar de N1: 17 objectos Live — níveis/reactivação acrescentam diferenças={} (deltas só de instalação: ['f:_derive_paid_amount(uuid)', 'f:reconcile_bank_line(uuid,jsonb)', 'r:bank_line_transactions', 'r:bank_statement_lines', 'r:companies', 'r:event_settlements', 'r:events', 'r:financial_accounts', 'r:suppliers', 'r:transaction_offsets', 'r:transaction_payments', 'r:transactions'])
+PASS B3(c) N2: deltas Live vs instalação são só GRANTs a issue335_executor do core
+PASS B3(c) reactivar de N2: ACL integral (2291 entradas) igual antes/durante/depois, diferenças={}
+PASS B3(c) reactivar de N2: 17 objectos Live — níveis/reactivação acrescentam diferenças={} (deltas só de instalação: ['f:_derive_paid_amount(uuid)', 'f:reconcile_bank_line(uuid,jsonb)', 'r:bank_line_transactions', 'r:bank_statement_lines', 'r:companies', 'r:event_settlements', 'r:events', 'r:financial_accounts', 'r:suppliers', 'r:transaction_offsets', 'r:transaction_payments', 'r:transactions'])
+B3 resumo: 0 FAIL

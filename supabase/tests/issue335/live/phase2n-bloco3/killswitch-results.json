@@ -1,0 +1,1151 @@
+{
+ "origin_matrix_before": [
+  {
+   "script": "offset_kill_switch.INERTE",
+   "origem": "N0",
+   "resultado": "ok",
+   "estado_final": "N1",
+   "defeito": false
+  },
+  {
+   "script": "offset_kill_switch.INERTE",
+   "origem": "N1",
+   "resultado": "ok",
+   "estado_final": "N1",
+   "defeito": false
+  },
+  {
+   "script": "offset_kill_switch.INERTE",
+   "origem": "N2",
+   "resultado": "ok",
+   "estado_final": "N2",
+   "defeito": true
+  },
+  {
+   "script": "offset_kill_switch.INERTE",
+   "origem": "invalido",
+   "resultado": "ok",
+   "estado_final": "N2",
+   "defeito": true
+  },
+  {
+   "script": "offset_kill_switch.INERTE",
+   "origem": "ausente",
+   "resultado": "ok",
+   "estado_final": "linhas=0",
+   "defeito": true
+  },
+  {
+   "script": "offset_kill_switch.ROLLBACK-INERTE",
+   "origem": "N0",
+   "resultado": "ok",
+   "estado_final": "N0",
+   "defeito": false
+  },
+  {
+   "script": "offset_kill_switch.ROLLBACK-INERTE",
+   "origem": "N1",
+   "resultado": "ok",
+   "estado_final": "N0",
+   "defeito": false
+  },
+  {
+   "script": "offset_kill_switch.ROLLBACK-INERTE",
+   "origem": "N2",
+   "resultado": "ok",
+   "estado_final": "invalido",
+   "defeito": true
+  },
+  {
+   "script": "offset_kill_switch.ROLLBACK-INERTE",
+   "origem": "invalido",
+   "resultado": "ok",
+   "estado_final": "invalido",
+   "defeito": true
+  },
+  {
+   "script": "offset_kill_switch.ROLLBACK-INERTE",
+   "origem": "ausente",
+   "resultado": "ok",
+   "estado_final": "linhas=0",
+   "defeito": true
+  },
+  {
+   "script": "emergency.INERTE",
+   "origem": "N0",
+   "resultado": "ok",
+   "estado_final": "N2",
+   "defeito": false
+  },
+  {
+   "script": "emergency.INERTE",
+   "origem": "N1",
+   "resultado": "ok",
+   "estado_final": "N2",
+   "defeito": false
+  },
+  {
+   "script": "emergency.INERTE",
+   "origem": "N2",
+   "resultado": "ok",
+   "estado_final": "N2",
+   "defeito": false
+  },
+  {
+   "script": "emergency.INERTE",
+   "origem": "invalido",
+   "resultado": "ok",
+   "estado_final": "N2",
+   "defeito": true
+  },
+  {
+   "script": "emergency.INERTE",
+   "origem": "ausente",
+   "resultado": "ok",
+   "estado_final": "linhas=0",
+   "defeito": true
+  },
+  {
+   "script": "emergency.ROLLBACK-INERTE",
+   "origem": "N0",
+   "resultado": "ok",
+   "estado_final": "N1",
+   "defeito": true
+  },
+  {
+   "script": "emergency.ROLLBACK-INERTE",
+   "origem": "N1",
+   "resultado": "ok",
+   "estado_final": "N1",
+   "defeito": false
+  },
+  {
+   "script": "emergency.ROLLBACK-INERTE",
+   "origem": "N2",
+   "resultado": "ok",
+   "estado_final": "N1",
+   "defeito": false
+  },
+  {
+   "script": "emergency.ROLLBACK-INERTE",
+   "origem": "invalido",
+   "resultado": "ok",
+   "estado_final": "N1",
+   "defeito": true
+  },
+  {
+   "script": "emergency.ROLLBACK-INERTE",
+   "origem": "ausente",
+   "resultado": "ok",
+   "estado_final": "linhas=0",
+   "defeito": true
+  },
+  {
+   "script": "reactivation.INERTE",
+   "origem": "N0",
+   "resultado": "ok",
+   "estado_final": "N0",
+   "defeito": false
+  },
+  {
+   "script": "reactivation.INERTE",
+   "origem": "N1",
+   "resultado": "ok",
+   "estado_final": "N0",
+   "defeito": false
+  },
+  {
+   "script": "reactivation.INERTE",
+   "origem": "N2",
+   "resultado": "ok",
+   "estado_final": "N0",
+   "defeito": false
+  },
+  {
+   "script": "reactivation.INERTE",
+   "origem": "invalido",
+   "resultado": "ok",
+   "estado_final": "N0",
+   "defeito": true
+  },
+  {
+   "script": "reactivation.INERTE",
+   "origem": "ausente",
+   "resultado": "ok",
+   "estado_final": "linhas=0",
+   "defeito": true
+  },
+  {
+   "script": "reactivation.ROLLBACK-INERTE",
+   "origem": "N0",
+   "resultado": "ok",
+   "estado_final": "N2",
+   "defeito": false
+  },
+  {
+   "script": "reactivation.ROLLBACK-INERTE",
+   "origem": "N1",
+   "resultado": "ok",
+   "estado_final": "N2",
+   "defeito": true
+  },
+  {
+   "script": "reactivation.ROLLBACK-INERTE",
+   "origem": "N2",
+   "resultado": "ok",
+   "estado_final": "N2",
+   "defeito": false
+  },
+  {
+   "script": "reactivation.ROLLBACK-INERTE",
+   "origem": "invalido",
+   "resultado": "ok",
+   "estado_final": "N2",
+   "defeito": true
+  },
+  {
+   "script": "reactivation.ROLLBACK-INERTE",
+   "origem": "ausente",
+   "resultado": "ok",
+   "estado_final": "linhas=0",
+   "defeito": true
+  }
+ ],
+ "origin_matrix_after": [
+  {
+   "script": "offset_kill_switch.INERTE",
+   "origem": "N0",
+   "esperado": "N1",
+   "obtido": "ok",
+   "estado_final": "N1",
+   "pass_": true
+  },
+  {
+   "script": "offset_kill_switch.INERTE",
+   "origem": "N1",
+   "esperado": "N1",
+   "obtido": "ok",
+   "estado_final": "N1",
+   "pass_": true
+  },
+  {
+   "script": "offset_kill_switch.INERTE",
+   "origem": "N2",
+   "esperado": "R",
+   "obtido": "estado_origem_inesperado: script=kill_switch origem=N2 (aceite: N0; destino N1)",
+   "estado_final": "N2",
+   "pass_": true
+  },
+  {
+   "script": "offset_kill_switch.INERTE",
+   "origem": "invalido",
+   "esperado": "R",
+   "obtido": "estado_origem_inesperado: script=kill_switch origem=invalido (aceite: N0; destino N1)",
+   "estado_final": "invalido",
+   "pass_": true
+  },
+  {
+   "script": "offset_kill_switch.INERTE",
+   "origem": "ausente",
+   "esperado": "R",
+   "obtido": "estado_origem_inesperado: script=kill_switch origem=desconhecido (linhas de controlo=0)",
+   "estado_final": "linhas=0",
+   "pass_": true
+  },
+  {
+   "script": "offset_kill_switch.ROLLBACK-INERTE",
+   "origem": "N0",
+   "esperado": "N0",
+   "obtido": "ok",
+   "estado_final": "N0",
+   "pass_": true
+  },
+  {
+   "script": "offset_kill_switch.ROLLBACK-INERTE",
+   "origem": "N1",
+   "esperado": "N0",
+   "obtido": "ok",
+   "estado_final": "N0",
+   "pass_": true
+  },
+  {
+   "script": "offset_kill_switch.ROLLBACK-INERTE",
+   "origem": "N2",
+   "esperado": "R",
+   "obtido": "estado_origem_inesperado: script=kill_switch_rollback origem=N2 (aceite: N1; destino N0)",
+   "estado_final": "N2",
+   "pass_": true
+  },
+  {
+   "script": "offset_kill_switch.ROLLBACK-INERTE",
+   "origem": "invalido",
+   "esperado": "R",
+   "obtido": "estado_origem_inesperado: script=kill_switch_rollback origem=invalido (aceite: N1; destino N0)",
+   "estado_final": "invalido",
+   "pass_": true
+  },
+  {
+   "script": "offset_kill_switch.ROLLBACK-INERTE",
+   "origem": "ausente",
+   "esperado": "R",
+   "obtido": "estado_origem_inesperado: script=kill_switch_rollback origem=desconhecido (linhas de controlo=0)",
+   "estado_final": "linhas=0",
+   "pass_": true
+  },
+  {
+   "script": "emergency.INERTE",
+   "origem": "N0",
+   "esperado": "N2",
+   "obtido": "ok",
+   "estado_final": "N2",
+   "pass_": true
+  },
+  {
+   "script": "emergency.INERTE",
+   "origem": "N1",
+   "esperado": "N2",
+   "obtido": "ok",
+   "estado_final": "N2",
+   "pass_": true
+  },
+  {
+   "script": "emergency.INERTE",
+   "origem": "N2",
+   "esperado": "N2",
+   "obtido": "ok",
+   "estado_final": "N2",
+   "pass_": true
+  },
+  {
+   "script": "emergency.INERTE",
+   "origem": "invalido",
+   "esperado": "R",
+   "obtido": "estado_origem_inesperado: script=emergency origem=invalido (aceite: N0/N1; destino N2)",
+   "estado_final": "invalido",
+   "pass_": true
+  },
+  {
+   "script": "emergency.INERTE",
+   "origem": "ausente",
+   "esperado": "R",
+   "obtido": "estado_origem_inesperado: script=emergency origem=desconhecido (linhas de controlo=0)",
+   "estado_final": "linhas=0",
+   "pass_": true
+  },
+  {
+   "script": "emergency.ROLLBACK-INERTE",
+   "origem": "N0",
+   "esperado": "R",
+   "obtido": "estado_origem_inesperado: script=emergency_rollback origem=N0 (aceite: N2; destino N1)",
+   "estado_final": "N0",
+   "pass_": true
+  },
+  {
+   "script": "emergency.ROLLBACK-INERTE",
+   "origem": "N1",
+   "esperado": "N1",
+   "obtido": "ok",
+   "estado_final": "N1",
+   "pass_": true
+  },
+  {
+   "script": "emergency.ROLLBACK-INERTE",
+   "origem": "N2",
+   "esperado": "N1",
+   "obtido": "ok",
+   "estado_final": "N1",
+   "pass_": true
+  },
+  {
+   "script": "emergency.ROLLBACK-INERTE",
+   "origem": "invalido",
+   "esperado": "R",
+   "obtido": "estado_origem_inesperado: script=emergency_rollback origem=invalido (aceite: N2; destino N1)",
+   "estado_final": "invalido",
+   "pass_": true
+  },
+  {
+   "script": "emergency.ROLLBACK-INERTE",
+   "origem": "ausente",
+   "esperado": "R",
+   "obtido": "estado_origem_inesperado: script=emergency_rollback origem=desconhecido (linhas de controlo=0)",
+   "estado_final": "linhas=0",
+   "pass_": true
+  },
+  {
+   "script": "reactivation.INERTE",
+   "origem": "N0",
+   "esperado": "N0",
+   "obtido": "ok",
+   "estado_final": "N0",
+   "pass_": true
+  },
+  {
+   "script": "reactivation.INERTE",
+   "origem": "N1",
+   "esperado": "N0",
+   "obtido": "ok",
+   "estado_final": "N0",
+   "pass_": true
+  },
+  {
+   "script": "reactivation.INERTE",
+   "origem": "N2",
+   "esperado": "N0",
+   "obtido": "ok",
+   "estado_final": "N0",
+   "pass_": true
+  },
+  {
+   "script": "reactivation.INERTE",
+   "origem": "invalido",
+   "esperado": "R",
+   "obtido": "estado_origem_inesperado: script=reactivation origem=invalido (aceite: N1/N2; destino N0)",
+   "estado_final": "invalido",
+   "pass_": true
+  },
+  {
+   "script": "reactivation.INERTE",
+   "origem": "ausente",
+   "esperado": "R",
+   "obtido": "estado_origem_inesperado: script=reactivation origem=desconhecido (linhas de controlo=0)",
+   "estado_final": "linhas=0",
+   "pass_": true
+  },
+  {
+   "script": "reactivation.ROLLBACK-INERTE",
+   "origem": "N0",
+   "esperado": "N2",
+   "obtido": "ok",
+   "estado_final": "N2",
+   "pass_": true
+  },
+  {
+   "script": "reactivation.ROLLBACK-INERTE",
+   "origem": "N1",
+   "esperado": "R",
+   "obtido": "estado_origem_inesperado: script=reactivation_rollback origem=N1 (aceite: N0; destino N2)",
+   "estado_final": "N1",
+   "pass_": true
+  },
+  {
+   "script": "reactivation.ROLLBACK-INERTE",
+   "origem": "N2",
+   "esperado": "N2",
+   "obtido": "ok",
+   "estado_final": "N2",
+   "pass_": true
+  },
+  {
+   "script": "reactivation.ROLLBACK-INERTE",
+   "origem": "invalido",
+   "esperado": "R",
+   "obtido": "estado_origem_inesperado: script=reactivation_rollback origem=invalido (aceite: N0; destino N2)",
+   "estado_final": "invalido",
+   "pass_": true
+  },
+  {
+   "script": "reactivation.ROLLBACK-INERTE",
+   "origem": "ausente",
+   "esperado": "R",
+   "obtido": "estado_origem_inesperado: script=reactivation_rollback origem=desconhecido (linhas de controlo=0)",
+   "estado_final": "linhas=0",
+   "pass_": true
+  }
+ ],
+ "paths": [
+  {
+   "nivel": "N1",
+   "caminho": "transaction_offset_execute",
+   "esperado": "encontro_desativado",
+   "obtido": [
+    "P0001",
+    "encontro_desativado"
+   ]
+  },
+  {
+   "nivel": "N1",
+   "caminho": "issue335_commands (INSERT na view)",
+   "esperado": "encontro_desativado",
+   "obtido": [
+    "P0001",
+    "encontro_desativado"
+   ]
+  },
+  {
+   "nivel": "N1",
+   "caminho": "reconcile_bank_line mode 'offset'",
+   "esperado": "encontro_desativado",
+   "obtido": [
+    "P0001",
+    "encontro_desativado"
+   ]
+  },
+  {
+   "nivel": "N1",
+   "caminho": "transaction_offset_reverse (grupo existente)",
+   "esperado": "ok",
+   "obtido": [
+    "ok",
+    [
+     [
+      {
+       "status": "reversed",
+       "group_id": "c74e4019-83c1-418d-bc35-298e5ea5fc69",
+       "movement_amount": 60,
+       "transaction_ids": [
+        "07569e7d-77c3-420a-a3f6-a8d10df8ddd3",
+        "f9927839-fec1-4805-a2c2-7eeeca4a38f8"
+       ]
+      }
+     ]
+    ]
+   ]
+  },
+  {
+   "nivel": "N1",
+   "caminho": "reconcile_bank_line settle legado",
+   "esperado": "ok (fora do âmbito do kill-switch)",
+   "obtido": "ok"
+  },
+  {
+   "nivel": "N2",
+   "caminho": "transaction_offset_execute",
+   "esperado": "encontro_desativado",
+   "obtido": [
+    "P0001",
+    "encontro_desativado"
+   ]
+  },
+  {
+   "nivel": "N2",
+   "caminho": "issue335_commands (INSERT na view)",
+   "esperado": "encontro_desativado",
+   "obtido": [
+    "P0001",
+    "encontro_desativado"
+   ]
+  },
+  {
+   "nivel": "N2",
+   "caminho": "reconcile_bank_line mode 'offset'",
+   "esperado": "encontro_desativado",
+   "obtido": [
+    "P0001",
+    "encontro_desativado"
+   ]
+  },
+  {
+   "nivel": "N2",
+   "caminho": "transaction_offset_reverse (grupo existente)",
+   "esperado": [
+    "P0001",
+    "encontro_desativado"
+   ],
+   "obtido": [
+    "P0001",
+    "encontro_desativado"
+   ]
+  },
+  {
+   "nivel": "N2",
+   "caminho": "reconcile_bank_line settle legado",
+   "esperado": "ok (fora do âmbito do kill-switch)",
+   "obtido": "ok"
+  }
+ ],
+ "concurrency": [
+  {
+   "cenario": "(i) encontro em voo x nível 1",
+   "esperado": "drena: em voo aplica completo; fecho conclui (N1); novo -> encontro_desativado",
+   "obtido": {
+    "fecho": "ok",
+    "espera": [
+     "Lock",
+     "advisory"
+    ],
+    "novo": [
+     "P0001",
+     "encontro_desativado"
+    ],
+    "grupo": [
+     [
+      "a35e2f3b-7d6a-4ece-b517-e0cdecce7a8b",
+      "applied",
+      2
+     ]
+    ],
+    "pernas": [
+     [
+      "paid",
+      3
+     ]
+    ],
+    "estado": "N1"
+   },
+   "snapshot_integral_ok": true,
+   "pass_": true
+  },
+  {
+   "cenario": "(i) encontro em voo x nível 1 (em voo aborta)",
+   "esperado": "zero grupo/pernas; fecho conclui",
+   "obtido": {
+    "fecho": "ok",
+    "estado": "N1"
+   },
+   "snapshot_integral_ok": true,
+   "pass_": true
+  },
+  {
+   "cenario": "(ii) encontro em voo x nível 2",
+   "esperado": "drena: em voo aplica completo; fecho conclui (N2); novo -> encontro_desativado",
+   "obtido": {
+    "fecho": "ok",
+    "espera": [
+     "Lock",
+     "advisory"
+    ],
+    "novo": [
+     "P0001",
+     "encontro_desativado"
+    ],
+    "grupo": [
+     [
+      "e3676ed8-8b5f-4bcb-9e5f-cff80ac55dd6",
+      "applied",
+      2
+     ]
+    ],
+    "pernas": [
+     [
+      "paid",
+      3
+     ]
+    ],
+    "estado": "N2"
+   },
+   "snapshot_integral_ok": true,
+   "pass_": true
+  },
+  {
+   "cenario": "(ii) encontro em voo x nível 2 (em voo aborta)",
+   "esperado": "zero grupo/pernas; fecho conclui",
+   "obtido": {
+    "fecho": "ok",
+    "estado": "N2"
+   },
+   "snapshot_integral_ok": true,
+   "pass_": true
+  },
+  {
+   "cenario": "(iii) estorno em voo x nível 2",
+   "esperado": "estorno em voo conclui completo; N2; segundo estorno -> encontro_desativado; outro grupo intacto",
+   "obtido": {
+    "fecho": "ok",
+    "segundo": [
+     "P0001",
+     "encontro_desativado"
+    ],
+    "grupo": [
+     [
+      "6e64849a-4c8b-403b-9755-f31213cdfc74",
+      "reversed",
+      2
+     ]
+    ],
+    "pernas": [
+     [
+      "reversed",
+      3
+     ]
+    ],
+    "outro": [
+     [
+      [
+       "653349a6-5ff7-4076-b03b-953af24ed3e2",
+       "applied",
+       2
+      ]
+     ],
+     [
+      [
+       "paid",
+       3
+      ]
+     ]
+    ],
+    "estado": "N2"
+   },
+   "snapshot_integral_ok": true,
+   "pass_": true
+  },
+  {
+   "cenario": "(iii) estorno em voo aborta x nível 2",
+   "esperado": "grupo continua applied byte-idêntico; N2",
+   "obtido": {
+    "fecho": "ok",
+    "estado": "N2"
+   },
+   "snapshot_integral_ok": true,
+   "pass_": true
+  },
+  {
+   "cenario": "ANTES (iv) nível 1 depois nível 2",
+   "obtido": [
+    "ok",
+    "ok",
+    "N2"
+   ]
+  },
+  {
+   "cenario": "ANTES (iv) nível 2 depois nível 1",
+   "obtido": [
+    "ok",
+    "ok",
+    "N2"
+   ]
+  },
+  {
+   "cenario": "ANTES (iv) regresso N2->N1 e reabertura N1->N0 em simultâneo",
+   "obtido": [
+    "ok",
+    "ok",
+    "N0"
+   ]
+  },
+  {
+   "cenario": "ANTES (iv) reabertura N1->N0 e regresso N2->N1 em simultâneo",
+   "obtido": [
+    "ok",
+    "ok",
+    "N1"
+   ]
+  },
+  {
+   "cenario": "(iv) regresso N2->N1 depois reabertura N1->N0 (sequência legítima)",
+   "esperado": [
+    "ok",
+    "ok",
+    "N0"
+   ],
+   "obtido": [
+    "ok",
+    "ok",
+    "N0"
+   ],
+   "snapshot_integral_ok": true,
+   "pass_": true
+  },
+  {
+   "cenario": "(iv) reabertura N1->N0 depois regresso N2->N1 (recusado: origem N0)",
+   "esperado": [
+    "ok",
+    "estado_origem_inesperado",
+    "N0"
+   ],
+   "obtido": [
+    "ok",
+    "estado_origem_inesperado",
+    "N0"
+   ],
+   "snapshot_integral_ok": true,
+   "pass_": true
+  },
+  {
+   "cenario": "(iv) dois níveis 1 em simultâneo (segundo idempotente)",
+   "esperado": [
+    "ok",
+    "ok",
+    "N1"
+   ],
+   "obtido": [
+    "ok",
+    "ok",
+    "N1"
+   ],
+   "snapshot_integral_ok": true,
+   "pass_": true
+  },
+  {
+   "cenario": "(iv) nível 1 depois nível 2",
+   "esperado": [
+    "ok",
+    "ok",
+    "N2"
+   ],
+   "obtido": [
+    "ok",
+    "ok",
+    "N2"
+   ],
+   "snapshot_integral_ok": true,
+   "pass_": true
+  },
+  {
+   "cenario": "(iv) nível 2 depois nível 1 (recusado, fica N2)",
+   "esperado": [
+    "ok",
+    "estado_origem_inesperado",
+    "N2"
+   ],
+   "obtido": [
+    "ok",
+    "estado_origem_inesperado",
+    "N2"
+   ],
+   "snapshot_integral_ok": true,
+   "pass_": true
+  },
+  {
+   "cenario": "(iv) dois níveis 2 em simultâneo",
+   "esperado": [
+    "ok",
+    "ok",
+    "N2"
+   ],
+   "obtido": [
+    "ok",
+    "ok",
+    "N2"
+   ],
+   "snapshot_integral_ok": true,
+   "pass_": true
+  },
+  {
+   "cenario": "ANTES (v) nível 1 durante reactivação abortada",
+   "obtido": [
+    "ok",
+    "N2"
+   ]
+  },
+  {
+   "cenario": "(v) nível 1 durante reactivação N2->N0 (commit): N0->N1",
+   "esperado": [
+    "ok",
+    "N1"
+   ],
+   "obtido": [
+    "ok",
+    "N1"
+   ],
+   "snapshot_integral_ok": true,
+   "pass_": true
+  },
+  {
+   "cenario": "(v) nível 2 durante reactivação N1->N0 (commit): N0->N2",
+   "esperado": [
+    "ok",
+    "N2"
+   ],
+   "obtido": [
+    "ok",
+    "N2"
+   ],
+   "snapshot_integral_ok": true,
+   "pass_": true
+  },
+  {
+   "cenario": "(v) nível 1 durante reactivação abortada: origem N2 recusada, fica N2",
+   "esperado": [
+    "estado_origem_inesperado",
+    "N2"
+   ],
+   "obtido": [
+    "estado_origem_inesperado",
+    "N2"
+   ],
+   "snapshot_integral_ok": true,
+   "pass_": true
+  }
+ ],
+ "acl": {
+  "reactivar_de_N1": {
+   "objetos": 2291,
+   "diferencas_durante_nivel": {},
+   "diferencas_pos_reactivacao": {},
+   "diferencas_vs_live_pos_reactivacao": {
+    "f:_derive_paid_amount(uuid)": [
+     "{postgres=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+     "{postgres=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres,service_role=X/postgres,issue335_executor=X/postgres}"
+    ],
+    "f:reconcile_bank_line(uuid,jsonb)": [
+     "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+     "{authenticated=X/postgres,postgres=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres,service_role=X/postgres,issue335_executor=X/postgres}"
+    ],
+    "r:bank_line_transactions": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=ard/postgres}"
+    ],
+    "r:bank_statement_lines": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=arw/postgres}"
+    ],
+    "r:companies": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:event_settlements": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:events": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:financial_accounts": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:suppliers": [
+     "{postgres=arwdDxtm/postgres,authenticated=awdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{authenticated=awdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:transaction_offsets": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=arw/postgres}"
+    ],
+    "r:transaction_payments": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=arw/postgres}"
+    ],
+    "r:transactions": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=arw/postgres}"
+    ]
+   },
+   "diferencas_vs_live_pos_instalacao": {
+    "f:_derive_paid_amount(uuid)": [
+     "{postgres=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+     "{postgres=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres,service_role=X/postgres,issue335_executor=X/postgres}"
+    ],
+    "f:reconcile_bank_line(uuid,jsonb)": [
+     "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+     "{authenticated=X/postgres,postgres=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres,service_role=X/postgres,issue335_executor=X/postgres}"
+    ],
+    "r:bank_line_transactions": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=ard/postgres}"
+    ],
+    "r:bank_statement_lines": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=arw/postgres}"
+    ],
+    "r:companies": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:event_settlements": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:events": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:financial_accounts": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:suppliers": [
+     "{postgres=arwdDxtm/postgres,authenticated=awdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{authenticated=awdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:transaction_offsets": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=arw/postgres}"
+    ],
+    "r:transaction_payments": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=arw/postgres}"
+    ],
+    "r:transactions": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=arw/postgres}"
+    ]
+   },
+   "deltas_instalacao": {
+    "f:_derive_paid_amount(uuid)": [
+     "issue335_executor=X/postgres"
+    ],
+    "f:reconcile_bank_line(uuid,jsonb)": [
+     "issue335_executor=X/postgres"
+    ],
+    "r:bank_line_transactions": [
+     "issue335_executor=ard/postgres"
+    ],
+    "r:bank_statement_lines": [
+     "issue335_executor=arw/postgres"
+    ],
+    "r:companies": [
+     "issue335_executor=r/postgres"
+    ],
+    "r:event_settlements": [
+     "issue335_executor=r/postgres"
+    ],
+    "r:events": [
+     "issue335_executor=r/postgres"
+    ],
+    "r:financial_accounts": [
+     "issue335_executor=r/postgres"
+    ],
+    "r:suppliers": [
+     "issue335_executor=r/postgres"
+    ],
+    "r:transaction_offsets": [
+     "issue335_executor=arw/postgres"
+    ],
+    "r:transaction_payments": [
+     "issue335_executor=arw/postgres"
+    ],
+    "r:transactions": [
+     "issue335_executor=arw/postgres"
+    ]
+   },
+   "estado": "N0"
+  },
+  "reactivar_de_N2": {
+   "objetos": 2291,
+   "diferencas_durante_nivel": {},
+   "diferencas_pos_reactivacao": {},
+   "diferencas_vs_live_pos_reactivacao": {
+    "f:_derive_paid_amount(uuid)": [
+     "{postgres=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+     "{postgres=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres,service_role=X/postgres,issue335_executor=X/postgres}"
+    ],
+    "f:reconcile_bank_line(uuid,jsonb)": [
+     "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+     "{authenticated=X/postgres,postgres=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres,service_role=X/postgres,issue335_executor=X/postgres}"
+    ],
+    "r:bank_line_transactions": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=ard/postgres}"
+    ],
+    "r:bank_statement_lines": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=arw/postgres}"
+    ],
+    "r:companies": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:event_settlements": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:events": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:financial_accounts": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:suppliers": [
+     "{postgres=arwdDxtm/postgres,authenticated=awdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{authenticated=awdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:transaction_offsets": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=arw/postgres}"
+    ],
+    "r:transaction_payments": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=arw/postgres}"
+    ],
+    "r:transactions": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=arw/postgres}"
+    ]
+   },
+   "diferencas_vs_live_pos_instalacao": {
+    "f:_derive_paid_amount(uuid)": [
+     "{postgres=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+     "{postgres=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres,service_role=X/postgres,issue335_executor=X/postgres}"
+    ],
+    "f:reconcile_bank_line(uuid,jsonb)": [
+     "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres}",
+     "{authenticated=X/postgres,postgres=X/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=X/postgres,service_role=X/postgres,issue335_executor=X/postgres}"
+    ],
+    "r:bank_line_transactions": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=ard/postgres}"
+    ],
+    "r:bank_statement_lines": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=arw/postgres}"
+    ],
+    "r:companies": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:event_settlements": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:events": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:financial_accounts": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:suppliers": [
+     "{postgres=arwdDxtm/postgres,authenticated=awdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{authenticated=awdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=r/postgres}"
+    ],
+    "r:transaction_offsets": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=arw/postgres}"
+    ],
+    "r:transaction_payments": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=arw/postgres}"
+    ],
+    "r:transactions": [
+     "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,sandbox_exec=ar/postgres}",
+     "{anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,postgres=arwdDxtm/postgres,sandbox_exec=ar/postgres,sandbox_exec_sfohvvlqccmmebvjgibx=ar/postgres,service_role=arwdDxtm/postgres,issue335_executor=arw/postgres}"
+    ]
+   },
+   "deltas_instalacao": {
+    "f:_derive_paid_amount(uuid)": [
+     "issue335_executor=X/postgres"
+    ],
+    "f:reconcile_bank_line(uuid,jsonb)": [
+     "issue335_executor=X/postgres"
+    ],
+    "r:bank_line_transactions": [
+     "issue335_executor=ard/postgres"
+    ],
+    "r:bank_statement_lines": [
+     "issue335_executor=arw/postgres"
+    ],
+    "r:companies": [
+     "issue335_executor=r/postgres"
+    ],
+    "r:event_settlements": [
+     "issue335_executor=r/postgres"
+    ],
+    "r:events": [
+     "issue335_executor=r/postgres"
+    ],
+    "r:financial_accounts": [
+     "issue335_executor=r/postgres"
+    ],
+    "r:suppliers": [
+     "issue335_executor=r/postgres"
+    ],
+    "r:transaction_offsets": [
+     "issue335_executor=arw/postgres"
+    ],
+    "r:transaction_payments": [
+     "issue335_executor=arw/postgres"
+    ],
+    "r:transactions": [
+     "issue335_executor=arw/postgres"
+    ]
+   },
+   "estado": "N0"
+  }
+ }
+}
