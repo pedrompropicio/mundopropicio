@@ -6624,3 +6624,96 @@ Comentário #335: 6330394074. Sem commit/push manual. A–C e qualquer instalaç
 E ABERTO: 24 células sem valor válido/expectativa provados, INSERT/DELETE coluna-a-coluna, justificação individual,
 paridade de efeitos/saldo/estorno, aviso legado classificado mas não resolvido, suite E FAIL e CI remoto ausente.
 Pára neste bloco. As lacunas são técnicas; não exigem decisão comercial nem autorização Live para trabalho local.
+
+
+## 2n-Bloco6b — E ABERTO, 22/10/2026 UTC
+
+Só LOCAL/INERTE PG17.6, postgres NOSUPERUSER, triggers reais. Sem TS, migrations, deploy, Publish, DDL/DML Live. Catálogo Live só SELECT; sem dados. Nenhum SQL candidato/função existente alterado.
+
+### ANTES/DEPOIS e aceitação
+ANTES: suite oficial exit 1; 20 grupos PASS, E 24 células abertas. DEPOIS final HONESTO: suite oficial exit 1; 20 grupos PASS + E FAIL; matriz 202 linhas (194 UPDATE+8 INSERT/DELETE), 3 células abertas, zero skips. Uma execução intermédia exit 0 foi REJEITADA: tratava três recusas legadas como prova de mutação válida; flag de validade reposta false, AssertionError final preservado. Não é CI verde nem E FECHADO.
+
+### Matriz das 24 células originais
+```text
+transactions.id / manager / PASS / inalcançável isolated PK rewrite on payment-backed document: nondeferrable FK without ON UPDATE; layered guard before FK
+transactions.id / editor / PASS / inalcançável isolated PK rewrite on payment-backed document: nondeferrable FK without ON UPDATE; layered guard before FK
+transactions.amount / editor / PASS / valid mutation
+transactions.iva_rate / editor / PASS / valid mutation
+transactions.paid_amount / manager / PASS / valid mutation
+transactions.paid_amount / editor / PASS / valid mutation
+transactions.is_transitory / manager / PASS / valid mutation
+transactions.is_transitory / editor / PASS / valid mutation
+transactions.company_id / manager / PASS / inalcançável com valor diferente válido: equality company_id=current_company_id() for same actor/statement; layered guard before RLS
+transactions.company_id / editor / PASS / inalcançável com valor diferente válido: equality company_id=current_company_id() for same actor/statement; layered guard before RLS
+transactions.is_confidential / manager / ABERTO / legacy RLS refusal identical; NOT an allowed harmless update for this actor
+transactions.is_confidential / editor / ABERTO / legacy RLS refusal identical; NOT an allowed harmless update for this actor
+transactions.held_by_supplier_id / manager / PASS / valid mutation
+transactions.held_by_supplier_id / editor / PASS / valid mutation
+transaction_payments.transaction_id / manager / PASS / valid mutation
+transaction_payments.transaction_id / editor / PASS / valid mutation
+transaction_payments.amount / editor / PASS / valid mutation
+transaction_payments.company_id / manager / PASS / inalcançável com valor diferente válido: equality company_id=current_company_id() for same actor/statement; layered guard before RLS
+transaction_payments.company_id / editor / PASS / inalcançável com valor diferente válido: equality company_id=current_company_id() for same actor/statement; layered guard before RLS
+transaction_payments.status / editor / ABERTO / legacy approval refusal on fully covered parent; valid partial-parent mutation accepted identically without group; guard does not open approval
+transaction_payments.currency / manager / PASS / valid mutation
+transaction_payments.currency / editor / PASS / valid mutation
+transaction_payments.offset_id / manager / PASS / valid mutation
+transaction_payments.offset_id / editor / PASS / valid mutation
+```
+
+Fechadas 21/24: 15 mutações válidas recusadas pelo #335 e 6 inalcançáveis para valor diferente isolado (id×2, company_id×4). id: FK payment nondeferrable sem ON UPDATE CASCADE; 23503 idêntico fora do grupo com/sem #335, guarda antecede FK dentro. company_id: igualdade restrictive current_company_id no mesmo actor/statement; 42501 idêntico fora, guarda antecede RLS dentro. transaction_id alvo válido mesmo tenant gross1000: permitido nos dois controlos, guarda no grupo.
+
+ABERTO is_confidential manager/editor: tentativa true bloqueada 42501 pelos dois controlos e no grupo, paridade preservada; não foi demonstrado actor/estado autorizado para alteração efectiva dentro do grupo nem inalcançabilidade global. ABERTO payment.status editor: cancelar paid com pai plenamente coberto dispara enforce_transaction_approval_permission 42501; pai parcial fora do grupo permite nos dois catálogos. Falta fixture de grupo aplicado com transição válida para editor, ou prova integral de inalcançabilidade. Tentativa não virou PASS.
+
+### Paridade e offset_id
+Todos os controlos de UPDATE fora de grupo comparados por SQLSTATE+mensagem; offset_id passou após criar referências distintas equivalentes por transaction_offset_create nos DOIS catálogos, receivable/payable gross1000 e amount1, mapeando IDs correspondentes. Antes a FK usava ID exclusivo do instalado. FX USD+original_amount100+fx_rate1, is_transitory+reason e held_by+compensation são explicitamente updates atómicos multicoluna. paid_amount100→100.005 é só probe local de tolerância legada, não autorização de escrita manual nem alteração D-ERP86. VAT6 efectivo com gross0.1 e dinheiro0.06 criado pelo RPC real; sem relaxar aprovação.
+
+### Snapshot/estorno
+14 casos actor×coluna com captura integral transactions, transaction_payments, transaction_offsets, groups/items, bank_statement_lines, bank_line_transactions e balances, sempre lendo sob identidade ADMIN igual. description/date/due_date permitidas; category_id/cache_role/operation_key/invoice_group_id recusadas pelo #335, NÃO permitidas-inofensivas. Todos preservam saldo/status/pernas; posterior estorno comparado ao estorno de referência sem edição, na mesma transacção/savepoint. Comparação normalizada SOMENTE campo de metadata editado e transactions.updated_at; metadata persiste por intenção no estorno. Históricos reversed não apagados. Hashes before=normalized e reference_reverse=restored_normalized nos 14 casos. Não é igualdade byte-a-byte da row editada.
+```text
+manager description allowed before=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e after=5ead03b5edc2cc6a84517be381179a663b2dc8f9e123dfa4dc3dd9fb35c8cccd normalized=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e reverse=0de6589b5d3ae0ee57ad73b99f63e78b1b8959524fbaaaf5dfa9a07039e51d82 restored_normalized=0de6589b5d3ae0ee57ad73b99f63e78b1b8959524fbaaaf5dfa9a07039e51d82
+manager date allowed before=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e after=adfa3432d820301fd52ea162973f7570964009f39e8665df1fd995e65829679a normalized=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e reverse=5e7f4cd7f5f3b7cdfdad78b15af2dee639cc162e64bd5b9e0d59c65bffde168a restored_normalized=5e7f4cd7f5f3b7cdfdad78b15af2dee639cc162e64bd5b9e0d59c65bffde168a
+manager due_date allowed before=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e after=e48b5a01fc0eae164b081f27c42b5126ce247d93193f3ac5df25628883f41844 normalized=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e reverse=2617db029cacc7b5e295ee8013961c2425127755e22a7b29927126d571c10a46 restored_normalized=2617db029cacc7b5e295ee8013961c2425127755e22a7b29927126d571c10a46
+manager category_id guard refused before=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e after=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e normalized=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e reverse=1303c998e7ae3c662cd07cce46b72533efc19b323f530e4cf7393f3b7801d2d8 restored_normalized=1303c998e7ae3c662cd07cce46b72533efc19b323f530e4cf7393f3b7801d2d8
+manager cache_role guard refused before=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e after=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e normalized=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e reverse=c96c6a5f9ac6ab8fce98632c228789c272c52ab9465978522c650dd8f0fde1ae restored_normalized=c96c6a5f9ac6ab8fce98632c228789c272c52ab9465978522c650dd8f0fde1ae
+manager operation_key guard refused before=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e after=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e normalized=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e reverse=9c1acd48940d962ea8a4eea8c0aeba1efe875b4d107618beaad1c2f2ed428481 restored_normalized=9c1acd48940d962ea8a4eea8c0aeba1efe875b4d107618beaad1c2f2ed428481
+manager invoice_group_id guard refused before=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e after=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e normalized=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e reverse=826a50b3c3c97dc86a89a6336ba6c50de2a9607c08ffa1fa256cd4bb9f8e5792 restored_normalized=826a50b3c3c97dc86a89a6336ba6c50de2a9607c08ffa1fa256cd4bb9f8e5792
+editor description allowed before=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e after=972f5e6534774da0a149beb70d43d7e2386fa08ec4ff3863e40fa24dd81ec895 normalized=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e reverse=fa313482ac70ab1172762e48de19fd168493b4002032560bb7f6d1ab90373979 restored_normalized=fa313482ac70ab1172762e48de19fd168493b4002032560bb7f6d1ab90373979
+editor date allowed before=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e after=9bb1e9fe5447b0db7a472b826b30905a7995757d27da4c2a75ac6f3a6a37211f normalized=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e reverse=987bd236f201e4ae7410303275de79faeb45c452ec86cee85b27fcc04b538674 restored_normalized=987bd236f201e4ae7410303275de79faeb45c452ec86cee85b27fcc04b538674
+editor due_date allowed before=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e after=e9faf80b3c76707b17f67fa6198742b83991fe7e64bc14044df1390bfaa6f00d normalized=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e reverse=3a736a48a7385057ac60009ca2cbcbfede6bc8c568d5f89bb86e1a79887964ac restored_normalized=3a736a48a7385057ac60009ca2cbcbfede6bc8c568d5f89bb86e1a79887964ac
+editor category_id guard refused before=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e after=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e normalized=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e reverse=5cdccd44af96c3be1409644b2e81f389463f7834daec51a126851be79942578d restored_normalized=5cdccd44af96c3be1409644b2e81f389463f7834daec51a126851be79942578d
+editor cache_role guard refused before=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e after=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e normalized=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e reverse=d099c42aa065ff8393efca7585f571bd18cab4a37611b8d465482db0419d2524 restored_normalized=d099c42aa065ff8393efca7585f571bd18cab4a37611b8d465482db0419d2524
+editor operation_key guard refused before=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e after=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e normalized=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e reverse=d2c9f26a016d5dd5532c798492e3b951f1551498d030a780b09c52cc65f46b3e restored_normalized=d2c9f26a016d5dd5532c798492e3b951f1551498d030a780b09c52cc65f46b3e
+editor invoice_group_id guard refused before=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e after=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e normalized=d9dcce7cb058ac8bfe699f5b6c881e2a5a99de06e203ecf2a1a64f057df8f83e reverse=501ceac593b4c22f14f2ec903159fbb884c7721a09194c89f2e2f865d1e886dc restored_normalized=501ceac593b4c22f14f2ec903159fbb884c7721a09194c89f2e2f865d1e886dc
+```
+
+### INSERT/DELETE por linha
+8 PASS com paridade fora do grupo. Payments INSERT amount0.005 válido e DELETE aceites no legado pelos dois actores; guarda no grupo. Transaction DELETE manager legado aceite/guarda no grupo; editor ROW_FILTERED por policy DELETE exclusiva admin/manager, não guarda alcançada. Transaction INSERT com identidade do documento já existente: 23505 nos dois controlos e dentro; criar nova identidade não altera pertença do documento existente, não é ataque ao grupo. Sem classificar PK duplicada como INSERT válido aceito. Não há INSERT coluna-a-coluna neste pedido 6b.
+
+### Aviso Live separado — decisão textual, sem corrigir
+Função public.coala_capture_forecast_category_change; trigger trg_coala_capture_forecast_category_change AFTER INSERT OR UPDATE OF category_id (NÃO DELETE). Primeiro IF usa NEW.category_id IS NULL OR NEW.supplier_id IS NULL; supplier_id ausente do catálogo event_forecasts. Quando NEW.category_id não é NULL a avaliação chega ao campo ausente, erro capturado por EXCEPTION WHEN OTHERS, RAISE WARNING e RETURN NEW; row principal prossegue, mapa supplier/category não actualizado. Mesmo UPDATE category_id sem mudar valor avalia este IF antes do teste OLD. Proposta posterior: decidir fonte canónica do fornecedor e só depois candidato aditivo/teste separado; não acrescentar coluna nem substituir função nesta tarefa.
+
+### Classificação integral das execuções
+Final suite: 397 NOTICE (marcadores/avisos de existência dos candidatos), 18 WARNING coala campo ausente legado, 1 falha final de aceitação E; zero ERROR SQL não classificados nos logs *.out, zero skips. initdb locale command missing/no usable locales: ambiental, locale C.UTF-8 pedido, catálogo instala15529 statements/0fail e diferencial inexplicado0. Tentativas: baseline reutilizado UniqueViolation controls; reuso sem nova fixture VAT IndexError; corrigidos com catálogos limpos; snapshot balance NULL por identidade editor sem acesso, corrigido identidade de leitura ADMIN igual, nenhuma permissão alterada. Tentativa rc0 intermediária descartada por validade incompleta. AssertionError nunca tolerado como PASS.
+
+### Rollback e integridade
+14 pares no catálogo fiel novo: phase2l-rollback.py exit0; before=after normalizado por ordem ACL/listas, hash474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1; differences={} hash44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a. Captura completa owners/ACL/memberships/roles/types/defaults/indexes/RI/triggers/policies/functions/views; não byte-a-byte.
+
+### SHA/CI remoto por API
+HEAD main 210d7a1dc5e27b7eae75e36b40d3fdecd5118d8e observado 2026-10-22T01:48:38.201492+00:00; todos os sete runners2n e suite presentes. Run39705551877 success nesse HEAD mas blob runner NÃO corresponde ao actual6b; CI6b NÃO VERIFICADO. Não declarar verde para este runner. Sem commit/push manual; sincronização gerida pela plataforma.
+
+### Leituras/NÃO LIDO
+Manifesto actualizado antes de testes: runner original1–200/201–229, Bloco6 6535–6626, matriz201linhas e erros2582 delegados, catálogo colunas/constraints/FKs/triggers integral delegado; docs/questoes-issue335-bloco6-e.md NÃO LIDO porque ausente. Core120–235 parcial, restantes fora âmbito NÃO LIDO; status runner1–200 parcial. JSON matriz antiga só parse das24, não leitura textual integral. Nenhuma destas partes é apresentada como integral.
+
+### Artefactos brutos desta execução local (temporários, hashes verificáveis)
+```text
+6aff1a8aeeedf239099d3eb0f344ae5827dfca62ca667fd55ece0950479c587f /tmp/issue335-6b/honest-final/phase2n-columns.json
+f1472e49ba96143405a0cf65ee6eb0d9c6506b88cf42dec74c3f2d4a0c956ec3 /tmp/issue335-6b/honest-final.out
+f2b225fda7e6438faec1709cef7f78b7253935a23cfba6993ad422f818f438e9 /tmp/issue335-6b/classified-logs.json
+6856740e22ef09df3521dc4852fffd7fb0db2fb2eef2cc67cb1f40b39884c15e /tmp/issue335-6b/remote.json
+474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1 /tmp/issue335-6b/rollback/before.json
+474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1 /tmp/issue335-6b/rollback/after.json
+```
+
+### Questões/decisões em aberto
+E ABERTO: is_confidential×2 e payment.status/editor carecem prova válida de grupo; não dependem de autorização de produção para continuar teste local futuro. CI runner actual pendente sincronização/run. Coala: opção recomendada investigar fonte canónica do fornecedor em tarefa separada; alternativa manter WARNING assumido. A–C e instalação de qualquer candidato exigem Sim separado. Parar neste bloco; sem Publish.

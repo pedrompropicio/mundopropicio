@@ -119,3 +119,8 @@ f42c4585095304cf4695112a350e60df880a84381e850e6291be9dd78f36e53d  supabase/tests
 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a  supabase/tests/issue335/live/phase2n-bloco6/rollback-differences.json
 c27b87eaa21a8ba956d6a60bd5b0bd2bdf3e064d7b8344425dcecf1fdadf7e73  supabase/tests/issue335/live/phase2n-bloco6/runner-errors-classification.json
 aac1a19ea76d2b36f693bb7151c8c0e0d29f32e03d6a641c22a00d6e3a896de0  supabase/tests/issue335/live/phase2n-bloco6/suite-results.txt
+
+# 2n-Bloco6b E ABERTO — 21/24 resolvidas, final exit1, zero skips
+470080a7f7a60bb26476b7cacd8094502cbefeb881078731774901ae56986238  docs/testes/issue335-fases12-local.md
+8ed24812a2bca1ad0ba5e4856f31ed559e97d2f212ff00ed1f06a3070f96c6b8  docs/testes/issue335-fase2n-leituras.md
+b2256da2739e22071ce04c56720f7aa4ac0fe57f48df3cb6763262bb97ba96d6  supabase/tests/issue335/phase2n-columns.py

@@ -197,3 +197,26 @@ Leituras delegadas: sub_nhb0edrf, sub_st244trv, sub_87kkt4v6. Chunks ≤200; nã
 - .lovable/memory/features/compensacao-ligada.md | N=47 | sha256=b6f1a368c823a53e1462558fd1d7c60ae24908ba3e835b692f7868098c1dafd6 | INTEGRAL delegada sub_87kkt4v6; N real certificado pelos bytes | intervalos 1–47
 - .lovable/memory/features/payment-account-ownership.md | N=46 | sha256=ee962f16af7ba153f39192769f4aa6f57590aff5c419a74ae80a278924ccde4e | INTEGRAL delegada sub_87kkt4v6; N real certificado pelos bytes | intervalos 1–46
 - Catálogo Live: SELECT information_schema.columns apenas, transactions 64 + transaction_payments 31; output integral 18453 bytes disponível no log de ferramenta. Sem SELECT de dados.
+
+## Bloco6b — leituras ANTES de alterar testes (22/10/2026 UTC)
+- supabase/tests/issue335/phase2n-columns.py | N=229 | sha256=4db2ee5080fef2d5203a52a4df915d58abb547fb7ad4495c7373867e62bb5564 | INTEGRAL | intervalos 1–200,201–229
+- docs/testes/issue335-fases12-local.md | N=6626 | sha256=d1b6b19fbccab327b3855852a558d5d68eb4abe74d2fc95d8536dda9a592ff0b | SECÇÃO Bloco6 integral; 1–6534 NÃO LIDO fora âmbito | intervalos 6535–6626
+- supabase/tests/issue335/live/phase2n-bloco6/columns-matrix.md | N=201 | sha256=f42c4585095304cf4695112a350e60df880a84381e850e6291be9dd78f36e53d | INTEGRAL | intervalos 1–200,201–201
+- supabase/tests/issue335/live/phase2n-bloco6/runner-errors-classification.json | N=2582 | sha256=c27b87eaa21a8ba956d6a60bd5b0bd2bdf3e064d7b8344425dcecf1fdadf7e73 | INTEGRAL delegado sub_eytr7zz5 | intervalos 1–200,201–400,401–600,601–800,801–1000,1001–1200,1201–1400,1401–1600,1601–1800,1801–2000,2001–2200,2201–2400,2401–2582
+- supabase/tests/issue335/phase2h-run.sh | N=23 | sha256=65299cf90cf0e194d32636d8d4a91d1a4fcf63930e6bbc40606aa59ccbe01c52 | INTEGRAL | intervalos 1–23
+- supabase/tests/issue335/phase2h-suite.sh | N=62 | sha256=cf57fb73e831392b54a3496c15430fc586186d90c2fb56929ae789fa93d35ad9 | INTEGRAL | intervalos 1–62
+- supabase/tests/issue335/phase2h-install.py | N=135 | sha256=01e1dc9641e84163cfe0f1426abddf595036521e9f05fdad8f5fd9a443603e96 | INTEGRAL | intervalos 1–135
+- supabase/manual/20261021_issue335_offset_core.INERTE.sql | N=1148 | sha256=2c08b10602862d0e7cae08be6715970f8ce7c43d2efb4e1a7690e6161a50659a | PARCIAL; restantes NÃO LIDO fora guardas | intervalos 120–235
+- AGENTS.md | N=41 | sha256=4c5e8033c549a41636f29aa9496160566d638114421e36dfac5dbe99b986342d | INTEGRAL conteúdo apresentado | intervalos 1–47
+- supabase/AGENTS.md | N=3 | sha256=c4a593a91c43a79de00879fea8e566841a74d212962ee9a3dda8ffca46237b17 | INTEGRAL | intervalos 1–3
+- docs/questoes-issue335-bloco6-e.md: NÃO LIDO — ficheiro ausente nesta sessão; não recriado como prova anterior.
+- SELECT catálogo Live 20261022-013318-477973 | sha256=7aff7111b213e23cf12d781541142ad62056e3f82a3d40073db3c74e020ded5b | INTEGRAL delegado sub_hk89x45b | intervalos original1; apresentação lossless 1–138; nenhuma linha de dados
+- SELECT catálogo Live 20261022-013328-345943 | sha256=bd7affc6a4e210a83b4acec88557a199d9dfa18a9eff1ade51aee56d7d291699 | INTEGRAL delegado sub_hk89x45b | intervalos original1; apresentação lossless 1–58; nenhuma linha de dados
+- SELECT catálogo Live 20261022-013329-880089 | sha256=23278bc3d4a541382962a9dc9f1c9472987df268337c82d4ae729a45c8b6a303 | INTEGRAL delegado sub_hk89x45b | intervalos 1–200,201–400,401–600,601–800,801–1000,1001–1200,1201–1400,1401–1600,1601–1800,1801–2000,2001–2132; nenhuma linha de dados
+- SELECT pg_policies transactions/payment: resultado integral na ferramenta; igualdade company_id=current_company_id impede mudar para empresa diferente no mesmo UPDATE. SELECT funções locais de deriva/materialização/parcelas integral; sem alterar permissões.
+
+### Bloco6b complementares e limites
+- phase2l-rollback.py1–49 integral; phase2k-rollback.py1–49 integral; hashes1–121 integral.
+- Catálogo Coala103–159 relido: AFTER INSERT OR UPDATE OF category_id, sem DELETE; erro capturado.
+- Matriz JSON antiga parse24 apenas, NÃO LIDO textual integral; core restante e status restante NÃO LIDO fora âmbito.
+- Runner pós-edição executado integral; não declarar nova leitura manual integral.
