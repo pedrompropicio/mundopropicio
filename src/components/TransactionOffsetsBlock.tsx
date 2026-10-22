@@ -177,7 +177,7 @@ export function TransactionOffsetsBlock({ transaction, canEdit }: Props) {
               size="icon"
               variant="ghost"
               className="h-6 w-6"
-              disabled={busy || o.applied}
+              disabled={busy || offsetBadgeLabel(o) !== "Por aplicar"}
               title={o.applied ? "Já aplicada — estorna primeiro o pagamento de origem" : "Remover ligação"}
               onClick={() => remove(o.id)}
             >
