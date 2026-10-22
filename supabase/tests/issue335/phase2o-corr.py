@@ -106,11 +106,22 @@ E = f"""SELECT public.transaction_offset_execute(gen_random_uuid(),'{SUP}',
 r, e = as_user(ADMIN, E, commit=True)
 check('E par legado 50 adoptado (P2 ordem 3: dinheiro 100, compensação 50)', e is None, f'erro={e!r}')
 gid = r[0][0] if r else None
-if gid:
+if not gid:  # E recusado (estado anterior): F e G precisam de um grupo real, criado pelo core sem par legado
+    rr, ee = as_user(ADMIN, PAIR, commit=True)
+    check('G/F grupo real alternativo criado pelo core', ee is None, f'erro={ee!r}')
+    if rr:
+        gid = rr[0][0]['group_id']
+        with A.cursor() as q:
+            q.execute("SELECT transaction_id::text FROM public.transaction_offset_items WHERE group_id=%s AND type='income'", (gid,)); conf = q.fetchone()[0]
+        r = [(gid, None, conf)]
+        ncount = 2
+else: ncount = 4
+if gid and r[0][1]:
     with A.cursor() as q:
         q.execute("SELECT offset_group_id::text FROM public.transaction_offsets WHERE id=%s", (r[0][1],)); og = q.fetchone()[0]
         q.execute("SELECT cash_order,cash_amount,compensation_amount FROM public.transaction_offset_items WHERE group_id=%s ORDER BY cash_order,type", (gid,)); its = q.fetchall()
     check('E par ligado ao grupo e alocação por ordem inteira', og == gid and [(int(a), float(b), float(c)) for a, b, c in its if a in (3, 12)] == [(3, 100.0, 50.0), (12, 0.0, 80.0)], f'offset_group={og} itens={its}')
+if gid:
     # ---- F: leitura de itens/grupos com documento confidencial
     with A.cursor() as q:
         q.execute("SET session_replication_role=replica; UPDATE public.transactions SET is_confidential=true WHERE id=%s; SET session_replication_role=origin", (r[0][2],))
@@ -120,9 +131,9 @@ if gid:
     check('F staff sem can_see_confidential não lê grupo com item confidencial', eg is None and rg[0][0] == 0, f'grupos={rg} erro={eg!r}')
     ri, ei = as_user(ADMIN, f"SELECT count(*) FROM public.transaction_offset_items WHERE group_id='{gid}'")
     rg, eg = as_user(ADMIN, f"SELECT count(*) FROM public.transaction_offset_groups WHERE id='{gid}'")
-    check('F com permissão lê itens e grupo', ei is None and eg is None and ri[0][0] == 4 and rg[0][0] == 1, f'itens={ri} grupos={rg}')
+    check('F com permissão lê itens e grupo', ei is None and eg is None and ri[0][0] == ncount and rg[0][0] == 1, f'itens={ri} grupos={rg}')
     ri, ei = as_user(VIEWER, f"SELECT count(*) FROM public.transaction_offset_items WHERE group_id='{gid}'")
-    check('F staff sem permissão continua a ler itens não confidenciais', ei is None and ri[0][0] == 3, f'itens={ri} erro={ei!r}')
+    check('F staff sem permissão continua a ler itens não confidenciais', ei is None and ri[0][0] == ncount - 1, f'itens={ri} erro={ei!r}')
 # ---- G: rollback com grupos vivos (grupo real criado pelo core em E)
 for n in ['offset_approval', 'cash_position', 'cash_position_invariant', 'status', 'offset_balance', 'offset_core', 'offset_group_storage']:
     refuse(f'G {n}.ROLLBACK com grupos vivos', body(n + '.ROLLBACK-INERTE'), 'groups_exist_keep_guards')
