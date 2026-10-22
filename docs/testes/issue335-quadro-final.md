@@ -7,7 +7,7 @@
 - Origem: query do 0·Cowork em Live, 22/10/2026, após COMMIT, comunicada pelo Pedro. Guarda A satisfeita pelos marcadores issue335-balance-v2l, issue335-cash-position-v2l e issue335-cash-position-invariant-v2l; transaction_offset_execute/reverse podem correr em Live (sem UI nova; 0 grupos; nenhum encontro real executado). Verificação completa na secção "Passo C instalado em Live (22/10/2026)" de `docs/testes/issue335-fases12-local.md`.
 - kill_switch: EXECUTADO 22/10/2026 — encontros FECHADOS em N1 (enabled=false, reverse_enabled=true). emergency/reactivation: não executados (reactivation só com novo Sim; emergency só em incidente).
 - trigger_watch + cash_watch: INSTALADOS 22/10/2026 com Sim do Pedro (commit 02fc1188af1c976eced2630f06cab110d8f2685f). **Instalação em Live concluída até trigger_watch/cash_watch — última etapa da ordem única.** Rollback só com 0 grupos: cash_watch primeiro, depois trigger_watch. Detalhe na secção "trigger_watch e cash_watch instalados em Live (22/10/2026)" de `docs/testes/issue335-fases12-local.md`.
-- Leitura do controlo pelo ecrã (`transaction_offset_control_status()`): INSTALADA 22/10/2026 com Sim do Pedro; devolve N1 a authenticated; tabela continua negada a authenticated. Cliente ainda não ligado (R1 seguinte). Rollback: DROP FUNCTION. Detalhe em `docs/testes/issue335-fases12-local.md`.
+- Leitura do controlo pelo ecrã (`transaction_offset_control_status()`): INSTALADA 22/10/2026 com Sim do Pedro; devolve N1 a authenticated; tabela continua negada a authenticated. Cliente ligado 22/10/2026 (readOffsetControl chama a RPC; pronto para Publish). Ficheiro de registo corrigido para o instalado (WHERE c.singleton; sem ALTER OWNER). Rollback: DROP FUNCTION. Detalhe em `docs/testes/issue335-fases12-local.md`.
 - Sem Publish; types.ts por regenerar no próximo Publish; CI remoto NÃO VERIFICADO; sem reserva R2 aberta.
 - Pendentes: fases 3b/3c, #337, Bloco 8 (decisões), lacunas abaixo e Issue #341 (divergência estado/pagamentos em 163 transações). A instalação não fecha estas lacunas nem altera o histórico das provas locais abaixo.
 
@@ -109,5 +109,5 @@ _derive_paid_amount(uuid), get_event_cash_position(uuid,date,date), get_event_ca
 | supabase/tests/issue335/phase2l.sql | a7f7ce356e94f7444df09c4d699b059150afe8053e7ff12b29cc64787186a305 |
 | supabase/tests/issue335/phase2o-baseline.sh | b8acd63b454911beac8f64027fd4665646c626435b083a59d06916e53d9bac79 |
 | supabase/tests/issue335/phase2o-corr.py | 8531286991e8fb2a9e2aac0bef7c3b4eb0ed5647eefb7a8fb4378a78bf7ef1cb |
-| supabase/manual/20261022_issue335_control_status.INERTE.sql | 751a14cb171c87f8f4032244a1649e2965bb2d5f0ff1ad97d2fa2e87c63c9728 |
+| supabase/manual/20261022_issue335_control_status.INERTE.sql | 41a041e72c25ae25956a814df6a628fda84dc7086413b8dd3cf46d29922fa477 |
 | supabase/manual/20261022_issue335_control_status.ROLLBACK-INERTE.sql | 661a1ede3c5a9b6e4c410290338dd6ec849ac59fd6d95484703b3a22231c05a5 |
