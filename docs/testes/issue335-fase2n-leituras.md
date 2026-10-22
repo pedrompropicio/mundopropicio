@@ -232,3 +232,21 @@ Leituras delegadas: sub_nhb0edrf, sub_st244trv, sub_87kkt4v6. Chunks ≤200; nã
 - supabase/manual/20261021_issue335_status.INERTE.sql SHA256=9b9b752b7aa907887f833e0e6f0b02fc6c08d4d4fdeabe6a10c269bd193a0c20 intervalles=1–54; INTEGRAL
 - supabase/tests/issue335/phase2l-rollback.py SHA256=b6d4492763f665b5f493aad8a9ccde4d625a6f648b51f4a4217ae4f60e1c343a intervalles=1–49; INTEGRAL
 - SELECT catalogue LOCAL pg_policies transactions + pg_get_functiondef can_see_confidential/has_permission/has_role/is_platform_admin/enforce_transaction_approval_permission/_derive_paid_amount: outputs intégraux lus; ZERO SQL Live.
+
+### Bloco6c — fecho, precisão das leituras e provas finais
+- AGENTS.md SHA256=4c5e8033c549a41636f29aa9496160566d638114421e36dfac5dbe99b986342d intervalos=1–41; INTEGRAL; não editado. Hash actual; originais já registados acima quando houve edição.
+- supabase/AGENTS.md SHA256=c4a593a91c43a79de00879fea8e566841a74d212962ee9a3dda8ffca46237b17 intervalos=1–3 (2 LF + última linha); INTEGRAL; não editado. Hash actual; originais já registados acima quando houve edição.
+- docs/QUADRO.md SHA256=f316973e871ea2e37954ce3d18c9759c2d066529d11ff50707c3963917459121 intervalos=1–40,41–80,76–80,81–120,108–120,121–160,161–200,201–282; INTEGRAL delegado sub_cwsdc84z; reserva byte-a-byte mantida. Hash actual; originais já registados acima quando houve edição.
+- supabase/tests/issue335/phase2n-columns.py SHA256=966e50ae7db9e19d1cc01b6456b49cdbd241570b43b46345a85e90dcb68c36cc intervalos=1–200,201–379 original; INTEGRAL original antes dos edits; final executado não relido integralmente; diff adições revisto delegado. Hash actual; originais já registados acima quando houve edição.
+- supabase/tests/issue335/phase2h-run.sh SHA256=65299cf90cf0e194d32636d8d4a91d1a4fcf63930e6bbc40606aa59ccbe01c52 intervalos=1–23; INTEGRAL. Hash actual; originais já registados acima quando houve edição.
+- supabase/tests/issue335/phase2h-suite.sh SHA256=cf57fb73e831392b54a3496c15430fc586186d90c2fb56929ae789fa93d35ad9 intervalos=1–62; INTEGRAL. Hash actual; originais já registados acima quando houve edição.
+- supabase/tests/issue335/phase2l-rollback.py SHA256=b6d4492763f665b5f493aad8a9ccde4d625a6f648b51f4a4217ae4f60e1c343a intervalos=1–49; INTEGRAL contexto desta conversa. Hash actual; originais já registados acima quando houve edição.
+- supabase/manual/20261021_issue335_offset_core.INERTE.sql SHA256=2c08b10602862d0e7cae08be6715970f8ce7c43d2efb4e1a7690e6161a50659a intervalos=218–400; PARCIAL; 1–217,401–1148 NÃO LIDO neste bloco; fora âmbito. Hash actual; originais já registados acima quando houve edição.
+- supabase/manual/20261021_issue335_status.INERTE.sql SHA256=9b9b752b7aa907887f833e0e6f0b02fc6c08d4d4fdeabe6a10c269bd193a0c20 intervalos=1–54; INTEGRAL. Hash actual; originais já registados acima quando houve edição.
+- docs/testes/issue335-fases12-local.md SHA256=ea5b0574fb5cc2cc648d7b2c6936e6b688fd7afca5f098e775092a94f8ed1531 intervalos=6610–6719 ANTES do append; PARCIAL; 1–6609 NÃO LIDO nesta ronda; histórico fora âmbito. Hash actual; originais já registados acima quando houve edição.
+- docs/testes/issue335-fase2n-hashes.sha256 SHA256=037223174f53d5c62ba4add86857872366ecdc7dac63701a80d5811d39e8dd35 intervalos=1–127 antes append; INTEGRAL. Hash actual; originais já registados acima quando houve edição.
+- roadmap.md SHA256=d77cd5abc9c4d37f878ea169f7cc0e6a755c74f08ff19c2102a97dc281501476 intervalos=conteúdo cat com truncação + últimas8; PARCIAL; não editado por âmbito. Hash actual; originais já registados acima quando houve edição.
+- SELECT LOCAL pg_policies + funções confidentialité/approval/derive e CHECK items: lidos integralmente, prova no JSON final. Zero SELECT Live nesta continuação.
+- sub_cwsdc84z: source inicial1–200,201–400,401–466 + última linha; source final adições via diff. Matriz JSON parse integral/asserts, NÃO LIDO linha-a-linha; versão final repetida após revisão.
+- rollback before/after capturas integrais comparadas por máquina; NÃO LIDO textual. Runners irmãos, outros SQL candidatos e capturas históricos NÃO RELIDOS nesta ronda: regressão executada pela suite não equivale a leitura.
+- Memória mem://constraints/issue335-local-balance-authorization integral1–10; compensacao-ligada1–47/payment-account-ownership1–46 já integrais nesta conversa; nenhuma memória editada.
