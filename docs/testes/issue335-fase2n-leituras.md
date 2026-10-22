@@ -126,3 +126,21 @@ Leituras core delegadas sub_zbfwr52y; testes históricos delegados sub_v2bm4wh9;
 - supabase/tests/issue335/phase2e.sql | linhas 70–95 do adaptado + 86–93 do original | NÃO LIDO integral: só o bloco D tocado
 - supabase/tests/issue335/phase2l-rollback.py | linhas 25–49 relidas | já integral no Bloco2
 - Catálogo Live (só SELECT pg_proc): _derive_paid_amount md5 18a8b97b…, materialize_paid_amount_payment ea609d67…, sync_paid_amount_from_payments 8909621f…, validate_paid_requires_payment_date 1d75d22d…, _paid_guard_is_exempt 6f00c9b9…, e todas as funções public com 'partially_paid' (reverse_payment 73185dd7… é o único escritor).
+
+### Bloco3 — leituras antes de escrever testes (21/10/2026, chunks ≤200)
+- supabase/manual/20261021_issue335_offset_kill_switch.INERTE.sql (antes da edição) | N=8 | sha256=1f8a5083472499b53e94222b6b3f32f84a7dfdfbb6222ec1e7111b9a895af68c | LIDO INTEGRAL | 1–8
+- supabase/manual/20261021_issue335_offset_kill_switch.ROLLBACK-INERTE.sql (antes) | N=6 | sha256=a0f25216556a194b203817640be1bdf4ebb2d24bef120dc1cc3eb4af048f3a79 | LIDO INTEGRAL | 1–6
+- supabase/manual/20261021_issue335_emergency.INERTE.sql (antes) | N=5 | sha256=cd0a44d64c79b311e229e9bb7b47c9a759e4af759eed6f683df5e16c8d8cb233 | LIDO INTEGRAL | 1–5
+- supabase/manual/20261021_issue335_emergency.ROLLBACK-INERTE.sql (antes) | N=5 | sha256=06010883cb0ada6685bfdb16296efd4a2db0f463ce6cbaf9512dd39ec23ab4bb | LIDO INTEGRAL | 1–5
+- supabase/manual/20261021_issue335_reactivation.INERTE.sql (antes) | N=5 | sha256=8a18722e3831bd111be878619ab8e068c7c02dc39fb012c3ff13f0d2eeeab85c | LIDO INTEGRAL | 1–5
+- supabase/manual/20261021_issue335_reactivation.ROLLBACK-INERTE.sql (antes) | N=5 | sha256=affa9e65872b6fd66e53c9725e5e9fc9fbde63bba0d8ec7457ea8534acad9fbd | LIDO INTEGRAL | 1–5
+- supabase/tests/issue335/phase2f-concurrency.py | N=133 | sha256=3504c09fadba161c64b5551a279a34af24d85523875a55a72faa4df05836d8c5 | LIDO INTEGRAL | 1–133
+- supabase/tests/issue335/phase2l-rollback.py | N=48 | sha256=e41767df157f79c2b42e32eb978d48a27436b960c65208493b006dc82d356acc | LIDO INTEGRAL | 1–48
+- supabase/tests/issue335/phase2j-concurrency.py | N=124 | sha256=54f4c8939a5fa16690c9919d94047a80177e80ec26b489e3e3592b4a93a61965 | PARCIAL 1–40, 85–124 | 41–84 NÃO LIDO (F1–F3, listas/inclusão; sem kill-switch, confirmado por grep)
+- supabase/tests/issue335/phase2l.sql | N=113 | sha256=e8b54b5a46e0f44aedb950828ef79c0b7bee322d71230821c069b4f52693212b | PARCIAL 85–113 (bloco M4) | 1–84 NÃO LIDO (M1/M3, fora do âmbito)
+- supabase/tests/issue335/phase2h-suite.sh | N=51 | LIDO 1–51 (integral; sha no momento da leitura não registado, actual d67755f6… após integração)
+- supabase/manual/20261021_issue335_offset_core.INERTE.sql | N=1139 | sha256=c0b973294ceee5783b5568ba0038b97a848f2e854d58246eaf94120e823f014c | PARCIAL 200–240, 360–380, 838–900, 1073–1139 (dispatch, encontro_desativado, estorno, adapter, worker) + grep integral | resto NÃO LIDO neste bloco (lido integral no Bloco2b, sha igual)
+- supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql | N=91 | sha256=ea8632f3dfb3d997678c03ff33092088b2838cc7ab9e38eeb3f4a29ae60abecc | só linhas 86–90 (tabela de controlo) | resto NÃO LIDO
+- docs/testes/issue335-fases12-local.md | N=6398 antes do acréscimo | PARCIAL 693–700, 772–835, 875–915 (M4 2k/2l/2m; saída truncada a meio de 830) | resto NÃO LIDO; secções 2n-Bloco1/2 não relidas (sem M4)
+- NÃO LIDO neste bloco: AGENTS.md, supabase/AGENTS.md, phase2k-focused.sql, phase2k-rollback.py (lido integral no Bloco2b), phase2m-context.py, live/phase2m* — razão: sem kill-switch/reactivação (grep sem ocorrências fora de phase2k-rollback lista de nomes).
+- Catálogo Live (só SELECT pg_proc/pg_class, sem linhas de dados): ACL de 7 funções e 10 tabelas -> supabase/tests/issue335/live/phase2n-bloco3/live-acl.json
