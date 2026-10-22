@@ -42,14 +42,15 @@ export function offsetControlLevel(c: OffsetControlRow): OffsetControlLevel {
   return "N2";
 }
 
-const APPLY_ROLES = new Set(["admin", "manager", "editor"]);
+const APPLY_ROLES = new Set(["admin", "platform_admin", "manager", "editor"]);
+const REVERSE_ROLES = new Set(["admin", "platform_admin"]);
 
 export function canApplyOffset(roles: OffsetRole[], control: OffsetControlRow): boolean {
   return control.enabled && roles.some((r) => APPLY_ROLES.has(r));
 }
 
 export function canReverseOffset(roles: OffsetRole[], control: OffsetControlRow): boolean {
-  return control.reverse_enabled && roles.includes("admin");
+  return control.reverse_enabled && roles.some((r) => REVERSE_ROLES.has(r));
 }
 
 /** A ficha da transação nunca edita grupos (só leitura). */
