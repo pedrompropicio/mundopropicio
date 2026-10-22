@@ -220,3 +220,15 @@ Leituras delegadas: sub_nhb0edrf, sub_st244trv, sub_87kkt4v6. Chunks ≤200; nã
 - Catálogo Coala103–159 relido: AFTER INSERT OR UPDATE OF category_id, sem DELETE; erro capturado.
 - Matriz JSON antiga parse24 apenas, NÃO LIDO textual integral; core restante e status restante NÃO LIDO fora âmbito.
 - Runner pós-edição executado integral; não declarar nova leitura manual integral.
+
+## 2n-Bloco6c — leituras prévias, uniquement LOCAL, 22/10/2026
+- AGENTS.md SHA256=4c5e8033c549a41636f29aa9496160566d638114421e36dfac5dbe99b986342d intervalles=1–41; INTEGRAL
+- supabase/AGENTS.md SHA256=c4a593a91c43a79de00879fea8e566841a74d212962ee9a3dda8ffca46237b17 intervalles=1–3; INTEGRAL
+- docs/QUADRO.md SHA256=f316973e871ea2e37954ce3d18c9759c2d066529d11ff50707c3963917459121 intervalles=1–200,201–fin; sortie initiale tronquée; réserve #335 ligne32 lue; reste NON LIDO
+- .lovable/memory/features/compensacao-ligada.md SHA256=b6f1a368c823a53e1462558fd1d7c60ae24908ba3e835b692f7868098c1dafd6 intervalles=1–47; INTEGRAL
+- .lovable/memory/features/payment-account-ownership.md SHA256=ee962f16af7ba153f39192769f4aa6f57590aff5c419a74ae80a278924ccde4e intervalles=1–46; INTEGRAL
+- supabase/tests/issue335/phase2n-columns.py SHA256=b2256da2739e22071ce04c56720f7aa4ac0fe57f48df3cb6763262bb97ba96d6 intervalles=1–200,201–379; INTEGRAL avant modification
+- supabase/manual/20261021_issue335_offset_core.INERTE.sql SHA256=2c08b10602862d0e7cae08be6715970f8ce7c43d2efb4e1a7690e6161a50659a intervalles=218–400; PARTIEL; autres hors périmètre NÃO LIDO
+- supabase/manual/20261021_issue335_status.INERTE.sql SHA256=9b9b752b7aa907887f833e0e6f0b02fc6c08d4d4fdeabe6a10c269bd193a0c20 intervalles=1–54; INTEGRAL
+- supabase/tests/issue335/phase2l-rollback.py SHA256=b6d4492763f665b5f493aad8a9ccde4d625a6f648b51f4a4217ae4f60e1c343a intervalles=1–49; INTEGRAL
+- SELECT catalogue LOCAL pg_policies transactions + pg_get_functiondef can_see_confidential/has_permission/has_role/is_platform_admin/enforce_transaction_approval_permission/_derive_paid_amount: outputs intégraux lus; ZERO SQL Live.
