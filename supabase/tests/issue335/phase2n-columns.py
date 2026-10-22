@@ -303,6 +303,16 @@ def closing_evidence():
         assert 'can_see_confidential' in policy[0][4] and 'is_confidential' in policy[0][4]
         policies.append(policy)
     assert policies[0]==policies[1]
+    authorized=[]
+    for c in (baseline,installed):
+        result=probe(c,'transactions','is_confidential',True,ADMIN,uid(20),integral=True)
+        assert result['state']=='00000' and result['effective']['is_confidential'] is True
+        assert 'is_confidential' in result['changed']
+        authorized.append(result)
+    evidence['confidential']['authorized_admin_parity']=authorized
+    constraints=execute(installed,"SELECT conname,pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='public.transaction_offset_items'::regclass AND contype='c' AND conname='transaction_offset_items_check'")
+    assert constraints==[('transaction_offset_items_check','CHECK (((cash_amount + compensation_amount) = open_amount))')]
+    evidence['payment_status']['coverage_constraint']=constraints
     for role,user in ACTORS.items():
         predicates=[]
         for c in (baseline,installed):
