@@ -13,9 +13,10 @@ FP="SELECT md5(string_agg(x,E'\n' ORDER BY x)) FROM (
  UNION ALL SELECT 'c '||attrelid::regclass||' '||attname FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid WHERE c.relnamespace='public'::regnamespace AND attnum>0 AND NOT attisdropped
  UNION ALL SELECT 'r '||rolname FROM pg_roles WHERE rolname LIKE 'issue335%') s;"
 before=$("${P[@]}" -c "$FP")
-for f in group_storage core invariants balance approval kill_switch; do "${P[@]}" -f "$M/20261021_issue335_offset_$f.INERTE.sql" >/dev/null; done
+# Ordem única (correcção D)
+for f in offset_group_storage offset_core offset_approval status offset_invariants offset_balance cash_position cash_position_invariant offset_kill_switch; do "${P[@]}" -f "$M/20261021_issue335_$f.INERTE.sql" >/dev/null; done
 mid=$("${P[@]}" -c "$FP")
-for f in kill_switch approval balance invariants core group_storage; do "${P[@]}" -f "$M/20261021_issue335_offset_$f.ROLLBACK-INERTE.sql" >/dev/null; done
+for f in offset_kill_switch cash_position_invariant cash_position offset_balance offset_invariants status offset_approval offset_core offset_group_storage; do "${P[@]}" -f "$M/20261021_issue335_$f.ROLLBACK-INERTE.sql" >/dev/null; done
 after=$("${P[@]}" -c "$FP")
 echo "antes=$before instalado=$mid depois=$after"
 [[ "$before" != "$mid" ]] || { echo 'FAIL instalação não mudou o catálogo'; exit 1; }
