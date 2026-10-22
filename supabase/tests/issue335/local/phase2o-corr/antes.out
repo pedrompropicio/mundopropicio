@@ -11,11 +11,18 @@ FAIL C cash_position.ROLLBACK com invariante instalado :: esperado "rollback_ord
 FAIL C offset_balance.ROLLBACK com cash_watch instalado :: esperado "rollback_order: cash_watch_first"; obtido None; catálogo intacto=True
 FAIL G parcial: retirados até core, balance mantido; storage.ROLLBACK com consumidores :: esperado "rollback_order: consumers_installed"; obtido None; catálogo intacto=True
 FAIL E par legado 50 adoptado (P2 ordem 3: dinheiro 100, compensação 50) :: erro='legacy_offset_amount_mismatch'
+PASS G/F grupo real alternativo criado pelo core :: erro=None
+FAIL F staff sem can_see_confidential não lê item confidencial :: itens=[(1,)] erro=None
+FAIL F staff sem can_see_confidential não lê grupo com item confidencial :: grupos=[(1,)] erro=None
+PASS F com permissão lê itens e grupo :: itens=[(2,)] grupos=[(1,)]
+FAIL F staff sem permissão continua a ler itens não confidenciais :: itens=[(2,)] erro=None
+FAIL F staff sem can_see_confidential não lê grupo de conta restrita :: grupos=[(1,)] erro=None
+PASS F com permissão lê grupo de conta restrita :: grupos=[(1,)] erro=None
 FAIL G offset_approval.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido None; catálogo intacto=True
 FAIL G cash_position.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido None; catálogo intacto=True
 FAIL G cash_position_invariant.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido None; catálogo intacto=True
-FAIL G status.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido None; catálogo intacto=True
-FAIL G offset_balance.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido None; catálogo intacto=True
-FAIL G offset_core.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido 'rollback_order: invariants_before_core'; catálogo intacto=True
-FAIL G offset_group_storage.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido 'rollback_order: invariants_core_before_storage'; catálogo intacto=True
-TOTAL 20 PASS 1 FAIL 19
+PASS G status.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido 'groups_exist_keep_guards'; catálogo intacto=True
+PASS G offset_balance.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido 'groups_exist_keep_guards'; catálogo intacto=True
+PASS G offset_core.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido 'groups_exist_keep_guards'; catálogo intacto=True
+PASS G offset_group_storage.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido 'groups_exist_keep_guards'; catálogo intacto=True
+TOTAL 27 PASS 8 FAIL 19

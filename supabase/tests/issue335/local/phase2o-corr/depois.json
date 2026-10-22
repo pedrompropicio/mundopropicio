@@ -69,7 +69,7 @@
   {
    "test": "E par ligado ao grupo e alocação por ordem inteira",
    "result": "PASS",
-   "detail": "offset_group=ea0092a4-60b8-4e5b-9ecc-9424337cc437 itens=[(0, Decimal('0.00'), Decimal('120.00')), (0, Decimal('0.00'), Decimal('10.00')), (3, Decimal('100.00'), Decimal('50.00')), (12, Decimal('0.00'), Decimal('80.00'))]"
+   "detail": "offset_group=5c9935a7-f9ca-48cd-8a61-fb41ebfe1ed0 itens=[(0, Decimal('0.00'), Decimal('10.00')), (0, Decimal('0.00'), Decimal('120.00')), (3, Decimal('100.00'), Decimal('50.00')), (12, Decimal('0.00'), Decimal('80.00'))]"
   },
   {
    "test": "F staff sem can_see_confidential não lê item confidencial",
@@ -90,6 +90,16 @@
    "test": "F staff sem permissão continua a ler itens não confidenciais",
    "result": "PASS",
    "detail": "itens=[(3,)] erro=None"
+  },
+  {
+   "test": "F staff sem can_see_confidential não lê grupo de conta restrita",
+   "result": "PASS",
+   "detail": "grupos=[(0,)] erro=None"
+  },
+  {
+   "test": "F com permissão lê grupo de conta restrita",
+   "result": "PASS",
+   "detail": "grupos=[(1,)] erro=None"
   },
   {
    "test": "G offset_approval.ROLLBACK com grupos vivos",

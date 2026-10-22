@@ -67,6 +67,41 @@
    "detail": "erro='legacy_offset_amount_mismatch'"
   },
   {
+   "test": "G/F grupo real alternativo criado pelo core",
+   "result": "PASS",
+   "detail": "erro=None"
+  },
+  {
+   "test": "F staff sem can_see_confidential não lê item confidencial",
+   "result": "FAIL",
+   "detail": "itens=[(1,)] erro=None"
+  },
+  {
+   "test": "F staff sem can_see_confidential não lê grupo com item confidencial",
+   "result": "FAIL",
+   "detail": "grupos=[(1,)] erro=None"
+  },
+  {
+   "test": "F com permissão lê itens e grupo",
+   "result": "PASS",
+   "detail": "itens=[(2,)] grupos=[(1,)]"
+  },
+  {
+   "test": "F staff sem permissão continua a ler itens não confidenciais",
+   "result": "FAIL",
+   "detail": "itens=[(2,)] erro=None"
+  },
+  {
+   "test": "F staff sem can_see_confidential não lê grupo de conta restrita",
+   "result": "FAIL",
+   "detail": "grupos=[(1,)] erro=None"
+  },
+  {
+   "test": "F com permissão lê grupo de conta restrita",
+   "result": "PASS",
+   "detail": "grupos=[(1,)] erro=None"
+  },
+  {
    "test": "G offset_approval.ROLLBACK com grupos vivos",
    "result": "FAIL",
    "detail": "esperado \"groups_exist_keep_guards\"; obtido None; catálogo intacto=True"
@@ -83,23 +118,23 @@
   },
   {
    "test": "G status.ROLLBACK com grupos vivos",
-   "result": "FAIL",
-   "detail": "esperado \"groups_exist_keep_guards\"; obtido None; catálogo intacto=True"
+   "result": "PASS",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido 'groups_exist_keep_guards'; catálogo intacto=True"
   },
   {
    "test": "G offset_balance.ROLLBACK com grupos vivos",
-   "result": "FAIL",
-   "detail": "esperado \"groups_exist_keep_guards\"; obtido None; catálogo intacto=True"
+   "result": "PASS",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido 'groups_exist_keep_guards'; catálogo intacto=True"
   },
   {
    "test": "G offset_core.ROLLBACK com grupos vivos",
-   "result": "FAIL",
-   "detail": "esperado \"groups_exist_keep_guards\"; obtido 'rollback_order: invariants_before_core'; catálogo intacto=True"
+   "result": "PASS",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido 'groups_exist_keep_guards'; catálogo intacto=True"
   },
   {
    "test": "G offset_group_storage.ROLLBACK com grupos vivos",
-   "result": "FAIL",
-   "detail": "esperado \"groups_exist_keep_guards\"; obtido 'rollback_order: invariants_core_before_storage'; catálogo intacto=True"
+   "result": "PASS",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido 'groups_exist_keep_guards'; catálogo intacto=True"
   }
  ],
  "fails": 19

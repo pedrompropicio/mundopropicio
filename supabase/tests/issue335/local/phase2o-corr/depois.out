@@ -11,11 +11,13 @@ PASS C cash_position.ROLLBACK com invariante instalado :: esperado "rollback_ord
 PASS C offset_balance.ROLLBACK com cash_watch instalado :: esperado "rollback_order: cash_watch_first"; obtido 'rollback_order: cash_watch_first'; catálogo intacto=True
 PASS G parcial: retirados até core, balance mantido; storage.ROLLBACK com consumidores :: esperado "rollback_order: consumers_installed"; obtido 'rollback_order: consumers_installed'; catálogo intacto=True
 PASS E par legado 50 adoptado (P2 ordem 3: dinheiro 100, compensação 50) :: erro=None
-PASS E par ligado ao grupo e alocação por ordem inteira :: offset_group=ea0092a4-60b8-4e5b-9ecc-9424337cc437 itens=[(0, Decimal('0.00'), Decimal('120.00')), (0, Decimal('0.00'), Decimal('10.00')), (3, Decimal('100.00'), Decimal('50.00')), (12, Decimal('0.00'), Decimal('80.00'))]
+PASS E par ligado ao grupo e alocação por ordem inteira :: offset_group=5c9935a7-f9ca-48cd-8a61-fb41ebfe1ed0 itens=[(0, Decimal('0.00'), Decimal('10.00')), (0, Decimal('0.00'), Decimal('120.00')), (3, Decimal('100.00'), Decimal('50.00')), (12, Decimal('0.00'), Decimal('80.00'))]
 PASS F staff sem can_see_confidential não lê item confidencial :: itens=[(0,)] erro=None
 PASS F staff sem can_see_confidential não lê grupo com item confidencial :: grupos=[(0,)] erro=None
 PASS F com permissão lê itens e grupo :: itens=[(4,)] grupos=[(1,)]
 PASS F staff sem permissão continua a ler itens não confidenciais :: itens=[(3,)] erro=None
+PASS F staff sem can_see_confidential não lê grupo de conta restrita :: grupos=[(0,)] erro=None
+PASS F com permissão lê grupo de conta restrita :: grupos=[(1,)] erro=None
 PASS G offset_approval.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido 'groups_exist_keep_guards'; catálogo intacto=True
 PASS G cash_position.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido 'groups_exist_keep_guards'; catálogo intacto=True
 PASS G cash_position_invariant.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido 'groups_exist_keep_guards'; catálogo intacto=True
@@ -23,4 +25,4 @@ PASS G status.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; 
 PASS G offset_balance.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido 'groups_exist_keep_guards'; catálogo intacto=True
 PASS G offset_core.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido 'groups_exist_keep_guards'; catálogo intacto=True
 PASS G offset_group_storage.ROLLBACK com grupos vivos :: esperado "groups_exist_keep_guards"; obtido 'groups_exist_keep_guards'; catálogo intacto=True
-TOTAL 25 PASS 25 FAIL 0
+TOTAL 27 PASS 27 FAIL 0
