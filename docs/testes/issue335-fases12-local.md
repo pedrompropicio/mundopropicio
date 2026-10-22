@@ -6530,3 +6530,97 @@ Suite completa: 20 grupos PASS, 0 FAIL/skips (`phase2n-cashwatch.py` 88 marcador
 (+cash_watch): differences={}, captura antes=depois 474947e2… (normalizada só na ordem das ACL).
 Limites: vigia não cobre pernas legadas fora de documentos geridos nem saldo inicial (fora do âmbito do encontro);
 substituição do corpo pelo owner DDL continua fora do modelo (M1).
+
+
+## 2n-Bloco6 — E (colunas protegidas com valores válidos) — 22/10/2026
+
+ESTADO: ABERTO / NÃO ACEITE. Não existe fecho E nem alegação de matriz válida completa.
+Só LOCAL/INERTE: PG 17.6 recompilado com OpenSSL/libuuid e pgvector 0.8.0, postgres NOSUPERUSER,
+triggers reais. Nenhum SQL candidato/função/trigger existente alterado; sem TS/migrations/Live DDL/DML/Publish.
+Live: apenas SELECT information_schema.columns (64 transactions + 31 transaction_payments; nenhuma linha de dados).
+
+### (a/b) Matriz e resultados
+Runner supabase/tests/issue335/phase2n-columns.py integrado na suite, fail-closed; matriz completa de resultados
+em supabase/tests/issue335/live/phase2n-bloco6/columns-matrix.{json,md}.
+194 células UPDATE = (95 colunas Live + 2 novas offset_group_id/offset_item_id) × editor/manager;
+8 observações INSERT/DELETE por linha. Cada UPDATE conserva valor, expectativa, origem, SQLSTATE/contexto,
+resultado em documento sem grupo antes/depois, controlo em estado pago sem #335 e documento agrupado.
+170/194 células passam o controlo implementado; 24 ABERTAS. Nenhuma destas foi convertida em skip/PASS.
+
+Expectativa por coluna: tuple protegida actual do core -> recusa por issue335_guard; todas as colunas da perna
+agrupada -> recusa fora do estorno integral. Demais metadados -> permitido-inofensivo PROVISÓRIO: efeito real
+conservado em effective/changed, mas falta provar por coluna saldo/estorno/tabelas laterais. A razão no JSON é
+uma categoria, NÃO substitui ainda a justificação individual exaustiva pedida. INSERT/DELETE por coluna não
+foi construído: 8 provas são apenas por linha; INSERT de transação clonada é documento novo, não alteração do
+original. Este limite mantém (a/b) ABERTO.
+
+Pontos abertos exactos (24 células):
+- transactions.id, ambos: FK de transaction_payments impede mudança no controlo; não é prova válida de guarda.
+- transactions.amount/iva_rate, editor: trigger legado deriva approved e exige approve_transactions; faltam
+  fixtures de mesma origem em que a mudança individual seja aceite pelo editor sem conferir novas permissões.
+- transactions.paid_amount, ambos: reduzir abaixo do livro é recusado por trigger legado; D-ERP86 preservado;
+  não escrever valor pago manualmente para fabricar aceitação.
+- transactions.is_transitory, ambos: transitory_reason_required; faltam condições iniciais válidas sem alterar
+  outra coluna durante o ataque.
+- transactions.company_id e transaction_payments.company_id, ambos: RLS company_isolation; conta de outra
+  empresa real não é valor que aquele actor possa legitimamente gravar. Não enfraquecer isolamento.
+- transactions.is_confidential, ambos: transactions_confidential_guard recusa no controlo e no agrupado;
+  falta demonstrar permitido-inofensivo num actor/origem legítimos (não marcar como guarda #335).
+- transactions.held_by_supplier_id, ambos: exige compensation+income; controlo transfer não é válido.
+- transaction_payments.transaction_id, ambos: documento destino 50 não comporta a perna 100; fixture inadequada.
+- transaction_payments.amount/status, editor: trigger legado tenta aprovar; falta origem válida nesse papel.
+- transaction_payments.currency, ambos: FX required (original_amount/fx_rate ausentes); falta origem preparada.
+- transaction_payments.offset_id, ambos: ID existe apenas na suite instalada, não no controlo; FK do baseline
+  impede validade e quebra paridade. Não é achado de regressão SQL; falta par legado equivalente nos dois lados.
+
+Achados corrigidos no runner, não nas guardas: event_id usava o mesmo valor (no-op), type usava texto fora do
+CHECK e paid_amount excedia bruto; runner final exige changed incluir a coluna no controlo. Event_id passa
+com referência alternativa real e recusa no grupo. Nenhum achado de coluna permitida que comprovadamente
+altere dinheiro/estorno foi FECHADO; falta prova end-to-end de metadados. Não há diff/rollback SQL novo.
+
+### (c) Paridade legada
+Dois catálogos locais independentes: baseline sem relação transaction_offset_groups e instalado com candidatos.
+Mesmos IDs e fixtures versionadas, real on_auth_user_created; tentativas isoladas por BEGIN/ROLLBACK.
+188/190 células Live têm mesmo SQLSTATE/origem/mensagem; 2 offset_id divergentes por referência ausente.
+Comparação actual NÃO prova paridade integral de tabelas laterais/saldos: conserva effective/changed, mas só
+asserte igualdade do resultado/erro. Duas colunas novas não têm equivalente Live e não contam para 190.
+Assim (c) ABERTO, sem alegar paridade completa ou atribuir a divergência à guarda sem prova.
+
+### (d) Classificação de erros/avisos
+Captura integral por entrada em live/phase2n-bloco6/runner-errors-classification.json.
+Runner E: zero skips; todas as origens das 792 observações classificadas (inclui novas colunas/INSERT/DELETE):
+562 permitido, 171 guarda #335, 20 RLS/ACL, 3 linha filtrada por RLS, 4 trigger legado/permissão,
+4 trigger legado, 6 FK transaction_payments_transaction_id_fkey, 6 transitory_reason_required,
+6 held_by_only_compensation_income, 6 payment FX required, 4 FK offset_id.
+As 3 linhas filtradas não provam tentativa atingida; INSERT/DELETE continuam observações, não aceitação.
+Suite: 410 NOTICE classificados como PASS/assertion ou DDL/limpeza idempotente IF EXISTS (não skip de teste);
+18 WARNING reais do legado coala_capture_forecast_category_change: NEW.supplier_id ausente em event_forecasts.
+Este aviso é defeito legado ABERTO e fora de #335; não foi corrigido, ocultado ou apresentado como inofensivo.
+Traceback/AssertionError final = recusa deliberada de aceitação E (não erro tolerado).
+Preparação: PG disponível 17.9 não usado; compilação inicial sem extensões ->119 falhas de catálogo;
+recompilação limpa completou as extensões ->15529 instruções, zero falhas, UNEXPLAINED 0.
+Falhas iniciais classificadas: bzip2 ausente (extração Python); OpenSSL sem paths; objetos antigos sem SSL
+conflitantes (make clean); referência psql passada a psycopg2 (separada); cartão sem card_account_id
+(fixture completada); snapshot pelo ID anterior após mudar PK (lookup corrigido). Nenhuma conta como PASS.
+
+### (e) Suite e rollback
+Suite oficial final EXECUTADA com baseline: 20 grupos históricos PASS + phase2n-columns FAIL; exit 1.
+Integrado fail-closed: sem baseline explícito falha PRECONDITION, nunca skip. Os testes TS não foram executados
+porque nenhum TS/regra frontend foi alterado. Fecho suite E ABERTO.
+Rollback dos 14 pares em outro catálogo limpo: before.json = after.json, differences={}; captura COMPLETA
+NORMALIZADA na ordem de linhas/ACL, não pg_dump/dados de negócio. SHA-256 de ambos:
+474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1.
+Nenhum par novo (guardas SQL intactas). Prova local de rollback FECHADA.
+
+### Leituras e remoto
+Manifesto actualizado ANTES de escrever o teste: storage integral 1–91 (core contém guardas/triggers 7 tabelas
++ policies executor); core PARCIAL guardas/colunas, relatório PARCIAL secções E; testes 2g/2i/2j/2k lidos
+integralmente por partes <=200, delegação identificada. Resto do core/relatório NÃO LIDO com razão no manifesto;
+6261–6331 do relatório, continuação antiga Bloco1c, NÃO LIDO nesta ronda. Leituras integrais totais não alegadas.
+API 22/10/2026 01:23:38 UTC: HEAD main e586d365a4571648681297843eeb74d79a483d06;
+CI 39701896826 success desse SHA contém Bloco5, mas phase2n-columns.py HTTP404. CI Bloco6 NÃO VERIFICADO.
+Comentário #335: 6330394074. Sem commit/push manual. A–C e qualquer instalação exigem Sim separado.
+
+E ABERTO: 24 células sem valor válido/expectativa provados, INSERT/DELETE coluna-a-coluna, justificação individual,
+paridade de efeitos/saldo/estorno, aviso legado classificado mas não resolvido, suite E FAIL e CI remoto ausente.
+Pára neste bloco. As lacunas são técnicas; não exigem decisão comercial nem autorização Live para trabalho local.

@@ -65,4 +65,4 @@
 - [ ] #335 fase 2m NÃO ACEITE: leituras completas e blocos1–8 (token válido/UPDATE real, status/pernas anteriores, emergência/flags, writers/corridas, vigia independente, E válida, baixas, inventário cliente completo); reserva mantida. São trabalho técnico por concluir, não bloqueios que exijam decisão comercial.
 - [ ] #335 fase 2m fecho remoto: SHA final/presença/hash/CI dos edits após sincronização da plataforma; b798a59d CI39679753365 não contém2m. Nenhum commit manual; A–C/candidatos exigem Sim separado.
 
-- [ ] #335 2n-Bloco6 E: matriz válida completa, paridade sans #335, erros classificados, suite/rollback e prova remota; apenas local/inerto.
+- [x] #335 2n-Bloco6 E: executado e declarado ABERTO (24 células, INSERT/DELETE por coluna e paridade efeitos por provar); suite 20 PASS + E FAIL, rollback14 igual, CI E ausente; só local/inerto.
