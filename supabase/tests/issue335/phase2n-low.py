@@ -54,12 +54,15 @@ def owner():
 
 
 def begin(role='admin', override=None):
+    run('RESET SESSION AUTHORIZATION')
     run('BEGIN')
     owner()
     uid = str(uuid4())
     run('SET LOCAL ROLE supabase_auth_admin')
     run("INSERT INTO auth.users(id,instance_id,aud,role,email,raw_user_meta_data,created_at,updated_at) VALUES(%s,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',%s,%s::jsonb,now(),now())", (uid, uid + '@local.invalid', json.dumps({'company_id': company})))
     owner()
+    run('SET SESSION AUTHORIZATION postgres')
+    assert run('SELECT session_user')[0][0] == 'postgres'
     run('DELETE FROM user_roles WHERE user_id=%s', (uid,))
     run('INSERT INTO user_roles(user_id,role,company_id) VALUES(%s,%s,%s)', (uid, role, company))
     if override is not None:
