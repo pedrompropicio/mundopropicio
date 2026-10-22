@@ -229,21 +229,65 @@ export async function loadForecastCandidates(db: any, eventId: string): Promise<
   });
 }
 
-/** Depois de um encontro (aplicado ou estornado): transações, pagamentos, BP, grupos, conciliação e saldos. */
+/**
+ * Raízes (1.º elemento da queryKey) refeitas depois de aplicar OU estornar um encontro.
+ * Lista explícita (sem heurística de substring): lista de transações, ficha do documento
+ * (pagamentos, participações, compensações legadas), grupos, Conciliação, listas de
+ * pagamento, BP e saldos por conta. O controlo (offset-control) também é relido e
+ * mantém o fail-closed: leitura falhada = fechado.
+ */
+export const OFFSET_INVALIDATE_KEYS = [
+  // lista e ficha
+  "transactions",
+  "child-transactions-full",
+  "payment-timeline",
+  "payment-timeline-accounts",
+  "transaction-offsets",
+  "offset-groups",
+  "offset-control",
+  "offset-candidates",
+  "linked-forecast",
+  "tx-edit-bp-lines",
+  "transaction_documents_summary",
+  "invoice-group-counts",
+  "invoice-ref-siblings",
+  // listas de pagamento
+  "payment-lists",
+  "payment-list",
+  "payment-list-items",
+  "approved-transactions-for-list",
+  // BP
+  "event_forecasts",
+  "bp-forecasts-for-payment",
+  "offset-forecasts",
+  // Conciliação
+  "bank-recon-lines",
+  "bank-recon-txns",
+  "bank-recon-open-txns",
+  "bank-recon-cross-txns",
+  "bank-recon-mother-txs",
+  "bank-recon-statements",
+  "bank-recon-bridge",
+  "bank-recon-system-balance",
+  "bank-recon-eve-balance",
+  "bank-recon-ref-eve-balance",
+  "bank-recon-prev-lines",
+  "bank-recon-accounts",
+  "bank_line_documents_counts",
+  // saldos por conta
+  "financial-accounts",
+  "financial-accounts-list",
+  "financial-accounts-active",
+  "financial-accounts-tx-summary",
+  "financial-accounts-cash-adjustments",
+  "treasury-server-balances",
+  "card-account-balance",
+] as const;
+
+/** Depois de um encontro (aplicado ou estornado). refetchType "all": também queries inactivas. */
 export function invalidateAfterOffset(qc: QueryClient) {
   invalidateEventFinancials(qc);
-  qc.invalidateQueries({
-    predicate: (q) => {
-      const head = q.queryKey?.[0];
-      if (typeof head !== "string") return false;
-      const h = head.toLowerCase();
-      return (
-        h.startsWith("bank-recon") ||
-        h.startsWith("bank_line") ||
-        h.includes("offset") ||
-        h.includes("balance") ||
-        h.includes("account")
-      );
-    },
-  });
+  for (const k of OFFSET_INVALIDATE_KEYS) {
+    qc.invalidateQueries({ queryKey: [k], refetchType: "all" });
+  }
 }
