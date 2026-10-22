@@ -118,3 +118,27 @@ SQL: subagente 1 leu INTEGRAL os 28 ficheiros. Runners: subagente 2 leu INTEGRAL
 | phase2h-run.sh | 1–23 | 65299cf90cf0e194 |
 | phase2h-suite.sh | 1–65 | 659450866ed1959b |
 | phase2j-rollback.sh | 1–23 | c9b7910eb4b4642b |
+
+
+## Correcção inerte (22/10/2026) — INCOMPLETA, NÃO ACEITE
+
+Pronto para pedir A–C: **NÃO**. Correcções editadas mas nenhuma reproduzida nem testada: o PostgreSQL 17.6 exacto exigido por `phase2h-run.sh:10` já não existe no ambiente (só 17.9) e não houve tempo para o obter.
+
+Editado (sem execução):
+- A: marcadores `issue335-balance-v2l`, `issue335-cash-position-v2l`, `issue335-cash-position-invariant-v2l`; guarda `installation_order: {balance,cash_position,cash_position_invariant}_candidate_required` no execute e no reverse (após `invalid_group_state`; o replay idempotente fica antes da guarda).
+- B: pré-verificação `installation_order: storage_required|core_required` no topo de approval, status e cash_position; cabeçalho de approval corrigido.
+- C: `groups_exist_keep_guards` em approval/cash_position/cash_position_invariant ROLLBACK; approval.ROLLBACK recusa se status-v2l; cash_position.ROLLBACK recusa se invariant-v2l; balance.ROLLBACK recusa se cash_watch; storage.ROLLBACK recusa com qualquer consumidor (`rollback_order: consumers_installed`).
+- D: ordem única aplicada a `phase2h-suite.sh` (instala também status, cash_position, cash_position_invariant) e `phase2l-rollback.py`. Restantes runners e cabeçalhos dos SQL por alinhar.
+- E: adopção legada usa `cash_order` inteiro e subtrai o dinheiro dos dois lados (receivable e payable).
+- G (parcial): `phase2l-rollback.py` exige 4 recusas fora de ordem com catálogo intacto.
+
+Por fazer (motivo: tempo/ambiente):
+- (1) testes que falham antes de cada correcção — nenhum gravado;
+- F: RLS de items/groups para confidencial e contas restritas. Não editado. Proposta: helper SECURITY DEFINER com o mesmo predicado do núcleo (`offset_core.INERTE.sql` "can_see_confidential … is_restricted"); falta citar a policy de `transactions`;
+- G: rollback com grupos vivos e rollback parcial; teste E (cash_order 12/3, −100, débito 150);
+- suite completa, runner E, 14 pares, vitest, tsgo — não corridos.
+- Risco: a guarda A pode partir cenários que corriam sem status/cash_position; está por confirmar.
+
+Lacunas abertas registadas (sem corrigir): CREATE OR REPLACE sem comparar o hash do Live com a baseline; estorno sem asserção do estado final (= prior_*); lock NOWAIT do evento serializa encontros do mesmo evento; kill-switch com lock exclusivo e 5s sem caminho de emergência; invariante de saldo tautológica; replays recusados com encontro_desativado quando desligado.
+
+CI remoto: NÃO VERIFICADO.
