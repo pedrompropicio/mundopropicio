@@ -10,16 +10,14 @@ import {
 import { buildOffsetPlan, eurosToCents as e } from "../index";
 import { grossCents, transactionSnapshot } from "../load";
 
-function mockClient(opts: { rpc?: any; group?: any; control?: any; controlError?: any } = {}) {
+function mockClient(opts: { rpc?: any; group?: any } = {}) {
   const rpc = vi.fn(opts.rpc ?? (async () => ({ data: null, error: null })));
   const from = vi.fn((table: string) => {
     const q: any = {
       select: () => q,
       eq: () => q,
       maybeSingle: async () =>
-        table === "transaction_offset_control"
-          ? { data: opts.control ?? null, error: opts.controlError ?? null }
-          : { data: opts.group ?? null, error: null },
+        ({ data: opts.group ?? null, error: null }),
     };
     return q;
   });
@@ -102,9 +100,32 @@ describe("recuperação por request_id", () => {
 });
 
 describe("controlo e estorno", () => {
-  it("controlo ilegível = fechado", async () => {
-    expect(await readOffsetControl(mockClient({ controlError: { message: "permission denied" } }))).toMatchObject({ enabled: false, reverse_enabled: false, readable: false });
-    expect(await readOffsetControl(mockClient({ control: { enabled: false, reverse_enabled: true } }))).toMatchObject({ enabled: false, reverse_enabled: true, readable: true });
+  const ctl = (resp: any) => {
+    const c = mockClient({ rpc: async () => resp });
+    return c;
+  };
+  it.each([
+    ["N0 array", { data: [{ enabled: true, reverse_enabled: true }], error: null }, { enabled: true, reverse_enabled: true, readable: true }],
+    ["N1 array", { data: [{ enabled: false, reverse_enabled: true }], error: null }, { enabled: false, reverse_enabled: true, readable: true }],
+    ["N2 array", { data: [{ enabled: false, reverse_enabled: false }], error: null }, { enabled: false, reverse_enabled: false, readable: true }],
+    ["objecto único", { data: { enabled: false, reverse_enabled: true }, error: null }, { enabled: false, reverse_enabled: true, readable: true }],
+    ["erro", { data: null, error: { message: "permission denied" } }, { enabled: false, reverse_enabled: false, readable: false }],
+    ["vazio []", { data: [], error: null }, { enabled: false, reverse_enabled: false, readable: false }],
+    ["null", { data: null, error: null }, { enabled: false, reverse_enabled: false, readable: false }],
+    ["2 linhas", { data: [{ enabled: true, reverse_enabled: true }, { enabled: true, reverse_enabled: true }], error: null }, { enabled: false, reverse_enabled: false, readable: false }],
+    ["string", { data: [{ enabled: "true", reverse_enabled: true }], error: null }, { enabled: false, reverse_enabled: false, readable: false }],
+    ["null em campo", { data: [{ enabled: null, reverse_enabled: true }], error: null }, { enabled: false, reverse_enabled: false, readable: false }],
+    ["campo em falta", { data: { enabled: true }, error: null }, { enabled: false, reverse_enabled: false, readable: false }],
+  ])("controlo %s", async (_n, resp, expected) => {
+    const c = ctl(resp);
+    expect(await readOffsetControl(c)).toEqual(expected);
+    expect(c.rpc).toHaveBeenCalledWith("transaction_offset_control_status", {});
+    expect((c as any).from).not.toHaveBeenCalled();
+  });
+  it("excepção no rpc = fechado e nunca lê a tabela", async () => {
+    const c = mockClient({ rpc: async () => { throw new Error("network"); } });
+    expect(await readOffsetControl(c)).toEqual({ enabled: false, reverse_enabled: false, readable: false });
+    expect((c as any).from).not.toHaveBeenCalledWith("transaction_offset_control");
   });
   it("estorno: motivo obrigatório, não chama o servidor", async () => {
     const c = mockClient();
