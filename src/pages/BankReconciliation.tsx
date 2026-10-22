@@ -1984,7 +1984,7 @@ export default function BankReconciliation() {
                 <TableRow>
                   <TableHead className="w-8"></TableHead>
                   <TableHead className="whitespace-nowrap">Data</TableHead><TableHead>Descrição do banco</TableHead>
-                  <TableHead className="text-right whitespace-nowrap">Valor</TableHead><TableHead className="sticky right-0 z-20 bg-background text-right shadow-[inset_1px_0_0_hsl(var(--border))]">Ações</TableHead>
+                  <TableHead className="min-w-[7.5rem] text-right whitespace-nowrap">Valor</TableHead><TableHead className="sticky right-0 z-20 bg-background text-right shadow-[inset_1px_0_0_hsl(var(--border))]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -2034,8 +2034,9 @@ export default function BankReconciliation() {
                         )
                       )}
                     </TableCell>
-                    <TableCell className={`whitespace-nowrap text-right ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
-                    <TableCell className="sticky right-0 z-10 whitespace-nowrap bg-background text-right shadow-[inset_1px_0_0_hsl(var(--border))]">
+                    <TableCell data-testid="unmatched-amount" className={`min-w-[7.5rem] whitespace-nowrap text-right tabular-nums ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
+                    <TableCell data-testid="unmatched-actions" className="sticky right-0 z-10 w-[1%] bg-background text-right shadow-[inset_1px_0_0_hsl(var(--border))]">
+                      <div className="ml-auto flex max-w-[15rem] flex-wrap justify-end gap-1 sm:max-w-[22rem] [&>button]:ml-0">
                       <Button size="sm" variant="outline" onClick={() => { setManualLine(l); setManualTxIds([]); setCrossAccountAck(false); }}>
                         <Link2 className="mr-1 h-3.5 w-3.5" /> Conciliar
                       </Button>
@@ -2060,6 +2061,7 @@ export default function BankReconciliation() {
                         <Paperclip className="mr-1 h-3.5 w-3.5" />
                         {docCountByLine.get(l.id) ?? 0}
                       </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
