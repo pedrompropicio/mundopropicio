@@ -5,12 +5,15 @@ Atualizado: 09/10/2026 (ritual de fecho da frente; inclui o trabalho do chat fin
 ## Em que pé está
 
 ### #335 — encontro de contas (estado a 22/10/2026)
-- Passo A (storage): INSTALADO em Live a 22/10/2026 com Sim do Pedro.
-- Passo B (core + approval + status): INSTALADO em Live a 22/10/2026 num único BEGIN…COMMIT; INERTE até ao passo C (o núcleo recusa com `installation_order: balance_candidate_required` enquanto saldo, posição de caixa e invariante candidatos não estiverem instalados).
-- Passo C (invariants + balance + cash_position + cash_position_invariant + restore): por planear; R2, exige Sim próprio.
-- kill_switch, emergency, reactivation, trigger_watch e cash_watch: fora de A–C, cada um com Sim separado.
-- Publish pendente (types.ts por regenerar); CI remoto NÃO VERIFICADO.
-- Detalhe: docs/testes/issue335-fases12-local.md, docs/testes/issue335-quadro-final.md, D-ERP292.
+- A (storage), B (core + approval + status) e C (invariants + balance + cash_position + cash_position_invariant + restore): INSTALADOS em Live a 22/10/2026. C instalado num único BEGIN…COMMIT, com Sim do Pedro, após prova BEGIN…ROLLBACK verde, incluindo execução dos ROLLBACK e md5/dono/ACL iguais à baseline (zero deriva).
+- Origem da verificação: query do 0·Cowork em Live, 22/10/2026, após COMMIT; este fecho apenas regista a prova comunicada pelo Pedro, sem nova consulta à BD.
+- Marcadores `issue335-balance-v2l`, `issue335-cash-position-v2l` e `issue335-cash-position-invariant-v2l` presentes: guarda A do núcleo satisfeita. `transaction_offset_execute/reverse` passam a poder correr em Live, sem recusa `installation_order`; sem UI nova, 0 grupos e nenhum encontro real executado em Live.
+- Novas funções `issue335_invariant_counts` e `issue335_balance_invariant_count` só para postgres e service_role; ACL e dono das 6 funções substituídas inalterados. 6 invariantes novas `encontro_*` em `system_invariants` (referência 0, severidade error, âmbito empresa; total 57 → 63), todas a 0 e conformes; `_run_invariant_checks_extra` com 16 linhas, 10 antigas sem diferença.
+- Hash dos saldos das 27 contas inalterado: `e1799d10a53b0e5c0d0f51a4938be86a`; asof 01/10/2026: `99a478d7c52e33339dd2a2fa4a7074e4`. Contagens inalteradas: transaction_payments 1463, transaction_offsets 7, bank_statement_lines 229, transactions 2022, grupos 0, itens 0. 7 guard + 1 dispatch + 18 policies; controlo `enabled = true`, `reverse_enabled = true`.
+- Sem Publish; types.ts por regenerar no próximo Publish; CI remoto NÃO VERIFICADO. Sem reserva R2 aberta para C.
+- Fora de A–C, por instalar e cada um com Sim próprio: kill_switch/emergency/reactivation e trigger_watch/cash_watch.
+- Pendentes: fases 3b/3c, #337, Bloco 8 (decisões), lacunas em `docs/testes/issue335-quadro-final.md` e Issue #341 (divergência estado/pagamentos em 163 transações).
+- Detalhe: `docs/testes/issue335-fases12-local.md`, `docs/testes/issue335-quadro-final.md`; definição dos passos em D-ERP292, confirmada em `docs/DECISIONS.md:6140-6144`.
 
 ### #336 — conciliação por dinheiro (21/10/2026)
 - Motor (a/b/c), modo manual link, lista sem movimento e triângulo usam a soma das pernas pagas, não revertidas, não compensadas da conta do extrato; retenção/crédito deduzidos da perna. Leituras de pernas paginadas e em blocos de IDs; inclui transações cuja perna tem a conta mesmo que a transação tenha outra.
