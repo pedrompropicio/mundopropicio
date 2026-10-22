@@ -32,6 +32,7 @@ import { AlertTriangle, Upload, Link2, EyeOff, Loader2, Landmark, RefreshCw, Plu
 import BankLineDocumentsDialog from "@/components/bank/BankLineDocumentsDialog";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { BankLineLaunchModal, type LaunchableLine } from "@/components/bank/BankLineLaunchModal";
+import { BankLineOffsetModal, OffsetLineButton, type OffsetBankLine } from "@/components/bank/BankLineOffsetModal";
 
 import type { FeeLaunchPlan } from "@/components/bank/BankLineLaunchModal";
 import {
@@ -153,6 +154,8 @@ export default function BankReconciliation() {
   /** Linhas selecionadas para dar UMA transação pela soma (TPA, comissões). */
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [launchLines, setLaunchLines] = useState<LaunchableLine[] | null>(null);
+  // #335 fase 3b: encontro de contas a partir de uma linha unmatched.
+  const [offsetLine, setOffsetLine] = useState<OffsetBankLine | null>(null);
   /** Modo taxas de transferência (D-ERP74): proposta pronta, só a confirmar. */
   const [feePlan, setFeePlan] = useState<FeeLaunchPlan | null>(null);
 
@@ -2039,6 +2042,7 @@ export default function BankReconciliation() {
                       <Button size="sm" variant="outline" className="ml-1" onClick={() => setLaunchLines([toLaunchable(l)])}>
                         <PlusCircle className="mr-1 h-3.5 w-3.5" /> Lançar
                       </Button>
+                      <OffsetLineButton onOpen={() => setOffsetLine(l as OffsetBankLine)} />
                       {feeInfoByLine.get(l.id)?.isFirst && feeInfoByLine.get(l.id)!.mother && (
                         <Button
                           size="sm"
@@ -2201,6 +2205,14 @@ export default function BankReconciliation() {
             queryClient.invalidateQueries({ queryKey: ["bank-recon-lines"] });
             queryClient.invalidateQueries({ queryKey: ["bank-recon-txns"] });
           }}
+        />
+      )}
+
+      {offsetLine && (
+        <BankLineOffsetModal
+          line={offsetLine}
+          accountName={account?.name}
+          onClose={() => setOffsetLine(null)}
         />
       )}
 

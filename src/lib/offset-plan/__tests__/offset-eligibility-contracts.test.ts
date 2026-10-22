@@ -9,7 +9,14 @@ const CORE = resolve(__dirname, "../../../../supabase/manual/20261021_issue335_o
 
 describe("mapa de erros vs SQL do núcleo", () => {
   const sql = readFileSync(CORE, "utf8");
-  const codes = [...new Set([...sql.matchAll(/RAISE EXCEPTION '([a-z][a-z0-9_]*)/g)].map((m) => m[1]))];
+  // Maiúsculas e minúsculas ("RAISE"/"raise"); só identificadores em minúsculas seguidos de ':' ou "'".
+  const codes = [
+    ...new Set(
+      [...sql.matchAll(/raise exception '([A-Za-z][A-Za-z0-9_]*)(?=[:'])/gi)]
+        .map((m) => m[1])
+        .filter((c) => /^[a-z0-9_]+$/.test(c)),
+    ),
+  ];
   it("lê códigos do núcleo", () => expect(codes.length).toBeGreaterThan(30));
   it.each(codes)("código %s tem mensagem", (c) => {
     expect((OFFSET_ERROR_MESSAGES as Record<string, string>)[c]).toBeTruthy();

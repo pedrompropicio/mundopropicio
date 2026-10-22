@@ -16,6 +16,9 @@ import {
   useAllTransactionOffsets,
   useOffsetsInvalidate,
 } from "@/lib/transaction-offsets";
+import { formatDatePT } from "@/lib/utils";
+import { OFFSET_GROUP_STATUS_LABEL, useOffsetGroupsForTransaction } from "@/lib/offset-plan/groups";
+import { OffsetGroupDetailDialog } from "@/components/OffsetGroupDetailDialog";
 
 interface Props {
   transaction: {
@@ -43,6 +46,9 @@ export function TransactionOffsetsBlock({ transaction, canEdit }: Props) {
   const [otherId, setOtherId] = useState("");
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
+  // #335 fase 3b: participação em encontros de contas — só leitura (nunca se cria encontro na ficha).
+  const { data: groups } = useOffsetGroupsForTransaction(transaction.id);
+  const [groupOpen, setGroupOpen] = useState<string | null>(null);
 
   const oppositeType = transaction.type === "income" ? "expense" : "income";
   const { data: candidates } = useQuery({
@@ -112,7 +118,7 @@ export function TransactionOffsetsBlock({ transaction, canEdit }: Props) {
     }
   };
 
-  if (!offsets.length && !canEdit) return null;
+  if (!offsets.length && !canEdit && !(groups ?? []).length) return null;
 
   return (
     <div className="rounded-lg border border-border p-3 space-y-2">
@@ -133,6 +139,20 @@ export function TransactionOffsetsBlock({ transaction, canEdit }: Props) {
           </Button>
         )}
       </div>
+
+      {(groups ?? []).map((g) => (
+        <div key={g.group_id} className="flex items-center justify-between gap-2 text-xs" data-testid="offset-group-participation">
+          <span className="flex-1 truncate">
+            Faz parte do encontro de contas de {formatDatePT(g.operation_date)} · {g.supplier_name ?? "entidade"} ·{" "}
+            {formatCurrency(g.movement_amount)}
+          </span>
+          <Badge variant="secondary">{OFFSET_GROUP_STATUS_LABEL[g.status] ?? g.status}</Badge>
+          <Button type="button" size="sm" variant="link" className="h-6 px-1" onClick={() => setGroupOpen(g.group_id)}>
+            Ver encontro
+          </Button>
+        </div>
+      ))}
+      {groupOpen && <OffsetGroupDetailDialog groupId={groupOpen} onClose={() => setGroupOpen(null)} />}
 
       {offsets.length === 0 && !adding && (
         <p className="text-xs text-muted-foreground">Sem ligações de compensação.</p>
