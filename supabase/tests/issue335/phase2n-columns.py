@@ -46,14 +46,7 @@ def actor(c, user):
 
 # The baseline gets precisely the existing credential-free fixtures, real Auth triggers included.
 assert execute(baseline, "SELECT to_regclass('public.transaction_offset_groups')")[0][0] is None
-refdata = Path(sock).parent  # not a database path; reference statements are versioned local source
-import importlib.util
-spec = importlib.util.spec_from_file_location('reference_data', root / 'supabase/tests/issue335/phase2i-reference-data.py')
-# Replay the existing generated reference data supplied by the baseline harness preparation.
-refpath = out.parent / 'reference.sql'
-assert refpath.exists(), 'prepare reference.sql using phase2i-reference-data.py before running'
-execute(baseline, refpath.read_text())
-# psql meta-commands are handled by the same shell preparation, not by substituting trigger behavior.
+# psql meta-commands/reference statements are handled by baseline shell preparation.
 assert execute(baseline, 'SELECT count(*) FROM public.companies WHERE id=%s', (COMPANY,))[0][0] == 1
 
 def setup(c, grouped):
