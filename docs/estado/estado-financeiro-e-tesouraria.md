@@ -11,6 +11,7 @@ Atualizado: 09/10/2026 (ritual de fecho da frente; inclui o trabalho do chat fin
 - Estado verificado após o último passo: 6 invariantes `encontro_*` presentes; 0 grupos; 8 triggers issue335 (7 guard + 1 dispatch) e 18 policies issue335 inalterados. Do passo C: hash dos saldos das 27 contas `e1799d10a53b0e5c0d0f51a4938be86a` (asof 01/10/2026 `99a478d7c52e33339dd2a2fa4a7074e4`); pagamentos 1463; nenhum encontro real executado.
 - Rollback, se alguma vez necessário e só com 0 grupos: ordem inversa — cash_watch primeiro, depois trigger_watch, depois os restantes.
 - Sem Publish; types.ts por regenerar no próximo Publish; CI remoto NÃO VERIFICADO; sem reserva R2 aberta.
+- Fase 3a (R1, 22/10/2026) pronta, sem Publish: `src/lib/offset-plan/` — `index.ts` (prévia em cêntimos + mapa de erros pt-PT com todos os códigos do SQL do núcleo e parse "code: detalhe"), `eligibility.ts` (recusas espelhadas; conta inconsistente com lista de verificação), `contracts.ts` (pedido/resposta, N0/N1/N2, aplicar admin/manager/editor, estornar só admin). 108 testes PASS, tsgo 0; sem UI, sem RPC.
 - Pendentes: fases 3b/3c (UI), #337, Bloco 8 (decisões), lacunas em `docs/testes/issue335-quadro-final.md`, Issue #341 (divergência estado/pagamentos em 163 transações), Publish.
 - Detalhe: `docs/testes/issue335-fases12-local.md`, `docs/testes/issue335-quadro-final.md`.
 
