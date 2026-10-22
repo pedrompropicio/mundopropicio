@@ -7,6 +7,7 @@ CREATE OR REPLACE FUNCTION public._account_true_balance_raw(_account_id uuid)
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
+  -- issue335-balance-v2l
   WITH acc AS (
     SELECT id, COALESCE(initial_balance, 0) AS initial_balance, initial_balance_date
     FROM public.financial_accounts

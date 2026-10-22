@@ -1,6 +1,7 @@
 -- LOCAL/INERTE 2k. Separate Sim required; never installed in Live.
 BEGIN;
 SET LOCAL lock_timeout='5s';
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM public.transaction_offset_groups) THEN RAISE EXCEPTION 'groups_exist_keep_guards'; END IF; END $$;
 CREATE OR REPLACE FUNCTION public.get_event_cash_position_invariant(p_company_id uuid)
  RETURNS TABLE(sum_realized numeric, sum_initial numeric, lhs numeric, rhs_computebalance numeric, diff numeric, is_balanced boolean)
  LANGUAGE plpgsql

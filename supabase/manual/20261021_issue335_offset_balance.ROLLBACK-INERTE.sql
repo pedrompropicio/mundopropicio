@@ -2,6 +2,7 @@
 BEGIN;
 SET LOCAL lock_timeout='5s';
 DO $$ BEGIN IF EXISTS(SELECT 1 FROM public.transaction_offset_groups) THEN RAISE EXCEPTION 'groups_exist_keep_guards'; END IF; END $$;
+DO $$ BEGIN IF to_regprocedure('public.issue335_cash_watch()') IS NOT NULL THEN RAISE EXCEPTION 'rollback_order: cash_watch_first'; END IF; END $$;
 CREATE OR REPLACE FUNCTION public._account_true_balance_raw(_account_id uuid)
  RETURNS numeric
  LANGUAGE sql

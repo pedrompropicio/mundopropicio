@@ -1,6 +1,8 @@
 -- LOCAL/INERTE SEPARATE APPROVAL CANDIDATE. NOT installed by either runner.
 BEGIN;
 SET LOCAL lock_timeout='5s';
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM public.transaction_offset_groups) THEN RAISE EXCEPTION 'groups_exist_keep_guards'; END IF; END $$;
+DO $$ BEGIN IF position('issue335-status-v2l' in pg_get_functiondef('public._derive_paid_amount(uuid)'::regprocedure))>0 THEN RAISE EXCEPTION 'rollback_order: status_first'; END IF; END $$;
 CREATE OR REPLACE FUNCTION public.enforce_transaction_approval_permission()
  RETURNS trigger
  LANGUAGE plpgsql

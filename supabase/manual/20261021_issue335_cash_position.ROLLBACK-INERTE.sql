@@ -1,6 +1,8 @@
 -- LOCAL/INERTE 2k. Separate Sim required; never installed in Live.
 BEGIN;
 SET LOCAL lock_timeout='5s';
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM public.transaction_offset_groups) THEN RAISE EXCEPTION 'groups_exist_keep_guards'; END IF; END $$;
+DO $$ BEGIN IF position('issue335-cash-position-invariant-v2l' in pg_get_functiondef('public.get_event_cash_position_invariant(uuid)'::regprocedure))>0 THEN RAISE EXCEPTION 'rollback_order: cash_position_invariant_first'; END IF; END $$;
 CREATE OR REPLACE FUNCTION public.get_event_cash_position(p_company_id uuid, p_date_from date DEFAULT NULL::date, p_date_to date DEFAULT NULL::date)
  RETURNS TABLE(level text, event_id uuid, master_event_id uuid, parent_event_id uuid, event_name text, event_date date, is_sub boolean, realized numeric, committed numeric, pending numeric)
  LANGUAGE plpgsql

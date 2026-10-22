@@ -7,6 +7,7 @@ CREATE OR REPLACE FUNCTION public.get_event_cash_position_invariant(p_company_id
  STABLE SECURITY DEFINER
  SET search_path TO 'public', 'pg_temp'
 AS $function$
+-- issue335-cash-position-invariant-v2l
 DECLARE
   v_sum_realized numeric;
   v_sum_initial  numeric;
