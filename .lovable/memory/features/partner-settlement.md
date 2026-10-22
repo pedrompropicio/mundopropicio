@@ -182,6 +182,22 @@ sócio + linhas de BP com `paying_partner_id` sem transação, na base do nó) �
 adiantado (extras + entradas nas contas de acerto do sócio). IVA 23% só com
 `transfer_with_vat`. Ver `src/lib/partner-disbursement.ts`.
 
+## (g18 · #342) Colunas das despesas no documento do sócio — "Só total pago"
+
+Seletor "Despesas no documento" no menu "Critério" do Encontro de Contas
+(`FechoBasisSelector`, prop opcional `expenseColumns`; `useExpenseColumnsMode`
+em `useFechoBasis`, localStorage por utilizador+evento com try/catch, omissão
+"detailed"). Campo `expenseColumns: "detailed" | "totalOnly"` no input do
+documento (`PartnerStatementDocInput`, pacote partilhado); o gerador força
+"detailed" quando a base EFETIVA das despesas não é c/IVA (e o seletor fica
+desactivado com a razão no ecrã). Em "totalOnly": secção 3 e detalhe B mostram
+só "Valor" (total pago) [+ "Anexos" em B], títulos sem rótulo de base, nota do
+art. 18.º CIVA SAI sem substituição, e a expressão "c/IVA" não aparece em
+parte nenhuma do PDF/Excel (regra absoluta, testada sem distinção de
+maiúsculas). Totais, resultado, parte do sócio e base a transferir NÃO mudam
+— o modo só muda colunas e rótulos. Portal do Sócio e relatório interno de
+gestão não são tocados (nunca passam o campo → sempre detalhado).
+
 ## (g5) Linha final do sócio
 
 parte · + desembolso · ± ajustes ao desembolso · − receitas em poder do sócio
