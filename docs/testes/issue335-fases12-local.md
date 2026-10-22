@@ -6943,3 +6943,21 @@ Verificação pós-COMMIT:
 Efeito: A, B e C instalados; o núcleo deixa de recusar com `installation_order` e `transaction_offset_execute/reverse` passam a poder correr em Live. Sem UI nova; 0 grupos; nenhum encontro real executado em Live. O estado "B INERTE até C" da secção anterior descreve o momento anterior à instalação de C e fica superado por este registo.
 
 Sem Publish; types.ts por regenerar no próximo Publish; CI remoto NÃO VERIFICADO. Reserva R2 de C encerrada. Fora de A–C, cada um com Sim próprio e por instalar: kill_switch/emergency/reactivation e trigger_watch/cash_watch. Pendentes: fases 3b/3c, #337, Bloco 8 (decisões), lacunas registadas em `docs/testes/issue335-quadro-final.md` e Issue #341 (divergência estado/pagamentos em 163 transações). D-ERP292 existe em `docs/DECISIONS.md` e define os passos A/B/C; nenhuma decisão nova criada neste fecho.
+
+## Níveis: kill_switch executado em Live (22/10/2026)
+
+Facto comunicado pelo Pedro, verificado em Live por query do 0·Cowork a 22/10/2026 após COMMIT; este registo documental não executou nova consulta à BD.
+
+Executado o script kill_switch do #335 (`supabase/manual/20261021_issue335_offset_kill_switch.INERTE.sql`, integral), com Sim do Pedro. `transaction_offset_control` passou de N0 (enabled=true, reverse_enabled=true) para N1 (enabled=false, reverse_enabled=true). Não é DDL e não altera ACL: é uma flag lida pelo núcleo.
+
+Prova prévia: BEGIN…ROLLBACK dos três níveis (N0/N1/N2 e reactivation) verde.
+
+Verificação pós-COMMIT:
+- Linha de controlo = (false,true).
+- `transaction_offset_execute` recusa com `encontro_desativado` (testado por chamada com utilizador admin simulado, em transação revertida).
+- `transaction_offset_reverse` continua a passar o portão (`group_not_found` com grupo inexistente).
+- Grupos 0, pagamentos 1463.
+
+Decisão do Pedro: manter os encontros FECHADOS (N1) até a UI das fases 3b/3c estar pronta e testada; reabrir só com o script reactivation e novo Sim. Emergency (N2) só em incidente. Plano: `claude/plano-r2-niveis-kill-switch-emergency-reactivation-335-2026-10-22` (Claude Project).
+
+Fica superado o "controlo `enabled = true`, `reverse_enabled = true`" da secção do passo C. Pendentes inalterados: trigger_watch/cash_watch (Sim próprio), fases 3b/3c, #337, Bloco 8, lacunas, Issue #341, Publish (CI remoto NÃO VERIFICADO).
