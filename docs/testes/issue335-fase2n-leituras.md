@@ -154,3 +154,24 @@ Leituras core delegadas sub_zbfwr52y; testes históricos delegados sub_v2bm4wh9;
 - supabase/tests/issue335/phase2j.sql 66–78, 176–200, 318–337; phase2k-focused.sql 24–34; phase2e.sql 100–116; phase2d.sql 40–48 | PARCIAL (fixtures laterais) | resto NÃO LIDO: fora do âmbito
 - docs/testes/issue335-fases12-local.md | secções de locks 2f/2j/2k/2l NÃO relidas neste bloco (lidas em parte no Bloco3: 693–700, 772–835, 875–915) | razão: mapa refeito directamente do core e do catálogo
 - Live (só SELECT): pg_trigger das 5 tabelas do encontro; prosrc de 11 funções (live/phase2n-bloco4/live-lateral-prosrc.txt, LIDO INTEGRAL 1–441); pesquisa de FOR UPDATE/SHARE em companies/suppliers/financial_accounts/events/event_settlements/event_forecasts em todas as funções public; pg_settings deadlock_timeout/lock_timeout/statement_timeout
+
+### Bloco5 — leituras antes de escrever testes (22/10/2026, chunks ≤200)
+- supabase/manual/20261021_issue335_offset_invariants.INERTE.sql | N=287 | sha256=1e3bae7e62d80c116f0cb29c7e41a647500d751f0b817b3cc3e93c4aa53626ee | LIDO INTEGRAL | 1–200, 201–287
+- supabase/manual/20261021_issue335_offset_invariants.ROLLBACK-INERTE.sql | N=267 | sha256=edd924cd48d5378180e80a50547b5a5a4bbe378596155fc384fe127f051c5571 | PARCIAL 1–30 | 31–267 NÃO LIDO (cópia do runner legado; paridade coberta pela captura do rollback 14 pares)
+- supabase/manual/20261021_issue335_offset_balance.INERTE.sql | N=126 | sha256=a49011d6a85a4a62b3609b130279655aa340d9f6ddb48364f1408b32a364b762 | LIDO INTEGRAL | 1–126
+- supabase/manual/20261021_issue335_offset_balance.ROLLBACK-INERTE.sql | N=79 | sha256=43cb5689df512887e530ab5d4014d6d3a0085c845dcc26931093e1217f217ba7 | LIDO INTEGRAL | 1–79
+- supabase/manual/20261021_issue335_cash_position.INERTE.sql | N=122 | sha256=f8d2a606bec314591a3cbe7490ed792a52223969d5e6f587adcb06fa0be6a402 | LIDO INTEGRAL | 1–122
+- supabase/manual/20261021_issue335_cash_position.ROLLBACK-INERTE.sql | N=103 | sha256=a759ae73980248a5e22c1c19d4405c2db46d2d333ded5c7046f406175d958045 | PARCIAL (primeiros 1500 bytes) | resto NÃO LIDO (corpo original; captura do rollback)
+- supabase/manual/20261021_issue335_cash_position_invariant.INERTE.sql | N=47 | sha256=db193f05986942aa90f6156b9f441e1448fab4da85ed9692a209b37ab1979f7f | LIDO INTEGRAL | 1–47
+- supabase/manual/20261021_issue335_cash_position_invariant.ROLLBACK-INERTE.sql | N=66 | sha256=331e0837fc4f914627f7daba484bf392c7c0ba9d6f2675df0cee4b920e8a34f2 | LIDO INTEGRAL | 1–66
+- supabase/manual/20261021_issue335_trigger_watch.INERTE.sql | N=106 | sha256=1c89968556c1e73d5ffed5e739a1031683972ac2e30ff0717c3b0292bb0b6204 | PARCIAL 1–53 (saída truncada) | 54–106 NÃO LIDO (allowlist; sem saldo/caixa)
+- supabase/manual/20261021_issue335_trigger_watch.ROLLBACK-INERTE.sql | N=5 | sha256=530f9d84145670ffe3607fedecdc44c49b9c784d13a3e5479834bf6269febb3f | NÃO LIDO (saída truncada; 5 linhas DROP)
+- NOTA: os nomes pedidos "invariants/balance/cash/cash-invariant" correspondem a offset_invariants/offset_balance/cash_position/cash_position_invariant.
+- supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql | N=91 | sha256=ea8632f3dfb3d997678c03ff33092088b2838cc7ab9e38eeb3f4a29ae60abecc | LIDO INTEGRAL | 1–91
+- supabase/manual/20261021_issue335_offset_core.INERTE.sql (antes da edição) | N=1143 | sha256=d77b83b84d61762a3e4965e3b8930d435825b2b74fddf2e62783c68de00bea8f | PARCIAL 236–420 (cash_account_inconsistent, pernas, estorno) + 880–925 (adapter bancário) | resto NÃO RELIDO (integral no Bloco2b)
+- .lovable/memory/features/compensacao-ligada.md | N=47 | sha256=b6f1a368c823a53e1462558fd1d7c60ae24908ba3e835b692f7868098c1dafd6 | LIDO INTEGRAL (linhas cortadas a 400 colunas)
+- .lovable/memory/features/payment-account-ownership.md | N=46 | sha256=ee962f16af7ba153f39192769f4aa6f57590aff5c419a74ae80a278924ccde4e | LIDO INTEGRAL (linhas cortadas a 400 colunas)
+- docs/testes/issue335-fases12-local.md | N=6471 antes do acréscimo | sha256=d93b507c775152f3e8b4414d443103ce1bb285eebf0e3070426461841856971d | PARCIAL 335–350, 436–445, 720–760, 775–780, 815–822, 880–906 (M6/saldo/as-of por grep) | resto NÃO LIDO
+- supabase/tests/issue335/phase2n-locks.py 1–120, phase2n-killswitch.py 85–110, phase2l-rollback.py 1–48, phase2h-suite.sh 1–60, phase2h-run.sh integral, phase2h-fixtures.sql 50–75 | PARCIAL (padrões/fixtures)
+- Testes de saldo/as-of anteriores (phase2e.sql 20–36, phase2j.sql 295–310): só as linhas dos dois cenários que a 1.ª versão da regra partiu | resto NÃO LIDO
+- Live (só SELECT agregado): 352 por categoria/estado; compensação viva/sem ligação/com conta/em abertos; linhas valor≠lançamento; colunas bank_line_transactions

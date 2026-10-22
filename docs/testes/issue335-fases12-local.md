@@ -6469,3 +6469,64 @@ Nenhum ciclo com o encontro encontrado. Remoção concorrente da conta do movime
 ### Fecho
 Suite completa (harness novo, 15.529/0/UNEXPLAINED 0): 19 grupos PASS, 0 FAIL. Rollback 13 pares em harness limpo: differences={}, captura 474947e2… antes=depois, NORMALIZADA (ordem de linhas/aclitems).
 M5/M7: FECHADO localmente. Falta CI remoto com estes ficheiros e Sim para instalar.
+
+## 2n-Bloco5 — M6 (vigia independente, contas, as-of, corrupção) — 22/10/2026
+
+Harness fiel PG 17.6 exacto (recompilado: OpenSSL/libuuid, pgvector 0.8.0), `postgres` NOSUPERUSER, triggers reais;
+instalação 15.529 instruções/0 falhas, 0 diferenças não explicadas. Nada em Live, sem migrations, sem Publish, sem TS.
+Live: só SELECT agregado (números) → `supabase/tests/issue335/live/phase2n-bloco5/live-m6-counts.json`.
+
+### (a) Vigia independente — candidato `20261021_issue335_cash_watch.{INERTE,ROLLBACK-INERTE}.sql`
+`issue335_cash_watch()` (DEFINER, só service_role); `issue335_balance_invariant_count()` passa a ser a soma (mesmo nome/ACL,
+`encontro_saldo_dinheiro_divergente` no registo). Sete verificações por perna:
+- vigia_extracto_conta_data: Σ pernas em dinheiro de grupos aplicados por (conta da perna, payment_date) × Σ linhas de extracto
+  ligadas por (financial_account_id, coalesce(value_date, booking_date)); sem linha de banco → cabeçalho do grupo.
+- vigia_extracto_ligacoes: bank_line_transactions da linha = documentos com perna em dinheiro no grupo (EXCEPT nos dois sentidos).
+- vigia_perna_documento: por item, Σ dinheiro = cash_amount, Σ compensação = compensation_amount, nº de pernas exacto e
+  livro completo do documento (todas as pernas vivas) = prior_paid_amount + open_amount.
+- vigia_perna_grupo: Σ assinado dinheiro = movement_amount; Σ assinado compensação = 0; data = operation_date; conta dinheiro =
+  conta do grupo; compensação sem conta; perna pertence a item do mesmo grupo/documento.
+- vigia_estado_grupo: não aplicado sem pernas vivas; aplicado sem pernas mortas.
+- vigia_offset_adoptado: par legado adoptado tem perna viva no grupo dos dois lados.
+- vigia_contas_uniao: pernas legadas do documento gerido na conta do documento; compensação legada só sem conta.
+Independência: não lê transactions.paid_amount, financial_accounts.initial_balance(_date), o conjunto "gerido" nem chama
+_account_true_balance*/get_event_cash_position (asserção por texto do prosrc); âncora externa = extracto bancário;
+lê transactions só para o sinal (type) e conta legada. A fórmula de saldo anterior era cópia de _account_true_balance_raw
+(tautológica): ANTES 0/14 corrupções detectadas por ela.
+
+### (b) Contas — achado e correcção no núcleo candidato (diff `live/phase2n-bloco5/core.diff`)
+ANTES (guarda 2k) excluía compensação: documento com conta X e compensação legada sem ligação era aceite e, ao ficar gerido,
+o saldo de X mudava de −10 para 0 sem dinheiro (reinterpretação). DEPOIS: cash_account_inconsistent, snapshot igual.
+Conta do grupo ≠ conta do documento continua legítima (cenário 2e "conta X preservada"): uma 1.ª versão que a recusava
+partiu phase2e/phase2j e foi retirada; o saldo usa a conta da perna e a vigia compara-a com o extracto.
+Matriz (ANTES→DEPOIS): B1 compensação legada+conta X ok→recusa; B3 perna sem conta recusa→recusa; B4 perna noutra conta
+recusa→recusa; L1 doc=conta grupo ok→ok; L2 sem contas ok→ok; L3 compensação pura com conta X ok→ok; L4 doc X/grupo Y ok→ok.
+Live: 0 documentos abertos com compensação legada e conta no documento (risco actual 0; guarda preventiva).
+
+### (c) Matriz as-of (conta inicial 1000 em 30/09; perna legada 200 em 05/10; encontro bancário +60, valor 13/10, lançamento 14/10)
+Aplicado: 30/09=1000, 04/10=1000, 05/10=1200, 12/10=1200, 13/10=1260, 14/10=1260, 31/10=1260, actual=1260;
+conta com corte 20/10 e encontro 13/10: 13/10=500, 31/10=500. Estornado: 12/10=1200, 13/10=1200, 31/10=1200, actual=1200.
+Esperado = obtido em todas; vigia 0 aplicado e estornado. A perna é datada pela data-valor; agrupar por data de lançamento daria
+falso positivo (Live tem 8/229 linhas com valor ≠ lançamento).
+
+### (d) Corrupção (BEGIN/replica/ROLLBACK, snapshot igual depois de cada uma)
+ANTES (vigia de saldo + 5 vigias #335): 9/13 detectadas, vigia de saldo 0/13. Não detectadas ANTES: perna legada noutra
+conta, offset adoptado sem perna, data da linha de extracto, soma dupla por perna legada. DEPOIS: 13/13 detectadas.
+Segunda linha de extracto no mesmo grupo: impedida pela base (23505, índice issue335_bank_group), ANTES e DEPOIS.
+Zero falsos positivos: estado acumulado da suite (37 aplicados/19 estornados/3 adoptados) e casos legítimos novos
+(bancário, dois grupos mesma conta/dia, compensação pura, saída, estornado e reaplicado).
+
+### (e) 352 documentos (Live, contagens)
+347 perna sem conta (317 pagos com fornecedor, 27 pagos sem fornecedor, 3 filhas de rateio pagas — contrariam
+payment-account-ownership); 5 conta diferente (4 pagos, 1 aprovado aberto sem fornecedor). 351/352 estão pagos: já
+inelegíveis por no_open_debt; o aberto não tem fornecedor (inelegível). Proposta (sem implementar):
+O1 manter recusa cash_account_inconsistent + lista de verificação na prévia (recomendada): impacto zero em saldos/dados.
+O2 correcção prévia dos dados (atribuir conta às pernas): mexe em saldos históricos, exige decisão do Pedro por documento.
+O3 regra de elegibilidade alargada (aceitar perna sem conta): reinterpreta dinheiro; rejeitada.
+Quem decide: Pedro; as 3 filhas de rateio com perna são questão separada (fora do #335).
+
+### Fecho
+Suite completa: 20 grupos PASS, 0 FAIL/skips (`phase2n-cashwatch.py` 88 marcadores). Rollback 14 pares
+(+cash_watch): differences={}, captura antes=depois 474947e2… (normalizada só na ordem das ACL).
+Limites: vigia não cobre pernas legadas fora de documentos geridos nem saldo inicial (fora do âmbito do encontro);
+substituição do corpo pelo owner DDL continua fora do modelo (M1).

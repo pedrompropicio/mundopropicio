@@ -51,4 +51,7 @@ else echo "FAIL phase2n-killswitch: $(grep -m3 '^FAIL\|Error' "$OUT/phase2n-kill
 if python3 "$S/phase2n-locks.py" "$D" "$PORT" "$ROOT" "$OUT/phase2n-locks.json" > "$OUT/phase2n-locks.out" 2>&1; then
   echo "PASS phase2n-locks (M5/M7 2n-Bloco4: $(grep -c '^PASS' "$OUT/phase2n-locks.out") marcadores; ciclo BP, laterais, regressão, remoção de conta)" | tee -a "$res"
 else echo "FAIL phase2n-locks: $(grep -m3 '^FAIL\|Error' "$OUT/phase2n-locks.out" | tr '\n' ' ')" | tee -a "$res"; fi
+if python3 "$S/phase2n-cashwatch.py" "$D" "$PORT" "$ROOT" "$OUT/phase2n-cashwatch.json" > "$OUT/phase2n-cashwatch.out" 2>&1; then
+  echo "PASS phase2n-cashwatch (M6 2n-Bloco5: $(grep -c '^PASS' "$OUT/phase2n-cashwatch.out") marcadores; vigia independente, contas, as-of, corrupção)" | tee -a "$res"
+else echo "FAIL phase2n-cashwatch: $(grep -m3 '^FAIL\|Error' "$OUT/phase2n-cashwatch.out" | tr '\n' ' ')" | tee -a "$res"; fi
 if grep -q '^FAIL' "$res"; then exit 1; fi

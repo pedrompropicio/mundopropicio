@@ -1,4 +1,4 @@
-"""LOCAL ONLY: complete catalog before/after thirteen inert candidate pairs."""
+"""LOCAL ONLY: complete catalog before/after fourteen inert candidate pairs (2n-Bloco5: + cash_watch)."""
 import json
 import sys
 from pathlib import Path
@@ -28,7 +28,7 @@ def snapshot():
 
 before = snapshot()
 (out / 'before.json').write_text(json.dumps(before, indent=2, ensure_ascii=False))
-names = ['offset_group_storage', 'offset_core', 'offset_invariants', 'offset_balance', 'offset_approval',
+names = ['offset_group_storage', 'offset_core', 'offset_invariants', 'offset_balance', 'cash_watch', 'offset_approval',
          'status', 'offset_kill_switch', 'emergency', 'reactivation', 'cash_position', 'cash_position_invariant', 'restore', 'trigger_watch']
 with c.cursor() as q:
     q.execute('SELECT rolsuper FROM pg_roles WHERE rolname=current_user')
