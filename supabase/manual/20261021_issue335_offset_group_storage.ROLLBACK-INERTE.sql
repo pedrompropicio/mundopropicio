@@ -8,7 +8,7 @@ DO $$ BEGIN IF (to_regprocedure('public.issue335_cash_watch()') IS NOT NULL
  OR position('issue335-cash-position-invariant-v2l' in pg_get_functiondef('public.get_event_cash_position_invariant(uuid)'::regprocedure))>0
  OR position('issue335-status-v2l' in pg_get_functiondef('public._derive_paid_amount(uuid)'::regprocedure))>0
  OR position('issue335-approval-v2l' in pg_get_functiondef('public.enforce_transaction_approval_permission()'::regprocedure))>0
- OR position('transaction_offset' in pg_get_functiondef(to_regprocedure('public.restore_apply_from_shadow(text,uuid,text[],text[],boolean)')))>0)
+ OR position('transaction_offset_control' in pg_get_functiondef('public.restore_apply_from_shadow(text,uuid,text[],jsonb)'::regprocedure))>0)
  THEN RAISE EXCEPTION 'rollback_order: consumers_installed'; END IF; END $$;
 ALTER TABLE public.transaction_payments DROP COLUMN offset_item_id, DROP COLUMN offset_group_id;
 ALTER TABLE public.transaction_offsets DROP COLUMN offset_group_id;

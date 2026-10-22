@@ -4,7 +4,7 @@ BEGIN;
 SET LOCAL lock_timeout='5s';
 DO $$ BEGIN
  IF to_regclass('public.transaction_offset_items') IS NULL THEN RAISE EXCEPTION 'installation_order: storage_required'; END IF;
- IF to_regprocedure('public.issue335_context_valid()') IS NULL AND NOT EXISTS(SELECT 1 FROM pg_proc WHERE proname='issue335_context_valid' AND pronamespace='public'::regnamespace) THEN RAISE EXCEPTION 'installation_order: core_required'; END IF;
+ IF to_regprocedure('public.issue335_context_valid(text)') IS NULL THEN RAISE EXCEPTION 'installation_order: core_required'; END IF;
 END $$;
 CREATE OR REPLACE FUNCTION public.enforce_transaction_approval_permission()
  RETURNS trigger
