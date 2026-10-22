@@ -9,8 +9,20 @@
 - trigger_watch + cash_watch: INSTALADOS 22/10/2026 com Sim do Pedro (commit 02fc1188af1c976eced2630f06cab110d8f2685f). **Instalação em Live concluída até trigger_watch/cash_watch — última etapa da ordem única.** Rollback só com 0 grupos: cash_watch primeiro, depois trigger_watch. Detalhe na secção "trigger_watch e cash_watch instalados em Live (22/10/2026)" de `docs/testes/issue335-fases12-local.md`.
 - Leitura do controlo pelo ecrã (`transaction_offset_control_status()`): INSTALADA 22/10/2026 com Sim do Pedro; devolve N1 a authenticated; tabela continua negada a authenticated. Cliente ligado 22/10/2026 (readOffsetControl chama a RPC). Ficheiro de registo corrigido para o instalado (WHERE c.singleton; sem ALTER OWNER). Rollback: DROP FUNCTION. Detalhe em `docs/testes/issue335-fases12-local.md`.
 - **PUBLICADO em Live 22/10/2026 (~14:57 UTC)**: deploy_project pelo 0·Cowork com "Faz Publish" do Pedro, sobre HEAD 6182c79cbb74f35d366ae0459b601f4a629de0f1 com CI verde (confirmado pelo Pedro por gh run list); deployment_id 5114ef47-2ffe-4183-806e-4a4124c53beb; URL https://mundopropicio.lovable.app. Conteúdo publicado (fase 3b + ligação do cliente): modal "Encontro de contas" na Conciliação Bancária, ficha da transação só leitura, estorno integral só admin, readOffsetControl via transaction_offset_control_status(). types.ts regenerado pelo Publish — não verificado por mim. CI remoto NÃO VERIFICADO; sem verificação visual autenticada ainda.
-- Encontros mantidos FECHADOS (N1): o botão aparece desactivado com "Encontros de contas estão temporariamente desativados."; 0 grupos; nenhum encontro real executado.
-- Pendentes: reactivation (N1→N0, Sim próprio), aceitação no caso Estoril (R2), fase 3c, #337, Bloco 8 (decisões), lacunas abaixo e Issue #341 (divergência estado/pagamentos em 163 transações). A publicação não fecha estas lacunas nem altera o histórico das provas locais abaixo.
+- Correcções de cliente publicadas 22/10/2026 (2.º Publish, CI verde confirmado pelo Pedro): platform_admin tratado como admin em canApplyOffset/canReverseOffset (commit a5e7e630; o ecrã resolvia o papel do Pedro como platform_admin e o botão ficava cinzento); prévia com tabela de largura fixa, 4 colunas visíveis (commit 306bd4c5).
+
+### Prova do piloto real — Estoril (22/10/2026)
+- Reactivation N1→N0 com Sim do Pedro (script integral). Encontro feito pelo Pedro no modal; verificação por consulta do 0·Cowork.
+- Linha bancária a28f3424-db6a-4f42-ba26-91fe98d6d709 (Santander Totta, crédito 23.406,00 €, 13/10/2026). Fornecedor ESTORIL SOL III TURISMO ANIMAC JOGO SA, evento Ivete Clareou 2026.
+- Documentos: receita b873559f-88a5-4a27-9b32-dc5193a266b2 (bruto 30.996,00 €); despesa 0368bca9-6519-4776-826e-0dc9c0d790f2 (bruto 7.590,00 €).
+- Grupo 443a1d8e-6934-43a2-9d20-f5e78cb68302, estado applied. Itens: receita dinheiro 23.406,00 € + compensação 7.590,00 €; despesa compensação 7.590,00 €.
+- Pagamentos: transferência 23.406,00 € na conta do banco; compensação 7.590,00 € em cada documento. Ambos os documentos paid, paid_amount igual ao livro-razão. Linha do banco matched, ligada ao grupo.
+- Par antigo d2e1eaa3-2463-4755-9728-d5cbbaac335e (7.590) adotado e ligado ao grupo (predicados do núcleo: ambos os documentos no mesmo encontro, sem grupo nem pagamentos pagos associados, valor igual ao calculado).
+- Vigias: 7 vigias de caixa a 0; vigia de triggers conforme; invariante de saldo a 0.
+- Ecrã (leitura do Pedro, não conferida por consulta): saldo do sistema 642.707,88 € → 666.113,88 € (+23.406,00 €); diferença para o banco −22.900,85 € → 505,15 € (pendências anteriores: 500,00 € "resto sem explicação" e uma linha de 5,15 € Verde Pay por conciliar).
+- Controlo devolvido a N1 após o piloto (kill_switch, Sim do Pedro). **Estado final: N1 (enabled=false, reverse_enabled=true), 1 grupo aplicado.**
+
+- Pendentes: cada janela N0 exige novo Sim; Issue #341 (R2); #337 (encontro sem extracto); Bloco 8; lacunas abaixo; emergency (N2) só em incidente; ver o ecrã da prévia em N0 com um caso real. #322/#323 intocadas. A Issue #335 não é fechada por este documento.
 
 ## Pronto para pedir A–C: SIM (só localmente)
 Todos os pontos A–G foram reproduzidos e corrigidos, excepto as partes de C não reproduzidas (ver abaixo). Todas as execuções pedidas passaram, com resultados reais.
@@ -64,6 +76,7 @@ _derive_paid_amount(uuid), get_event_cash_position(uuid,date,date), get_event_ca
 - Kill-switch com lock exclusivo e timeout de 5s, sem caminho de emergência.
 - Invariante de saldo tautológica.
 - Replays recusados com encontro_desativado quando desligado.
+- Trigger legado com NEW.supplier_id (por tratar).
 - Anteriores: fronteira do trigger do dono (substituição de corpo não detectada); TRUNCATE de user_permissions; CI remoto.
 
 ## Manifesto (SHA-256 dos ficheiros alterados desde 3a28ae85)
