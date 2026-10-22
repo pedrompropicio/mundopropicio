@@ -231,7 +231,8 @@ result = execute(ids, amount)
 elapsed = time.perf_counter() - start
 owner()
 count = run('SELECT count(*),count(*) FILTER(WHERE payment_method=\'transfer\') FROM transaction_payments WHERE offset_group_id=%s', (result['group_id'],))[0]
-assert count == (60, 16), count
+# 1500 cash: 15×98 +30; 10 income +25 expense compensation legs =35.
+assert count == (51, 16), count
 assert run('SELECT count(*) FROM transaction_offset_items WHERE group_id=%s', (result['group_id'],))[0][0] == 50
 actor(admin)
 start = time.perf_counter()
@@ -241,7 +242,7 @@ owner()
 assert run("SELECT count(*) FROM transaction_payments WHERE transaction_id=ANY(%s::uuid[]) AND offset_group_id IS NULL AND status='paid'", (ids,))[0][0] == 100
 rows.append({'case': 'scale50', 'documents': 50, 'prior_payments': 100, 'new_payments': count[0], 'apply_seconds': elapsed, 'reverse_seconds': reverse_elapsed})
 run('ROLLBACK')
-print('PASS scale50: 100 prior payments, 60 new legs; real apply/reverse', elapsed, reverse_elapsed)
+print('PASS scale50: 100 prior payments, 51 new legs; real apply/reverse', elapsed, reverse_elapsed)
 
 Path(output).write_text(json.dumps({'catalog': catalog, 'results': rows, 'open': [], 'skips': 0}, indent=2, default=str))
 c.close()
