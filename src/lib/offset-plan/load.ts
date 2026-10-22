@@ -244,6 +244,7 @@ export const OFFSET_INVALIDATE_KEYS = [
   "child-transactions",
   "invoice-group-open-siblings",
   "offset-launch-accounts",
+  "account-true-balance",
   "payment-timeline",
   "payment-timeline-accounts",
   "transaction-offsets",
