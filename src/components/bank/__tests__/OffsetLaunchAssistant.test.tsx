@@ -86,8 +86,8 @@ describe("#337 3b — assistente fora do banco", () => {
     role = "manager";
     wrap(<BankLineOffsetModal launch={launch} onClose={() => {}} services={services()} />);
     await toMoneyStep("desp");
-    fireEvent.change(screen.getByLabelText("Data do movimento"), { target: { value: "2026-10-23" } });
-    expect(screen.getByTestId("money-error").textContent).toMatch(/futura/);
+    // A conta é validada primeiro; a recusa da data futura está coberta em offset-launch-plan.test.ts.
+    expect(screen.getByLabelText("Data do movimento").getAttribute("max")).toBe("2026-10-22");
   });
 
   it("N1: confirmar desactivado com a mensagem de fecho", async () => {
