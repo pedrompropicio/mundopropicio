@@ -3020,6 +3020,7 @@ export type Database = {
           matched_sepa_export_id: string | null
           matched_transaction_id: string | null
           note: string | null
+          offset_group_id: string | null
           raw: Json | null
           statement_id: string
           status: string
@@ -3044,6 +3045,7 @@ export type Database = {
           matched_sepa_export_id?: string | null
           matched_transaction_id?: string | null
           note?: string | null
+          offset_group_id?: string | null
           raw?: Json | null
           statement_id: string
           status?: string
@@ -3068,6 +3070,7 @@ export type Database = {
           matched_sepa_export_id?: string | null
           matched_transaction_id?: string | null
           note?: string | null
+          offset_group_id?: string | null
           raw?: Json | null
           statement_id?: string
           status?: string
@@ -3107,6 +3110,13 @@ export type Database = {
             columns: ["matched_transaction_id"]
             isOneToOne: false
             referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_lines_offset_group_id_fkey"
+            columns: ["offset_group_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_offset_groups"
             referencedColumns: ["id"]
           },
           {
@@ -19696,6 +19706,205 @@ export type Database = {
           },
         ]
       }
+      transaction_offset_control: {
+        Row: {
+          enabled: boolean
+          reverse_enabled: boolean
+          singleton: boolean
+        }
+        Insert: {
+          enabled?: boolean
+          reverse_enabled?: boolean
+          singleton?: boolean
+        }
+        Update: {
+          enabled?: boolean
+          reverse_enabled?: boolean
+          singleton?: boolean
+        }
+        Relationships: []
+      }
+      transaction_offset_groups: {
+        Row: {
+          account_id: string | null
+          bank_line_id: string | null
+          company_id: string
+          created_at: string
+          created_by: string
+          id: string
+          movement_amount: number
+          note: string | null
+          operation_date: string
+          request_hash: string
+          request_id: string
+          result: Json | null
+          reversal_actor: string | null
+          reversal_hash: string | null
+          reversal_reason: string | null
+          reversal_request_id: string | null
+          reversed_at: string | null
+          status: string
+          supplier_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          bank_line_id?: string | null
+          company_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          movement_amount: number
+          note?: string | null
+          operation_date: string
+          request_hash: string
+          request_id: string
+          result?: Json | null
+          reversal_actor?: string | null
+          reversal_hash?: string | null
+          reversal_reason?: string | null
+          reversal_request_id?: string | null
+          reversed_at?: string | null
+          status?: string
+          supplier_id: string
+        }
+        Update: {
+          account_id?: string | null
+          bank_line_id?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          movement_amount?: number
+          note?: string | null
+          operation_date?: string
+          request_hash?: string
+          request_id?: string
+          result?: Json | null
+          reversal_actor?: string | null
+          reversal_hash?: string | null
+          reversal_reason?: string | null
+          reversal_request_id?: string | null
+          reversed_at?: string | null
+          status?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_offset_groups_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_offset_groups_bank_line_id_fkey"
+            columns: ["bank_line_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_offset_groups_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_offset_groups_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transaction_offset_items: {
+        Row: {
+          base_amount: number
+          cash_amount: number
+          cash_order: number
+          company_id: string
+          compensation_amount: number
+          forecast_id: string | null
+          gross_amount: number
+          group_id: string
+          id: string
+          iva_rate: number
+          open_amount: number
+          prior_paid_amount: number
+          prior_payment_date: string | null
+          prior_status: string
+          transaction_id: string
+          type: string
+        }
+        Insert: {
+          base_amount: number
+          cash_amount: number
+          cash_order: number
+          company_id: string
+          compensation_amount: number
+          forecast_id?: string | null
+          gross_amount: number
+          group_id: string
+          id?: string
+          iva_rate: number
+          open_amount: number
+          prior_paid_amount: number
+          prior_payment_date?: string | null
+          prior_status: string
+          transaction_id: string
+          type: string
+        }
+        Update: {
+          base_amount?: number
+          cash_amount?: number
+          cash_order?: number
+          company_id?: string
+          compensation_amount?: number
+          forecast_id?: string | null
+          gross_amount?: number
+          group_id?: string
+          id?: string
+          iva_rate?: number
+          open_amount?: number
+          prior_paid_amount?: number
+          prior_payment_date?: string | null
+          prior_status?: string
+          transaction_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_offset_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_offset_items_forecast_id_fkey"
+            columns: ["forecast_id"]
+            isOneToOne: false
+            referencedRelation: "event_forecasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_offset_items_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_offset_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_offset_items_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transaction_offsets: {
         Row: {
           amount: number
@@ -19704,6 +19913,7 @@ export type Database = {
           created_by: string | null
           id: string
           note: string | null
+          offset_group_id: string | null
           payable_transaction_id: string
           receivable_transaction_id: string
         }
@@ -19714,6 +19924,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           note?: string | null
+          offset_group_id?: string | null
           payable_transaction_id: string
           receivable_transaction_id: string
         }
@@ -19724,6 +19935,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           note?: string | null
+          offset_group_id?: string | null
           payable_transaction_id?: string
           receivable_transaction_id?: string
         }
@@ -19733,6 +19945,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_offsets_offset_group_id_fkey"
+            columns: ["offset_group_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_offset_groups"
             referencedColumns: ["id"]
           },
           {
@@ -19766,7 +19985,9 @@ export type Database = {
           id: string
           invoice_ref: string | null
           notes: string | null
+          offset_group_id: string | null
           offset_id: string | null
+          offset_item_id: string | null
           original_amount: number | null
           outside_batch: boolean
           payment_date: string
@@ -19799,7 +20020,9 @@ export type Database = {
           id?: string
           invoice_ref?: string | null
           notes?: string | null
+          offset_group_id?: string | null
           offset_id?: string | null
+          offset_item_id?: string | null
           original_amount?: number | null
           outside_batch?: boolean
           payment_date: string
@@ -19832,7 +20055,9 @@ export type Database = {
           id?: string
           invoice_ref?: string | null
           notes?: string | null
+          offset_group_id?: string | null
           offset_id?: string | null
+          offset_item_id?: string | null
           original_amount?: number | null
           outside_batch?: boolean
           payment_date?: string
@@ -19853,6 +20078,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "issue335_payment_item_fk"
+            columns: ["offset_group_id", "offset_item_id", "transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_offset_items"
+            referencedColumns: ["group_id", "id", "transaction_id"]
+          },
+          {
             foreignKeyName: "transaction_payments_account_id_fkey"
             columns: ["account_id"]
             isOneToOne: false
@@ -19864,6 +20096,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_payments_offset_group_id_fkey"
+            columns: ["offset_group_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_offset_groups"
             referencedColumns: ["id"]
           },
           {
@@ -25738,6 +25977,8 @@ export type Database = {
         Returns: boolean
       }
       is_settlement_staff: { Args: { _user: string }; Returns: boolean }
+      issue335_group_visible: { Args: { _g: string }; Returns: boolean }
+      issue335_tx_visible: { Args: { _tx: string }; Returns: boolean }
       launch_from_bank_lines: { Args: { p_items: Json }; Returns: string[] }
       list_bp_versions: {
         Args: { _event_id: string }
