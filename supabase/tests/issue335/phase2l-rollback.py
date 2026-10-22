@@ -49,7 +49,7 @@ with c.cursor() as q:
     for n in names:
         q.execute((root / f'supabase/manual/20261021_issue335_{n}.INERTE.sql').read_text())
         print('installed local', n)
-    refused(q, 'offset_group_storage', 'rollback_order: consumers_installed')
+    refused(q, 'offset_group_storage', 'rollback_order: invariants_core_before_storage')  # consumers_installed provado em phase2o-corr (G parcial)
     refused(q, 'offset_balance', 'rollback_order: cash_watch_first')
     refused(q, 'offset_approval', 'rollback_order: status_first')
     refused(q, 'cash_position', 'rollback_order: cash_position_invariant_first')
