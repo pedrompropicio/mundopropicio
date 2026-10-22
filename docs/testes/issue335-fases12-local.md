@@ -6852,3 +6852,8 @@ Só leitura/documentação. Sem alterações a código, SQL, migrations, dados; 
 
 ### Âmbito e SHAs
 Alterados/criados apenas em docs/: docs/testes/issue335-bloco8-consumidores.md (novo), docs/testes/issue335-fases12-local.md (append desta secção), docs/testes/issue335-fase2n-leituras.md (append). supabase/manual intacto; sem código, migrations, DML, deploy ou Publish. Reserva do QUADRO mantida. SHAs no fim desta secção (ver manifesto de leituras para o restante).
+
+### SHAs do Bloco 8
+- docs/testes/issue335-bloco8-consumidores.md SHA256=e830481cf482f25635a532587df4c61a2319ff1176b80a1ddadcd42c90b3fee9 (antes deste append ao relatório)
+- docs/testes/issue335-fases12-local.md SHA256=6af601345b640e6024e61dc5481eca536c5994757e527e87f705986400f67783 (antes deste append)
+- docs/testes/issue335-fase2n-leituras.md SHA256=a13074a45ba4cd32cad4dee3b0a96a2070fb076d18a25133b9e7de00562eade2 (final, sem mais appends neste bloco)
