@@ -14,9 +14,13 @@ Nada em execução pelo agente. Pendente de outros chats:
 - 10 transações de cidade ligadas a linhas do Master (invariante VINCULO_CROSS_EVENTO = 10, de propósito): 9 do Deive Leonardo (Braga/Lisboa, 429,55 €) com o bp-deive-leonardo e 1 da SM - Porto (Backline 3.575,00 €) com o fecho-simone-mendes. Cada uma: mover para o Master ou ligar a uma linha da cidade. A invariante desce 1 por cada caso resolvido.
 - #264 aberta: testes de base (BEGIN…ROLLBACK) por correr no quadro de testes; configuração do Coala (contas 10.4–10.11 e janela do Coala 2027 desde 29/08/2026, fim em aberto) com a frente 5; depois o teste de ecrã da Nova Transação.
 - Por confirmar quando ocorrerem: C2 (próxima sync da Coala grava com '[sync Coala] planilha' ou fica em audit.errors) e C3 (recálculo de cachê abaixo do pago avisa e não grava).
+- #339 (P1, frente 5) — fórmula em linhas de receita + receitas no Master com repartição; contorno: receita fixa por cidade + Conciliar.
 Na fila desta frente: #114 (D2 no trigger como última linha de defesa).
 
 ## Fechado agora (D1 + D2 + D8 + D13–D19)
+
+### 22/10 — #343 especificação curta nas transações de sessão
+22/10/2026 — #343 fechada (executor: este chat, por escolha do Pedro; tema da frente 4): especificação curta nas transações de Sessão de cartão/Camarim (helper _shared/session-specification.ts, sem Fornecedores/itens/Análise), SpecificationText na lista (2 linhas, expande ao clicar), 32 transações antigas encurtadas por DML autorizado (texto antigo em transaction_audit_log, changed_by 'Claude #343 (autorizado Pedro)'). Publish e teste feitos pelo Pedro.
 
 ### 10/10 — vínculo só no mesmo evento e âncora corrigida (D-ERP224)
 Pedido do chat financeiro: duas invariantes desta frente em error com referência 0. Eram defeitos reais, não se fixou referência.
