@@ -6156,3 +6156,15 @@ Passo A instalado em Live a 22/10/2026 com Sim do Pedro.
 ## D-ERP295 — #335: piloto Estoril feito pelo modal e verificado por consulta própria (22/10/2026)
 
 **Decisão (Pedro, 22/10/2026).** O piloto real (Estoril, grupo 443a1d8e-6934-43a2-9d20-f5e78cb68302) foi feito pelo Pedro no modal "Encontro de contas" e verificado por consulta própria do 0 · Cowork. Prova em `docs/testes/issue335-quadro-final.md`.
+
+## D-ERP296 — #335 concluída e fechada (22/10/2026)
+
+**Decisão (Pedro, 22/10/2026).** A Issue #335 (encontro de contas) fica concluída e fechada a 22/10/2026. Provado em Live por consulta: encontro do Estoril aplicado (grupo 91d78fbf-e4a6-44a6-9457-48be22a6827d) e estorno testado (grupo 443a1d8e-6934-43a2-9d20-f5e78cb68302); 7 vigias de caixa e invariante de saldo a 0; controlo em N1 depois de cada janela.
+
+## D-ERP297 — #337: encontro fora do banco nasce no modal de pagamento, dinheiro opcional (22/10/2026)
+
+**Decisão (Pedro, 22/10/2026).** O encontro de contas fora do banco nasce no modal de pagamento: o método "Compensação" abre o assistente do encontro, e o movimento de dinheiro é opcional (encontro sem dinheiro no mesmo assistente). A criação legada (método "Compensação" antigo no modal de pagamento e criação no bloco da ficha) sai na 3c.
+
+## D-ERP298 — #337: método planeado "compensation" abre o pagamento em Transferência (22/10/2026)
+
+**Decisão (Pedro, 22/10/2026).** Aceitar que uma transação com método planeado "compensation" abra o pagamento em Transferência; a compensação faz-se só pelo assistente do encontro. Auditoria de 22/10/2026: 2 receitas aprovadas e em aberto (total 40.587,82 €) têm método planeado "compensation"; as restantes já estão pagas e não passam pelo modal de pagamento.
