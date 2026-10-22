@@ -328,6 +328,6 @@ finally:
     run('DROP TABLE issue335_size_probe')
 print('PASS index estimate: ShareLock blocks writer not reader; local count1463', index_elapsed)
 
-Path(output).write_text(json.dumps({'catalog': catalog, 'results': rows, 'open': ['reversal replay lacks actor binding', 'legacy user_permissions TRUNCATE ACL'], 'skips': 0}, indent=2, default=str))
+Path(output).write_text(json.dumps({'catalog': catalog, 'results': rows, 'open': ['legacy user_permissions TRUNCATE ACL'], 'skips': 0}, indent=2, default=str))
 c.close()
 print('PASS Bloco7 local runner; assertions preserved; fixtures rolled back')
