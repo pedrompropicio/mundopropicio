@@ -188,6 +188,46 @@ rows.append({'case': 'request_replay', 'same_actor': replayed, 'other_actor': mi
 run('ROLLBACK')
 print('PASS request replay: same actor identical; other authorized actor request_actor_mismatch')
 
+# Bank replay is actor-bound as well; reversal replay has no actor field in schema.
+uid = begin('admin')
+ids, line, amount = fixture()
+request = str(uuid4())
+actor(admin)
+reconcile(ids, line, request)
+before = snapshot(ids, line)
+actor(admin)
+reconcile(ids, line, request)
+assert snapshot(ids, line) == before
+actor(uid)
+result = attempt(lambda: reconcile(ids, line, request))
+assert result['outcome'] == 'P0001' and result['message'] == 'request_actor_mismatch', result
+assert snapshot(ids, line) == before
+group = before['transaction_offset_groups'][0]['id']
+reverse_request = str(uuid4())
+actor(admin)
+reversed_result = run('SELECT transaction_offset_reverse(%s,%s,%s)', (group, reverse_request, 'LOCAL replay'))[0][0]
+after = snapshot(ids, line)
+actor(uid)
+second_admin = run('SELECT transaction_offset_reverse(%s,%s,%s)', (group, reverse_request, 'LOCAL replay'))[0][0]
+assert second_admin == reversed_result
+assert snapshot(ids, line) == after
+rows.append({'case': 'bank_and_reverse_replay', 'bank_other_actor': result, 'reverse_other_admin': 'accepted identical result; no mutation', 'classification': 'open: reversal replay is not actor-bound'})
+run('ROLLBACK')
+print('PASS bank replay; CLASSIFIED OPEN reversal replay permits second admin (no new write)')
+
+# ACL/row-RLS distinction: TRUNCATE does not evaluate row policies.
+for role in ('user', 'anon'):
+    uid = begin('user')
+    actor(None if role == 'anon' else uid, role == 'anon')
+    acl = run("SELECT has_table_privilege(current_user,'user_permissions','TRUNCATE')")[0][0]
+    result = attempt(lambda: run('TRUNCATE user_permissions'))
+    assert acl is True and result['outcome'] == 'ok', (role, acl, result)
+    owner()
+    assert run('SELECT count(*) FROM user_permissions')[0][0] == 0
+    rows.append({'case': 'truncate_permissions', 'role': role, 'result': result, 'classification': 'legacy ACL defect outside #335; row RLS does not protect TRUNCATE'})
+    run('ROLLBACK')
+print('CLASSIFIED OPEN legacy user_permissions TRUNCATE allowed to user/anon; local rollback')
+
 # Exact import collision semantics: ignore_duplicates=>DO NOTHING; regular UPDATE refused.
 uid = begin()
 ids, line, amount = fixture()
@@ -244,6 +284,6 @@ rows.append({'case': 'scale50', 'documents': 50, 'prior_payments': 100, 'new_pay
 run('ROLLBACK')
 print('PASS scale50: 100 prior payments, 51 new legs; real apply/reverse', elapsed, reverse_elapsed)
 
-Path(output).write_text(json.dumps({'catalog': catalog, 'results': rows, 'open': [], 'skips': 0}, indent=2, default=str))
+Path(output).write_text(json.dumps({'catalog': catalog, 'results': rows, 'open': ['reversal replay lacks actor binding', 'legacy user_permissions TRUNCATE ACL'], 'skips': 0}, indent=2, default=str))
 c.close()
 print('PASS Bloco7 local runner; assertions preserved; fixtures rolled back')
