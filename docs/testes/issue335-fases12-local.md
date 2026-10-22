@@ -6961,3 +6961,15 @@ Verificação pós-COMMIT:
 Decisão do Pedro: manter os encontros FECHADOS (N1) até a UI das fases 3b/3c estar pronta e testada; reabrir só com o script reactivation e novo Sim. Emergency (N2) só em incidente. Plano: `claude/plano-r2-niveis-kill-switch-emergency-reactivation-335-2026-10-22` (Claude Project).
 
 Fica superado o "controlo `enabled = true`, `reverse_enabled = true`" da secção do passo C. Pendentes inalterados: trigger_watch/cash_watch (Sim próprio), fases 3b/3c, #337, Bloco 8, lacunas, Issue #341, Publish (CI remoto NÃO VERIFICADO).
+
+## trigger_watch e cash_watch instalados em Live (22/10/2026)
+- Com Sim do Pedro; ficheiros `supabase/manual/20261021_issue335_trigger_watch.INERTE.sql` e `supabase/manual/20261021_issue335_cash_watch.INERTE.sql`, commit `02fc1188af1c976eced2630f06cab110d8f2685f`. Última etapa da ordem única de instalação (D-ERP292).
+- Prova prévia em transacção revertida: o rollback repõe md5/dono/ACL/descrição idênticos ao baseline (md5 do corpo anterior de `issue335_balance_invariant_count` = `f437fcab1b354302b75d0631cc3a90d1`).
+- Verificação pós-COMMIT por query do 0·Cowork, comunicada pelo Pedro:
+  - trigger_watch: conforme=true, 0 triggers fora da lista, 72 observados.
+  - cash_watch: 7 vigias a 0.
+  - `issue335_balance_invariant_count()` = 0 (passa a somar o cash_watch); descrição da invariante `encontro_saldo_dinheiro_divergente` actualizada.
+  - ACL: EXECUTE só postgres + service_role nas 3 funções; dono postgres.
+  - 6 invariantes `encontro_*` presentes; controlo N1 (enabled=false, reverse_enabled=true); 0 grupos; 8 triggers issue335 e 18 policies issue335 inalterados.
+- Rollback, se necessário e só com 0 grupos: cash_watch primeiro, depois trigger_watch.
+- Sem Publish; CI remoto NÃO VERIFICADO.

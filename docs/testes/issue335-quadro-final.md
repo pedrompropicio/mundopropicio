@@ -5,7 +5,9 @@
 - B (core + approval + status): INSTALADO.
 - C (invariants + balance + cash_position + cash_position_invariant + restore): INSTALADO num único BEGIN…COMMIT, com Sim do Pedro, após prova BEGIN…ROLLBACK verde, incluindo ROLLBACK e md5/dono/ACL iguais à baseline (zero deriva).
 - Origem: query do 0·Cowork em Live, 22/10/2026, após COMMIT, comunicada pelo Pedro. Guarda A satisfeita pelos marcadores issue335-balance-v2l, issue335-cash-position-v2l e issue335-cash-position-invariant-v2l; transaction_offset_execute/reverse podem correr em Live (sem UI nova; 0 grupos; nenhum encontro real executado). Verificação completa na secção "Passo C instalado em Live (22/10/2026)" de `docs/testes/issue335-fases12-local.md`.
-- Sem Publish; types.ts por regenerar no próximo Publish; CI remoto NÃO VERIFICADO; sem reserva R2 aberta para C. Fora de A–C, por instalar com Sim próprio para cada um: kill_switch/emergency/reactivation e trigger_watch/cash_watch.
+- kill_switch: EXECUTADO 22/10/2026 — encontros FECHADOS em N1 (enabled=false, reverse_enabled=true). emergency/reactivation: não executados (reactivation só com novo Sim; emergency só em incidente).
+- trigger_watch + cash_watch: INSTALADOS 22/10/2026 com Sim do Pedro (commit 02fc1188af1c976eced2630f06cab110d8f2685f). **Instalação em Live concluída até trigger_watch/cash_watch — última etapa da ordem única.** Rollback só com 0 grupos: cash_watch primeiro, depois trigger_watch. Detalhe na secção "trigger_watch e cash_watch instalados em Live (22/10/2026)" de `docs/testes/issue335-fases12-local.md`.
+- Sem Publish; types.ts por regenerar no próximo Publish; CI remoto NÃO VERIFICADO; sem reserva R2 aberta.
 - Pendentes: fases 3b/3c, #337, Bloco 8 (decisões), lacunas abaixo e Issue #341 (divergência estado/pagamentos em 163 transações). A instalação não fecha estas lacunas nem altera o histórico das provas locais abaixo.
 
 ## Pronto para pedir A–C: SIM (só localmente)
