@@ -1,0 +1,106 @@
+{
+ "manual_dir": "/tmp/fecho/old",
+ "results": [
+  {
+   "test": "B offset_approval sem storage",
+   "result": "FAIL",
+   "detail": "esperado \"installation_order: storage_required\"; obtido None; catálogo intacto=True"
+  },
+  {
+   "test": "B status sem storage",
+   "result": "FAIL",
+   "detail": "esperado \"installation_order: storage_required\"; obtido 'installation_order: approval_before_status'; catálogo intacto=True"
+  },
+  {
+   "test": "B cash_position sem storage",
+   "result": "FAIL",
+   "detail": "esperado \"installation_order: storage_required\"; obtido None; catálogo intacto=True"
+  },
+  {
+   "test": "B offset_approval sem core",
+   "result": "FAIL",
+   "detail": "esperado \"installation_order: core_required\"; obtido None; catálogo intacto=True"
+  },
+  {
+   "test": "A execute sem offset_balance",
+   "result": "FAIL",
+   "detail": "esperado \"installation_order: balance_candidate_required\"; obtido 'syntax error at or near \"INTO\"'"
+  },
+  {
+   "test": "A execute sem cash_position",
+   "result": "FAIL",
+   "detail": "esperado \"installation_order: cash_position_candidate_required\"; obtido 'syntax error at or near \"INTO\"'"
+  },
+  {
+   "test": "A execute sem cash_position_invariant",
+   "result": "FAIL",
+   "detail": "esperado \"installation_order: cash_position_invariant_candidate_required\"; obtido 'syntax error at or near \"INTO\"'"
+  },
+  {
+   "test": "A execute com todos os candidatos",
+   "result": "FAIL",
+   "detail": "erro='syntax error at or near \"INTO\"'"
+  },
+  {
+   "test": "C approval.ROLLBACK com status instalado",
+   "result": "FAIL",
+   "detail": "esperado \"rollback_order: status_first\"; obtido None; catálogo intacto=True"
+  },
+  {
+   "test": "C cash_position.ROLLBACK com invariante instalado",
+   "result": "FAIL",
+   "detail": "esperado \"rollback_order: cash_position_invariant_first\"; obtido None; catálogo intacto=True"
+  },
+  {
+   "test": "C offset_balance.ROLLBACK com cash_watch instalado",
+   "result": "FAIL",
+   "detail": "esperado \"rollback_order: cash_watch_first\"; obtido None; catálogo intacto=True"
+  },
+  {
+   "test": "G parcial: invariants retirado, storage.ROLLBACK com consumidores",
+   "result": "FAIL",
+   "detail": "esperado \"rollback_order: consumers_installed\"; obtido 'rollback_order: invariants_core_before_storage'; catálogo intacto=True"
+  },
+  {
+   "test": "E par legado 50 adoptado (P2 ordem 3: dinheiro 100, compensação 50)",
+   "result": "FAIL",
+   "detail": "erro='managed_operation_required'"
+  },
+  {
+   "test": "G offset_approval.ROLLBACK com grupos vivos",
+   "result": "FAIL",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido None; catálogo intacto=True"
+  },
+  {
+   "test": "G cash_position.ROLLBACK com grupos vivos",
+   "result": "FAIL",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido None; catálogo intacto=True"
+  },
+  {
+   "test": "G cash_position_invariant.ROLLBACK com grupos vivos",
+   "result": "FAIL",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido None; catálogo intacto=True"
+  },
+  {
+   "test": "G status.ROLLBACK com grupos vivos",
+   "result": "FAIL",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido None; catálogo intacto=True"
+  },
+  {
+   "test": "G offset_balance.ROLLBACK com grupos vivos",
+   "result": "FAIL",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido None; catálogo intacto=True"
+  },
+  {
+   "test": "G offset_core.ROLLBACK com grupos vivos",
+   "result": "FAIL",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido 'rollback_order: invariants_before_core'; catálogo intacto=True"
+  },
+  {
+   "test": "G offset_group_storage.ROLLBACK com grupos vivos",
+   "result": "FAIL",
+   "detail": "esperado \"groups_exist_keep_guards\"; obtido 'rollback_order: invariants_core_before_storage'; catálogo intacto=True"
+  }
+ ],
+ "fails": 20
+}
