@@ -98,8 +98,7 @@ check(sql(obs, "SELECT md5(prosrc) FROM pg_proc WHERE proname='issue335_balance_
 core_def = sql(obs, "SELECT pg_get_functiondef('public._issue335_execute(uuid,uuid,jsonb,jsonb,date,text)'::regprocedure)")[0][0]
 NEW_G = """AND p.reversed_at IS NULL AND (
      (p.payment_method IS DISTINCT FROM 'compensation' AND (p.account_id IS NULL OR p.account_id IS DISTINCT FROM t.account_id))
-     OR (p.payment_method='compensation' AND (t.account_id IS NOT NULL OR p.account_id IS NOT NULL))))
-   OR (amount<>0 AND t.type=(CASE WHEN amount<0 THEN 'expense' ELSE 'income' END) AND t.account_id IS NOT NULL AND t.account_id IS DISTINCT FROM acc) THEN"""
+     OR (p.payment_method='compensation' AND (t.account_id IS NOT NULL OR p.account_id IS NOT NULL)))) THEN"""
 OLD_G = """AND p.reversed_at IS NULL AND p.payment_method IS DISTINCT FROM 'compensation'
     AND (p.account_id IS NULL OR p.account_id IS DISTINCT FROM t.account_id)) THEN"""
 assert core_def.count(NEW_G) == 1, 'núcleo 2n-Bloco5 não instalado'
@@ -186,24 +185,24 @@ check(sum(w.values()) == 0, 'B5(c) vigia após estorno sem falso positivo', w)
 
 # ----------------------------------------------------------------- (d) corrupção
 def fresh_bank_group():
-    a = tx('income', 100); b = tx('expense', 40); c = tx('expense', 15)
-    ln = bank_line(60); r = via_bank(ln, a, b); assert r[0] == 'ok', r
+    a = tx('income', 100, account_id=ACCOUNT); leg(a, 20, ACCOUNT); b = tx('expense', 40); c = tx('expense', 15)
+    ln = bank_line(40); r = via_bank(ln, a, b); assert r[0] == 'ok', r
     return dict(a=a, b=b, c=c, line=ln, g=r[1])
 CORR = {
- 'perna alterada (valor da perna em dinheiro)': "UPDATE transaction_payments SET amount=50 WHERE offset_group_id=%(g)s AND payment_method='transfer'",
+ 'perna alterada (valor da perna em dinheiro)': "UPDATE transaction_payments SET amount=30 WHERE offset_group_id=%(g)s AND payment_method='transfer'",
  'conta trocada (perna em dinheiro noutra conta)': "UPDATE transaction_payments SET account_id=%(acc2)s WHERE offset_group_id=%(g)s AND payment_method='transfer'",
  'conta trocada (perna em dinheiro sem conta)': "UPDATE transaction_payments SET account_id=NULL WHERE offset_group_id=%(g)s AND payment_method='transfer'",
- 'conta do documento trocada depois do encontro': "UPDATE transactions SET account_id=%(acc2)s WHERE id=%(a)s",
+ 'conta trocada (perna legada do documento gerido)': "UPDATE transaction_payments SET account_id=%(acc2)s WHERE transaction_id=%(a)s AND offset_group_id IS NULL",
  'perna apagada (dinheiro)': "DELETE FROM transaction_payments WHERE offset_group_id=%(g)s AND payment_method='transfer'",
  'perna apagada (compensação: item/offset sem perna)': "DELETE FROM transaction_payments WHERE offset_group_id=%(g)s AND payment_method='compensation' AND transaction_id=%(b)s",
  'offset adoptado sem perna no grupo': "INSERT INTO transaction_offsets(company_id,receivable_transaction_id,payable_transaction_id,amount,offset_group_id) VALUES(%(co)s,%(a)s,%(c)s,15,%(g)s)",
  'perna sem offset (dinheiro num item só de compensação)': "INSERT INTO transaction_payments(transaction_id,company_id,amount,payment_date,account_id,payment_method,status,offset_group_id,offset_item_id) SELECT %(b)s,%(co)s,10,'2026-10-13',%(acc)s,'transfer','paid',%(g)s,id FROM transaction_offset_items WHERE group_id=%(g)s AND transaction_id=%(b)s",
  'perna estornada com grupo aplicado': "UPDATE transaction_payments SET status='reversed',reversed_at=now() WHERE offset_group_id=%(g)s AND payment_method='compensation' AND transaction_id=%(b)s",
- 'extracto divergente (valor da linha)': "UPDATE bank_statement_lines SET amount=70 WHERE id=%(line)s",
+ 'extracto divergente (valor da linha)': "UPDATE bank_statement_lines SET amount=50 WHERE id=%(line)s",
  'extracto divergente (data da linha)': "UPDATE bank_statement_lines SET booking_date='2026-10-14' WHERE id=%(line)s",
  'extracto divergente (ligação ao documento errado)': "UPDATE bank_line_transactions SET transaction_id=%(c)s WHERE line_id=%(line)s",
- 'soma dupla (perna legada igual na mesma conta e data)': "INSERT INTO transaction_payments(transaction_id,company_id,amount,payment_date,account_id,payment_method,status) VALUES(%(a)s,%(co)s,60,'2026-10-13',%(acc)s,'transfer','paid')",
- 'soma dupla (segunda linha de extracto do mesmo movimento)': "INSERT INTO bank_statement_lines(statement_id,line_hash,company_id,financial_account_id,amount,booking_date,status,offset_group_id) VALUES(%(st)s,md5(%(g)s::text||'dup'),%(co)s,%(acc)s,60,'2026-10-13','matched',%(g)s)",
+ 'soma dupla (perna legada igual na mesma conta e data)': "INSERT INTO transaction_payments(transaction_id,company_id,amount,payment_date,account_id,payment_method,status) VALUES(%(a)s,%(co)s,40,'2026-10-13',%(acc)s,'transfer','paid')",
+ 'soma dupla (segunda linha de extracto do mesmo movimento)': "INSERT INTO bank_statement_lines(statement_id,line_hash,company_id,financial_account_id,amount,booking_date,status,offset_group_id) VALUES(%(st)s,md5(%(g)s::text||'dup'),%(co)s,%(acc)s,40,'2026-10-13','matched',%(g)s)",
 }
 def corrupt(name, stmt, measure):
     f = fresh_bank_group(); args = dict(f, acc=ACCOUNT, acc2=ACC2, co=COMPANY, st=STATEMENT)
