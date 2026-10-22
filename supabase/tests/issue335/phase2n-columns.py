@@ -52,6 +52,7 @@ assert execute(baseline, 'SELECT count(*) FROM public.companies WHERE id=%s', (C
 def setup(c, grouped):
     actor(c, ADMIN)
     if execute(c, 'SELECT count(*) FROM public.transactions WHERE id=%s', (uid(20),))[0][0]:
+        execute(c, "INSERT INTO public.events(id,company_id,name,date,budget_mode,event_nature) VALUES(%s,%s,'LOCAL E alternate event','2026-10-13','without_bp','producao_propria') ON CONFLICT DO NOTHING", (uid(12), COMPANY))
         payment_id = execute(c, "SELECT id::text FROM public.transaction_payments WHERE transaction_id=%s AND payment_method='transfer'", (uid(20),))[0][0]
         group_id = execute(c, 'SELECT offset_group_id::text FROM public.transaction_payments WHERE id=%s', (payment_id,))[0][0] if grouped else None
         return group_id, payment_id
