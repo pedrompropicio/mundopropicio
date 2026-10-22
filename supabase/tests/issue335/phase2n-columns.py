@@ -51,6 +51,10 @@ assert execute(baseline, 'SELECT count(*) FROM public.companies WHERE id=%s', (C
 
 def setup(c, grouped):
     actor(c, ADMIN)
+    if execute(c, 'SELECT count(*) FROM public.transactions WHERE id=%s', (uid(20),))[0][0]:
+        payment_id = execute(c, "SELECT id::text FROM public.transaction_payments WHERE transaction_id=%s AND payment_method='transfer'", (uid(20),))[0][0]
+        group_id = execute(c, 'SELECT offset_group_id::text FROM public.transaction_payments WHERE id=%s', (payment_id,))[0][0] if grouped else None
+        return group_id, payment_id
     execute(c, 'BEGIN')
     execute(c, 'SET LOCAL ROLE service_role')
     for role, user in ACTORS.items():
@@ -161,7 +165,8 @@ def probe(c, table, col, val, user, row_id, op='UPDATE'):
                 obj[col] = val
             n = execute(c, sql.SQL('INSERT INTO public.{} SELECT (jsonb_populate_record(NULL::public.{},%s::jsonb)).*').format(sql.Identifier(table), sql.Identifier(table)), (json.dumps(obj),))
         execute(c, 'RESET ROLE')
-        after = None if op == 'DELETE' else snapshot(c, table, row_id if op == 'UPDATE' else uid(70))
+        lookup_id = val if op == 'UPDATE' and col == 'id' else row_id if op == 'UPDATE' else uid(70)
+        after = None if op == 'DELETE' else snapshot(c, table, lookup_id)
         changed = [] if after is None else [k for k in before if before[k] != after.get(k)]
         return {'state': '00000' if n == 1 else 'ROW_FILTERED', 'origin': 'permitido' if n == 1 else 'RLS linha não atingida', 'message': '', 'rowcount': n, 'changed': changed, 'effective': after}
     except psycopg2.Error as e:
