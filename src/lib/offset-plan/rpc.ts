@@ -127,6 +127,51 @@ export async function applyBankLineOffset(
   return { ok: true, group };
 }
 
+/** p_items para transaction_offset_execute: só ids, modo, cash_order, expected_open_cents. */
+export function buildLaunchOffsetItems(items: OffsetContractItem[]): Record<string, unknown>[] {
+  return items.map((it) => ({
+    ...(it.transaction_id ? { transaction_id: it.transaction_id } : { forecast_id: it.forecast_id }),
+    mode: it.mode,
+    cash_order: it.cash_order,
+    expected_open_cents: it.expected_open_cents,
+  }));
+}
+
+/**
+ * #337 — encontro fora do banco (porta Lançamento):
+ * transaction_offset_execute(p_request_id, p_supplier_id, p_items, p_movement, p_date, p_note).
+ * p_movement = null (sem dinheiro) ou { account_id, date, amount } com amount assinado.
+ */
+export async function applyLaunchOffset(
+  client: OffsetRpcClient,
+  args: {
+    requestId: string;
+    supplierId: string;
+    items: OffsetContractItem[];
+    movement: { account_id: string; date: string; amount: number } | null;
+    date: string;
+    note: string | null;
+  },
+): Promise<OffsetApplyResult> {
+  let error: OffsetRawError | null = null;
+  try {
+    const r = await client.rpc("transaction_offset_execute", {
+      p_request_id: args.requestId,
+      p_supplier_id: args.supplierId,
+      p_items: buildLaunchOffsetItems(args.items),
+      p_movement: args.movement,
+      p_date: args.date,
+      p_note: args.note,
+    });
+    error = r.error;
+  } catch (e: any) {
+    error = { message: String(e?.message ?? e) };
+  }
+  if (error) return translateOffsetError(error);
+  const group = await findGroupByRequest(client, args.requestId);
+  return { ok: true, group };
+}
+
 /** Lê o grupo criado por um pedido (recuperação após resposta incerta). */
 export async function findGroupByRequest(client: OffsetRpcClient, requestId: string): Promise<OffsetGroupSummary | null> {
   try {

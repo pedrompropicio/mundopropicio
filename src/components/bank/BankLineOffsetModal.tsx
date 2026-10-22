@@ -5,6 +5,10 @@
  * Conta, data e sinal vêm do extracto (servidor); o cliente só envia ids, modo, cash_order
  * e expected_open_cents (nunca amount/paid_amount/iva_rate). Valores não editáveis.
  * Não é <form>: Enter nunca grava. Cabeçalho e rodapé fora da área de scroll.
+ *
+ * #337 — o mesmo assistente serve o encontro FORA do banco (prop `launch`): passo extra
+ * "Dinheiro" (conta + data + valor, ou "Sem movimento de dinheiro") e chamada a
+ * transaction_offset_execute. A transação de origem vem pré-seleccionada.
  */
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,6 +26,7 @@ import { buildOffsetPlan, formatEurCents, offsetErrorMessage } from "@/lib/offse
 import { canApplyOffset, type OffsetControlRow } from "@/lib/offset-plan/contracts";
 import {
   applyBankLineOffset,
+  applyLaunchOffset,
   findGroupByRequest,
   newRequestId,
   readOffsetControl,
@@ -38,6 +43,14 @@ import {
   type OffsetCandidate,
 } from "@/lib/offset-plan/load";
 import type { OffsetContractItem } from "@/lib/offset-plan";
+import { parseEuroAmount } from "@/lib/offset-plan";
+import {
+  buildLaunchMovement,
+  buildLaunchOffsetPlan,
+  validateLaunchMoney,
+  type LaunchMoneyInput,
+  type LaunchMovementPayload,
+} from "@/lib/offset-plan/launch";
 
 export const OFFSET_DISABLED_MESSAGE = "Encontros de contas estão temporariamente desativados.";
 
@@ -58,6 +71,9 @@ export interface OffsetModalServices {
   loadEvents: () => Promise<{ id: string; name: string }[]>;
   loadForecasts: (eventId: string) => Promise<OffsetCandidate[]>;
   apply: typeof applyBankLineOffset;
+  applyLaunch: typeof applyLaunchOffset;
+  /** Contas aceites pelo núcleo: banco, activas, não escondidas/restritas, sem sócio nem espelho. */
+  loadAccounts: () => Promise<{ id: string; name: string }[]>;
   newRequestId: () => string;
   today: () => string;
 }
@@ -78,6 +94,21 @@ export const defaultOffsetServices: OffsetModalServices = {
     ).then((r) => r.sort((a, b) => String(a.name).localeCompare(String(b.name), "pt"))),
   loadForecasts: (e) => loadForecastCandidates(db, e),
   apply: applyBankLineOffset,
+  applyLaunch: applyLaunchOffset,
+  loadAccounts: () =>
+    readAllPages<any>("contas", (from, to) =>
+      db
+        .from("financial_accounts")
+        .select("id, name")
+        .eq("type", "bank")
+        .eq("is_active", true)
+        .eq("is_hidden", false)
+        .eq("is_restricted", false)
+        .eq("mirror_partner_aporte", false)
+        .is("partner_id", null)
+        .order("id", { ascending: true })
+        .range(from, to),
+    ).then((r) => r.sort((a, b) => String(a.name).localeCompare(String(b.name), "pt"))),
   newRequestId,
   today: lisbonTodayISO,
 };
@@ -114,10 +145,22 @@ export function OffsetLineButton({ onOpen, services }: { onOpen: () => void; ser
   );
 }
 
-type Step = "supplier" | "documents" | "order" | "preview" | "result";
+type Step = "supplier" | "documents" | "money" | "order" | "preview" | "result";
+
+/** #337 — origem fora do banco (modal de pagamento). */
+export interface OffsetLaunchOrigin {
+  transactionId: string;
+  supplierId: string;
+  /** Sentido sugerido para o dinheiro (receita de origem = entra; despesa = sai). */
+  originSign: "income" | "expense";
+}
+
+export const LAUNCH_BANK_HINT =
+  "Com a conta e a data certas, a linha do banco que chegar depois casa sozinha com este pagamento.";
 
 interface Props {
-  line: OffsetBankLine;
+  line?: OffsetBankLine;
+  launch?: OffsetLaunchOrigin;
   accountName?: string;
   onClose: () => void;
   onDone?: () => void;
@@ -126,28 +169,47 @@ interface Props {
   initialSupplierId?: string;
 }
 
-export function BankLineOffsetModal({ line, accountName, onClose, onDone, services, initialSupplierId }: Props) {
+export function BankLineOffsetModal({ line, launch, accountName, onClose, onDone, services, initialSupplierId }: Props) {
   const s = useServices(services);
   const qc = useQueryClient();
   const { canApply } = useCanApplyOffset(services);
+  const isLaunch = !line;
   const [step, setStep] = useState<Step>("supplier");
-  const [supplierId, setSupplierId] = useState(initialSupplierId ?? "");
+  const [supplierId, setSupplierId] = useState(initialSupplierId ?? launch?.supplierId ?? "");
   const [eventId, setEventId] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
-  const [cashOrder, setCashOrder] = useState<string[]>([]);
+  const [selected, setSelected] = useState<string[]>(launch ? [launch.transactionId] : []);
+  const [cashOrder, setCashOrder] = useState<string[]>(launch ? [launch.transactionId] : []);
+  // Passo "Dinheiro" (#337)
+  const [hasMoney, setHasMoney] = useState(true);
+  const [moneyAccount, setMoneyAccount] = useState("");
+  const [moneyDate, setMoneyDate] = useState(() => s.today());
+  const [moneyAmount, setMoneyAmount] = useState("");
+  const [moneyDirection, setMoneyDirection] = useState<"in" | "out">(launch?.originSign === "expense" ? "out" : "in");
   const [sending, setSending] = useState(false);
   const [failure, setFailure] = useState<OffsetFailure | null>(null);
   const [group, setGroup] = useState<OffsetGroupSummary | null>(null);
   const [needsReload, setNeedsReload] = useState(false);
   const sendingRef = useRef(false);
   /** Pedido congelado na 1.ª tentativa; repetido tal-e-qual após resposta incerta. */
-  const pendingRef = useRef<{ requestId: string; supplierId: string; items: OffsetContractItem[] } | null>(null);
+  const pendingRef = useRef<{
+    requestId: string;
+    supplierId: string;
+    items: OffsetContractItem[];
+    movement: LaunchMovementPayload | null;
+    date: string;
+  } | null>(null);
 
-  const movementCents = Math.abs(Math.round(Number(line.amount) * 100));
-  const direction = Number(line.amount) >= 0 ? "in" : "out";
+  const moneyCents = parseEuroAmount(moneyAmount);
+  const money: LaunchMoneyInput | null =
+    isLaunch && hasMoney
+      ? { account_id: moneyAccount, date: moneyDate, amount_cents: moneyCents ?? 0, direction: moneyDirection }
+      : null;
+  const moneyError = isLaunch ? validateLaunchMoney(money, s.today()) : null;
+  const movementCents = line ? Math.abs(Math.round(Number(line.amount) * 100)) : (money?.amount_cents ?? 0);
+  const direction: "in" | "out" = line ? (Number(line.amount) >= 0 ? "in" : "out") : moneyDirection;
   const settleSign = direction === "in" ? "income" : "expense";
-  const lineDate = line.value_date || line.booking_date;
-  const futureDate = !!lineDate && lineDate > s.today();
+  const lineDate = line ? line.value_date || line.booking_date : hasMoney ? moneyDate : s.today();
+  const futureDate = line ? !!lineDate && lineDate > s.today() : false;
 
   const suppliers = useQuery({ queryKey: ["offset-suppliers"], queryFn: s.loadSuppliers, staleTime: 60_000 });
   const docs = useQuery({
@@ -168,7 +230,7 @@ export function BankLineOffsetModal({ line, accountName, onClose, onDone, servic
   );
   const byId = useMemo(() => new Map(candidates.map((c) => [c.id, c])), [candidates]);
   const chosen = selected.map((id) => byId.get(id)).filter(Boolean) as OffsetCandidate[];
-  const settleChosen = chosen.filter((c) => c.sign === settleSign);
+  const settleChosen = isLaunch && !hasMoney ? [] : chosen.filter((c) => c.sign === settleSign);
   const orderedSettle = useMemo(() => {
     const rank = new Map(cashOrder.map((id, i) => [id, i]));
     return [...settleChosen].sort((a, b) => (rank.get(a.id) ?? 1e9) - (rank.get(b.id) ?? 1e9));
@@ -176,13 +238,22 @@ export function BankLineOffsetModal({ line, accountName, onClose, onDone, servic
 
   const plan = useMemo(
     () =>
-      buildOffsetPlan(
-        { amount_cents: movementCents, direction },
-        chosen.map(candidateToPlanInput),
-        orderedSettle.map((c) => c.id),
-      ),
-    [movementCents, direction, chosen, orderedSettle],
+      isLaunch
+        ? buildLaunchOffsetPlan(money, chosen.map(candidateToPlanInput), orderedSettle.map((c) => c.id))
+        : buildOffsetPlan(
+            { amount_cents: movementCents, direction },
+            chosen.map(candidateToPlanInput),
+            orderedSettle.map((c) => c.id),
+          ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isLaunch, hasMoney, moneyAccount, moneyDate, moneyCents, moneyDirection, movementCents, direction, chosen, orderedSettle],
   );
+  const accounts = useQuery({
+    queryKey: ["offset-launch-accounts"],
+    enabled: isLaunch,
+    queryFn: s.loadAccounts,
+    staleTime: 60_000,
+  });
 
   const toggle = (c: OffsetCandidate) => {
     if (!c.eligibility.eligible) return;
@@ -208,16 +279,31 @@ export function BankLineOffsetModal({ line, accountName, onClose, onDone, servic
 
   const confirm = async () => {
     if (sendingRef.current) return; // um só pedido por clique
-    if (!plan.ok || !canApply || futureDate || needsReload) return;
+    if (!plan.ok || !canApply || futureDate || moneyError || needsReload) return;
     sendingRef.current = true;
     setSending(true);
     setFailure(null);
     try {
       if (!pendingRef.current) {
-        pendingRef.current = { requestId: s.newRequestId(), supplierId, items: plan.contract_items };
+        pendingRef.current = {
+          requestId: s.newRequestId(),
+          supplierId,
+          items: plan.contract_items,
+          movement: buildLaunchMovement(money),
+          date: money ? money.date : s.today(),
+        };
       }
       const req = pendingRef.current;
-      const r = await s.apply(s.client, { lineId: line.id, requestId: req.requestId, supplierId: req.supplierId, items: req.items });
+      const r = line
+        ? await s.apply(s.client, { lineId: line.id, requestId: req.requestId, supplierId: req.supplierId, items: req.items })
+        : await s.applyLaunch(s.client, {
+            requestId: req.requestId,
+            supplierId: req.supplierId,
+            items: req.items,
+            movement: req.movement,
+            date: req.date,
+            note: null,
+          });
       if (r.ok) {
         pendingRef.current = null;
         setGroup(r.group ?? (await findGroupByRequest(s.client, req.requestId)));
@@ -245,9 +331,15 @@ export function BankLineOffsetModal({ line, accountName, onClose, onDone, servic
         <DialogHeader className="manual-modal-header border-b p-4">
           <DialogTitle>Encontro de contas</DialogTitle>
           <DialogDescription>
-            {formatDatePT(lineDate)} · {line.description ?? ""} · {direction === "in" ? "Crédito" : "Débito"}{" "}
-            {formatEurCents(movementCents)}
-            {accountName ? ` · ${accountName}` : ""} — conta, data e valor vêm do banco.
+            {line ? (
+              <>
+                {formatDatePT(lineDate)} · {line.description ?? ""} · {direction === "in" ? "Crédito" : "Débito"}{" "}
+                {formatEurCents(movementCents)}
+                {accountName ? ` · ${accountName}` : ""} — conta, data e valor vêm do banco.
+              </>
+            ) : (
+              <>Fora do banco: receitas e despesas da mesma entidade, com ou sem movimento de dinheiro.</>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -293,10 +385,71 @@ export function BankLineOffsetModal({ line, accountName, onClose, onDone, servic
             </div>
           )}
 
+          {step === "money" && (
+            <div className="space-y-3" data-testid="money-step">
+              <p className="font-medium">3. Dinheiro</p>
+              <label className="flex items-center gap-2">
+                <Checkbox
+                  checked={!hasMoney}
+                  onCheckedChange={(v) => setHasMoney(!v)}
+                  aria-label="Sem movimento de dinheiro"
+                />
+                <span>Sem movimento de dinheiro (só compensação)</span>
+              </label>
+              {hasMoney && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <p className="mb-1 text-xs text-muted-foreground">Conta *</p>
+                    <SearchableSelect
+                      options={(accounts.data ?? []).map((x) => ({ value: x.id, label: x.name }))}
+                      value={moneyAccount}
+                      onValueChange={setMoneyAccount}
+                      placeholder={accounts.isLoading ? "A carregar…" : "Escolha a conta"}
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs text-muted-foreground">Data *</p>
+                    <input
+                      type="date"
+                      aria-label="Data do movimento"
+                      value={moneyDate}
+                      max={s.today()}
+                      onChange={(e) => setMoneyDate(e.target.value)}
+                      className="w-full rounded-md border border-border bg-background px-2 py-1.5"
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs text-muted-foreground">Valor (€) *</p>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      aria-label="Valor do movimento"
+                      value={moneyAmount}
+                      onChange={(e) => setMoneyAmount(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
+                      placeholder="0,00"
+                      className="w-full rounded-md border border-border bg-background px-2 py-1.5 font-mono"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2 sm:col-span-2">
+                    <Button type="button" size="sm" variant={moneyDirection === "in" ? "default" : "outline"} onClick={() => setMoneyDirection("in")}>
+                      Entra dinheiro (recebo)
+                    </Button>
+                    <Button type="button" size="sm" variant={moneyDirection === "out" ? "default" : "outline"} onClick={() => setMoneyDirection("out")}>
+                      Sai dinheiro (pago)
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground sm:col-span-2" data-testid="launch-bank-hint">{LAUNCH_BANK_HINT}</p>
+                </div>
+              )}
+              {moneyError && <p className="text-destructive" data-testid="money-error">{moneyError}</p>}
+            </div>
+          )}
+
           {step === "order" && (
             <div className="space-y-2">
               <p className="font-medium">3. Ordem do dinheiro ({direction === "in" ? "receitas" : "despesas"})</p>
-              <p className="text-xs text-muted-foreground">O dinheiro do banco cobre os documentos por esta ordem até esgotar.</p>
+              <p className="text-xs text-muted-foreground">O dinheiro {line ? "do banco " : ""}cobre os documentos por esta ordem até esgotar.</p>
               {orderedSettle.map((c, i) => (
                 <div key={c.id} className="flex items-center gap-2 rounded border p-2" data-testid="cash-order-row">
                   <span className="w-6 text-muted-foreground">{i + 1}.</span>
@@ -346,7 +499,10 @@ export function BankLineOffsetModal({ line, accountName, onClose, onDone, servic
                   </tbody>
                 </table>
               </div>
-              {plan.ok && plan.totals && (
+              {plan.ok && plan.totals && isLaunch && !hasMoney && (
+                <p className="text-xs">Sem movimento de dinheiro · receitas {formatEurCents(plan.totals.same_sign_open_cents)} = despesas {formatEurCents(plan.totals.opposite_sign_open_cents)}</p>
+              )}
+              {plan.ok && plan.totals && !(isLaunch && !hasMoney) && (
                 <p className="text-xs">
                   Movimento {formatEurCents(plan.totals.movement_cents)} · compensação{" "}
                   {formatEurCents(plan.totals.offset_settle_cents)} = {formatEurCents(plan.totals.offset_opposite_cents)} · diferença{" "}
@@ -373,7 +529,7 @@ export function BankLineOffsetModal({ line, accountName, onClose, onDone, servic
             <div className="space-y-2" role="status">
               <p className="font-medium">Encontro aplicado.</p>
               <p>
-                Entidade {supplierName} · líquido {formatEurCents(movementCents)}
+                Entidade {supplierName} · {isLaunch && !hasMoney ? "sem dinheiro" : `líquido ${formatEurCents(movementCents)}`}
                 {group ? ` · grupo ${group.id.slice(0, 8)} (${group.status})` : ""}
               </p>
             </div>
@@ -394,26 +550,41 @@ export function BankLineOffsetModal({ line, accountName, onClose, onDone, servic
           {step === "documents" && (
             <>
               <Button type="button" variant="outline" onClick={() => setStep("supplier")}>Voltar</Button>
-              <Button type="button" disabled={selected.length < 2 || docs.isLoading} onClick={() => setStep("order")}>
+              <Button type="button" disabled={selected.length < 2 || docs.isLoading} onClick={() => setStep(isLaunch ? "money" : "order")}>
+                Seguinte
+              </Button>
+            </>
+          )}
+          {step === "money" && (
+            <>
+              <Button type="button" variant="outline" onClick={() => setStep("documents")}>Voltar</Button>
+              <Button type="button" disabled={!!moneyError} onClick={() => setStep(hasMoney ? "order" : "preview")}>
                 Seguinte
               </Button>
             </>
           )}
           {step === "order" && (
             <>
-              <Button type="button" variant="outline" onClick={() => setStep("documents")}>Voltar</Button>
+              <Button type="button" variant="outline" onClick={() => setStep(isLaunch ? "money" : "documents")}>Voltar</Button>
               <Button type="button" onClick={() => setStep("preview")}>Ver prévia</Button>
             </>
           )}
           {step === "preview" && (
             <>
-              <Button type="button" variant="outline" disabled={sending} onClick={() => setStep("order")}>Voltar</Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={sending}
+                onClick={() => setStep(isLaunch && !hasMoney ? "money" : "order")}
+              >
+                Voltar
+              </Button>
               {needsReload ? (
                 <Button type="button" onClick={reloadPreview}>Recarregar prévia</Button>
               ) : (
                 <Button
                   type="button"
-                  disabled={!plan.ok || !canApply || futureDate || sending}
+                  disabled={!plan.ok || !canApply || futureDate || !!moneyError || sending}
                   onClick={confirm}
                 >
                   {sending ? "A enviar…" : failure?.uncertain ? "Repetir o mesmo pedido" : "Confirmar encontro"}
