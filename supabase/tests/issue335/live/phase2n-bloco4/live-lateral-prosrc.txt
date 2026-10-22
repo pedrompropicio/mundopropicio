@@ -1,0 +1,442 @@
+[map[len:990 md5:9f99daedb9bb1bfcb15babdfd76d5042 proname:_ticket_office_balance_raw prosrc:
+  WITH sales AS (
+    SELECT COALESCE(SUM(COALESCE(s.total_value, s.quantity * s.unit_price)), 0)::numeric AS total
+      FROM public.ticket_sales s
+     WHERE s.financial_account_id = _account_id
+  ),
+  txns AS (
+    SELECT COALESCE(SUM(
+      CASE WHEN t.type = 'income' THEN COALESCE(t.paid_amount, 0)
+           WHEN t.type IN ('expense', 'transfer') THEN -COALESCE(t.paid_amount, 0)
+           ELSE 0 END
+    ), 0)::numeric AS total
+      FROM public.transactions t
+     WHERE t.account_id = _account_id
+       AND t.status IN ('approved', 'paid')
+       AND t.reversed_at IS NULL
+       AND COALESCE(t.is_hidden, false) = false
+  ),
+  advances AS (
+    SELECT COALESCE(SUM(COALESCE(a.amount, 0)), 0)::numeric AS total
+      FROM public.event_ticket_office_advances a
+     WHERE a.financial_account_id = _account_id
+       AND a.transaction_id IS NULL
+       AND a.settlement_id IS NULL
+  )
+  SELECT ROUND(sales.total + txns.total - advances.total, 2)
+    FROM sales, txns, advances;
+] map[len:999 md5:1b883e9d70ee93651c12e885e2870a11 proname:apply_transaction_offsets prosrc:
+DECLARE
+  o record;
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.payment_method = 'compensation' OR NEW.status <> 'paid' OR NEW.reversed_at IS NOT NULL THEN
+      RETURN NEW;
+    END IF;
+    FOR o IN SELECT id FROM public.transaction_offsets
+              WHERE receivable_transaction_id = NEW.transaction_id
+                 OR payable_transaction_id = NEW.transaction_id
+    LOOP
+      PERFORM public._apply_transaction_offset(o.id, NEW.id);
+    END LOOP;
+    RETURN NEW;
+  ELSIF TG_OP = 'UPDATE' THEN
+    IF OLD.payment_method <> 'compensation' AND OLD.status = 'paid' AND OLD.reversed_at IS NULL
+       AND (NEW.status <> 'paid' OR NEW.reversed_at IS NOT NULL) THEN
+      PERFORM public._reverse_transaction_offsets_for(NEW.transaction_id);
+    END IF;
+    RETURN NEW;
+  ELSE
+    IF OLD.payment_method <> 'compensation' AND OLD.status = 'paid' AND OLD.reversed_at IS NULL THEN
+      PERFORM public._reverse_transaction_offsets_for(OLD.transaction_id);
+    END IF;
+    RETURN OLD;
+  END IF;
+END;
+] map[len:2495 md5:e48cb9b48a3e06c211d62a132e2098fb proname:camarim_sync_session_leg_payment prosrc:
+DECLARE
+  r record; v_sum numeric; v_date date; v_gross numeric; v_acc uuid; v_company uuid; v_cur text;
+BEGIN
+  FOR r IN
+    SELECT l.bank_tx, l.session_tx
+      FROM public.camarim_fund_moves m
+      CROSS JOIN LATERAL public._camarim_fund_move_legs(m.id) l
+     WHERE m.transaction_id = p_tx
+        OR (m.move_type = 'refund' AND EXISTS (
+              SELECT 1 FROM public.transactions a, public.transactions b
+               WHERE a.id = m.transaction_id AND b.id = p_tx AND b.id <> a.id
+                 AND b.description = a.description AND b.date = a.date AND b.amount = a.amount))
+  LOOP
+    CONTINUE WHEN r.bank_tx IS DISTINCT FROM p_tx;
+    -- Pagamentos manuais na perna da sessão (ex.: correções de 09/10) mandam: não tocar.
+    CONTINUE WHEN EXISTS (SELECT 1 FROM public.transaction_payments p
+                           WHERE p.transaction_id = r.session_tx AND p.status = 'paid'
+                             AND p.created_by <> 'base #287');
+
+    SELECT COALESCE(SUM(p.amount), 0), MAX(p.payment_date)
+      INTO v_sum, v_date
+      FROM public.transaction_payments p
+     WHERE p.transaction_id = r.bank_tx AND p.status = 'paid';
+
+    SELECT t.amount * (1 + COALESCE(t.iva_rate, 0) / 100.0), t.account_id, t.company_id, COALESCE(t.currency,'EUR')
+      INTO v_gross, v_acc, v_company, v_cur
+      FROM public.transactions t WHERE t.id = r.session_tx;
+
+    -- Idempotente: a linha da base é recalculada a partir da perna do banco.
+    IF EXISTS (SELECT 1 FROM public.transaction_payments p
+                WHERE p.transaction_id = r.session_tx AND p.created_by = 'base #287'
+                  AND p.status = 'paid' AND p.amount = LEAST(v_sum, v_gross)
+                  AND p.payment_date = v_date)
+       AND (SELECT count(*) FROM public.transaction_payments p
+             WHERE p.transaction_id = r.session_tx AND p.created_by = 'base #287') = 1 THEN
+      CONTINUE;
+    END IF;
+
+    DELETE FROM public.transaction_payments
+     WHERE transaction_id = r.session_tx AND created_by = 'base #287';
+
+    IF v_sum > 0.01 THEN
+      INSERT INTO public.transaction_payments
+        (transaction_id, amount, payment_date, account_id, payment_method, status,
+         created_by, company_id, currency, notes)
+      VALUES (r.session_tx, LEAST(v_sum, v_gross), v_date, v_acc, 'transfer', 'paid',
+              'base #287', v_company, v_cur, 'Entrada na conta da sessão (espelho da perna do banco)');
+    END IF;
+
+    PERFORM public._derive_paid_amount(r.session_tx);
+  END LOOP;
+END;
+] map[len:1574 md5:4f574f9dd681ebf260ff81dd615d11af proname:card_load_on_out_paid prosrc:
+DECLARE
+  v_load  public.card_session_loads%ROWTYPE;
+  v_sess  public.card_sessions%ROWTYPE;
+  v_src_name TEXT;
+  v_card_name TEXT;
+  v_cat_id UUID;
+  v_in_id UUID;
+BEGIN
+  IF NEW.status <> 'paid' OR OLD.status = 'paid' THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT * INTO v_load
+  FROM public.card_session_loads
+  WHERE out_transaction_id = NEW.id
+    AND in_transaction_id IS NULL
+  LIMIT 1;
+  IF NOT FOUND THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT * INTO v_sess FROM public.card_sessions WHERE id = v_load.session_id;
+  IF NOT FOUND THEN RETURN NEW; END IF;
+
+  SELECT name INTO v_src_name  FROM public.financial_accounts WHERE id = v_load.source_account_id;
+  SELECT name INTO v_card_name FROM public.financial_accounts WHERE id = v_sess.card_account_id;
+  SELECT id   INTO v_cat_id    FROM public.account_categories  WHERE code = '10.3' LIMIT 1;
+
+  INSERT INTO public.transactions (
+    company_id, type, description, amount, iva_rate, date,
+    status, paid_amount, payment_date,
+    is_transitory, transitory_reason, exclude_from_result, category_id, account_id
+  ) VALUES (
+    NEW.company_id, 'income',
+    'Carga de ' || COALESCE(v_src_name,'origem') || ' (' || COALESCE(v_src_name,'origem') || ' → ' || COALESCE(v_card_name,'cartão') || ')',
+    v_load.amount, 0, v_load.load_date,
+    'paid', v_load.amount, COALESCE(NEW.payment_date, v_load.load_date),
+    TRUE, 'carga_cartao', TRUE, v_cat_id, v_sess.card_account_id
+  ) RETURNING id INTO v_in_id;
+
+  UPDATE public.card_session_loads
+     SET in_transaction_id = v_in_id
+   WHERE id = v_load.id;
+
+  RETURN NEW;
+END;
+] map[len:708 md5:081f6b2023ce838a37f450873bf0e7bc proname:guard_paid_amount_vs_payments prosrc:
+DECLARE v_sum numeric;
+BEGIN
+  IF NEW.paid_amount IS NOT DISTINCT FROM OLD.paid_amount THEN RETURN NEW; END IF;
+  IF public._paid_guard_is_exempt(NEW) THEN RETURN NEW; END IF;
+  SELECT COALESCE(SUM(amount), 0) INTO v_sum FROM public.transaction_payments
+   WHERE transaction_id = NEW.id AND status = 'paid';
+  IF COALESCE(NEW.paid_amount, 0) < v_sum - 0.01 AND pg_trigger_depth() <= 1 THEN
+    RAISE EXCEPTION 'O valor pago (% €) não pode ficar abaixo da soma dos pagamentos registados (% €). Para reduzir, estorne ou apague o pagamento no separador Pagamento da transação.',
+      round(COALESCE(NEW.paid_amount, 0), 2), round(v_sum, 2)
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END ] map[len:1976 md5:ea609d670ca2072770bf740b8d33ef5f proname:materialize_paid_amount_payment prosrc:
+DECLARE v_sum numeric; v_diff numeric; v_method text;
+BEGIN
+  IF TG_OP = 'UPDATE' AND NEW.paid_amount IS NOT DISTINCT FROM OLD.paid_amount THEN RETURN NULL; END IF;
+  IF TG_OP = 'INSERT' AND COALESCE(NEW.paid_amount, 0) <= 0.01 THEN RETURN NULL; END IF;
+  IF public._paid_guard_is_exempt(NEW) THEN RETURN NULL; END IF;
+
+  SELECT COALESCE(SUM(amount), 0) INTO v_sum FROM public.transaction_payments
+   WHERE transaction_id = NEW.id AND status = 'paid';
+  v_diff := round(COALESCE(NEW.paid_amount, 0) - v_sum, 2);
+  IF abs(v_diff) <= 0.01 THEN RETURN NULL; END IF;
+
+  IF v_diff < 0 THEN
+    UPDATE public.transaction_payments
+       SET status = 'reversed', reversed_at = now(),
+           reversal_reason = 'reajuste automático do valor pago (D-ERP157)'
+     WHERE transaction_id = NEW.id AND status = 'paid' AND created_by = 'base D-ERP157';
+    SELECT COALESCE(SUM(amount), 0) INTO v_sum FROM public.transaction_payments
+     WHERE transaction_id = NEW.id AND status = 'paid';
+    v_diff := round(COALESCE(NEW.paid_amount, 0) - v_sum, 2);
+  END IF;
+
+  IF v_diff > 0.01 THEN
+    v_method := CASE WHEN NEW.account_id IS NULL THEN 'compensation'
+                     WHEN NEW.payment_method IN ('transfer','service_payment','direct_debit','state_payment') THEN NEW.payment_method
+                     ELSE 'transfer' END;
+    INSERT INTO public.transaction_payments
+      (transaction_id, amount, payment_date, account_id, payment_method, status,
+       closes_transaction, company_id, created_by, notes)
+    VALUES
+      (NEW.id, v_diff, COALESCE(NEW.payment_date, NEW.date, current_date),
+       CASE WHEN v_method = 'compensation' THEN NULL ELSE NEW.account_id END,
+       v_method, 'paid', NEW.status = 'paid', NEW.company_id, 'base D-ERP157',
+       'Criado pela base: transação gravada com valor pago sem linha de pagamento ('
+         || COALESCE(auth.jwt() ->> 'email', current_user) || ')');
+  END IF;
+
+  PERFORM public._derive_paid_amount(NEW.id);
+  RETURN NULL;
+END ] map[len:998 md5:c64e36533f74be6f0cf4bc7eb2a064ff proname:reimbursement_propagate_payment prosrc:
+DECLARE
+  v_note RECORD;
+BEGIN
+  -- Só age em transições para 'paid'
+  IF NEW.status IS DISTINCT FROM 'paid' THEN
+    RETURN NEW;
+  END IF;
+  IF TG_OP = 'UPDATE' AND OLD.status = 'paid' THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT * INTO v_note
+  FROM public.reimbursement_notes
+  WHERE payment_transaction_id = NEW.id
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RETURN NEW;
+  END IF;
+
+  -- Marca todos os itens como pagos (gross = base * (1 + iva/100))
+  UPDATE public.transactions t
+  SET status = 'paid',
+      paid_amount = ROUND((t.amount * (1 + COALESCE(t.iva_rate,0) / 100.0))::numeric, 2),
+      payment_date = COALESCE(NEW.payment_date, CURRENT_DATE),
+      updated_at = now()
+  FROM public.reimbursement_note_items i
+  WHERE i.transaction_id = t.id
+    AND i.reimbursement_note_id = v_note.id;
+
+  -- Marca a nota como Paga
+  UPDATE public.reimbursement_notes
+  SET status = 'paid',
+      paid_at = now(),
+      updated_at = now()
+  WHERE id = v_note.id
+    AND status <> 'paid';
+
+  RETURN NEW;
+END;
+] map[len:203 md5:8909621f5db7a8f972b02464f4c22ca2 proname:sync_paid_amount_from_payments prosrc:
+BEGIN
+  IF pg_trigger_depth() > 1 THEN
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+  PERFORM public._derive_paid_amount(COALESCE(NEW.transaction_id, OLD.transaction_id));
+  RETURN COALESCE(NEW, OLD);
+END;
+] map[len:3238 md5:afe22b69d056603f73b14c1697d32dbe proname:sync_partner_aporte_mirror prosrc:
+declare
+  v_src       record;
+  v_acc       record;
+  v_partner   record;
+  v_cat_id    uuid;
+  v_amount    numeric := 0;
+  v_bridge_id uuid;
+  v_aporte_id uuid;
+  v_ret       record;
+begin
+  if TG_OP = 'DELETE' then v_src := OLD; else v_src := NEW; end if;
+  if TG_OP = 'DELETE' then v_ret := OLD; else v_ret := NEW; end if;
+
+  -- Só despesas geram aporte. O aporte espelhado e receita, logo nunca se espelha a si proprio.
+  if v_src.type is distinct from 'expense' then
+    return v_ret;
+  end if;
+
+  select id, aporte_transaction_id into v_bridge_id, v_aporte_id
+    from partner_aporte_mirror
+   where source_transaction_id = v_src.id;
+
+  if TG_OP <> 'DELETE' then
+    select * into v_acc from financial_accounts where id = NEW.account_id;
+    if v_acc.id is not null
+       and coalesce(v_acc.mirror_partner_aporte, false)
+       and v_acc.partner_id is not null
+       and NEW.status = 'paid'
+       and NEW.reversed_at is null
+    then
+      v_amount := coalesce(NEW.paid_amount, 0);
+    end if;
+  end if;
+
+  -- Nada a fazer
+  if v_amount <= 0 and v_bridge_id is null then
+    return v_ret;
+  end if;
+
+  -- Deixou de haver aporte: apagar o espelho (a ponte e o movimento de capital caem por cascata)
+  if v_amount <= 0 then
+    delete from transactions where id = v_aporte_id;
+    return v_ret;
+  end if;
+
+  select * into v_partner from event_partners where id = v_acc.partner_id;
+  select id into v_cat_id from account_categories
+   where company_id = NEW.company_id and code = '10.1.01' limit 1;
+  if v_cat_id is null then
+    raise exception 'Conta-espelho: rubrica 10.1.01 nao existe na empresa %', NEW.company_id;
+  end if;
+
+  if v_bridge_id is null then
+    insert into transactions (
+      company_id, type, description, amount, paid_amount, iva_rate,
+      date, payment_date, status, account_id, event_id, supplier_id,
+      category_id, payment_method
+    ) values (
+      NEW.company_id, 'income',
+      'Aporte automatico — ' || NEW.description,
+      v_amount, v_amount, 0,
+      coalesce(NEW.payment_date, NEW.date), coalesce(NEW.payment_date, NEW.date), 'paid',
+      NEW.account_id, v_partner.event_id, v_partner.supplier_id,
+      v_cat_id, 'transfer'
+    ) returning id into v_aporte_id;
+
+    insert into partner_aporte_mirror
+      (company_id, account_id, source_transaction_id, aporte_transaction_id)
+    values (NEW.company_id, NEW.account_id, NEW.id, v_aporte_id);
+
+    insert into partner_capital_moves
+      (company_id, event_id, partner_id, transaction_id, kind, flow)
+    values (NEW.company_id, v_partner.event_id, v_acc.partner_id, v_aporte_id,
+            'aporte', 'partner_settlement');
+  else
+    update transactions set
+      description  = 'Aporte automatico — ' || NEW.description,
+      amount       = v_amount,
+      paid_amount  = v_amount,
+      date         = coalesce(NEW.payment_date, NEW.date),
+      payment_date = coalesce(NEW.payment_date, NEW.date),
+      account_id   = NEW.account_id,
+      event_id     = v_partner.event_id,
+      supplier_id  = v_partner.supplier_id,
+      updated_at   = now()
+    where id = v_aporte_id;
+
+    update partner_aporte_mirror
+       set account_id = NEW.account_id, updated_at = now()
+     where id = v_bridge_id;
+  end if;
+
+  return v_ret;
+end;
+] map[len:2715 md5:c6b7b674e776a67a06e9e6e3a443759a proname:sync_shared_cost_mirror prosrc:
+declare
+  v_src        record;
+  v_ret        record;
+  v_bridge_id  uuid;
+  v_mirror_id  uuid;
+  v_amount     numeric := 0;
+  v_cat_id     uuid;
+begin
+  if TG_OP = 'DELETE' then v_src := OLD; v_ret := OLD; else v_src := NEW; v_ret := NEW; end if;
+
+  -- Guarda anti-recursao: o proprio espelho nunca dispara logica de espelho.
+  if exists (select 1 from shared_cost_mirror where mirror_transaction_id = v_src.id) then
+    return v_ret;
+  end if;
+
+  select id, mirror_transaction_id into v_bridge_id, v_mirror_id
+    from shared_cost_mirror
+   where source_transaction_id = v_src.id;
+
+  if TG_OP <> 'DELETE'
+     and NEW.type = 'expense'
+     and NEW.shared_cost_account_id is not null
+     and NEW.status = 'paid'
+     and NEW.reversed_at is null
+  then
+    v_amount := coalesce(NEW.paid_amount, 0);
+  end if;
+
+  -- Nada a fazer
+  if v_amount <= 0 and v_bridge_id is null then
+    return v_ret;
+  end if;
+
+  -- Deixou de haver adiantamento: apagar o espelho (a ponte cai por cascata)
+  if v_amount <= 0 then
+    delete from transactions where id = v_mirror_id;
+    return v_ret;
+  end if;
+
+  select id into v_cat_id from account_categories
+   where company_id = NEW.company_id and code = '10.12.01' limit 1;
+  if v_cat_id is null then
+    raise exception 'Custo partilhado: rubrica 10.12.01 nao existe na empresa %', NEW.company_id;
+  end if;
+
+  if v_bridge_id is null then
+    insert into transactions (
+      company_id, type, description, amount, paid_amount, iva_rate,
+      date, payment_date, status, account_id, event_id, supplier_id,
+      category_id, payment_method, exclude_from_result
+    ) values (
+      NEW.company_id, 'income',
+      'Adiantamento por conta de terceiros — ' || coalesce(NEW.description, ''),
+      v_amount, v_amount, 0,
+      NEW.date, NEW.payment_date, 'paid',
+      NEW.shared_cost_account_id, null, NEW.shared_cost_counterparty_id,
+      v_cat_id, 'transfer', true
+    ) returning id into v_mirror_id;
+
+    insert into shared_cost_mirror
+      (company_id, account_id, source_transaction_id, mirror_transaction_id)
+    values (NEW.company_id, NEW.shared_cost_account_id, NEW.id, v_mirror_id);
+  else
+    update transactions set
+      description  = 'Adiantamento por conta de terceiros — ' || coalesce(NEW.description, ''),
+      amount       = v_amount,
+      paid_amount  = v_amount,
+      date         = NEW.date,
+      payment_date = NEW.payment_date,
+      account_id   = NEW.shared_cost_account_id,
+      supplier_id  = NEW.shared_cost_counterparty_id,
+      updated_at   = now()
+    where id = v_mirror_id;
+
+    update shared_cost_mirror
+       set account_id = NEW.shared_cost_account_id, updated_at = now()
+     where id = v_bridge_id;
+  end if;
+
+  return v_ret;
+end;
+] map[len:310 md5:e92d40b0fe1752a4cd4533637398fc34 proname:trg_camarim_session_leg_follows_bank prosrc:
+BEGIN
+  IF TG_OP <> 'INSERT' THEN PERFORM public.camarim_sync_session_leg_payment(OLD.transaction_id); END IF;
+  IF TG_OP <> 'DELETE' AND (TG_OP = 'INSERT' OR NEW.transaction_id <> OLD.transaction_id) THEN
+    PERFORM public.camarim_sync_session_leg_payment(NEW.transaction_id);
+  END IF;
+  RETURN NULL;
+END;
+]]
