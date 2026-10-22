@@ -1,0 +1,382 @@
+{
+ "forecast_cycle": [
+  {
+   "cenario": "ANTES (legado detecta primeiro)",
+   "encontro_esperou": true,
+   "encontro": [
+    "ok",
+    [
+     [
+      {
+       "status": "applied",
+       "group_id": "c118a5b3-18aa-433d-ad17-d09d275c1bad",
+       "movement_amount": -60,
+       "transaction_ids": [
+        "979a5e46-8419-4b0d-82ef-c20b5c073e97",
+        "7991b853-81d2-4d5d-94ec-2b69c4b9c036"
+       ]
+      }
+     ]
+    ]
+   ],
+   "legado": [
+    "40P01",
+    "deadlock detected"
+   ],
+   "legado_fim": [
+    "ok",
+    "abortado pelo deadlock"
+   ],
+   "req": "976ce199-50b1-47ef-8a7f-46a2a7d89c0e",
+   "f": "67af8fa2-c7e8-4afe-b0b5-4f2d90a2366d",
+   "inc": "7991b853-81d2-4d5d-94ec-2b69c4b9c036",
+   "pend": "2b0f4852-0732-4415-b09b-9dd9c086652a"
+  },
+  {
+   "cenario": "ANTES (encontro detecta primeiro)",
+   "encontro_esperou": true,
+   "encontro": [
+    "55P03",
+    "encontro_em_conflito: operação concorrente; atualize a prévia e tente novamente"
+   ],
+   "legado": [
+    "ok",
+    []
+   ],
+   "legado_fim": [
+    "ok",
+    []
+   ],
+   "req": "7baef825-358c-4bc5-8424-a820d59e9967",
+   "f": "d8105d90-0bc0-4274-8304-73091be123da",
+   "inc": "ae2a9a17-44af-475b-8830-4e862e116fbb",
+   "pend": "f469a8ea-8584-42f9-b936-01ae71aadc63"
+  },
+  {
+   "cenario": "DEPOIS (deadlock_timeout encontro 30s)",
+   "encontro_esperou": false,
+   "encontro": [
+    "55P03",
+    "encontro_em_conflito: operação concorrente; atualize a prévia e tente novamente"
+   ],
+   "legado": [
+    "ok",
+    []
+   ],
+   "legado_fim": [
+    "ok",
+    []
+   ],
+   "req": "6ec179ed-3697-4a2a-bfc9-9b2d90e6646a",
+   "f": "3771c129-9f8a-4ec6-9023-d243550c5c6e",
+   "inc": "639ffa3c-6ccb-4b0c-ae8d-e3129cc76a22",
+   "pend": "f9b17b29-1bdf-4e7a-96df-178b39ef8dde",
+   "repeticao": "ok",
+   "replay_igual": true
+  },
+  {
+   "cenario": "DEPOIS (deadlock_timeout encontro 100ms)",
+   "encontro_esperou": false,
+   "encontro": [
+    "55P03",
+    "encontro_em_conflito: operação concorrente; atualize a prévia e tente novamente"
+   ],
+   "legado": [
+    "ok",
+    []
+   ],
+   "legado_fim": [
+    "ok",
+    []
+   ],
+   "req": "987b08de-3ab2-4550-bf6a-d4e0483c47a0",
+   "f": "b5ea2a6d-c17e-412d-bd48-239c7cf4daf7",
+   "inc": "4548e9d7-fa7a-4092-9784-a21ff4a05247",
+   "pend": "3ea7a0e0-a386-4045-a4d8-7e991443e0b2",
+   "repeticao": "ok",
+   "replay_igual": true
+  }
+ ],
+ "lateral": [
+  {
+   "trigger": "reimbursement_propagate_payment",
+   "legado": "ok",
+   "efeito_legado": [
+    "paid",
+    "paid"
+   ],
+   "efeito_esperado": [
+    "paid",
+    "paid"
+   ],
+   "encontro_durante": [
+    "55P03",
+    "encontro_em_conflito: operação concorrente; atualize a prévia e tente novamente"
+   ],
+   "encontro_esperou": false,
+   "encontro_independente": "ok",
+   "encontro_depois": [
+    "P0001",
+    "invalid_document"
+   ],
+   "grupos_doc": 0
+  },
+  {
+   "trigger": "card_load_on_out_paid",
+   "legado": "ok",
+   "efeito_legado": [
+    true,
+    "40/9a8d1755-e813-4fe8-8b91-ab2a18602057"
+   ],
+   "efeito_esperado": [
+    true,
+    "40/9a8d1755-e813-4fe8-8b91-ab2a18602057"
+   ],
+   "encontro_durante": [
+    "55P03",
+    "encontro_em_conflito: operação concorrente; atualize a prévia e tente novamente"
+   ],
+   "encontro_esperou": false,
+   "encontro_independente": "ok",
+   "encontro_depois": [
+    "P0001",
+    "invalid_document"
+   ],
+   "grupos_doc": 0
+  },
+  {
+   "trigger": "sync_partner_aporte_mirror",
+   "legado": "ok",
+   "efeito_legado": [
+    1,
+    "40"
+   ],
+   "efeito_esperado": [
+    1,
+    "40"
+   ],
+   "encontro_durante": [
+    "55P03",
+    "encontro_em_conflito: operação concorrente; atualize a prévia e tente novamente"
+   ],
+   "encontro_esperou": false,
+   "encontro_independente": "ok",
+   "encontro_depois": [
+    "P0001",
+    "invalid_document"
+   ],
+   "grupos_doc": 0
+  },
+  {
+   "trigger": "sync_shared_cost_mirror",
+   "legado": "ok",
+   "efeito_legado": [
+    "40",
+    "b544f001-042f-4352-a490-93d22383b911"
+   ],
+   "efeito_esperado": [
+    "40",
+    "b544f001-042f-4352-a490-93d22383b911"
+   ],
+   "encontro_durante": [
+    "55P03",
+    "encontro_em_conflito: operação concorrente; atualize a prévia e tente novamente"
+   ],
+   "encontro_esperou": false,
+   "encontro_independente": "ok",
+   "encontro_depois": [
+    "P0001",
+    "invalid_document"
+   ],
+   "grupos_doc": 0
+  },
+  {
+   "trigger": "camarim_sync_session_leg_payment",
+   "legado": "ok",
+   "efeito_legado": [
+    "40",
+    "base #287"
+   ],
+   "efeito_esperado": [
+    "40",
+    "base #287"
+   ],
+   "encontro_durante": [
+    "55P03",
+    "encontro_em_conflito: operação concorrente; atualize a prévia e tente novamente"
+   ],
+   "encontro_esperou": false,
+   "encontro_independente": "ok",
+   "encontro_depois": [
+    "P0001",
+    "invalid_document"
+   ],
+   "grupos_doc": 0
+  },
+  {
+   "trigger": "_ticket_office_balance_raw",
+   "legado": "ok",
+   "efeito_legado": [
+    "-40.00"
+   ],
+   "efeito_esperado": [
+    "-40.00"
+   ],
+   "encontro_durante": [
+    "55P03",
+    "encontro_em_conflito: operação concorrente; atualize a prévia e tente novamente"
+   ],
+   "encontro_esperou": false,
+   "encontro_independente": "ok",
+   "encontro_depois": [
+    "P0001",
+    "invalid_document"
+   ],
+   "grupos_doc": 0
+  }
+ ],
+ "regression": [
+  {
+   "caminho": "reimbursement_propagate_payment",
+   "recusa": [
+    "P0001",
+    "unsupported_debt"
+   ]
+  },
+  {
+   "caminho": "card_load_on_out_paid",
+   "recusa": [
+    "P0001",
+    "unsupported_debt"
+   ]
+  },
+  {
+   "caminho": "sync_partner_aporte_mirror",
+   "recusa": [
+    "P0001",
+    "unsupported_debt"
+   ]
+  },
+  {
+   "caminho": "sync_shared_cost_mirror",
+   "recusa": [
+    "P0001",
+    "unsupported_debt"
+   ]
+  },
+  {
+   "caminho": "camarim_sync_session_leg_payment",
+   "recusa": [
+    "P0001",
+    "camarim_leg_unsupported: movimentos de camarim não entram no encontro de contas"
+   ]
+  },
+  {
+   "caminho": "_ticket_office_balance_raw",
+   "recusa": [
+    "P0001",
+    "unsupported_debt"
+   ]
+  },
+  {
+   "caminho": "encontro legal (aplica + estorna)",
+   "aplica": "ok",
+   "estorna": "ok"
+  },
+  {
+   "caminho": "is_transitory",
+   "recusa": [
+    "P0001",
+    "unsupported_debt"
+   ]
+  },
+  {
+   "caminho": "shared_cost_account_id",
+   "recusa": [
+    "P0001",
+    "unsupported_debt"
+   ]
+  },
+  {
+   "caminho": "declared_withholding_amount",
+   "recusa": [
+    "P0001",
+    "unsupported_debt"
+   ]
+  }
+ ],
+ "parity_md5": {
+  "_ticket_office_balance_raw": {
+   "live": "9f99daedb9bb1bfcb15babdfd76d5042",
+   "harness": "9f99daedb9bb1bfcb15babdfd76d5042"
+  },
+  "apply_transaction_offsets": {
+   "live": "1b883e9d70ee93651c12e885e2870a11",
+   "harness": "1b883e9d70ee93651c12e885e2870a11"
+  },
+  "camarim_sync_session_leg_payment": {
+   "live": "e48cb9b48a3e06c211d62a132e2098fb",
+   "harness": "e48cb9b48a3e06c211d62a132e2098fb"
+  },
+  "card_load_on_out_paid": {
+   "live": "4f574f9dd681ebf260ff81dd615d11af",
+   "harness": "4f574f9dd681ebf260ff81dd615d11af"
+  },
+  "guard_paid_amount_vs_payments": {
+   "live": "081f6b2023ce838a37f450873bf0e7bc",
+   "harness": "081f6b2023ce838a37f450873bf0e7bc"
+  },
+  "materialize_paid_amount_payment": {
+   "live": "ea609d670ca2072770bf740b8d33ef5f",
+   "harness": "ea609d670ca2072770bf740b8d33ef5f"
+  },
+  "reimbursement_propagate_payment": {
+   "live": "c64e36533f74be6f0cf4bc7eb2a064ff",
+   "harness": "c64e36533f74be6f0cf4bc7eb2a064ff"
+  },
+  "sync_paid_amount_from_payments": {
+   "live": "8909621f5db7a8f972b02464f4c22ca2",
+   "harness": "8909621f5db7a8f972b02464f4c22ca2"
+  },
+  "sync_partner_aporte_mirror": {
+   "live": "afe22b69d056603f73b14c1697d32dbe",
+   "harness": "afe22b69d056603f73b14c1697d32dbe"
+  },
+  "sync_shared_cost_mirror": {
+   "live": "c6b7b674e776a67a06e9e6e3a443759a",
+   "harness": "c6b7b674e776a67a06e9e6e3a443759a"
+  },
+  "trg_camarim_session_leg_follows_bank": {
+   "live": "e92d40b0fe1752a4cd4533637398fc34",
+   "harness": "e92d40b0fe1752a4cd4533637398fc34"
+  }
+ },
+ "account_delete": [
+  {
+   "fim_remocao": "ROLLBACK",
+   "encontro": [
+    "ok",
+    [
+     [
+      {
+       "status": "applied",
+       "group_id": "2e9bf4d6-3dea-41ef-ae3f-f97c728a089c",
+       "movement_amount": 60,
+       "transaction_ids": [
+        "8b769b62-9bef-4cb0-a82f-a24af14c74ea",
+        "add80eb9-eed3-4b9e-a519-ea7c07a23dfe"
+       ]
+      }
+     ]
+    ]
+   ]
+  },
+  {
+   "fim_remocao": "COMMIT",
+   "encontro": [
+    "23503",
+    "insert or update on table \"transaction_offset_groups\" violates foreign key constraint \"transaction_offset_groups_account_id_fkey\""
+   ]
+  }
+ ]
+}
