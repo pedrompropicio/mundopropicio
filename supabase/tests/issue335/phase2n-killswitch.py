@@ -159,8 +159,8 @@ set_state('N0')
 for level, setup in (('N1', [KS]), ('N2', [KS, EM])):
     set_state('N0'); a, b, g = make_group()
     for s in setup: assert run_script(ops, s)[0] == 'ok'
-    snap = snapshot([a, b])
     c, d = fixture(); line = bank_line()
+    snap = snapshot([a, b])
     paths = {'transaction_offset_execute': outcome(S[1], *call_exec(c, d)),
              'issue335_commands (INSERT na view)': outcome(S[1], *call_cmd(c, d)),
              "reconcile_bank_line mode 'offset'": outcome(S[1], *call_bank(c, d, line))}
@@ -269,6 +269,8 @@ ACL_Q = """SELECT jsonb_object_agg(k,v) FROM (
  UNION ALL SELECT 'm:'||r.rolname||'>'||m.rolname, g.admin_option::text||g.inherit_option::text||g.set_option::text FROM pg_auth_members g JOIN pg_roles r ON r.oid=g.roleid JOIN pg_roles m ON m.oid=g.member) s"""
 def acl(): return sql(obs, ACL_Q)[0][0]
 live = json.loads((ROOT / 'supabase/tests/issue335/live/phase2n-bloco3/live-acl.json').read_text())
+def norm(v):  # aclitems como conjunto: a ordem interna difere entre Live e o harness (GRANTs reaplicados), o conteúdo não
+    return None if v is None else tuple(sorted(v.strip('{}').split(',')))
 for origin_path, scripts in (('N1', [KS]), ('N2', [KS, EM])):
     set_state('N0'); base = acl()
     for s in scripts: assert run_script(ops, s)[0] == 'ok'
@@ -276,10 +278,12 @@ for origin_path, scripts in (('N1', [KS]), ('N2', [KS, EM])):
     assert run_script(ops, RE)[0] == 'ok'; after = acl()
     d_during = {k: (base.get(k), during.get(k)) for k in base.keys() | during.keys() if base.get(k) != during.get(k)}
     d_after = {k: (base.get(k), after.get(k)) for k in base.keys() | after.keys() if base.get(k) != after.get(k)}
-    live_diff = {k: (v, after.get(k)) for k, v in live.items() if after.get(k) != v}
-    live_diff_install = {k: (v, base.get(k)) for k, v in live.items() if base.get(k) != v}   # deltas do core (instalação), não dos níveis
+    live_diff = {k: (v, after.get(k)) for k, v in live.items() if norm(after.get(k)) != norm(v)}
+    live_diff_install = {k: (v, base.get(k)) for k, v in live.items() if norm(base.get(k)) != norm(v)}
+    extra = {k: sorted(set(norm(base.get(k))) ^ set(norm(v))) for k, v in live.items() if norm(base.get(k)) != norm(v)}
+    check(all(all(i.startswith('issue335_executor=') for i in x) for x in extra.values()), f'B3(c) {origin_path}: deltas Live vs instalação são só GRANTs a issue335_executor do core', extra)   # deltas do core (instalação), não dos níveis
     report['acl'][f'reactivar_de_{origin_path}'] = dict(objetos=len(after), diferencas_durante_nivel=d_during, diferencas_pos_reactivacao=d_after,
-        diferencas_vs_live_pos_reactivacao=live_diff, diferencas_vs_live_pos_instalacao=live_diff_install, estado=state())
+        diferencas_vs_live_pos_reactivacao=live_diff, diferencas_vs_live_pos_instalacao=live_diff_install, deltas_instalacao=extra, estado=state())
     check(not d_during and not d_after and state() == 'N0', f'B3(c) reactivar de {origin_path}: ACL integral ({len(after)} entradas) igual antes/durante/depois, diferenças={{}}', (d_during, d_after))
     check(live_diff == live_diff_install, f'B3(c) reactivar de {origin_path}: {len(live)} objectos Live — níveis/reactivação acrescentam diferenças={{}} (deltas só de instalação: {sorted(live_diff_install)})', (live_diff, live_diff_install))
 
