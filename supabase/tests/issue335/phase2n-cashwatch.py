@@ -109,7 +109,7 @@ def contas_case(name):
     if name == 'B1 compensação legada sem ligação, documento com conta X':
         b = tx('expense', 40, account_id=ACC2); leg(b, 10, None, 'compensation'); a = tx('income', 100)
         return [dict(transaction_id=a, mode='settle'), dict(transaction_id=b, mode='offset')], 70, ACC2
-    if name == 'B2 documento com conta X, dinheiro novo na conta do grupo Y':
+    if name == 'L4 legítimo (2e): documento com conta X, dinheiro novo na conta do grupo Y':
         a = tx('income', 100, account_id=ACC2); b = tx('expense', 40)
         return [dict(transaction_id=a, mode='settle'), dict(transaction_id=b, mode='offset')], 60, ACC2
     if name == 'B3 perna legada em dinheiro sem conta (2k)':
@@ -127,16 +127,16 @@ def contas_case(name):
     if name == 'L3 legítimo: compensação pura, documento offset com conta X (sem dinheiro novo)':
         a = tx('income', 40, account_id=ACC2); b = tx('expense', 40)
         return [dict(transaction_id=a, mode='offset'), dict(transaction_id=b, mode='offset')], 0, ACC2
-CASES = ['B1 compensação legada sem ligação, documento com conta X', 'B2 documento com conta X, dinheiro novo na conta do grupo Y',
+CASES = ['B1 compensação legada sem ligação, documento com conta X', 'L4 legítimo (2e): documento com conta X, dinheiro novo na conta do grupo Y',
          'B3 perna legada em dinheiro sem conta (2k)', 'B4 perna legada em conta diferente do documento (2k)',
          'L1 legítimo: documento com conta = conta do grupo, perna legada nessa conta', 'L2 legítimo: documentos sem conta, sem pernas',
          'L3 legítimo: compensação pura, documento offset com conta X (sem dinheiro novo)']
-EXPECT = {'ANTES': ['ok', 'ok', 'P0001', 'P0001', 'ok', 'ok', 'ok'], 'DEPOIS': ['P0001', 'P0001', 'P0001', 'P0001', 'ok', 'ok', 'ok']}
+EXPECT = {'ANTES': ['ok', 'ok', 'P0001', 'P0001', 'ok', 'ok', 'ok'], 'DEPOIS': ['P0001', 'ok', 'P0001', 'P0001', 'ok', 'ok', 'ok']}
 for phase in ('ANTES', 'DEPOIS'):
     sql(obs, core_def.replace(NEW_G, OLD_G) if phase == 'ANTES' else core_def)
     for name, exp in zip(CASES, EXPECT[phase]):
         items, amount, affected = contas_case(name)
-        b0 = bal(affected); s0 = snapshot(); r = execute(items, amount); b1 = bal(affected)
+        b0 = bal(affected); row_acc0 = bal(ACCOUNT); s0 = snapshot(); r = execute(items, amount); b1 = bal(affected)
         row = dict(fase=phase, caso=name, esperado=exp, obtido=r[0], erro=None if r[0] == 'ok' else r[1], saldo_conta_antes=str(b0), saldo_conta_depois=str(b1))
         if r[0] == 'ok':
             run_file('cash_watch.INERTE'); row['vigia_novo'] = new_watch(); run_file('cash_watch.ROLLBACK-INERTE')
@@ -144,12 +144,12 @@ for phase in ('ANTES', 'DEPOIS'):
         else:
             row['snapshot_igual'] = (snapshot() == s0)
         report['contas'].append(row)
-        if r[0] == 'ok' and name[:2] in ('B1', 'B2'):  # estorno real imediato: não contamina os casos seguintes
+        if r[0] == 'ok' and name[:2] == 'B1':  # estorno real imediato: não contamina os casos seguintes
             rv = reverse(r[1]); row['estorno'] = rv[0]; check(rv[0] == 'ok', f'B5(b) estorno do grupo {phase} {name[:2]} aceite', rv)
         ok = r[0] == exp and (r[0] == 'ok' or (row['snapshot_igual'] and 'cash_account_inconsistent' in r[1]))
         if name.startswith('B1') and r[0] == 'ok': ok = ok and b1 != b0  # ANTES: activação reinterpreta o saldo da conta X sem dinheiro
-        if name.startswith('B2') and r[0] == 'ok': ok = ok and row['vigia_novo']['vigia_contas_uniao'] > 0
         if name.startswith('L'): ok = ok and b1 - b0 == (amount if affected == ACCOUNT else 0) and sum(row['vigia_novo'].values()) == 0
+        if name.startswith('L4'): ok = ok and bal(ACCOUNT) - row_acc0 == 60
         check(ok, f'B5(b) {phase} {name}: esperado {exp}', row)
 run_file('cash_watch.INERTE')
 check(sum(new_watch().values()) == 0, 'B5(b) após estorno dos grupos ANTES o vigia volta a zero', new_watch())

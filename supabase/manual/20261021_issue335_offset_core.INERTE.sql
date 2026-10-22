@@ -301,12 +301,12 @@ BEGIN
   -- 2k M6: não reinterpretar dinheiro legado atribuído a outra conta ao activar um grupo.
   -- 2n-Bloco5 (M6): união das contas do documento, das pernas legadas (incluindo compensação) e do grupo.
   -- A compensação legada conta no saldo legado da conta do documento (paid_amount); depois de gerido deixaria de contar.
-  -- O dinheiro novo de um documento com conta tem de cair nessa mesma conta.
+  -- A conta do grupo pode diferir da do documento (2e "conta X preservada"): o saldo usa a conta da perna e a vigia
+  -- compara essa perna com o extracto; só as pernas legadas têm de estar na conta do documento.
   IF EXISTS(SELECT 1 FROM public.transaction_payments p WHERE p.transaction_id=t.id AND p.status='paid'
     AND p.reversed_at IS NULL AND (
      (p.payment_method IS DISTINCT FROM 'compensation' AND (p.account_id IS NULL OR p.account_id IS DISTINCT FROM t.account_id))
-     OR (p.payment_method='compensation' AND (t.account_id IS NOT NULL OR p.account_id IS NOT NULL))))
-   OR (amount<>0 AND t.type=(CASE WHEN amount<0 THEN 'expense' ELSE 'income' END) AND t.account_id IS NOT NULL AND t.account_id IS DISTINCT FROM acc) THEN
+     OR (p.payment_method='compensation' AND (t.account_id IS NOT NULL OR p.account_id IS NOT NULL)))) THEN
    RAISE EXCEPTION 'cash_account_inconsistent: reveja a conta das pernas existentes antes do encontro';
   END IF;
   IF t.currency<>'EUR' OR t.fx_rate IS NOT NULL OR t.original_amount IS NOT NULL OR t.installment_group_id IS NOT NULL OR t.installment_number IS NOT NULL OR t.installment_total IS NOT NULL OR

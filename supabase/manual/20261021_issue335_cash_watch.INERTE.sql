@@ -56,12 +56,12 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_catalog AS $$
  w_offsets AS (SELECT count(*) n FROM public.transaction_offsets o JOIN g ON g.id=o.offset_group_id AND g.status='applied'
    WHERE NOT EXISTS(SELECT 1 FROM legs WHERE gid=g.id AND transaction_id=o.receivable_transaction_id)
       OR NOT EXISTS(SELECT 1 FROM legs WHERE gid=g.id AND transaction_id=o.payable_transaction_id)),
- -- (b) union of document, legacy-leg and group accounts (same rule as core cash_account_inconsistent)
+ -- (b) union of accounts: legacy legs on the document account (same rule as core cash_account_inconsistent);
+ -- group account = account of every cash leg (w_grupo) = statement account (w_extracto)
  w_contas AS (SELECT count(*) n FROM public.transaction_offset_items i JOIN g ON g.id=i.group_id AND g.status='applied' JOIN public.transactions t ON t.id=i.transaction_id
    WHERE EXISTS(SELECT 1 FROM public.transaction_payments p WHERE p.transaction_id=t.id AND p.offset_group_id IS NULL AND p.status='paid' AND p.reversed_at IS NULL
            AND ((p.payment_method IS DISTINCT FROM 'compensation' AND (p.account_id IS NULL OR p.account_id IS DISTINCT FROM t.account_id))
-             OR (p.payment_method='compensation' AND (t.account_id IS NOT NULL OR p.account_id IS NOT NULL))))
-      OR (i.cash_amount>0 AND t.account_id IS NOT NULL AND t.account_id IS DISTINCT FROM g.account_id))
+             OR (p.payment_method='compensation' AND (t.account_id IS NOT NULL OR p.account_id IS NOT NULL)))))
  SELECT 'vigia_extracto_conta_data',n FROM w_extracto UNION ALL SELECT 'vigia_extracto_ligacoes',n FROM w_ligacoes
  UNION ALL SELECT 'vigia_perna_documento',n FROM w_documento UNION ALL SELECT 'vigia_perna_grupo',n FROM w_grupo
  UNION ALL SELECT 'vigia_estado_grupo',n FROM w_estado UNION ALL SELECT 'vigia_offset_adoptado',n FROM w_offsets
