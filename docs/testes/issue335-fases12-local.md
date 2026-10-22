@@ -6973,3 +6973,11 @@ Fica superado o "controlo `enabled = true`, `reverse_enabled = true`" da secçã
   - 6 invariantes `encontro_*` presentes; controlo N1 (enabled=false, reverse_enabled=true); 0 grupos; 8 triggers issue335 e 18 policies issue335 inalterados.
 - Rollback, se necessário e só com 0 grupos: cash_watch primeiro, depois trigger_watch.
 - Sem Publish; CI remoto NÃO VERIFICADO.
+
+
+## Leitura do controlo pelo ecrã instalada em Live (22/10/2026)
+- Com Sim do Pedro: public.transaction_offset_control_status() RETURNS TABLE(enabled boolean, reverse_enabled boolean), LANGUAGE sql STABLE SECURITY DEFINER, search_path=public,pg_catalog, dono postgres; REVOKE ALL de PUBLIC/anon/authenticated/service_role; GRANT EXECUTE a authenticated e service_role. Ficheiros de registo: `supabase/manual/20261022_issue335_control_status.INERTE.sql` e `.ROLLBACK-INERTE.sql`.
+- Motivo: `transaction_offset_control` só era legível por service_role e issue335_executor; `readOffsetControl` falhava fechado e o botão "Encontro de contas" ficava sempre desactivado. A função expõe só dois booleanos; tabela, políticas, núcleo e scripts kill_switch/reactivation inalterados.
+- Verificação em Live por query do 0·Cowork (22/10/2026), comunicada pelo Pedro: como authenticated a função devolve 1 linha (enabled=false, reverse_enabled=true = N1); SELECT directo à tabela negado para authenticated; anon não executa; controlo N1; 0 grupos; 8 triggers issue335 e 18 policies issue335 inalterados; trigger_watch conforme=true; balance_invariant_count=0. Prova prévia em transacção revertida: rollback repõe funções, ACL, triggers, policies e controlo idênticos ao baseline.
+- Rollback, se necessário: DROP FUNCTION (o botão volta a falhar fechado).
+- Falta: ligar o cliente à função (R1 seguinte), CI remoto (NÃO VERIFICADO), Publish.

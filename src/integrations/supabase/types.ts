@@ -27040,6 +27040,13 @@ export type Database = {
         Args: { p_campaign_id: string; p_event_id: string }
         Returns: Json
       }
+      transaction_offset_control_status: {
+        Args: never
+        Returns: {
+          enabled: boolean
+          reverse_enabled: boolean
+        }[]
+      }
       transaction_offset_create: {
         Args: {
           p_amount: number
