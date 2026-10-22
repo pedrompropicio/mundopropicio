@@ -1,0 +1,65 @@
+PASS B4(e) paridade: _ticket_office_balance_raw no harness com o núcleo instalado é byte-idêntica a Live (md5 9f99daed) 
+PASS B4(e) paridade: apply_transaction_offsets no harness com o núcleo instalado é byte-idêntica a Live (md5 1b883e9d) 
+PASS B4(e) paridade: camarim_sync_session_leg_payment no harness com o núcleo instalado é byte-idêntica a Live (md5 e48cb9b4) 
+PASS B4(e) paridade: card_load_on_out_paid no harness com o núcleo instalado é byte-idêntica a Live (md5 4f574f9d) 
+PASS B4(e) paridade: guard_paid_amount_vs_payments no harness com o núcleo instalado é byte-idêntica a Live (md5 081f6b20) 
+PASS B4(e) paridade: materialize_paid_amount_payment no harness com o núcleo instalado é byte-idêntica a Live (md5 ea609d67) 
+PASS B4(e) paridade: reimbursement_propagate_payment no harness com o núcleo instalado é byte-idêntica a Live (md5 c64e3653) 
+PASS B4(e) paridade: sync_paid_amount_from_payments no harness com o núcleo instalado é byte-idêntica a Live (md5 8909621f) 
+PASS B4(e) paridade: sync_partner_aporte_mirror no harness com o núcleo instalado é byte-idêntica a Live (md5 afe22b69) 
+PASS B4(e) paridade: sync_shared_cost_mirror no harness com o núcleo instalado é byte-idêntica a Live (md5 c6b7b674) 
+PASS B4(e) paridade: trg_camarim_session_leg_follows_bank no harness com o núcleo instalado é byte-idêntica a Live (md5 e92d40b0) 
+ANTES legado detecta primeiro encontro esperou: True encontro: ('ok', [({'status': 'applied', 'group_id': 'c118a5b3-18aa-433d-ad17-d09d275c1bad', 'movement_amount': -60, 'transaction_ids': ['979a5e46-8419-4b0d-82ef-c20b5c073e97', '7991b853-81d2-4d5d-94ec-2b69c4b9c036']},)]) legado: ('40P01', 'deadlock detected')
+PASS B4(b) ANTES ciclo real: encontro espera linha de BP e o LEGADO é a vítima (40P01 cru ao utilizador) 
+ANTES encontro detecta primeiro encontro esperou: True encontro: ('55P03', 'encontro_em_conflito: operação concorrente; atualize a prévia e tente novamente') legado: ('ok', [])
+PASS B4(b) ANTES ciclo real: com relógio inverso a vítima é o encontro (vítima depende do relógio = não determinística) 
+PASS B4(b/c) DEPOIS 30s: encontro falha logo (sem esperar) com encontro_em_conflito; legado aprova sem deadlock 
+PASS B4(c) DEPOIS 30s: repetir o mesmo request aplica 1 grupo; replay idêntico 
+PASS B4(d) DEPOIS 30s: recusa sem escrita (snapshot integral igual excepto a transacção pendente do legado, revertida) 
+PASS B4(b/c) DEPOIS 100ms: encontro falha logo (sem esperar) com encontro_em_conflito; legado aprova sem deadlock 
+PASS B4(c) DEPOIS 100ms: repetir o mesmo request aplica 1 grupo; replay idêntico 
+PASS B4(d) DEPOIS 100ms: recusa sem escrita (snapshot integral igual excepto a transacção pendente do legado, revertida) 
+PASS B4(c) legado já confirmado na linha -> forecast_shared_no_creation (claro, sem conflito) 
+PASS B4(e) reimbursement_propagate_payment: caminho legado (sem encontro) completa com o efeito lateral real igual ao prosrc de Live 
+PASS B4(d) reimbursement_propagate_payment: encontro durante o legado em curso -> encontro_em_conflito imediato (NOWAIT, nunca espera) 
+PASS B4(d) reimbursement_propagate_payment: terceira sessão, encontro independente aplica em paralelo 
+PASS B4(e) reimbursement_propagate_payment: depois do legado, recusa clara (invalid_document) 
+PASS B4(d) reimbursement_propagate_payment: zero grupo sobre o documento lateral; nenhum grupo parcial 
+PASS B4(e) reimbursement_propagate_payment: encontro sobre documento lateral recusado (unsupported_debt), snapshot integral igual 
+PASS B4(e) card_load_on_out_paid: caminho legado (sem encontro) completa com o efeito lateral real igual ao prosrc de Live 
+PASS B4(d) card_load_on_out_paid: encontro durante o legado em curso -> encontro_em_conflito imediato (NOWAIT, nunca espera) 
+PASS B4(d) card_load_on_out_paid: terceira sessão, encontro independente aplica em paralelo 
+PASS B4(e) card_load_on_out_paid: depois do legado, recusa clara (invalid_document) 
+PASS B4(d) card_load_on_out_paid: zero grupo sobre o documento lateral; nenhum grupo parcial 
+PASS B4(e) card_load_on_out_paid: encontro sobre documento lateral recusado (unsupported_debt), snapshot integral igual 
+PASS B4(e) sync_partner_aporte_mirror: caminho legado (sem encontro) completa com o efeito lateral real igual ao prosrc de Live 
+PASS B4(d) sync_partner_aporte_mirror: encontro durante o legado em curso -> encontro_em_conflito imediato (NOWAIT, nunca espera) 
+PASS B4(d) sync_partner_aporte_mirror: terceira sessão, encontro independente aplica em paralelo 
+PASS B4(e) sync_partner_aporte_mirror: depois do legado, recusa clara (invalid_document) 
+PASS B4(d) sync_partner_aporte_mirror: zero grupo sobre o documento lateral; nenhum grupo parcial 
+PASS B4(e) sync_partner_aporte_mirror: encontro sobre documento lateral recusado (unsupported_debt), snapshot integral igual 
+PASS B4(e) sync_shared_cost_mirror: caminho legado (sem encontro) completa com o efeito lateral real igual ao prosrc de Live 
+PASS B4(d) sync_shared_cost_mirror: encontro durante o legado em curso -> encontro_em_conflito imediato (NOWAIT, nunca espera) 
+PASS B4(d) sync_shared_cost_mirror: terceira sessão, encontro independente aplica em paralelo 
+PASS B4(e) sync_shared_cost_mirror: depois do legado, recusa clara (invalid_document) 
+PASS B4(d) sync_shared_cost_mirror: zero grupo sobre o documento lateral; nenhum grupo parcial 
+PASS B4(e) sync_shared_cost_mirror: encontro sobre documento lateral recusado (unsupported_debt), snapshot integral igual 
+PASS B4(e) camarim_sync_session_leg_payment: caminho legado (sem encontro) completa com o efeito lateral real igual ao prosrc de Live 
+PASS B4(d) camarim_sync_session_leg_payment: encontro durante o legado em curso -> encontro_em_conflito imediato (NOWAIT, nunca espera) 
+PASS B4(d) camarim_sync_session_leg_payment: terceira sessão, encontro independente aplica em paralelo 
+PASS B4(e) camarim_sync_session_leg_payment: depois do legado, recusa clara (invalid_document) 
+PASS B4(d) camarim_sync_session_leg_payment: zero grupo sobre o documento lateral; nenhum grupo parcial 
+PASS B4(e) camarim_sync_session_leg_payment: encontro sobre documento lateral recusado (camarim_leg_unsupported), snapshot integral igual 
+PASS B4(e) _ticket_office_balance_raw: caminho legado (sem encontro) completa com o efeito lateral real igual ao prosrc de Live 
+PASS B4(d) _ticket_office_balance_raw: encontro durante o legado em curso -> encontro_em_conflito imediato (NOWAIT, nunca espera) 
+PASS B4(d) _ticket_office_balance_raw: terceira sessão, encontro independente aplica em paralelo 
+PASS B4(e) _ticket_office_balance_raw: depois do legado, recusa clara (invalid_document) 
+PASS B4(d) _ticket_office_balance_raw: zero grupo sobre o documento lateral; nenhum grupo parcial 
+PASS B4(e) _ticket_office_balance_raw: encontro sobre documento lateral recusado (unsupported_debt), snapshot integral igual 
+PASS B4(e) caminho legal: aplica e estorna 
+PASS B4(e) coluna is_transitory: recusa unsupported_debt sem escrita 
+PASS B4(e) coluna shared_cost_account_id: recusa unsupported_debt sem escrita 
+PASS B4(e) coluna declared_withholding_amount: recusa unsupported_debt sem escrita 
+PASS B4(f) remoção da conta em curso: encontro espera (sem ciclo: a remoção não espera pelo encontro); remoção ROLLBACK -> encontro ok 
+PASS B4(f) remoção da conta em curso: encontro espera (sem ciclo: a remoção não espera pelo encontro); remoção COMMIT -> encontro 23503 
+B4 resumo: 0 FAIL

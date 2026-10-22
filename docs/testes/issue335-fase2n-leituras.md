@@ -144,3 +144,13 @@ Leituras core delegadas sub_zbfwr52y; testes históricos delegados sub_v2bm4wh9;
 - docs/testes/issue335-fases12-local.md | N=6398 antes do acréscimo | PARCIAL 693–700, 772–835, 875–915 (M4 2k/2l/2m; saída truncada a meio de 830) | resto NÃO LIDO; secções 2n-Bloco1/2 não relidas (sem M4)
 - NÃO LIDO neste bloco: AGENTS.md, supabase/AGENTS.md, phase2k-focused.sql, phase2k-rollback.py (lido integral no Bloco2b), phase2m-context.py, live/phase2m* — razão: sem kill-switch/reactivação (grep sem ocorrências fora de phase2k-rollback lista de nomes).
 - Catálogo Live (só SELECT pg_proc/pg_class, sem linhas de dados): ACL de 7 funções e 10 tabelas -> supabase/tests/issue335/live/phase2n-bloco3/live-acl.json
+
+### Bloco4 — leituras antes de escrever testes (22/10/2026, chunks ≤200)
+- supabase/manual/20261021_issue335_offset_core.INERTE.sql (antes da edição) | N=1139 | sha256=c0b973294ceee5783b5568ba0038b97a848f2e854d58246eaf94120e823f014c | grep integral de locks/advisory/timeouts/NOWAIT/tradução + 236–360 (encontro), 76–116 (elegibilidade/ACL); demais intervalos lidos integralmente no Bloco2b com o mesmo sha | não relido neste bloco: 1–75, 117–235, 361–1139 fora dos já citados no Bloco3 (200–240, 360–380, 838–900, 1073–1139)
+- supabase/manual/20261021_issue335_offset_approval.INERTE.sql | N=160 | LIDO 20–160 (ramos BP/verba) | 1–19 NÃO RELIDO (cabeçalho; integral no Bloco2b)
+- supabase/tests/issue335/phase2j-concurrency.py | N=124 | sha256=54f4c8939a5fa16690c9919d94047a80177e80ec26b489e3e3592b4a93a61965 | LIDO INTEGRAL | 1–40 (Bloco3), 41–84 (agora), 85–124 (Bloco3)
+- supabase/tests/issue335/phase2l.sql | N=113 | sha256=e8b54b5a46e0f44aedb950828ef79c0b7bee322d71230821c069b4f52693212b | LIDO INTEGRAL | 1–84 (agora), 85–113 (Bloco3)
+- supabase/tests/issue335/phase2f-concurrency.py | N=133 | LIDO INTEGRAL no Bloco3 (sha 3504c09f… igual)
+- supabase/tests/issue335/phase2j.sql 66–78, 176–200, 318–337; phase2k-focused.sql 24–34; phase2e.sql 100–116; phase2d.sql 40–48 | PARCIAL (fixtures laterais) | resto NÃO LIDO: fora do âmbito
+- docs/testes/issue335-fases12-local.md | secções de locks 2f/2j/2k/2l NÃO relidas neste bloco (lidas em parte no Bloco3: 693–700, 772–835, 875–915) | razão: mapa refeito directamente do core e do catálogo
+- Live (só SELECT): pg_trigger das 5 tabelas do encontro; prosrc de 11 funções (live/phase2n-bloco4/live-lateral-prosrc.txt, LIDO INTEGRAL 1–441); pesquisa de FOR UPDATE/SHARE em companies/suppliers/financial_accounts/events/event_settlements/event_forecasts em todas as funções public; pg_settings deadlock_timeout/lock_timeout/statement_timeout
