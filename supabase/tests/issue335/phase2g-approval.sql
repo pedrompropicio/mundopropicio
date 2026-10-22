@@ -5,7 +5,8 @@
 CREATE SCHEMA IF NOT EXISTS issue335_test;
 SELECT set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false);
 CREATE TABLE IF NOT EXISTS issue335_test.g2(k text PRIMARY KEY, v uuid);
-\i :root/supabase/manual/20261021_issue335_offset_approval.ROLLBACK-INERTE.sql
+-- correcção C: rollback real recusa com grupos vivos; corpo Live como fixture.
+\i :live_dir/live-approval.sql
 CREATE TABLE IF NOT EXISTS issue335_test.g2_prosrc AS SELECT prosrc FROM pg_proc WHERE oid='public.enforce_transaction_approval_permission'::regproc;
 DO $$ BEGIN IF position('issue335-approval-v2l' in (SELECT prosrc FROM issue335_test.g2_prosrc))>0 THEN RAISE EXCEPTION '2g captured body is not Live'; END IF; END $$;
 CREATE OR REPLACE FUNCTION issue335_test.g2_case(p_k text) RETURNS void LANGUAGE plpgsql AS $$
@@ -136,7 +137,8 @@ END $$;
 ROLLBACK;
 
 -- (f) rollback restores exact Live prosrc; atomic candidate install.
-\i :root/supabase/manual/20261021_issue335_offset_approval.ROLLBACK-INERTE.sql
+-- correcção C: rollback real recusa com grupos vivos; corpo Live como fixture.
+\i :live_dir/live-approval.sql
 DO $$ BEGIN
  IF (SELECT prosrc FROM pg_proc WHERE oid='public.enforce_transaction_approval_permission'::regproc) IS DISTINCT FROM (SELECT prosrc FROM issue335_test.g2_prosrc) THEN RAISE EXCEPTION '2g (f) rollback prosrc parity failed'; END IF;
  RAISE NOTICE 'PASS 2g D (f): rollback prosrc byte-identical to captured Live';

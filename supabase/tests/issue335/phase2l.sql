@@ -47,6 +47,8 @@ END $$;
 ROLLBACK;
 -- No BP historical approval retained. Exact partially_paid BEFORE requires separate status candidate.
 BEGIN;
+-- correcção D: a suite já instala status; simular ordem errada com o corpo Live dentro desta transacção.
+\i :live_dir/live-status-tx.sql
 SET LOCAL ROLE authenticated;
 DO $$ DECLARE a uuid; b uuid; BEGIN
  INSERT INTO public.transactions(type,description,status,amount,iva_rate,date,supplier_id,account_id)

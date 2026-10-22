@@ -78,7 +78,7 @@ CREATE OR REPLACE FUNCTION public.issue335_group_visible(_g uuid) RETURNS boolea
   NOT EXISTS(SELECT 1 FROM public.transaction_offset_groups g JOIN public.financial_accounts a ON a.id=g.account_id WHERE g.id=_g AND a.is_restricted)
   AND NOT EXISTS(SELECT 1 FROM public.transaction_offset_items i WHERE i.group_id=_g AND NOT public.issue335_tx_visible(i.transaction_id)))
 $f$;
-REVOKE ALL ON FUNCTION public.issue335_tx_visible(uuid), public.issue335_group_visible(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.issue335_tx_visible(uuid), public.issue335_group_visible(uuid) FROM PUBLIC, anon, sandbox_exec, sandbox_exec_sfohvvlqccmmebvjgibx;
 GRANT EXECUTE ON FUNCTION public.issue335_tx_visible(uuid), public.issue335_group_visible(uuid) TO authenticated, service_role;
 DROP POLICY IF EXISTS offset_items_confidential ON public.transaction_offset_items;
 CREATE POLICY offset_items_confidential ON public.transaction_offset_items AS RESTRICTIVE FOR SELECT TO authenticated USING(public.issue335_tx_visible(transaction_id));

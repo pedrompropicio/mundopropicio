@@ -3,7 +3,7 @@
 set -uo pipefail
 S=$(cd "$(dirname "$0")" && pwd); ROOT=$(cd "$S/../../.." && pwd); D=$1; PORT=$2
 OUT=${ISSUE335_OUT:-/tmp/issue335-phase2h}; T=$OUT/adapted; mkdir -p "$T"
-A=(env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE psql -X -q -h "$D" -p "$PORT" -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -v VERBOSITY=verbose)
+A=(env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE psql -X -q -h "$D" -p "$PORT" -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -v live_dir="$T")
 P=(env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE psql -X -q -h "$D" -p "$PORT" -U postgres -d postgres -v ON_ERROR_STOP=1)
 python3 "$S/phase2i-reference-data.py" "$ROOT/supabase/migrations" "$OUT/refdata.sql" "$OUT/refdata.json"
 "${A[@]}" -v ON_ERROR_STOP=0 -f "$OUT/refdata.sql" > "$OUT/refdata.out" 2>&1; echo "refdata errors: $(grep -c ERROR "$OUT/refdata.out")"
@@ -13,6 +13,17 @@ python3 "$S/phase2i-reference-data.py" "$ROOT/supabase/migrations" "$OUT/refdata
 for f in offset_group_storage offset_core offset_approval status offset_invariants offset_balance cash_position cash_position_invariant; do "${P[@]}" -f "$ROOT/supabase/manual/20261021_issue335_$f.INERTE.sql" >/dev/null 2>"$OUT/install-$f.err" || { echo "INSTALL FAIL $f"; cat "$OUT/install-$f.err"; exit 1; }; done
 echo 'INSTALL OK (postgres NOSUPERUSER): storage core approval status invariants balance cash_position cash_position_invariant (ordem D)'
 "${A[@]}" -f "$S/live/phase2e-balance-baseline.sql" >/dev/null   # cópias legadas só para comparação (schema issue335_test)
+# Correcção C: os ROLLBACK reais recusam com grupos vivos/consumidores; fases que precisam do corpo Live
+# usam-no como fixture (linhas de guarda removidas; o rollback real é provado em phase2l-rollback/phase2o-corr).
+python3 - "$ROOT" "$T" <<'PY'
+import sys,pathlib
+root,t=pathlib.Path(sys.argv[1]),pathlib.Path(sys.argv[2])
+for n,o in [('offset_approval','live-approval.sql'),('status','live-status-tx.sql')]:
+    L=(root/f'supabase/manual/20261021_issue335_{n}.ROLLBACK-INERTE.sql').read_text().split('\n')
+    L=[l for l in L if not l.startswith('DO $$ BEGIN IF')]
+    if o.endswith('-tx.sql'): L=[l for l in L if l.strip() not in ('BEGIN;','COMMIT;') and not l.startswith('SET LOCAL lock_timeout')]
+    (t/o).write_text('\n'.join(L))
+PY
 res=$OUT/suite-results.txt; : > "$res"
 # Sequencial numa só base, como no runner original (cada fase usa o estado da anterior).
 for f in scenarios phase2b phase2c phase2d phase2e phase2f-negative; do
@@ -36,7 +47,7 @@ run_sql phase2g-approval "$S/phase2g-approval.sql"
 if (cd "$ROOT" && bun "$S/matching-parity.ts") > "$OUT/parity.raw.sql" 2>"$OUT/parity.gen.err"; then run_sql matching-parity "$OUT/parity.raw.sql"; else echo "FAIL matching-parity: gerador $(tail -1 "$OUT/parity.gen.err")" | tee -a "$res"; fi
 run_sql phase2j "$S/phase2j.sql"
 if python3 "$S/phase2j-concurrency.py" "$D" "$PORT" "$ROOT" > "$OUT/concurrency2j.out" 2>&1; then echo "PASS phase2j-concurrency ($(grep -c PASS "$OUT/concurrency2j.out") marcadores)" | tee -a "$res"; else echo "FAIL phase2j-concurrency (rc=$?): $(grep -E 'ACHADO|Error|assert' "$OUT/concurrency2j.out" | tail -1)" | tee -a "$res"; fi
-if "${P[@]}" -v root="$ROOT" -f "$S/phase2l.sql" > "$OUT/phase2l.out" 2>&1; then echo "PASS phase2l ($(grep -c 'NOTICE:.*PASS' "$OUT/phase2l.out") marcadores)" | tee -a "$res"; else echo "FAIL phase2l: $(grep -m1 ERROR "$OUT/phase2l.out")" | tee -a "$res"; fi
+if "${P[@]}" -v root="$ROOT" -v live_dir="$T" -f "$S/phase2l.sql" > "$OUT/phase2l.out" 2>&1; then echo "PASS phase2l ($(grep -c 'NOTICE:.*PASS' "$OUT/phase2l.out") marcadores)" | tee -a "$res"; else echo "FAIL phase2l: $(grep -m1 ERROR "$OUT/phase2l.out")" | tee -a "$res"; fi
 if python3 "$S/phase2n-context.py" "$D" "$PORT" "$OUT/phase2n-context.json" > "$OUT/phase2n-context.out" 2>&1; then
   echo 'PASS phase2n-context execution (item1/2 assertions; item3 OPEN owner-trigger boundary, NOT security acceptance)' | tee -a "$res"
 else echo "FAIL phase2n-context: $(tail -1 "$OUT/phase2n-context.out")" | tee -a "$res"; fi
