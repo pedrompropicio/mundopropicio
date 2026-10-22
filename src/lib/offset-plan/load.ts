@@ -240,6 +240,10 @@ export const OFFSET_INVALIDATE_KEYS = [
   // lista e ficha
   "transactions",
   "child-transactions-full",
+  // modal de pagamento (#337)
+  "child-transactions",
+  "invoice-group-open-siblings",
+  "offset-launch-accounts",
   "payment-timeline",
   "payment-timeline-accounts",
   "transaction-offsets",
