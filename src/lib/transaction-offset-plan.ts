@@ -443,3 +443,155 @@ export function buildOffsetPlan(
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Adaptador de prévia (itens com bruto + já pago, movimento assinado)
+// ---------------------------------------------------------------------------
+
+/** Item da prévia tal como a UI o conhece: bruto e já pago em cêntimos inteiros. */
+export interface OffsetPlanItem {
+  id: string;
+  type: OffsetDocumentSign;
+  grossCents: number;
+  paidCents: number;
+  /** Ordem de afectação do dinheiro entre os itens do sinal do movimento (ascendente). */
+  cashOrder: number;
+  /** Entidade (fornecedor/cliente); tem de ser a mesma em todos os itens. */
+  supplierId: string | null;
+  currency: string;
+  hasInstallments?: boolean;
+  hasCredit?: boolean;
+  hasFx?: boolean;
+}
+
+export interface OffsetPlanAllocatedItem extends OffsetPlanItem {
+  /** Dívida em aberto usada no cálculo: grossCents − paidCents. */
+  openCents: number;
+  cashCents: number;
+  compensationCents: number;
+}
+
+export type OffsetPreviewResult =
+  | { ok: true; items: OffsetPlanAllocatedItem[] }
+  | { ok: false; code?: OffsetErrorCode; message: string; differenceCents?: number };
+
+/**
+ * Prévia do encontro sobre itens com bruto/já pago e movimento assinado
+ * (positivo = entrada de dinheiro, negativo = saída, zero = só compensação).
+ * Não muta os itens de entrada nem toca em IVA.
+ */
+export function previewTransactionOffset(
+  items: OffsetPlanItem[],
+  amountCents: number,
+): OffsetPreviewResult {
+  const fail = (code: OffsetErrorCode, extra?: Partial<OffsetPreviewResult>): OffsetPreviewResult => ({
+    ok: false,
+    code,
+    message: offsetErrorMessage(code),
+    ...extra,
+  });
+
+  if (!Number.isInteger(amountCents)) return fail("invalid_movement");
+  if (items.length < OFFSET_PLAN_MIN_ITEMS) return fail("too_few_items");
+  if (items.length > OFFSET_PLAN_MAX_ITEMS) return fail("too_many_items");
+  if (!items.some((i) => i.type === "income") || !items.some((i) => i.type === "expense")) {
+    return fail("both_signs_required");
+  }
+  if (new Set(items.map((i) => i.supplierId)).size > 1) {
+    return { ok: false, code: "invalid_document", message: "Os documentos têm de ser da mesma entidade." };
+  }
+  for (const it of items) {
+    if (!Number.isInteger(it.grossCents) || !Number.isInteger(it.paidCents)) {
+      return fail("document_precision_unsupported");
+    }
+    if (it.currency !== "EUR" || it.hasInstallments || it.hasCredit || it.hasFx) {
+      return fail("unsupported_debt");
+    }
+  }
+
+  const withOpen = items.map((it) => ({ it, open: it.grossCents - it.paidCents }));
+  for (const { open } of withOpen) {
+    if (open <= 0) return fail("no_open_debt");
+  }
+
+  const abs = Math.abs(amountCents);
+  const direction: OffsetMovementDirection = amountCents < 0 ? "out" : "in";
+  const settleSign: OffsetDocumentSign = direction === "in" ? "income" : "expense";
+  const sameSum = withOpen.filter((w) => w.it.type === settleSign).reduce((a, w) => a + w.open, 0);
+  const oppositeSum = withOpen.filter((w) => w.it.type !== settleSign).reduce((a, w) => a + w.open, 0);
+  const differenceCents = sameSum - oppositeSum - abs;
+  if (differenceCents !== 0) {
+    return {
+      ok: false,
+      code: "amount_mismatch",
+      differenceCents,
+      message:
+        differenceCents < 0
+          ? `Faltam ${formatEurCents(-differenceCents)}`
+          : `Excedem ${formatEurCents(differenceCents)}`,
+    };
+  }
+
+  const allocated = new Map<string, { cash: number; compensation: number }>();
+  if (abs === 0) {
+    for (const w of withOpen) allocated.set(w.it.id, { cash: 0, compensation: w.open });
+  } else {
+    const plan = buildOffsetPlan(
+      { amount_cents: abs, direction },
+      withOpen.map((w) => ({
+        id: w.it.id,
+        kind: "transaction" as const,
+        sign: w.it.type,
+        open_cents: w.open,
+        currency: w.it.currency,
+        has_installments: w.it.hasInstallments,
+        has_credit: w.it.hasCredit,
+        has_fx: w.it.hasFx,
+      })),
+      [...withOpen].sort((a, b) => a.it.cashOrder - b.it.cashOrder).map((w) => w.it.id),
+    );
+    if (!plan.ok) {
+      const first = plan.errors[0];
+      return { ok: false, code: first?.code, message: first?.message ?? offsetErrorMessage("invalid_document") };
+    }
+    for (const p of plan.items) {
+      allocated.set(p.document_id, { cash: p.cash_cents, compensation: p.offset_cents });
+    }
+  }
+
+  return {
+    ok: true,
+    items: withOpen.map((w) => ({
+      ...w.it,
+      openCents: w.open,
+      cashCents: allocated.get(w.it.id)?.cash ?? 0,
+      compensationCents: allocated.get(w.it.id)?.compensation ?? 0,
+    })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Oferta de criação/vínculo para linhas do BP (previsões)
+// ---------------------------------------------------------------------------
+
+export interface OffsetForecastOfferState {
+  approved: boolean;
+  active: boolean;
+  /** Entidades com transações próprias já ligadas a esta linha do BP. */
+  linkedTransactionSupplierIds: string[];
+}
+
+/**
+ * Decide o que a prévia oferece para uma linha do BP e uma entidade:
+ * - "existing": a entidade já tem transação própria ligada (prevalece sobre o BP);
+ * - "create": linha aprovada e activa, sem transações ligadas — pode criar;
+ * - "unavailable": linha por aprovar/inactiva, ou ligada a outras entidades (partilhada).
+ */
+export function offsetForecastOffer(
+  state: OffsetForecastOfferState,
+  supplierId: string,
+): "create" | "existing" | "unavailable" {
+  if (!state.approved || !state.active) return "unavailable";
+  if (state.linkedTransactionSupplierIds.length === 0) return "create";
+  return state.linkedTransactionSupplierIds.includes(supplierId) ? "existing" : "unavailable";
+}
