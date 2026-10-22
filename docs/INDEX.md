@@ -110,10 +110,10 @@ Ler **D-ERP57** antes de mexer.
 ## Ritual de arranque (obrigatório, por esta ordem)
 
 1. Ler `docs/INDEX.md` (este ficheiro).
-2. Ler `docs/QUADRO.md` — a tua secção e "Em execução agora".
+2. Ler `docs/QUADRO.md` — só "Em execução agora" e a tua secção.
 3. Ler `docs/estado/estado-<frente>.md` da frente em causa.
-4. Ler as Issues abertas. Labels reais: `P0`/`P1`/`P2` + módulo. Não existem labels de estado — o que está em curso vive em "A trabalhar agora" do `estado-<frente>.md` e em "Em execução agora" do `QUADRO.md`.
-5. Só então agir. **Nunca diagnosticar antes de ler.** Nenhum chat executa sem ser o executor designado pelo Pedro para a demanda (`docs/CHATS.md`).
+4. Ler as Issues abertas do teu módulo (labels P0/P1/P2 + módulo; não há labels de estado).
+5. Só então agir. Classe da demanda (R0/R1/R2, D-ERP291) decide o ritual; executor por defeito é a frente dona do tema.
 
 Se o tema toca num fluxo já implementado, procurar primeiro em `.lovable/memory/features/`. A hipótese por defeito é que **já existe**.
 
@@ -123,7 +123,7 @@ Se o tema toca num fluxo já implementado, procurar primeiro em `.lovable/memory
 
 ## Ritual de fecho (dentro da demanda autorizada)
 
-O fecho documental faz parte de toda a demanda que o Pedro autoriza (D-ERP278). Não é autorização autónoma para mudar regras, mapa de chats, procedimentos, código, dados ou configurações.
+O fecho documental é R0 (D-ERP291): o executor escreve-o sem nova autorização, pelo conector GitHub da sua ferramenta. Não é autorização autónoma para mudar regras, mapa de chats, procedimentos, código, dados ou configurações.
 
 1. Atualizar o `estado-<frente>.md` — reescrever, não acrescentar.
 2. Issues: abrir as novas, fechar as resolvidas, comentar as decisões.
