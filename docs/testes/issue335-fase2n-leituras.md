@@ -175,3 +175,25 @@ Leituras core delegadas sub_zbfwr52y; testes históricos delegados sub_v2bm4wh9;
 - supabase/tests/issue335/phase2n-locks.py 1–120, phase2n-killswitch.py 85–110, phase2l-rollback.py 1–48, phase2h-suite.sh 1–60, phase2h-run.sh integral, phase2h-fixtures.sql 50–75 | PARCIAL (padrões/fixtures)
 - Testes de saldo/as-of anteriores (phase2e.sql 20–36, phase2j.sql 295–310): só as linhas dos dois cenários que a 1.ª versão da regra partiu | resto NÃO LIDO
 - Live (só SELECT agregado): 352 por categoria/estado; compensação viva/sem ligação/com conta/em abertos; linhas valor≠lançamento; colunas bank_line_transactions
+
+## Bloco6 E — leituras ANTES de escrever o runner (22/10/2026 UTC)
+Leituras delegadas: sub_nhb0edrf, sub_st244trv, sub_87kkt4v6. Chunks ≤200; não se confunde hashing/execução com leitura. Nome offset_storage inexistente: storage=offset_group_storage, guardas/triggers/policies de executor no core.
+- AGENTS.md | N=40 | sha256=ad72e76fe4e5665c2331f4fbd0f8d18b2a57911954d2118e185b58a86b09380c | INTEGRAL | intervalos 1–40
+- supabase/AGENTS.md | N=3 | sha256=c4a593a91c43a79de00879fea8e566841a74d212962ee9a3dda8ffca46237b17 | INTEGRAL | intervalos 1–3
+- supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql | N=91 | sha256=ea8632f3dfb3d997678c03ff33092088b2838cc7ab9e38eeb3f4a29ae60abecc | INTEGRAL | intervalos 1–91
+- supabase/manual/20261021_issue335_offset_core.INERTE.sql | N=1148 | sha256=2c08b10602862d0e7cae08be6715970f8ce7c43d2efb4e1a7690e6161a50659a | PARCIAL; restantes NÃO LIDO: fora da guarda/colunas | intervalos 1–200,201–235,1040–1085,1080–1148
+- docs/testes/issue335-fases12-local.md | N=6532 | sha256=74c5c1ea17bbf2e9d75e9d3776d684d161c41d5fb2972594843cc009f0a55abd | PARCIAL; restantes NÃO LIDO: outputs históricos/contexto fora das secções E; 6261–6331 não lido | intervalos 182–258,330–400,554–634,635–692,693–800,925–1045,5191–5264,6227–6260,6332–6442,6443–6532
+- supabase/tests/issue335/phase2h-run.sh | N=23 | sha256=65299cf90cf0e194d32636d8d4a91d1a4fcf63930e6bbc40606aa59ccbe01c52 | INTEGRAL | intervalos 1–23
+- supabase/tests/issue335/phase2h-suite.sh | N=57 | sha256=0d3b80c5cd2be6605215eb120e8bb6ad39eb43b18cb571ad576b411a0fe3aeb8 | INTEGRAL | intervalos 1–57
+- supabase/tests/issue335/phase2h-install.py | N=135 | sha256=01e1dc9641e84163cfe0f1426abddf595036521e9f05fdad8f5fd9a443603e96 | INTEGRAL delegada sub_nhb0edrf | intervalos 1–135
+- supabase/tests/issue335/phase2h-fixtures.sql | N=75 | sha256=0e18c816017d5db7f3f46f4a2e69250a73690e851665647ed713b8a66bfcbb03 | INTEGRAL | intervalos 1–75
+- supabase/tests/issue335/phase2g-approval.sql | N=145 | sha256=0492f526803d61c7b3d68008abccc85c3eb36caaca27d63527565b8fbb0b7a34 | INTEGRAL delegada sub_nhb0edrf | intervalos 1–145
+- supabase/tests/issue335/phase2i-reference-data.py | N=36 | sha256=2114a58c0bcd11f1d49ac5338d2e3ac652505b29f8bb84265b3a6c415f2886df | INTEGRAL delegada sub_nhb0edrf | intervalos 1–36
+- supabase/tests/issue335/phase2j.sql | N=345 | sha256=84b08bc489e68ee3b754692d9ca565613df3b4303e5455b76489c61527f6cb0f | INTEGRAL delegada sub_nhb0edrf | intervalos 1–180,181–345
+- supabase/tests/issue335/phase2k-focused.sql | N=117 | sha256=b1fc622ccba298aa6fcde9d19928870f6946296d04e450f216ddcd81f2fc6a09 | INTEGRAL delegada sub_nhb0edrf | intervalos 1–116
+- supabase/tests/issue335/phase2k-rollback.py | N=49 | sha256=e46d84765be63ba6559cfc32b8d8704728124afad3d185e87a2c020f614201b5 | INTEGRAL; linha final c.close() lida pelo executor | intervalos 1–49
+- supabase/tests/issue335/phase2l-rollback.py | N=49 | sha256=b6d4492763f665b5f493aad8a9ccde4d625a6f648b51f4a4217ae4f60e1c343a | INTEGRAL | intervalos 1–48
+- supabase/manual/20261021_issue335_offset_balance.INERTE.sql | N=126 | sha256=a49011d6a85a4a62b3609b130279655aa340d9f6ddb48364f1408b32a364b762 | INTEGRAL | intervalos 1–126
+- .lovable/memory/features/compensacao-ligada.md | N=47 | sha256=b6f1a368c823a53e1462558fd1d7c60ae24908ba3e835b692f7868098c1dafd6 | INTEGRAL delegada sub_87kkt4v6; N real certificado pelos bytes | intervalos 1–47
+- .lovable/memory/features/payment-account-ownership.md | N=46 | sha256=ee962f16af7ba153f39192769f4aa6f57590aff5c419a74ae80a278924ccde4e | INTEGRAL delegada sub_87kkt4v6; N real certificado pelos bytes | intervalos 1–46
+- Catálogo Live: SELECT information_schema.columns apenas, transactions 64 + transaction_payments 31; output integral 18453 bytes disponível no log de ferramenta. Sem SELECT de dados.

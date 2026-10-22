@@ -54,4 +54,9 @@ else echo "FAIL phase2n-locks: $(grep -m3 '^FAIL\|Error' "$OUT/phase2n-locks.out
 if python3 "$S/phase2n-cashwatch.py" "$D" "$PORT" "$ROOT" "$OUT/phase2n-cashwatch.json" > "$OUT/phase2n-cashwatch.out" 2>&1; then
   echo "PASS phase2n-cashwatch (M6 2n-Bloco5: $(grep -c '^PASS' "$OUT/phase2n-cashwatch.out") marcadores; vigia independente, contas, as-of, corrupção)" | tee -a "$res"
 else echo "FAIL phase2n-cashwatch: $(grep -m3 '^FAIL\|Error' "$OUT/phase2n-cashwatch.out" | tr '\n' ' ')" | tee -a "$res"; fi
+if [[ -z "${ISSUE335_E_BASELINE_SOCKET:-}" || -z "${ISSUE335_E_BASELINE_PORT:-}" ]]; then
+  echo 'FAIL phase2n-columns: PRECONDITION baseline faithful catalog without #335 required; not a skip' | tee -a "$res"
+elif python3 "$S/phase2n-columns.py" "$D" "$PORT" "$ISSUE335_E_BASELINE_SOCKET" "$ISSUE335_E_BASELINE_PORT" "$ROOT" "$OUT/phase2n-columns.json" > "$OUT/phase2n-columns.out" 2>&1; then
+  echo 'PASS phase2n-columns (E valid columns and paired legacy evidence)' | tee -a "$res"
+else echo "FAIL phase2n-columns: $(tail -1 "$OUT/phase2n-columns.out")" | tee -a "$res"; fi
 if grep -q '^FAIL' "$res"; then exit 1; fi
