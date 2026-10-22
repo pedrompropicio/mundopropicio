@@ -282,3 +282,9 @@ Leituras próprias e delegadas (3 subagentes read-only: sub_2831s69q src/lib+hoo
 - Delegado integral aos subagentes (relatórios em conversa, com ficheiro:linha): src/lib restante + hooks; componentes e páginas de relatórios/bilheteiras/cartões/sócio; supabase/functions e migrations SQL de saldo.
 - NÃO LIDO integralmente: corpos de launch_from_bank_lines e reconcile_bank_line; TicketOfficePositionCards.tsx; variantes de saldo cartões/camarim linha-a-linha; as ~562 ocorrências CRUD de paid_amount (triadas por padrão); histórico 1-6689 do relatório principal; restante repo sem ocorrências dos termos.
 - Zero SELECT Live neste bloco (não indispensável); definições Live via catálogo guardado phase2e-functions.json.
+
+## 2n-Bloco7c — leituras e limites, 22/10/2026 UTC
+- Lidos integralmente: supabase/tests/issue335/phase2h-run.sh, phase2h-suite.sh, phase2k-rollback.py, phase2l-rollback.py; phase2n-columns.py linhas 1-60, 85-110, 180-200, 340-395; caudas de docs/testes/issue335-fases12-local.md, issue335-fase2n-hashes.sha256, issue335-fase2n-leituras.md; git log/show dos commits 794e2b2db e 158573d48 (stats e diff de phase2h-suite.sh).
+- Executados (não lidos linha-a-linha): phase2h-install.py, phase2i-reference-data.py, suite completa, phase2n-columns.py, phase2n-low.py, phase2l-rollback.py; outputs verificados por marcadores PASS/FAIL, rc e JSON parseado por máquina.
+- NÃO LIDO: histórico 1-6690 do relatório principal; restantes runners e candidatos não tocados neste bloco; cores/storage INERTE não relidos (alterações já commitadas no 7b pelo executor anterior); catálogo-ddl.json não lido integralmente.
+- Zero SELECT Live; todo o trabalho em clusters PostgreSQL 17.6 locais efémeros (encerrados e removidos no fim).

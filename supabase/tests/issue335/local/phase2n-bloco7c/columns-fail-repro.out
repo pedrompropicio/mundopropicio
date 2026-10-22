@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/dev-server/supabase/tests/issue335/phase2n-columns.py", line 51, in <module>
+    assert execute(baseline, 'SELECT count(*) FROM public.companies WHERE id=%s', (COMPANY,))[0][0] == 1
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
