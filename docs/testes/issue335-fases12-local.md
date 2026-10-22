@@ -6897,3 +6897,16 @@ SHAs (SHA-256, antes deste append):
 - src/lib/__tests__/transaction-offset-plan.test.ts = ebb6bfe1bba693eac14b1bd5b762db529c723f9171a753c25586bb405e22f37f
 - docs/QUADRO.md = 8968d633807e0de4965baf215afe12eecb772dfdf47443fc1e25dfcf58e7745c
 Commits automáticos da plataforma: a073a8466 (2 ficheiros novos + QUADRO) e cfb155352 (adaptador); commit único não foi possível (gravação automática), como já registado na D-ERP291.
+
+### Fase 3a — CORRECÇÃO (22/10/2026, R1, autorizada "Repor")
+
+Erro assumido: na Fase 3a reescrevi o ficheiro EXISTENTE `src/lib/transaction-offset-plan.ts` (58 → 597 linhas), violando a ordem "só ficheiros novos". Correcção:
+- `src/lib/transaction-offset-plan.ts` reposto byte a byte ao conteúdo de `a073a8466^` (58 linhas). SHA-256 `4b87dc4157e5a0a502957ee3248e7ee7a1d5ae1fab6c507be977a6e4228e3b54`; `git diff a073a8466^` vazio.
+- Código novo movido para `src/lib/offset-plan/index.ts` (446 linhas, SHA-256 `e745b7d34c43f3681399bdca7b02095e6def1df40ddde2cbc196c0945b9a11f3`); sem import/reexport do módulo antigo, sem adaptadores.
+- Teste movido para `src/lib/offset-plan/__tests__/offset-plan.test.ts` (33 testes, só mudou o import; SHA-256 `0c13ae62e7eab495be5273931ea7a118524bb865d70d3066df5b5cc63766a3fd`); `src/lib/__tests__/transaction-offset-plan.test.ts` removido.
+- A divergência de mensagens desaparece: o antigo mantém a sua forma; o novo usa "Excedem X €; corrija a transação ou o BP".
+
+Resultados: vitest novo + teste antigo sem alterações 52/52 PASS; suite completa 222 ficheiros PASS (2 skip), 1986 testes PASS, exit 0; tsgo exit 0.
+Diff contra `a073a8466^`: só `docs/QUADRO.md`, este relatório e `src/lib/offset-plan/**` (novos). Nenhum ficheiro existente de código alterado.
+Importadores de `transaction-offset-plan` (só leitura): `src/lib/transaction-offset-plan.test.ts:2`.
+Lido: AGENTS.md, docs/QUADRO.md, ficheiros acima. Não lido: restantes. Reserva "#335 fase 3a" mantida. CI remoto não verificado.
