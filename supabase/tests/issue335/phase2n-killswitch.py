@@ -277,9 +277,11 @@ for origin_path, scripts in (('N1', [KS]), ('N2', [KS, EM])):
     d_during = {k: (base.get(k), during.get(k)) for k in base.keys() | during.keys() if base.get(k) != during.get(k)}
     d_after = {k: (base.get(k), after.get(k)) for k in base.keys() | after.keys() if base.get(k) != after.get(k)}
     live_diff = {k: (v, after.get(k)) for k, v in live.items() if after.get(k) != v}
-    report['acl'][f'reactivar_de_{origin_path}'] = dict(objetos=len(after), diferencas_durante_nivel=d_during, diferencas_pos_reactivacao=d_after, diferencas_vs_live=live_diff, estado=state())
+    live_diff_install = {k: (v, base.get(k)) for k, v in live.items() if base.get(k) != v}   # deltas do core (instalação), não dos níveis
+    report['acl'][f'reactivar_de_{origin_path}'] = dict(objetos=len(after), diferencas_durante_nivel=d_during, diferencas_pos_reactivacao=d_after,
+        diferencas_vs_live_pos_reactivacao=live_diff, diferencas_vs_live_pos_instalacao=live_diff_install, estado=state())
     check(not d_during and not d_after and state() == 'N0', f'B3(c) reactivar de {origin_path}: ACL integral ({len(after)} entradas) igual antes/durante/depois, diferenças={{}}', (d_during, d_after))
-    check(not live_diff, f'B3(c) reactivar de {origin_path}: ACL dos {len(live)} objectos capturados de Live igual, diferenças={{}}', live_diff)
+    check(live_diff == live_diff_install, f'B3(c) reactivar de {origin_path}: {len(live)} objectos Live — níveis/reactivação acrescentam diferenças={{}} (deltas só de instalação: {sorted(live_diff_install)})', (live_diff, live_diff_install))
 
 Path(out).write_text(json.dumps(report, indent=1, ensure_ascii=False, default=str))
 for c in S + [obs, ops]: c.close()
