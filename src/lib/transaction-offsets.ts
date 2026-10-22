@@ -18,8 +18,22 @@ export interface TransactionOffsetView {
   payable_transaction_id: string;
   /** A outra transação da ligação, do ponto de vista pedido. */
   other: { id: string; description: string | null; invoice_ref: string | null; status: string | null; type: string };
-  /** Há pagamento `compensation` ativo gerado por esta ligação. */
+  /** Há pagamento `compensation` ativo gerado por esta ligação (só por offset_id; inalterado). */
   applied: boolean;
+  /** #335: encontro que adoptou o par (transaction_offsets.offset_group_id) e o seu estado. */
+  offset_group_id: string | null;
+  group_status: string | null;
+}
+
+/**
+ * Etiqueta da ficha. Par adoptado por um encontro aplicado → "Aplicada no encontro"
+ * (os pagamentos ficam com offset_group_id e offset_id NULL, por isso `applied` é falso).
+ * Encontro estornado ou sem encontro → regra antiga.
+ */
+export function offsetBadgeLabel(o: Pick<TransactionOffsetView, "applied" | "offset_group_id" | "group_status">): string {
+  if (o.applied) return "Aplicada";
+  if (o.offset_group_id && o.group_status === "applied") return "Aplicada no encontro";
+  return "Por aplicar";
 }
 
 const db = supabase as any;
@@ -35,7 +49,7 @@ export function useAllTransactionOffsets() {
       const { data, error } = await db
         .from("transaction_offsets")
         .select(
-          "id, amount, note, receivable_transaction_id, payable_transaction_id," +
+          "id, amount, note, receivable_transaction_id, payable_transaction_id, offset_group_id," +
             " rec:transactions!transaction_offsets_receivable_transaction_id_fkey(id, description, invoice_ref, status, type)," +
             " pay:transactions!transaction_offsets_payable_transaction_id_fkey(id, description, invoice_ref, status, type)",
         );
@@ -50,7 +64,18 @@ export function useAllTransactionOffsets() {
         if (e2) throw e2;
         appliedIds = new Set((pays ?? []).map((p: any) => p.offset_id));
       }
-      return (data ?? []).map((o: any) => ({ ...o, applied: appliedIds.has(o.id) }));
+      const groupIds = [...new Set((data ?? []).map((o: any) => o.offset_group_id).filter(Boolean))] as string[];
+      const groupStatus = new Map<string, string>();
+      if (groupIds.length) {
+        const { data: gs, error: e3 } = await db.from("transaction_offset_groups").select("id, status").in("id", groupIds);
+        if (e3) throw e3;
+        (gs ?? []).forEach((g: any) => groupStatus.set(g.id, g.status));
+      }
+      return (data ?? []).map((o: any) => ({
+        ...o,
+        applied: appliedIds.has(o.id),
+        group_status: o.offset_group_id ? groupStatus.get(o.offset_group_id) ?? null : null,
+      }));
     },
   });
 }
@@ -67,6 +92,8 @@ export function offsetsFor(all: any[] | undefined, txId: string): TransactionOff
       payable_transaction_id: o.payable_transaction_id,
       other: o.receivable_transaction_id === txId ? o.pay : o.rec,
       applied: o.applied,
+      offset_group_id: o.offset_group_id ?? null,
+      group_status: o.group_status ?? null,
     }));
 }
 

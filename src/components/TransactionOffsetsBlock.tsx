@@ -10,6 +10,7 @@ import { formatCurrency } from "@/lib/mock-data";
 import { Link2, Trash2 } from "lucide-react";
 import {
   createOffset,
+  offsetBadgeLabel,
   offsetOtherLabel,
   offsetsFor,
   removeOffset,
@@ -162,7 +163,14 @@ export function TransactionOffsetsBlock({ transaction, canEdit }: Props) {
         <div key={o.id} className="flex items-center justify-between gap-2 text-xs">
           <span className="truncate flex-1">{offsetOtherLabel(o)}</span>
           <span className="font-mono">{formatCurrency(o.amount)}</span>
-          <Badge variant={o.applied ? "default" : "secondary"}>{o.applied ? "Aplicada" : "Por aplicar"}</Badge>
+          <Badge variant={offsetBadgeLabel(o) === "Por aplicar" ? "secondary" : "default"} data-testid="legacy-offset-badge">
+            {offsetBadgeLabel(o)}
+          </Badge>
+          {o.offset_group_id && o.group_status === "applied" && !(groups ?? []).some((g) => g.group_id === o.offset_group_id) && (
+            <Button type="button" size="sm" variant="link" className="h-6 px-1" onClick={() => setGroupOpen(o.offset_group_id)}>
+              Ver encontro
+            </Button>
+          )}
           {canEdit && (
             <Button
               type="button"
