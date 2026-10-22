@@ -215,6 +215,7 @@ def effects(group):
                 execute(installed,'ROLLBACK TO SAVEPOINT mutation')
                 outcome='guard refused'
             execute(installed,'RESET ROLE')
+            actor(installed,ADMIN)
             after=financial_snapshot(installed,group)
             normalized=json.loads(json.dumps(after,default=str))
             original=json.loads(json.dumps(before,default=str))
