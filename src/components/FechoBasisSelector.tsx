@@ -5,13 +5,58 @@ import {
   DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import type { FechoBasis, FechoExpenseSource } from "@/hooks/useFechoBasis";
+import type { ExpenseColumnsMode, FechoBasis, FechoExpenseSource } from "@/hooks/useFechoBasis";
+
+/**
+ * (g18 · #342) Escolha das colunas das despesas no documento do sócio.
+ * `disabled` quando a base das despesas do documento não é c/IVA — nesse caso
+ * o documento sai sempre "Detalhado" e a razão aparece no menu.
+ */
+export interface ExpenseColumnsChoice {
+  mode: ExpenseColumnsMode;
+  onChange: (m: ExpenseColumnsMode) => void;
+  disabled: boolean;
+}
+
+/** Secção "Despesas no documento" do menu — exportada para teste directo. */
+export function ExpenseColumnsMenuItems({ choice }: { choice: ExpenseColumnsChoice }) {
+  return (
+    <>
+      <DropdownMenuSeparator />
+      <DropdownMenuLabel className="text-xs">Despesas no documento</DropdownMenuLabel>
+      <DropdownMenuRadioGroup
+        value={choice.disabled ? "detailed" : choice.mode}
+        onValueChange={(v) => choice.onChange(v as ExpenseColumnsMode)}
+      >
+        <DropdownMenuRadioItem value="detailed">
+          Detalhado (Valor · IVA · Total)
+        </DropdownMenuRadioItem>
+        <DropdownMenuRadioItem value="totalOnly" disabled={choice.disabled}>
+          Só total pago
+        </DropdownMenuRadioItem>
+      </DropdownMenuRadioGroup>
+      {choice.disabled && (
+        <div className="px-2 pt-1 text-[11px] leading-snug text-muted-foreground">
+          Só disponível quando as despesas do documento incluem IVA.
+        </div>
+      )}
+    </>
+  );
+}
 
 /**
  * Seletor de critério do Fecho (IVA · base da despesa · overhead).
  * Escolha livre do utilizador; o critério selecionado é o que sai no PDF.
+ * `expenseColumns` (opcional) junta a escolha das colunas das despesas do
+ * documento do sócio — só quem exporta a prestação de contas a passa.
  */
-export function FechoBasisSelector({ basis }: { basis: FechoBasis }) {
+export function FechoBasisSelector({
+  basis,
+  expenseColumns,
+}: {
+  basis: FechoBasis;
+  expenseColumns?: ExpenseColumnsChoice;
+}) {
   const chips = [
     basis.withVat ? "c/IVA" : "s/IVA",
     basis.expenseSource === "committed" ? "Previsto + excedido" : "Realizado",
@@ -70,6 +115,7 @@ export function FechoBasisSelector({ basis }: { basis: FechoBasis }) {
             O critério é gravado no evento — vale para todos e em qualquer computador.
           </div>
 
+          {expenseColumns && <ExpenseColumnsMenuItems choice={expenseColumns} />}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

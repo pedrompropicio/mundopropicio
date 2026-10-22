@@ -26,9 +26,16 @@ const money = (n: number, locale: string) =>
 const pct = (n: number, locale: string) =>
   `${n.toLocaleString(locale, { maximumFractionDigits: 2 })}%`;
 
+/**
+ * (g18 · #342) Em "Só total pago" os títulos não levam o rótulo da base:
+ * remove o sufixo "(c/IVA)" dos títulos que o trazem.
+ */
+const stripBasisLabel = (s: string) => s.replace(/\s*\(c\/IVA\)\s*$/i, "");
+
 /** Constrói o livro Excel (exposto para teste sem browser). */
 export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<ExcelJS.Workbook> {
   const t = doc.t;
+  const totalOnly = doc.expenseColumns === "totalOnly";
   const wb = new ExcelJS.Workbook();
   wb.creator = BRAND;
 
@@ -87,25 +94,37 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
   );
 
   // 3. AS DESPESAS DO EVENTO
-  section(`${t.section3} (${doc.expenseBasisLabel.toLowerCase()})`);
-  arial(ws.addRow([t.family, t.value, t.iva, t.totalWithIva]), { bold: true });
-  doc.families.forEach((f) =>
-    moneyCells(arial(ws.addRow([`${f.code} · ${f.name}`, f.base, f.iva, f.total])), [2, 3, 4]),
-  );
-  moneyCells(
-    arial(ws.addRow([t.totalExpenses, doc.expenseBase, doc.expenseIva, doc.expenseTotal]), { bold: true }),
-    [2, 3, 4],
-  );
+  // (g18 · #342) "Só total pago": uma única coluna de valor (o total pago) e
+  // título sem o rótulo da base. Os totais não mudam.
+  section(totalOnly ? t.section3 : `${t.section3} (${doc.expenseBasisLabel.toLowerCase()})`);
+  if (totalOnly) {
+    arial(ws.addRow([t.family, t.value]), { bold: true });
+    doc.families.forEach((f) =>
+      moneyCells(arial(ws.addRow([`${f.code} · ${f.name}`, f.total])), [2]),
+    );
+    moneyCells(arial(ws.addRow([t.totalExpenses, doc.expenseTotal]), { bold: true }), [2]);
+  } else {
+    arial(ws.addRow([t.family, t.value, t.iva, t.totalWithIva]), { bold: true });
+    doc.families.forEach((f) =>
+      moneyCells(arial(ws.addRow([`${f.code} · ${f.name}`, f.base, f.iva, f.total])), [2, 3, 4]),
+    );
+    moneyCells(
+      arial(ws.addRow([t.totalExpenses, doc.expenseBase, doc.expenseIva, doc.expenseTotal]), { bold: true }),
+      [2, 3, 4],
+    );
+  }
 
   // 4. O RESULTADO (com cascata quando o acordo apura sobre parte do resultado)
   // (g13-b) Em cascata o título não leva base: a base vai na linha de partida.
-  section(doc.cascade ? t.section4 : `${t.section4} · ${doc.resultBasisLabel}`);
+  section(totalOnly || doc.cascade ? t.section4 : `${t.section4} · ${doc.resultBasisLabel}`);
   if (doc.cascade) {
     doc.cascade.forEach((lv, i) => {
       moneyCells(
         arial(ws.addRow([
           i === 0
-            ? `${t.eventResultLine} (${doc.expenseBasisLabel.toLowerCase()})`
+            ? totalOnly
+              ? t.eventResultLine
+              : `${t.eventResultLine} (${doc.expenseBasisLabel.toLowerCase()})`
             : t.carriedResultLine,
           lv.baseValue,
         ]), {
@@ -129,7 +148,7 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
     });
   }
   moneyCells(
-    arial(ws.addRow([doc.cascade ? t.societyResultLine : doc.resultBasisLabel, doc.result]), {
+    arial(ws.addRow([doc.cascade ? t.societyResultLine : totalOnly ? t.resultLine : doc.resultBasisLabel, doc.result]), {
       bold: true,
       size: 12,
     }),
@@ -234,34 +253,48 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
     [2],
   );
 
-  dSection(t.detailBExpenses);
-  const eh = wd.addRow([t.rubrica, t.value, t.iva, t.totalWithIva, t.attachments]);
+  dSection(totalOnly ? stripBasisLabel(t.detailBExpenses) : t.detailBExpenses);
+  // (g18 · #342) "Só total pago": colunas "Rubrica", "Valor" (total pago) e
+  // "Anexos"; sem base, sem IVA e sem a nota do art. 18.º CIVA.
+  const eh = totalOnly
+    ? wd.addRow([t.rubrica, t.value, t.attachments])
+    : wd.addRow([t.rubrica, t.value, t.iva, t.totalWithIva, t.attachments]);
   eh.font = { name: "Arial", bold: true };
   doc.families.forEach((f) => {
-    const fr = wd.addRow([`${f.code} · ${f.name}`, f.base, f.iva, f.total, ""]);
+    const fr = totalOnly
+      ? wd.addRow([`${f.code} · ${f.name}`, f.total, ""])
+      : wd.addRow([`${f.code} · ${f.name}`, f.base, f.iva, f.total, ""]);
     fr.font = { name: "Arial", bold: true };
     fr.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2F2F2" } };
-    dMoney(fr, [2, 3, 4]);
+    dMoney(fr, totalOnly ? [2] : [2, 3, 4]);
     f.rubricas.forEach((rub) => {
-      const rr = wd.addRow([`  ${rub.code} · ${rub.name}`, rub.base, rub.iva, rub.total, rub.documents || ""]);
+      const rr = totalOnly
+        ? wd.addRow([`  ${rub.code} · ${rub.name}`, rub.total, rub.documents || ""])
+        : wd.addRow([`  ${rub.code} · ${rub.name}`, rub.base, rub.iva, rub.total, rub.documents || ""]);
       rr.font = { name: "Arial", bold: true, size: 10 };
-      dMoney(rr, [2, 3, 4]);
+      dMoney(rr, totalOnly ? [2] : [2, 3, 4]);
       rub.lines.forEach((l) => {
-        const lr = wd.addRow([`      ${l.description}`, l.base, l.iva, l.total, l.documents || ""]);
+        const lr = totalOnly
+          ? wd.addRow([`      ${l.description}`, l.total, l.documents || ""])
+          : wd.addRow([`      ${l.description}`, l.base, l.iva, l.total, l.documents || ""]);
         lr.font = { name: "Arial", size: 10 };
-        dMoney(lr, [2, 3, 4]);
+        dMoney(lr, totalOnly ? [2] : [2, 3, 4]);
       });
-      const sr = wd.addRow([`  ${t.subtotal} ${rub.code}`, rub.base, rub.iva, rub.total, ""]);
+      const sr = totalOnly
+        ? wd.addRow([`  ${t.subtotal} ${rub.code}`, rub.total, ""])
+        : wd.addRow([`  ${t.subtotal} ${rub.code}`, rub.base, rub.iva, rub.total, ""]);
       sr.font = { name: "Arial", italic: true, size: 10 };
-      dMoney(sr, [2, 3, 4]);
+      dMoney(sr, totalOnly ? [2] : [2, 3, 4]);
     });
   });
-  const tr = wd.addRow([t.total, doc.expenseBase, doc.expenseIva, doc.expenseTotal, ""]);
+  const tr = totalOnly
+    ? wd.addRow([t.total, doc.expenseTotal, ""])
+    : wd.addRow([t.total, doc.expenseBase, doc.expenseIva, doc.expenseTotal, ""]);
   tr.font = { name: "Arial", bold: true };
-  dMoney(tr, [2, 3, 4]);
+  dMoney(tr, totalOnly ? [2] : [2, 3, 4]);
 
   wd.addRow([]);
-  wd.addRow([t.ivaNote]).font = { name: "Arial", italic: true, size: 9 };
+  if (!totalOnly) wd.addRow([t.ivaNote]).font = { name: "Arial", italic: true, size: 9 };
 
   return wb;
 }
@@ -291,6 +324,9 @@ export async function exportPartnerStatementDocExcel(input: PartnerStatementDocI
 export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string | null): jsPDF {
   const t = doc.t;
   const loc = doc.locale;
+  // (g18 · #342) "Só total pago": só a coluna do total pago nas despesas,
+  // títulos sem o rótulo da base, sem a nota do IVA. Totais inalterados.
+  const totalOnly = doc.expenseColumns === "totalOnly";
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
@@ -370,24 +406,34 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
   });
 
   // 3. AS DESPESAS
-  y = sectionTitle(`${t.section3} (${doc.expenseBasisLabel.toLowerCase()})`, nextY());
+  y = sectionTitle(totalOnly ? t.section3 : `${t.section3} (${doc.expenseBasisLabel.toLowerCase()})`, nextY());
   table({
     startY: y,
-    head: [[t.family, t.value, t.iva, t.totalWithIva]],
-    body: [
-      ...doc.families.map((f) => [`${f.code} · ${f.name}`, money(f.base, loc), money(f.iva, loc), money(f.total, loc)]),
-      [
-        { content: t.totalExpenses, styles: { fontStyle: "bold" } },
-        { content: money(doc.expenseBase, loc), styles: { fontStyle: "bold", halign: "right" } },
-        { content: money(doc.expenseIva, loc), styles: { fontStyle: "bold", halign: "right" } },
-        { content: money(doc.expenseTotal, loc), styles: { fontStyle: "bold", halign: "right" } },
-      ],
-    ],
-    columnStyles: {
-      1: { halign: "right", cellWidth: 30 },
-      2: { halign: "right", cellWidth: 26 },
-      3: { halign: "right", cellWidth: 30 },
-    },
+    head: [totalOnly ? [t.family, t.value] : [t.family, t.value, t.iva, t.totalWithIva]],
+    body: totalOnly
+      ? [
+          ...doc.families.map((f) => [`${f.code} · ${f.name}`, money(f.total, loc)]),
+          [
+            { content: t.totalExpenses, styles: { fontStyle: "bold" } },
+            { content: money(doc.expenseTotal, loc), styles: { fontStyle: "bold", halign: "right" } },
+          ],
+        ]
+      : [
+          ...doc.families.map((f) => [`${f.code} · ${f.name}`, money(f.base, loc), money(f.iva, loc), money(f.total, loc)]),
+          [
+            { content: t.totalExpenses, styles: { fontStyle: "bold" } },
+            { content: money(doc.expenseBase, loc), styles: { fontStyle: "bold", halign: "right" } },
+            { content: money(doc.expenseIva, loc), styles: { fontStyle: "bold", halign: "right" } },
+            { content: money(doc.expenseTotal, loc), styles: { fontStyle: "bold", halign: "right" } },
+          ],
+        ],
+    columnStyles: totalOnly
+      ? { 1: { halign: "right", cellWidth: 40 } }
+      : {
+          1: { halign: "right", cellWidth: 30 },
+          2: { halign: "right", cellWidth: 26 },
+          3: { halign: "right", cellWidth: 30 },
+        },
   });
 
   // 4. O RESULTADO — cascata desde o resultado do evento (g13)
@@ -400,7 +446,9 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
         {
           content:
             i === 0
-              ? `${t.eventResultLine} (${doc.expenseBasisLabel.toLowerCase()})`
+              ? totalOnly
+                ? t.eventResultLine
+                : `${t.eventResultLine} (${doc.expenseBasisLabel.toLowerCase()})`
               : t.carriedResultLine,
           styles: { fontStyle: "bold" },
         },
@@ -451,7 +499,7 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(11);
     pdf.rect(margin, ry, pageW - margin * 2, 9, "F");
-    pdf.text(`${t.section4} · ${doc.resultBasisLabel}`, margin + 3, ry + 6);
+    pdf.text(totalOnly ? t.section4 : `${t.section4} · ${doc.resultBasisLabel}`, margin + 3, ry + 6);
     pdf.text(money(doc.result, loc), pageW - margin - 3, ry + 6, { align: "right" });
     pdf.setTextColor(0);
   }
@@ -538,71 +586,119 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
 
   const body: any[] = [];
   doc.families.forEach((f) => {
-    body.push([
-      { content: `${f.code} · ${f.name}`, styles: { fontStyle: "bold", fillColor: [235, 235, 235] } },
-      { content: money(f.base, loc), styles: { fontStyle: "bold", halign: "right", fillColor: [235, 235, 235] } },
-      { content: money(f.iva, loc), styles: { fontStyle: "bold", halign: "right", fillColor: [235, 235, 235] } },
-      { content: money(f.total, loc), styles: { fontStyle: "bold", halign: "right", fillColor: [235, 235, 235] } },
-      { content: "", styles: { fillColor: [235, 235, 235] } },
-    ]);
+    body.push(
+      totalOnly
+        ? [
+            { content: `${f.code} · ${f.name}`, styles: { fontStyle: "bold", fillColor: [235, 235, 235] } },
+            { content: money(f.total, loc), styles: { fontStyle: "bold", halign: "right", fillColor: [235, 235, 235] } },
+            { content: "", styles: { fillColor: [235, 235, 235] } },
+          ]
+        : [
+            { content: `${f.code} · ${f.name}`, styles: { fontStyle: "bold", fillColor: [235, 235, 235] } },
+            { content: money(f.base, loc), styles: { fontStyle: "bold", halign: "right", fillColor: [235, 235, 235] } },
+            { content: money(f.iva, loc), styles: { fontStyle: "bold", halign: "right", fillColor: [235, 235, 235] } },
+            { content: money(f.total, loc), styles: { fontStyle: "bold", halign: "right", fillColor: [235, 235, 235] } },
+            { content: "", styles: { fillColor: [235, 235, 235] } },
+          ],
+    );
     f.rubricas.forEach((rub) => {
-      body.push([
-        { content: `  ${rub.code} · ${rub.name}`, styles: { fontStyle: "bold" } },
-        { content: money(rub.base, loc), styles: { fontStyle: "bold", halign: "right" } },
-        { content: money(rub.iva, loc), styles: { fontStyle: "bold", halign: "right" } },
-        { content: money(rub.total, loc), styles: { fontStyle: "bold", halign: "right" } },
-        { content: rub.documents ? String(rub.documents) : "—", styles: { halign: "center" } },
-      ]);
+      body.push(
+        totalOnly
+          ? [
+              { content: `  ${rub.code} · ${rub.name}`, styles: { fontStyle: "bold" } },
+              { content: money(rub.total, loc), styles: { fontStyle: "bold", halign: "right" } },
+              { content: rub.documents ? String(rub.documents) : "—", styles: { halign: "center" } },
+            ]
+          : [
+              { content: `  ${rub.code} · ${rub.name}`, styles: { fontStyle: "bold" } },
+              { content: money(rub.base, loc), styles: { fontStyle: "bold", halign: "right" } },
+              { content: money(rub.iva, loc), styles: { fontStyle: "bold", halign: "right" } },
+              { content: money(rub.total, loc), styles: { fontStyle: "bold", halign: "right" } },
+              { content: rub.documents ? String(rub.documents) : "—", styles: { halign: "center" } },
+            ],
+      );
       rub.lines.forEach((l) => {
-        body.push([
-          `      ${l.description}`,
-          { content: money(l.base, loc), styles: { halign: "right" } },
-          { content: money(l.iva, loc), styles: { halign: "right" } },
-          { content: money(l.total, loc), styles: { halign: "right" } },
-          { content: l.documents ? String(l.documents) : "—", styles: { halign: "center" } },
-        ]);
+        body.push(
+          totalOnly
+            ? [
+                `      ${l.description}`,
+                { content: money(l.total, loc), styles: { halign: "right" } },
+                { content: l.documents ? String(l.documents) : "—", styles: { halign: "center" } },
+              ]
+            : [
+                `      ${l.description}`,
+                { content: money(l.base, loc), styles: { halign: "right" } },
+                { content: money(l.iva, loc), styles: { halign: "right" } },
+                { content: money(l.total, loc), styles: { halign: "right" } },
+                { content: l.documents ? String(l.documents) : "—", styles: { halign: "center" } },
+              ],
+        );
       });
-      body.push([
-        { content: `  ${t.subtotal} ${rub.code}`, styles: { fontStyle: "italic" } },
-        { content: money(rub.base, loc), styles: { fontStyle: "italic", halign: "right" } },
-        { content: money(rub.iva, loc), styles: { fontStyle: "italic", halign: "right" } },
-        { content: money(rub.total, loc), styles: { fontStyle: "italic", halign: "right" } },
-        "",
-      ]);
+      body.push(
+        totalOnly
+          ? [
+              { content: `  ${t.subtotal} ${rub.code}`, styles: { fontStyle: "italic" } },
+              { content: money(rub.total, loc), styles: { fontStyle: "italic", halign: "right" } },
+              "",
+            ]
+          : [
+              { content: `  ${t.subtotal} ${rub.code}`, styles: { fontStyle: "italic" } },
+              { content: money(rub.base, loc), styles: { fontStyle: "italic", halign: "right" } },
+              { content: money(rub.iva, loc), styles: { fontStyle: "italic", halign: "right" } },
+              { content: money(rub.total, loc), styles: { fontStyle: "italic", halign: "right" } },
+              "",
+            ],
+      );
     });
   });
-  body.push([
-    { content: t.total, styles: { fontStyle: "bold" } },
-    { content: money(doc.expenseBase, loc), styles: { fontStyle: "bold", halign: "right" } },
-    { content: money(doc.expenseIva, loc), styles: { fontStyle: "bold", halign: "right" } },
-    { content: money(doc.expenseTotal, loc), styles: { fontStyle: "bold", halign: "right" } },
-    "",
-  ]);
+  body.push(
+    totalOnly
+      ? [
+          { content: t.total, styles: { fontStyle: "bold" } },
+          { content: money(doc.expenseTotal, loc), styles: { fontStyle: "bold", halign: "right" } },
+          "",
+        ]
+      : [
+          { content: t.total, styles: { fontStyle: "bold" } },
+          { content: money(doc.expenseBase, loc), styles: { fontStyle: "bold", halign: "right" } },
+          { content: money(doc.expenseIva, loc), styles: { fontStyle: "bold", halign: "right" } },
+          { content: money(doc.expenseTotal, loc), styles: { fontStyle: "bold", halign: "right" } },
+          "",
+        ],
+  );
 
-  y = sectionTitle(t.detailBExpenses, nextY());
+  y = sectionTitle(totalOnly ? stripBasisLabel(t.detailBExpenses) : t.detailBExpenses, nextY());
   table({
     startY: y,
-    head: [[t.rubrica, t.value, t.iva, t.totalWithIva, t.attachments]],
+    head: [totalOnly ? [t.rubrica, t.value, t.attachments] : [t.rubrica, t.value, t.iva, t.totalWithIva, t.attachments]],
     body,
     styles: { ...styles, fontSize: 8 },
-    columnStyles: {
-      1: { halign: "right", cellWidth: 25 },
-      2: { halign: "right", cellWidth: 22 },
-      3: { halign: "right", cellWidth: 25 },
-      4: { halign: "center", cellWidth: 13 },
-    },
+    columnStyles: totalOnly
+      ? {
+          1: { halign: "right", cellWidth: 35 },
+          2: { halign: "center", cellWidth: 18 },
+        }
+      : {
+          1: { halign: "right", cellWidth: 25 },
+          2: { halign: "right", cellWidth: 22 },
+          3: { halign: "right", cellWidth: 25 },
+          4: { halign: "center", cellWidth: 13 },
+        },
   });
 
-  let ny = nextY();
-  if (ny > pageH - 20) {
-    pdf.addPage();
-    ny = margin;
+  // (g18 · #342) Em "Só total pago" a nota do IVA sai e não é substituída.
+  if (!totalOnly) {
+    let ny = nextY();
+    if (ny > pageH - 20) {
+      pdf.addPage();
+      ny = margin;
+    }
+    pdf.setFont("helvetica", "italic");
+    pdf.setFontSize(8);
+    pdf.setTextColor(110);
+    pdf.text(t.ivaNote, margin, ny, { maxWidth: pageW - margin * 2 });
+    pdf.setTextColor(0);
   }
-  pdf.setFont("helvetica", "italic");
-  pdf.setFontSize(8);
-  pdf.setTextColor(110);
-  pdf.text(t.ivaNote, margin, ny, { maxWidth: pageW - margin * 2 });
-  pdf.setTextColor(0);
 
   const pages = (pdf as any).internal.getNumberOfPages?.() ?? 1;
   for (let i = 1; i <= pages; i++) {

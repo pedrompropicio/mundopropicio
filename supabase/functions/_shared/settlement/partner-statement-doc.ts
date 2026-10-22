@@ -97,6 +97,16 @@ export interface PartnerStatementDocInput {
   /** Base do FECHAMENTO: true = despesas c/IVA. */
   usesGrossExpenses: boolean;
   /**
+   * (g18 · #342) Colunas das despesas do documento: "detailed" (Valor · IVA ·
+   * Total c/IVA, como sempre) ou "totalOnly" (só o total pago, sem colunas de
+   * base nem de IVA e sem a nota do art. 18.º CIVA). Omissão: "detailed".
+   * "totalOnly" só é honrado quando a base EFETIVA das despesas é c/IVA —
+   * fora disso o documento sai sempre detalhado. Em "totalOnly" a expressão
+   * "c/IVA" não aparece em parte nenhuma do documento; os totais, o resultado
+   * e a parte do sócio não mudam (só colunas e rótulos).
+   */
+  expenseColumns?: "detailed" | "totalOnly";
+  /**
    * (g10) O fechamento devolve o IVA dedutível do fechamento acima. Nesse caso a
    * base EFETIVA é s/IVA e o documento apresenta "Despesas s/IVA" e
    * "Resultado s/IVA" directamente, sem falar do mecanismo do IVA.
@@ -200,6 +210,8 @@ export interface PartnerStatementDoc {
   expenseForResult: number;
   /** Base EFETIVA do fechamento (já com a regra g10 aplicada). */
   usesGrossExpenses: boolean;
+  /** (g18 · #342) Colunas das despesas — "totalOnly" só com base efetiva c/IVA. */
+  expenseColumns: "detailed" | "totalOnly";
   /** (g10) "Despesas c/IVA" | "Despesas s/IVA" — rótulo da secção 3/4. */
   expenseBasisLabel: string;
   /** (g10) "Resultado c/IVA" | "Resultado s/IVA". */
@@ -637,6 +649,9 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     expenseTotal,
     expenseForResult,
     usesGrossExpenses: usesGrossEffective,
+    // (g18 · #342) "Só total pago" exige base efetiva c/IVA; fora disso,
+    // detalhado (a tabela deixaria de somar ao resultado).
+    expenseColumns: input.expenseColumns === "totalOnly" && usesGrossEffective ? "totalOnly" : "detailed",
     // (g13-b) Em cascata o rótulo é o da base da conta apresentada (a da raiz).
     expenseBasisLabel: hasCascade
       ? effectiveExpenseBasisLabel({ usesGrossExpenses: usesGrossEffective })

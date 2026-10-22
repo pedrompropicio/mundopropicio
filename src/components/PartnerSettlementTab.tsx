@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { toast } from "@/hooks/use-toast";
-import { effectiveBasisShortLabel, effectiveExpenseBasisLabel } from "@/lib/settlement-basis";
+import { effectiveBasisShortLabel, effectiveExpenseBasisLabel, effectiveUsesGrossExpenses } from "@/lib/settlement-basis";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +31,7 @@ import {
 } from "@/lib/partner-calc-basis";
 
 import { computeOutsideBpExcess, sumLines } from "@/lib/event-cost-basis";
-import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
+import { useFechoBasis, describeFechoBasis, useExpenseColumnsMode } from "@/hooks/useFechoBasis";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
 import { useEventSettlementEngine } from "@/hooks/useEventSettlementEngine";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
@@ -697,6 +697,19 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // operações de terceiros. Evento com um único apuramento e sem linhas marcadas
   // → totais do evento, exactamente como antes (paridade obrigatória).
   const activeNode = engine.result?.nodes.find((n) => n.id === activeSettlementId) ?? null;
+  // (g18 · #342) Colunas das despesas no documento do sócio. "Só total pago" só
+  // faz sentido com a base efetiva das despesas do documento em c/IVA (mesma
+  // regra do gerador do documento: em cascata manda a base da raiz; fora dela
+  // a devolução do IVA dedutível apresenta s/IVA).
+  const { mode: expenseColumnsMode, setMode: setExpenseColumnsMode } = useExpenseColumnsMode(eventId);
+  const docUsesGrossExpenses = activeNode
+    ? activeNode.parentId
+      ? activeNode.nodeUsesGrossExpenses
+      : effectiveUsesGrossExpenses({
+          usesGrossExpenses: activeNode.nodeUsesGrossExpenses,
+          returnsParentDeductibleVat: activeNode.returnsParentDeductibleVat,
+        })
+    : basis.withVat;
   const useNodeTotals = !!activeNode && (eventSettlements as any[]).length > 1;
   const parentNode = activeNode?.parentId
     ? engine.result?.nodes.find((n) => n.id === activeNode.parentId) ?? null
@@ -1714,9 +1727,21 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           .map((o) => ({ label: o.name, value: o.additionalActive })),
       });
 
+    // (g18 · #342) A escolha "Só total pago" só passa ao documento quando a
+    // base efetiva das despesas é c/IVA (a mesma regra do gerador: em cascata
+    // manda a base da raiz; a devolução do IVA dedutível apresenta s/IVA).
+    const rawDocGross = activeNode?.nodeUsesGrossExpenses ?? row.usesGrossExpenses;
+    const docGross = cascade
+      ? rawDocGross
+      : effectiveUsesGrossExpenses({
+          usesGrossExpenses: rawDocGross,
+          returnsParentDeductibleVat: activeNode?.returnsParentDeductibleVat ?? false,
+        });
+
     return {
       locale,
       eventName,
+      expenseColumns: expenseColumnsMode === "totalOnly" && docGross ? "totalOnly" : "detailed",
       eventDate: (subEvents as any[]).find((se) => se.id === eventId)?.date ?? null,
       eventLocation: ((event as any)?.cities as any)?.name ?? null,
       logoDataUrl: logoDataUrl ?? null,
@@ -1863,7 +1888,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <SelectItem value="event">Cálculo: pela regra geral do evento</SelectItem>
             </SelectContent>
           </Select>
-          <FechoBasisSelector basis={basis} />
+          <FechoBasisSelector
+            basis={basis}
+            expenseColumns={{
+              mode: expenseColumnsMode,
+              onChange: setExpenseColumnsMode,
+              disabled: !docUsesGrossExpenses,
+            }}
+          />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="outline">
