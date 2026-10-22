@@ -374,3 +374,6 @@ O `close-card-session` grava os números do fecho no topo do `closing_summary` O
 - **Causa:** `CardSessions.tsx` (lista) usava `queryKey ["card-session-items", openSessionIds.join(",")]` devolvendo um `Map<session_id, total>`, enquanto `CardSessionDetail.tsx` usava `["card-session-items", id]` devolvendo um array. Com UMA só sessão aberta, `openSessionIds.join(",")` é igual ao id — mesma chave, shapes diferentes. O detalhe lia o Map e rebentava ("TypeError: ne.map is not a function" no useMemo → ecrã branco em `/cartoes/<id>`).
 - **Correção:** a query da lista passou a `["card-session-open-items-by-session", openSessionIds.join(",")]` e `invalidateCardSessionQueries` invalida a raiz nova (`card-session-helpers.ts`).
 - **Regra:** a raiz de uma queryKey identifica o SHAPE dos dados — nunca reutilizar a mesma raiz para um agregado e para uma lista, porque `ids.join(",")` com um id só é indistinguível do id.
+
+## Especificação curta (Issue #343, 22/10/2026)
+`transactions.specification` das transações consolidadas leva só o cabeçalho (helper `_shared/session-specification.ts`): sem lista de itens nem "Fornecedores:"; no camarim também sem "Análise:" (desvio de IVA mantém-se). O detalhe vive só no modal da sessão. Na lista de Transações a especificação aparece em 2 linhas e expande ao clicar (`SpecificationText`).
