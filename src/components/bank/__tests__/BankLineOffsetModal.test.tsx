@@ -9,6 +9,7 @@ vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ role }) }));
 
 import { BankLineOffsetModal, OffsetLineButton, OFFSET_DISABLED_MESSAGE, type OffsetModalServices } from "../BankLineOffsetModal";
 import { checkOffsetEligibility } from "@/lib/offset-plan/eligibility";
+import { formatEurCents } from "@/lib/offset-plan";
 import type { OffsetCandidate } from "@/lib/offset-plan/load";
 
 const N0 = { enabled: true, reverse_enabled: true };
@@ -193,5 +194,38 @@ describe("wizard", () => {
     wrap(<BankLineOffsetModal line={{ ...line, amount: 23406.01 }} onClose={() => {}} services={services()} initialSupplierId="s1" />);
     await goToPreview().catch(() => {});
     expect(await screen.findByTestId("plan-errors")).toHaveTextContent("Faltam 0,01");
+  });
+});
+
+describe("layout da prévia", () => {
+  it("descrição longa: tabela de largura fixa com as quatro colunas e números sem quebra", async () => {
+    const longo = "Casino Estoril — refeições no refeitório, 660 × 11,50, 24/08 a 08/09 (FT F1/00000439) · a compensar no apoio";
+    const s = services({
+      loadDocuments: async () => [cand("rec", "income", 30996), cand("desp", "expense", 7590, { label: longo })],
+    });
+    wrap(<BankLineOffsetModal line={line} onClose={() => {}} services={s} initialSupplierId="s1" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Seguinte" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "rec" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: longo }));
+    fireEvent.click(screen.getByRole("button", { name: "Seguinte" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Ver prévia" }));
+    const rows = await screen.findAllByTestId("preview-row");
+    const table = screen.getByTestId("preview-table");
+    expect(table.className).toContain("table-fixed");
+    expect(table.querySelectorAll("colgroup col")).toHaveLength(4);
+    const heads = Array.from(table.querySelectorAll("thead th")).map((th) => th.textContent);
+    expect(heads).toEqual(["Documento", "Em aberto", "Dinheiro", "Compensação"]);
+    const desp = rows.find((r) => r.textContent?.includes(longo))!;
+    const cells = desp.querySelectorAll("td");
+    expect(cells).toHaveLength(4);
+    expect(cells[0].className).toContain("break-words");
+    expect(cells[0].className).not.toContain("truncate");
+    expect(cells[0].textContent).toBe(`Despesa · ${longo}`);
+    for (const c of Array.from(cells).slice(1)) {
+      expect(c.className).toContain("whitespace-nowrap");
+      expect(c.className).toContain("text-right");
+    }
+    expect(cells[1].textContent).toBe(formatEurCents(759000));
+    expect(cells[3].textContent).toBe(formatEurCents(759000));
   });
 });
