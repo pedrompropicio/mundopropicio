@@ -250,3 +250,27 @@ Leituras delegadas: sub_nhb0edrf, sub_st244trv, sub_87kkt4v6. Chunks ≤200; nã
 - sub_cwsdc84z: source inicial1–200,201–400,401–466 + última linha; source final adições via diff. Matriz JSON parse integral/asserts, NÃO LIDO linha-a-linha; versão final repetida após revisão.
 - rollback before/after capturas integrais comparadas por máquina; NÃO LIDO textual. Runners irmãos, outros SQL candidatos e capturas históricos NÃO RELIDOS nesta ronda: regressão executada pela suite não equivale a leitura.
 - Memória mem://constraints/issue335-local-balance-authorization integral1–10; compensacao-ligada1–47/payment-account-ownership1–46 já integrais nesta conversa; nenhuma memória editada.
+
+
+## 2n-Bloco7 — leituras e limites, 22/10/2026 UTC
+Leituras ANTES de modificar respectivas fontes; hashes actuais de ficheiros intocados; ficheiros editados identificados, não fingir hash antes igual ao final. Subagentes read-only sub_exsf2vgc/sub_z9nxt53h: manifestos integrais retidos local/phase2n-bloco7/{writers,permissions}-investigation.md; intervalos <=200, leitura delegada não pessoal.
+- AGENTS.md | SHA256=4c5e8033c549a41636f29aa9496160566d638114421e36dfac5dbe99b986342d | intervalos=1–41 | INTEGRAL executor
+- supabase/AGENTS.md | SHA256=c4a593a91c43a79de00879fea8e566841a74d212962ee9a3dda8ffca46237b17 | intervalos=1–3 | INTEGRAL executor
+- docs/QUADRO.md | SHA256=f316973e871ea2e37954ce3d18c9759c2d066529d11ff50707c3963917459121 | intervalos=1–106,107–200,201–282 | INTEGRAL executor; reserva inalterada
+- .lovable/memory/features/compensacao-ligada.md | SHA256=b6f1a368c823a53e1462558fd1d7c60ae24908ba3e835b692f7868098c1dafd6 | intervalos=1–47 | INTEGRAL
+- .lovable/memory/features/payment-account-ownership.md | SHA256=ee962f16af7ba153f39192769f4aa6f57590aff5c419a74ae80a278924ccde4e | intervalos=1–46 | INTEGRAL
+- .lovable/memory/features/ui-permissions-overrides.md | SHA256=a66b0e903ca62ab1683f203f320ca59de0985c1641fd0833f93e5b6199fcdc58 | intervalos=1–19 | INTEGRAL
+- supabase/tests/issue335/phase2h-run.sh | SHA256=65299cf90cf0e194d32636d8d4a91d1a4fcf63930e6bbc40606aa59ccbe01c52 | intervalos=1–23 | INTEGRAL
+- supabase/tests/issue335/phase2h-suite.sh | SHA256=b78f9354a8b39ad2ef09b49d0e99e3d0e4c60120a7ca1e1aafff466d7e759e71 | intervalos=1–62 ANTES da integração | INTEGRAL original; adições executadas
+- supabase/tests/issue335/phase2h-fixtures.sql | SHA256=0e18c816017d5db7f3f46f4a2e69250a73690e851665647ed713b8a66bfcbb03 | intervalos=1–75 | INTEGRAL
+- supabase/tests/issue335/phase2l-rollback.py | SHA256=b6d4492763f665b5f493aad8a9ccde4d625a6f648b51f4a4217ae4f60e1c343a | intervalos=1–49 | INTEGRAL
+- supabase/tests/issue335/phase2n-status.py | SHA256=8fa8f93c1e9504e6344e1046c0a48e6a75cd6505d933dc3abc75b9b7cf9d2e31 | intervalos=1–200 | PARCIAL; restante NÃO LIDO fora padrões usados
+- docs/testes/issue335-fases12-local.md | SHA256=7b30981bb2c825f25d5fbe921ed0b3415de9ede10281378fca19c34342efc002 | intervalos=6722–6770 antes append | PARCIAL; histórico restante NÃO LIDO
+- docs/testes/issue335-fase2n-leituras.md | SHA256=8fe967fa3c57e8b13d206789c8a0fd96b85847c785e4e66ac494a2b364e369cf | intervalos=1–180,181–252 | INTEGRAL original
+- docs/testes/issue335-fase2n-hashes.sha256 | SHA256=686502edd0abece6dd8c7559715c43a442ad459e86c1201cf57cd8e3f70d638a | intervalos=1–120,121–144 | INTEGRAL original
+- roadmap.md | SHA256=d77cd5abc9c4d37f878ea169f7cc0e6a755c74f08ff19c2102a97dc281501476 | intervalos=1–68 | INTEGRAL; não editado por âmbito exclusivo
+- core/storage INTEGRAL delegado sub_exsf2vgc, SHA/intervalos no manifesto writers; executor1–400,800–999,1049–1148 core e1–91storage. Nenhum candidato editado.
+- mem://constraints/issue335-local-balance-authorization INTEGRAL1–10; não editada.
+- Runner7 novo: conteúdo escrito conhecido, executado integralmente; não alegar releitura manual. low.json integral processado/asserts, NÃO LIDO textual linha-a-linha. Rollback integral comparado por máquina, NÃO LIDO textual.
+- Catálogo Live: apenas UM SELECT agregado autorizado (counts), resposta integral lida; sem catálogo/dados individuais Live. SELECTs catálogo LOCAL integrais em low.json/legacy-functions/policies; funções sandbox_exec* ausentes no catálogo local.
+- NÃO LIDO nesta ronda: restante relatório histórico1–6721, demais runners irmãos/candidatos/artefactos anteriores fora intervalos delegados; executados pela suite não equivale a leitura. Catálogo-ddl93k linhas apenas chaves seleccionadas pelo subagente, não integral. Ficheiros sem matches das buscas não lidos integralmente.

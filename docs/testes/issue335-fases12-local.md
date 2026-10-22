@@ -6768,3 +6768,58 @@ Leituras em issue335-fase2n-leituras.md, com hashes/intervalos≤200 e limites e
 ### Questões/decisões em aberto — parar neste bloco
 
 Nenhuma das três células E permanece aberta localmente. Fecho remoto SHA/CI continua por verificar, não confundir suite local com CI. Coala: decisão recomendada investigar fonte canónica do fornecedor em tarefa separada; alternativa manter WARNING assumido. Não corrigido neste bloco. A–C/instalação exigem Sim separado; sem nova autorização implícita. Não avançar outros blocos.
+
+## 2n-Bloco7 — baixos CLASSIFICADOS LOCALMENTE, 22/10/2026 UTC
+
+Autorização Pedro 02:09 UTC: análise e testes locais completos, sem perguntar/parar a meio. Reserva #335 no QUADRO mantida byte-a-byte; #322/#323 intactas. Alterações exclusivamente docs/ e supabase/tests/. Nenhum candidato manual alterado, migration, TS, deploy, Publish ou instalação de produção. Uma consulta oficial Live estritamente agregada, sem IDs/valores monetários; restantes SELECT em catálogos locais. Não é aceitação global: duas lacunas classificadas abaixo continuam abertas.
+
+### 1. Matriz papel × função, overrides e RLS
+
+Runner versionado `supabase/tests/issue335/phase2n-low.py`, integrado na suite. 48 células reais: admin/manager/editor/accountant/user com override manage_bank_reconciliation ausente/true/false × execute/bank-offset/reverse; anon × três funções. Auth.users criado pelo papel Auth com trigger real; criação local por administrador do harness, execução com session_user=postgres NOSUPERUSER + papel authenticated/anon e JWT actor conferido. Cada célula tem documentos/linha válidos independentes; permissões, efeitos positivos e snapshots completos negativos, sem AssertionError capturado.
+
+- execute: admin/manager/editor aceitam; accountant/user recusam permission_denied mesmo com manage_bank_reconciliation=true; anon ACL42501. Core:224.
+- bank-offset: admin/manager aceitam independentemente do override; editor só com permissão efectiva (true aceita, false/ausente recusam neste catálogo); accountant/user com true passam o gate bancário mas o gate interior recusa permission_denied; anon ACL42501. Core:901 +224.
+- reverse: só admin aceita; nenhum override substitui papel admin. Core:376. ACL authenticated não concede papel de negócio.
+- `has_permission` é override da empresa activa primeiro, depois platform_admin/role_permissions. Policy bancária ALL: is_platform_admin OR admin OR manager OR has_permission(manage_bank_reconciliation); intersecta company_id=current_company_id. user+true gere linhas legadas mas não abre o núcleo de encontros.
+- user_permissions: PERMISSIVE ALL `has_role(auth.uid(),'admin')`; SELECT próprio/admin/manager; RESTRICTIVE ALL `(user_id=auth.uid() OR company_id=current_company_id() OR is_platform_admin())`, USING/WITH CHECK. Cinco INSERTs reais confirmam apenas admin escreve; próprio/company não é concessão de escrita. Políticas/ACL/definições integrais obtidas por SELECT local retidas em low.json e legacy-policies/functions.json.
+- LACUNA LEGADA POSITIVA: ACL TRUNCATE em user_permissions para authenticated/anon. Dois testes reais user/anon TRUNCATE esvaziam apenas a tabela local, rollback repõe tudo. Row RLS não protege TRUNCATE. Não foi corrigida, não é prova de auto-concessão via INSERT nem causada pelo #335. Requer tarefa de endurecimento separada; não transformar “só admin escreve linhas” em garantia de todas as operações.
+
+### 2. Inventário de escritas directas e sandbox_exec*
+
+Inventário exaustivo por ocorrência, ficheiro:linha/classificação e intervalos/hashes em `supabase/tests/issue335/local/phase2n-bloco7/writers-investigation.md` (delegado sub_exsf2vgc). Buscas src + supabase/functions e SQL/migrations/manual/drizzle/capturas. Não se afirma revisão integral de todos os ficheiros sem ocorrências.
+
+Frontend: BankReconciliation.tsx:1303 upsert; :1453–1467 UPDATE linha; :1469 DELETE ponte; :1536–1547 UPDATE linha; :1550–1551 DELETE ponte. Sem escritores directos transaction_offsets no frontend; sem referências às três tabelas nas edge functions. src/lib/transaction-offsets.ts:82–95 chama RPCs legados create/remove, não escreve directo.
+
+Classificação: importação INSERT/DO NOTHING = legado seguro; ignorar/reconciliar = seguro em linhas não geridas, tentativa de contornar guarda se receber âncora gerida, recusada. Não há prova de bypass bem-sucedido. Reconcile rerun selecciona unmatched/auto:, exclui offset: normal; não depender deste filtro como guarda de segurança. Escritas HTTP separadas de header/ponte não são atómicas no legado. Todos os DML SQL repetidos/versionados constam do inventário; core writes sob contexto privado são caminho autorizado; reparação histórica/fixtures/leitores/ACL são irrelevantes como writers externos.
+
+SELECT local: sandbox_exec* são papéis (nenhuma função public sandbox_exec* descoberta), INSERT permitido nas três tabelas legadas, UPDATE/DELETE false; BYPASSRLS não elimina BEFORE triggers/FKs. ACL exacta por papel/tabela em low.json.catalog.sandbox. Core:150–175 +208–213 protege offsets/âncora/ponte; contexto privado33–49 e1082–1148 não se forja apenas com role/GUC. Limite owner/DDL do Bloco1 permanece. Não alegar TRUNCATE protegido por row trigger.
+
+### 3. Replay request_id
+
+execute: mesmo admin+payload devolve resultado idêntico e snapshots integrais iguais; manager autorizado diferente recebe exactamente P0001 request_actor_mismatch, snapshots iguais. Hash/pedido actor core:228–241. Bank-offset: replay mesmo admin não duplica linhas/pernas/grupos; segundo admin da mesma empresa, mesmo payload, request_actor_mismatch (teste real). Payload alterado é request_changed antes da verificação do actor, por ordem explícita.
+
+LACUNA POSITIVA NO ESTORNO: core:376–389 exige admin e confere reversal_request_id/reason, mas não actor. Segundo admin da mesma empresa repete o tuple do estorno e recebe resultado idêntico, sem nova escrita; snapshot completo igual. Não satisfaz “só mesmo utilizador repete” se a regra inclui reverse. Classificado ABERTO, sem enfraquecer asserção nem alterar candidato/schema. Adicionar actor durável do estorno e teste de mismatch é proposta separada; não reutilizar created_by (é autor da aplicação, não necessariamente do estorno).
+
+### 4. Importação e ON DELETE RESTRICT
+
+BankReconciliation.tsx:1273–1303 usa conflito financial_account_id,line_hash, ignoreDuplicates=true: SQL equivalente ON CONFLICT DO NOTHING. Teste local sobre linha de grupo aplicado insere0, snapshot exacto igual. Não apaga/substitui linha existente. :1306–1313 limpa header novo sem linhas; count HTTP não é garantia atómica, error não é verificado — autoridade são FK/trigger.
+
+Testes reais: DELETE linha, DELETE statement com CASCADE, UPDATE linha, DELETE ponte e upsert DO UPDATE recusam managed_bank_anchor_immutable em grupo aplicado, snapshots integrais iguais. Após reverse, linha perde offset_group_id mas grupo retém bank_line_id; DELETE falha23503, constraint `transaction_offset_groups_bank_line_id_fkey`, sem alterações. Definição positiva SELECT catálogo: FOREIGN KEY(bank_line_id) REFERENCES bank_statement_lines(id) ON DELETE RESTRICT, storage:11; inversa storage:74 protege o grupo, não a linha. FK sem predicado de status retém também histórico reversed. Importação do mesmo hash nunca substitui statement_id nem âncora.
+
+### 5. Tamanho agregado e janela não-CONCURRENTLY
+
+Único SELECT Live agregado autorizado: transactions2019; payments1463; bank lines229; bridge8; offsets7; máximo de pagamentos/documento2; soma dos50 maiores57; documentos com pagamentos1456. Output em live-aggregate-counts.json, origem oficial read_query. Sem ler IDs ou quantias.
+
+Core:226 limita50 documentos, :263–267 locks UUID de BP/documentos e TODOS os pagamentos existentes (inclui estados não paid); não há limite independente de pernas anteriores. Limite actual observado top50=57, limite conservador50×2=100. Novas pernas <=2 por documento (cash/compensation) portanto <=100; teste50 com100 pernas prévias reais criou51 novas (16cash+35compensation), aplicou0.300301s/estornou0.097781s no harness, preservando100 anteriores. Não extrapolar como SLA: triggers, histórico, BP matching e carga real afectam tempo; ausência de índice transaction_id em pagamentos, se detectada no catálogo futuro, agravaria varreduras; esta tarefa não cria índices de produção.
+
+Storage:75–77 três índices não concorrentes; ALTER TABLE:63–74 adiciona colunas/FKs/checks às tabelas existentes. CREATE INDEX normal toma ShareLock (bloqueia INSERT/UPDATE/DELETE, permite SELECT); ALTER TABLE pede AccessExclusiveLock em fases, bloqueando também leitores. Tudo no mesmo BEGIN/COMMIT: lock retido pela transacção, não apenas tempo do índice. lock_timeout5s limita espera de lock, NÃO execução nem duração total do pacote; pode abortar com writer activo. Não prometer janela5s total.
+
+Teste local count-sized1463 linhas sintéticas, índice único parcial:0.001511s, SELECT segundo backend aceita, INSERT segundo backend55P03 sob lock_timeout50ms, sem sleeps. pg_locks confirmou ShareLock retido até rollback. Estimativa operacional conservadora: janela exclusiva de segundos, não zero downtime; tempo Live e pacote integral não medidos, só contagens não fornecem largura/bloat/WAL/CPU/contenção. Prova é do tipo de lock e ordem de grandeza local, não autorização de instalação. Requer preflight/janela explícita antes de aplicar A–C.
+
+### Suite, rollback, falhas preservadas, ficheiros e SHAs
+
+Suite final NOVO catálogo instalado + NOVO catálogo legado sem candidatos:22 grupos PASS, exit0; E202/0abertas/0skips preservado; runner7 exit0/0skips com lacunas classificadas, não aprovação técnica global. Primeira suite passou; tentativa de repetir E no mesmo controlo legado falhou UniqueViolation transactions_pkey (fixture600…081 já criada), exit1 retido rejected-suite.out/rejected-reused-baseline.out. Resolvido criando controlo novo, sem alterar runner E/asserções. Durante construção: fixture Auth não podia SET ROLE a partir postgres (corrigida criação pelo administrador antes de fixar sessão NOSUPERUSER); expectativa aritmética errada60pernas corrigida51 (15×98+30cash e35compensation), AssertionError real preservado no log da invocação; não promovido a PASS.
+
+Rollback integral14 pares num catálogo limpo:exit0, differences={}, before=after SHA256474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1. Catálogo normalizado completo owners/ACL/roles/memberships/defaults/types/indexes/RI/triggers/policies/functions/views, gzip retido; nenhum fingerprint reduzido. Fixture7 rollback por célula; tabela sintética índice eliminada; clusters efémeros desta tarefa encerrados no fim.
+
+Artefactos: supabase/tests/issue335/local/phase2n-bloco7, low.json integral snapshots/catalog, low.out, suite.out/results, rejected outputs, rollback before/after.gz/differences/output/bootstrap, counts, investigações e summary. Leituras/hashes completos nos manifestos. JSON/snapshots/rollback comparados integralmente por máquina, NÃO LIDOS textualmente linha-a-linha; capturas históricas fora do âmbito não relidas. SHAs finais no bloco7 de issue335-fase2n-hashes.sha256; CI remoto não verificado, nenhum git stateful. Reserva QUADRO mantida, manual/TS/migrations intactos. Parar no fim deste bloco; A–C/instalação exigem Sim separado.
