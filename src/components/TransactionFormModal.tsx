@@ -29,6 +29,7 @@ import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { computeInstallmentNets } from "@/lib/installment-nets";
+import { splitLegNeedsOverride, splitLegExceedsBudget } from "@/lib/rateio-children";
 import { TransactionSplitConfig, type SplitEntry, type SplitBPInfo, type SplitInputMode } from "@/components/TransactionSplitConfig";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -2833,6 +2834,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   <p className="text-xs text-warning/90 leading-relaxed">{splitCategoryWarning}</p>
                 </div>
               )}
+              {splitIncomeExceedsWarning && (
+                <div className="rounded-lg border border-warning/40 bg-warning/10 p-3">
+                  <p className="text-xs text-warning/90 leading-relaxed">{splitIncomeExceedsWarning}</p>
+                </div>
+              )}
               {/* BP Override toggle for split mode */}
               {splitNeedsBypass && (
                 <div className="flex items-center gap-2">
@@ -2841,7 +2847,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     onClick={() => { setPlOverride(!plOverride); setForm({ ...form, pl_override_note: "" }); }}
                     className={`text-xs font-medium transition-colors ${plOverride ? "text-warning" : "text-muted-foreground hover:text-foreground"}`}
                   >
-                    {plOverride ? "⚠️ Fora do BP — Clique para reverter" : "⚠️ Rateio excede BP em alguns eventos. Clique para justificar"}
+                    {plOverride ? "⚠️ Fora do BP — Clique para reverter" : form.type === "income" ? "⚠️ Rateio da receita sem linha de BP em alguns eventos. Clique para justificar" : "⚠️ Rateio excede BP em alguns eventos. Clique para justificar"}
                   </button>
                 </div>
               )}
@@ -2852,7 +2858,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     value={form.pl_override_note}
                     onChange={(e) => setForm({ ...form, pl_override_note: e.target.value })}
                     className="w-full rounded-lg border border-warning/50 bg-warning/5 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-warning/50"
-                    placeholder="Ex: Despesa partilhada não prevista no orçamento individual"
+                    placeholder={form.type === "income" ? "Ex: Receita partilhada não prevista no orçamento individual" : "Ex: Despesa partilhada não prevista no orçamento individual"}
                   />
                 </div>
               )}
