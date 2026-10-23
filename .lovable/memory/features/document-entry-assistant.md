@@ -61,3 +61,8 @@ Escolhido anexo, ZERO linhas, falha/ausência do scanner ou scanner só de metad
 
 - Datas na revisão Ticketline: sempre DatePicker padrão com `clearable` (nunca input nativo); "Limpar recebimento" limpa o bloco inteiro pelo edit fence; data obrigatória vazia continua a bloquear, nunca preencher com hoje.
 - Padrão global de datas aprovado pelo Pedro e já integrado no AGENTS em 23/10/2026: aplica-se também aos filtros Gmail Desde/Até e Data da fatura do Assistente. Período Gmail continua obrigatório e com os defaults existentes; limpar texto/botão apaga o canónico e exige preenchimento antes de pesquisar/paginar, nunca pesquisa com data antiga. Preservar limites Desde<=Até e ISO civil sem conversão de fuso; não autoriza migração global, janela, login, chamadas reais ou Publish.
+
+## Trocar de email na conversa (23/10/2026)
+- "Escolher outro email" e pedidos claros de listar/trocar voltam aos resultados da pesquisa ATUAL com a continuação assinada: 1 revalidação, zero IA, zero leitura. Nova escolha (cartão ou número/assunto/hora inequívocos entre os candidatos assinados ∩ revalidados) prevalece sobre a anterior.
+- Texto livre sem escolha nunca relê o email anterior: mantém a revisão e responde sem gmail_read; assunto novo faz pesquisa nova e a próxima assinatura liga-se ao texto atual. Cartões mostram contagens PDF/imagens só dos metadados do servidor.
+- Continuação só em memória: após refresh o botão desaparece (limitação assumida); nunca guardar corpos/anexos/tokens no navegador.
