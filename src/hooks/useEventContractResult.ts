@@ -115,7 +115,7 @@ export function useEventContractResult(
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select(
-          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable, formula_type, cache_config_id, account_categories(code, name, ebitda_class)",
+          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable, formula_type, formula_params, cache_config_id, account_categories(code, name, ebitda_class)",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")

@@ -462,7 +462,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           // select de propósito — acrescentá-los mudaria o universo de despesa
           // deste ecrã (o filtro `operationalForecasts` passaria a excluí-las),
           // e o critério de despesa não é objecto desta mudança.
-          .select("id, event_id, description, type, amount, iva_rate, status, is_overhead, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, account_categories(name, code, ebitda_class)")
+          .select("id, event_id, description, type, amount, formula_type, formula_params, iva_rate, status, is_overhead, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, account_categories(name, code, ebitda_class)")
         .in("event_id", allEventIds)
         .eq("status", "approved").is("version_id", null));
       if (error) throw error;

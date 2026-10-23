@@ -20,8 +20,7 @@ export function computeMasterBpFormula(input: Pick<BpFormulaInput, "formulaType"
   const sources = new Set(results.map(r => r.result.composition.courtesiesSource).filter(Boolean));
   if (sources.size > 1) composition.courtesiesSource = "misto";
   else composition.courtesiesSource = results.find(r => r.result.composition.courtesiesSource)?.result.composition.courtesiesSource ?? null;
-  const base = Object.values(cityBases).reduce((s,b) => s+b,0);
-  let amount = roundCents(base * (input.formulaType === "pct_ticket_revenue" ? Number(composition.rate ?? 0) / 100 : Number(composition.unitAmount ?? 0)));
+  let amount = roundCents(results.reduce((sum, city) => sum + city.result.amount, 0));
   if (input.params.min != null && amount < input.params.min) { amount = roundCents(input.params.min); composition.clamped = "min"; }
   if (input.params.max != null && amount > input.params.max) { amount = roundCents(input.params.max); composition.clamped = "max"; }
   return { amount, composition, cityBases };

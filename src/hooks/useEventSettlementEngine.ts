@@ -94,7 +94,7 @@ export function useEventSettlementEngine(eventId: string) {
         .select(
           // (#226) `account_categories(code)` é obrigatório: a receita do fecho
           // classifica as linhas de BP por rubrica.
-          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable, account_categories(code, name, ebitda_class)",
+          "id, event_id, type, amount, formula_type, formula_params, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable, account_categories(code, name, ebitda_class)",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")
