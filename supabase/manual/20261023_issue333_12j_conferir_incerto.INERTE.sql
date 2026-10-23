@@ -10,14 +10,14 @@
 --   auditoria: rev 78 claimed 02:11:03.172 → rev 79 post_started 02:11:03.845 → rev 80 uncertain 02:11:04.517.
 --   gateway (run 01a16686-19dc-…): 6 pedidos HTTP 200 (02:10:28–02:11:01), nenhum registo para o 7.º POST.
 --   Conferir = aceitar que o 7.º pedido PODE ter sido cobrado; nunca é repetido.
--- review_sha256 = sha256 do relatório no commit desta entrega (25ce64ec00cbce62a5548e8ee8c8ed8c2bc9d7c2a6a85ee5834b75659cc2b4ea); o controller confirma-o antes de aplicar.
+-- review_sha256 = sha256 do relatório no commit desta entrega (1a10801cb17e105f53f0cd378a1938d301ef903961a53e89b8e27755db974c83); o controller confirma-o antes de aplicar.
 -- Readback ANTES (registar no relatório):
 --   SELECT revision, state, stage, active_claim, reason_code, upstream_status, enabled, reviewed FROM public.data_entry_analysis_control_333;
 DO $c$
 DECLARE
   v_rev constant bigint := 80;
   v_claim constant uuid := 'f2a6673b-2b81-477c-9058-b79c23a96f8f';
-  v_review_sha constant text := '25ce64ec00cbce62a5548e8ee8c8ed8c2bc9d7c2a6a85ee5834b75659cc2b4ea';
+  v_review_sha constant text := '1a10801cb17e105f53f0cd378a1938d301ef903961a53e89b8e27755db974c83';
   v_exec boolean; v_review boolean; c record; r jsonb;
 BEGIN
   PERFORM set_config('lock_timeout', '5s', true);

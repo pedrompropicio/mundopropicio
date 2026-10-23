@@ -31,13 +31,14 @@ Cadeia: (1) o resultado de `gmail_read` não levava os anexos, por isso o modelo
   - Excesso de leituras e recusa idêntica repetida terminam logo com `limit` honesto e próxima ação útil; sem novo POST. Tetos inalterados (8 passos, 6 ferramentas, 2 pesquisas, 2 leituras, 40.000 tokens).
   - Na retoma, a ordem e a numeração seguem o seletor assinado; os rótulos dos emails levam "N." do servidor. O pedido original (hash verificado) acompanha o turno seguinte como `original_request`; o histórico do cliente continua fora.
   - Contrato: ler cada email no máximo uma vez; não numerar nem inventar anexos, páginas ou valores.
+  - Depois de uma escolha revalidada, uma resposta final do modelo que contenha números, €, "anexo", "pdf", "página" ou "documento" é substituída pela lista real do servidor, com a indicação de confirmar na revisão. Respostas sem essas afirmações mantêm-se.
 - `data-entry/handler.ts`: passa `continuation_text` verificado ao orquestrador; o seletor assinado também é emitido depois de uma revisão revalidada, sempre preso ao hash do pedido ORIGINAL (o texto novo sozinho dá 409).
 - `AssistantConversation.tsx`: lista "Anexos reais do email (N)"; a continuação mantém o pedido original; o painel de revisão existente recebe a lista inicial.
 - `TicketlineReviewPanel.tsx`: `initialAttachments` opcional preenche as opções. O anexo escolhido continua a ser revalidado pela ação `ticketline_candidate` existente (pertença, hash, scanner fechado).
 - `data-entry-client.ts`: tipo `attachments` no resultado.
 
 ## 4. Testes (locais, sintéticos, sem rede)
-Novos: `src/test/data-entry-assistant12j-anexos.test.ts` (9) e `src/test/data-entry-assistant12j-anexos-ui.test.tsx` (1). Ajustado: `data-entry-assistant12j-context.test.ts` (o email escolhido passa a levar os seus anexos; os outros continuam fora).
+Novos: `src/test/data-entry-assistant12j-anexos.test.ts` (10) e `src/test/data-entry-assistant12j-anexos-ui.test.tsx` (1). Ajustado: `data-entry-assistant12j-context.test.ts` (o email escolhido passa a levar os seus anexos; os outros continuam fora).
 
 Antes (código da base `d2cecac14`, novos testes): **8 falham / 2 passam**. As 2 que passam são de preservação (Parar antes/depois do POST).
 ```text
@@ -54,7 +55,7 @@ Antes (código da base `d2cecac14`, novos testes): **8 falham / 2 passam**. As 2
 ```
 O "7 times" reproduz as 7 chamadas da tentativa real.
 
-Depois: 10/10 novos; testes 12j/12/12b/UI anteriores verdes. O que fica coberto:
+Depois: 11/11 novos (inclui: "7 PDFs/999 €" do modelo não aparece no texto; final neutro mantém-se); testes 12j/12/12b/UI anteriores verdes. O que fica coberto:
 - pedido "mostrar anexos", corpo completo e truncado;
 - nomes repetidos e anexos homónimos noutro email;
 - continuidade entre turnos, com o pedido original assinado;
@@ -62,7 +63,7 @@ Depois: 10/10 novos; testes 12j/12/12b/UI anteriores verdes. O que fica coberto:
 - Parar antes e depois do POST, com o estado `uncertain` preservado sem reset;
 - ecrã sintético: escolha → lista → rádio do anexo → `ticketlineCandidate({message_id, part_id})`, sem nova listagem.
 
-Suite completa: **2195 PASS / 6 skip / 11 todo**, rc 0 (antes da demanda: 2185). `tsgo` 0. `deno check data-entry/index.ts` 0. Build OK.
+Suite completa: **2196 PASS / 6 skip / 11 todo**, rc 0 (antes da demanda: 2185). `tsgo` 0. `deno check data-entry/index.ts` 0. Build OK.
 O ecrã foi verificado só com dados sintéticos em jsdom; não houve navegador real nem sessão.
 
 ## 5. Estado Live e recuperação (artefacto INERTE, não aplicado)
@@ -88,5 +89,9 @@ Passo mínimo proposto ao controller:
 ## 6. Pacote para deploy (não feito)
 Função `data-entry` apenas. Ficheiros: `_shared/assistant-orchestrator.ts`, `data-entry/handler.ts`. O frontend (`AssistantConversation.tsx`, `TicketlineReviewPanel.tsx`, `data-entry-client.ts`) só chega com Publish. Sem ele, o servidor responde na mesma: a lista sai no texto, mas sem o bloco de anexos nem as opções pré-preenchidas.
 
-## 7. Não feito / limites
+## 7. Revisão independente (só leitura)
+- Afirmações inventadas no texto final do modelo: corrigido (secção 3) e testado.
+- O artefacto `.INERTE.sql` é executável: segue a convenção de `supabase/manual/` (nunca aplicado automaticamente, só com Sim). O cabeçalho declara a mudança de estado e as guardas recusam qualquer divergência da prova.
+
+## 8. Não feito / limites
 Sem aceitação real prometida; o comportamento do modelo real só se confirma num teste autorizado. #322/#323 e outras frentes intactas.
