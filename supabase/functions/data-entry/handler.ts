@@ -20,6 +20,7 @@ import { buildTicketlineProposal, LINE_TYPES, type Proposal } from "../_shared/a
 import { ReviewUnavailable, ReviewConflict, type ReviewStore } from "../_shared/assistant-review-store.ts";
 import { ExecutorUnavailable, ExecutionRefused, ExecutionUncertain, executionLinks, type Executor } from "../_shared/assistant-executor.ts";
 import type { AnalysisWire } from "../_shared/data-entry-analysis.ts";
+import { AnalysisError } from "../_shared/data-entry-analysis.ts";
 import { boundedAnalysis } from "./analysis-deadline.ts";
 import { GmailUnavailable, gmailFilterSchema, gmailOrigin, gmailSelectionSchema, type GmailReader as _GmailReader } from "../_shared/gmail-readonly.ts";
 
