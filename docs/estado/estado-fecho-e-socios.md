@@ -41,6 +41,7 @@ Nenhum.
 - `has_permission` depende de `current_company_id()` e dá falsos negativos em service_role — medir com `has_permission_in`.
 - `iva_rate` é inteiro: em SQL usar `/100.0`.
 - O seletor de colunas das despesas e o resumo por origem só mudam a apresentação do documento; nunca mexem em totais nem na base de cálculo.
+- Escrita R0 em docs/ pelo conector GitHub do Claude: a 23/10/2026 deu 403 "Resource not accessible by integration" (permissões da app do Claude no repositório); passou depois de o Pedro rever as permissões. Sem escrita, o caminho é tarefa ao agente limitada a docs/.
 
 ## Onde ler mais
 
