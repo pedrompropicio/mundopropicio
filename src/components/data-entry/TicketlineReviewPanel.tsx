@@ -82,7 +82,7 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
     if (form.total && total === null) throw new Error("Total inválido.");
     const closing = close.date && close.to ? { deduction_ids: close.ids, settlement_date: close.date, transfer_account_id: close.to } : null;
     return { number: form.number.trim() || null, date: form.date || null, total_cents: total, event_id: form.event_id || null, office_account_id: form.office || null, closing,
-      lines: parsed as NonNullable<TicketlineEdits["lines"]>, confirm_review: confirmed && !partial };
+      lines: parsed as NonNullable<TicketlineEdits["lines"]>, confirm_review: confirmed && !partial, resolve_blocking: resolved };
   };
   const settlement = () => {
     if (!settle.account && !settle.date && !settle.amount) return undefined;
@@ -93,8 +93,10 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   };
   const recalc = (save?: boolean) => run(async () => {
     if (!adapter.ticketlinePreview || !token) throw new Error("Revisão indisponível.");
+    const my = seq.current; // resposta tardia após troca de origem é descartada, nunca aplicada
     const r = await adapter.ticketlinePreview({ candidate_token: token, edits: edits(), settlement: settlement(),
       ...(save ? { save: { review_id: preview?.review?.review_id ?? null, expected_version: preview?.review?.version ?? null } } : {}) }, context);
+    if (my !== seq.current) return;
     if (r.events?.length) setEventOptions(prev => [...new Map([...prev, ...r.events!].map(e => [e.id, e])).values()]);
     setPreview(r); setStale(false); setSelected([]);
   });
@@ -107,8 +109,10 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   const admissible = selected.length > 0 && selected.every(id => { const a = actions.find(x => x.id === id); return a && !a.blocked_reason && a.depends_on.every(d => selected.includes(d)); });
   const authorize = () => run(async () => {
     if (!adapter.ticketlineAuthorize || !preview?.review) throw new Error("Autorização indisponível.");
+    const my = seq.current; // autorização tardia após troca de origem nunca é aplicada
     const r = await adapter.ticketlineAuthorize({ review_id: preview.review.review_id, version: preview.review.version, effects_hash: preview.review.effects_hash,
       action_ids: [...selected].sort(), replay_key: crypto.randomUUID() }, context);
+    if (my !== seq.current) return;
     setNotice(r.notice);
     setAuth({ id: r.authorization_id, action_ids: r.action_ids ?? [...selected].sort(), executor: r.executor === "disponível" });
   });
