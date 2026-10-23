@@ -4,6 +4,7 @@ import { computeBpFormula } from "@/lib/bp-formula";
 import { expandOverheadToSplits, overheadLinesFor } from "@/lib/overhead-proration";
 import { expandMasterAdoptedExpensesToSplits } from "@/lib/master-adopted-expense-proration";
 import { applyRevenueFloor, canRecalculateFormulas } from "@/lib/bp-formula-line-rules";
+import expenseLive from "./fixtures/master-formula-live-2026-10-23.json";
 import live from "./fixtures/master-revenue-live-2026-10-23.json";
 
 const cities = [
@@ -60,13 +61,16 @@ describe("#339 B3 — fatias partilhadas", () => {
 // SELECT Live 23/10/2026: overheads aprovados activos, sem fórmulas no Master.
 describe("#339 B3 — regressão Live 23/10", () => {
   const rows = [
-    {name:'SM',id:'5e56f568-506f-4469-8802-050182c6d479',amounts:[15000,1500,2000,2500,1000,3200,600],total:25800},
-    {name:'Anitta',id:'fdfb39fe-45f2-43f5-9ec9-7cb536360ae1',amounts:[2500,15000,15000],total:32500},
-    {name:'Tour M&M',id:'76250aba-2a10-4b3f-8482-c1db200d497f',amounts:[],total:0},
-    {name:'Ghanem 2.0',id:'c1a2b3c4-2026-4000-8000-000000000001',amounts:[],total:0},
+    {name:'SM',id:'5e56f568-506f-4469-8802-050182c6d479',amounts:[15000,1500,2000,2500,1000,3200,600],total:25800,expenseTotal:115173.21},
+    {name:'Anitta',id:'fdfb39fe-45f2-43f5-9ec9-7cb536360ae1',amounts:[2500,15000,15000],total:32500,expenseTotal:1666885.82},
+    {name:'Tour M&M',id:'76250aba-2a10-4b3f-8482-c1db200d497f',amounts:[],total:0,expenseTotal:0},
+    {name:'Ghanem 2.0',id:'c1a2b3c4-2026-4000-8000-000000000001',amounts:[],total:0,expenseTotal:1296.57},
   ];
   for(const row of rows) it(`${row.name}: total e cada cidade iguais ao legado`,()=>{
-    const overheads=row.amounts.map((amount,i)=>({id:String(i),event_id:row.id,amount,formula_type:'fixed'}));
+    const expenses=expenseLive.forecasts.filter(f=>f.event_id===row.id);
+    expect(Math.round(expenses.reduce((sum,f)=>sum+f.amount,0)*100)/100).toBe(row.expenseTotal);
+    expect(expenses.every(f=>f.formula_type==='fixed')).toBe(true);
+    const overheads=expenses.filter(f=>f.is_overhead);
     const expanded=expandOverheadToSplits(overheads,live.events);
     expect(overheadLinesFor(expanded,'originals').reduce((s,r)=>s+Number(r.amount),0)).toBe(row.total);
     const children=live.events.filter(e=>e.parent_event_id===row.id);
