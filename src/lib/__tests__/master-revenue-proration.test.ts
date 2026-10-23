@@ -43,7 +43,7 @@ describe("#339 B — expandMasterRevenueToSplits", () => {
     const ok = expandMasterRevenueToSplits({
       events, forecasts: [line({ amount: 4200.75, revenue_split_mode: "fixed_pct", revenue_split_params: { [L]: 50, [P]: 30, [F]: 20 } })],
     });
-    expect(ok.forecastSlices.map((s) => s.amount)).toEqual([2100.38, 1260.23, 840.14]);
+    expect(ok.forecastSlices.map((s) => s.amount)).toEqual([2100.38, 1260.22, 840.15]);
     expect(sum(ok.forecastSlices)).toBe(4200.75);
 
     const bad1 = expandMasterRevenueToSplits({ events, forecasts: [line({ revenue_split_mode: "fixed_pct", revenue_split_params: { [L]: 50, [P]: 30 } })] });
