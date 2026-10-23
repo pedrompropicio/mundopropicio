@@ -23,6 +23,11 @@ interface DatePickerProps {
   maxDate?: string;
   /** Rótulo acessível do campo de texto */
   "aria-label"?: string;
+  /**
+   * Opt-in: permite limpar a data (apagar o texto ou botão "Limpar"),
+   * propagando onChange(""). Sem esta prop o comportamento antigo mantém-se.
+   */
+  clearable?: boolean;
 }
 
 export function DatePicker({
@@ -35,6 +40,7 @@ export function DatePicker({
   minDate,
   maxDate,
   "aria-label": ariaLabel,
+  clearable = false,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
 
