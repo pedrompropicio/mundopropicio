@@ -21,5 +21,5 @@ export async function loadMasterFormulaExpenseSlicesFor(client: any, perimeter: 
   if(txRes.error) throw txRes.error;
   const forecastSlices = expandOverheadToSplits(lines as any[], cities ?? []).filter(f => f._overhead_via_master && ids.includes(f.event_id));
   const transactionSlices = expandMasterAdoptedExpensesToSplits({events:cities ?? [],forecasts:[...lines,...(adoptionRes.data ?? [])] as any[],transactions:txRes.data ?? []}).filter(t => ids.includes(t.event_id));
-  return {forecastSlices, transactionSlices};
+  return {forecastSlices, transactionSlices: transactionSlices.map(t => ({...t, account_id:null, held_by_supplier_id:null, paying_partner_id:null}))};
 }

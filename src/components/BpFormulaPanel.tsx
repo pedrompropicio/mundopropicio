@@ -127,7 +127,7 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit, overheadOnly = fals
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 py-3">
           <CardTitle className="text-sm flex items-center gap-2"><Sigma className="h-4 w-4" /> Linhas com fórmula</CardTitle>
-          {canEdit && <Button size="sm" variant="outline" onClick={() => { setOpen(true); setLineId(""); }}>Definir fórmula…</Button>}
+          {canEdit && !frozen && <Button size="sm" variant="outline" onClick={() => { setOpen(true); setLineId(""); }}>Definir fórmula…</Button>}
         </CardHeader>
         <CardContent className="pt-0 space-y-1.5">
           {frozen && lines.length > 0 && <p className="text-xs text-warning">Evento concluído ou fechamento selado — as fórmulas não recalculam.</p>}
@@ -222,7 +222,7 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit, overheadOnly = fals
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={save} disabled={!lineId || saving || (!!selectedForbidden && kind !== "fixed")}>Gravar</Button>
+            <Button onClick={save} disabled={frozen || !lineId || saving || (!!selectedForbidden && kind !== "fixed")}>Gravar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
