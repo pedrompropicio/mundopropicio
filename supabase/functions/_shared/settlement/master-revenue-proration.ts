@@ -219,7 +219,7 @@ export function expandMasterRevenueToSplits<
           forecastId: f.id,
           masterEventId: f.event_id,
           code: "fixed_pct_invalido",
-          message: `Repartição por % fixa inválida (${v.reason}): a receita fica só no Master.`,
+          message: `Repartição por % fixa inválida (${(v as { reason: string }).reason}): a receita fica só no Master.`,
         });
       }
     } else if (mode === "ticket_share") {

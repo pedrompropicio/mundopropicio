@@ -226,7 +226,7 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         : (forecast.revenue_split_params ?? null);
       if (canSplitRevenue && newSplitMode === "fixed_pct") {
         const v = validateFixedPct(newSplitParams, masterCities.map((c) => c.id));
-        if (!v.ok) throw new Error(`Repartição por % fixa: ${v.reason}.`);
+        if (!v.ok) throw new Error(`Repartição por % fixa: ${(v as { reason: string }).reason}.`);
       }
       const splitChanged =
         (newSplitMode ?? null) !== (forecast.revenue_split_mode ?? null) ||
@@ -278,7 +278,7 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
       if (Object.keys(restPayload).length > 0) {
         const { error: updateError } = await supabase
           .from("event_forecasts")
-          .update(restPayload)
+          .update(restPayload as any)
           .eq("id", forecast.id);
         if (updateError) throw updateError;
       }
