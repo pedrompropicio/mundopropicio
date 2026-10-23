@@ -59,3 +59,8 @@ Menu MP CRM: Clube/Site Newgang gated por company_features. Filtro de listas dos
 
 ### Continuação autorizada 18/10/2026 14:05 UTC
 Pendência anterior superada: backfill consentimento executado byte-exato após preview67/62ativações/0revogações/65ajustes.67perfiltrue/0revogadostrue.0198oficial:projeção telefone no ledger e UPDATEphone membro; fingerprints/ACL preservados.62telefonescopiados,3iguais,2já pertencem a outros contactos preservados;65elegíveis/2inelegíveis(membros56,283).26legadosNewgang/hash iguais antes/depois do telefone; não comprovamos29legados históricos intactos pois a contagem atual é26. Prova docs/testes/newgang-crm-whatsapp/telefone-backfill-entrega.md.1444testesPASS/buildOK. SemPublish/deploy/crons/envios/Meta/portal/pontos. Reserva libertada; sincronização/CI final não observadas.
+
+## 23/10/2026 — CRM Newgang: cidade estimada no resumo "Por cidade"
+- `clube_newgang_summary` (migração 0236, CREATE OR REPLACE com guarda md5 f5d46cba…): declarada manda; sem declarada entra a estimada por IP (PT/BR, DB-IP "Lisbon" → Lisboa). Itens de by_city com k, n, n_declarada, n_estimada. Ecrã: toque/rato mostra "X declaradas · Y estimadas (IP)"; rodapé com atribuição DB-IP. Sem DML, sem Publish.
+- Inalterados: clube_newgang_list (md5 7d2e640e… antes = depois), CSV, filtros, audiências, anúncios (D-ERP300).
+- Prova Live por SELECT (11:05 → 11:07 UTC; MP; 8 811 pessoas): "(sem cidade)" 6 964 → 537; Lisboa declarada 692, estimada 803 (contagem por texto, sem a normalização de municípios, que o leitor não pode executar). md5 resumo depois 542420d6….
