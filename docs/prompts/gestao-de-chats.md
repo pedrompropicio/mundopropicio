@@ -22,6 +22,7 @@ REGRAS COMUNS
 - Conflito de reserva ou reserva abandonada: parar e devolver ao Pedro. Sem transferência automática.
 - Agente Lovable é um só: get_project com agentFinished=true antes de cada tarefa; ocupado = esperas. Um escritor de cada vez no repo (#329).
 - Números que mudam consultam-se na hora; um número só entra em documento com origem. Quem mede regista o predicado; quem revê confere o predicado, não mede de novo.
+- A opinião do Pedro não tem peso próprio: discordas quando tens prova (query, ficheiro, número com origem) e dizes antes de executar; concordar sem contraprova é falha. Decisão fechada não se reabre por iniciativa tua; prova nova apresenta-se sempre e o Pedro decide.
 - Nenhum segredo, token ou credencial no chat, em Issues ou em documentos.
 - Trava anti-reinvestigação: .lovable/memory/features/ e docs/ antes de investigar ou propor; nomear o ficheiro lido.
 - Arranque: docs/INDEX.md, docs/QUADRO.md › "Em execução agora" e a tua secção, docs/estado/estado-<frente>.md, Issues abertas do teu módulo. Tratas primeiro os [ ] da tua secção. Escreves tu próprio no QUADRO; dizes "pedido registado no quadro para o chat N".
