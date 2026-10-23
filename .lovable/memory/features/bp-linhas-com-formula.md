@@ -12,3 +12,8 @@ D-ERP149. Motor único `supabase/functions/_shared/settlement/bp-formula.ts` —
 - Valor não se edita à mão (form inline e Planilha bloqueiam). A Planilha não tem exportação de ficheiro; grava só os campos editados, portanto não perde formula_type/params.
 - Decisão 30/09/2026: só DOIS tipos (% receita de bilhetes, valor por pessoa). SPA fica manual (negociada). Sem escalões de público nem mínimo por bilhete.
 - Overhead: desde 10/10/2026 (#246, D-ERP219) o amount grava por `set_forecast_amount_observed` (com observação "[fórmula] recálculo"). Antes era update directo e falhava em silêncio (SM Lisboa/Porto ficaram por actualizar). O hook só dá a linha por tratada se `amount` = calculado (ou floor_hit).
+
+## #339 A1 (23/10/2026): receitas
+- `pct_ticket_revenue` e `per_head` também em linhas de RECEITA; proibidas em 1.1.01 e 1.1.03, cobertas por sintéticas. Regras em `src/lib/bp-formula-line-rules.ts`.
+- Chão do realizado em receita; eventos concluídos ou com fechamento selado não recalculam. Recálculo só escreve `amount` + `formula_value`/`formula_params`.
+- Receita de fórmula NÃO entra na base do cachê: a base continua só em `ticket_sales`.
