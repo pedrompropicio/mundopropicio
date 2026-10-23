@@ -42,3 +42,6 @@ Cada email lê-se uma vez por turno; recusa repetida termina. Anexos (nome/tipo/
 
 ## 12k anexo Ticketline (23/10/2026)
 O scanner existente só lê número/data/total do anexo; linhas vêm só do corpo — o candidato diz "Revisão parcial" e a confirmação fica bloqueada até haver número, data, total e linhas humanas. Data sem origem fica vazia (campo texto AAAA-MM-DD, nunca hoje). Anexos apresentados uma vez (painel; imagens recolhidas por tipo). Trocar de origem limpa o candidato. Extrair linhas do PDF exige novo contrato com bytes reais.
+
+## Retoma corretiva — linhas do apuramento (23/10/2026)
+Contrato dedicado `_shared/assistant-ticketline-apuramento.ts` extrai as LINHAS do anexo (schema zod estrito, tipos fechados, sinais/cêntimos/moeda, Σ=total, zero nunca é linha, sem deduplicação por nome, data ausente fica ausente, pendências nunca silenciosas). Reusa o transporte do scanner e o controlo durável/abort; o scanner genérico de faturas não mudou. Falha do scanner de linhas = pendência, nunca derruba o candidato. Painel: guarda de sequência impede resposta antiga em voo de se reaplicar ao novo radio; data usa o DatePicker padrão do ERP (vazio inequívoco). Deploy da data-entry e Publish continuam por autorizar (R2); PDF real nunca lido — validação com bytes reais pendente de autorização específica.
