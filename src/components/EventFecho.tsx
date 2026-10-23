@@ -195,19 +195,14 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
         .select("id")
         .eq("parent_event_id", parentEventId);
       if (sErr) throw sErr;
-      const n = (siblings ?? []).length || 1;
       const { data: oh, error: ohErr } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, amount, iva_rate, description, account_categories(code, name)")
+        .select("id, event_id, type, amount, formula_type, formula_params, iva_rate, description, account_categories(code, name)")
         .eq("event_id", parentEventId)
         .eq("is_overhead", true).is("version_id", null));
       if (ohErr) throw ohErr;
-      return (oh ?? []).map((o: any) => ({
-        ...o,
-        id: `${o.id}::split::${eventId}`,
-        amount: Number(o.amount) / n,
-        _via_master: true,
-      }));
+      return expandOverheadToSplits(oh ?? [], (siblings ?? []).map(c => ({ ...c, parent_event_id: parentEventId })))
+        .filter(o => o._overhead_via_master && o.event_id === eventId).map(o => ({ ...o, _via_master: true }));
     },
     enabled: !!parentEventId,
   });

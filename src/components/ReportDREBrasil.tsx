@@ -1,3 +1,4 @@
+import { masterFormulaAmountForCity } from "@/lib/master-formula";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import { fetchPartnerExtras, partnerExtraValue } from "@/lib/partner-extras";
 import { findTicketCategoryId } from "@/lib/ticket-category";
@@ -294,7 +295,7 @@ export default function ReportDREBrasil() {
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, status, category_id, amount, iva_rate, version_id, is_transitory, is_overhead, exclude_from_result, event_settlement_id")
+        .select("id, event_id, type, status, category_id, amount, formula_type, formula_params, transaction_id, iva_rate, version_id, is_transitory, is_overhead, exclude_from_result, event_settlement_id")
         .eq("type", "expense")
         .is("version_id", null)
         .order("id", { ascending: true }));
@@ -482,7 +483,11 @@ export default function ReportDREBrasil() {
         .filter((t: any) => t.event_id === parentId)
         .map((t: any) => ({
           ...t,
-          amount: masterTxAmountForCity(revenueSplit, t, eventId, Number(t.amount) / siblingCount),
+          amount: masterTxAmountForCity(revenueSplit, t, eventId,
+            t.type === "expense" ? masterFormulaAmountForCity(
+              (costForecastsAll as any[]).find(f => f.transaction_id === t.id) ?? {},
+              (events as any[]).filter(e => e.parent_event_id === parentId).map(e => e.id), eventId, Number(t.amount), Number(t.amount) / siblingCount,
+            ) : Number(t.amount) / siblingCount),
           _prorated: true,
         }));
       evtTx = [...evtTx, ...parentTx];
@@ -510,7 +515,9 @@ export default function ReportDREBrasil() {
       let cost: any[] = costOf(eventId);
       if (parentId) {
         const siblingCount = subCountByParent[parentId] || 1;
-        cost = [...cost, ...costOf(parentId).map((l) => ({ ...l, amount: l.amount / siblingCount, _prorated: true }))];
+        cost = [...cost, ...costOf(parentId).map((l) => ({ ...l, amount: masterFormulaAmountForCity(
+          (costForecastsAll as any[]).find(f => f.id === l._forecast_id) ?? {},
+          (events as any[]).filter(e => e.parent_event_id === parentId).map(e => e.id), eventId, l.amount, l.amount / siblingCount), _prorated: true }))];
       }
       if (children && children.length > 0) children.forEach((cid) => { cost = [...cost, ...costOf(cid)]; });
       evtTx = [...evtTx.filter((t: any) => t.type !== "expense"), ...cost];

@@ -69,6 +69,7 @@ export interface ReportCostLine {
   iva_rate: number;
   type: "expense";
   _source: "bp" | "bp_excess" | "tx";
+  _forecast_id?: string;
 }
 
 export interface EventCostLinesArgs {
@@ -106,6 +107,7 @@ export function eventCostLines(args: EventCostLinesArgs): ReportCostLine[] {
     iva_rate: Number(f.iva_rate || 0),
     type: "expense" as const,
     _source: "bp" as const,
+    _forecast_id: f.id,
   }));
   for (const ex of computeOutsideBpExcessLines(operational, validTx)) {
     if (!(ex.net > 0)) continue;
@@ -116,6 +118,7 @@ export function eventCostLines(args: EventCostLinesArgs): ReportCostLine[] {
       iva_rate: ex.gross > ex.net ? (ex.gross / ex.net - 1) * 100 : 0,
       type: "expense",
       _source: "bp_excess",
+      _forecast_id: operational.find(f => f.category_id === ex.categoryId)?.id,
     });
   }
   return out;
