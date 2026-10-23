@@ -107,7 +107,7 @@ describe("#333 retoma — fusão no candidato", () => {
     expect(m.lines).toHaveLength(5);
     expect(m.lines.every(l => l.prov.source === "attachment")).toBe(true);
     expect(m.number?.value).toBe("AP-SINT-01");
-    expect(m.incomplete.join(" ")).not.toMatch(/introduzir as linhas/i === undefined ? "" : "Sem linhas reconhecidas");
+    expect(m.incomplete.join(" ")).not.toMatch(/Sem linhas reconhecidas/);
     expect(m.incomplete.join(" ")).toMatch(/conferir linha a linha/);
   });
   it("conflito anexo vs corpo: campo esvaziado + pendência (o corpo nunca é prova do PDF)", async () => {
