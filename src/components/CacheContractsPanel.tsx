@@ -3,16 +3,17 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
+import { formatDatePT } from "@/lib/utils";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertTriangle, FileSignature, Plus, Wallet, X, Pencil, Ban } from "lucide-react";
+import { AlertTriangle, FileSignature, Plus, Wallet, X, Pencil, Ban, Link2 } from "lucide-react";
 import {
   useCacheContractContext, useInvalidateCacheContracts,
   type CacheContextContract, type CacheContractContext,
 } from "@/hooks/useCacheContractContext";
-import { MAX_CACHE_CONTRACTS, previewContract, remainingToContract, inputToEuros, type AmountUnit, cacheErrorMessage, cachePaymentGates, type CacheStatus } from "@/lib/cache-contracts";
+import { MAX_CACHE_CONTRACTS, previewContract, remainingToContract, inputToEuros, type AmountUnit, cacheErrorMessage, cachePaymentGates, type CacheStatus, previewAttachAdvance, needsBeneficiaryConfirmation, cityCapCheck, ATTACH_PROBLEM_TEXT } from "@/lib/cache-contracts";
 
 interface Props {
   eventId: string;
@@ -46,7 +47,7 @@ export function CacheContractsPanel({ eventId, config, canEdit, initialLineChoic
     },
   });
   const invalidate = useInvalidateCacheContracts();
-  const [dialog, setDialog] = useState<null | { kind: "contract"; edit?: CacheContextContract } | { kind: "advance"; contract?: CacheContextContract }>(null);
+  const [dialog, setDialog] = useState<null | { kind: "contract"; edit?: CacheContextContract } | { kind: "advance"; contract?: CacheContextContract } | { kind: "attach"; contractId?: string; advanceId?: string }>(null);
 
   const cancelMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -183,6 +184,13 @@ export function CacheContractsPanel({ eventId, config, canEdit, initialLineChoic
                   className="flex items-center gap-1 rounded border border-border px-2 py-0.5 text-[11px] hover:bg-muted disabled:opacity-50">
                   <Wallet className="h-3 w-3" /> Adiantamento
                 </button>
+                {ctx.free_advances.length > 0 && (
+                  <button onClick={() => setDialog({ kind: "attach", contractId: k.id })} disabled={!k.artist_mother}
+                    title={!k.artist_mother ? "Este contrato já não tem saldo ao artista" : undefined}
+                    className="flex items-center gap-1 rounded border border-primary/30 px-2 py-0.5 text-[11px] text-primary hover:bg-primary/5 disabled:opacity-50">
+                    <Link2 className="h-3 w-3" /> Ligar adiantamento
+                  </button>
+                )}
                 <button onClick={() => setDialog({ kind: "contract", edit: k })} disabled={k.has_payment}
                   title={k.has_payment ? "Já há pagamento: estorne primeiro pelos fluxos normais" : undefined}
                   className="flex items-center gap-1 rounded border border-border px-2 py-0.5 text-[11px] hover:bg-muted disabled:opacity-50">
@@ -215,6 +223,11 @@ export function CacheContractsPanel({ eventId, config, canEdit, initialLineChoic
 
       {dialog?.kind === "contract" && (
         <ContractDialog ctx={ctxView} eventId={eventId} config={config} edit={dialog.edit} lineChoices={choicesArg}
+          onAttachExisting={(advanceId) => setDialog({ kind: "attach", advanceId })}
+          onClose={() => setDialog(null)} onDone={() => { setDialog(null); invalidate(); }} />
+      )}
+      {dialog?.kind === "attach" && (
+        <AttachAdvanceDialog ctx={ctx} cityName={cityName} initialContractId={dialog.contractId} initialAdvanceId={dialog.advanceId}
           onClose={() => setDialog(null)} onDone={() => { setDialog(null); invalidate(); }} />
       )}
       {dialog?.kind === "advance" && (
@@ -252,8 +265,9 @@ function useSupplierOptions() {
   return useMemo(() => data.map((s: any) => ({ value: s.id, label: s.name })), [data]);
 }
 
-function ContractDialog({ ctx, eventId, config, edit, lineChoices, onClose, onDone }: {
-  ctx: CacheContractContext; eventId: string; config: any; edit?: CacheContextContract; lineChoices: Record<string, string> | null; onClose: () => void; onDone: () => void;
+function ContractDialog({ ctx, eventId, config, edit, lineChoices, onAttachExisting, onClose, onDone }: {
+  ctx: CacheContractContext; eventId: string; config: any; edit?: CacheContextContract; lineChoices: Record<string, string> | null;
+  onAttachExisting: (advanceId: string) => void; onClose: () => void; onDone: () => void;
 }) {
   const supplierOptions = useSupplierOptions();
   const [key] = useState(newKey);
@@ -329,6 +343,24 @@ function ContractDialog({ ctx, eventId, config, edit, lineChoices, onClose, onDo
   if (wh && !(rateNum > 0 && rateNum < 100)) problems.push("Taxa de retenção inválida.");
   if (wh && !whDue) problems.push("Indique o vencimento da retenção.");
   if (rateDiffers && !rateConfirmed) problems.push("Confirme a taxa diferente da configurada.");
+  // Aviso de teto por cidade (#346): adiantamentos livres por marcar + quotas ativas + quota deste contrato.
+  const capCheck = useMemo(() => {
+    if (!preview) return null;
+    const otherQuotasByCity: Record<string, number> = {};
+    for (const k of ctx.contracts.filter((x) => x.id !== edit?.id)) for (const cc of k.cities ?? []) otherQuotasByCity[cc.event_id] = (otherQuotasByCity[cc.event_id] ?? 0) + Number(cc.quota);
+    const freeNotChosenByCity: Record<string, number> = {};
+    for (const a of options.filter((o) => !chosen.includes(o.id))) for (const [ev, v] of Object.entries(a.by_city)) freeNotChosenByCity[ev] = (freeNotChosenByCity[ev] ?? 0) + Number(v);
+    return cityCapCheck({
+      cities: ctx.cities.map((c) => ({ event_id: c.event_id, name: c.name, cap: Number(c.cap) })),
+      otherQuotasByCity, freeNotChosenByCity,
+      newQuotaByCity: Object.fromEntries(preview.cities.map((c) => [c.event_id, c.quota])),
+    });
+  }, [preview, ctx.contracts, ctx.cities, options, chosen, edit?.id]);
+  const capBlocking = !!capCheck && capCheck.exceeding.length > 0;
+  const blockingAdvances = capBlocking
+    ? options.filter((o) => !chosen.includes(o.id) && Object.keys(o.by_city).some((ev) => capCheck!.exceeding.some((x) => x.event_id === ev)))
+    : [];
+  if (capBlocking) problems.push(`${capCheck!.exceeding.map((x) => x.name).join(", ")} passaria do teto da cidade por causa de adiantamentos livres.`);
   for (const n of preview?.negative ?? []) problems.push(`Em ${n.name} os adiantamentos excedem a quota líquida (saldo ${formatCurrency(n.artistBalance)}).`);
 
   const save = useMutation({
@@ -450,6 +482,37 @@ function ContractDialog({ ctx, eventId, config, edit, lineChoices, onClose, onDo
           </table>
         </div>
       )}
+      {capBlocking && capCheck && (
+        <div role="alert" className="space-y-2 rounded-md border border-warning/40 bg-warning/5 p-2 text-[11px]">
+          <p className="font-medium text-warning">Há adiantamentos livres que ocupam o teto de uma cidade. Ligue-os a um contrato ou marque-os neste.</p>
+          <table className="w-full">
+            <thead><tr className="text-muted-foreground">
+              <th className="text-left">Cidade</th><th className="text-right">Teto</th><th className="text-right">Contratos</th>
+              <th className="text-right">Adiant. livres</th><th className="text-right">Espaço livre</th><th className="text-right">Este contrato</th>
+            </tr></thead>
+            <tbody>
+              {capCheck.rows.map((r) => (
+                <tr key={r.event_id} className={r.exceeds ? "font-semibold text-destructive" : ""}>
+                  <td>{r.name}</td><td className="text-right font-mono">{formatCurrency(r.cap)}</td>
+                  <td className="text-right font-mono">{formatCurrency(r.otherQuotas)}</td><td className="text-right font-mono">{formatCurrency(r.freeAdvances)}</td>
+                  <td className="text-right font-mono">{formatCurrency(r.room)}</td><td className="text-right font-mono">{formatCurrency(r.newQuota)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {blockingAdvances.map((a) => (
+            <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-border px-2 py-1">
+              <span className="truncate">{a.description} · {formatCurrency(a.amount)}</span>
+              <span className="flex gap-2">
+                {!edit && ctx.contracts.length > 0 && (
+                  <button type="button" onClick={() => onAttachExisting(a.id)} className="rounded border border-primary/30 px-2 py-0.5 text-primary hover:bg-primary/5">Ligar a um contrato existente</button>
+                )}
+                <button type="button" onClick={() => setChosen((s) => [...s, a.id])} className="rounded border border-border px-2 py-0.5 hover:bg-muted">Marcar neste contrato</button>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
       {problems.length > 0 && (
         <ul className="space-y-0.5 text-[11px] text-warning">{problems.map((p) => <li key={p}>• {p}</li>)}</ul>
       )}
@@ -535,5 +598,160 @@ function AmountWithUnit({ value, unit, onValue, onUnit, euros, baseLabel }: {
         </p>
       )}
     </div>
+  );
+}
+
+function AttachAdvanceDialog({ ctx, cityName, initialContractId, initialAdvanceId, onClose, onDone }: {
+  ctx: CacheContractContext; cityName: (id: string) => string; initialContractId?: string; initialAdvanceId?: string; onClose: () => void; onDone: () => void;
+}) {
+  const contracts = ctx.contracts.filter((k) => !!k.artist_mother);
+  const [contractId, setContractId] = useState<string>(initialContractId ?? (contracts.length === 1 ? contracts[0].id : ""));
+  const [advanceId, setAdvanceId] = useState<string>(initialAdvanceId ?? (ctx.free_advances.length === 1 ? ctx.free_advances[0].id : ""));
+  const [confirmBen, setConfirmBen] = useState(false);
+  const contract = ctx.contracts.find((k) => k.id === contractId);
+  const advance = ctx.free_advances.find((a) => a.id === advanceId);
+  const motherId = contract?.artist_mother?.id ?? null;
+
+  const { data: dates = {} } = useQuery({
+    queryKey: ["cache-free-advance-dates", ctx.free_advances.map((a) => a.id).join(",")],
+    enabled: ctx.free_advances.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("transactions").select("id, date").in("id", ctx.free_advances.map((a) => a.id)).limit(500);
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((t: any) => [t.id, t.date as string | null]));
+    },
+  });
+  // Filhas do saldo (pago por cidade) e presença em listas não rejeitadas — a RPC volta a validar tudo.
+  const { data: state } = useQuery({
+    queryKey: ["cache-attach-state", motherId],
+    enabled: !!motherId,
+    queryFn: async () => {
+      const { data: kids, error } = await supabase.from("transactions").select("id, event_id, amount, paid_amount").eq("parent_transaction_id", motherId!).limit(1000);
+      if (error) throw error;
+      const ids = [motherId!, ...(kids ?? []).map((k: any) => k.id)];
+      const { data: items, error: e2 } = await supabase.from("payment_list_items")
+        .select("transaction_id, removed_at, payment_lists!inner(status)").in("transaction_id", ids).is("removed_at", null).limit(1000);
+      if (e2) throw e2;
+      const inList = (items ?? []).some((i: any) => i.payment_lists?.status !== "rejected");
+      return { kids: (kids ?? []) as any[], inList };
+    },
+  });
+
+  const preview = contract && advance && state
+    ? previewAttachAdvance({
+        advanceByCity: advance.by_city,
+        cities: (contract.cities ?? []).map((cc) => {
+          const kid = state.kids.find((k) => k.event_id === cc.event_id);
+          return { event_id: cc.event_id, balance: Number(kid?.amount ?? 0), paid: Number(kid?.paid_amount ?? 0) };
+        }),
+        contractAdvances: Number(contract.advances_amount),
+        hasArtistMother: !!contract.artist_mother,
+        motherAmount: Number(contract.artist_mother?.amount ?? 0),
+        motherPaid: Number(contract.artist_mother?.paid ?? 0),
+        inPaymentList: state.inList,
+      })
+    : null;
+  const benDiffers = !!contract && !!advance && needsBeneficiaryConfirmation(advance.supplier_id, contract.beneficiary_supplier_id);
+  const blocked = !preview || preview.problems.length > 0 || (benDiffers && !confirmBen);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("attach_cache_advance_to_contract" as any, {
+        p_contract_id: contractId, p_advance_tx_id: advanceId, p_confirm_beneficiary: benDiffers && confirmBen,
+      });
+      if (error) throw error;
+      return data as any;
+    },
+    onSuccess: (r) => {
+      toast(r?.already_attached
+        ? { title: "Já estava ligado", description: "O adiantamento já pertencia a este contrato." }
+        : { title: "Adiantamento ligado", description: `Abatido ${formatCurrency(Number(r?.amount ?? 0))} ao saldo do contrato.` });
+      onDone();
+    },
+    onError: (e: any) => toast({ title: "Não foi possível ligar", description: errText(e), variant: "destructive" }),
+  });
+
+  return (
+    <Shell title="Ligar adiantamento ao contrato" onClose={onClose}
+      footer={<>
+        <button onClick={onClose} className="rounded-md border border-border px-3 py-1.5 text-sm">Fechar</button>
+        <button onClick={() => save.mutate()} disabled={blocked || save.isPending}
+          className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50">
+          {save.isPending ? "A ligar…" : "Ligar adiantamento"}
+        </button>
+      </>}>
+      <p className="text-xs text-muted-foreground">
+        O adiantamento passa a contar como pagamento por conta deste contrato: abate ao saldo da cidade onde foi lançado. O bruto, a retenção e os outros contratos não mudam.
+      </p>
+      {!initialContractId && (
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Contrato</label>
+          <select aria-label="Contrato" value={contractId} onChange={(e) => { setContractId(e.target.value); setConfirmBen(false); }}
+            className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm">
+            <option value="">— escolher —</option>
+            {contracts.map((k) => (
+              <option key={k.id} value={k.id}>Contrato {ctx.contracts.indexOf(k) + 1}{k.label ? ` — ${k.label}` : ""} · {k.beneficiary_name} · {formatCurrency(Number(k.gross))}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      <div className="space-y-1">
+        <p className="text-xs text-muted-foreground">Adiantamentos livres</p>
+        {ctx.free_advances.map((a) => (
+          <label key={a.id} className={`flex cursor-pointer items-start gap-2 rounded border px-2 py-1 text-xs ${a.id === advanceId ? "border-primary bg-primary/5" : "border-border"}`}>
+            <input type="radio" name="attach-adv" checked={a.id === advanceId} onChange={() => { setAdvanceId(a.id); setConfirmBen(false); }} className="mt-0.5" />
+            <span className="flex-1 min-w-0">
+              <span className="block truncate font-medium">{a.description ?? "Adiantamento"}</span>
+              <span className="block text-[11px] text-muted-foreground">
+                {(dates as any)[a.id] ? formatDatePT((dates as any)[a.id]) : "sem data"} · {Object.keys(a.by_city).map(cityName).join(", ")} · {a.supplier_name ?? "—"}
+              </span>
+            </span>
+            <span className="text-right">
+              <span className="block font-mono">{formatCurrency(Number(a.amount))}</span>
+              <span className={`block text-[10px] ${Number(a.paid) >= Number(a.amount) - 0.005 ? "text-success" : "text-muted-foreground"}`}>
+                {Number(a.paid) >= Number(a.amount) - 0.005 ? "pago" : "por pagar"}
+              </span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {preview && contract && (
+        <div className="overflow-x-auto rounded-md border border-border">
+          <table className="w-full text-[11px]">
+            <thead><tr className="bg-muted/40 text-muted-foreground">
+              <th className="px-2 py-1 text-left">Cidade</th><th className="px-2 py-1 text-right">Saldo antes</th><th className="px-2 py-1 text-right">Saldo depois</th>
+            </tr></thead>
+            <tbody>
+              {preview.cities.map((r) => (
+                <tr key={r.event_id} className={r.after < 0 ? "text-destructive" : ""}>
+                  <td className="px-2 py-1">{cityName(r.event_id)}</td>
+                  <td className="px-2 py-1 text-right font-mono">{formatCurrency(r.before)}</td>
+                  <td className="px-2 py-1 text-right font-mono">{formatCurrency(r.after)}</td>
+                </tr>
+              ))}
+              <tr className="border-t border-border">
+                <td className="px-2 py-1">Adiantamentos do contrato</td>
+                <td className="px-2 py-1 text-right font-mono">{formatCurrency(preview.advancesBefore)}</td>
+                <td className="px-2 py-1 text-right font-mono">{formatCurrency(preview.advancesAfter)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+      {preview && preview.problems.length > 0 && (
+        <ul role="alert" className="space-y-0.5 text-[11px] text-destructive">{preview.problems.map((p) => <li key={p}>• {ATTACH_PROBLEM_TEXT[p]}</li>)}</ul>
+      )}
+      {benDiffers && contract && advance && (
+        <div className="space-y-1 rounded-md border border-warning/40 bg-warning/5 p-2 text-[11px]">
+          <p className="text-warning">
+            O beneficiário do contrato é <strong>{contract.beneficiary_name ?? "—"}</strong>, mas o adiantamento foi pago a <strong>{advance.supplier_name ?? "—"}</strong>.
+          </p>
+          <label className="flex items-center gap-2">
+            <Checkbox checked={confirmBen} onCheckedChange={(v) => setConfirmBen(!!v)} />
+            Confirmo que este adiantamento conta para este contrato
+          </label>
+        </div>
+      )}
+    </Shell>
   );
 }

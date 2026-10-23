@@ -106,9 +106,9 @@ export const CACHE_ERROR_MESSAGES: Record<string, string> = {
 
 export function cacheErrorMessage(e: unknown): string {
   const raw = String((e as any)?.message ?? e ?? "");
-  const m = raw.match(/^([a-z_]+):\s*(.*)$/s);
+  const m = raw.match(/^([a-z_]+)(?::\s*(.*))?$/s);
   if (!m) return raw;
-  return CACHE_ERROR_MESSAGES[m[1]] ?? m[2];
+  return CACHE_ERROR_MESSAGES[m[1]] ?? m[2] ?? raw;
 }
 
 export interface CacheStatusCity {
@@ -148,3 +148,102 @@ export function inputToEuros(input: string, unit: AmountUnit, base: number): num
   if (v > 100) return NaN;
   return roundCents((Math.max(0, base) * v) / 100);
 }
+
+// ───────────── Issue #346 — ligar adiantamento livre a um contrato existente ─────────────
+
+export type AttachProblem = "saldo_negativo" | "saldo_abaixo_do_pago" | "saldo_em_lista" | "sem_mae_saldo" | "cidade_fora_do_contrato";
+
+export const ATTACH_PROBLEM_TEXT: Record<AttachProblem, string> = {
+  saldo_negativo: "O adiantamento é maior do que o saldo do contrato nessa cidade.",
+  saldo_abaixo_do_pago: "O saldo da cidade ficaria abaixo do que já foi pago.",
+  saldo_em_lista: "O saldo deste contrato está numa lista de pagamento. Retire-o da lista primeiro.",
+  sem_mae_saldo: "Este contrato já não tem saldo ao artista.",
+  cidade_fora_do_contrato: "A cidade do adiantamento não faz parte deste contrato.",
+};
+
+export interface AttachCityState { event_id: string; balance: number; paid: number }
+
+/**
+ * Prévia pura de `attach_cache_advance_to_contract`: por cidade do adiantamento, saldo do contrato
+ * antes → depois; adiantamentos do contrato antes → depois; e as recusas que a RPC faria.
+ */
+export function previewAttachAdvance(args: {
+  advanceByCity: Record<string, number>;
+  cities: AttachCityState[];
+  contractAdvances: number;
+  hasArtistMother: boolean;
+  motherAmount: number;
+  motherPaid: number;
+  inPaymentList: boolean;
+}) {
+  const problems: AttachProblem[] = [];
+  const add = (p: AttachProblem) => { if (!problems.includes(p)) problems.push(p); };
+  if (!args.hasArtistMother) add("sem_mae_saldo");
+  if (args.inPaymentList) add("saldo_em_lista");
+  let total = 0;
+  const rows = Object.entries(args.advanceByCity).map(([event_id, amt]) => {
+    total += c(amt);
+    const city = args.cities.find((x) => x.event_id === event_id);
+    if (!city) { add("cidade_fora_do_contrato"); return { event_id, amount: amt, before: 0, after: e(-c(amt)) }; }
+    const after = e(c(city.balance) - c(amt));
+    if (after < 0) add("saldo_negativo");
+    else if (c(after) < c(city.paid)) add("saldo_abaixo_do_pago");
+    return { event_id, amount: amt, before: city.balance, after };
+  });
+  if (args.hasArtistMother && c(args.motherAmount) - total < c(args.motherPaid) && !problems.includes("saldo_negativo")) add("saldo_abaixo_do_pago");
+  return {
+    cities: rows,
+    amount: e(total),
+    advancesBefore: args.contractAdvances,
+    advancesAfter: e(c(args.contractAdvances) + total),
+    problems,
+  };
+}
+
+/** Fornecedor do adiantamento ≠ beneficiário do contrato → exige confirmação explícita. */
+export function needsBeneficiaryConfirmation(advanceSupplierId: string | null | undefined, beneficiaryId: string | null | undefined) {
+  return (advanceSupplierId ?? null) !== (beneficiaryId ?? null);
+}
+
+export interface CityCapRow {
+  event_id: string; name: string; cap: number; otherQuotas: number; freeAdvances: number;
+  /** Espaço livre antes deste contrato: teto − quotas ativas − adiantamentos livres por marcar. */
+  room: number; newQuota: number; total: number; exceeds: boolean;
+}
+
+/**
+ * Aviso do modal "Novo contrato": por cidade, quotas dos contratos ativos + adiantamentos livres
+ * não marcados + quota deste contrato contra o teto (espelha `teto_cidade_excedido`).
+ */
+export function cityCapCheck(args: {
+  cities: { event_id: string; name: string; cap: number }[];
+  otherQuotasByCity: Record<string, number>;
+  freeNotChosenByCity: Record<string, number>;
+  newQuotaByCity: Record<string, number>;
+}): { rows: CityCapRow[]; exceeding: CityCapRow[] } {
+  const rows = args.cities.map((city) => {
+    const otherQuotas = args.otherQuotasByCity[city.event_id] ?? 0;
+    const freeAdvances = args.freeNotChosenByCity[city.event_id] ?? 0;
+    const newQuota = args.newQuotaByCity[city.event_id] ?? 0;
+    const total = e(c(otherQuotas) + c(freeAdvances) + c(newQuota));
+    return {
+      event_id: city.event_id, name: city.name, cap: city.cap, otherQuotas, freeAdvances,
+      room: e(c(city.cap) - c(otherQuotas) - c(freeAdvances)), newQuota, total,
+      exceeds: c(total) > c(city.cap),
+    };
+  });
+  return { rows, exceeding: rows.filter((r) => r.exceeds) };
+}
+
+Object.assign(CACHE_ERROR_MESSAGES, {
+  ...ATTACH_PROBLEM_TEXT,
+  beneficiario_diferente: "O fornecedor do adiantamento é diferente do beneficiário do contrato. Marque a confirmação para continuar.",
+  adiantamento_ja_associado: "Este adiantamento já pertence a outro contrato.",
+  adiantamento_estornado: "Este adiantamento foi estornado e não pode ser ligado.",
+  adiantamento_invalido: "Só se podem ligar adiantamentos livres deste cachê (mesmo artista e turnê/evento).",
+  adiantamento_inexistente: "O adiantamento já não existe. Atualize a página.",
+  contrato_cancelado: "Este contrato foi cancelado.",
+  contrato_inexistente: "O contrato já não existe. Atualize a página.",
+  empresa_diferente: "O adiantamento é de outra empresa.",
+  teto_cidade_excedido: "Uma cidade passaria do seu teto de cachê por causa de um adiantamento livre. Ligue o adiantamento a um contrato existente ou marque-o neste contrato.",
+});

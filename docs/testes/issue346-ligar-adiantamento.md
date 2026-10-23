@@ -44,3 +44,24 @@ Corpos em Live (pg_get_functiondef): `_cache_alloc`, `_cache_cities` (→ `_cach
 
 ## Seguinte
 Passo b (ecrã) e passo c (ligação real e verificação) — cada um com "Sim" próprio.
+
+---
+
+# Passo b — ecrã (23/10/2026)
+
+Sem DDL, sem DML, sem Publish; migração 0237 intacta. Partida fce7826.
+
+## Ficheiros
+- `src/lib/cache-contracts.ts` — puros: `previewAttachAdvance`, `needsBeneficiaryConfirmation`, `cityCapCheck`, `ATTACH_PROBLEM_TEXT`; mapa de erros alargado (beneficiario_diferente, saldo_em_lista, adiantamento_*, contrato_*, teto_cidade_excedido com as duas saídas); `cacheErrorMessage` aceita códigos sem texto.
+- `src/hooks/useCacheContractContext.ts` — `supplier_id`/`supplier_name` nos adiantamentos livres.
+- `src/components/CacheContractsPanel.tsx` — botão "Ligar adiantamento" no cartão de cada contrato (só com adiantamentos livres); diálogo `AttachAdvanceDialog` (lista com descrição, data, cidade, fornecedor, valor, pago/por pagar; prévia saldo antes→depois e adiantamentos antes→depois; recusas em linha com botão desligado; aviso e caixa de beneficiário; toast "Já estava ligado"); aviso de teto no `ContractDialog` com as duas saídas e "Criar contrato" desligado. Depois do sucesso: `useInvalidateCacheContracts` (contexto do cachê + transações + `invalidateEventFinancials`).
+- `src/lib/__tests__/cache-attach-advance.test.ts` — 12 testes.
+
+## Testes
+- Novos: 12/12 (prévia Lisboa 28.272,01→18.272,01 e adiantamentos 0→10.000; recusas saldo negativo / abaixo do pago / em lista; confirmação SIMONE MENDES × HENZA; aviso 60.420,19 → Lisboa 74.491,32 > 68.926,15, espaço livre 21.230,13; depois de ligado restante 70.420,19 sem aviso; mapa de erros).
+- Suite: antes (fce7826) 2224 passam, 6 ignorados, 11 por fazer; depois 2236 passam, 6 ignorados, 11 por fazer. tsgo limpo.
+- A barreira dos 1.000 registos apanhou as leituras novas sem limite; corrigido com `.limit()`.
+- Limite: os testes cobrem as regras puras, não o diálogo renderizado nem a RPC em Live. CI remoto não verificado.
+
+## Passo c (por autorizar)
+Depois do Publish: no Pagamento do cachê da Turnê Simone Mendes 2026, contrato 1 → "Ligar adiantamento" → HENZA 10.000,00 → marcar a confirmação → ver Lisboa 18.272,01; "Novo contrato" mostra restante 70.420,19 sem aviso.

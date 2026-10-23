@@ -19,6 +19,7 @@ export interface CacheContextContract {
 }
 export interface CacheContextAdvance {
   id: string; amount: number; legacy: boolean; description: string | null; paid: number; by_city: Record<string, number>;
+  supplier_id?: string | null; supplier_name?: string | null;
 }
 export interface CacheContractContext {
   root_event_id: string; max_contracts: number; master_line_warning: boolean;
