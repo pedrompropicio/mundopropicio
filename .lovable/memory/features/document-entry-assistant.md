@@ -58,3 +58,5 @@ Contrato dedicado `_shared/assistant-ticketline-apuramento.ts` extrai as LINHAS 
 ## #333 residual — versão da revisão e ausência de extração (23/10/2026)
 Toda alteração dos dados, resolução/confirmacão, origem, candidato inicial (mesmo token), utilizador/empresa e seleção de ações invalida pedidos e autorização. Sucesso/erro/notice/finally só se aplicam à versão e pedido atuais; editar durante autorização nunca restaura autorização antiga. Guarda no handler local além dos botões; sem autorização executável antiga no contexto novo.
 Escolhido anexo, ZERO linhas, falha/ausência do scanner ou scanner só de metadados significam linhas vazias + bloqueio/revisão manual; corpo mantém só contexto/proveniência, nunca linhas promovidas à fonte PDF. Testes sintéticos não autorizam deploy/Publish nem validam PDF original.
+
+- Datas na revisão Ticketline: sempre DatePicker padrão com `clearable` (nunca input nativo); "Limpar recebimento" limpa o bloco inteiro pelo edit fence; data obrigatória vazia continua a bloquear, nunca preencher com hoje.
