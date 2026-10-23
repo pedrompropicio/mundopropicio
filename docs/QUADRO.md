@@ -213,7 +213,7 @@ _(sem pedidos)_
 
 ## 7 · Fecho e Sócios
 
-- [ ] **#346 · R2 — passo b concluído (23/10/2026) — pronto para Publish; aguarda Sim para o passo c.** Passo a: migração 0237 aplicada. Passo b: no cartão de cada contrato, "Ligar adiantamento" (lista dos livres, prévia por cidade, recusas em linha, confirmação de beneficiário); no "Novo contrato", aviso de teto por cidade com "Ligar a um contrato existente" / "Marcar neste contrato" e botão desligado. Relatório: docs/testes/issue346-ligar-adiantamento.md.
+- [x] **#346 · R2 — FECHADA 23/10/2026.** Passo a (migração 0237) e passo b (ecrã "Ligar adiantamento" + aviso de teto; correção visual 712cdf9) publicados e testados pelo Pedro. Falta só a operação real, feita pelo Pedro no ecrã: ligar o adiantamento HENZA 10.000,00 ao contrato 1 e criar o contrato HENZA 70.420,19; depois a frente 7 verifica em Live. Relatório: docs/testes/issue346-ligar-adiantamento.md.
 
 - [x] **#345 · R1 — FECHADA 23/10/2026.** Publicada e testada pelo Pedro no export da equipa (Ivete Clareou 2026 · SUPERSOUNDS: secções C e D com somas iguais aos totais da secção 5; base a receber inalterada). Falta só a reimplantação da `partner-statement` para o Portal — o mesmo pedido da #344, na secção 0 · Cowork (Claude).
 - [x] **#344 · R1 — FECHADA 23/10/2026.** Publicada e verificada pelo Pedro no export da equipa (Ivete Clareou 2026 · SUPERSOUNDS: total das receitas 575.355,39; detalhe A com 20 linhas). Falta só a reimplantação da `partner-statement` para o Portal — pedido na secção 0 · Cowork (Claude).
