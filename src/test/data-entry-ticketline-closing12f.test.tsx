@@ -103,7 +103,7 @@ describe("#333 fase12f revisão: escolhas do fecho", () => {
     fireEvent.click(screen.getByText("Recalcular prévia"));
     expect(await screen.findByText(/1\s?000,00\s?€/)).toBeTruthy();
     fireEvent.click(screen.getByLabelText("Deduzir Som"));
-    fireEvent.change(screen.getByLabelText("Data do fecho"), { target: { value: "2026-10-15" } });
+    fireEvent.change(screen.getByLabelText("Data do fecho"), { target: { value: "15102026" } });
     fireEvent.change(screen.getByLabelText("Conta de destino do fecho"), { target: { value: B } });
     expect(screen.getByText(/deixaram de valer/)).toBeTruthy();
     fireEvent.click(screen.getByText("Recalcular prévia"));
