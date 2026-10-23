@@ -150,13 +150,17 @@ export function mergeScanner(c: TicketlineCandidate, wire: AnalysisWire, prov: E
   return out;
 }
 
-export const reviewEditsSchemaShape = ["number", "date", "total_cents", "event_id", "lines"] as const;
-export type ReviewEdits = Partial<{ confirm_review: boolean; number: string | null; date: string | null; total_cents: number | null; event_id: string | null; lines: Omit<CandidateLine, "prov">[] }>;
+export const reviewEditsSchemaShape = ["number", "date", "total_cents", "event_id", "lines", "resolve_blocking"] as const;
+export type ReviewEdits = Partial<{ confirm_review: boolean; number: string | null; date: string | null; total_cents: number | null; event_id: string | null; lines: Omit<CandidateLine, "prov">[]; resolve_blocking: string[] }>;
 
-/** Edição humana autenticada: user_id vem da sessão no servidor, nunca do corpo do pedido. */
+/** Edição humana autenticada: user_id vem da sessão no servidor, nunca do corpo do pedido.
+ * Pendências bloqueantes: as recomputáveis (sem linhas, soma) são reavaliadas sobre o candidato
+ * editado; as restantes só caem com resolução humana EXPLÍCITA por código (`resolve_blocking`).
+ * Nenhuma pendência é removida por regex de mensagem. */
 export function applyHumanEdits(c: TicketlineCandidate, edits: ReviewEdits, user_id: string): TicketlineCandidate {
   const prov: Provenance = { source: "human", user_id };
   const out: TicketlineCandidate = structuredClone(c);
+  out.blocking = out.blocking ?? [];
   const set = <K extends "number" | "date" | "total_cents" | "event_id">(k: K, v: unknown) => { (out as Record<string, unknown>)[k] = v === null ? null : { value: v, prov }; };
   if ("number" in edits) set("number", edits.number?.trim() || null);
   if ("date" in edits) { if (edits.date && !/^\d{4}-\d{2}-\d{2}$/.test(edits.date)) throw new Error("Data inválida."); set("date", edits.date ?? null); }
@@ -168,8 +172,20 @@ export function applyHumanEdits(c: TicketlineCandidate, edits: ReviewEdits, user
       if (!LINE_TYPES.includes(l.line_type) || !Number.isSafeInteger(l.amount_cents)) throw new Error("Linha inválida.");
       return { line_type: l.line_type, description: String(l.description ?? "").trim().slice(0, CANDIDATE_LIMITS.description), amount_cents: l.amount_cents, event_hint: l.event_hint ?? null, prov };
     });
-    out.incomplete = out.incomplete.filter(x => !/linhas|Sem linhas/.test(x));
   }
+  // Resolução de bloqueios: códigos desconhecidos são ignorados (nunca resolvem nada).
+  const resolved = new Set((edits.resolve_blocking ?? []).filter(code => out.blocking.some(b => b.code === code)));
+  const keep = out.blocking.filter(b => {
+    if (b.code === BLOCKING.no_lines) return out.lines.length === 0; // recomputado
+    if (b.code === BLOCKING.sum_mismatch) return candidateSumMessage(out) !== null; // recomputado
+    return !resolved.has(b.code); // restantes: só resolução explícita
+  });
+  const dropped = out.blocking.filter(b => !keep.includes(b));
+  out.blocking = keep;
+  if (dropped.length) out.incomplete = out.incomplete.filter(m => !dropped.some(b => b.message === m));
+  // Soma do candidato editado: se deixou de fechar (ou passou a divergir), bloqueia de novo.
+  const sumIssue = candidateSumMessage(out);
+  if (sumIssue && !out.blocking.some(b => b.code === BLOCKING.sum_mismatch)) pushBlocking(out, BLOCKING.sum_mismatch, sumIssue);
   return out;
 }
 
