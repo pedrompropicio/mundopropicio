@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { DataEntryAdapter, DataEntryContext, TicketlineCandidate, TicketlineEdits, TicketlineLineType, TicketlinePreviewResult, CandidateProvenance, TicketlineAttachment } from "@/lib/data-entry-client";
 import TicketlineExecutionPanel from "./TicketlineExecutionPanel";
+import { DatePicker } from "@/components/ui/date-picker";
 
 const TYPES: [TicketlineLineType, string][] = [["event_right", "Direito do evento"], ["ticketline_invoice", "Fatura Ticketline"], ["venue_settlement", "Acerto da sala"], ["advance", "Repasse"], ["carry_over", "Transitado"]];
 const eur = (c: number | null | undefined) => c == null ? "—" : (c / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
@@ -160,7 +161,7 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
         <label className="min-w-0 space-y-0.5"><span className="block">Nº apuramento <span className="text-muted-foreground">({provLabel(cand.number?.prov)})</span></span>
           <input aria-label="Número" className={input} value={form.number} onChange={e => edit(() => setForm({ ...form, number: e.target.value }))} /></label>
         <label className="min-w-0 space-y-0.5"><span className="block">Data <span className="text-muted-foreground">({provLabel(cand.date?.prov)})</span></span>
-          <input aria-label="Data" type="text" inputMode="numeric" placeholder="AAAA-MM-DD" pattern="\d{4}-\d{2}-\d{2}" className={input} value={form.date} onChange={e => edit(() => setForm({ ...form, date: e.target.value }))} /></label>
+          <DatePicker aria-label="Data" placeholder="DD/MM/AAAA" value={form.date || undefined} onChange={d => edit(() => setForm({ ...form, date: d }))} /></label>
         <label className="min-w-0 space-y-0.5"><span className="block">Total do documento (€) <span className="text-muted-foreground">({provLabel(cand.total_cents?.prov)})</span></span>
           <input aria-label="Total" inputMode="decimal" className={input} value={form.total} onChange={e => edit(() => setForm({ ...form, total: e.target.value }))} /></label>
         <label className="min-w-0 space-y-0.5"><span className="block">Evento</span>
