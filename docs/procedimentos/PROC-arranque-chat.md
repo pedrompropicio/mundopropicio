@@ -6,6 +6,20 @@ Quem abre chat é a secretaria (`gestao-de-chats`), por demanda autorizada. Tipo
 
 ---
 
+## Aplicação do fluxo no ChatGPT — decisão de Pedro, 23/10/2026
+
+O ChatGPT adota o mesmo modelo D-ERP291 em vigor no Claude: R0 documental direto; R1 com uma reserva, um único Sim e uma tarefa que reúne plano, implementação e testes; R2 com autorização por passo e verificação própria em Live. Executor por defeito é a frente dona; arranque leve e revisão do predicado já medido, sem repetir investigação válida. O 0 reúne as entregas verdes para uma janela de Publish; atualmente o Pedro faz o Publish pessoalmente.
+
+Ressalvas aprovadas:
+- CI verde no HEAD antes de dispatch não corretivo e de qualquer Publish. Mantém-se a exceção para dispatch corretivo já registada no QUADRO; a correção só se conclui com testes e CI verde.
+- Linhas documentais pequenas pelo conector. O agente pode tratar lotes documentais grandes quando compensar, incluindo atualizações extensas do QUADRO; evitar uma tarefa ao agente apenas para uma linha.
+
+Dentro do objetivo autorizado, executar as correções e verificações necessárias sem novos pedidos de confirmação por ficheiro ou teste. Nova autorização quando mudar o âmbito ou faltar autorização para um passo R2. Uma tarefa completa por objetivo: melhorias de avisos ou apresentação não concluem um objetivo funcional ainda pendente.
+
+As regras de escritor único e sincronização #329 também se aplicam a R0: agente em execução ou com fila pendente implica esperar para escrever na main, ou preparar documentação numa branch separada e integrar só depois de o agente parar e de revalidar os heads. O interruptor de Publish automático permanece DESLIGADO. A regra de contraprova do Bloco Comum mantém-se integralmente.
+
+---
+
 ## Bloco Comum — igual em todos os chats, nas duas ferramentas
 
 ```
