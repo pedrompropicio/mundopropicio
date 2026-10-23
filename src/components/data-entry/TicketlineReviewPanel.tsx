@@ -18,7 +18,7 @@ export function provLabel(p?: CandidateProvenance | null) {
   return `email · linha ${p.line}${p.truncated ? " (truncado)" : ""}`;
 }
 type Line = { line_type: TicketlineLineType; description: string; amount: string; event_hint: string | null };
-type Initial = { candidate: TicketlineCandidate; candidate_token: string };
+type Initial = { candidate: TicketlineCandidate; candidate_token: string; duplicates?: { id: string; number: string; status: string }[] };
 
 /** Revisão humana tipada. Qualquer edição invalida a prévia e qualquer autorização anterior. */
 export default function TicketlineReviewPanel({ adapter, context, messageId, partId, events = [], initial, initialAttachments }: {
@@ -45,12 +45,16 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // #333 revisão controller: pendências bloqueantes resolvidas explicitamente pela pessoa (por código).
+  const [resolved, setResolved] = useState<string[]>([]);
+  const [dups, setDups] = useState<{ id: string; number: string; status: string }[]>([]);
   const run = async (f: () => Promise<void>) => { setBusy(true); setError(null); setNotice(null); try { await f(); } catch (e) { setError(e instanceof Error ? e.message : "Indisponível."); } finally { setBusy(false); } };
   // #333 retoma corretiva: trocar de origem invalida qualquer pedido em voo — uma resposta antiga
-  // nunca se reaplica ao novo radio (o reset do 12k sozinho não bastava).
+  // nunca se reaplica ao novo radio (o reset do 12k sozinho não bastava). A guarda cobre TODAS as
+  // respostas que mudam prévia/autorização/aviso (load, recalc, authorize), não só o load.
   const seq = useRef(0);
   const apply = (r: Initial) => {
-    setToken(r.candidate_token); setCand(r.candidate); setPreview(null); setStale(false); setConfirmed(false); setSelected([]); setAuth(null);
+    setToken(r.candidate_token); setCand(r.candidate); setPreview(null); setStale(false); setConfirmed(false); setSelected([]); setAuth(null); setResolved([]); setDups(r.duplicates ?? []);
     setForm({ office: "", number: r.candidate.number?.value ?? "", date: r.candidate.date?.value ?? "", total: r.candidate.total_cents ? fmt(r.candidate.total_cents.value) : "", event_id: r.candidate.event_id?.value ?? "" });
     setLines(r.candidate.lines.map(l => ({ line_type: l.line_type, description: l.description, amount: fmt(l.amount_cents), event_hint: l.event_hint })));
   };
