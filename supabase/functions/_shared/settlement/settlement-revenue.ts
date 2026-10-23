@@ -23,6 +23,16 @@
  */
 import { calcTotalWithIva } from "./iva.ts";
 import { isBilheteiraCategoryCode } from "./fecho-filters.ts";
+import { REVENUE_SPLIT_MODE_LABEL, type RevenueSplitMode } from "./master-revenue-proration.ts";
+
+/** #339 B2b — origem da linha; fatias da receita do Master levam "via Master (% · modo)". */
+function revenueOrigin(row: any, fallback: string): string {
+  const name = row?.account_categories?.name || fallback;
+  if (!row?._revenue_via_master) return name;
+  const pct = (Number(row._split_share || 0) * 100).toFixed(2).replace(".", ",");
+  const mode = REVENUE_SPLIT_MODE_LABEL[row._revenue_split_mode as RevenueSplitMode] ?? "";
+  return `${name} · via Master (${pct}%${mode ? " · " + mode : ""})`;
+}
 
 export type RevenueBucketKey = "bilheteira" | "ab" | "patrocinio" | "outros";
 
@@ -150,7 +160,7 @@ export function computeSettlementRevenue(input: SettlementRevenueInput): Settlem
       lines.push({
         kind: "tx",
         bucket,
-        origin: t.account_categories?.name || "Outras receitas",
+        origin: revenueOrigin(t, "Outras receitas"),
         description: t.description || "—",
         net,
         gross: calcTotalWithIva(net, Number(t.iva_rate || 0)),
@@ -181,7 +191,7 @@ export function computeSettlementRevenue(input: SettlementRevenueInput): Settlem
     lines.push({
       kind: "bp",
       bucket,
-      origin: f.account_categories?.name || "Receita prevista",
+      origin: revenueOrigin(f, "Receita prevista"),
       description: f.description || "—",
       net,
       gross: calcTotalWithIva(net, Number(f.iva_rate || 0)),

@@ -25,6 +25,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged, fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { computeEventSettlementTotals } from "@/lib/event-settlement-inputs";
+import { useMasterRevenueSlicesFor } from "@/hooks/useMasterRevenueSplit";
 import {
   computeContractBasisResult,
   computeEventContractResult,
@@ -92,7 +93,7 @@ export function useEventContractResult(
   );
   const idsKey = allEventIds.join(",");
 
-  const { data: transactions = EMPTY_ARR_STABLE, isPending: txPending } = useQuery({
+  const { data: transactionsRaw = EMPTY_ARR_STABLE, isPending: txPending } = useQuery({
     queryKey: ["event-settlement-engine-tx", idsKey],
     enabled: allEventIds.length > 0,
     queryFn: async () => {
@@ -107,7 +108,7 @@ export function useEventContractResult(
     },
   });
 
-  const { data: forecasts = EMPTY_ARR_STABLE, isPending: bpPending } = useQuery({
+  const { data: forecastsRaw = EMPTY_ARR_STABLE, isPending: bpPending } = useQuery({
     queryKey: ["event-settlement-engine-bp", idsKey],
     enabled: allEventIds.length > 0,
     queryFn: async () => {
@@ -157,7 +158,18 @@ export function useEventContractResult(
     },
   });
 
-  const isLoading = !eventId || eventsPending || txPending || bpPending || tsPending || basis.isLoading;
+  // #339 B2b — cidade sem o Master no perímetro: quota da receita repartida.
+  const { slices: masterRevenue, isPending: mrPending } = useMasterRevenueSlicesFor(events as any[]);
+  const transactions = useMemo(
+    () => [...(transactionsRaw as any[]), ...masterRevenue.transactionSlices],
+    [transactionsRaw, masterRevenue],
+  );
+  const forecasts = useMemo(
+    () => [...(forecastsRaw as any[]), ...masterRevenue.forecastSlices],
+    [forecastsRaw, masterRevenue],
+  );
+
+  const isLoading = !eventId || eventsPending || txPending || bpPending || tsPending || mrPending || basis.isLoading;
 
   // Resultado do Encontro de Contas (base contratual, critério gravado) — só
   // para o badge "≠ fecho". NÃO alimenta o Lucro.

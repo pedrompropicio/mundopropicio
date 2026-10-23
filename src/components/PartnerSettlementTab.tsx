@@ -21,6 +21,7 @@ import { expandOverheadToSplits, overheadLinesFor } from "@/lib/overhead-prorati
 import { expandMasterAdoptedExpensesToSplits } from "@/lib/master-adopted-expense-proration";
 import { isValidFechoTransaction, isTicketingRevenueTx, withoutIncomeTax } from "@/lib/fecho-filters";
 import { computeSettlementRevenue } from "@/lib/settlement-revenue";
+import { fetchMasterRevenueSlicesFor } from "@/lib/master-revenue-split-context";
 import { isCapitalCategoryCode } from "@/lib/capital-branch";
 import {
   getPartnerRevenueBase,
@@ -305,7 +306,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   );
 
   // Event transactions (with category)
-  const { data: transactions = [], error: transactionsError } = useQuery({
+  const { data: transactionsRaw = [], error: transactionsError } = useQuery({
     queryKey: ["event-transactions-settlement", allEventIdsKey],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
@@ -452,7 +453,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   });
 
   // BP (forecast) for BP × Real reconciliation
-  const { data: forecasts = [], error: forecastsError } = useQuery({
+  const { data: forecastsRaw = [], error: forecastsError } = useQuery({
     queryKey: ["event-forecasts-settlement", allEventIdsKey],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
@@ -468,6 +469,23 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       return withoutIncomeTax(data ?? []);
     },
   });
+
+  // #339 B2b — cidade vista sem o seu Master: a quota da receita do Master
+  // repartida entra nas receitas (mesmo leitor/cálculo da edge partner-statement).
+  // Na raiz (Master no perímetro) não entra nada: a linha conta uma vez.
+  const { data: masterRevenueSlices } = useQuery({
+    queryKey: ["master-revenue-slices-settlement", allEventIdsKey, (subEvents as any[]).length],
+    queryFn: () => fetchMasterRevenueSlicesFor(subEvents as any[]),
+    enabled: (subEvents as any[]).length > 0,
+  });
+  const transactions = useMemo(
+    () => [...(transactionsRaw as any[]), ...(masterRevenueSlices?.transactionSlices ?? [])],
+    [transactionsRaw, masterRevenueSlices],
+  );
+  const forecasts = useMemo(
+    () => [...(forecastsRaw as any[]), ...(masterRevenueSlices?.forecastSlices ?? [])],
+    [forecastsRaw, masterRevenueSlices],
+  );
 
   const overheads = useMemo(
     // (#292) Agregado de família + repartição com quota do Master ÷N à parte:
