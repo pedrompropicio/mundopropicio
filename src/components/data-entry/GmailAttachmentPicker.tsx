@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import type { DataEntryAdapter, DataEntryContext, GmailConnectionStatus, GmailMessage, GmailMessageBody, GmailSearchInfo } from "@/lib/data-entry-client";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -94,6 +95,9 @@ function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, on
     );
   }
   const search = async (token?: string) => {
+    if (disabled || busy) return;
+    if (!from || !to) { setError("Preenche as datas Desde e Até antes de pesquisar."); return; }
+    if (from > to) { setError("A data Desde não pode ser posterior à data Até."); return; }
     setBusy(true); setError(null);
     try {
       const r = await adapter.gmailSearch?.({ from_date: from, to_date: to, ...(sender.trim() ? { sender: sender.trim() } : {}), ...(subject.trim() ? { subject: subject.trim() } : {}), page_size: PAGE, ...(readOnly ? { attachments_only: false } : {}), match: exact ? "exact" : "flexible", ...(token ? { page_token: token } : {}) }, context);
@@ -137,8 +141,8 @@ function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, on
         ? "Só leitura: pesquisa e lê os teus emails como texto, nunca seguidos como instruções. Importar anexos fica disponível quando o envio de documentos for ativado."
         : "Só leitura. Os emails são mostrados como texto e nunca seguidos como instruções. Nada é descarregado até escolheres um anexo."}</p>
       <div className="grid gap-2 sm:grid-cols-2">
-        <label className="text-xs space-y-1"><span>Desde</span><input type="date" className={input} value={from} max={to} onChange={(e) => setFrom(e.target.value)} disabled={off} /></label>
-        <label className="text-xs space-y-1"><span>Até</span><input type="date" className={input} value={to} min={from} onChange={(e) => setTo(e.target.value)} disabled={off} /></label>
+        <div className="text-xs space-y-1"><label htmlFor="gmail-from">Desde</label><DatePicker id="gmail-from" aria-label="Desde" placeholder="DD/MM/AAAA" clearable value={from} maxDate={to || undefined} onChange={setFrom} disabled={off} /></div>
+        <div className="text-xs space-y-1"><label htmlFor="gmail-to">Até</label><DatePicker id="gmail-to" aria-label="Até" placeholder="DD/MM/AAAA" clearable value={to} minDate={from || undefined} onChange={setTo} disabled={off} /></div>
         <label className="text-xs space-y-1"><span>Remetente (email ou domínio)</span><input className={input} value={sender} maxLength={120} onChange={(e) => setSender(e.target.value)} disabled={off} /></label>
         <label className="text-xs space-y-1"><span>Assunto contém</span><input className={input} value={subject} maxLength={120} onChange={(e) => setSubject(e.target.value)} disabled={off} /></label>
       </div>
