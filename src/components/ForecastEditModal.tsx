@@ -15,6 +15,8 @@ import { EventSettlementSelect, EventAddbackSelect } from "@/components/EventSet
 import { CurrencyCode, isSupportedCurrency, eurToOriginal, formatInCurrency } from "@/lib/currency";
 import { useBackdropClose } from "@/lib/backdropClose";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
+import { MasterRevenueSplitEditor } from "@/components/bp/MasterRevenueSplitEditor";
+import { isRevenueSplitMode, validateFixedPct, REVENUE_SPLIT_MODE_LABEL, type RevenueSplitMode } from "@/lib/master-revenue-proration";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface Props {
@@ -63,6 +65,28 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
   const { user, isAdmin, isManager } = useAuth();
   const canSeeOverhead = isAdmin || isManager;
   const isExpenseType = forecast.type === "expense";
+
+  // #339 B — regra de repartição (só linhas de RECEITA de um evento Master).
+  const [splitMode, setSplitMode] = useState<RevenueSplitMode | null>(
+    isRevenueSplitMode(forecast.revenue_split_mode) ? forecast.revenue_split_mode : null,
+  );
+  const [splitParams, setSplitParams] = useState<Record<string, number> | null>(
+    forecast.revenue_split_params ?? null,
+  );
+  const { data: masterCities = [] } = useQuery({
+    queryKey: ["forecast-master-cities", forecast.event_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name, date")
+        .eq("parent_event_id", forecast.event_id)
+        .order("date");
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; name: string }>;
+    },
+    enabled: forecast.type === "income" && !!forecast.event_id,
+  });
+  const canSplitRevenue = forecast.type === "income" && masterCities.length > 0;
 
   const { data: loadedCategories = [] } = useQuery({
     queryKey: ["account_categories"],
@@ -196,6 +220,26 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         });
       }
 
+      const newSplitMode = canSplitRevenue ? splitMode : (forecast.revenue_split_mode ?? null);
+      const newSplitParams = canSplitRevenue
+        ? (splitMode === "fixed_pct" ? (splitParams ?? {}) : null)
+        : (forecast.revenue_split_params ?? null);
+      if (canSplitRevenue && newSplitMode === "fixed_pct") {
+        const v = validateFixedPct(newSplitParams, masterCities.map((c) => c.id));
+        if (!v.ok) throw new Error(`Repartição por % fixa: ${v.reason}.`);
+      }
+      const splitChanged =
+        (newSplitMode ?? null) !== (forecast.revenue_split_mode ?? null) ||
+        JSON.stringify(newSplitParams ?? null) !== JSON.stringify(forecast.revenue_split_params ?? null);
+      if (splitChanged) {
+        const label = (m: any) => (isRevenueSplitMode(m) ? REVENUE_SPLIT_MODE_LABEL[m] : "Sem repartição");
+        changes.push({
+          field_name: "Repartição pelas cidades",
+          old_value: `${label(forecast.revenue_split_mode)}${forecast.revenue_split_params ? " " + JSON.stringify(forecast.revenue_split_params) : ""}`,
+          new_value: `${label(newSplitMode)}${newSplitParams ? " " + JSON.stringify(newSplitParams) : ""}`,
+        });
+      }
+
       if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
       if (!observation.trim()) throw new Error("A observação é obrigatória para alterações em previsões aprovadas.");
 
@@ -221,7 +265,12 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
       const snapshot = Object.fromEntries(Object.keys(updatePayload).map((key) => [key, forecast[key] ?? null]));
       // #240: amount nunca por .update directo — vai por batch_update_event_forecasts
       // (trigger: chão = realizado; observação obrigatória se há realizado).
-      const { amount: _amt, ...restPayload } = updatePayload;
+      const { amount: _amt, ...restPayloadBase } = updatePayload;
+      const restPayload: Record<string, any> = { ...restPayloadBase };
+      if (splitChanged) {
+        restPayload.revenue_split_mode = newSplitMode;
+        restPayload.revenue_split_params = newSplitParams;
+      }
       if (Math.abs(Number(forecast.amount) - newAmount) >= 0.005 && newAmount < Number(forecast.amount)) {
         // redução primeiro, com a observação do modal (valida chão antes de gravar o resto)
         await writeForecastAmount({ forecastId: forecast.id, newAmount, observation: observation.trim() });
@@ -433,6 +482,15 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
               </div>
             </label>
           </div>
+        )}
+
+        {canSplitRevenue && (
+          <MasterRevenueSplitEditor
+            cities={masterCities}
+            mode={splitMode}
+            params={splitParams}
+            onChange={(m, p) => { setSplitMode(m); setSplitParams(p); }}
+          />
         )}
 
         {/* Observation */}
