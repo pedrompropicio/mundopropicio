@@ -120,7 +120,7 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   const input = "w-full min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm";
 
   // #333 fase12k: trocar de origem invalida o candidato atual; nunca mostrar dados do anexo anterior sob o novo.
-  const choose = (id: string) => { if (id === part) return; seq.current++; setPart(id); setCand(null); setToken(null); setPreview(null); setConfirmed(false); setSelected([]); setAuth(null); };
+  const choose = (id: string) => { if (id === part) return; seq.current++; setPart(id); setCand(null); setToken(null); setPreview(null); setConfirmed(false); setSelected([]); setAuth(null); setResolved([]); setDups([]); };
   const images = (attachments ?? []).filter(a => a.mime.startsWith("image/"));
   const docs = (attachments ?? []).filter(a => !a.mime.startsWith("image/"));
   const radio = (a: TicketlineAttachment) => (
@@ -129,7 +129,10 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
       <span className="min-w-0 flex-1 truncate" title={a.filename}>{a.filename}</span><span className="shrink-0 text-muted-foreground">{kb(a.size_bytes)}</span>
     </label>
   );
-  const partial = lines.length === 0 || !form.number.trim() || !form.date || !form.total;
+  // Pendências bloqueantes por resolver (códigos ainda não confirmados explicitamente pela pessoa).
+  const unresolvedBlocking = (cand?.blocking ?? []).filter(b => !resolved.includes(b.code));
+  const infoMessages = (cand?.incomplete ?? []).filter(m => !(cand?.blocking ?? []).some(b => b.message === m));
+  const partial = lines.length === 0 || !form.number.trim() || !form.date || !form.total || unresolvedBlocking.length > 0;
   const sourcePicker = (
     <div className="min-w-0 space-y-1">
       <div className="flex flex-wrap gap-2">
