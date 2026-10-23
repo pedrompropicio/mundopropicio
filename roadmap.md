@@ -81,3 +81,4 @@
 - [x] #339 B3 — implementação retomada e concluída; validação local, CI remoto e Publish/deploy separados.
 
 - [x] #339 B3: motor Master agregado, fatias proporcionais, Overhead partilhado e testes; sem DDL/DML/Publish/deploy.
+- [ ] #339 B3b: recurso ÷N com avisos sem throw nos leitores; avisos BP Master/cidades, regressões e libertar reserva; sem DDL/DML/Publish/deploy.
