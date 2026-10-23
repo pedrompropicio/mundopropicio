@@ -73,3 +73,4 @@
 - [x] #346 passo (a): migração 0237 attach_cache_advance_to_contract + prova ROLLBACK + aplicar
 - [x] #346 passo (b): ecrã Ligar adiantamento + aviso no Novo contrato + testes
 - [x] #339 A1: fórmula em linhas de receita (painel, recálculo, regras puras, 13 testes); pronto para Publish, CI remoto por confirmar.
+- [x] #339 C: rateio multi-evento em receitas (excesso só aviso; 7 testes); pronto para Publish, CI remoto por confirmar.
