@@ -192,20 +192,23 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
-/* Cabeçalho fora do scroll: não altera a pilha de camadas. */
+/* Cabeçalho fora do scroll: não altera a pilha de camadas.
+   #340: em standalone iOS (black-translucent) o ecrã inclui a barra de estado; o modal
+   tem de caber na caixa do overlay (100%), nunca em 100vh/100dvh, e nunca subir acima dela. */
 .modal-safe-overlay {
-  padding-top: max(1rem, env(safe-area-inset-top));
-  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-top: calc(env(safe-area-inset-top, 0px) + 1rem);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  align-items: safe center;
 }
 .manual-modal-shell {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  max-height: min(var(--modal-height, 90vh), calc(100vh - max(1rem, env(safe-area-inset-top)) - max(1rem, env(safe-area-inset-bottom))));
+  max-height: min(var(--modal-height, 90vh), 100%);
 }
 @supports (height: 100dvh) {
   .manual-modal-shell {
-    max-height: min(var(--modal-dynamic-height, 90dvh), calc(100dvh - max(1rem, env(safe-area-inset-top)) - max(1rem, env(safe-area-inset-bottom))));
+    max-height: min(var(--modal-dynamic-height, 90dvh), 100%);
   }
 }
 .manual-modal-header { flex-shrink: 0; }
@@ -221,11 +224,13 @@ input[type="number"] {
   .mobile-dialog-content {
     display: flex; flex-direction: column; overflow: hidden;
     width: calc(100% - 2rem);
-    max-height: calc(100vh - max(1rem, env(safe-area-inset-top)) - max(1rem, env(safe-area-inset-bottom)));
+    /* #340: centro deslocado pela diferença das safe-areas → topo nunca sob a barra de estado. */
+    top: calc(50% + (env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) / 2);
+    max-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 2rem);
   }
   @supports (height: 100dvh) {
     .mobile-dialog-content {
-      max-height: calc(100dvh - max(1rem, env(safe-area-inset-top)) - max(1rem, env(safe-area-inset-bottom)));
+      max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 2rem);
     }
   }
   .dialog-fixed-header { display: block; flex-shrink: 0; padding-right: 2rem; background: hsl(var(--background)); }
