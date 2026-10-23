@@ -97,3 +97,11 @@ provider_ready_idle_no_claim_count=1
 Logo executor continua `enabled=false`; zero âmbitos com `expires_at>now()`; singleton provider `state=ready`, `enabled=true`, `stage=idle`, `active_claim IS NULL`. Comparação com os valores prévios comunicados pelo controller coincide. Nenhuma alteração de controlos; provider ligado não abre janela de utilizador.
 
 Fecho: deploy concreto de `data-entry` reportado como sucesso pela ferramenta. Frontend Publish e teste real continuam pendentes de autorização própria; PDF original não lido/validado. Sem Publish, DDL/DML, flags, janela nova/renovada, login, IA/Gmail/scanner reais, auditoria por invocação ou efeitos financeiros. Só relatório e linha #333 atualizados; reserva MANTIDA para controller. Sem comentário alternativo na Issue ou alteração da branch documental/outras frentes. Questões novas: nenhuma; pendências são Publish/teste real e eventual prova independente dos bytes servidos, não fornecida pela ferramenta.
+
+## 23/10/2026 ~22:20 UTC — datas do painel e limpeza (R1, só frontend)
+Reporte do Pedro no teste: sem opção de apagar; calendário diferente do padrão.
+- `ui/date-picker.tsx`: prop opcional `clearable` (opt-in). Com ela, apagar o texto ou o botão "Limpar <rótulo>" propaga `onChange("")`. Sem a prop, consumidores antigos inalterados (provado em teste).
+- Painel: Data, Data do fecho e Data do recebimento com DatePicker padrão (dd/MM/aaaa + calendário), `clearable`; sem `type=date`; sem data por defeito.
+- Botão "Limpar recebimento": limpa conta/data/valor/confirmação via `edit()` (invalida prévia/autorização; fence de respostas tardias preservado). Bloco vazio → recalc sem `settlement`; parcial continua com erro explícito.
+- Testes: `src/test/data-entry-ticketline-datas.test.tsx` (8; 7 falham no código 229f42c9, 8 passam depois). 12f ajustado ao formato dd/MM/aaaa. Ficheiros do painel 95/95; suite completa 2380 PASS + 1 falha (12f, formato nativo) corrigida e re-corrida no ficheiro; tsgo limpo.
+- Sem deploy/Publish/DDL/DML/backend. Publish do frontend e teste real pendentes.

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { format, parse, isValid } from "date-fns";
 import { pt } from "date-fns/locale";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -23,6 +23,11 @@ interface DatePickerProps {
   maxDate?: string;
   /** Rótulo acessível do campo de texto */
   "aria-label"?: string;
+  /**
+   * Opt-in: permite limpar a data (apagar o texto ou botão "Limpar"),
+   * propagando onChange(""). Sem esta prop o comportamento antigo mantém-se.
+   */
+  clearable?: boolean;
 }
 
 export function DatePicker({
@@ -35,6 +40,7 @@ export function DatePicker({
   minDate,
   maxDate,
   "aria-label": ariaLabel,
+  clearable = false,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -99,6 +105,11 @@ export function DatePicker({
 
     setInputValue(raw);
 
+    if (clearable && raw === "" && value) {
+      onChange("");
+      return;
+    }
+
     // Try to parse when we have a complete date
     if (raw.length === 10) {
       const parsed = parse(raw, "dd/MM/yyyy", new Date());
@@ -110,6 +121,10 @@ export function DatePicker({
   };
 
   const handleInputBlur = () => {
+    if (clearable && inputValue === "") {
+      if (value) onChange("");
+      return;
+    }
     // On blur: if we have a complete valid date, propagate it (safety net)
     if (inputValue.length === 10) {
       const parsed = parse(inputValue, "dd/MM/yyyy", new Date());
@@ -167,6 +182,19 @@ export function DatePicker({
           />
         </PopoverContent>
       </Popover>
+      {clearable && (
+        <Button
+          variant="ghost"
+          size="icon"
+          type="button"
+          className="h-10 w-10 shrink-0"
+          disabled={disabled || !value}
+          aria-label={`Limpar ${ariaLabel ?? "data"}`}
+          onClick={() => { setInputValue(""); onChange(""); }}
+        >
+          <X className="h-4 w-4 opacity-60" />
+        </Button>
+      )}
     </div>
   );
 }

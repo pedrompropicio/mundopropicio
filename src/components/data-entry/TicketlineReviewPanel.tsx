@@ -213,7 +213,7 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
         <label className="min-w-0 space-y-0.5"><span className="block">Nº apuramento <span className="text-muted-foreground">({provLabel(cand.number?.prov)})</span></span>
           <input aria-label="Número" className={input} value={form.number} onChange={e => edit(() => setForm({ ...form, number: e.target.value }))} /></label>
         <label className="min-w-0 space-y-0.5"><span className="block">Data <span className="text-muted-foreground">({provLabel(cand.date?.prov)})</span></span>
-          <DatePicker aria-label="Data" placeholder="DD/MM/AAAA" value={form.date || undefined} onChange={d => edit(() => setForm({ ...form, date: d }))} /></label>
+          <DatePicker clearable aria-label="Data" placeholder="DD/MM/AAAA" value={form.date || undefined} onChange={d => edit(() => setForm(f => ({ ...f, date: d })))} /></label>
         <label className="min-w-0 space-y-0.5"><span className="block">Total do documento (€) <span className="text-muted-foreground">({provLabel(cand.total_cents?.prov)})</span></span>
           <input aria-label="Total" inputMode="decimal" className={input} value={form.total} onChange={e => edit(() => setForm({ ...form, total: e.target.value }))} /></label>
         <label className="min-w-0 space-y-0.5"><span className="block">Evento</span>
@@ -252,7 +252,7 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
                 <span className="min-w-0 break-words">{t.description || "Despesa"} · {eur(t.gross_cents)} c/IVA</span></label></li>))}</ul>)}
           <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
             <label className="min-w-0 space-y-0.5"><span className="block">Data do fecho</span>
-              <input aria-label="Data do fecho" type="date" className={input} value={close.date} onChange={e => edit(() => setClose({ ...close, date: e.target.value }))} /></label>
+              <DatePicker clearable aria-label="Data do fecho" placeholder="DD/MM/AAAA" value={close.date || undefined} onChange={d => edit(() => setClose(c => ({ ...c, date: d })))} /></label>
             <label className="min-w-0 space-y-0.5"><span className="block">Conta que recebe o líquido</span>
               <select aria-label="Conta de destino do fecho" className={input} value={close.to} onChange={e => edit(() => setClose({ ...close, to: e.target.value }))}>
                 <option value="">Escolher conta</option>{preview.closing_options.transfer_accounts.map(a => <option key={a.id} value={a.id}>{a.name}{a.withholds_revenue ? " (retém receita)" : ""}</option>)}
@@ -269,10 +269,12 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
             <option value="">{accounts === null ? "A carregar contas…" : accounts.length ? "Escolher conta" : "Sem contas disponíveis"}</option>
             {(accounts ?? []).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
-          <input aria-label="Data do recebimento" type="date" className={input} value={settle.date} onChange={e => edit(() => setSettle({ ...settle, date: e.target.value }))} />
+          <DatePicker clearable aria-label="Data do recebimento" placeholder="DD/MM/AAAA" value={settle.date || undefined} onChange={d => edit(() => setSettle(c => ({ ...c, date: d })))} />
           <input aria-label="Valor recebido" inputMode="decimal" placeholder="0,00" className={input} value={settle.amount} onChange={e => edit(() => setSettle({ ...settle, amount: e.target.value }))} />
         </div>
         <label className="flex items-start gap-1.5"><input type="checkbox" className="mt-0.5" checked={settle.confirm} onChange={e => edit(() => setSettle({ ...settle, confirm: e.target.checked }))} /> <span>Confirmo que verifiquei este recebimento no banco</span></label>
+        <Button size="sm" variant="outline" type="button" disabled={!settle.account && !settle.date && !settle.amount && !settle.confirm}
+          onClick={() => edit(() => setSettle({ account: "", date: "", amount: "", confirm: false }))}>Limpar recebimento</Button>
       </fieldset>
       <label className="flex items-start gap-1.5 rounded border border-border p-1.5"><input type="checkbox" className="mt-0.5" aria-label="Confirmo a revisão" disabled={partial} checked={confirmed && !partial} onChange={e => edit(() => setConfirmed(e.target.checked))} />
         <span>Revi número, data, total, evento e linhas no documento original.</span></label>
