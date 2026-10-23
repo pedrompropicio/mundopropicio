@@ -39,7 +39,7 @@ async function fillAndPreview(a: DataEntryAdapter) {
   await screen.findByText("f.pdf");
   const set = (label: string, v: string) => fireEvent.change(screen.getByLabelText(label), { target: { value: v } });
   set("Fornecedor", "Fornecedor Fictício"); set("NIF do fornecedor", "PT500111222"); set("Número da fatura", "FT 1");
-  set("Data da fatura", "2026-10-17"); set("Total (EUR)", "123,00"); set("IVA (EUR)", "23"); set("NIF do destinatário no documento", "PT500000001");
+  set("Data da fatura", "17/10/2026"); set("Total (EUR)", "123,00"); set("IVA (EUR)", "23"); set("NIF do destinatário no documento", "PT500000001");
   set("Quem pagou", "p1");
   fireEvent.click(screen.getByRole("button", { name: "Preparar prévia" }));
   await screen.findByText(/Versão da prévia/);

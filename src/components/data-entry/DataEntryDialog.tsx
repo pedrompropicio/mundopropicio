@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useIsMobile } from "@/hooks/use-mobile";
 import DocumentAnalysisPanel from "./DocumentAnalysisPanel";
@@ -174,7 +175,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
         <label className="text-xs space-y-1"><span>Fornecedor</span><input className={input} value={form.supplier_name} onChange={set("supplier_name")} disabled={!doc || executed || !!outcome || !!busy} /></label>
         <label className="text-xs space-y-1"><span>NIF do fornecedor</span><input className={input} value={form.supplier_nif} onChange={set("supplier_nif")} disabled={!doc || executed || !!outcome || !!busy} /></label>
         <label className="text-xs space-y-1"><span>Número da fatura</span><input className={input} value={form.invoice_number} onChange={set("invoice_number")} disabled={!doc || executed || !!outcome || !!busy} /></label>
-        <label className="text-xs space-y-1"><span>Data da fatura</span><input type="date" className={input} value={form.invoice_date} onChange={set("invoice_date")} disabled={!doc || executed || !!outcome || !!busy} /></label>
+        <div className="text-xs space-y-1"><label htmlFor="entry-invoice-date">Data da fatura</label><DatePicker id="entry-invoice-date" aria-label="Data da fatura" placeholder="DD/MM/AAAA" clearable value={form.invoice_date} onChange={(date) => set("invoice_date")({ target: { value: date } })} disabled={!doc || executed || !!outcome || !!busy} /></div>
         <label className="text-xs space-y-1"><span>Total (EUR)</span><input inputMode="decimal" className={input} value={form.total} onChange={set("total")} disabled={!doc || executed || !!outcome || !!busy} /></label>
         <label className="text-xs space-y-1"><span>IVA (EUR)</span><input inputMode="decimal" className={input} value={form.iva} onChange={set("iva")} disabled={!doc || executed || !!outcome || !!busy} /></label>
         <label className="text-xs space-y-1"><span>NIF do destinatário no documento</span><input className={input} value={form.customer_nif} onChange={set("customer_nif")} disabled={!doc || executed || !!outcome || !!busy} /></label>
