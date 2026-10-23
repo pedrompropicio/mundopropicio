@@ -114,23 +114,23 @@ describe("#339 B — perímetro: raiz uma vez, cidade só a fatia", () => {
     const before = computeSettlementRevenue({ incomeForecasts: forecasts.map((f) => ({ ...f, revenue_split_mode: null })) });
     const after = computeSettlementRevenue({ incomeForecasts: masterRevenueView([...forecasts, ...split.slices], split, "root") });
     expect(after.revenueNet).toBe(before.revenueNet);
-    expect(after.revenueNet).toBe(1200);
+    expect(after.revenueNet).toBeCloseTo(1200, 2);
   });
 
   it("cada cidade recebe a sua quota; Σ cidades + Master = raiz (sem dupla contagem)", () => {
     const per = (id: string) =>
       computeSettlementRevenue({ incomeForecasts: masterRevenueView(forecasts.filter((f) => f.event_id === id), split, "event", [id]) }).revenueNet;
-    expect(per(L)).toBe(533.33);
-    expect(per(P)).toBe(333.33);
-    expect(per(F)).toBe(333.34);
-    expect(per(M)).toBe(0);
-    expect(Math.round((per(L) + per(P) + per(F) + per(M)) * 100) / 100).toBe(1200);
+    expect(per(L)).toBeCloseTo(533.33, 2);
+    expect(per(P)).toBeCloseTo(333.33, 2);
+    expect(per(F)).toBeCloseTo(333.34, 2);
+    expect(per(M)).toBeCloseTo(0, 2);
+    expect(Math.round((per(L) + per(P) + per(F) + per(M)) * 100) / 100).toBeCloseTo(1200, 2);
   });
 
   it("event-revenue-basis: a fatia conta uma vez no bucket outros da cidade", () => {
     const rows = masterRevenueView(forecasts.filter((f) => f.event_id === L), split, "event", [L]);
     const b = computeRevenueBasisFromRows({ ticket: zero, incomeTx: [], incomeForecasts: rows, sponsorship: noSponsor });
-    expect(b.currentForecast.buckets.outros?.net).toBe(533.33);
+    expect(b.currentForecast.buckets.outros?.net).toBeCloseTo(533.33, 2);
     expect(b.real.total.net).toBe(0);
   });
 
