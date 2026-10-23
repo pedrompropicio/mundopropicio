@@ -4,6 +4,7 @@ import { createHandler, type Bucket } from "./handler.ts";
 import { analyzeDocument, type AnalysisState } from "./analysis-service.ts";
 import { analysisStream } from "./analysis-stream.ts";
 import { generateScannerAnalysis } from "../_shared/scanner-analysis.ts";
+import { generateApuramentoAnalysis } from "../_shared/assistant-ticketline-apuramento.ts";
 import { AnalysisError } from "../_shared/data-entry-analysis.ts";
 import { assertProviderControlAvailable, durableProviderControl, rpcControlStore } from "../_shared/issue333-ai/control.ts";
 import { boundedAnalysis } from "./analysis-deadline.ts";
@@ -138,6 +139,12 @@ Deno.serve(createHandler({
     await assertProviderControlAvailable(store);
     const control = durableProviderControl(store);
     return await control.run(signal, async () => {}, transport => /* handler revalidates context after the scan */ generateScannerAnalysis({ bytes, mime, message: "Extrai número, data e total deste fecho Ticketline.", history: [], signal }, Deno.env.get("LOVABLE_API_KEY") ?? "", transport));
+  }, async scanApuramento(bytes: Uint8Array, mime: Parameters<typeof generateApuramentoAnalysis>[0]["mime"], signal: AbortSignal) {
+    // #333 retoma corretiva: contrato dedicado de linhas do apuramento; mesmo controlo durável/abort.
+    const store = rpcControlStore(async (name, args) => { const r = await admin.rpc(name, args); return { data: r.data, error: r.error }; });
+    await assertProviderControlAvailable(store);
+    const control = durableProviderControl(store);
+    return await control.run(signal, async () => {}, transport => generateApuramentoAnalysis({ bytes, mime, signal }, Deno.env.get("LOVABLE_API_KEY") ?? "", transport));
   } } : {}),
   async assistantFactory(req, _scope, revalidate) {
     if (!ASSISTANT_ENABLED) throw new AnalysisError("Assistente ainda não ativado.", 503);
