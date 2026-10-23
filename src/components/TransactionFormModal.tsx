@@ -1245,6 +1245,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
     // CASE A: rateio Master sem linha por perna — o total consome o balde do Master
     if (splitCategoryExistsInParent && !anyEntryHasLine) {
+      // #339 C: em receita, exceder a verba é só aviso.
+      if (form.type === "income") return false;
       const remaining = splitParentForecastTotal - splitParentUsedTotal;
       return amount > remaining + 0.005;
     }
@@ -1252,16 +1254,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     // CASE B: por perna — por LINHA quando há linha escolhida, senão por rubrica
     for (const entry of splitEntries) {
       const { budget, used, hasMatch, hasAnyBP } = splitEntryBudget(entry);
-      if (!hasAnyBP) continue;
       const childAmount = +(amount * entry.percentage / 100).toFixed(2);
-      if (!hasMatch) return true;
-      const remaining = budget - used;
-      if (budget > 0 && childAmount > remaining + 0.005) return true;
+      if (splitLegNeedsOverride(form.type, { budget, used, hasMatch, hasAnyBP, childAmount })) return true;
     }
     return false;
   }, [
     isSplit,
     form.category_id,
+    form.type,
     form.amount,
     splitCategoryExistsInParent,
     splitParentForecastTotal,
@@ -1269,6 +1269,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     splitEntries,
     splitBPInfoByEvent,
   ]);
+
+  // #339 C — receita: perna acima da verba da linha → aviso, nunca bloqueio.
+  const splitIncomeExceedsWarning = useMemo<string | null>(() => {
+    if (!isSplit || form.type !== "income" || !form.category_id) return null;
+    const amount = parseFloat(form.amount) || 0;
+    if (amount <= 0) return null;
+    const names = splitEntries
+      .filter((entry) => {
+        const { budget, used, hasMatch, hasAnyBP } = splitEntryBudget(entry);
+        return splitLegExceedsBudget({ budget, used, hasMatch, hasAnyBP, childAmount: +(amount * entry.percentage / 100).toFixed(2) });
+      })
+      .map((entry) => events.find((e: any) => e.id === entry.event_id)?.name ?? "evento");
+    return names.length ? `A receita fica acima do previsto no BP em: ${names.join(", ")}. É só um aviso — a receita é gravada normalmente.` : null;
+  }, [isSplit, form.type, form.category_id, form.amount, splitEntries, splitBPInfoByEvent, events]);
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
@@ -1314,17 +1328,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           const { budget, used, hasMatch: hasForecastMatch, hasAnyBP: hasBP } = splitEntryBudget(entry);
 
           // Determine if this child needs override
-          let needsOverride = false;
-          if (hasBP) {
-            if (!hasForecastMatch) {
-              needsOverride = true;
-            } else {
-              const remaining = budget - used;
-              if (budget > 0 && childAmount > remaining) {
-                needsOverride = true;
-              }
-            }
-          }
+          // #339 C: em receita, verba excedida é só aviso (não pede justificação).
+          const needsOverride = splitLegNeedsOverride(data.type, { budget, used, hasMatch: hasForecastMatch, hasAnyBP: hasBP, childAmount });
 
           const childStatus = (hasForecastMatch && !needsOverride) ? "approved" : "pending";
 
