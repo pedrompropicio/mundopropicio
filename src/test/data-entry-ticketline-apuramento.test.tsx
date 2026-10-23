@@ -189,11 +189,13 @@ describe("#333 revisão controller — autoridade de origem e validação monet�
     expect(m.blocking.some(b => b.code === "lines_conflict")).toBe(true);
   });
   it("linhas do corpo idênticas às do anexo não duplicam nem geram conflito", async () => {
-    const body = ["Direito do evento - Duo Sintético: 1.000,00 €", "Fatura Ticketline - comissão: -120,50 €", "Acerto sala - bilheteira local: -100,00 €", "Repasse quinzenal: -300,00 €", "Transitado apuramento anterior: 100,00 €"].join("\n");
+    const body = ["Direito do evento - Duo Sintético: 1.000,00 €", "Repasse quinzenal: -300,00 €"].join("\n");
     const c = await candidateFromBody({ message_id: "msgSINT03", text: body, truncated: false });
-    expect(c.lines).toHaveLength(5);
-    const m = mergeApuramento(c, apuramentoFromWire(WIRE_OK), await prov());
-    expect(m.lines).toHaveLength(5);
+    expect(c.lines).toHaveLength(2);
+    const ext = apuramentoFromWire({ ...WIRE_OK, document_total: "700,00", lines: [WIRE_OK.lines[0], WIRE_OK.lines[3]] });
+    const m = mergeApuramento(c, ext, await prov());
+    expect(m.lines).toHaveLength(2);
+    expect(m.lines.every(l => l.prov.source === "attachment")).toBe(true);
     expect(m.blocking.some(b => b.code === "lines_conflict")).toBe(false);
   });
   it("soma validada sobre o candidato EFETIVO: total do corpo vs linhas do anexo diverge → bloqueio", async () => {
