@@ -128,28 +128,42 @@ export function apuramentoSumCheck(e: ApuramentoExtraction): string | null {
 }
 
 /**
- * Funde a extração do anexo no candidato. Conflito com o corpo do email → campo vazio + pendência
- * (o corpo nunca se passa por prova do PDF). Linhas do anexo substituem a ausência de linhas do corpo;
- * descrições iguais com valores distintos são preservadas (nunca deduplicação por nome).
+ * Funde a extração do anexo no candidato. AUTORIDADE DE ORIGEM: escolhido um anexo, as linhas vêm
+ * SÓ do anexo — o corpo do email é contexto e nunca acrescenta linhas silenciosas. Linhas do corpo
+ * que divirjam das do anexo viram pendência bloqueante (lines_conflict); idênticas, não duplicam.
+ * NUNCA há truncagem silenciosa: cobertura acima do limite é pendência bloqueante, não slice.
+ * Conflito de campos com o corpo → campo vazio + pendência (o corpo nunca se passa por prova do PDF).
+ * A soma é validada sobre o candidato EFETIVO (linhas finais vs total final, venha de onde vier).
  */
 export function mergeApuramento(c: TicketlineCandidate, e: ApuramentoExtraction, prov: Extract<Provenance, { source: "attachment" }>): TicketlineCandidate {
-  const out: TicketlineCandidate = { ...c, sources: c.sources.some(s => s.source === "attachment" && s.sha256 === prov.sha256) ? [...c.sources] : [...c.sources, prov], incomplete: [...c.incomplete] };
+  const out: TicketlineCandidate = { ...c, sources: c.sources.some(s => s.source === "attachment" && s.sha256 === prov.sha256) ? [...c.sources] : [...c.sources, prov], incomplete: [...c.incomplete], blocking: [...(c.blocking ?? [])] };
   const mergeField = <T>(key: "number" | "date" | "total_cents", v: T | null, label: string) => {
     if (v === null) return;
     const cur = out[key] as unknown as { value: T } | null;
-    if (cur && cur.value !== v) { (out as Record<string, unknown>)[key] = null; out.incomplete.push(`${label} difere entre o anexo e o corpo do email: indicar na revisão.`); return; }
+    if (cur && cur.value !== v) { (out as Record<string, unknown>)[key] = null; pushBlocking(out, BLOCKING.field_conflict, `${label} difere entre o anexo e o corpo do email: indicar na revisão.`); return; }
     if (!cur) (out as Record<string, unknown>)[key] = { value: v, prov };
   };
   mergeField("number", e.number, "Número");
   mergeField("date", e.date, "Data");
   mergeField("total_cents", e.total_cents, "Total");
   if (e.lines.length) {
-    // Linhas do corpo (se existirem) mantêm-se; as do anexo acrescentam-se com proveniência própria.
-    out.lines = [...out.lines, ...e.lines.map(l => ({ ...l, prov }))].slice(0, CANDIDATE_LIMITS.lines);
+    if (e.lines.length > CANDIDATE_LIMITS.lines)
+      pushBlocking(out, BLOCKING.coverage_truncated, `Mais de ${CANDIDATE_LIMITS.lines} linhas no apuramento: cobertura incompleta, confirmar no documento original.`);
+    const bodyLines = out.lines;
+    if (bodyLines.length) {
+      const same = bodyLines.length === e.lines.length
+        && bodyLines.every((l, i) => l.line_type === e.lines[i].line_type && l.description === e.lines[i].description && l.amount_cents === e.lines[i].amount_cents);
+      if (!same) pushBlocking(out, BLOCKING.lines_conflict, "Linhas do corpo do email diferem das linhas do anexo: prevalecem as do anexo escolhido (o corpo é só contexto). Conferir no documento original.");
+    }
+    // As linhas do anexo SUBSTITUEM as do corpo: nunca se somam as duas origens.
+    out.lines = e.lines.map(l => ({ ...l, prov }));
     out.incomplete = out.incomplete.filter(x => !x.startsWith("Sem linhas reconhecidas") && !x.startsWith("Revisão parcial: o scanner lê só"));
+    out.blocking = out.blocking.filter(b => b.code !== BLOCKING.no_lines);
   }
-  const sumIssue = apuramentoSumCheck(e);
-  if (sumIssue) out.incomplete.push(sumIssue);
+  // Soma do candidato efetivo (não só da extração): total do corpo vs linhas do anexo também é conferido.
+  const sumIssue = candidateSumMessage(out);
+  if (sumIssue) pushBlocking(out, BLOCKING.sum_mismatch, sumIssue);
+  for (const b of e.blocking) pushBlocking(out, b.code, b.message);
   out.incomplete.push(...e.incomplete.filter(x => !out.incomplete.includes(x)));
   if (e.lines.length) out.incomplete.push("Linhas lidas do anexo pelo scanner de apuramento: conferir linha a linha no documento original antes de confirmar.");
   return out;
