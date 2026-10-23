@@ -53,8 +53,10 @@ export type TicketlineLineType = "event_right" | "ticketline_invoice" | "venue_s
 export type CandidateProvenance = { source: "email_body"; message_id: string; body_sha256: string; line: number; truncated: boolean } | { source: "attachment"; origin: string; sha256: string; size_bytes: number; mime: string } | { source: "model"; message_id: string; body_sha256: string } | { source: "human"; user_id: string };
 type CField<T> = { value: T; prov: CandidateProvenance } | null;
 export type TicketlineCandidate = { message_id: string; number: CField<string>; date: CField<string>; total_cents: CField<number>; event_id: CField<string>;
-  lines: { line_type: TicketlineLineType; description: string; amount_cents: number; event_hint: string | null; prov: CandidateProvenance }[]; sources: CandidateProvenance[]; incomplete: string[] };
-export type TicketlineEdits = Partial<{ confirm_review: boolean; number: string | null; date: string | null; total_cents: number | null; event_id: string | null; office_account_id: string | null; closing: { deduction_ids: string[]; settlement_date: string; transfer_account_id: string } | null; lines: { line_type: TicketlineLineType; description: string; amount_cents: number; event_hint: string | null }[] }>;
+  lines: { line_type: TicketlineLineType; description: string; amount_cents: number; event_hint: string | null; prov: CandidateProvenance }[]; sources: CandidateProvenance[]; incomplete: string[];
+  /** Pendências bloqueantes com código estável; enquanto existirem por resolver, a confirmação não libera ações. */
+  blocking?: { code: string; message: string }[] };
+export type TicketlineEdits = Partial<{ confirm_review: boolean; number: string | null; date: string | null; total_cents: number | null; event_id: string | null; office_account_id: string | null; closing: { deduction_ids: string[]; settlement_date: string; transfer_account_id: string } | null; lines: { line_type: TicketlineLineType; description: string; amount_cents: number; event_hint: string | null }[]; resolve_blocking: string[] }>;
 export type TicketlineExecution = { action_id: string; status: "succeeded"; replayed?: boolean; result: Record<string, unknown>; links: { label: string; href: string }[] };
 export type TicketlineSettlementInput = { financial_account_id: string; date: string; amount_cents: number; confirm: true };
 export type TicketlineAttachment = { part_id: string; filename: string; mime: string; size_bytes: number };
@@ -87,7 +89,7 @@ export interface DataEntryAdapter {
   gmailDisconnect?(context: DataEntryContext): Promise<{ revoked_at_google: boolean }>;
   gmailImport?(sessionId: string, selection: { message_id: string; part_id: string }, context: DataEntryContext): Promise<{ id: string; reused: boolean; origin: string }>;
   gmailRead?(messageId: string, context: DataEntryContext): Promise<GmailMessageBody>;
-  ticketlineCandidate?(input: { message_id: string; part_id?: string; expected_sha256?: string }, context: DataEntryContext): Promise<{ candidate: TicketlineCandidate; candidate_token: string }>;
+  ticketlineCandidate?(input: { message_id: string; part_id?: string; expected_sha256?: string }, context: DataEntryContext): Promise<{ candidate: TicketlineCandidate; candidate_token: string; duplicates?: { id: string; number: string; status: string }[] }>;
   ticketlinePreview?(input: { candidate_token: string; edits: TicketlineEdits; settlement?: TicketlineSettlementInput; save?: { review_id: string | null; expected_version: number | null } }, context: DataEntryContext): Promise<TicketlinePreviewResult>;
   ticketlineAttachments?(input: { message_id: string }, context: DataEntryContext): Promise<{ attachments: TicketlineAttachment[] }>;
   ticketlineAccounts?(context: DataEntryContext): Promise<{ accounts: { id: string; name: string; type?: string | null }[] }>;
