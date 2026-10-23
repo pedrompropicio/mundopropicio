@@ -47,6 +47,8 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 ## 0 · Cowork (Claude)
 
+- [ ] de 7 · Fecho e Sócios para 0 (23/10/2026): **reimplantar a edge function `partner-statement`** (R2 — edge function em produção; só com "Sim" do Pedro na tua sessão) para o Portal do Sócio passar a mostrar a secção 2 das receitas resumida por origem (#344, gerador partilhado `supabase/functions/_shared/settlement/partner-statement-doc.ts` › `revenueGroups`, commit b76f150). Sem mudança de dados nem de base de cálculo. Verificação depois: Portal do Sócio, Ivete Clareou 2026 · SUPERSOUNDS — secção 2 com uma linha por origem e total 575.355,39; detalhe A com 20 linhas. Se a `partner-statement` já tiver sido reimplantada depois de b76f150, marca [x] com a data.
+
   - **20/10/2026 ~21:20 UTC — Cachê/retenção (D-ERP288, revê D15), reserva própria aberta e libertada:** convive com a #323 por âmbito distinto, autorizado pelo Pedro em 20/10/2026. Migrações 0214 (aditiva: tabelas cache_payment_contracts*, 4 colunas nulas em transactions, RPCs, invariantes) e 0215 (ACL). Sem DML sobre transações/pagamentos existentes; lote DNS/TAP/TikTok intocado. Sem Publish.
 
   - **19/10/2026 — Reserva #322 opção A registada.** Passos: (a) Coala Portal e Newgang Portal integram #322 (sem Publish até "Faz Publish" do Pedro); (b) ERP: remetente CAPI com teste em modo teste; (c) verificação em Live. Gate CI #333 por confirmar antes do trabalho no ERP/Publish.
@@ -210,7 +212,7 @@ _(sem pedidos)_
 
 ## 7 · Fecho e Sócios
 
-- **#344 · R1 · pronto para Publish (janela do 0):** 23/10/2026 — resumo das receitas por origem no documento do sócio PDF/Excel; detalhe A e totais intactos, nos dois modos #342. Código/testes presentes em `b76f1504c`; 13 testes novos PASS; suite completa 2.197 → 2.210 PASS / 6 skip / 11 todo; tsgo 0; build OK. **CI remoto por confirmar antes do Publish.** Portal requer atualização autorizada de `partner-statement` para o novo resumo; documentos antigos continuam exportáveis sem agrupamento até lá. Nenhum deploy feito. Reserva própria libertada; Issue aberta até Pedro verificar Ivete Clareou 2026 · SUPERSOUNDS (575.355,39; detalhe A com 20 linhas). Relatório: `docs/testes/issue344-receitas-por-origem.md`. Sem DDL/DML/Publish.
+- [x] **#344 · R1 — FECHADA 23/10/2026.** Publicada e verificada pelo Pedro no export da equipa (Ivete Clareou 2026 · SUPERSOUNDS: total das receitas 575.355,39; detalhe A com 20 linhas). Falta só a reimplantação da `partner-statement` para o Portal — pedido na secção 0 · Cowork (Claude).
 
 ## 8 · Tráfego Pago
 
