@@ -47,6 +47,56 @@ export interface StatementExpenseLine {
   attachments?: number;
 }
 
+export interface StatementPaidByPartnerLine {
+  date: string | null;
+  description: string;
+  category: string;
+  amount: number;
+}
+
+export interface StatementPartnerExtraLine {
+  date: string | null;
+  description: string;
+  origin: string;
+  amount: number;
+}
+
+/**
+ * (g20 · #345) Normalização ÚNICA das linhas C — equipa e Portal passam por aqui
+ * para que o mesmo caso dê as mesmas linhas. BP sem transação não tem data.
+ */
+export function paidByPartnerDocLines(
+  paid: Array<{ date?: string | null; description?: string | null; category?: string | null; amount: number }>,
+  bpLines: Array<{ description?: string | null; category?: string | null; amount: number }>,
+): StatementPaidByPartnerLine[] {
+  return [
+    ...paid.map((e) => ({
+      date: e.date ? String(e.date).slice(0, 10) : null,
+      description: e.description || "—",
+      category: e.category || "—",
+      amount: Number(e.amount) || 0,
+    })),
+    ...bpLines.map((l) => ({
+      date: null,
+      description: l.description || "—",
+      category: l.category || "—",
+      amount: Number(l.amount) || 0,
+    })),
+  ];
+}
+
+/** (g20 · #345) Normalização ÚNICA das linhas D. */
+export function partnerExtrasDocLines(
+  extras: Array<{ date?: string | null; description?: string | null; origin?: string | null; amount: number }>,
+): StatementPartnerExtraLine[] {
+  return extras.map((e) => ({
+    date: e.date ? String(e.date).slice(0, 10) : null,
+    description: e.description || "—",
+    origin: e.origin || "—",
+    amount: Number(e.amount) || 0,
+  }));
+}
+
 export interface StatementExtraItem {
   label: string;
   value: number;
@@ -142,6 +192,16 @@ export interface PartnerStatementDocInput {
   partnerExtras?: number;
   /** Já adiantado ao sócio. */
   partnerAdvances?: number;
+  /**
+   * (g20 · #345) Detalhe C — despesas do evento pagas pelo sócio (transações +
+   * linhas de BP pagas por ele sem transação), na base do fechamento. Só
+   * apresentação: reconciliadas contra `paidByPartner`, que não muda.
+   */
+  paidByPartnerLines?: StatementPaidByPartnerLine[];
+  /** (g20 · #345) Detalhe D — extras do sócio; reconciliadas contra `partnerExtras`. */
+  partnerExtrasLines?: StatementPartnerExtraLine[];
+  /** (g20 · #345) Ajustes ao desembolso itemizados no fim de C (soma = `disbursementAdjustments`). */
+  disbursementAdjustmentLines?: Array<{ date: string | null; description: string; amount: number }>;
   /** Repasse facturado com IVA (23%) — só incide quando a base é positiva. */
   transferWithVat?: boolean;
   /**
@@ -229,6 +289,12 @@ export interface PartnerStatementDoc {
   financingToReturn: number;
   partnerExtras: number;
   partnerAdvances: number;
+  /** (g20 · #345) Detalhe C (vazio = secção omitida). Soma = paidByPartner. */
+  paidByPartnerLines: StatementPaidByPartnerLine[];
+  /** (g20 · #345) Ajustes itemizados no fim de C. Soma = disbursementAdjustments. */
+  disbursementAdjustmentLines: Array<{ date: string | null; description: string; amount: number }>;
+  /** (g20 · #345) Detalhe D (vazio = secção omitida). Soma = partnerExtras. */
+  partnerExtrasLines: StatementPartnerExtraLine[];
   transferBase: number;
   transferWithVat: boolean;
   transferVat: number;
@@ -282,6 +348,10 @@ export interface StatementTerms {
   receiveBaseLine: (partner: string) => string;
   vatOnTransfer: string;
   transferTotalLine: (partner: string) => string;
+  detailCPaidBy: (partner: string) => string;
+  detailDExtras: (partner: string) => string;
+  date: string;
+  adjustmentsSubtotal: string;
   receiveTotalLine: (partner: string) => string;
   fileName: string;
   page: string;
@@ -338,6 +408,10 @@ const TERMS: Record<DocLocale, StatementTerms> = {
     vatOnTransfer: "+ IVA 23% sobre o repasse",
     transferTotalLine: (p) => `= TOTAL A TRANSFERIR A ${p.toUpperCase()}`,
     receiveTotalLine: (p) => `= TOTAL A RECEBER DE ${p.toUpperCase()}`,
+    detailCPaidBy: (p) => `C. Despesas do evento pagas por ${p}`,
+    detailDExtras: (p) => `D. Extras de ${p}`,
+    date: "Data",
+    adjustmentsSubtotal: "+/- Ajustes ao desembolso",
     fileName: "Prestacao_de_Contas",
     page: "Página",
     of: "de",
@@ -391,6 +465,10 @@ const TERMS: Record<DocLocale, StatementTerms> = {
     vatOnTransfer: "+ IVA 23% sobre o repasse",
     transferTotalLine: (p) => `= TOTAL A TRANSFERIR A ${p.toUpperCase()}`,
     receiveTotalLine: (p) => `= TOTAL A RECEBER DE ${p.toUpperCase()}`,
+    detailCPaidBy: (p) => `C. Despesas do evento pagas por ${p}`,
+    detailDExtras: (p) => `D. Extras de ${p}`,
+    date: "Data",
+    adjustmentsSubtotal: "+/- Ajustes ao desembolso",
     fileName: "Prestacao_de_Contas",
     page: "Página",
     of: "de",
@@ -633,6 +711,29 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
       ? roundCents(input.transferTotalOverride)
       : roundCents(transferBase + transferVat);
 
+  // ---- (g20 · #345) Detalhe C/D — só apresentação; os totais mandam ----
+  const paidByPartnerLines = reconcileDisplayField(
+    (input.paidByPartnerLines ?? []).map((l) => ({ ...l, amount: roundCents(Number(l.amount) || 0) })),
+    "amount",
+    paidByPartner,
+  );
+  const disbursementAdjustmentLines =
+    paidByPartnerLines.length === 0 || Math.abs(disbursementAdjustments) < 0.005
+      ? []
+      : reconcileDisplayField(
+          (input.disbursementAdjustmentLines && input.disbursementAdjustmentLines.length > 0
+            ? input.disbursementAdjustmentLines
+            : [{ date: null, description: t.adjustmentsLine, amount: disbursementAdjustments }]
+          ).map((l) => ({ ...l, amount: roundCents(Number(l.amount) || 0) })),
+          "amount",
+          disbursementAdjustments,
+        );
+  const partnerExtrasLines = reconcileDisplayField(
+    (input.partnerExtrasLines ?? []).map((l) => ({ ...l, amount: roundCents(Number(l.amount) || 0) })),
+    "amount",
+    partnerExtras,
+  );
+
   const generatedAt = input.generatedAt ?? new Date();
   const generatedLabel = `${String(generatedAt.getDate()).padStart(2, "0")}/${String(
     generatedAt.getMonth() + 1,
@@ -691,6 +792,9 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     financingToReturn,
     partnerExtras,
     partnerAdvances,
+    paidByPartnerLines,
+    disbursementAdjustmentLines,
+    partnerExtrasLines,
     transferBase,
     transferWithVat,
     transferVat,
