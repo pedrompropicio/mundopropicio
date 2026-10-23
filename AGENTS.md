@@ -1,4 +1,5 @@
 # Architecture rules
+- #333 assistant replay uses bounded client context and only the selected revalidated email metadata; release model budget headroom only on validated completion/usage, and truncated bodies terminate into existing human review instead of another model loop.
 - Read nested AGENTS.md (data-entry/ too). Entry closed pending storage/uniqueness; retain artifacts. Inert tests credential-free. Strong keys retain separators; broad matches prove no reuse. #333 SQL inert/ACL guarded; no SELECT/timers across turns. Controller-message: request, exact bytes/hash/schema; local sizes aren't delivery proof.
 
 - Meta audience replacement uses complete paginated canonical data and one ordered replacement session; failed batches stop before finalization; dry runs never resolve tokens or deliver externally.
