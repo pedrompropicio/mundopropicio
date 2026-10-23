@@ -35,6 +35,7 @@ const EMPTY_AB_PARTICIPANTS: ABScenarioParticipants = { real: {}, breakeven: {},
 import { fetchPartnerExtras } from "@/lib/partner-extras";
 import { useFechoBasis } from "@/hooks/useFechoBasis";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { useMasterRevenueSlicesFor } from "@/hooks/useMasterRevenueSplit";
 
 export function useEventSettlementEngine(eventId: string) {
   const { data: event } = useQuery({
@@ -70,7 +71,7 @@ export function useEventSettlementEngine(eventId: string) {
   );
   const idsKey = allEventIds.join(",");
 
-  const { data: transactions = [] } = useQuery({
+  const { data: transactionsRaw = [] } = useQuery({
     queryKey: ["event-settlement-engine-tx", idsKey],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
@@ -85,7 +86,7 @@ export function useEventSettlementEngine(eventId: string) {
     enabled: allEventIds.length > 0,
   });
 
-  const { data: forecasts = [] } = useQuery({
+  const { data: forecastsRaw = [] } = useQuery({
     queryKey: ["event-settlement-engine-bp", idsKey],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
@@ -103,6 +104,17 @@ export function useEventSettlementEngine(eventId: string) {
     },
     enabled: allEventIds.length > 0,
   });
+
+  // #339 B2b — cidade sem o Master no perímetro: quota da receita repartida.
+  const { slices: masterRevenue } = useMasterRevenueSlicesFor(events as any[]);
+  const transactions = useMemo(
+    () => [...(transactionsRaw as any[]), ...masterRevenue.transactionSlices],
+    [transactionsRaw, masterRevenue],
+  );
+  const forecasts = useMemo(
+    () => [...(forecastsRaw as any[]), ...masterRevenue.forecastSlices],
+    [forecastsRaw, masterRevenue],
+  );
 
   const { data: ticketSales = [] } = useQuery({
     queryKey: ["event-settlement-engine-tickets", idsKey],
