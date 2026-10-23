@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { DataEntryAdapter, DataEntryContext, TicketlineCandidate, TicketlineEdits, TicketlineLineType, TicketlinePreviewResult, CandidateProvenance, TicketlineAttachment } from "@/lib/data-entry-client";
 import TicketlineExecutionPanel from "./TicketlineExecutionPanel";
+import { DatePicker } from "@/components/ui/date-picker";
 
 const TYPES: [TicketlineLineType, string][] = [["event_right", "Direito do evento"], ["ticketline_invoice", "Fatura Ticketline"], ["venue_settlement", "Acerto da sala"], ["advance", "Repasse"], ["carry_over", "Transitado"]];
 const eur = (c: number | null | undefined) => c == null ? "—" : (c / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
@@ -45,6 +46,9 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const run = async (f: () => Promise<void>) => { setBusy(true); setError(null); setNotice(null); try { await f(); } catch (e) { setError(e instanceof Error ? e.message : "Indisponível."); } finally { setBusy(false); } };
+  // #333 retoma corretiva: trocar de origem invalida qualquer pedido em voo — uma resposta antiga
+  // nunca se reaplica ao novo radio (o reset do 12k sozinho não bastava).
+  const seq = useRef(0);
   const apply = (r: Initial) => {
     setToken(r.candidate_token); setCand(r.candidate); setPreview(null); setStale(false); setConfirmed(false); setSelected([]); setAuth(null);
     setForm({ office: "", number: r.candidate.number?.value ?? "", date: r.candidate.date?.value ?? "", total: r.candidate.total_cents ? fmt(r.candidate.total_cents.value) : "", event_id: r.candidate.event_id?.value ?? "" });
@@ -53,7 +57,10 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   useEffect(() => { if (initial) apply(initial); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [initial?.candidate_token]);
   const load = () => run(async () => {
     if (!adapter.ticketlineCandidate) throw new Error("Revisão indisponível.");
-    apply(await adapter.ticketlineCandidate({ message_id: messageId, ...(part ? { part_id: part } : {}) }, context));
+    const my = ++seq.current;
+    const r = await adapter.ticketlineCandidate({ message_id: messageId, ...(part ? { part_id: part } : {}) }, context);
+    if (my !== seq.current) return; // origem trocada entretanto: resposta antiga descartada
+    apply(r);
   });
   const loadAttachments = () => run(async () => {
     if (!adapter.ticketlineAttachments) throw new Error("Lista de anexos indisponível.");
@@ -105,7 +112,7 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   const input = "w-full min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm";
 
   // #333 fase12k: trocar de origem invalida o candidato atual; nunca mostrar dados do anexo anterior sob o novo.
-  const choose = (id: string) => { if (id === part) return; setPart(id); setCand(null); setToken(null); setPreview(null); setConfirmed(false); setSelected([]); setAuth(null); };
+  const choose = (id: string) => { if (id === part) return; seq.current++; setPart(id); setCand(null); setToken(null); setPreview(null); setConfirmed(false); setSelected([]); setAuth(null); };
   const images = (attachments ?? []).filter(a => a.mime.startsWith("image/"));
   const docs = (attachments ?? []).filter(a => !a.mime.startsWith("image/"));
   const radio = (a: TicketlineAttachment) => (
@@ -154,7 +161,7 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
         <label className="min-w-0 space-y-0.5"><span className="block">Nº apuramento <span className="text-muted-foreground">({provLabel(cand.number?.prov)})</span></span>
           <input aria-label="Número" className={input} value={form.number} onChange={e => edit(() => setForm({ ...form, number: e.target.value }))} /></label>
         <label className="min-w-0 space-y-0.5"><span className="block">Data <span className="text-muted-foreground">({provLabel(cand.date?.prov)})</span></span>
-          <input aria-label="Data" type="text" inputMode="numeric" placeholder="AAAA-MM-DD" pattern="\d{4}-\d{2}-\d{2}" className={input} value={form.date} onChange={e => edit(() => setForm({ ...form, date: e.target.value }))} /></label>
+          <DatePicker aria-label="Data" placeholder="DD/MM/AAAA" value={form.date || undefined} onChange={d => edit(() => setForm({ ...form, date: d }))} /></label>
         <label className="min-w-0 space-y-0.5"><span className="block">Total do documento (€) <span className="text-muted-foreground">({provLabel(cand.total_cents?.prov)})</span></span>
           <input aria-label="Total" inputMode="decimal" className={input} value={form.total} onChange={e => edit(() => setForm({ ...form, total: e.target.value }))} /></label>
         <label className="min-w-0 space-y-0.5"><span className="block">Evento</span>

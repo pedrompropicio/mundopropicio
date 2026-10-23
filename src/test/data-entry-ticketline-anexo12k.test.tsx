@@ -90,7 +90,7 @@ describe("#333 fase12k painel: troca de origem, data e revisão parcial", () => 
     render(<TicketlineReviewPanel adapter={{ ticketlineCandidate: async () => ({ candidate: cand, candidate_token: "t1" }) } as unknown as DataEntryAdapter} context={ctx} messageId="msgSINT01" />);
     fireEvent.click(screen.getByRole("button", { name: "Rever fecho deste email" }));
     const d = await screen.findByLabelText("Data") as HTMLInputElement;
-    expect(d.value).toBe(""); expect(d.type).toBe("text"); expect(d.placeholder).toBe("AAAA-MM-DD");
+    expect(d.value).toBe(""); expect(d.type).toBe("text"); expect(d.placeholder).toBe("DD/MM/AAAA"); // componente padrão ERP: vazio inequívoco, nunca a data de hoje
     const c = screen.getByLabelText("Confirmo a revisão") as HTMLInputElement;
     expect(c.disabled).toBe(true);
     expect(screen.getByText(/Revisão parcial/)).toBeTruthy();

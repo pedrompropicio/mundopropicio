@@ -21,6 +21,8 @@ interface DatePickerProps {
   minDate?: string;
   /** Data máxima selecionável (ISO yyyy-MM-dd) */
   maxDate?: string;
+  /** Rótulo acessível do campo de texto */
+  "aria-label"?: string;
 }
 
 export function DatePicker({
@@ -32,6 +34,7 @@ export function DatePicker({
   id,
   minDate,
   maxDate,
+  "aria-label": ariaLabel,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -127,6 +130,7 @@ export function DatePicker({
     <div className={cn("flex items-center gap-1", className)}>
       <Input
         id={id}
+        aria-label={ariaLabel}
         type="text"
         inputMode="numeric"
         placeholder={placeholder}
