@@ -7,7 +7,7 @@ vi.mock("@/lib/supabase-paging",()=>({fetchAllPagedQuery:async()=>({data:[{id:'f
 vi.mock("@/lib/event-revenue-basis",()=>({fetchEventRealized:async(id:string)=>id==='a'}));
 vi.mock("@/lib/event-simulator-forecast-live",()=>({computeLiveTicketForecast:async()=>({gross:3000,net:3000,totalQty:30})}));
 vi.mock("@/integrations/supabase/client",()=>({supabase:{from:(table:string)=>{
-  let field='',eqId='';const q:any={select:()=>q,eq:(f:string,v:string)=>{field=f;eqId=v;return q},is:()=>q,not:()=>q,limit:()=>q,order:()=>q,maybeSingle:async()=>({data:{status:state.status},error:null}),then:(resolve:any)=>resolve({data:table==='event_settlements'?(state.sealed?[{id:'seal'}]:[]):table==='events'&&field==='parent_event_id'&&eqId==='m'?[{id:'a'},{id:'b'}]:[],error:null})};return q;
+  let field='',eqId='';const q:any={select:()=>q,eq:(f:string,v:string)=>{field=f;eqId=v;return q},is:()=>q,in:()=>q,not:()=>q,limit:()=>q,order:()=>q,maybeSingle:async()=>({data:{status:state.status},error:null}),then:(resolve:any)=>resolve({data:table==='event_settlements'?(state.sealed?[{id:'seal'}]:[]):table==='events'&&field==='parent_event_id'&&eqId==='m'?[{id:'a'},{id:'b'}]:[],error:null})};return q;
 }}}));
 import { useSyncFormulaForecasts } from "@/hooks/useSyncFormulaForecasts";
 beforeEach(()=>{state.status='active';state.sealed=false;state.write.mockClear();});
