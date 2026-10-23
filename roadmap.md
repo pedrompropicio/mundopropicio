@@ -71,4 +71,4 @@
 
 - [x] #335 2n-Bloco6 E: executado e declarado ABERTO (24 células, INSERT/DELETE por coluna e paridade efeitos por provar); suite 20 PASS + E FAIL, rollback14 igual, CI E ausente; só local/inerto.
 - [x] #346 passo (a): migração 0237 attach_cache_advance_to_contract + prova ROLLBACK + aplicar
-- [ ] #346 passo (b): ecrã Ligar adiantamento + aviso no Novo contrato + testes
+- [x] #346 passo (b): ecrã Ligar adiantamento + aviso no Novo contrato + testes

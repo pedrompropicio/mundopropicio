@@ -18,3 +18,6 @@ type: feature
 - Entradas: passo 2 "Pagamento" no modal de cachê e ação "Pagamento do cachê" na linha 2.1.01 do BP.
 - Cancelar/alterar contrato elimina mães/filhas com o tratamento de dependências de delete_transaction_cascade e re-ancora a linha de BP à próxima transação (date, created_at, id) ou NULL.
 - Valor bruto e valor do adiantamento: € ou %; % sobre o cachê efetivo (dentro de contrato: saldo disponível), 2 casas; grava sempre €.
+- Ligar adiantamento (#346): adiantamento livre liga-se a um contrato existente no lugar (RPC attach_cache_advance_to_contract), abatendo ao saldo da cidade onde foi lançado; bruto, retenção e outros contratos não mudam. Ação "Ligar adiantamento" no cartão do contrato.
+- Recusas da ligação: saldo negativo, abaixo do já pago, saldo (filha ou mãe) em qualquer lista não rejeitada, adiantamento estornado/de outro contrato/não livre, contrato cancelado; fornecedor ≠ beneficiário exige confirmação explícita.
+- Modal "Novo contrato": se adiantamentos livres por marcar + quotas ativas + quota nova passam o teto de uma cidade, mostra aviso por cidade (teto, contratos, adiantamentos livres, espaço livre) com "Ligar a um contrato existente" / "Marcar neste contrato"; "Criar contrato" fica desligado.
