@@ -1,4 +1,6 @@
 - [x] #333 fase11c: identidade própria no adapter e isolamento de resultados por sessão/empresa.
+- [x] #333 12j leitura única/anexos 23/10: sem releituras nem loop de recusas, anexos reais do servidor, revisão existente; relatório fase12j-anexos-leitura-unica.md; sem deploy.
+- [ ] #333 12j: conferir pedido incerto (rev 80) via SQL INERTE — aguarda revisão do controller e Sim do Pedro; depois deploy só data-entry com autorização própria.
 - [x] #333 12j corretiva 23/10: contexto/orçamento/retoma, corpo parcial, apresentação móvel, 13 regressões locais e relatório único; sem ativação/deploy; reserva própria libertada.
 - [x] Testes herméticos, documentação de ativação e reserva libertada; sem deploy/DDL/ativação.
 - [ ] Ativação real bloqueada: cliente Google/Lovable ainda não configurado; SQL/gate/deploy e consentimento dependem de autorização própria.

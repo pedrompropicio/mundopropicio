@@ -35,3 +35,7 @@ Pesquisa de assunto flexível por omissão (variações explicáveis, exato prim
 
 ## Fase12 (20/10/2026)
 Entrada principal em texto livre com orquestrador restrito (ferramentas fechadas, resultados não confiáveis, seletor humano); proposta Ticketline inerte com hash; fecho recebido não prova recebimento. Inativo até pacote de ativação; LLM só mock; execução bloqueada.
+
+
+## 12j leitura única e anexos (23/10/2026)
+Cada email lê-se uma vez por turno; recusa repetida termina. Anexos (nome/tipo/tamanho) e numeração vêm só da pesquisa assinada e revalidada, nunca do modelo nem do histórico; após a escolha, as respostas levam a revisão existente. Parar após o POST deixa o controlo uncertain: nunca reset/retry automático; conferência só por SQL responsável com Sim.
