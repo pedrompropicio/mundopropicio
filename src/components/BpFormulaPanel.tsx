@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sigma, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { useSyncFormulaForecasts } from "@/hooks/useSyncFormulaForecasts";
+import { useSyncFormulaForecasts, evaluateEventFormulas } from "@/hooks/useSyncFormulaForecasts";
 import { EventCourtesiesEditor } from "@/components/EventCourtesiesEditor";
 import { formulaForbiddenReason, formulaLineNoun } from "@/lib/bp-formula-line-rules";
 
@@ -102,6 +102,10 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit, overheadOnly = fals
           ? { rate: num(rate) ?? 0, basis, zone_ids, min: num(min), max: num(max) }
           : { unit_amount: num(unit) ?? 0, include_courtesies: incCourt, zone_ids, min: num(min), max: num(max) };
         patch = { formula_type: kind, formula_params: params };
+        if (isMaster && !frozen) {
+          const [evaluation] = await evaluateEventFormulas(eventId, [{ id: lineId, ...patch }]);
+          if (evaluation?.cityBases) patch.formula_params.master_city_bases = evaluation.cityBases;
+        }
       }
       const { error } = await (supabase as any).from("event_forecasts").update(patch).eq("id", lineId);
       if (error) throw error;
@@ -165,7 +169,7 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit, overheadOnly = fals
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg" aria-describedby={undefined}>
           <DialogHeader><DialogTitle>Linha com fórmula</DialogTitle></DialogHeader>
           <div className="space-y-3 text-sm">
             <select className="w-full rounded-md border bg-background p-2" value={lineId} onChange={(e) => pick(e.target.value)}>

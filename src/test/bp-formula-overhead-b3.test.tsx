@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BpFormulaPanel } from "@/components/BpFormulaPanel";
 
 const mocks = vi.hoisted(() => ({ update: vi.fn(), paged: vi.fn(), sync: vi.fn() }));
-vi.mock("@/hooks/useSyncFormulaForecasts", () => ({ useSyncFormulaForecasts: () => ({data:{lines:[],evals:[],forbidden:[],frozen:false}}) }));
+vi.mock("@/hooks/useSyncFormulaForecasts", () => ({ useSyncFormulaForecasts: () => ({data:{lines:[],evals:[],forbidden:[],frozen:false}}), evaluateEventFormulas: async () => [] }));
 vi.mock("@/components/EventCourtesiesEditor", () => ({ EventCourtesiesEditor: () => null }));
 vi.mock("@/lib/supabase-paging", () => ({fetchAllPagedQuery: () => mocks.paged()}));
 vi.mock("@/integrations/supabase/client", () => ({supabase:{from:()=>{
