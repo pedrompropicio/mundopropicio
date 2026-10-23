@@ -109,11 +109,12 @@ export async function candidateFromModel(read: { message_id: string; text: strin
   const body_sha256 = await sha256Hex(read.text.slice(0, CANDIDATE_LIMITS.bodyChars));
   const prov: Provenance = { source: "model", message_id: read.message_id, body_sha256 };
   const lines = st.lines.slice(0, CANDIDATE_LIMITS.lines).map(l => ({ ...l, description: l.description.slice(0, CANDIDATE_LIMITS.description), prov }));
-  const incomplete = ["Extraído pela IA a partir do email: confirma cada campo e linha antes de guardar."];
-  if (read.truncated) incomplete.push("Corpo do email truncado: confirmar linhas e total no documento original.");
-  if (st.lines.length > CANDIDATE_LIMITS.lines) incomplete.push(`Mais de ${CANDIDATE_LIMITS.lines} linhas: cobertura incompleta.`);
-  return { message_id: read.message_id, number: st.number ? { value: st.number, prov } : null, date: st.statement_date ? { value: st.statement_date, prov } : null,
-    total_cents: st.document_total_cents == null ? null : { value: st.document_total_cents, prov }, event_id: null, lines, sources: [prov], incomplete };
+  const c: TicketlineCandidate = { message_id: read.message_id, number: st.number ? { value: st.number, prov } : null, date: st.statement_date ? { value: st.statement_date, prov } : null,
+    total_cents: st.document_total_cents == null ? null : { value: st.document_total_cents, prov }, event_id: null, lines, sources: [prov],
+    incomplete: ["Extraído pela IA a partir do email: confirma cada campo e linha antes de guardar."], blocking: [] };
+  if (read.truncated) pushBlocking(c, BLOCKING.body_truncated, "Corpo do email truncado: confirmar linhas e total no documento original.");
+  if (st.lines.length > CANDIDATE_LIMITS.lines) pushBlocking(c, BLOCKING.coverage_truncated, `Mais de ${CANDIDATE_LIMITS.lines} linhas: cobertura incompleta.`);
+  return c;
 }
 
 /** Anexo escolhido: tem de pertencer à mensagem lida no servidor; hash/tamanho calculados aqui. */
