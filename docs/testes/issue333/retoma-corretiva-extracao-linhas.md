@@ -71,3 +71,29 @@ Provas antes/depois:
 - Compilação automática: último sinal após código/testes `build OK` (21:48:56 UTC). Build/tsgo manuais não executados por restrição da plataforma; não se afirma uma execução independente de tsgo. CI do SHA final fica para o controller.
 
 Limites: só fixtures sintéticas/mock e execução local; sem login, IA/Gmail reais, documentos privados, DDL/DML, efeitos financeiros, flags, deploy ou Publish. PDF original não validado. Nenhuma tentativa de comentar a Issue por outro canal; branch documental não consultada/modificada. Reserva mantida para revisão controller; não constitui aceitação ou aptidão para deploy.
+
+
+## Deploy R2 autorizado — 23/10/2026 ~21:58 UTC
+
+Pedro respondeu «sim» ao deploy apenas de `data-entry`, mantendo janela de teste e lançamentos bloqueados. HEAD local conferido antes da operação: `a20c1d3585061515269b31e0c3cffced409162c6`. Main/Lovable iguais, agentFinished=true e CI run40029582438 completed/success (tsgo/vitest/build) comunicados pelo controller; sem nova investigação ou alteração de código.
+
+Uma única chamada: `deploy_edge_functions({"function_names":["data-entry"]})`.
+Resultado integral da ferramenta:
+```
+Successfully deployed edge functions: data-entry
+Submitted source SHA-256 (files and settings; live verification is reported separately):
+data-entry source_sha256: 6c028e6c844e1860b6524250ddb8ad976406275ad9b48300295bf06a2e118f38
+```
+Hora UTC medida imediatamente após o resultado: `2026-10-23T21:58:20Z` (não é timestamp fornecido pelo serviço). ID/versão de deployment e hora exata do serviço não expostos. O SHA identifica fontes/configuração submetidas; não prova independente dos bytes efetivamente servidos (#317). Sem readback de bundle ou invocação da função; sem repetição de deploy. Dependências partilhadas seguem somente o bundle de `data-entry`, nenhum outro consumidor implantado.
+
+SELECT mínimo pós-deploy, apenas agregados de controlos:
+```
+executor_settings_count=1
+executor_enabled_count=0
+active_user_scopes=0
+provider_control_count=1
+provider_ready_idle_no_claim_count=1
+```
+Logo executor continua `enabled=false`; zero âmbitos com `expires_at>now()`; singleton provider `state=ready`, `enabled=true`, `stage=idle`, `active_claim IS NULL`. Comparação com os valores prévios comunicados pelo controller coincide. Nenhuma alteração de controlos; provider ligado não abre janela de utilizador.
+
+Fecho: deploy concreto de `data-entry` reportado como sucesso pela ferramenta. Frontend Publish e teste real continuam pendentes de autorização própria; PDF original não lido/validado. Sem Publish, DDL/DML, flags, janela nova/renovada, login, IA/Gmail/scanner reais, auditoria por invocação ou efeitos financeiros. Só relatório e linha #333 atualizados; reserva MANTIDA para controller. Sem comentário alternativo na Issue ou alteração da branch documental/outras frentes. Questões novas: nenhuma; pendências são Publish/teste real e eventual prova independente dos bytes servidos, não fornecida pela ferramenta.
