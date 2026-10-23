@@ -1,4 +1,4 @@
-import { masterFormulaAmountForCity } from "@/lib/master-formula";
+import { masterFormulaAmountForCity, masterFormulaCostInputsForCity } from "@/lib/master-formula";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { expandOverheadToSplits, overheadLinesFor } from "@/lib/overhead-proration";
@@ -412,13 +412,21 @@ export function ResultsAnalysis() {
       const n = siblings.length || 1;
       const formulaLines = (forecasts as any[]).filter(f => f.event_id === masterId && f.type === "expense" && (f.formula_type === "pct_ticket_revenue" || f.formula_type === "per_head"));
       const bpDelta = formulaLines.reduce((sum,f) => sum + masterFormulaAmountForCity(f,siblings,subEventId,Number(f.amount),Number(f.amount)/n) - Number(f.amount)/n,0);
-      const txDelta = (transactions as any[]).filter(t=>t.event_id===masterId && t.type==="expense").reduce((sum,t)=>{
-        const f=formulaLines.find(f=>f.transaction_id===t.id);
-        return sum + (f ? masterFormulaAmountForCity(f,siblings,subEventId,Number(t.amount),Number(t.amount)/n)-Number(t.amount)/n : 0);
-      },0);
+      const scaled = masterFormulaCostInputsForCity(
+        (forecasts as any[]).filter(f=>f.event_id===masterId && f.type==="expense"),
+        (transactions as any[]).filter(t=>t.event_id===masterId && t.type==="expense"), siblings, subEventId,
+      );
+      let mergedFormulaCost: number | null = null;
+      if (scaled) {
+        const byCat = new Map<string,{bp:number;paid:number;approved:number}>();
+        const bucket=(id:string)=>{let b=byCat.get(id);if(!b){b={bp:0,paid:0,approved:0};byCat.set(id,b);}return b;};
+        for(const f of scaled.forecasts) bucket(f.category_id ?? "__none__").bp+=Number(f.amount);
+        for(const t of scaled.transactions){const b=bucket(t.category_id ?? "__none__");if(t.status==="paid")b.paid+=Number(t.amount);else if(t.status==="approved")b.approved+=Number(t.amount);}
+        mergedFormulaCost=[...byCat.values()].reduce((sum,b)=>sum+(mode==="realized"?b.paid+b.approved:b.paid+Math.max(b.approved,Math.max(0,b.bp-b.paid))),0);
+      }
       return {
         bpExpense: bpExpenseTotalForEvent(masterId) / n + bpDelta,
-        mergedExpense: mergeExpenseForEvent(masterId, mode) / n + (mode === "realized" ? txDelta : bpDelta),
+        mergedExpense: mergedFormulaCost ?? mergeExpenseForEvent(masterId, mode) / n,
         closing: 0,
       };
     };
