@@ -41,3 +41,12 @@
 - Arrival comparison uses UTC hourly raw counts, not unique visitors. Nonwaiting artist/hour trigger locks preserve capture; bounded rebuilds acknowledge only pending IDs captured before their source snapshot, retaining late commits for repair.
 <!-- LOVABLE:END -->
 
+
+## Padrão obrigatório de datas — toda a plataforma
+
+Decisão do Pedro, 23/10/2026, aplicável a qualquer Issue e frente: todos os novos campos de data, incluindo filtros, formulários e modais, usam o componente partilhado `DatePicker` de `src/components/ui/date-picker.tsx`, com apresentação `dd/MM/aaaa` e o calendário visual da plataforma. Não implementar `input type="date"` nem um calendário próprio/nativo do navegador.
+
+- Quando a data puder ser omitida, disponibilizar limpeza explícita (`clearable`) que apague também o valor canónico, sem o repor ao perder o foco ou renderizar novamente.
+- Datas obrigatórias vazias mantêm a validação correspondente. Não preencher com a data de hoje sem requisito explícito.
+- Na implementação e revisão de qualquer Issue, conferir todos os campos de data criados ou alterados contra este padrão, incluindo filtros secundários.
+- Esta regra não autoriza uma migração global dos campos existentes; corrigir os campos no âmbito autorizado da demanda.
