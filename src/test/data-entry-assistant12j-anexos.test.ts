@@ -50,6 +50,12 @@ describe("#333 12j leitura única e anexos reais", () => {
     expect(r.status).toBe("answer");
     // O texto do modelo é só texto; a lista e a revisão vêm do servidor.
     expect(r.attachments).toHaveLength(4); expect(r.review_message_id).toBe(emails[0].message_id);
+    expect(r.text).not.toMatch(/7 PDFs|999|inventada/); expect(r.text).toContain("4. a-documento-4.pdf");
+  });
+  it("resposta final sem números nem anexos após leitura é mantida, com a revisão do servidor", async () => {
+    const steps: ModelStep[] = [read(), { type: "final", text: "Li o email escolhido; usa a revisão." }];
+    const r = await runAssistantTurn({ next: vi.fn(async () => ({ step: steps.shift()!, tokens: 1 })) }, { resume: resume(), ...tools() }, { text: ASK, history: [], selection: { message_id: emails[0].message_id } }, signal());
+    expect(r.text).toBe("Li o email escolhido; usa a revisão."); expect(r.attachments).toHaveLength(4);
   });
   it("corpo truncado: termina sem nova chamada, com anexos reais e revisão existente", async () => {
     const next = vi.fn<AssistantModel["next"]>(async () => ({ step: read(), tokens: 1 }));

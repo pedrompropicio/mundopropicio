@@ -185,7 +185,15 @@ export async function runAssistantTurn(model: AssistantModel, tools: AssistantTo
     if (tokens > ASSISTANT_LIMITS.maxTokens) return done({ status: "limit", text: "Limite de processamento atingido. Nada foi gravado." });
     const s = out.step;
     if (s.type === "clarify") return done({ status: "clarify", text: s.question.slice(0, 600) });
-    if (s.type === "final") return done({ status: "answer", text: s.text.slice(0, 4000) });
+    if (s.type === "final") {
+      // After a revalidated choice, attachment/page/value/number claims from the model are not shown:
+      // the server listing and the existing review are the only source.
+      if (reviewId && /\d|€|eur\b|anexo|pdf|p[aá]gina|documento/i.test(s.text)) {
+        trace.push({ tool: "final", ok: true, summary: "Resposta substituída pela lista real do servidor" });
+        return done({ status: "answer", text: `Li o email escolhido. ${attachmentListText(attachmentItems(lastSearch.find(m => m.message_id === reviewId)))}\n\nNúmeros, anexos ou valores escritos pelo assistente não são mostrados; confirma tudo na revisão abaixo. Nada foi gravado.` });
+      }
+      return done({ status: "answer", text: s.text.slice(0, 4000) });
+    }
     if (++toolCalls > ASSISTANT_LIMITS.maxToolCalls) return done({ status: "limit", text: "Limite de passos atingido. Nada foi gravado." });
     const reject = (msg: string) => { trace.push({ tool: String(s.name).slice(0, 40), ok: false, summary: msg }); messages.push({ role: "tool", tool: String(s.name).slice(0, 40), content: JSON.stringify({ error: msg }) }); };
     /** A repeated identical refusal ends the turn: another model call cannot change the server answer. */
