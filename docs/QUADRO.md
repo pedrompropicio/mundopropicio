@@ -218,6 +218,8 @@ _(sem pedidos)_
 
 ## 9 · CRM, Portal e Leads
 
+- **23/10/2026 11:12 UTC — pronto para Publish (janela do 0 · Cowork):** cartão "Por cidade (top 10)" do resumo do CRM do Clube Newgang passa a usar a cidade estimada por IP quando a pessoa não declarou cidade. Código 842f79ee4 (HEAD de main; migração 0236_newgang_summary_estimated_city.sql já em Live, sem DML; ecrã src/pages/crm-admin/clube-newgang/ClubeNewgang.tsx; teste newgang-crm-profile-fields 10/10 verificado às 11:12 UTC; decisão D-ERP300). Estado: o Pedro decidiu a 23/10/2026 juntar este Publish na próxima janela do 0 · Cowork e manter "Lisbon" contado como Lisboa só no resumo. Falta confirmar `CI / quality` verde no SHA atual de main antes do Publish — não verificado nesta R0.
+
 - [x] 18/10/2026 14:42 UTC — CRM Newgang cidade estimada antigas (opção A, DB-IP Lite City 2026-10 local, CC BY 4.0): 382 capturas preenchidas; 355 pessoas=membros, 141 declarada, 197 só estimada, 17 sem cidade; atribuição no ecrã/CSV. Reserva libertada. Sem Publish/crons/envios/Meta/portal.
 
 - [x] 18/10/2026 — CRM Newgang perfil na lista + cidade estimada (Lovable ERP, Pedro autorizou): 0199 aplicada; 353 pessoas=membros; 140 cidade declarada, 1 só estimada, 212 sem cidade; trigger geo local DB-IP para novas capturas. Antigas aguardam decisão (prova docs/testes/newgang-crm-whatsapp/perfil-e-cidade-estimada.md). Reserva libertada. Sem Publish/crons/envios/Meta/portal.
