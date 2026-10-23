@@ -41,7 +41,7 @@ describe("#333 UI: escolher outro email", () => {
     expect(screen.queryByText("foto-1.jpg", { exact: false })).toBeNull();
     expect(assistantTurn.mock.calls[3][0]).toMatchObject({ selection: { message_id: "msgSINTB2" }, continuation: "s3", continuation_text: "Pedido original sintético" });
     const stored = localStorage.getItem(historyKey(context)) ?? "";
-    expect(stored).not.toMatch(/s[1-4]"|msgSINT|fecho-1\.pdf|foto-1/);
+    expect(stored).not.toMatch(/"s[1-4]"|continuation|fecho-1\.pdf|foto-1|attachments/);
   });
   it("resposta tardia de A não reaplica A depois de Parar e escolher B", async () => {
     const lateA = deferred<AssistantTurnResult>();
