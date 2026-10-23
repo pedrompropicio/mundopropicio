@@ -106,9 +106,9 @@ export const CACHE_ERROR_MESSAGES: Record<string, string> = {
 
 export function cacheErrorMessage(e: unknown): string {
   const raw = String((e as any)?.message ?? e ?? "");
-  const m = raw.match(/^([a-z_]+):\s*(.*)$/s);
+  const m = raw.match(/^([a-z_]+)(?::\s*(.*))?$/s);
   if (!m) return raw;
-  return CACHE_ERROR_MESSAGES[m[1]] ?? m[2];
+  return CACHE_ERROR_MESSAGES[m[1]] ?? m[2] ?? raw;
 }
 
 export interface CacheStatusCity {
