@@ -92,10 +92,10 @@ export async function candidateFromBody(read: { message_id: string; text: string
     const cents = parseEuroCents(money[2]);
     if (cents === null) { unknown++; return; }
     const label = fold(money[1]);
-    if (/^total\b/.test(label)) { if (c.total_cents && c.total_cents.value !== cents) c.incomplete.push("Dois totais diferentes no corpo."); c.total_cents ??= { value: cents, prov: prov(i + 1) }; return; }
+    if (/^total\b/.test(label)) { if (c.total_cents && c.total_cents.value !== cents) pushBlocking(c, BLOCKING.field_conflict, "Dois totais diferentes no corpo."); c.total_cents ??= { value: cents, prov: prov(i + 1) }; return; }
     const type = LABELS.find(([r]) => r.test(label))?.[1];
     if (!type) { unknown++; return; }
-    if (c.lines.length >= CANDIDATE_LIMITS.lines) { c.incomplete.push(`Mais de ${CANDIDATE_LIMITS.lines} linhas: cobertura incompleta.`); return; }
+    if (c.lines.length >= CANDIDATE_LIMITS.lines) { pushBlocking(c, BLOCKING.coverage_truncated, `Mais de ${CANDIDATE_LIMITS.lines} linhas: cobertura incompleta.`); return; }
     const hint = money[1].match(/[-–]\s*(.+)$/)?.[1]?.trim() ?? null;
     c.lines.push({ line_type: type, description: money[1].trim().slice(0, CANDIDATE_LIMITS.description), amount_cents: cents, event_hint: hint, prov: prov(i + 1) });
   });
