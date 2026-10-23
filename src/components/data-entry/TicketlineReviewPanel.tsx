@@ -104,6 +104,17 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   const offices = (accounts ?? []).filter(a => a.type === "ticket_office");
   const input = "w-full min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm";
 
+  // #333 fase12k: trocar de origem invalida o candidato atual; nunca mostrar dados do anexo anterior sob o novo.
+  const choose = (id: string) => { if (id === part) return; setPart(id); setCand(null); setToken(null); setPreview(null); setConfirmed(false); setSelected([]); setAuth(null); };
+  const images = (attachments ?? []).filter(a => a.mime.startsWith("image/"));
+  const docs = (attachments ?? []).filter(a => !a.mime.startsWith("image/"));
+  const radio = (a: TicketlineAttachment) => (
+    <label key={a.part_id} className="flex min-w-0 items-center gap-2">
+      <input type="radio" name={`part-${messageId}`} checked={part === a.part_id} onChange={() => choose(a.part_id)} />
+      <span className="min-w-0 flex-1 truncate" title={a.filename}>{a.filename}</span><span className="shrink-0 text-muted-foreground">{kb(a.size_bytes)}</span>
+    </label>
+  );
+  const partial = lines.length === 0 || !form.number.trim() || !form.date || !form.total;
   const sourcePicker = (
     <div className="min-w-0 space-y-1">
       <div className="flex flex-wrap gap-2">
@@ -112,14 +123,15 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
       </div>
       {attachments && (attachments.length === 0 ? <p className="text-muted-foreground">Este email não tem anexos; usa-se o corpo.</p> : (
         <fieldset className="min-w-0 space-y-1">
-          <legend className="sr-only">Origem do documento</legend>
-          <label className="flex min-w-0 items-center gap-2"><input type="radio" name={`part-${messageId}`} checked={!part} onChange={() => setPart("")} /> <span>Só o corpo do email</span></label>
-          {attachments.map(a => (
-            <label key={a.part_id} className="flex min-w-0 items-center gap-2">
-              <input type="radio" name={`part-${messageId}`} checked={part === a.part_id} onChange={() => setPart(a.part_id)} />
-              <span className="min-w-0 flex-1 truncate" title={a.filename}>{a.filename}</span><span className="shrink-0 text-muted-foreground">{kb(a.size_bytes)}</span>
-            </label>
-          ))}
+          <legend className="font-semibold">Anexos reais do email ({attachments.length}) · escolhe a origem</legend>
+          <label className="flex min-w-0 items-center gap-2"><input type="radio" name={`part-${messageId}`} checked={!part} onChange={() => choose("")} /> <span>Só o corpo do email</span></label>
+          {docs.map(radio)}
+          {images.length > 0 && (
+            <details open={images.some(a => a.part_id === part)} className="min-w-0">
+              <summary className="cursor-pointer text-muted-foreground">Imagens ({images.length}) · recolhidas</summary>
+              <div className="space-y-1 pl-2 pt-1">{images.map(radio)}</div>
+            </details>
+          )}
         </fieldset>
       ))}
     </div>
@@ -142,7 +154,7 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
         <label className="min-w-0 space-y-0.5"><span className="block">Nº apuramento <span className="text-muted-foreground">({provLabel(cand.number?.prov)})</span></span>
           <input aria-label="Número" className={input} value={form.number} onChange={e => edit(() => setForm({ ...form, number: e.target.value }))} /></label>
         <label className="min-w-0 space-y-0.5"><span className="block">Data <span className="text-muted-foreground">({provLabel(cand.date?.prov)})</span></span>
-          <input aria-label="Data" type="date" className={input} value={form.date} onChange={e => edit(() => setForm({ ...form, date: e.target.value }))} /></label>
+          <input aria-label="Data" type="text" inputMode="numeric" placeholder="AAAA-MM-DD" pattern="\d{4}-\d{2}-\d{2}" className={input} value={form.date} onChange={e => edit(() => setForm({ ...form, date: e.target.value }))} /></label>
         <label className="min-w-0 space-y-0.5"><span className="block">Total do documento (€) <span className="text-muted-foreground">({provLabel(cand.total_cents?.prov)})</span></span>
           <input aria-label="Total" inputMode="decimal" className={input} value={form.total} onChange={e => edit(() => setForm({ ...form, total: e.target.value }))} /></label>
         <label className="min-w-0 space-y-0.5"><span className="block">Evento</span>
