@@ -43,8 +43,11 @@ describe("#339 C — agregações neutras ao tipo", () => {
 
 describe("#339 C — conciliação de um crédito único", () => {
   it("o crédito liga à MÃE (tem conta); filhas nunca ficam ligadas", () => {
+    const leg = { account_id: "acc", amount: 3000, payment_method: "transfer", status: "paid", reversed_at: null, withholding_amount: 0, credit_amount: 0 };
     const txs = [
-      { id: "m", account_id: "acc", description: "Receita partilhada", paid_amount: 3000, payment_date: "2026-10-20", date: "2026-10-20", status: "paid" },
+      { id: "m", account_id: "acc", reconciliation_account_id: "acc", payments: [leg], description: "Receita partilhada", paid_amount: 3000, payment_date: "2026-10-20", date: "2026-10-20", status: "paid" },
+      // Filhas: sem conta nem registo de recebimento próprio → nunca são candidatas.
+      ...kids.map((k) => ({ id: k.id, account_id: null, reconciliation_account_id: "acc", payments: [], description: "Receita partilhada", paid_amount: 1000, payment_date: "2026-10-20", date: "2026-10-20", status: "paid" })),
     ];
     const r = reconcileStatement([{ key: "L1", description: "TRF RECEITA PARTILHADA", amount: 3000, bookingDate: "2026-10-20" }], txs as any, []);
     const m = r.matches.get("L1");

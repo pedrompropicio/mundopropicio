@@ -31,3 +31,28 @@ export function isRateioChild(t: any): boolean {
 export function excludeRateioChildren<T>(rows: T[]): T[] {
   return (rows ?? []).filter((t) => !isRateioChild(t));
 }
+
+/** Medida de verba de uma perna de rateio (D-ERP73: por linha quando há linha). */
+export interface SplitLegBudget {
+  hasAnyBP: boolean;
+  hasMatch: boolean;
+  budget: number;
+  used: number;
+  childAmount: number;
+}
+
+/** True quando o valor da perna passa o disponível da linha/rubrica. */
+export function splitLegExceedsBudget(l: SplitLegBudget): boolean {
+  return l.hasAnyBP && l.hasMatch && l.budget > 0 && l.childAmount > l.budget - l.used + 0.005;
+}
+
+/**
+ * A perna exige justificação ("Fora do BP")?
+ *  • sem linha de BP num evento com BP → sim, nos dois tipos;
+ *  • verba excedida → só em DESPESA. Em RECEITA é aviso, nunca bloqueio (#339 C).
+ */
+export function splitLegNeedsOverride(type: string | null | undefined, l: SplitLegBudget): boolean {
+  if (!l.hasAnyBP) return false;
+  if (!l.hasMatch) return true;
+  return type !== "income" && splitLegExceedsBudget(l);
+}
