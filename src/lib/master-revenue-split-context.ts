@@ -30,7 +30,7 @@ export async function fetchMasterRevenueSplit(masterIds: string[]): Promise<Mast
   const ids = Array.from(new Set(masterIds.filter(Boolean)));
   if (ids.length === 0) return emptyMasterRevenueSplit();
 
-  const { data: fcs, error: fErr } = await supabase
+  const { data: fcs, error: fErr } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
     .select(
       "id, event_id, type, amount, iva_rate, description, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, revenue_split_mode, revenue_split_params, account_categories(code, name)",
@@ -39,7 +39,7 @@ export async function fetchMasterRevenueSplit(masterIds: string[]): Promise<Mast
     .eq("type", "income")
     .eq("status", "approved")
     .is("version_id", null)
-    .not("revenue_split_mode", "is", null);
+    .not("revenue_split_mode", "is", null));
   if (fErr) throw fErr;
   const forecasts = (fcs ?? []) as any[];
   if (forecasts.length === 0) return emptyMasterRevenueSplit();
