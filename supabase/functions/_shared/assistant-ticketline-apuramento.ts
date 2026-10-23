@@ -118,7 +118,7 @@ export function mergeApuramento(c: TicketlineCandidate, e: ApuramentoExtraction,
   const out: TicketlineCandidate = { ...c, sources: c.sources.some(s => s.source === "attachment" && s.sha256 === prov.sha256) ? [...c.sources] : [...c.sources, prov], incomplete: [...c.incomplete] };
   const mergeField = <T>(key: "number" | "date" | "total_cents", v: T | null, label: string) => {
     if (v === null) return;
-    const cur = out[key] as { value: T } | null;
+    const cur = out[key] as unknown as { value: T } | null;
     if (cur && cur.value !== v) { (out as Record<string, unknown>)[key] = null; out.incomplete.push(`${label} difere entre o anexo e o corpo do email: indicar na revisão.`); return; }
     if (!cur) (out as Record<string, unknown>)[key] = { value: v, prov };
   };
