@@ -10324,6 +10324,8 @@ export type Database = {
           ordering_partner_id: string | null
           original_amount: number | null
           paying_partner_id: string | null
+          revenue_split_mode: string | null
+          revenue_split_params: Json | null
           specification: string | null
           status: string
           transaction_id: string | null
@@ -10369,6 +10371,8 @@ export type Database = {
           ordering_partner_id?: string | null
           original_amount?: number | null
           paying_partner_id?: string | null
+          revenue_split_mode?: string | null
+          revenue_split_params?: Json | null
           specification?: string | null
           status?: string
           transaction_id?: string | null
@@ -10414,6 +10418,8 @@ export type Database = {
           ordering_partner_id?: string | null
           original_amount?: number | null
           paying_partner_id?: string | null
+          revenue_split_mode?: string | null
+          revenue_split_params?: Json | null
           specification?: string | null
           status?: string
           transaction_id?: string | null
@@ -26396,6 +26402,8 @@ export type Database = {
           ordering_partner_id: string | null
           original_amount: number | null
           paying_partner_id: string | null
+          revenue_split_mode: string | null
+          revenue_split_params: Json | null
           specification: string | null
           status: string
           transaction_id: string | null
@@ -26483,6 +26491,8 @@ export type Database = {
           ordering_partner_id: string | null
           original_amount: number | null
           paying_partner_id: string | null
+          revenue_split_mode: string | null
+          revenue_split_params: Json | null
           specification: string | null
           status: string
           transaction_id: string | null

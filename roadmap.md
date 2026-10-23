@@ -74,3 +74,4 @@
 - [x] #346 passo (b): ecrã Ligar adiantamento + aviso no Novo contrato + testes
 - [x] #339 A1: fórmula em linhas de receita (painel, recálculo, regras puras, 13 testes); pronto para Publish, CI remoto por confirmar.
 - [x] #339 C: rateio multi-evento em receitas (excesso só aviso; 7 testes); pronto para Publish, CI remoto por confirmar.
+- [x] #339 B1 — migração 0238 revenue_split (aplicada; aguarda verificação chat 5)
