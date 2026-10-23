@@ -86,7 +86,7 @@ export async function candidateFromBody(read: { message_id: string; text: string
     const num = f.match(/^apuramento\s*(?:n[.ºo°]*\s*)?[:#]?\s*([a-z0-9][a-z0-9\-/ ]{0,40})$/);
     if (num) { c.number ??= { value: line.slice(line.length - num[1].length).trim(), prov: prov(i + 1) }; return; }
     const dt = f.match(/^data\s*[:\-]\s*(.+)$/);
-    if (dt) { const v = normalizeScannerDate(dt[1]); if (v) c.date ??= { value: v, prov: prov(i + 1) }; else c.incomplete.push(`Data ambígua na linha ${i + 1}.`); return; }
+    if (dt) { const v = normalizeScannerDate(dt[1]); if (v) c.date ??= { value: v, prov: prov(i + 1) }; else pushBlocking(c, BLOCKING.date_ambiguous, `Data ambígua na linha ${i + 1}.`); return; }
     const money = line.match(/^(.{2,160}?)\s*[:\-–]\s*(\(?-?[\d.\s]+[,.]\d{2}\)?)\s*€?$/);
     if (!money) return;
     const cents = parseEuroCents(money[2]);
