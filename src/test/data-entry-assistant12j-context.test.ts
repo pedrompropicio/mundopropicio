@@ -5,7 +5,7 @@ import { signContinuation, verifyContinuation, requestHash } from "../../supabas
 import { createHandler, type Deps } from "../../supabase/functions/data-entry/handler";
 
 const filters = { from_date: "2026-09-23", to_date: "2026-10-23", sender: "example.invalid", page_size: 20 };
-const emails = Array.from({ length: 4 }, (_, i) => ({ message_id: `msg00000${i}`, subject: "Fecho sintético", from: "sender@example.invalid", date: `2026-10-09T15:${28-i}:00Z`, attachments: Array.from({ length: 12 }, (_, j) => ({ part_id: `${j}`, filename: "anexo-sintetico-".repeat(8), mime: "application/pdf", size_bytes: 1000 })) }));
+const emails = Array.from({ length: 4 }, (_, i) => ({ message_id: `msg00000${i}`, subject: "Fecho sintético", from: "sender@example.invalid", date: `2026-10-09T15:${28-i}:00Z`, attachments: Array.from({ length: 12 }, (_, j) => ({ part_id: `${j}`, filename: `anexo-m${i}-${j}-`+"x".repeat(110), mime: "application/pdf", size_bytes: 1000 })) }));
 const resume = { user: "local", company: "local", expires: Date.now()+60000, requestHash: "synthetic", filters, messages: emails.map(m=>m.message_id), events: [], message: null };
 const signal = () => new AbortController().signal;
 const body = (truncated: boolean) => ({ message_id: emails[0].message_id, subject: emails[0].subject, from: emails[0].from, date: emails[0].date, kind: "plain" as const, body_text: "á".repeat(4000), truncated });
@@ -28,7 +28,7 @@ describe("#333 12j contexto sintético (sem rede)",()=>{
     const r=await runAssistantTurn({next},{resume,gmailSearch:search,gmailRead:vi.fn(),erpContext:vi.fn()},{text:"Lê o escolhido",selection:{message_id:emails[0].message_id},history:Array.from({length:12},()=>({role:"assistant" as const,text:"histórico".repeat(250)}))},signal());
     expect(r.status).toBe("answer"); expect(search).toHaveBeenCalledTimes(1);
     const context=JSON.stringify(next.mock.calls[0]);
-    expect(context).not.toContain("anexo-sintetico"); expect(context.length).toBeLessThan(7000);
+    for (const o of ["anexo-m1-","anexo-m2-","anexo-m3-"]) expect(context).not.toContain(o); // só os anexos do email escolhido expect(context.length).toBeLessThan(7000);
   });
   it("corpo cortado termina sem outra chamada, proposta ou consulta ERP e encaminha revisão existente",async()=>{
     const next=vi.fn(async()=>({step:{type:"tool" as const,name:"gmail_read",args:{message_id:emails[0].message_id}},tokens:1}));
@@ -53,7 +53,7 @@ describe("#333 12j contexto sintético (sem rede)",()=>{
     expect(first.status).toBe("select_message");
     const second=await runAssistantTurn(factory(),{resume,gmailSearch:search,gmailRead:read,erpContext:erp},{text:"Lê o email mais recente com assunto Fecho sintético",history:Array.from({length:12},()=>({role:"assistant" as const,text:"Histórico sintético com tabela e falhas ".repeat(70)}))},signal());
     expect(second.status).toBe("answer"); expect(calls).toHaveLength(truncated?2:3); expect(search).toHaveBeenCalledTimes(2); expect(read).toHaveBeenCalledTimes(1); expect(erp).not.toHaveBeenCalled(); expect(second.proposal).toBeUndefined();
-    expect(JSON.stringify(calls)).not.toContain("anexo-sintetico");
+    for (const o of ["anexo-m1-","anexo-m2-","anexo-m3-"]) expect(JSON.stringify(calls)).not.toContain(o);
     if (!truncated) expect(JSON.stringify(calls[2])).toContain("á".repeat(4000));
   });
   it("seleção textual é inequívoca por assunto/hora; ambiguidade e datas sem hora não são adivinhadas",()=>{

@@ -16,6 +16,7 @@ const loadHistory = (c: DataEntryContext): Turn[] => {
     return Array.isArray(v) ? v.filter((t) => (t?.role === "user" || t?.role === "assistant") && typeof t.text === "string").slice(-MAX_TURNS) : [];
   } catch { return []; }
 };
+const kb = (n: number) => n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
 const eur = (cents: number | null) => cents == null ? "—" : (cents / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
 
 type Props = { adapter: DataEntryAdapter; context: DataEntryContext };
@@ -50,12 +51,14 @@ function Conversation({ adapter, context }: Props) {
     const base = selection ? history : [...history, { role: "user" as const, text: message.trim() }];
     if (!selection) { persist(base); setText(""); setPendingText(message.trim()); }
     try {
-      const continuing = Boolean(continuation.current && (selection || last?.status === "select_message"));
+      // A signed selector continues after a choice or after a revalidated review; numbers/IDs never come from history.
+      const continuing = Boolean(continuation.current && (selection || last?.status === "select_message" || last?.review_message_id));
       const r = await adapter.assistantTurn({ text: message.trim(), history: base.slice(0, selection ? base.length : -1), ...(selection ? { selection } : {}), ...(continuing ? { continuation: continuation.current, continuation_text: continuationText.current } : {}), known_message_ids: known }, context, controller.signal);
       if (gen !== generation.current) return;
       setLast(r); setKnown(r.known_message_ids ?? []);
       continuation.current = r.continuation;
-      continuationText.current = r.continuation ? message.trim() : undefined;
+      // Keep the ORIGINAL request bound by the signature across follow-up turns.
+      continuationText.current = r.continuation ? (continuing ? continuationText.current ?? message.trim() : message.trim()) : undefined;
       persist([...base, { role: "assistant", text: r.text }]);
     } catch (e) {
       if (gen === generation.current) setError(e instanceof Error ? e.message : "Assistente indisponível.");
@@ -106,7 +109,15 @@ function Conversation({ adapter, context }: Props) {
           ))}
         </div>
       )}
-      {last?.review_message_id && adapter.ticketlineCandidate && <TicketlineReviewPanel key={last.review_message_id} adapter={adapter} context={context} messageId={last.review_message_id} />}
+      {last?.review_message_id && last.attachments && (
+        <div aria-label="Anexos do email" className="space-y-0.5 rounded-md border border-border p-2 text-xs">
+          <div className="font-semibold">Anexos reais do email ({last.attachments.length})</div>
+          {last.attachments.length === 0 ? <p className="text-muted-foreground">Sem anexos; a revisão usa o corpo.</p> : (
+            <ol className="space-y-0.5">{last.attachments.map(a => <li key={a.part_id} className="min-w-0 break-words">{a.n}. {a.filename} <span className="text-muted-foreground">· {a.mime} · {kb(a.size_bytes)}</span></li>)}</ol>)}
+        </div>
+      )}
+      {last?.review_message_id && adapter.ticketlineCandidate && <TicketlineReviewPanel key={last.review_message_id} adapter={adapter} context={context} messageId={last.review_message_id}
+        initialAttachments={last.attachments?.map(({ part_id, filename, mime, size_bytes }) => ({ part_id, filename, mime, size_bytes }))} />}
       {p && (
         <div aria-label="Proposta" className="space-y-2 rounded-md border border-border p-2 text-xs">
           <div className="flex flex-wrap gap-1.5">
