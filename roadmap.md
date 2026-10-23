@@ -1,4 +1,4 @@
-- [x] #344 R1: resumo de receitas por origem no gerador partilhado/PDF/Excel; 12 regressões PASS, suite 2.197→2.209 PASS, tsgo 0; relatório e reserva libertada, sem DDL/DML/deploy/Publish. CI remoto e aceitação pelo Pedro pendentes da janela do 0.
+- [x] #344 R1: resumo de receitas por origem no gerador partilhado/PDF/Excel; 13 regressões PASS, suite 2.197→2.210 PASS, tsgo 0; relatório e reserva libertada, sem DDL/DML/deploy/Publish. CI remoto e aceitação pelo Pedro pendentes da janela do 0.
 - [x] #333 fase11c: identidade própria no adapter e isolamento de resultados por sessão/empresa.
 - [x] #333 12j leitura única/anexos 23/10: sem releituras nem loop de recusas, anexos reais do servidor, revisão existente; relatório fase12j-anexos-leitura-unica.md; sem deploy.
 - [ ] #333 12j: conferir pedido incerto (rev 80) via SQL INERTE — aguarda revisão do controller e Sim do Pedro; depois deploy só data-entry com autorização própria.
