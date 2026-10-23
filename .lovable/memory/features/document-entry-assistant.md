@@ -39,3 +39,6 @@ Entrada principal em texto livre com orquestrador restrito (ferramentas fechadas
 
 ## 12j leitura única e anexos (23/10/2026)
 Cada email lê-se uma vez por turno; recusa repetida termina. Anexos (nome/tipo/tamanho) e numeração vêm só da pesquisa assinada e revalidada, nunca do modelo nem do histórico; após a escolha, as respostas levam a revisão existente. Parar após o POST deixa o controlo uncertain: nunca reset/retry automático; conferência só por SQL responsável com Sim.
+
+## 12k anexo Ticketline (23/10/2026)
+O scanner existente só lê número/data/total do anexo; linhas vêm só do corpo — o candidato diz "Revisão parcial" e a confirmação fica bloqueada até haver número, data, total e linhas humanas. Data sem origem fica vazia (campo texto AAAA-MM-DD, nunca hoje). Anexos apresentados uma vez (painel; imagens recolhidas por tipo). Trocar de origem limpa o candidato. Extrair linhas do PDF exige novo contrato com bytes reais.
