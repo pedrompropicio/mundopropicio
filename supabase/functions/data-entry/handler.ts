@@ -55,6 +55,8 @@ export interface Deps {
   continuationSecret?: string;
   /** #333 fase12c: scanner existente sobre o anexo escolhido (controlo durável). Ausente = fechado. */
   scanAttachment?(bytes: Uint8Array, mime: DocumentType, signal: AbortSignal): Promise<AnalysisWire>;
+  /** #333 retoma corretiva: contrato dedicado que extrai as LINHAS do apuramento do anexo. Ausente = fechado (só número/data/total). */
+  scanApuramento?(bytes: Uint8Array, mime: DocumentType, signal: AbortSignal): Promise<ApuramentoExtraction>;
   /** Leitura ERP com o JWT do chamador (eventos/selagem/apuramentos e contas). Ausente = indisponível. */
   ticketlineErp?: { context(token: string, company: string, text: string, signal: AbortSignal, number?: string, eventId?: string): Promise<ErpContext>; account(token: string): AccountReader;
     accounts(token: string, company: string, signal: AbortSignal): Promise<{ id: string; name: string; type?: string | null }[]>;
@@ -325,6 +327,18 @@ export function createHandler(d: Deps) {
             const wire = await boundedAnalysis(req.signal, signal => d.scanAttachment!(att.bytes, mime, signal));
             await canonicalStorageContext();
             cand = mergeScanner(cand, wire, prov);
+          }
+          // Extração das linhas do apuramento (contrato dedicado). Falha do scanner de linhas
+          // nunca derruba o candidato: fica pendência explícita e a revisão humana decide.
+          if (d.scanApuramento) {
+            try {
+              const ext = await boundedAnalysis(req.signal, signal => d.scanApuramento!(att.bytes, mime, signal));
+              await canonicalStorageContext();
+              cand = mergeApuramento(cand, ext, prov);
+            } catch (e) {
+              if (req.signal.aborted) throw e;
+              cand = { ...cand, incomplete: [...cand.incomplete, `Extração das linhas do anexo indisponível (${e instanceof AnalysisError ? e.message : "scanner indisponível"}): introduzir as linhas a partir do documento original.`] };
+            }
           }
         }
         return reply({ candidate: cand, candidate_token: await signServerPayload("ticketline_candidate", { user: user.id, company }, cand, d.continuationSecret) });
