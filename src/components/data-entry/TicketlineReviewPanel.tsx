@@ -167,7 +167,21 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
       <div className="font-semibold">Revisão do fecho (candidato, nada gravado)</div>
       <div className="flex min-w-0 flex-wrap gap-1">{cand.sources.map((s, i) => <Badge key={i} variant="outline" className="max-w-full truncate">{provLabel(s)}</Badge>)}</div>
       {sourcePicker}
-      {cand.incomplete.length > 0 && <ul className="list-disc space-y-0.5 break-words pl-4 text-destructive">{cand.incomplete.map(x => <li key={x}>{x}</li>)}</ul>}
+      {dups.length > 0 && <p role="alert" className="break-words rounded border border-border bg-muted p-1.5">Já existe nesta empresa: {dups.map(x => `${x.number} (estado ${x.status})`).join(", ")}. Verificar antes de confirmar; nada será duplicado.</p>}
+      {unresolvedBlocking.length > 0 && (
+        <fieldset className="min-w-0 space-y-1 rounded border border-destructive p-1.5">
+          <legend className="px-1 font-semibold text-destructive">Pendências que bloqueiam a confirmação</legend>
+          <p className="text-muted-foreground">Resolve cada uma no documento original e confirma-a explicitamente; só então a revisão pode ser confirmada.</p>
+          {unresolvedBlocking.map(b => (
+            <label key={b.code} className="flex min-w-0 items-start gap-1.5">
+              <input type="checkbox" className="mt-0.5" aria-label={`Resolver pendência: ${b.message}`} checked={resolved.includes(b.code)}
+                onChange={e => edit(() => setResolved(e.target.checked ? [...resolved, b.code] : resolved.filter(x => x !== b.code)))} />
+              <span className="min-w-0 break-words">{b.message} <span className="text-muted-foreground">— resolvido no documento original</span></span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {infoMessages.length > 0 && <ul className="list-disc space-y-0.5 break-words pl-4 text-muted-foreground">{infoMessages.map(x => <li key={x}>{x}</li>)}</ul>}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <label className="min-w-0 space-y-0.5"><span className="block">Nº apuramento <span className="text-muted-foreground">({provLabel(cand.number?.prov)})</span></span>
           <input aria-label="Número" className={input} value={form.number} onChange={e => edit(() => setForm({ ...form, number: e.target.value }))} /></label>
