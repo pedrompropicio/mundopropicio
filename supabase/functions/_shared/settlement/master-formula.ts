@@ -35,10 +35,14 @@ export function masterFormulaShares(line: { formula_type?: string | null; formul
   if (total === 0 && amount !== 0) throw new Error("Fórmula do Master: base por cidade zero; não é possível repartir um valor não nulo.");
   const shares = childIds.map(id => total ? Number(bases[id]) / total : 0);
   let assigned = 0;
-  const amounts = shares.map((share,i) => {
-    const value = i === shares.length - 1 ? roundCents(amount - assigned) : roundCents(amount * share);
-    assigned = roundCents(assigned + value); return value;
+  const allocation = new Map<string, number>();
+  const ordered = [...childIds].sort();
+  ordered.forEach((id,i) => {
+    const share = shares[childIds.indexOf(id)];
+    const value = i === ordered.length - 1 ? roundCents(amount - assigned) : roundCents(amount * share);
+    assigned = roundCents(assigned + value); allocation.set(id, value);
   });
+  const amounts = childIds.map(id => allocation.get(id) ?? 0);
   return { amounts, shares };
 }
 
