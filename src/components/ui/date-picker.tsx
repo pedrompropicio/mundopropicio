@@ -130,6 +130,7 @@ export function DatePicker({
     <div className={cn("flex items-center gap-1", className)}>
       <Input
         id={id}
+        aria-label={ariaLabel}
         type="text"
         inputMode="numeric"
         placeholder={placeholder}
