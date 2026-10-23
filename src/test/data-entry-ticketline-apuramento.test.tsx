@@ -423,6 +423,19 @@ describe("#333 revisão controller — painel: recalc/autorização tardios apó
     expect(adapter.ticketlineExecutionStatus).not.toHaveBeenCalled();
     expect(adapter.ticketlineExecute).not.toHaveBeenCalled();
   });
+  it.each(["initial-same-token", "context"])("recalc tardio após %s não monta prévia antiga", async change => {
+    const pending = deferred();
+    const adapter = { ticketlinePreview: vi.fn(() => pending.promise) } as unknown as DataEntryAdapter;
+    const props = { adapter, context: ctx, messageId: "m", initial };
+    const view = render(<TicketlineReviewPanel {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Recalcular prévia" }));
+    if (change === "initial-same-token") view.rerender(<TicketlineReviewPanel {...props} initial={{ ...initial, candidate: { ...CAND, number: { ...CAND.number, value: "AP-SAME-TOKEN-NEW" } } }} />);
+    else view.rerender(<TicketlineReviewPanel {...props} context={{ ...ctx, user_id: "55555555-5555-4555-8555-555555555555" }} />);
+    await act(async () => pending.resolve(PREVIEW));
+    expect(screen.queryByLabelText("Registar apuramento")).toBeNull();
+    expect(screen.getByRole("button", { name: "Guardar revisão" })).toBeDisabled();
+    if (change === "initial-same-token") expect(screen.getByLabelText("Número")).toHaveValue("AP-SAME-TOKEN-NEW");
+  });
   it("erro/finally antigos não alteram versão nova nem libertam pedido novo", async () => {
     const old = deferred(), fresh = deferred();
     const adapter = { ticketlinePreview: vi.fn().mockReturnValueOnce(old.promise).mockReturnValueOnce(fresh.promise) } as unknown as DataEntryAdapter;
