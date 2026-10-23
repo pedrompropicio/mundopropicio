@@ -415,7 +415,12 @@ export function createHandler(d: Deps) {
           const built = buildClosingPlan(reads, (closingChoice as ClosingChoice | null | undefined) ?? null, st.lines.some(l => l.line_type === "event_right") ? right : null, d.today?.() ?? new Date().toISOString().slice(0, 10));
           closing = built.plan; closingOptions = built.options; closingIssues = built.issues;
         } else if (office && chosenEvent && !chosenEvent.sealed) closingIssues = ["Leitura do fecho por ativar neste ambiente: fecho só no modal."];
-        const proposal: Proposal = await buildTicketlineProposal(st, erp, { event_id: eventId, settlement, human_reviewed: body.edits.confirm_review === true, office_account_id: office, closing, closing_issues: closingIssues });
+        // Pendências bloqueantes (extração desconhecida/truncada/conflito/cobertura) impedem a
+        // confirmação efetiva: confirm_review só vale com todas resolvidas explicitamente na revisão.
+        const blocking = reviewed.blocking ?? [];
+        const humanReviewed = body.edits.confirm_review === true && blocking.length === 0;
+        const proposal: Proposal = await buildTicketlineProposal(st, erp, { event_id: eventId, settlement, human_reviewed: humanReviewed, office_account_id: office, closing, closing_issues: closingIssues });
+        if (blocking.length) proposal.needs.push(...blocking.map(b => `Bloqueante por resolver na revisão: ${b.message}`));
         const events = erp.events.map(e => ({ id: e.id, label: `${e.name}${e.date ? ` · ${e.date}` : ""}${e.sealed ? " · fechado" : ""}` }));
         if (!body.save) return reply({ candidate: reviewed, proposal, events, closing_options: closingOptions, persisted: false, notice: "Prévia calculada no servidor, não guardada." });
         if (!d.reviewStore) throw new ReviewUnavailable();
