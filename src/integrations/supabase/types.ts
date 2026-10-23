@@ -24536,6 +24536,14 @@ export type Database = {
         }
         Returns: string
       }
+      attach_cache_advance_to_contract: {
+        Args: {
+          p_advance_tx_id: string
+          p_confirm_beneficiary?: boolean
+          p_contract_id: string
+        }
+        Returns: Json
+      }
       audit_multi_tenant_isolation: {
         Args: never
         Returns: {
