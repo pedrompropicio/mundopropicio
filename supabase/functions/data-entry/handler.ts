@@ -15,6 +15,7 @@ import type { ErpContext } from "../_shared/assistant-ticketline-proposal.ts";
 import { signContinuation, verifyContinuation, requestHash, signServerPayload, verifyServerPayload, type AssistantContinuation } from "../_shared/assistant-continuation.ts";
 import { buildClosingPlan, type ClosingReads, type ClosingChoice, type ClosingPlan, type ClosingOptions } from "../_shared/assistant-settlement-plan.ts";
 import { candidateFromBody, candidateFromModel, verifyAttachmentSource, mergeScanner, applyHumanEdits, candidateToStatement, validateSettlementConfirmation, type TicketlineCandidate, type ReviewEdits, type AccountReader } from "../_shared/assistant-ticketline-candidate.ts";
+import { mergeApuramento, type ApuramentoExtraction } from "../_shared/assistant-ticketline-apuramento.ts";
 import { buildTicketlineProposal, LINE_TYPES, type Proposal } from "../_shared/assistant-ticketline-proposal.ts";
 import { ReviewUnavailable, ReviewConflict, type ReviewStore } from "../_shared/assistant-review-store.ts";
 import { ExecutorUnavailable, ExecutionRefused, ExecutionUncertain, executionLinks, type Executor } from "../_shared/assistant-executor.ts";
