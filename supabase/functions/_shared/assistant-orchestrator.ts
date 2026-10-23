@@ -20,6 +20,7 @@ export const ASSISTANT_CONTRACT = [
   "Nunca adivinhes conta bancária, IVA, evento, pagador, data ou valor de liquidação. Um fecho recebido não prova recebimento bancário.",
   "Não executas lançamentos: preparas uma proposta para revisão e autorização expressa da pessoa.",
   "Quando chosen_message está presente, lê esse email com gmail_read: a pesquisa já foi revalidada. Não repitas a pesquisa nem uses o histórico como prova.",
+  "Quando previous_message está presente, esse email já foi lido num turno anterior e está na revisão: não o voltes a ler; responde com final, ou faz nova pesquisa só se a pessoa pedir um assunto novo.",
   "Responde com parágrafos curtos e listas; evita tabelas largas. Nunca prepares valores financeiros a partir de texto truncado.",
   "Lê cada email no máximo uma vez. Os anexos reais (nome, tipo, tamanho) vêm do servidor e são mostrados com a revisão: não os numeres, não inventes anexos, páginas nem valores; para mostrar anexos responde com final.",
 ].join("\n");
@@ -70,6 +71,8 @@ export type TurnInput = {
   continuation?: string;
   /** Original request bound by the signed selector; never authority for message IDs. */
   continuation_text?: string;
+  /** Explicit UI action "Escolher outro email": only valid with a verified continuation. */
+  intent?: "list";
 };
 export type TraceItem = { tool: string; ok: boolean; summary: string };
 /** Server-owned attachment metadata from the signed/revalidated search; numbering belongs to the server. */
@@ -78,12 +81,14 @@ export type TurnResult = {
   status: "answer" | "clarify" | "select_message" | "select_event" | "proposal" | "limit" | "denied" | "stopped" | "error";
   text: string;
   trace: TraceItem[];
-  options?: { id: string; label: string }[];
+  options?: { id: string; label: string; attachments?: AttachmentCounts }[];
   proposal?: Proposal;
   execution: { available: false; gaps: readonly string[] };
   known_message_ids: string[];
   tokens: number;
   continuation?: string;
+  /** True when this turn started a NEW search: the next signature binds the current text, not the original request. */
+  continuation_rebound?: boolean;
   /** Selected, freshly revalidated source for the existing human review/attachment panel. */
   review_message_id?: string;
   /** Real attachment metadata of review_message_id (no content), numbered by the server. */
@@ -101,7 +106,19 @@ export function emailDateTime(date: string): string {
   const d = new Date(date);
   return Number.isFinite(d.getTime()) ? `${new Intl.DateTimeFormat("pt-PT", { timeZone: "Europe/Lisbon", dateStyle: "short", timeStyle: "short" }).format(d)} (Lisboa)` : "Data/hora não disponível";
 }
-const emailOptions = (emails: GmailMessageSummary[]) => emails.map((m, i) => ({ id: m.message_id, label: `${i + 1}. ${m.subject || "(sem assunto)"}\n${m.from}\n${emailDateTime(m.date)}` }));
+export type AttachmentCounts = { total: number; pdf: number; images: number; other: number };
+/** Counts come only from the server-side (signed + revalidated) search metadata, never from the model or history. */
+export function attachmentCounts(m: GmailMessageSummary | undefined): AttachmentCounts {
+  const a = Array.isArray(m?.attachments) ? m!.attachments : [];
+  const pdf = a.filter(x => String(x.mime) === "application/pdf").length, images = a.filter(x => String(x.mime).startsWith("image/")).length;
+  return { total: a.length, pdf, images, other: a.length - pdf - images };
+}
+export function attachmentCountsText(c: AttachmentCounts): string {
+  if (!c.total) return "Sem anexos";
+  const parts = [c.pdf && `${c.pdf} PDF`, c.images && `${c.images} ${c.images === 1 ? "imagem" : "imagens"}`, c.other && `${c.other} ${c.other === 1 ? "outro" : "outros"}`].filter(Boolean).join(", ");
+  return `Anexos: ${parts}`;
+}
+const emailOptions = (emails: GmailMessageSummary[]) => emails.map((m, i) => { const c = attachmentCounts(m); return { id: m.message_id, label: `${i + 1}. ${m.subject || "(sem assunto)"}\n${m.from}\n${emailDateTime(m.date)}\n${attachmentCountsText(c)}`, attachments: c }; });
 export const attachmentItems = (m: GmailMessageSummary | undefined): AttachmentItem[] =>
   (m?.attachments ?? []).slice(0, 20).map((a, i) => ({ n: i + 1, part_id: a.part_id, filename: String(a.filename).slice(0, 120), mime: String(a.mime).slice(0, 80), size_bytes: Number(a.size_bytes) || 0 }));
 const kb = (n: number) => n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
@@ -111,6 +128,16 @@ export function attachmentListText(items: AttachmentItem[]): string {
   const pdf = items.filter(a => a.mime === "application/pdf").length, img = items.filter(a => a.mime.startsWith("image/")).length, other = items.length - pdf - img;
   const parts = [pdf && `${pdf} PDF`, img && `${img} ${img === 1 ? "imagem" : "imagens"}`, other && `${other} ${other === 1 ? "outro" : "outros"}`].filter(Boolean).join(", ");
   return `Este email tem ${items.length} ${items.length === 1 ? "anexo real" : "anexos reais"} (${parts}). Escolhe um na revisão abaixo.`;
+}
+/** Clear, deterministic requests to go back to the current results; never carries or resolves an ID. */
+export function isListRequest(text: string): boolean {
+  const q = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return [
+    /\b(mostra|mostrar|mostre|lista|listar|ver|rever|volta|voltar|regressa|regressar)\b.*\b(mensagens|emails|e-mails|resultados|lista)\b/,
+    /\boutr[oa]s?\s+(email|emails|e-mail|mensagem|mensagens)\b/,
+    /\b(escolher|trocar|mudar)\b.*\b(email|e-mail|mensagem)\b/,
+    /\b(email|e-mail|mensagem)\s+errad[oa]\b/,
+  ].some(r => r.test(q));
 }
 const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 /** Only explicit, unambiguous human references to current signed candidates count as a text selection. */
@@ -122,8 +149,11 @@ export function resolveTextMessage(text: string, emails: GmailMessageSummary[]):
     const subject = normalize(m.subject).replace(/^re:\s*/, "");
     return subject.length >= 8 && q.includes(subject);
   });
-  const time = /\b(\d{2}:\d{2})\b/.exec(q)?.[1];
-  if (time) matches = matches.filter(m => emailDateTime(m.date).includes(time));
+  const time = /\b(\d{1,2})[:h](\d{2})\b/.exec(q);
+  const hhmm = time ? `${time[1].padStart(2, "0")}:${time[2]}` : null;
+  // Time alone counts only when exactly one current candidate has that Lisbon time.
+  if (hhmm && !matches.length) matches = emails.filter(m => m.date.includes("T") && emailDateTime(m.date).includes(hhmm));
+  else if (hhmm) matches = matches.filter(m => emailDateTime(m.date).includes(hhmm));
   if (matches.length > 1 && /mais recente|ultimo email/.test(q)) {
     if (matches.some(m => !m.date.includes("T") || !Number.isFinite(Date.parse(m.date)))) return null;
     matches.sort((a,b) => Date.parse(b.date)-Date.parse(a.date));
