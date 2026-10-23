@@ -6089,6 +6089,13 @@ Decisão do Pedro (20/10/2026, plano aprovado com ajustes A–H). O cachê paga-
 - Depois re-ancora cada linha afetada à próxima transação existente (ORDER BY date, created_at, id, com `bp_tx_link_allowed`), ou NULL. "Alterar" (cancelar+recriar) usa o mesmo caminho.
 - UI: "Valor bruto" e "Valor" do adiantamento aceitam € ou %; % sobre o cachê efetivo (adiantamento dentro de contrato: sobre o saldo disponível), arredondado a 2 casas; grava sempre €. RPCs inalteradas.
 
+**Adenda 23/10/2026 (#346) — decisões do Pedro.**
+- Um adiantamento livre é pagamento por conta de um contrato existente: liga-se a esse contrato no lugar e não interfere nos outros contratos. Abate ao saldo da cidade onde foi lançado; bruto, retenção e quotas não mudam (RPC `attach_cache_advance_to_contract`, migração 0237).
+- A ligação é recusada se o saldo (filha ou mãe) estiver em qualquer lista de pagamento não rejeitada.
+- Fornecedor do adiantamento diferente do beneficiário do contrato exige confirmação explícita.
+- O teto por cidade conta os adiantamentos livres; no "Novo contrato", se um adiantamento livre faz passar o teto, o ecrã oferece "Ligar a um contrato existente" ou "Marcar neste contrato".
+- Nas listas de adiantamentos a descrição aparece sempre inteira (quebra de linha), nunca cortada.
+
 ## D-ERP289 — Medição sobre dados financeiros históricos corta na implantação do saldo bancário (21/10/2026)
 
 Decisão do Pedro (21/10/2026), depois de o erro se repetir e de ter de ser explicado de novo.

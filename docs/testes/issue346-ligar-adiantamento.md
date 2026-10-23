@@ -65,3 +65,22 @@ Sem DDL, sem DML, sem Publish; migração 0237 intacta. Partida fce7826.
 
 ## Passo c (por autorizar)
 Depois do Publish: no Pagamento do cachê da Turnê Simone Mendes 2026, contrato 1 → "Ligar adiantamento" → HENZA 10.000,00 → marcar a confirmação → ver Lisboa 18.272,01; "Novo contrato" mostra restante 70.420,19 sem aviso.
+
+---
+
+# Correção visual do passo b (23/10/2026)
+
+Visto pelo Pedro no preview: no "Novo contrato de pagamento", a descrição do adiantamento saía para fora do modal (o `truncate` não atuava por falta de `min-w-0`).
+
+- Commits 90958ae / 13983ef (merge 712cdf9) — só `src/components/CacheContractsPanel.tsx`. Sem DDL, sem DML.
+- Descrições dos adiantamentos mostradas inteiras, com quebra de linha (`break-words`, `overflow-wrap:anywhere`) e `title`; valor sempre visível (`shrink-0`, `whitespace-nowrap`). Aplicado às quatro listas: "Adiantamentos a abater", aviso de teto (tabela em `overflow-x-auto`), "Adiantamentos livres" do diálogo de ligação e "Adiantamentos sem contrato" do painel. Corpo do modal com `min-w-0 overflow-x-hidden`.
+- Suite igual (2236 passam, 6 ignorados, 11 por fazer); tsgo 0. Sem teste novo (apresentação pura).
+- Publish feito pelo Pedro e testado no ecrã a 23/10/2026: "Tudo ok".
+
+# Fecho da #346 (23/10/2026)
+
+Fechada por decisão do Pedro depois do Publish e do teste no ecrã.
+
+Estado em Live a 23/10/2026, query própria (`cache_payment_contracts` da raiz 5e56f568 × artista d626f758): só o contrato 1 (0db87a56, SIMONE MENDES, bruto 85.000,00, IRS 25%, `advances_amount` 0); filhas de saldo Lisboa 28.272,01 e Porto 35.477,99, nada pago. O adiantamento 204d17ca (HENZA, 10.000,00) continua livre e o contrato HENZA não existe.
+
+**Falta a operação real (passo c), feita pelo Pedro no ecrã:** Turnê Simone Mendes 2026 › Pagamento do cachê › contrato 1 › "Ligar adiantamento" › HENZA 10.000,00 › confirmar o beneficiário → Lisboa 18.272,01; depois "Novo contrato" HENZA com o restante 70.420,19, sem aviso. Depois disso, verificar em Live: Lisboa ≤ 68.926,15, Porto ≤ 86.494,04, invariantes do cachê 0.
