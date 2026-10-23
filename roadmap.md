@@ -83,3 +83,5 @@
 
 - [x] #339 B3: motor Master agregado, fatias proporcionais, Overhead partilhado e testes; sem DDL/DML/Publish/deploy.
 - [x] #339 B3b: recurso ÷N ao cêntimo com avisos sem throw; BP Master/cidades, 12 testes novos e paridade ERP/documento; suite 2325 PASS; reserva libertada; sem DDL/DML/Publish/deploy. CI remoto e deploy partner-statement (R2) pendentes; tsgo manual não executado por restrição da plataforma.
+
+- [x] #333 corretivo: escolher outro email na conversa (23/10) — deploy data-entry aguarda novo Sim

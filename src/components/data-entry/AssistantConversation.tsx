@@ -4,7 +4,7 @@ import remarkGfm from "remark-gfm";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { AssistantTurnResult, DataEntryAdapter, DataEntryContext } from "@/lib/data-entry-client";
+import { DataEntryError, type AssistantTurnResult, type DataEntryAdapter, type DataEntryContext } from "@/lib/data-entry-client";
 
 type Turn = { role: "user" | "assistant"; text: string };
 const MAX_TURNS = 20;
@@ -34,6 +34,8 @@ function Conversation({ adapter, context }: Props) {
   const [last, setLast] = useState<AssistantTurnResult | null>(null);
   const [known, setKnown] = useState<string[]>([]);
   const [pendingText, setPendingText] = useState<string | null>(null);
+  /** Signed selector held only in memory (never localStorage); lost on refresh by design. */
+  const [canReturn, setCanReturn] = useState(false);
   const generation = useRef(0);
   const abort = useRef<AbortController | null>(null);
   const continuation = useRef<string | undefined>();
@@ -43,29 +45,35 @@ function Conversation({ adapter, context }: Props) {
   useEffect(() => { box.current?.focus(); }, [busy]);
   const persist = (h: Turn[]) => { const v = h.slice(-MAX_TURNS); setHistory(v); try { localStorage.setItem(historyKey(context), JSON.stringify(v)); } catch { /* sem armazenamento */ } };
 
-  const send = async (message: string, selection?: { message_id?: string; event_id?: string }) => {
+  const send = async (message: string, selection?: { message_id?: string; event_id?: string }, intent?: "list") => {
     if (!adapter.assistantTurn || !message.trim()) return;
+    if (intent && !continuation.current) return;
     const gen = ++generation.current;
     abort.current?.abort(); const controller = new AbortController(); abort.current = controller;
     setBusy(true); setError(null);
     const base = selection ? history : [...history, { role: "user" as const, text: message.trim() }];
-    if (!selection) { persist(base); setText(""); setPendingText(message.trim()); }
+    if (!selection) { persist(base); setText(""); if (!intent) setPendingText(message.trim()); }
+    // A signed selector continues after a choice or after a revalidated review; numbers/IDs never come from history.
+    const continuing = Boolean(continuation.current && (intent || selection || last?.status === "select_message" || last?.review_message_id));
+    // Switching email removes the previous review/proposal at once, so no old candidate or authorization stays usable.
+    if (intent || selection?.message_id) setLast(prev => prev && { ...prev, review_message_id: undefined, attachments: undefined, proposal: undefined, candidate: undefined, candidate_token: undefined });
     try {
-      // A signed selector continues after a choice or after a revalidated review; numbers/IDs never come from history.
-      const continuing = Boolean(continuation.current && (selection || last?.status === "select_message" || last?.review_message_id));
-      const r = await adapter.assistantTurn({ text: message.trim(), history: base.slice(0, selection ? base.length : -1), ...(selection ? { selection } : {}), ...(continuing ? { continuation: continuation.current, continuation_text: continuationText.current } : {}), known_message_ids: known }, context, controller.signal);
+      const r = await adapter.assistantTurn({ text: message.trim(), history: base.slice(0, selection ? base.length : -1), ...(selection ? { selection } : {}), ...(intent ? { intent } : {}), ...(continuing ? { continuation: continuation.current, continuation_text: continuationText.current } : {}), known_message_ids: known }, context, controller.signal);
       if (gen !== generation.current) return;
       setLast(r); setKnown(r.known_message_ids ?? []);
-      continuation.current = r.continuation;
-      // Keep the ORIGINAL request bound by the signature across follow-up turns.
-      continuationText.current = r.continuation ? (continuing ? continuationText.current ?? message.trim() : message.trim()) : undefined;
+      continuation.current = r.continuation; setCanReturn(Boolean(r.continuation));
+      // Keep the ORIGINAL request bound by the signature across follow-up turns, unless the server started a new search.
+      continuationText.current = r.continuation ? (continuing && !r.continuation_rebound ? continuationText.current ?? message.trim() : message.trim()) : undefined;
       persist([...base, { role: "assistant", text: r.text }]);
     } catch (e) {
-      if (gen === generation.current) setError(e instanceof Error ? e.message : "Assistente indisponível.");
+      if (gen !== generation.current) return;
+      setError(e instanceof Error ? e.message : "Assistente indisponível.");
+      // Expired/foreign selector: the return button would only fail again.
+      if (continuing && e instanceof DataEntryError && e.status === 409) { continuation.current = undefined; continuationText.current = undefined; setCanReturn(false); }
     } finally { if (gen === generation.current) setBusy(false); }
   };
   const stop = () => { generation.current += 1; abort.current?.abort(); setBusy(false); setError("Cancelamento pedido. Nada foi gravado; a cobrança de IA pode ocorrer."); };
-  const clear = () => { persist([]); setLast(null); setKnown([]); setPendingText(null); continuation.current = undefined; continuationText.current = undefined; try { localStorage.removeItem(historyKey(context)); } catch { /* */ } };
+  const clear = () => { persist([]); setLast(null); setKnown([]); setPendingText(null); setCanReturn(false); continuation.current = undefined; continuationText.current = undefined; try { localStorage.removeItem(historyKey(context)); } catch { /* */ } };
 
   if (!adapter.assistantTurn) return null;
   const p = last?.proposal;
@@ -79,6 +87,7 @@ function Conversation({ adapter, context }: Props) {
       <div className="flex flex-wrap gap-2">
         <Button size="sm" disabled={busy || !text.trim()} onClick={() => void send(text)}>Enviar</Button>
         {busy && <Button size="sm" variant="outline" onClick={stop}>Parar</Button>}
+        {canReturn && !busy && last && last.status !== "select_message" && <Button size="sm" variant="outline" onClick={() => void send("Escolher outro email", undefined, "list")}>Escolher outro email</Button>}
         {history.length > 0 && !busy && <Button size="sm" variant="ghost" onClick={clear}>Nova conversa</Button>}
       </div>
       <p className="text-xs text-muted-foreground">Pode pesquisar e ler o teu Gmail e consultar o ERP. Nunca grava sozinho: lançamentos exigem prévia e autorização expressa.</p>

@@ -20,6 +20,7 @@ export const ASSISTANT_CONTRACT = [
   "Nunca adivinhes conta bancária, IVA, evento, pagador, data ou valor de liquidação. Um fecho recebido não prova recebimento bancário.",
   "Não executas lançamentos: preparas uma proposta para revisão e autorização expressa da pessoa.",
   "Quando chosen_message está presente, lê esse email com gmail_read: a pesquisa já foi revalidada. Não repitas a pesquisa nem uses o histórico como prova.",
+  "Quando previous_message está presente, esse email já foi lido num turno anterior e está na revisão: não o voltes a ler; responde com final, ou faz nova pesquisa só se a pessoa pedir um assunto novo.",
   "Responde com parágrafos curtos e listas; evita tabelas largas. Nunca prepares valores financeiros a partir de texto truncado.",
   "Lê cada email no máximo uma vez. Os anexos reais (nome, tipo, tamanho) vêm do servidor e são mostrados com a revisão: não os numeres, não inventes anexos, páginas nem valores; para mostrar anexos responde com final.",
 ].join("\n");
@@ -70,6 +71,8 @@ export type TurnInput = {
   continuation?: string;
   /** Original request bound by the signed selector; never authority for message IDs. */
   continuation_text?: string;
+  /** Explicit UI action "Escolher outro email": only valid with a verified continuation. */
+  intent?: "list";
 };
 export type TraceItem = { tool: string; ok: boolean; summary: string };
 /** Server-owned attachment metadata from the signed/revalidated search; numbering belongs to the server. */
@@ -78,12 +81,14 @@ export type TurnResult = {
   status: "answer" | "clarify" | "select_message" | "select_event" | "proposal" | "limit" | "denied" | "stopped" | "error";
   text: string;
   trace: TraceItem[];
-  options?: { id: string; label: string }[];
+  options?: { id: string; label: string; attachments?: AttachmentCounts }[];
   proposal?: Proposal;
   execution: { available: false; gaps: readonly string[] };
   known_message_ids: string[];
   tokens: number;
   continuation?: string;
+  /** True when this turn started a NEW search: the next signature binds the current text, not the original request. */
+  continuation_rebound?: boolean;
   /** Selected, freshly revalidated source for the existing human review/attachment panel. */
   review_message_id?: string;
   /** Real attachment metadata of review_message_id (no content), numbered by the server. */
@@ -101,7 +106,19 @@ export function emailDateTime(date: string): string {
   const d = new Date(date);
   return Number.isFinite(d.getTime()) ? `${new Intl.DateTimeFormat("pt-PT", { timeZone: "Europe/Lisbon", dateStyle: "short", timeStyle: "short" }).format(d)} (Lisboa)` : "Data/hora não disponível";
 }
-const emailOptions = (emails: GmailMessageSummary[]) => emails.map((m, i) => ({ id: m.message_id, label: `${i + 1}. ${m.subject || "(sem assunto)"}\n${m.from}\n${emailDateTime(m.date)}` }));
+export type AttachmentCounts = { total: number; pdf: number; images: number; other: number };
+/** Counts come only from the server-side (signed + revalidated) search metadata, never from the model or history. */
+export function attachmentCounts(m: GmailMessageSummary | undefined): AttachmentCounts {
+  const a = Array.isArray(m?.attachments) ? m!.attachments : [];
+  const pdf = a.filter(x => String(x.mime) === "application/pdf").length, images = a.filter(x => String(x.mime).startsWith("image/")).length;
+  return { total: a.length, pdf, images, other: a.length - pdf - images };
+}
+export function attachmentCountsText(c: AttachmentCounts): string {
+  if (!c.total) return "Sem anexos";
+  const parts = [c.pdf && `${c.pdf} PDF`, c.images && `${c.images} ${c.images === 1 ? "imagem" : "imagens"}`, c.other && `${c.other} ${c.other === 1 ? "outro" : "outros"}`].filter(Boolean).join(", ");
+  return `Anexos: ${parts}`;
+}
+const emailOptions = (emails: GmailMessageSummary[]) => emails.map((m, i) => { const c = attachmentCounts(m); return { id: m.message_id, label: `${i + 1}. ${m.subject || "(sem assunto)"}\n${m.from}\n${emailDateTime(m.date)}\n${attachmentCountsText(c)}`, attachments: c }; });
 export const attachmentItems = (m: GmailMessageSummary | undefined): AttachmentItem[] =>
   (m?.attachments ?? []).slice(0, 20).map((a, i) => ({ n: i + 1, part_id: a.part_id, filename: String(a.filename).slice(0, 120), mime: String(a.mime).slice(0, 80), size_bytes: Number(a.size_bytes) || 0 }));
 const kb = (n: number) => n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
@@ -111,6 +128,16 @@ export function attachmentListText(items: AttachmentItem[]): string {
   const pdf = items.filter(a => a.mime === "application/pdf").length, img = items.filter(a => a.mime.startsWith("image/")).length, other = items.length - pdf - img;
   const parts = [pdf && `${pdf} PDF`, img && `${img} ${img === 1 ? "imagem" : "imagens"}`, other && `${other} ${other === 1 ? "outro" : "outros"}`].filter(Boolean).join(", ");
   return `Este email tem ${items.length} ${items.length === 1 ? "anexo real" : "anexos reais"} (${parts}). Escolhe um na revisão abaixo.`;
+}
+/** Clear, deterministic requests to go back to the current results; never carries or resolves an ID. */
+export function isListRequest(text: string): boolean {
+  const q = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return [
+    /\b(mostra|mostrar|mostre|lista|listar|ver|rever|volta|voltar|regressa|regressar)\b.*\b(mensagens|emails|e-mails|resultados|lista)\b/,
+    /\boutr[oa]s?\s+(email|emails|e-mail|mensagem|mensagens)\b/,
+    /\b(escolher|trocar|mudar)\b.*\b(email|e-mail|mensagem)\b/,
+    /\b(email|e-mail|mensagem)\s+errad[oa]\b/,
+  ].some(r => r.test(q));
 }
 const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 /** Only explicit, unambiguous human references to current signed candidates count as a text selection. */
@@ -122,8 +149,11 @@ export function resolveTextMessage(text: string, emails: GmailMessageSummary[]):
     const subject = normalize(m.subject).replace(/^re:\s*/, "");
     return subject.length >= 8 && q.includes(subject);
   });
-  const time = /\b(\d{2}:\d{2})\b/.exec(q)?.[1];
-  if (time) matches = matches.filter(m => emailDateTime(m.date).includes(time));
+  const time = /\b(\d{1,2})[:h](\d{2})\b/.exec(q);
+  const hhmm = time ? `${time[1].padStart(2, "0")}:${time[2]}` : null;
+  // Time alone counts only when exactly one current candidate has that Lisbon time.
+  if (hhmm && !matches.length) matches = emails.filter(m => m.date.includes("T") && emailDateTime(m.date).includes(hhmm));
+  else if (hhmm) matches = matches.filter(m => emailDateTime(m.date).includes(hhmm));
   if (matches.length > 1 && /mais recente|ultimo email/.test(q)) {
     if (matches.some(m => !m.date.includes("T") || !Number.isFinite(Date.parse(m.date)))) return null;
     matches.sort((a,b) => Date.parse(b.date)-Date.parse(a.date));
@@ -136,39 +166,64 @@ export function resolveTextMessage(text: string, emails: GmailMessageSummary[]):
 export async function runAssistantTurn(model: AssistantModel, tools: AssistantTools, input: TurnInput, signal: AbortSignal, now = () => Date.now()): Promise<TurnResult> {
   const started = now(); const trace: TraceItem[] = [];
   const known = new Set<string>(); // Browser known_message_ids are deliberately ignored.
-  let filters: z.infer<typeof gmailFilterSchema> | null = tools.resume?.filters ?? null;
+  /** Server-verified selector; dropped (never reused) when the model starts a new search for a new subject. */
+  let resume = tools.resume;
+  let filters: z.infer<typeof gmailFilterSchema> | null = resume?.filters ?? null;
   let eventIds: string[] = [];
-  let selectedMessage: string | null = tools.resume?.message ?? null;
+  let selectedMessage: string | null = resume?.message ?? null;
   const readBodies = new Map<string, GmailMessageBody>();
   let tokens = 0, toolCalls = 0, searches = 0, reads = 0, lastSearch: GmailMessageSummary[] = [];
   /** Revalidated message whose real attachments and existing review panel accompany any terminal result. */
   let reviewId: string | null = null;
+  /** Signed order ∩ fresh revalidation: the only IDs the next signature may carry while resuming. */
+  let signedOrder: string[] | null = null;
+  /** Previous choice kept for the review panel only; it is never re-read implicitly. */
+  let followUp = false, rebound = false;
   const rejected = new Set<string>();
   const review = () => reviewId ? { review_message_id: reviewId, attachments: attachmentItems(lastSearch.find(m => m.message_id === reviewId)) } : {};
   const done = (r: Omit<TurnResult, "trace" | "execution" | "known_message_ids" | "tokens">): TurnResult =>
     ({ ...(r.status === "proposal" || r.status === "select_event" || r.status === "select_message" || r.review_message_id ? {} : review()), ...r, trace, execution: { available: false, gaps: EXECUTION_GAPS }, known_message_ids: [...known].slice(-50), tokens,
-      ...(filters ? { continuation_state: { filters, messages: [...known].slice(0, 20), events: eventIds, message: selectedMessage } } : {}) });
+      ...(rebound ? { continuation_rebound: true } : {}),
+      ...(filters ? { continuation_state: { filters, messages: (signedOrder ?? [...known]).slice(0, 20), events: eventIds, message: selectedMessage } } : {}) });
   const text = input.text.trim().slice(0, ASSISTANT_LIMITS.maxUserChars);
   if (!text) return done({ status: "clarify", text: "O que pretende fazer?" });
+  if (input.selection && !resume) return done({ status: "error", text: "Escolha sem prova do servidor; repete a pesquisa." });
+  if (input.intent === "list" && !resume) return done({ status: "error", text: "Lista sem prova do servidor; repete a pesquisa." });
   const messages: ModelMessage[] = [
-    ...(tools.resume ? [] : input.history.slice(-4)).map((h) => ({ role: "user" as const, content: JSON.stringify({ untrusted_client_history: h.role, text: h.text.slice(0, 600) }) })),
-    ...(tools.resume && input.continuation_text && input.continuation_text.trim() !== text ? [{ role: "user" as const, content: JSON.stringify({ original_request: input.continuation_text.trim().slice(0, ASSISTANT_LIMITS.maxUserChars) }) }] : []),
+    ...(resume ? [] : input.history.slice(-4)).map((h) => ({ role: "user" as const, content: JSON.stringify({ untrusted_client_history: h.role, text: h.text.slice(0, 600) }) })),
+    ...(resume && input.continuation_text && input.continuation_text.trim() !== text ? [{ role: "user" as const, content: JSON.stringify({ original_request: input.continuation_text.trim().slice(0, ASSISTANT_LIMITS.maxUserChars) }) }] : []),
     { role: "user", content: text },
   ];
-  if (input.selection && !tools.resume) return done({ status: "error", text: "Escolha sem prova do servidor; repete a pesquisa." });
-  if (tools.resume) {
+  if (resume) {
     try {
-      const r = await tools.gmailSearch({ ...tools.resume.filters, attachments_only: false }); searches++;
+      const r = await tools.gmailSearch({ ...resume.filters, attachments_only: false }); searches++;
       lastSearch = r.messages; r.messages.forEach(m => known.add(m.message_id));
       // Order and numbering follow the signed selector, never a model-written table or client history.
-      const order = tools.resume.messages;
+      const order = resume.messages;
       const candidates = r.messages.filter(m => order.includes(m.message_id)).sort((a, b) => order.indexOf(a.message_id) - order.indexOf(b.message_id));
-      const chosen = input.selection?.message_id ?? tools.resume.message ?? resolveTextMessage(text, candidates);
-      if (!chosen && !input.selection) return done({ status: "select_message", text: "Indica o email pelo assunto e hora, ou escolhe na lista. Nada foi gravado.", options: emailOptions(candidates) });
-      if (!chosen || !tools.resume.messages.includes(chosen) || !known.has(chosen) || (input.selection?.event_id && !tools.resume.events.includes(input.selection.event_id))) return done({ status: "error", text: "Escolha indisponível na pesquisa atual; repete a pesquisa." });
-      selectedMessage = chosen; reviewId = chosen;
-      const chosenSummary = candidates.find(m => m.message_id === chosen);
-      messages.push({ role: "tool", tool: "gmail_search", content: untrusted("gmail_search", { message: chosenSummary ? { message_id: chosenSummary.message_id, subject: chosenSummary.subject, from: chosenSummary.from, date: chosenSummary.date, attachments: attachmentItems(chosenSummary).map(({ part_id: _p, ...a }) => a) } : null, chosen_message: chosen, chosen_event: input.selection?.event_id ?? null }) });
+      signedOrder = candidates.map(m => m.message_id);
+      // Going back to the current results is deterministic: no model call and no Gmail read.
+      if (input.intent === "list" || (!input.selection && isListRequest(text))) {
+        selectedMessage = null;
+        trace.push({ tool: "gmail_search", ok: true, summary: `Pesquisa revalidada: ${candidates.length} email(s); nenhum email lido de novo` });
+        return done({ status: "select_message", text: candidates.length ? "Estes são os emails da pesquisa atual. Escolhe o que queres rever; nada foi lido de novo nem gravado." : "A pesquisa atual já não devolve estes emails. Repete a pesquisa. Nada foi gravado.", options: emailOptions(candidates) });
+      }
+      // A clear new choice (card or unambiguous number/subject/time) always beats the previous one.
+      const textChoice = input.selection ? null : resolveTextMessage(text, candidates);
+      if (!input.selection && !textChoice && resume.message) {
+        followUp = true;
+        const prev = candidates.find(m => m.message_id === resume!.message);
+        if (!prev) return done({ status: "error", text: "O email anterior já não consta da pesquisa atual; escolhe outro ou repete a pesquisa. Nada foi gravado." });
+        reviewId = prev.message_id;
+        messages.push({ role: "tool", tool: "gmail_search", content: untrusted("gmail_search", { previous_message: { message_id: prev.message_id, subject: prev.subject, from: prev.from, date: prev.date, attachments: attachmentItems(prev).map(({ part_id: _p, ...a }) => a) }, chosen_message: null }) });
+      } else {
+        const chosen = input.selection?.message_id ?? textChoice ?? resume.message;
+        if (!chosen && !input.selection) return done({ status: "select_message", text: "Indica o email pelo assunto e hora, ou escolhe na lista. Nada foi gravado.", options: emailOptions(candidates) });
+        if (!chosen || !signedOrder.includes(chosen) || !known.has(chosen) || (input.selection?.event_id && !resume.events.includes(input.selection.event_id))) return done({ status: "error", text: "Escolha indisponível na pesquisa atual; repete a pesquisa." });
+        selectedMessage = chosen; reviewId = chosen;
+        const chosenSummary = candidates.find(m => m.message_id === chosen);
+        messages.push({ role: "tool", tool: "gmail_search", content: untrusted("gmail_search", { message: chosenSummary ? { message_id: chosenSummary.message_id, subject: chosenSummary.subject, from: chosenSummary.from, date: chosenSummary.date, attachments: attachmentItems(chosenSummary).map(({ part_id: _p, ...a }) => a) } : null, chosen_message: chosen, chosen_event: input.selection?.event_id ?? null }) });
+      }
     } catch { return done({ status: "error", text: "Não foi possível revalidar a seleção. Nada foi gravado." }); }
   }
   for (let step = 0; step < ASSISTANT_LIMITS.maxSteps; step++) {
@@ -192,7 +247,7 @@ export async function runAssistantTurn(model: AssistantModel, tools: AssistantTo
       // the server listing and the existing review are the only source.
       if (reviewId && /\d|€|eur\b|anexo|pdf|p[aá]gina|documento/i.test(s.text)) {
         trace.push({ tool: "final", ok: true, summary: "Resposta substituída pela lista real do servidor" });
-        return done({ status: "answer", text: `Li o email escolhido. ${attachmentListText(attachmentItems(lastSearch.find(m => m.message_id === reviewId)))}\n\nNúmeros, anexos ou valores escritos pelo assistente não são mostrados; confirma tudo na revisão abaixo. Nada foi gravado.` });
+        return done({ status: "answer", text: `${followUp ? "Este email já tinha sido lido; não o voltei a ler." : "Li o email escolhido."} ${attachmentListText(attachmentItems(lastSearch.find(m => m.message_id === reviewId)))}\n\nNúmeros, anexos ou valores escritos pelo assistente não são mostrados; confirma tudo na revisão abaixo. Nada foi gravado.` });
       }
       return done({ status: "answer", text: s.text.slice(0, 4000) });
     }
@@ -210,9 +265,12 @@ export async function runAssistantTurn(model: AssistantModel, tools: AssistantTo
     if (!parsed.success) { const t = refuse(`Argumentos inválidos: ${parsed.error.issues[0]?.message ?? "formato"}. Pede clarificação se faltar informação.`); if (t) return t; continue; }
     try {
       if (name === "gmail_search") {
-        if (tools.resume && selectedMessage) {
+        if (resume && followUp) {
+          // New subject after a review: start fresh; the old email is not forced and the next signature binds this text.
+          resume = undefined; followUp = false; rebound = true; selectedMessage = null; reviewId = null; signedOrder = null; lastSearch = []; known.clear(); eventIds = [];
+        } else if (resume && selectedMessage) {
           selectedMessage = null;
-          const order = tools.resume.messages;
+          const order = resume.messages;
           return done({ status: "select_message", text: "O email já foi revalidado. Escolhe-o para continuar a leitura, sem repetir a pesquisa (para outra pesquisa, usa Nova conversa).", options: emailOptions(lastSearch.filter(m => order.includes(m.message_id)).sort((a, b) => order.indexOf(a.message_id) - order.indexOf(b.message_id))) });
         }
         if (++searches > ASSISTANT_LIMITS.maxSearches) { const t = refuse("Limite de pesquisas nesta mensagem. Pede ao utilizador para precisar período/remetente."); if (t) return t; continue; }
@@ -228,6 +286,10 @@ export async function runAssistantTurn(model: AssistantModel, tools: AssistantTo
         const id = (parsed.data as { message_id: string }).message_id;
         const allowed = known.has(id) && (selectedMessage ? id === selectedMessage : (lastSearch.length === 1 && lastSearch[0].message_id === id));
         if (!allowed) { const t = refuse("Só posso usar o email escolhido pela pessoa (ou o único encontrado)."); if (t) return t; continue; }
+        if (name === "gmail_read" && followUp) {
+          trace.push({ tool: name, ok: true, summary: "Email anterior não relido; revisão mantida" });
+          return done({ status: "answer", text: `Este email já foi lido num turno anterior; não o volto a ler. ${attachmentListText(attachmentItems(lastSearch.find(m => m.message_id === reviewId)))}\n\nPara rever outro email usa «Escolher outro email». Nada foi gravado.` });
+        }
         if (name === "gmail_read") {
           const items = attachmentItems(lastSearch.find(m => m.message_id === id));
           if (readBodies.has(id)) {

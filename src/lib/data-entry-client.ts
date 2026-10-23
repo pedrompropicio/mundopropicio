@@ -42,7 +42,7 @@ export type GmailConnectionStatus = { linked: boolean; reconnect_required: boole
 export type GmailSearchResult = { messages: GmailMessage[]; next_page_token: string | null; search_info?: GmailSearchInfo };
 export type GmailMessageBody = { message_id: string; from: string; subject: string; date: string; kind: "plain" | "html" | "none"; body_text: string; truncated: boolean };
 
-export type AssistantTurnInput = { text: string; history: { role: "user" | "assistant"; text: string }[]; selection?: { message_id?: string; event_id?: string }; known_message_ids?: string[]; continuation?: string; continuation_text?: string };
+export type AssistantTurnInput = { text: string; history: { role: "user" | "assistant"; text: string }[]; selection?: { message_id?: string; event_id?: string }; known_message_ids?: string[]; continuation?: string; continuation_text?: string; intent?: "list" };
 export type AssistantProposal = {
   version: 1; statement_number: string | null; event: { id: string; name: string } | null; sum_cents: number; document_total_cents: number | null; difference_cents: number | null;
   totals_cents: Record<string, number>; checks: { code: string; ok: boolean; message: string }[];
@@ -64,9 +64,11 @@ export type TicketlineClosingOptions = { gross_cents: number; sales: number; eli
 export type TicketlinePreviewResult = { candidate: TicketlineCandidate; proposal: AssistantProposal; events?: { id: string; label: string }[]; closing_options?: TicketlineClosingOptions | null; persisted: boolean; notice?: string; review?: { review_id: string; version: number; effects_hash: string } };
 export type AssistantTurnResult = {
   status: "answer" | "clarify" | "select_message" | "select_event" | "proposal" | "limit" | "denied" | "stopped" | "error";
-  text: string; trace: { tool: string; ok: boolean; summary: string }[]; options?: { id: string; label: string }[];
+  text: string; trace: { tool: string; ok: boolean; summary: string }[]; options?: { id: string; label: string; attachments?: { total: number; pdf: number; images: number; other: number } }[];
   proposal?: AssistantProposal; execution: { available: false; gaps: string[] }; known_message_ids: string[];
   continuation?: string;
+  /** The server started a new search: the next turn binds the current text as the original request. */
+  continuation_rebound?: boolean;
   review_message_id?: string;
   /** Real attachment metadata (no content) of review_message_id, numbered by the server. */
   attachments?: { n: number; part_id: string; filename: string; mime: string; size_bytes: number }[];
