@@ -58,3 +58,5 @@ Logs locais desta execução: `/tmp/issue344-suite-before.log`, `/tmp/issue344-r
 Após CI remoto verde e disponibilização autorizada do pacote: Ivete Clareou 2026 · SUPERSOUNDS · prestação de contas PDF e Excel. Secção 2: uma linha por origem; total 575.355,39. Detalhe A: as mesmas 20 linhas, mesma ordem. Repetir nos dois modos de despesas e no Portal depois da atualização autorizada do serviço. Não foi alegada aceitação real no ecrã ou com sessão autenticada.
 
 Sem DDL, DML, dados financeiros, Publish ou deploy. Issue não fechada. Reserva própria libertada; pronto para Publish sujeito a CI e à coordenação do pacote do Portal pelo 0.
+
+Comentário de fecho registado por `github-issues`, `action=comment`, HTTP 200 às 11:34 UTC: [6363933009](https://github.com/pedrompropicio/mundopropicio/issues/344#issuecomment-6363933009). Não foi invocada a ação close.
