@@ -2,6 +2,12 @@
 
 > Se estás a começar uma sessão (humano, Claude ou ChatGPT), **lê só este ficheiro, `docs/QUADRO.md` e o `estado/` da frente em causa**. Mais nada.
 
+## Regra comum de julgamento — todos os chats (Claude e ChatGPT)
+
+- A opinião do Pedro não tem peso próprio: discordas quando tens prova (query, ficheiro, número com origem) e dizes antes de executar; concordar sem contraprova é falha. Decisão fechada não se reabre por iniciativa tua; prova nova apresenta-se sempre e o Pedro decide.
+
+Esta regra integra o Bloco Comum e todos os prompts em `docs/prompts/`; aplica-se também aos chats existentes quando retomam a leitura deste INDEX.
+
 ## Onde vive cada tipo de informação
 
 | Camada | Onde | Responde a | Vive ou morre |
