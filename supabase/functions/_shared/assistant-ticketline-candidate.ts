@@ -17,6 +17,17 @@ export type Provenance =
   | { source: "human"; user_id: string };
 export type Field<T> = { value: T; prov: Provenance } | null;
 export type CandidateLine = { line_type: LineType; description: string; amount_cents: number; event_hint: string | null; prov: Provenance };
+/** Pendência BLOQUEANTE estruturada: enquanto existir, a confirmação da revisão não produz ações
+ * executáveis. A mensagem entra também em `incomplete` (uma só fonte de texto). Avisos
+ * informativos ("conferir no original") NÃO são bloqueantes. */
+export type BlockingIssue = { code: string; message: string };
+export const BLOCKING = {
+  body_truncated: "body_truncated", no_lines: "no_lines", unknown_lines: "unknown_lines",
+  bad_amounts: "bad_amounts", coverage_truncated: "coverage_truncated", description_truncated: "description_truncated",
+  field_conflict: "field_conflict", lines_conflict: "lines_conflict", sum_mismatch: "sum_mismatch",
+  total_unrecognized: "total_unrecognized", date_ambiguous: "date_ambiguous",
+  currency_missing: "currency_missing", currency_non_eur: "currency_non_eur", extraction_unavailable: "extraction_unavailable",
+} as const;
 export type TicketlineCandidate = {
   message_id: string;
   number: Field<string>; date: Field<string>; total_cents: Field<number>;
@@ -25,7 +36,20 @@ export type TicketlineCandidate = {
   sources: Provenance[];
   /** Pendências explícitas: truncagem, conflitos, linhas não reconhecidas, falta de dados. */
   incomplete: string[];
+  /** Subconjunto bloqueante de `incomplete`, com código estável para resolução humana explícita. */
+  blocking: BlockingIssue[];
 };
+/** Regista pendência bloqueante sem duplicar (código+mensagem). */
+export function pushBlocking(c: TicketlineCandidate, code: string, message: string): void {
+  if (!c.incomplete.includes(message)) c.incomplete.push(message);
+  if (!c.blocking.some(b => b.code === code && b.message === message)) c.blocking.push({ code, message });
+}
+/** Σ linhas = total do documento no candidato EFETIVO (pós-fusão/edição); senão mensagem de bloqueio. */
+export function candidateSumMessage(c: Pick<TicketlineCandidate, "lines" | "total_cents">): string | null {
+  if (c.total_cents === null || !c.lines.length) return null;
+  const sum = c.lines.reduce((a, l) => a + l.amount_cents, 0);
+  return sum === c.total_cents.value ? null : `Σ linhas difere do total do documento em ${((sum - c.total_cents.value) / 100).toFixed(2).replace(".", ",")} €: rever linha a linha antes de confirmar.`;
+}
 
 export async function sha256Hex(bytes: Uint8Array | string): Promise<string> {
   const b = typeof bytes === "string" ? new TextEncoder().encode(bytes) : bytes;
