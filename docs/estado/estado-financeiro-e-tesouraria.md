@@ -73,6 +73,7 @@ Atualizado: 09/10/2026 (ritual de fecho da frente; inclui o trabalho do chat fin
 
 
 
+- **#333 12k — correção do anexo Ticketline, 23/10/2026 ~13:50 UTC: pronto para revisão, sem deploy.** Base 89e36e27. Causa: o scanner do anexo só lê número/data/total (nunca linhas); data dd/mm ambígua fica nula; campo de data vazio mostrava hoje no iOS; anexos apresentados 3 vezes. Correção: pendências de revisão parcial, confirmação bloqueada sem número/data/total/linhas, data em texto, lista única com imagens recolhidas, troca de origem limpa o candidato. Testes 12k antes 5 falham/depois 6/6; suite 2216 PASS; tsgo/deno 0. Extrair linhas do PDF depende do documento real. Sem deploy/Publish/DDL/DML. Relatório `docs/testes/issue333/fase12k-anexo-ticketline-correcao.md`. CI remoto não verificado.
 - **#333 — leitor seguro aplicado, 17/10/2026: operações desligadas; não aceitação completa.** CI da reparação39073230691 success confirmado independentemente pelo controlador. Nova0192/registry194, SQL exata, leitor service-only; deploy só standalone-attempt-333, versão7 observada; service false/false, recusas anon e CORS intactos.1368 testes PASS; build automático OK. Baselines financeiros por conteúdo separados de roles e componentes técnicos iguais antes/depois; sem faturas/efeitos financeiros/fixtures/ativação/Publish. Endpoint autenticado e aceitação seguinte pendentes; #323 preservada; Issue/reserva abertas. Prova26 em `docs/testes/issue333/26-leitor-capacidades-aplicado.md`.
 
 ## Em aberto, por decisão do Pedro

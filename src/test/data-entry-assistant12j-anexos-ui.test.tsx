@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AssistantConversation from "../components/data-entry/AssistantConversation";
 import type { AssistantTurnResult, DataEntryAdapter } from "../lib/data-entry-client";
@@ -21,8 +21,10 @@ describe("#333 UI: escolha → anexos reais → revisão existente", () => {
     fireEvent.change(screen.getByLabelText("O que pretende fazer?"), { target: { value: "Mostra os quatro PDFs" } });
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
     fireEvent.click(await screen.findByRole("button", { name: /1\. RE: Fecho sintético.*12:28/s }));
-    const list = await screen.findByLabelText("Anexos do email");
-    expect(within(list).getAllByRole("listitem").map(li => li.textContent)).toEqual(atts.map(a => `${a.n}. ${a.filename} · application/pdf · 40 KB`));
+    // fase12k: lista única — os radios da revisão (sem bloco duplicado).
+    await screen.findByRole("radio", { name: /documento-1\.pdf/ });
+    expect(screen.queryByLabelText("Anexos do email")).toBeNull();
+    expect(screen.getAllByRole("radio").slice(1).map(r => r.closest("label")?.textContent)).toEqual(atts.map(a => `${a.filename}40 KB`));
     // A revisão existente mostra logo as opções reais, sem pedir de novo a lista.
     fireEvent.click(await screen.findByRole("radio", { name: /documento-3\.pdf/ }));
     expect(ticketlineAttachments).not.toHaveBeenCalled();

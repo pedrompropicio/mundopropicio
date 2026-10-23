@@ -105,10 +105,12 @@ const emailOptions = (emails: GmailMessageSummary[]) => emails.map((m, i) => ({ 
 export const attachmentItems = (m: GmailMessageSummary | undefined): AttachmentItem[] =>
   (m?.attachments ?? []).slice(0, 20).map((a, i) => ({ n: i + 1, part_id: a.part_id, filename: String(a.filename).slice(0, 120), mime: String(a.mime).slice(0, 80), size_bytes: Number(a.size_bytes) || 0 }));
 const kb = (n: number) => n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
-/** Deterministic, server-owned listing; never model text. */
+/** Deterministic, server-owned summary; the single selectable list lives in the review panel (#333 fase12k). */
 export function attachmentListText(items: AttachmentItem[]): string {
   if (!items.length) return "Este email não tem anexos; a revisão usa o corpo.";
-  return `Anexos reais deste email (${items.length}):\n${items.map(a => `${a.n}. ${a.filename} · ${a.mime} · ${kb(a.size_bytes)}`).join("\n")}`;
+  const pdf = items.filter(a => a.mime === "application/pdf").length, img = items.filter(a => a.mime.startsWith("image/")).length, other = items.length - pdf - img;
+  const parts = [pdf && `${pdf} PDF`, img && `${img} ${img === 1 ? "imagem" : "imagens"}`, other && `${other} ${other === 1 ? "outro" : "outros"}`].filter(Boolean).join(", ");
+  return `Este email tem ${items.length} ${items.length === 1 ? "anexo real" : "anexos reais"} (${parts}). Escolhe um na revisão abaixo.`;
 }
 const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 /** Only explicit, unambiguous human references to current signed candidates count as a text selection. */

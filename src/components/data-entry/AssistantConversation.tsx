@@ -109,7 +109,7 @@ function Conversation({ adapter, context }: Props) {
           ))}
         </div>
       )}
-      {last?.review_message_id && last.attachments && (
+      {last?.review_message_id && last.attachments && !adapter.ticketlineCandidate && (
         <div aria-label="Anexos do email" className="space-y-0.5 rounded-md border border-border p-2 text-xs">
           <div className="font-semibold">Anexos reais do email ({last.attachments.length})</div>
           {last.attachments.length === 0 ? <p className="text-muted-foreground">Sem anexos; a revisão usa o corpo.</p> : (

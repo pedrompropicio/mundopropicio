@@ -114,6 +114,13 @@ export function mergeScanner(c: TicketlineCandidate, wire: AnalysisWire, prov: E
   merge("number", get("invoice_number"), "Número");
   merge("date", get("invoice_date"), "Data");
   const total = get("total_amount"); merge("total_cents", total === null ? null : parseEuroCents(Number(total).toFixed(2)), "Total");
+  // #333 fase12k: o scanner existente só devolve número/data/total; nunca linhas. Dizê-lo em vez de sugerir que as procurou.
+  if (!out.lines.length) {
+    out.incomplete = out.incomplete.filter(x => !x.startsWith("Sem linhas reconhecidas"));
+    out.incomplete.push("Revisão parcial: o scanner lê só número, data e total do anexo e não extrai as linhas do apuramento — introduzir as linhas a partir do documento original.");
+  }
+  if (!out.date) out.incomplete.push("Data não lida no anexo (ausente ou formato ambíguo): fica vazia; preencher a partir do documento.");
+  if ([out.number, out.total_cents].some(f => f?.prov.source === "attachment")) out.incomplete.push("Número e total lidos pelo scanner: conferir no documento original antes de confirmar.");
   return out;
 }
 
