@@ -77,8 +77,8 @@ export async function candidateFromBody(read: { message_id: string; text: string
   const text = read.text.slice(0, CANDIDATE_LIMITS.bodyChars);
   const body_sha256 = await sha256Hex(text);
   const prov = (line: number): Provenance => ({ source: "email_body", message_id: read.message_id, body_sha256, line, truncated: read.truncated });
-  const c: TicketlineCandidate = { message_id: read.message_id, number: null, date: null, total_cents: null, lines: [], event_id: null, sources: [prov(0)], incomplete: [] };
-  if (read.truncated || read.text.length > CANDIDATE_LIMITS.bodyChars) c.incomplete.push("Corpo do email truncado: confirmar linhas e total no documento original.");
+  const c: TicketlineCandidate = { message_id: read.message_id, number: null, date: null, total_cents: null, lines: [], event_id: null, sources: [prov(0)], incomplete: [], blocking: [] };
+  if (read.truncated || read.text.length > CANDIDATE_LIMITS.bodyChars) pushBlocking(c, BLOCKING.body_truncated, "Corpo do email truncado: confirmar linhas e total no documento original.");
   let unknown = 0;
   text.split(/\r?\n/).forEach((raw, i) => {
     const line = raw.trim(); if (!line) return;
