@@ -213,6 +213,7 @@ _(sem pedidos)_
 
 ## 7 · Fecho e Sócios
 
+- [ ] **#345 · R1 — pronto para Publish (23/10/2026).** Detalhe C (despesas pagas pelo sócio) e D (extras) no detalhamento do documento do sócio, PDF e Excel, nos dois modos de despesas. Totais e base a transferir sem mudança. Portal só depois da reimplantação da `partner-statement` (já pedida ao 0 pela #344). Fecha depois de o Pedro verificar no ecrã (Ivete Clareou 2026 · SUPERSOUNDS). Relatório: docs/testes/issue345-detalhe-desembolso-extras.md.
 - [x] **#344 · R1 — FECHADA 23/10/2026.** Publicada e verificada pelo Pedro no export da equipa (Ivete Clareou 2026 · SUPERSOUNDS: total das receitas 575.355,39; detalhe A com 20 linhas). Falta só a reimplantação da `partner-statement` para o Portal — pedido na secção 0 · Cowork (Claude).
 
 ## 8 · Tráfego Pago

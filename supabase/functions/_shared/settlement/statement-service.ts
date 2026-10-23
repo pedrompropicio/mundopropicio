@@ -47,6 +47,9 @@ import {
 } from "./partner-disbursement.ts";
 import {
   buildPartnerStatementDoc,
+  paidByPartnerDocLines,
+  partnerExtrasDocLines,
+  PARTNER_EXTRA_ORIGIN_LABEL,
   statementTerms,
   type DocLocale,
   type PartnerStatementDocInput,
@@ -666,7 +669,8 @@ export function buildPartnerStatement(
   );
   const bpPaidLines = collectBpPaidLines(forecasts as any, me.id, disbursementGross, {}, Array.from(paidTxIds) as string[]);
   const disbursement = partnerDisbursement(totalPaidByPartner, sumLineAmounts(bpPaidLines));
-  const adjustments = sumLineAmounts(collectDisbursementAdjustments(extras as any, me.id, {}));
+  const adjustmentRows = collectDisbursementAdjustments(extras as any, me.id, {});
+  const adjustments = sumLineAmounts(adjustmentRows);
 
   const heldRows = bundle.revenuesHeldRaw.map((r) =>
     r.partnerId === `supplier:${supplierId}` ? { ...r, partnerId: me.id } : r,
@@ -803,6 +807,31 @@ export function buildPartnerStatement(
     disbursementAdjustments: roundCents(adjustments),
     revenuesHeld: account.revenuesHeld,
     partnerExtras: advancedCents,
+    // (g20 · #345) Detalhe C/D — as mesmas linhas que formam os totais acima.
+    paidByPartnerLines: paidByPartnerDocLines(
+      paidForMe.map((pe: any) => ({
+        date: pe.transactions?.date || "",
+        description: pe.transactions?.description || "—",
+        category: pe.transactions?.account_categories?.name || "—",
+        amount: usesGrossExpenses
+          ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
+          : Number(pe.transactions?.amount || 0),
+      })),
+      bpPaidLines,
+    ),
+    disbursementAdjustmentLines: adjustmentRows.map((a) => ({
+      date: a.date || null,
+      description: a.description,
+      amount: a.amount,
+    })),
+    partnerExtrasLines: partnerExtrasDocLines(
+      extrasForMe.map((e: any) => ({
+        date: e.data || "",
+        description: e.description,
+        origin: PARTNER_EXTRA_ORIGIN_LABEL[e.origem] ?? "—",
+        amount: usesGrossExpenses && e.origem === "transacao" ? calcTotalWithIva(Number(e.amount), Number(e.iva_rate || 0)) : Number(e.amount),
+      })),
+    ),
     partnerAdvances: 0,
     transferWithVat,
     participants: nodeParticipants

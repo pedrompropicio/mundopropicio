@@ -207,6 +207,17 @@ sem alterar o total. O detalhe A conserva todas as linhas, descrições e
 ordem. Vale nos dois modos de despesas da #342; despesas, resultado,
 acerto e relatório completo de gestão ficam inalterados.
 
+## (g20 · #345) Detalhe C e D do desembolso
+
+No detalhamento (PDF e Excel), a seguir ao B: "C. Despesas do evento pagas
+por <sócio>" (Data | Descrição | Rubrica | Valor; transações pagas por ele +
+linhas de BP sem transação, na base do fecho; ajustes ao desembolso
+itemizados depois do Total) e "D. Extras de <sócio>" (Data | Descrição |
+Origem | Valor). Linhas reconciliadas ao cêntimo contra paidByPartner e
+partnerExtras, que não mudam. Sem linhas → secção omitida. Equipa e Portal
+normalizam pelas mesmas funções partilhadas (paidByPartnerDocLines,
+partnerExtrasDocLines). Datas em dia civil. Sem "c/IVA" em "Só total pago".
+
 ## (g5) Linha final do sócio
 
 parte · + desembolso · ± ajustes ao desembolso · − receitas em poder do sócio
