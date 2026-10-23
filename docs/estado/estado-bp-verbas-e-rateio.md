@@ -1,6 +1,6 @@
 # ESTADO — BP, Verbas & Rateio
 
-Atualizado: 2026-09-16 (4.ª revisão do dia) · **D-ERP73 fase 2 construída e verificada em Live: cada perna de rateio leva a linha de BP do seu evento** — selector de linha por perna, mãe sem linha, verba medida por linha, a guarda "categoria bloqueada para rateio" passa a aviso e o diálogo do sub-evento passa a oferecer lançar no Master · **D-ERP72 R2 em produção: escolher um Master já não o rebenta nas cidades** — despesa única no Master, ligada à linha de BP do Master, com desdobramento de custo partilhado disponível (cai o limite nº 1) · custo partilhado com terceiros (D-ERP69) com base de dados **e** UI em produção, incluindo **desdobramento da fatura no formulário** (parte de terceiros em % ou €, multi-IVA em %) e a **quinta excepção** da trava de linha de BP · agregação mãe/filhas do rateio multi-evento corrigida nos oito relatórios de empresa (D-ERP70) · portal do sócio alinhado ao filtro canónico do Fecho · curva de evolução (#104, D4) em produção desde 07/09 · mesa de desenho `bp-x-resultado` encerrada · **pernas de rateio sem linha de BP: 74 → 35** — SM, Deive, Anitta e Ivete tratadas · **D-ERP76** dá nome aos dois modelos de rateio (A multi-evento / B Master-sub-evento) · **D-ERP77** parcelas herdam a linha da mãe · Ivete sanada por inteiro para fecho (62 lançamentos, 101.243,85 €, resultado inalterado) · Tour M&M marcada `without_bp`
+Atualizado: 2026-10-23 · **D-ERP73 fase 2 construída e verificada em Live: cada perna de rateio leva a linha de BP do seu evento** — selector de linha por perna, mãe sem linha, verba medida por linha, a guarda "categoria bloqueada para rateio" passa a aviso e o diálogo do sub-evento passa a oferecer lançar no Master · **D-ERP72 R2 em produção: escolher um Master já não o rebenta nas cidades** — despesa única no Master, ligada à linha de BP do Master, com desdobramento de custo partilhado disponível (cai o limite nº 1) · custo partilhado com terceiros (D-ERP69) com base de dados **e** UI em produção, incluindo **desdobramento da fatura no formulário** (parte de terceiros em % ou €, multi-IVA em %) e a **quinta excepção** da trava de linha de BP · agregação mãe/filhas do rateio multi-evento corrigida nos oito relatórios de empresa (D-ERP70) · portal do sócio alinhado ao filtro canónico do Fecho · curva de evolução (#104, D4) em produção desde 07/09 · mesa de desenho `bp-x-resultado` encerrada · **pernas de rateio sem linha de BP: 74 → 35** — SM, Deive, Anitta e Ivete tratadas · **D-ERP76** dá nome aos dois modelos de rateio (A multi-evento / B Master-sub-evento) · **D-ERP77** parcelas herdam a linha da mãe · Ivete sanada por inteiro para fecho (62 lançamentos, 101.243,85 €, resultado inalterado) · Tour M&M marcada `without_bp`
 
 ## Em que pé está
 O BP de receita está construído e o rateio deixou de ser convenção manual: o **custo partilhado com terceiros** (D-ERP69) tem base de dados e UI em produção, e a duplicação mãe/filhas do rateio multi-evento nas agregações de empresa está fechada com predicado único (D-ERP70). O portal do sócio passou a ler o realizado pelo mesmo filtro canónico do Fecho.
@@ -34,9 +34,14 @@ O **diálogo de desambiguação a partir de um sub-evento** mantém a pergunta e
 Verificado em Live e limpo no fim (pernas sem linha de volta a **74**, nem mais uma): rateio por dois eventos simples com linha em cada perna e mãe sem linha; rateio com o Master como destino sem nenhuma filha em Braga ou Lisboa; rateio na 2.2.02 por Master + Braga + Lisboa com cada selector a oferecer as linhas do seu evento; e o diálogo a mover para o Master sem rateio activo.
 
 ## A trabalhar agora
-Nada em execução.
+#339 — A1, C, B1 (Live), B2, B2b feitos; aguardam CI verde + Publish pelo 0 e deploy da edge function `partner-statement` (R2) em conjunto.
 
 ## Próximo passo concreto
+1. **Publish + deploy `partner-statement` juntos**, pelo 0, com "Sim" do Pedro; antes, CI verde no HEAD.
+2. **A2 quando a #333 guardar "vendas online"** do fecho da bilheteira; até lá, linhas 1.3.04 da SM com valor fixo.
+3. **`_revert_event_to_version` não repõe campos de fórmula nem de repartição** — passo R2 a decidir.
+4. **Os itens antigos da lista continuam**, preservados abaixo:
+
 1. **Henry & Klauss Porto + Lisboa — 26 pernas de rateio sem linha, 69.730,83 €.** O maior e o mais antigo bloco que resta. Aplicar o critério do **D-ERP76** (decidir modelo A ou B por repartição igual/desigual).
 2. **Maiara e Maraisa Porto + Lisboa — 2 pernas, 6.314,80 €.**
 3. **Ivete — 1 perna, 3.020,00 €** (irmã da Campanha de Mupis PURBE; a perna da Ivete ficou resolvida, esta linha refere-se ao que resta **noutro evento** — confirmar antes).

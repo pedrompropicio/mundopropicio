@@ -6187,3 +6187,15 @@ Passo A instalado em Live a 22/10/2026 com Sim do Pedro.
 ## D-ERP300 — 23/10/2026 — Cidade estimada por IP no resumo do CRM Newgang
 - No cartão "Por cidade" a cidade estimada (PT/BR) entra só quando não há declarada; cada linha separa declaradas e estimadas. O nome inglês do DB-IP "Lisbon" conta como Lisboa (só no resumo; a lista mostra o valor bruto).
 - A estimada continua fora da lista, CSV, filtros, audiências e anúncios (decisão de 18/10). Migração 0236; teste newgang-crm-profile-fields.
+
+## D-ERP301 — Receitas com fórmula e receitas do Master repartidas pelas cidades (#339, 23/10/2026)
+
+**Decisões do Pedro (23/10/2026).** Fecho documental parcial da #339; Publish/deploy e os passos pendentes não estão concluídos.
+
+- Fórmula (`pct_ticket_revenue`, `per_head`) também em linhas de RECEITA; proibida em 1.1.01 e 1.1.03 (cobertas por sintéticas); chão do realizado em receita; eventos concluídos ou com fechamento selado não recalculam; recálculo só escreve `amount` + `formula_value`/`formula_params`; receita de fórmula NÃO entra na base do cachê (só `ticket_sales`).
+- Revenue Share Ticketline da SM é 2,5% sobre vendas ONLINE (bruto); a plataforma não guarda vendas online separadas → passo A2 depende da #333 guardar a linha "vendas online" do fecho da bilheteira; até lá as linhas 1.3.04 da SM ficam com valor fixo.
+- Receita que não deve entrar no resultado dos sócios: usar a marcação por fechamento (`event_settlement_id` → "Receitas exclusivas da sociedade"); `is_overhead` / `exclude_from_result` tiram-na também do resultado da MP.
+- Rateio multi-evento (modelo A) em receitas: exceder a verba de uma linha de receita é só aviso; perna sem linha continua a pedir justificação.
+- Receitas no Master: regra na linha de BP de receita do Master (`event_forecasts.revenue_split_mode` `equal|fixed_pct|ticket_share` + `revenue_split_params`; migração 0238); transações ligadas à linha seguem a regra; sem regra fica só no Master (receitas existentes da Tour M&M e Raphael Ghanem 2.0 inalteradas); `ticket_share` usa a mesma base para todas as cidades (previsto corrente da bilheteira até a última cidade se realizar, depois real); caixa, saldos, conciliação e receitas em poder do sócio ficam sempre no Master — só o resultado leva a quota; a quota entra no resultado e no fecho com os sócios da cidade (marcação de fechamento preservada); raiz conta a linha uma vez. Função única `expandMasterRevenueToSplits` (`_shared/settlement/master-revenue-proration.ts`) + leitor único `master-revenue-load.ts`.
+- `ticket_share` antes de todas as cidades realizadas: o ERP reparte pelo previsto; o Portal/documento do sócio não reparte e mostra aviso (o servidor não tem o previsto); depois de realizadas os dois coincidem — aceite pelo Pedro.
+- DRE/DRE Brasil: o ÷N antigo de TODAS as transações do Master na vista da cidade mantém-se quando não há regra (não mudar números de eventos concluídos).
