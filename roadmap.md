@@ -78,6 +78,6 @@
 - [x] #339 B2 — receita do Master repartida (código + testes; Publish pendente)
 - [x] #339 B2b — fecho por cidade com quota (Publish + deploy partner-statement pendentes)
 - [x] #339/#344/#345 — deploy só partner-statement confirmado; SELECT + gerador local com totais exactos; pedidos QUADRO tratados e reserva removida; sem sessão/HTTP/Publish. Metadados servido indisponíveis, verificação Portal por Pedro pendente.
-- [ ] #339 B3 — reservado; implementação suspensa enquanto decorre o deploy autorizado pelo 0.
+- [x] #339 B3 — implementação retomada e concluída; validação local, CI remoto e Publish/deploy separados.
 
-- [ ] #339 B3: motor Master agregado, fatias proporcionais, Overhead partilhado, testes e libertar reserva; sem DDL/DML/Publish/deploy.
+- [x] #339 B3: motor Master agregado, fatias proporcionais, Overhead partilhado e testes; sem DDL/DML/Publish/deploy.
