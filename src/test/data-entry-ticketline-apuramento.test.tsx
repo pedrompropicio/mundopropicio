@@ -423,7 +423,7 @@ describe("#333 revisão controller — painel: recalc/autorização tardios apó
     expect(adapter.ticketlineExecutionStatus).not.toHaveBeenCalled();
     expect(adapter.ticketlineExecute).not.toHaveBeenCalled();
   });
-  it("erreur/finally antigos não alteram versão nova nem libertam pedido novo", async () => {
+  it("erro/finally antigos não alteram versão nova nem libertam pedido novo", async () => {
     const old = deferred(), fresh = deferred();
     const adapter = { ticketlinePreview: vi.fn().mockReturnValueOnce(old.promise).mockReturnValueOnce(fresh.promise) } as unknown as DataEntryAdapter;
     render(<TicketlineReviewPanel adapter={adapter} context={ctx} messageId="m" initial={initial} />);
@@ -445,7 +445,7 @@ describe("#333 residual — anexo vazio/falha nunca promove linhas do email", ()
   it.each(["empty", "failure", "closed", "legacy"])("corpo com linhas + scanner %s fica parcial sem linhas de corpo", async mode => {
     const d = deps(mode === "empty" ? { scanApuramento: async () => apuramentoFromWire({ ...WIRE_OK, lines: [] }) }
       : mode === "failure" ? { scanApuramento: async () => { throw new Error("unavailable"); } }
-      : mode === "legacy" ? { scanAttachment: async () => ({ document_number: "AP-SINT-01" }) as never } : {});
+      : mode === "legacy" ? { scanAttachment: async () => ({ invoice_number: "AP-SINT-01", invoice_date: null, total_amount: null, currency: "EUR", lines: [], warnings: [] }) as never } : {});
     const baseReader = await (d.gmail as unknown as { reader: () => Promise<unknown> }).reader() as unknown as Record<string, unknown>;
     d.gmail = { reader: async () => ({ ...baseReader, read: async (id: string) => ({ message_id: id, body_text: "Apuramento nº AP-SINT-01\nRepasse quinzenal: -300,00 €", truncated: false }) }) } as never;
     const r = await post(createHandler(d), { action: "ticketline_candidate", message_id: "msgSINT02", part_id: "2.1" });
