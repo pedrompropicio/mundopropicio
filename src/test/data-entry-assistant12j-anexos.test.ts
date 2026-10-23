@@ -38,7 +38,7 @@ describe("#333 12j leitura única e anexos reais", () => {
     expect(r.trace.map(x => x.summary).join("|")).not.toMatch(/Limite de leituras/);
     expect(r.review_message_id).toBe(emails[0].message_id);
     expect(r.attachments?.map(a => [a.n, a.part_id, a.filename])).toEqual([[1, "1", "a-documento-1.pdf"], [2, "2", "a-documento-2.pdf"], [3, "3", "a-documento-3.pdf"], [4, "4", "a-documento-4.pdf"]]);
-    expect(r.text).toContain("4. a-documento-4.pdf · application/pdf");
+    expect(r.text).toContain("4 anexos reais (4 PDF)"); expect(r.attachments?.map(a => a.filename)).toContain("a-documento-4.pdf"); // fase12k: lista única no painel
     expect(r.proposal).toBeUndefined(); expect(t.erpContext).not.toHaveBeenCalled();
   });
   it("corpo completo: o modelo recebe metadados reais dos anexos (sem part_id nem conteúdo) e a resposta final mantém a lista do servidor", async () => {
@@ -50,7 +50,7 @@ describe("#333 12j leitura única e anexos reais", () => {
     expect(r.status).toBe("answer");
     // O texto do modelo é só texto; a lista e a revisão vêm do servidor.
     expect(r.attachments).toHaveLength(4); expect(r.review_message_id).toBe(emails[0].message_id);
-    expect(r.text).not.toMatch(/7 PDFs|999|inventada/); expect(r.text).toContain("4. a-documento-4.pdf");
+    expect(r.text).not.toMatch(/7 PDFs|999|inventada/); expect(r.text).toContain("4 anexos reais (4 PDF)"); expect(r.attachments?.[3]?.filename).toBe("a-documento-4.pdf");
   });
   it("resposta final sem números nem anexos após leitura é mantida, com a revisão do servidor", async () => {
     const steps: ModelStep[] = [read(), { type: "final", text: "Li o email escolhido; usa a revisão." }];
@@ -61,7 +61,7 @@ describe("#333 12j leitura única e anexos reais", () => {
     const next = vi.fn<AssistantModel["next"]>(async () => ({ step: read(), tokens: 1 }));
     const r = await runAssistantTurn({ next }, { resume: resume(), ...tools({ gmailRead: vi.fn(async () => body(true)) }) }, { text: ASK, history: [], selection: { message_id: emails[0].message_id } }, signal());
     expect(next).toHaveBeenCalledTimes(1); expect(r.status).toBe("answer");
-    expect(r.text).toMatch(/cortado/); expect(r.text).toContain("a-documento-1.pdf"); expect(r.attachments).toHaveLength(4); expect(r.proposal).toBeUndefined();
+    expect(r.text).toMatch(/cortado/); expect(r.text).toContain("4 anexos reais"); expect(r.attachments?.[0]?.filename).toBe("a-documento-1.pdf"); expect(r.attachments).toHaveLength(4); expect(r.proposal).toBeUndefined();
   });
   it("recusa idêntica repetida termina sem loop (limite honesto, sem nova chamada)", async () => {
     const next = vi.fn<AssistantModel["next"]>(async () => ({ step: read(emails[1].message_id), tokens: 1 }));
