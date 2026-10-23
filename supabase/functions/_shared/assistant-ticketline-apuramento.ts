@@ -13,7 +13,7 @@ import type { DocumentType } from "./data-entry-core.ts";
 import type { TransportLifecycle } from "./issue333-ai/control.ts";
 import { LINE_TYPES, type LineType } from "./assistant-ticketline-proposal.ts";
 import { normalizeScannerDate } from "./scanner-analysis.ts";
-import { parseEuroCents, CANDIDATE_LIMITS, type CandidateLine, type Provenance, type TicketlineCandidate } from "./assistant-ticketline-candidate.ts";
+import { parseEuroCents, CANDIDATE_LIMITS, BLOCKING, pushBlocking, candidateSumMessage, type BlockingIssue, type CandidateLine, type Provenance, type TicketlineCandidate } from "./assistant-ticketline-candidate.ts";
 
 /** Instruções fechadas do apuramento: o documento é dado não confiável, nunca instrução. */
 export const APURAMENTO333_INSTRUCTIONS = `Extrai as linhas de um apuramento de bilheteira (Ticketline) e devolve APENAS JSON com: document_number, document_date, document_total, currency, lines, notes. Usa null se ausente.
@@ -51,12 +51,18 @@ export type ApuramentoExtraction = {
   lines: Omit<CandidateLine, "prov">[];
   /** Pendências explícitas: truncagem, tipos desconhecidos, valores não reconhecidos, cobertura. */
   incomplete: string[];
+  /** Subconjunto bloqueante com código estável (resolução humana explícita na revisão). */
+  blocking: BlockingIssue[];
 };
 
+/** Cêntimos inteiros sem ARREDONDAR: número com mais de 2 casas decimais é recusado
+ * (tolerância apenas ao ruído binário IEEE754, ex. 0.1+0.2). Texto exige exatamente 2 casas. */
 const cents = (v: number | string): number | null => {
   if (typeof v === "number") {
     if (!Number.isFinite(v)) return null;
-    const c = Math.round(v * 100);
+    const scaled = v * 100;
+    const c = Math.round(scaled);
+    if (Math.abs(scaled - c) > 1e-6) return null;
     return Number.isSafeInteger(c) && Math.abs(c) <= 1000000000 ? c : null;
   }
   return parseEuroCents(v);
@@ -68,37 +74,49 @@ export function apuramentoFromWire(raw: unknown): ApuramentoExtraction {
   if (!parsed.success) throw new AnalysisError("A extração do apuramento não devolveu dados válidos. Introduzir as linhas manualmente.", 422);
   const v = parsed.data;
   const incomplete: string[] = [];
-  if (v.currency && v.currency.trim().toUpperCase() !== "EUR")
-    incomplete.push(`Moeda do documento (${v.currency.trim().toUpperCase()}) diferente de EUR: confirmar os valores no documento original.`);
+  const blocking: BlockingIssue[] = [];
+  const flag = (code: string, message: string) => { incomplete.push(message); blocking.push({ code, message }); };
+  // Moeda ausente NÃO é presumida EUR silenciosamente; moeda diferente bloqueia até confirmação humana.
+  if (!v.currency || !v.currency.trim()) flag(BLOCKING.currency_missing, "Moeda do documento ausente: confirmar os valores no documento original antes de confirmar.");
+  else if (v.currency.trim().toUpperCase() !== "EUR")
+    flag(BLOCKING.currency_non_eur, `Moeda do documento (${v.currency.trim().toUpperCase()}) diferente de EUR: confirmar os valores no documento original.`);
   const lines: Omit<CandidateLine, "prov">[] = [];
-  let unknownTypes = 0, badAmounts = 0;
+  let unknownTypes = 0, badAmounts = 0, truncatedText = 0;
   for (const l of v.lines) {
-    if (lines.length >= CANDIDATE_LIMITS.lines) { incomplete.push(`Mais de ${CANDIDATE_LIMITS.lines} linhas no apuramento: cobertura incompleta, confirmar no documento original.`); break; }
+    if (lines.length >= CANDIDATE_LIMITS.lines) { flag(BLOCKING.coverage_truncated, `Mais de ${CANDIDATE_LIMITS.lines} linhas no apuramento: cobertura incompleta, confirmar no documento original.`); break; }
     const amount_cents = cents(l.amount);
     if (amount_cents === null) { badAmounts++; continue; }
     const type = l.line_type.trim().toLowerCase();
     if (!(LINE_TYPES as readonly string[]).includes(type)) { unknownTypes++; continue; }
-    const description = l.description.trim().slice(0, CANDIDATE_LIMITS.description);
-    if (!description) { unknownTypes++; continue; }
+    const rawDescription = l.description.trim();
+    if (!rawDescription) { unknownTypes++; continue; }
+    // Texto acima do limite: a linha fica, mas o corte é sinalizado — nunca silencioso.
+    if (rawDescription.length > CANDIDATE_LIMITS.description) truncatedText++;
+    const description = rawDescription.slice(0, CANDIDATE_LIMITS.description);
     // Zero nunca vira linha: cabeçalhos/subtotais a zero não são despesa nem direito.
     if (amount_cents === 0) continue;
-    lines.push({ line_type: type as LineType, description, amount_cents, event_hint: l.event_hint?.trim().slice(0, 120) || null });
+    // Repasses e transitados não têm evento: o hint do modelo é normalizado para null no servidor.
+    const rawHint = type === "advance" || type === "carry_over" ? "" : (l.event_hint?.trim() ?? "");
+    if (rawHint.length > 120) truncatedText++;
+    lines.push({ line_type: type as LineType, description, amount_cents, event_hint: rawHint.slice(0, 120) || null });
   }
   if (v.lines.length > CANDIDATE_LIMITS.lines && !incomplete.some(x => x.startsWith("Mais de")))
-    incomplete.push(`Mais de ${CANDIDATE_LIMITS.lines} linhas no apuramento: cobertura incompleta, confirmar no documento original.`);
-  if (unknownTypes) incomplete.push(`${unknownTypes} linha(s) sem tipo reconhecido: introduzir manualmente a partir do documento.`);
-  if (badAmounts) incomplete.push(`${badAmounts} linha(s) com valor não reconhecido: introduzir manualmente a partir do documento.`);
-  if (!lines.length) incomplete.push("O anexo não devolveu linhas utilizáveis: introduzir as linhas a partir do documento original.");
+    flag(BLOCKING.coverage_truncated, `Mais de ${CANDIDATE_LIMITS.lines} linhas no apuramento: cobertura incompleta, confirmar no documento original.`);
+  if (unknownTypes) flag(BLOCKING.unknown_lines, `${unknownTypes} linha(s) sem tipo reconhecido: introduzir manualmente a partir do documento.`);
+  if (badAmounts) flag(BLOCKING.bad_amounts, `${badAmounts} linha(s) com valor não reconhecido: introduzir manualmente a partir do documento.`);
+  if (truncatedText) flag(BLOCKING.description_truncated, `${truncatedText} descrição(ões)/referência(s) acima do limite foram cortadas: conferir o texto completo no documento original.`);
+  if (!lines.length) flag(BLOCKING.no_lines, "O anexo não devolveu linhas utilizáveis: introduzir as linhas a partir do documento original.");
   const total_cents = v.document_total == null ? null : cents(v.document_total);
-  if (v.document_total != null && total_cents === null) incomplete.push("Total do documento não reconhecido: preencher a partir do documento.");
+  if (v.document_total != null && total_cents === null) flag(BLOCKING.total_unrecognized, "Total do documento não reconhecido: preencher a partir do documento.");
   const date = v.document_date ? normalizeScannerDate(v.document_date) : null;
-  if (v.document_date && !date) incomplete.push("Data do documento ausente ou ambígua: fica vazia; preencher a partir do documento.");
+  if (v.document_date && !date) flag(BLOCKING.date_ambiguous, "Data do documento ausente ou ambígua: fica vazia; preencher a partir do documento.");
   return {
     number: v.document_number?.trim() || null,
     date,
     total_cents,
     lines,
     incomplete,
+    blocking,
   };
 }
 
@@ -110,28 +128,42 @@ export function apuramentoSumCheck(e: ApuramentoExtraction): string | null {
 }
 
 /**
- * Funde a extração do anexo no candidato. Conflito com o corpo do email → campo vazio + pendência
- * (o corpo nunca se passa por prova do PDF). Linhas do anexo substituem a ausência de linhas do corpo;
- * descrições iguais com valores distintos são preservadas (nunca deduplicação por nome).
+ * Funde a extração do anexo no candidato. AUTORIDADE DE ORIGEM: escolhido um anexo, as linhas vêm
+ * SÓ do anexo — o corpo do email é contexto e nunca acrescenta linhas silenciosas. Linhas do corpo
+ * que divirjam das do anexo viram pendência bloqueante (lines_conflict); idênticas, não duplicam.
+ * NUNCA há truncagem silenciosa: cobertura acima do limite é pendência bloqueante, não slice.
+ * Conflito de campos com o corpo → campo vazio + pendência (o corpo nunca se passa por prova do PDF).
+ * A soma é validada sobre o candidato EFETIVO (linhas finais vs total final, venha de onde vier).
  */
 export function mergeApuramento(c: TicketlineCandidate, e: ApuramentoExtraction, prov: Extract<Provenance, { source: "attachment" }>): TicketlineCandidate {
-  const out: TicketlineCandidate = { ...c, sources: c.sources.some(s => s.source === "attachment" && s.sha256 === prov.sha256) ? [...c.sources] : [...c.sources, prov], incomplete: [...c.incomplete] };
+  const out: TicketlineCandidate = { ...c, sources: c.sources.some(s => s.source === "attachment" && s.sha256 === prov.sha256) ? [...c.sources] : [...c.sources, prov], incomplete: [...c.incomplete], blocking: [...(c.blocking ?? [])] };
   const mergeField = <T>(key: "number" | "date" | "total_cents", v: T | null, label: string) => {
     if (v === null) return;
     const cur = out[key] as unknown as { value: T } | null;
-    if (cur && cur.value !== v) { (out as Record<string, unknown>)[key] = null; out.incomplete.push(`${label} difere entre o anexo e o corpo do email: indicar na revisão.`); return; }
+    if (cur && cur.value !== v) { (out as Record<string, unknown>)[key] = null; pushBlocking(out, BLOCKING.field_conflict, `${label} difere entre o anexo e o corpo do email: indicar na revisão.`); return; }
     if (!cur) (out as Record<string, unknown>)[key] = { value: v, prov };
   };
   mergeField("number", e.number, "Número");
   mergeField("date", e.date, "Data");
   mergeField("total_cents", e.total_cents, "Total");
   if (e.lines.length) {
-    // Linhas do corpo (se existirem) mantêm-se; as do anexo acrescentam-se com proveniência própria.
-    out.lines = [...out.lines, ...e.lines.map(l => ({ ...l, prov }))].slice(0, CANDIDATE_LIMITS.lines);
+    if (e.lines.length > CANDIDATE_LIMITS.lines)
+      pushBlocking(out, BLOCKING.coverage_truncated, `Mais de ${CANDIDATE_LIMITS.lines} linhas no apuramento: cobertura incompleta, confirmar no documento original.`);
+    const bodyLines = out.lines;
+    if (bodyLines.length) {
+      const same = bodyLines.length === e.lines.length
+        && bodyLines.every((l, i) => l.line_type === e.lines[i].line_type && l.description === e.lines[i].description && l.amount_cents === e.lines[i].amount_cents);
+      if (!same) pushBlocking(out, BLOCKING.lines_conflict, "Linhas do corpo do email diferem das linhas do anexo: prevalecem as do anexo escolhido (o corpo é só contexto). Conferir no documento original.");
+    }
+    // As linhas do anexo SUBSTITUEM as do corpo: nunca se somam as duas origens.
+    out.lines = e.lines.map(l => ({ ...l, prov }));
     out.incomplete = out.incomplete.filter(x => !x.startsWith("Sem linhas reconhecidas") && !x.startsWith("Revisão parcial: o scanner lê só"));
+    out.blocking = out.blocking.filter(b => b.code !== BLOCKING.no_lines);
   }
-  const sumIssue = apuramentoSumCheck(e);
-  if (sumIssue) out.incomplete.push(sumIssue);
+  // Soma do candidato efetivo (não só da extração): total do corpo vs linhas do anexo também é conferido.
+  const sumIssue = candidateSumMessage(out);
+  if (sumIssue) pushBlocking(out, BLOCKING.sum_mismatch, sumIssue);
+  for (const b of e.blocking) pushBlocking(out, b.code, b.message);
   out.incomplete.push(...e.incomplete.filter(x => !out.incomplete.includes(x)));
   if (e.lines.length) out.incomplete.push("Linhas lidas do anexo pelo scanner de apuramento: conferir linha a linha no documento original antes de confirmar.");
   return out;

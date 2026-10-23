@@ -18,7 +18,7 @@ export function provLabel(p?: CandidateProvenance | null) {
   return `email · linha ${p.line}${p.truncated ? " (truncado)" : ""}`;
 }
 type Line = { line_type: TicketlineLineType; description: string; amount: string; event_hint: string | null };
-type Initial = { candidate: TicketlineCandidate; candidate_token: string };
+type Initial = { candidate: TicketlineCandidate; candidate_token: string; duplicates?: { id: string; number: string; status: string }[] };
 
 /** Revisão humana tipada. Qualquer edição invalida a prévia e qualquer autorização anterior. */
 export default function TicketlineReviewPanel({ adapter, context, messageId, partId, events = [], initial, initialAttachments }: {
@@ -45,12 +45,16 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // #333 revisão controller: pendências bloqueantes resolvidas explicitamente pela pessoa (por código).
+  const [resolved, setResolved] = useState<string[]>([]);
+  const [dups, setDups] = useState<{ id: string; number: string; status: string }[]>([]);
   const run = async (f: () => Promise<void>) => { setBusy(true); setError(null); setNotice(null); try { await f(); } catch (e) { setError(e instanceof Error ? e.message : "Indisponível."); } finally { setBusy(false); } };
   // #333 retoma corretiva: trocar de origem invalida qualquer pedido em voo — uma resposta antiga
-  // nunca se reaplica ao novo radio (o reset do 12k sozinho não bastava).
+  // nunca se reaplica ao novo radio (o reset do 12k sozinho não bastava). A guarda cobre TODAS as
+  // respostas que mudam prévia/autorização/aviso (load, recalc, authorize), não só o load.
   const seq = useRef(0);
   const apply = (r: Initial) => {
-    setToken(r.candidate_token); setCand(r.candidate); setPreview(null); setStale(false); setConfirmed(false); setSelected([]); setAuth(null);
+    setToken(r.candidate_token); setCand(r.candidate); setPreview(null); setStale(false); setConfirmed(false); setSelected([]); setAuth(null); setResolved([]); setDups(r.duplicates ?? []);
     setForm({ office: "", number: r.candidate.number?.value ?? "", date: r.candidate.date?.value ?? "", total: r.candidate.total_cents ? fmt(r.candidate.total_cents.value) : "", event_id: r.candidate.event_id?.value ?? "" });
     setLines(r.candidate.lines.map(l => ({ line_type: l.line_type, description: l.description, amount: fmt(l.amount_cents), event_hint: l.event_hint })));
   };
@@ -78,7 +82,7 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
     if (form.total && total === null) throw new Error("Total inválido.");
     const closing = close.date && close.to ? { deduction_ids: close.ids, settlement_date: close.date, transfer_account_id: close.to } : null;
     return { number: form.number.trim() || null, date: form.date || null, total_cents: total, event_id: form.event_id || null, office_account_id: form.office || null, closing,
-      lines: parsed as NonNullable<TicketlineEdits["lines"]>, confirm_review: confirmed && !partial };
+      lines: parsed as NonNullable<TicketlineEdits["lines"]>, confirm_review: confirmed && !partial, resolve_blocking: resolved };
   };
   const settlement = () => {
     if (!settle.account && !settle.date && !settle.amount) return undefined;
@@ -89,8 +93,10 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   };
   const recalc = (save?: boolean) => run(async () => {
     if (!adapter.ticketlinePreview || !token) throw new Error("Revisão indisponível.");
+    const my = seq.current; // resposta tardia após troca de origem é descartada, nunca aplicada
     const r = await adapter.ticketlinePreview({ candidate_token: token, edits: edits(), settlement: settlement(),
       ...(save ? { save: { review_id: preview?.review?.review_id ?? null, expected_version: preview?.review?.version ?? null } } : {}) }, context);
+    if (my !== seq.current) return;
     if (r.events?.length) setEventOptions(prev => [...new Map([...prev, ...r.events!].map(e => [e.id, e])).values()]);
     setPreview(r); setStale(false); setSelected([]);
   });
@@ -103,8 +109,10 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   const admissible = selected.length > 0 && selected.every(id => { const a = actions.find(x => x.id === id); return a && !a.blocked_reason && a.depends_on.every(d => selected.includes(d)); });
   const authorize = () => run(async () => {
     if (!adapter.ticketlineAuthorize || !preview?.review) throw new Error("Autorização indisponível.");
+    const my = seq.current; // autorização tardia após troca de origem nunca é aplicada
     const r = await adapter.ticketlineAuthorize({ review_id: preview.review.review_id, version: preview.review.version, effects_hash: preview.review.effects_hash,
       action_ids: [...selected].sort(), replay_key: crypto.randomUUID() }, context);
+    if (my !== seq.current) return;
     setNotice(r.notice);
     setAuth({ id: r.authorization_id, action_ids: r.action_ids ?? [...selected].sort(), executor: r.executor === "disponível" });
   });
@@ -112,7 +120,7 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   const input = "w-full min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm";
 
   // #333 fase12k: trocar de origem invalida o candidato atual; nunca mostrar dados do anexo anterior sob o novo.
-  const choose = (id: string) => { if (id === part) return; seq.current++; setPart(id); setCand(null); setToken(null); setPreview(null); setConfirmed(false); setSelected([]); setAuth(null); };
+  const choose = (id: string) => { if (id === part) return; seq.current++; setPart(id); setCand(null); setToken(null); setPreview(null); setConfirmed(false); setSelected([]); setAuth(null); setResolved([]); setDups([]); };
   const images = (attachments ?? []).filter(a => a.mime.startsWith("image/"));
   const docs = (attachments ?? []).filter(a => !a.mime.startsWith("image/"));
   const radio = (a: TicketlineAttachment) => (
@@ -121,7 +129,10 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
       <span className="min-w-0 flex-1 truncate" title={a.filename}>{a.filename}</span><span className="shrink-0 text-muted-foreground">{kb(a.size_bytes)}</span>
     </label>
   );
-  const partial = lines.length === 0 || !form.number.trim() || !form.date || !form.total;
+  // Pendências bloqueantes por resolver (códigos ainda não confirmados explicitamente pela pessoa).
+  const unresolvedBlocking = (cand?.blocking ?? []).filter(b => !resolved.includes(b.code));
+  const infoMessages = (cand?.incomplete ?? []).filter(m => !(cand?.blocking ?? []).some(b => b.message === m));
+  const partial = lines.length === 0 || !form.number.trim() || !form.date || !form.total || unresolvedBlocking.length > 0;
   const sourcePicker = (
     <div className="min-w-0 space-y-1">
       <div className="flex flex-wrap gap-2">
@@ -156,7 +167,21 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
       <div className="font-semibold">Revisão do fecho (candidato, nada gravado)</div>
       <div className="flex min-w-0 flex-wrap gap-1">{cand.sources.map((s, i) => <Badge key={i} variant="outline" className="max-w-full truncate">{provLabel(s)}</Badge>)}</div>
       {sourcePicker}
-      {cand.incomplete.length > 0 && <ul className="list-disc space-y-0.5 break-words pl-4 text-destructive">{cand.incomplete.map(x => <li key={x}>{x}</li>)}</ul>}
+      {dups.length > 0 && <p role="alert" className="break-words rounded border border-border bg-muted p-1.5">Já existe nesta empresa: {dups.map(x => `${x.number} (estado ${x.status})`).join(", ")}. Verificar antes de confirmar; nada será duplicado.</p>}
+      {unresolvedBlocking.length > 0 && (
+        <fieldset className="min-w-0 space-y-1 rounded border border-destructive p-1.5">
+          <legend className="px-1 font-semibold text-destructive">Pendências que bloqueiam a confirmação</legend>
+          <p className="text-muted-foreground">Resolve cada uma no documento original e confirma-a explicitamente; só então a revisão pode ser confirmada.</p>
+          {unresolvedBlocking.map(b => (
+            <label key={b.code} className="flex min-w-0 items-start gap-1.5">
+              <input type="checkbox" className="mt-0.5" aria-label={`Resolver pendência: ${b.message}`} checked={resolved.includes(b.code)}
+                onChange={e => edit(() => setResolved(e.target.checked ? [...resolved, b.code] : resolved.filter(x => x !== b.code)))} />
+              <span className="min-w-0 break-words">{b.message} <span className="text-muted-foreground">— resolvido no documento original</span></span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {infoMessages.length > 0 && <ul className="list-disc space-y-0.5 break-words pl-4 text-muted-foreground">{infoMessages.map(x => <li key={x}>{x}</li>)}</ul>}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <label className="min-w-0 space-y-0.5"><span className="block">Nº apuramento <span className="text-muted-foreground">({provLabel(cand.number?.prov)})</span></span>
           <input aria-label="Número" className={input} value={form.number} onChange={e => edit(() => setForm({ ...form, number: e.target.value }))} /></label>

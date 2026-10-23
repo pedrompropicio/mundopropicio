@@ -32,4 +32,21 @@ O scanner existente (`scanner-analysis.ts`, contrato de fatura) só devolve núm
 `deploy_edge_functions({"function_names":["data-entry"]})` — só após CI verde do novo SHA e "Sim" do Pedro (classe R2). O painel (frontend) só muda após Publish autorizado.
 
 ## Branch documental
-`docs/chatgpt-fluxo-desenvolvimento-20261023` (b3c0939c) NÃO existe no remote nem o commit no repositório local (`git fetch`/`cat-file` falharam): merge impossível nesta sessão; registado para o controller.
+`docs/chatgpt-fluxo-desenvolvimento-20261023` (b3c0939c) NÃO acessível no remoto do sandbox nesta sessão (`git fetch`/`cat-file` falharam); o controller comprovou pela API do GitHub que o commit existe — a ausência no sandbox não prova inexistência. Integração fica para o controller; não se repetiu fetch nem se reconstruiu a branch.
+
+---
+
+## Continuação corretiva R1 — revisão do controller (23/10/2026 ~21:15 UTC)
+
+Base 689efee0 (main/Lovable iguais, CI run 40022453558 success). Seis bloqueios corrigidos, sem deploy/Publish/DDL/DML:
+
+1. **Autoridade de origem (mergeApuramento):** escolhido um anexo, as linhas vêm SÓ do anexo; o corpo é contexto — linhas divergentes viram bloqueio `lines_conflict`, idênticas não duplicam. Fim do `[...body, ...pdf].slice(0,40)`: nunca truncagem silenciosa; cobertura acima do limite é pendência bloqueante. A soma é validada sobre o candidato EFETIVO (`candidateSumMessage`), não só sobre a extração.
+2. **Revalidação fora do catch:** `canonicalStorageContext()` após o scanner de apuramento corre FORA do try/catch; revogação de sessão/empresa durante o scanner é recusa (401/403), nunca pendência com candidato assinado.
+3. **UMA chamada dedicada:** no caminho de apuramento só corre o contrato dedicado (metadados+linhas, multi-página); o scanner genérico de faturas não é chamado (fim dos 2 POSTs e da recusa de multi-página). Scanner genérico preservado para faturas/outros fluxos.
+4. **Validação monetária sem arredondamento:** `cents()` recusa números com mais de 2 casas decimais (tolerância só ao ruído IEEE754); `event_hint` de repasse/transitado é normalizado para null no servidor; moeda ausente é pendência bloqueante (nunca EUR presumido); descrição/hint acima do limite gera pendência `description_truncated`.
+5. **Bloqueio estruturado assinado:** candidato tem `blocking: {code, message}[]` (assinado no token, incluído no hash de proveniência). `applyHumanEdits` já não remove pendências por regex: recomputáveis (`no_lines`, `sum_mismatch`) são reavaliadas sobre o candidato editado; as restantes só caem com `resolve_blocking` explícito (códigos desconhecidos ignorados). `confirm_review=true` com bloqueios por resolver → `human_reviewed` false, ações bloqueadas, needs com "Bloqueante por resolver". Avisos informativos ("conferir no original") NÃO bloqueiam.
+6. **Guarda seq alargada no painel:** recalc e authorize também capturam `seq`; respostas tardias após troca de origem são descartadas (nunca aplicam prévia/autorização/aviso).
+
+**Duplicados cedo:** `ticketline_candidate` com número lê o ERP isolado (JWT do chamador, RLS por empresa) e devolve `duplicates` + aviso no candidato; nada é criado nem assumido igual ao PDF. Teste prova que outra empresa não vê IDs.
+
+**Provas:** 15 testes novos; ficheiros afetados 74/74; suite completa 2360 PASS (antes 2345) | 6 skip | 11 todo; tsgo 0 erros; deno check limpo. Sem deploy: `data-entry` continua a precisar de deploy R2 separado com "Sim" do Pedro.

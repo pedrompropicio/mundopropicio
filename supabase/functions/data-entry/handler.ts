@@ -104,6 +104,7 @@ export const commandSchema = z.discriminatedUnion("action", [
     edits: z.object({ number: z.string().max(60).nullable().optional(), date: z.string().max(10).nullable().optional(), total_cents: z.number().int().nullable().optional(), event_id: z.string().uuid().nullable().optional(),
       lines: z.array(z.object({ line_type: z.enum(LINE_TYPES), description: z.string().max(160), amount_cents: z.number().int().min(-1000000000).max(1000000000), event_hint: z.string().max(120).nullable() }).strict()).max(40).optional(),
       confirm_review: z.boolean().optional(), office_account_id: z.string().uuid().nullable().optional(),
+      resolve_blocking: z.array(z.string().max(60)).max(40).optional(),
       closing: z.object({ deduction_ids: z.array(z.string().uuid()).max(200), settlement_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), transfer_account_id: z.string().uuid() }).strict().nullable().optional() }).strict(),
     settlement: z.object({ financial_account_id: z.string().uuid(), date: z.string().max(10), amount_cents: z.number().int(), confirm: z.literal(true) }).strict().optional(),
     save: z.object({ review_id: z.string().uuid().nullable(), expected_version: z.number().int().positive().nullable() }).strict().optional() }).strict(),
@@ -324,26 +325,45 @@ export function createHandler(d: Deps) {
           let prov;
           try { prov = await verifyAttachmentSource({ message_id: body.message_id, part_id: body.part_id, bytes: att.bytes, mime, listed: listed.map(a => ({ part_id: a.part_id, size_bytes: a.size_bytes })), expected_sha256: body.expected_sha256 }); }
           catch (e) { throw new SafeError((e as Error).message, 409); }
-          if (!d.scanAttachment) cand = { ...cand, sources: [...cand.sources, prov], incomplete: [...cand.incomplete, "Anexo verificado (origem e hash), mas o scanner está fechado: confirmar número, data e total no documento."] };
-          else {
+          if (d.scanApuramento) {
+            // UMA chamada dedicada ao contrato de apuramento (metadados + linhas, multi-página).
+            // O scanner genérico de faturas NÃO é chamado neste caminho: evita 2 POSTs ao mesmo
+            // anexo e a recusa de PDF multi-página antes de chegar ao contrato próprio.
+            let ext: ApuramentoExtraction | null = null;
+            try {
+              ext = await boundedAnalysis(req.signal, signal => d.scanApuramento!(att.bytes, mime, signal));
+            } catch (e) {
+              if (req.signal.aborted) throw e;
+              // Só falhas do scanner viram pendência; erros de auth/contexto propagam (ver abaixo).
+              const msg = `Extração das linhas do anexo indisponível (${e instanceof AnalysisError ? e.message : "scanner indisponível"}): introduzir as linhas a partir do documento original.`;
+              cand = { ...cand, sources: [...cand.sources, prov], incomplete: [...cand.incomplete, msg], blocking: [...(cand.blocking ?? []), { code: "extraction_unavailable", message: msg }] };
+            }
+            // Revalidação de auth/empresa FORA do catch: revogação durante o scanner é recusa, nunca pendência.
+            await canonicalStorageContext();
+            if (ext) cand = mergeApuramento(cand, ext, prov);
+          } else if (d.scanAttachment) {
             const wire = await boundedAnalysis(req.signal, signal => d.scanAttachment!(att.bytes, mime, signal));
             await canonicalStorageContext();
             cand = mergeScanner(cand, wire, prov);
-          }
-          // Extração das linhas do apuramento (contrato dedicado). Falha do scanner de linhas
-          // nunca derruba o candidato: fica pendência explícita e a revisão humana decide.
-          if (d.scanApuramento) {
-            try {
-              const ext = await boundedAnalysis(req.signal, signal => d.scanApuramento!(att.bytes, mime, signal));
-              await canonicalStorageContext();
-              cand = mergeApuramento(cand, ext, prov);
-            } catch (e) {
-              if (req.signal.aborted) throw e;
-              cand = { ...cand, incomplete: [...cand.incomplete, `Extração das linhas do anexo indisponível (${e instanceof AnalysisError ? e.message : "scanner indisponível"}): introduzir as linhas a partir do documento original.`] };
-            }
+          } else {
+            cand = { ...cand, sources: [...cand.sources, prov], incomplete: [...cand.incomplete, "Anexo verificado (origem e hash), mas o scanner está fechado: confirmar número, data e total no documento."] };
           }
         }
-        return reply({ candidate: cand, candidate_token: await signServerPayload("ticketline_candidate", { user: user.id, company }, cand, d.continuationSecret) });
+        // Duplicados cedo: leitura ERP isolada com o JWT do chamador (RLS por empresa); só mostra
+        // o existente, nunca cria nem assume igualdade com o PDF. Outra empresa/utilizador não vê IDs.
+        let duplicates: { id: string; number: string; status: string }[] = [];
+        if (d.ticketlineErp && cand.number?.value) {
+          const erp = await d.ticketlineErp.context(token, company, cand.number.value, req.signal, cand.number.value);
+          await canonicalStorageContext();
+          if (erp.company_id !== company) throw new SafeError("Contexto alterado.", 403);
+          const wanted = cand.number.value.trim().toUpperCase();
+          duplicates = erp.existing_statements.filter(s => s.number.trim().toUpperCase() === wanted);
+          if (duplicates.length) {
+            const msg = `Já existe o apuramento ${duplicates[0].number} (estado ${duplicates[0].status}) nesta empresa: verificar antes de confirmar; nada será duplicado.`;
+            if (!cand.incomplete.includes(msg)) cand = { ...cand, incomplete: [...cand.incomplete, msg] };
+          }
+        }
+        return reply({ candidate: cand, candidate_token: await signServerPayload("ticketline_candidate", { user: user.id, company }, cand, d.continuationSecret), duplicates });
       }
       if (body.action === "ticketline_attachments") {
         const listed = await (await gmailReader()).attachments(body.message_id);
@@ -395,7 +415,12 @@ export function createHandler(d: Deps) {
           const built = buildClosingPlan(reads, (closingChoice as ClosingChoice | null | undefined) ?? null, st.lines.some(l => l.line_type === "event_right") ? right : null, d.today?.() ?? new Date().toISOString().slice(0, 10));
           closing = built.plan; closingOptions = built.options; closingIssues = built.issues;
         } else if (office && chosenEvent && !chosenEvent.sealed) closingIssues = ["Leitura do fecho por ativar neste ambiente: fecho só no modal."];
-        const proposal: Proposal = await buildTicketlineProposal(st, erp, { event_id: eventId, settlement, human_reviewed: body.edits.confirm_review === true, office_account_id: office, closing, closing_issues: closingIssues });
+        // Pendências bloqueantes (extração desconhecida/truncada/conflito/cobertura) impedem a
+        // confirmação efetiva: confirm_review só vale com todas resolvidas explicitamente na revisão.
+        const blocking = reviewed.blocking ?? [];
+        const humanReviewed = body.edits.confirm_review === true && blocking.length === 0;
+        const proposal: Proposal = await buildTicketlineProposal(st, erp, { event_id: eventId, settlement, human_reviewed: humanReviewed, office_account_id: office, closing, closing_issues: closingIssues });
+        if (blocking.length) proposal.needs.push(...blocking.map(b => `Bloqueante por resolver na revisão: ${b.message}`));
         const events = erp.events.map(e => ({ id: e.id, label: `${e.name}${e.date ? ` · ${e.date}` : ""}${e.sealed ? " · fechado" : ""}` }));
         if (!body.save) return reply({ candidate: reviewed, proposal, events, closing_options: closingOptions, persisted: false, notice: "Prévia calculada no servidor, não guardada." });
         if (!d.reviewStore) throw new ReviewUnavailable();
