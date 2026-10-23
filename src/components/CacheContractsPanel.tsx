@@ -213,7 +213,7 @@ export function CacheContractsPanel({ eventId, config, canEdit, initialLineChoic
             <p className="mb-1 font-medium text-muted-foreground">Adiantamentos sem contrato</p>
             {ctx.free_advances.map((a) => (
               <div key={a.id} className="flex justify-between gap-2">
-                <span className="truncate">{a.description}{a.legacy ? ` · ${Object.keys(a.by_city).map(cityName).join(", ")}` : ""}</span>
+                <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]" title={a.description}>{a.description}{a.legacy ? ` · ${Object.keys(a.by_city).map(cityName).join(", ")}` : ""}</span>
                 <span className="font-mono shrink-0">{formatCurrency(Number(a.amount))}</span>
               </div>
             ))}
@@ -246,7 +246,7 @@ function Shell({ title, onClose, children, footer }: { title: string; onClose: (
           <h3 className="font-semibold text-foreground">{title}</h3>
           <button onClick={onClose} aria-label="Fechar" className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
         </div>
-        <div className="p-5 space-y-4 overflow-y-auto flex-1">{children}</div>
+        <div className="min-w-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden p-5">{children}</div>
         <div className="flex justify-end gap-2 border-t border-border px-5 py-3 shrink-0">{footer}</div>
       </div>
     </OverlayLayer>
@@ -445,12 +445,12 @@ function ContractDialog({ ctx, eventId, config, edit, lineChoices, onAttachExist
         <div className="space-y-1">
           <p className="text-xs text-muted-foreground">Adiantamentos a abater (cada um só num contrato, pelo valor total)</p>
           {options.map((a) => (
-            <label key={a.id} className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1 text-xs">
-              <span className="flex items-center gap-2">
-                <Checkbox checked={chosen.includes(a.id)} onCheckedChange={(v) => setChosen((s) => v ? [...s, a.id] : s.filter((x) => x !== a.id))} />
-                <span className="truncate">{a.description}</span>
+            <label key={a.id} className="flex min-w-0 items-start justify-between gap-2 rounded border border-border px-2 py-1 text-xs">
+              <span className="flex min-w-0 flex-1 items-start gap-2">
+                <Checkbox checked={chosen.includes(a.id)} onCheckedChange={(v) => setChosen((s) => v ? [...s, a.id] : s.filter((x) => x !== a.id))} className="mt-0.5 shrink-0" />
+                <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]" title={a.description}>{a.description}</span>
               </span>
-              <span className="font-mono">{formatCurrency(a.amount)}</span>
+              <span className="shrink-0 font-mono whitespace-nowrap">{formatCurrency(a.amount)}</span>
             </label>
           ))}
         </div>
@@ -485,6 +485,7 @@ function ContractDialog({ ctx, eventId, config, edit, lineChoices, onAttachExist
       {capBlocking && capCheck && (
         <div role="alert" className="space-y-2 rounded-md border border-warning/40 bg-warning/5 p-2 text-[11px]">
           <p className="font-medium text-warning">Há adiantamentos livres que ocupam o teto de uma cidade. Ligue-os a um contrato ou marque-os neste.</p>
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr className="text-muted-foreground">
               <th className="text-left">Cidade</th><th className="text-right">Teto</th><th className="text-right">Contratos</th>
@@ -500,14 +501,15 @@ function ContractDialog({ ctx, eventId, config, edit, lineChoices, onAttachExist
               ))}
             </tbody>
           </table>
+          </div>
           {blockingAdvances.map((a) => (
-            <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-border px-2 py-1">
-              <span className="truncate">{a.description} · {formatCurrency(a.amount)}</span>
-              <span className="flex gap-2">
+            <div key={a.id} className="flex flex-wrap items-start justify-between gap-2 rounded border border-border px-2 py-1">
+              <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]" title={a.description}>{a.description} · {formatCurrency(a.amount)}</span>
+              <span className="flex shrink-0 gap-2">
                 {!edit && ctx.contracts.length > 0 && (
-                  <button type="button" onClick={() => onAttachExisting(a.id)} className="rounded border border-primary/30 px-2 py-0.5 text-primary hover:bg-primary/5">Ligar a um contrato existente</button>
+                  <button type="button" onClick={() => onAttachExisting(a.id)} className="shrink-0 rounded border border-primary/30 px-2 py-0.5 text-primary hover:bg-primary/5">Ligar a um contrato existente</button>
                 )}
-                <button type="button" onClick={() => setChosen((s) => [...s, a.id])} className="rounded border border-border px-2 py-0.5 hover:bg-muted">Marcar neste contrato</button>
+                <button type="button" onClick={() => setChosen((s) => [...s, a.id])} className="shrink-0 rounded border border-border px-2 py-0.5 hover:bg-muted">Marcar neste contrato</button>
               </span>
             </div>
           ))}
@@ -701,12 +703,12 @@ function AttachAdvanceDialog({ ctx, cityName, initialContractId, initialAdvanceI
           <label key={a.id} className={`flex cursor-pointer items-start gap-2 rounded border px-2 py-1 text-xs ${a.id === advanceId ? "border-primary bg-primary/5" : "border-border"}`}>
             <input type="radio" name="attach-adv" checked={a.id === advanceId} onChange={() => { setAdvanceId(a.id); setConfirmBen(false); }} className="mt-0.5" />
             <span className="flex-1 min-w-0">
-              <span className="block truncate font-medium">{a.description ?? "Adiantamento"}</span>
-              <span className="block text-[11px] text-muted-foreground">
+              <span className="block break-words [overflow-wrap:anywhere] font-medium" title={a.description ?? undefined}>{a.description ?? "Adiantamento"}</span>
+              <span className="block break-words [overflow-wrap:anywhere] text-[11px] text-muted-foreground">
                 {(dates as any)[a.id] ? formatDatePT((dates as any)[a.id]) : "sem data"} · {Object.keys(a.by_city).map(cityName).join(", ")} · {a.supplier_name ?? "—"}
               </span>
             </span>
-            <span className="text-right">
+            <span className="shrink-0 whitespace-nowrap text-right">
               <span className="block font-mono">{formatCurrency(Number(a.amount))}</span>
               <span className={`block text-[10px] ${Number(a.paid) >= Number(a.amount) - 0.005 ? "text-success" : "text-muted-foreground"}`}>
                 {Number(a.paid) >= Number(a.amount) - 0.005 ? "pago" : "por pagar"}
