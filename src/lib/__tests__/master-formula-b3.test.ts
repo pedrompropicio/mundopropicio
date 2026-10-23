@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeMasterBpFormula, masterFormulaShares } from "@/lib/master-formula";
+import { computeMasterBpFormula, masterFormulaShares, masterFormulaCostInputsForCity } from "@/lib/master-formula";
 import { computeBpFormula } from "@/lib/bp-formula";
 import { expandOverheadToSplits, overheadLinesFor } from "@/lib/overhead-proration";
 import { expandMasterAdoptedExpensesToSplits } from "@/lib/master-adopted-expense-proration";
@@ -46,6 +46,16 @@ describe("#339 B3 — fatias partilhadas", () => {
   it("receita não adopta a proporção da fórmula de custo", () => { expect(masterFormulaShares({formula_type:'fixed'},['a','b'],100)).toBeNull(); });
   it("composição ausente não inventa ÷N para fórmula", () => { expect(()=>masterFormulaShares({formula_type:'per_head'},['a','b'],100)).toThrow(/por recalcular/); });
   it("base zero com montante zero dá zero", () => { expect(masterFormulaShares({formula_type:'per_head',formula_params:{master_city_bases:{a:0,b:0}}},['a','b'],0)?.amounts).toEqual([0,0]); });
+  it("ordem de leitura diferente dá a mesma fatia ao cêntimo", () => {
+    expect(masterFormulaShares(formula(),['b','a'],100.01)?.amounts).toEqual([75.01,25]);
+  });
+  it("cartões escalam BP e transação ligada pela mesma base", () => {
+    const r=masterFormulaCostInputsForCity([formula()], [{id:'tx',forecast_id:'f',amount:200,type:'expense'}], ['a','b'],'a');
+    expect(r?.forecasts[0].amount).toBe(25); expect(r?.transactions[0].amount).toBe(50);
+  });
+  it("cartões sem fórmulas ficam no caminho legado exacto", () => {
+    expect(masterFormulaCostInputsForCity([{formula_type:'fixed',amount:100}],[],['a','b'],'a')).toBeNull();
+  });
 });
 // SELECT Live 23/10/2026: overheads aprovados activos, sem fórmulas no Master.
 describe("#339 B3 — regressão Live 23/10", () => {
