@@ -76,3 +76,4 @@
 - [x] #339 C: rateio multi-evento em receitas (excesso só aviso; 7 testes); pronto para Publish, CI remoto por confirmar.
 - [x] #339 B1 — migração 0238 revenue_split (aplicada; aguarda verificação chat 5)
 - [x] #339 B2 — receita do Master repartida (código + testes; Publish pendente)
+- [x] #339 B2b — fecho por cidade com quota (Publish + deploy partner-statement pendentes)
