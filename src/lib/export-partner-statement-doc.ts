@@ -17,6 +17,7 @@ import {
   type PartnerStatementDoc,
   type PartnerStatementDocInput,
 } from "@/lib/partner-statement-doc";
+import { formatDatePT } from "@/lib/utils";
 
 const MONEY = '#,##0.00\\ "€"';
 const BRAND = "MUNDO PROPÍCIO";
@@ -298,7 +299,46 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
   wd.addRow([]);
   if (!totalOnly) wd.addRow([t.ivaNote]).font = { name: "Arial", italic: true, size: 9 };
 
+  // (g20 · #345) C e D — só quando há linhas; totais = os da secção 5.
+  for (const sec of detailCD(doc)) {
+    dSection(sec.title);
+    const hr = wd.addRow(sec.head);
+    hr.font = { name: "Arial", bold: true };
+    sec.rows.forEach((r) => {
+      const row = wd.addRow([r[0], r[1], r[2], r[3]]);
+      row.font = { name: "Arial", bold: r[4] === "bold", size: 10 };
+      dMoney(row, [4]);
+    });
+  }
+
   return wb;
+}
+
+type CDRow = [string, string, string, number | null, ("bold" | "")?];
+
+/** (g20 · #345) Linhas das secções C e D do detalhamento (PDF e Excel). */
+export function detailCD(doc: PartnerStatementDoc): Array<{ title: string; head: string[]; rows: CDRow[] }> {
+  const t = doc.t;
+  const d = (v: string | null) => (v ? formatDatePT(v) : "—");
+  const out: Array<{ title: string; head: string[]; rows: CDRow[] }> = [];
+  const paid = doc.paidByPartnerLines ?? [];
+  if (paid.length > 0) {
+    const rows: CDRow[] = paid.map((l) => [d(l.date), l.description, l.category, l.amount]);
+    rows.push([t.total, "", "", doc.paidByPartner, "bold"]);
+    const adj = doc.disbursementAdjustmentLines ?? [];
+    if (adj.length > 0) {
+      rows.push([t.adjustmentsSubtotal, "", "", null, "bold"]);
+      adj.forEach((a) => rows.push([d(a.date), a.description, "", a.amount]));
+    }
+    out.push({ title: t.detailCPaidBy(doc.recipientName), head: [t.date, t.description, t.rubrica, t.value], rows });
+  }
+  const extras = doc.partnerExtrasLines ?? [];
+  if (extras.length > 0) {
+    const rows: CDRow[] = extras.map((l) => [d(l.date), l.description, l.origin, l.amount]);
+    rows.push([t.total, "", "", doc.partnerExtras, "bold"]);
+    out.push({ title: t.detailDExtras(doc.recipientName), head: [t.date, t.description, t.origin, t.value], rows });
+  }
+  return out;
 }
 
 function download(blob: Blob, name: string) {
@@ -700,6 +740,26 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
     pdf.setTextColor(110);
     pdf.text(t.ivaNote, margin, ny, { maxWidth: pageW - margin * 2 });
     pdf.setTextColor(0);
+  }
+
+  // (g20 · #345) C e D a seguir ao B.
+  for (const sec of detailCD(doc)) {
+    const sy2 = sectionTitle(sec.title, nextY() + (totalOnly ? 0 : 4));
+    table({
+      startY: sy2,
+      head: [sec.head],
+      body: sec.rows.map((r) => {
+        const st = r[4] === "bold" ? { fontStyle: "bold" as const } : {};
+        return [
+          { content: r[0], styles: st },
+          { content: r[1], styles: st },
+          { content: r[2], styles: st },
+          { content: r[3] == null ? "" : money(r[3], loc), styles: { ...st, halign: "right" as const } },
+        ];
+      }),
+      styles: { ...styles, fontSize: 8 },
+      columnStyles: { 0: { cellWidth: 22 }, 3: { halign: "right", cellWidth: 30 } },
+    });
   }
 
   const pages = (pdf as any).internal.getNumberOfPages?.() ?? 1;
