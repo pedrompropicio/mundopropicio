@@ -62,7 +62,7 @@ describe("#333 datas do painel — TicketlineReviewPanel", () => {
     expect(screen.getByLabelText("Data do recebimento")).toHaveValue("");
   });
   it("limpar a Data do documento envia date null", async () => {
-    const preview = vi.fn(async () => PREVIEW);
+    const preview = vi.fn(async (_r: any) => PREVIEW);
     render(<TicketlineReviewPanel adapter={{ ticketlinePreview: preview } as unknown as DataEntryAdapter} context={ctx} messageId="m" initial={initial} />);
     fireEvent.click(screen.getByRole("button", { name: "Limpar Data" }));
     fireEvent.click(screen.getByRole("button", { name: "Recalcular prévia" }));
@@ -70,7 +70,7 @@ describe("#333 datas do painel — TicketlineReviewPanel", () => {
     expect(preview.mock.calls[0][0].edits.date).toBeNull();
   });
   it("Limpar recebimento: limpa conta/data/valor/confirmação e recalc sem settlement; invalida prévia", async () => {
-    const preview = vi.fn(async () => PREVIEW);
+    const preview = vi.fn(async (_r: any) => PREVIEW);
     const adapter = { ticketlinePreview: preview, ticketlineAccounts: vi.fn(async () => ACC) } as unknown as DataEntryAdapter;
     render(<TicketlineReviewPanel adapter={adapter} context={ctx} messageId="m" initial={initial} />);
     await waitFor(() => expect(screen.getByRole("option", { name: "Banco Sintético" })).toBeTruthy());
@@ -91,7 +91,7 @@ describe("#333 datas do painel — TicketlineReviewPanel", () => {
     expect(preview.mock.calls[1][0].settlement).toBeUndefined();
   });
   it("recebimento parcial (só data) continua a exigir conta — não é ignorado", async () => {
-    const preview = vi.fn(async () => PREVIEW);
+    const preview = vi.fn(async (_r: any) => PREVIEW);
     render(<TicketlineReviewPanel adapter={{ ticketlinePreview: preview } as unknown as DataEntryAdapter} context={ctx} messageId="m" initial={initial} />);
     fireEvent.change(screen.getByLabelText("Data do recebimento"), { target: { value: "10102026" } });
     fireEvent.click(screen.getByRole("button", { name: "Recalcular prévia" }));
