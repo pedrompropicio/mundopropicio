@@ -82,7 +82,9 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
   // 2. AS RECEITAS DO EVENTO
   section(t.section2);
   arial(ws.addRow([t.origin, t.netValue]), { bold: true });
-  doc.revenues.forEach((r) => moneyCells(arial(ws.addRow([r.origin, r.net])), [2]));
+  // Old Portal JSON remains exportable until the service is updated;
+  // origin grouping still belongs exclusively to the shared builder.
+  (doc.revenueGroups ?? doc.revenues).forEach((r) => moneyCells(arial(ws.addRow([r.origin, r.net])), [2]));
   // (g13) Com cascata os termos adicionais pertencem à secção 4, não às receitas.
   if (!doc.cascade) doc.extras.forEach((e) => moneyCells(arial(ws.addRow([e.label, e.value])), [2]));
   moneyCells(
@@ -392,7 +394,7 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
     startY: y,
     head: [[t.origin, t.netValue]],
     body: [
-      ...doc.revenues.map((r) => [r.origin, money(r.net, loc)]),
+      ...(doc.revenueGroups ?? doc.revenues).map((r) => [r.origin, money(r.net, loc)]),
       ...(doc.cascade ? [] : doc.extras.map((e) => [e.label, money(e.value, loc)])),
       [
         { content: t.totalRevenues, styles: { fontStyle: "bold" } },

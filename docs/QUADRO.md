@@ -210,7 +210,7 @@ _(sem pedidos)_
 
 ## 7 · Fecho e Sócios
 
-_(sem pedidos)_
+- **#344 · R1 · pronto para Publish (janela do 0):** 23/10/2026 — resumo das receitas por origem no documento do sócio PDF/Excel; detalhe A e totais intactos, nos dois modos #342. Código/testes presentes em `b76f1504c`; 13 testes novos PASS; suite completa 2.197 → 2.210 PASS / 6 skip / 11 todo; tsgo 0; build OK. **CI remoto por confirmar antes do Publish.** Portal requer atualização autorizada de `partner-statement` para o novo resumo; documentos antigos continuam exportáveis sem agrupamento até lá. Nenhum deploy feito. Reserva própria libertada; Issue aberta até Pedro verificar Ivete Clareou 2026 · SUPERSOUNDS (575.355,39; detalhe A com 20 linhas). Relatório: `docs/testes/issue344-receitas-por-origem.md`. Sem DDL/DML/Publish.
 
 ## 8 · Tráfego Pago
 
