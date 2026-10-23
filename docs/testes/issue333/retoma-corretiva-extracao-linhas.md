@@ -50,3 +50,24 @@ Base 689efee0 (main/Lovable iguais, CI run 40022453558 success). Seis bloqueios 
 **Duplicados cedo:** `ticketline_candidate` com número lê o ERP isolado (JWT do chamador, RLS por empresa) e devolve `duplicates` + aviso no candidato; nada é criado nem assumido igual ao PDF. Teste prova que outra empresa não vê IDs.
 
 **Provas:** 15 testes novos; ficheiros afetados 74/74; suite completa 2360 PASS (antes 2345) | 6 skip | 11 todo; tsgo 0 erros; deno check limpo. Sem deploy: `data-entry` continua a precisar de deploy R2 separado com "Sim" do Pedro.
+
+
+## Continuação residual R1 — versão local e anexo sem linhas (23/10/2026 ~21:41 UTC)
+
+Base conferida: `708d6fc3075d379d3f06ef1c9ae7e2c0f81b376d`; CI 40026861612 success comunicado pelo controller (não reconsultado). Reserva #333 mantida.
+
+Plano executado: invalidar qualquer mudança dos dados/escolhas/contexto; cercar respostas e callbacks; impedir autoridade do corpo em extração vazia/indisponível; repetir provas sintéticas e suite completa.
+
+- `TicketlineReviewPanel.tsx`: versão incrementada em cada edição, resolução/confirmacão, mudança de origem, candidato inicial (conteúdo, mesmo token), contexto utilizador/empresa/mensagem e seleção de ações. Edição durante pedido continua permitida e invalida autorização. Cada pedido captura versão + identidade própria; callbacks de sucesso, erro e finally antigos não atualizam a versão nova. Mudança de contexto/candidato cercada em layout/cleanup; contas e anexos também têm descarte de respostas fora do contexto. Autorizar valida stale, persistência e seleção admissível no próprio handler local, não só no botão. Recálculo e releitura invalidam autorização anterior.
+- `mergeApuramento`: substitui linhas do corpo mesmo quando a extração tem ZERO linhas; mantém proveniência/contexto e bloqueio `no_lines`. `handler.ts`: candidato do anexo começa sem linhas do corpo; falha/ausência do dedicado ou compatibilidade de metadados nunca promovem corpo a PDF. Extração com linhas compara o corpo original para manter a prova anterior de conflito. Revisão humana explícita e regras financeiras preservadas.
+- `src/test/data-entry-ticketline-apuramento.test.tsx`: 13 casos comportamentais novos. Recálculo tardio após edição total/linha na mesma origem; autorização tardia após edição/seleção/initial/contexto (sem montar executor/chamar status/execute); recálculo com initial novo mantendo token/contexto; erro/finally antigo não liberta pedido novo; corpo com linhas + anexo vazio/falha/fechado/metadados legados produz zero linhas, soma 0 e revisão não confirmada.
+
+Provas antes/depois:
+- Suite ANTES: 2360 PASS, 6 skipped, 11 todo, 254 ficheiros passaram / 2 skipped (`/tmp/issue333-before.log`).
+- Red inicial: 10 falhas comportamentais reais + 1 fixture inválida do scanner legado (503; não era prova de regressão). Fixture corrigida para o contrato `fields` existente; não relaxada validação (`/tmp/issue333-red.log`).
+- Intermédio: 69/69 PASS nos cinco ficheiros de candidato/revisão (antes dos dois últimos casos).
+- Suite FINAL integral: 2373 PASS, 0 falhas, 6 skipped, 11 todo; 254 ficheiros passaram / 2 skipped (`/tmp/issue333-final.log`). As seis correções anteriores e regressões de fatura/anexos/isolamento continuam cobertas pela suite, sem reinvestigação.
+- `deno check supabase/functions/data-entry/index.ts`: PASS (`/tmp/issue333-deno-final.log`).
+- Compilação automática: último sinal após código/testes `build OK` (21:48:56 UTC). Build/tsgo manuais não executados por restrição da plataforma; não se afirma uma execução independente de tsgo. CI do SHA final fica para o controller.
+
+Limites: só fixtures sintéticas/mock e execução local; sem login, IA/Gmail reais, documentos privados, DDL/DML, efeitos financeiros, flags, deploy ou Publish. PDF original não validado. Nenhuma tentativa de comentar a Issue por outro canal; branch documental não consultada/modificada. Reserva mantida para revisão controller; não constitui aceitação ou aptidão para deploy.

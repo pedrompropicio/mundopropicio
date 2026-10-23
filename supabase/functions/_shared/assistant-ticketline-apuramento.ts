@@ -146,7 +146,7 @@ export function mergeApuramento(c: TicketlineCandidate, e: ApuramentoExtraction,
   mergeField("number", e.number, "Número");
   mergeField("date", e.date, "Data");
   mergeField("total_cents", e.total_cents, "Total");
-  if (e.lines.length) {
+  {
     if (e.lines.length > CANDIDATE_LIMITS.lines)
       pushBlocking(out, BLOCKING.coverage_truncated, `Mais de ${CANDIDATE_LIMITS.lines} linhas no apuramento: cobertura incompleta, confirmar no documento original.`);
     const bodyLines = out.lines;
@@ -159,6 +159,7 @@ export function mergeApuramento(c: TicketlineCandidate, e: ApuramentoExtraction,
     out.lines = e.lines.map(l => ({ ...l, prov }));
     out.incomplete = out.incomplete.filter(x => !x.startsWith("Sem linhas reconhecidas") && !x.startsWith("Revisão parcial: o scanner lê só"));
     out.blocking = out.blocking.filter(b => b.code !== BLOCKING.no_lines);
+    if (!e.lines.length) pushBlocking(out, BLOCKING.no_lines, "O anexo não devolveu linhas utilizáveis: introduzir as linhas a partir do documento original.");
   }
   // Soma do candidato efetivo (não só da extração): total do corpo vs linhas do anexo também é conferido.
   const sumIssue = candidateSumMessage(out);

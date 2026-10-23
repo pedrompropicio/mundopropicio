@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { DataEntryAdapter, DataEntryContext, TicketlineCandidate, TicketlineEdits, TicketlineLineType, TicketlinePreviewResult, CandidateProvenance, TicketlineAttachment } from "@/lib/data-entry-client";
@@ -48,33 +48,59 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   // #333 revisão controller: pendências bloqueantes resolvidas explicitamente pela pessoa (por código).
   const [resolved, setResolved] = useState<string[]>([]);
   const [dups, setDups] = useState<{ id: string; number: string; status: string }[]>([]);
-  const run = async (f: () => Promise<void>) => { setBusy(true); setError(null); setNotice(null); try { await f(); } catch (e) { setError(e instanceof Error ? e.message : "Indisponível."); } finally { setBusy(false); } };
-  // #333 retoma corretiva: trocar de origem invalida qualquer pedido em voo — uma resposta antiga
-  // nunca se reaplica ao novo radio (o reset do 12k sozinho não bastava). A guarda cobre TODAS as
-  // respostas que mudam prévia/autorização/aviso (load, recalc, authorize), não só o load.
+  // Local data version and request identity fence every callback, including errors/finally.
   const seq = useRef(0);
+  const request = useRef(0);
+  const invalidate = () => {
+    seq.current++; setBusy(false); setAuth(null); setError(null); setNotice(null);
+  };
+  const run = async (f: (current: () => boolean) => Promise<void>) => {
+    const version = seq.current, id = ++request.current;
+    const current = () => version === seq.current && id === request.current;
+    setBusy(true); setError(null); setNotice(null);
+    try { await f(current); }
+    catch (e) { if (current()) setError(e instanceof Error ? e.message : "Indisponível."); }
+    finally { if (current()) setBusy(false); }
+  };
   const apply = (r: Initial) => {
-    setToken(r.candidate_token); setCand(r.candidate); setPreview(null); setStale(false); setConfirmed(false); setSelected([]); setAuth(null); setResolved([]); setDups(r.duplicates ?? []);
+    invalidate();
+    setToken(r.candidate_token); setCand(r.candidate); setPreview(null); setStale(false); setConfirmed(false); setSelected([]); setResolved([]); setDups(r.duplicates ?? []);
+    setSettle({ account: "", date: "", amount: "", confirm: false }); setClose({ ids: [], date: "", to: "" });
     setForm({ office: "", number: r.candidate.number?.value ?? "", date: r.candidate.date?.value ?? "", total: r.candidate.total_cents ? fmt(r.candidate.total_cents.value) : "", event_id: r.candidate.event_id?.value ?? "" });
     setLines(r.candidate.lines.map(l => ({ line_type: l.line_type, description: l.description, amount: fmt(l.amount_cents), event_hint: l.event_hint })));
   };
-  useEffect(() => { if (initial) apply(initial); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [initial?.candidate_token]);
-  const load = () => run(async () => {
-    if (!adapter.ticketlineCandidate) throw new Error("Revisão indisponível.");
-    const my = ++seq.current;
-    const r = await adapter.ticketlineCandidate({ message_id: messageId, ...(part ? { part_id: part } : {}) }, context);
-    if (my !== seq.current) return; // origem trocada entretanto: resposta antiga descartada
-    apply(r);
-  });
-  const loadAttachments = () => run(async () => {
+  const scopeKey = JSON.stringify([context.user_id, context.company_id, messageId, partId ?? ""]);
+  const initialKey = JSON.stringify(initial ?? null);
+  // Layout cleanup fences old promises before the new context/candidate becomes interactive.
+  useLayoutEffect(() => {
+    invalidate(); setCand(null); setToken(null); setPreview(null); setStale(true); setSelected([]); setConfirmed(false); setResolved([]); setDups([]);
+    setAccounts(null); setEventOptions(events); setPart(partId ?? ""); setAttachments(initialAttachments ?? null);
+    if (initial) apply(initial);
+    return () => { seq.current++; request.current++; };
+    // Values are keyed by content, not by newly allocated prop objects.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeKey, initialKey, adapter]);
+  const load = () => {
+    invalidate(); setSelected([]);
+    return run(async current => {
+      if (!adapter.ticketlineCandidate) throw new Error("Revisão indisponível.");
+      const r = await adapter.ticketlineCandidate({ message_id: messageId, ...(part ? { part_id: part } : {}) }, context);
+      if (!current()) return;
+      apply(r);
+    });
+  };
+  const loadAttachments = () => run(async current => {
     if (!adapter.ticketlineAttachments) throw new Error("Lista de anexos indisponível.");
-    setAttachments((await adapter.ticketlineAttachments({ message_id: messageId }, context)).attachments);
+    const r = await adapter.ticketlineAttachments({ message_id: messageId }, context);
+    if (current()) setAttachments(r.attachments);
   });
   useEffect(() => {
     if (!cand || accounts || !adapter.ticketlineAccounts) return;
-    adapter.ticketlineAccounts(context).then(r => setAccounts(r.accounts)).catch(() => setAccounts([]));
-  }, [cand, accounts, adapter, context]);
-  const edit = (f: () => void) => { f(); setStale(true); setSelected([]); setAuth(null); };
+    let active = true;
+    adapter.ticketlineAccounts(context).then(r => { if (active) setAccounts(r.accounts); }).catch(() => { if (active) setAccounts([]); });
+    return () => { active = false; };
+  }, [cand, accounts, adapter, context.user_id, context.company_id]);
+  const edit = (f: () => void) => { invalidate(); f(); setStale(true); setSelected([]); };
   const edits = (): TicketlineEdits => {
     const parsed = lines.map(l => ({ line_type: l.line_type, description: l.description, amount_cents: toCents(l.amount), event_hint: l.event_hint }));
     if (parsed.some(l => l.amount_cents === null)) throw new Error("Valor de linha inválido.");
@@ -91,28 +117,29 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
     const amount_cents = toCents(settle.amount); if (!amount_cents) throw new Error("Valor recebido inválido.");
     return { financial_account_id: settle.account, date: settle.date, amount_cents, confirm: true as const };
   };
-  const recalc = (save?: boolean) => run(async () => {
+  const recalc = (save?: boolean) => run(async current => {
     if (!adapter.ticketlinePreview || !token) throw new Error("Revisão indisponível.");
-    const my = seq.current; // resposta tardia após troca de origem é descartada, nunca aplicada
+    setAuth(null); setSelected([]);
     const r = await adapter.ticketlinePreview({ candidate_token: token, edits: edits(), settlement: settlement(),
       ...(save ? { save: { review_id: preview?.review?.review_id ?? null, expected_version: preview?.review?.version ?? null } } : {}) }, context);
-    if (my !== seq.current) return;
+    if (!current()) return;
     if (r.events?.length) setEventOptions(prev => [...new Map([...prev, ...r.events!].map(e => [e.id, e])).values()]);
     setPreview(r); setStale(false); setSelected([]);
   });
   const actions = preview?.proposal.actions ?? [];
   const toggle = (id: string) => {
+    invalidate();
     const deps = (x: string, acc = new Set<string>()): Set<string> => { acc.add(x); actions.find(a => a.id === x)?.depends_on.forEach(d => deps(d, acc)); return acc; };
     const dependents = (x: string, acc = new Set<string>()): Set<string> => { acc.add(x); actions.filter(a => a.depends_on.includes(x)).forEach(a => dependents(a.id, acc)); return acc; };
     setSelected(cur => cur.includes(id) ? cur.filter(x => !dependents(id).has(x)) : [...new Set([...cur, ...deps(id)])]);
   };
   const admissible = selected.length > 0 && selected.every(id => { const a = actions.find(x => x.id === id); return a && !a.blocked_reason && a.depends_on.every(d => selected.includes(d)); });
-  const authorize = () => run(async () => {
-    if (!adapter.ticketlineAuthorize || !preview?.review) throw new Error("Autorização indisponível.");
-    const my = seq.current; // autorização tardia após troca de origem nunca é aplicada
+  const authorize = () => run(async current => {
+    if (stale || !admissible || !preview?.persisted || !adapter.ticketlineAuthorize || !preview.review) throw new Error("Autorização indisponível.");
+    setAuth(null);
     const r = await adapter.ticketlineAuthorize({ review_id: preview.review.review_id, version: preview.review.version, effects_hash: preview.review.effects_hash,
       action_ids: [...selected].sort(), replay_key: crypto.randomUUID() }, context);
-    if (my !== seq.current) return;
+    if (!current()) return;
     setNotice(r.notice);
     setAuth({ id: r.authorization_id, action_ids: r.action_ids ?? [...selected].sort(), executor: r.executor === "disponível" });
   });
@@ -120,7 +147,7 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   const input = "w-full min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm";
 
   // #333 fase12k: trocar de origem invalida o candidato atual; nunca mostrar dados do anexo anterior sob o novo.
-  const choose = (id: string) => { if (id === part) return; seq.current++; setPart(id); setCand(null); setToken(null); setPreview(null); setConfirmed(false); setSelected([]); setAuth(null); setResolved([]); setDups([]); };
+  const choose = (id: string) => { if (id === part) return; invalidate(); setStale(true); setPart(id); setCand(null); setToken(null); setPreview(null); setConfirmed(false); setSelected([]); setAuth(null); setResolved([]); setDups([]); };
   const images = (attachments ?? []).filter(a => a.mime.startsWith("image/"));
   const docs = (attachments ?? []).filter(a => !a.mime.startsWith("image/"));
   const radio = (a: TicketlineAttachment) => (

@@ -325,6 +325,9 @@ export function createHandler(d: Deps) {
           let prov;
           try { prov = await verifyAttachmentSource({ message_id: body.message_id, part_id: body.part_id, bytes: att.bytes, mime, listed: listed.map(a => ({ part_id: a.part_id, size_bytes: a.size_bytes })), expected_sha256: body.expected_sha256 }); }
           catch (e) { throw new SafeError((e as Error).message, 409); }
+          // Even unavailable/metadata-only scanners cannot promote email lines to PDF evidence.
+          const bodyCandidate = cand;
+          cand = mergeApuramento(cand, { number: null, date: null, total_cents: null, lines: [], incomplete: [], blocking: [] }, prov);
           if (d.scanApuramento) {
             // UMA chamada dedicada ao contrato de apuramento (metadados + linhas, multi-página).
             // O scanner genérico de faturas NÃO é chamado neste caminho: evita 2 POSTs ao mesmo
@@ -340,7 +343,7 @@ export function createHandler(d: Deps) {
             }
             // Revalidação de auth/empresa FORA do catch: revogação durante o scanner é recusa, nunca pendência.
             await canonicalStorageContext();
-            if (ext) cand = mergeApuramento(cand, ext, prov);
+            if (ext) cand = mergeApuramento(bodyCandidate, ext, prov);
           } else if (d.scanAttachment) {
             const wire = await boundedAnalysis(req.signal, signal => d.scanAttachment!(att.bytes, mime, signal));
             await canonicalStorageContext();

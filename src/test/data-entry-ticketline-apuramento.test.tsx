@@ -1,7 +1,7 @@
 // #333 retoma corretiva (23/10/2026) — extração das LINHAS do apuramento a partir do anexo PDF.
 // Fixtures 100 % sintéticas; nenhum byte, valor ou texto do documento real é usado.
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { PDFDocument } from "pdf-lib";
 import { apuramentoFromWire, mergeApuramento, apuramentoSumCheck, generateApuramentoAnalysis, APURAMENTO333_INSTRUCTIONS } from "../../supabase/functions/_shared/assistant-ticketline-apuramento";
 import { candidateFromBody, verifyAttachmentSource, candidateToStatement, applyHumanEdits } from "../../supabase/functions/_shared/assistant-ticketline-candidate";
@@ -380,5 +380,96 @@ describe("#333 revisão controller — painel: recalc/autorização tardios apó
     await new Promise(r => setTimeout(r, 50));
     expect(screen.queryByText(/Autorização registada/)).toBeNull();
     expect(adapter.ticketlineAuthorize).toHaveBeenCalledOnce();
+  });
+  const ctx = { user_id: user, company_id: company };
+  const initial = { candidate: CAND, candidate_token: "tok" };
+  const deferred = () => {
+    let resolve: (v: unknown) => void = () => {};
+    let reject: (e: Error) => void = () => {};
+    const promise = new Promise<unknown>((yes, no) => { resolve = yes; reject = no; });
+    return { promise, resolve, reject };
+  };
+  const ready = async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Recalcular prévia" }));
+    await waitFor(() => expect(screen.getByLabelText("Registar apuramento")).toBeTruthy());
+  };
+  it.each(["Total", "Valor da linha 1"])("recalc em voo + editar %s na mesma origem descarta prévia e preserva stale", async label => {
+    const pending = deferred();
+    const adapter = { ticketlinePreview: vi.fn().mockResolvedValueOnce(PREVIEW).mockReturnValueOnce(pending.promise) } as unknown as DataEntryAdapter;
+    render(<TicketlineReviewPanel adapter={adapter} context={ctx} messageId="m" initial={initial} />);
+    await ready();
+    fireEvent.click(screen.getByRole("button", { name: "Recalcular prévia" }));
+    fireEvent.change(screen.getByLabelText(label), { target: { value: "2,00" } });
+    await act(async () => pending.resolve(PREVIEW));
+    expect(screen.queryByLabelText("Registar apuramento")).toBeNull();
+    expect(screen.getByRole("button", { name: "Guardar revisão" })).toBeDisabled();
+    expect(screen.getByLabelText(label)).toHaveValue("2,00");
+  });
+  it.each(["edit", "selection", "initial", "context"])("authorize em voo + %s invalida autorização/notice/executor", async change => {
+    const pending = deferred();
+    const adapter = { ticketlinePreview: vi.fn(async () => PREVIEW), ticketlineAuthorize: vi.fn(() => pending.promise), ticketlineExecute: vi.fn(), ticketlineExecutionStatus: vi.fn() } as unknown as DataEntryAdapter;
+    const props = { adapter, context: ctx, messageId: "m", initial };
+    const view = render(<TicketlineReviewPanel {...props} />);
+    await ready();
+    fireEvent.click(screen.getByLabelText("Registar apuramento"));
+    fireEvent.click(screen.getByRole("button", { name: "Autorizar" }));
+    if (change === "edit") fireEvent.change(screen.getByLabelText("Total"), { target: { value: "2,00" } });
+    if (change === "selection") fireEvent.click(screen.getByLabelText("Registar apuramento"));
+    if (change === "initial") view.rerender(<TicketlineReviewPanel {...props} initial={{ candidate: { ...CAND, number: { ...CAND.number, value: "AP-NEW" } }, candidate_token: "tok-new" }} />);
+    if (change === "context") view.rerender(<TicketlineReviewPanel {...props} context={{ ...ctx, company_id: "99999999-9999-4999-8999-999999999999" }} />);
+    await act(async () => pending.resolve({ authorization_id: "OLD", action_ids: ["a1"], executor: "disponível", notice: "OLD NOTICE" }));
+    expect(screen.queryByRole("region", { name: "Execução autorizada" })).toBeNull();
+    expect(screen.queryByText("OLD NOTICE")).toBeNull();
+    expect(adapter.ticketlineExecutionStatus).not.toHaveBeenCalled();
+    expect(adapter.ticketlineExecute).not.toHaveBeenCalled();
+  });
+  it.each(["initial-same-token", "context"])("recalc tardio após %s não monta prévia antiga", async change => {
+    const pending = deferred();
+    const adapter = { ticketlinePreview: vi.fn(() => pending.promise) } as unknown as DataEntryAdapter;
+    const props = { adapter, context: ctx, messageId: "m", initial };
+    const view = render(<TicketlineReviewPanel {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Recalcular prévia" }));
+    if (change === "initial-same-token") view.rerender(<TicketlineReviewPanel {...props} initial={{ ...initial, candidate: { ...CAND, number: { ...CAND.number, value: "AP-SAME-TOKEN-NEW" } } }} />);
+    else view.rerender(<TicketlineReviewPanel {...props} context={{ ...ctx, user_id: "55555555-5555-4555-8555-555555555555" }} />);
+    await act(async () => pending.resolve(PREVIEW));
+    expect(screen.queryByLabelText("Registar apuramento")).toBeNull();
+    expect(screen.getByRole("button", { name: "Guardar revisão" })).toBeDisabled();
+    if (change === "initial-same-token") expect(screen.getByLabelText("Número")).toHaveValue("AP-SAME-TOKEN-NEW");
+  });
+  it("erro/finally antigos não alteram versão nova nem libertam pedido novo", async () => {
+    const old = deferred(), fresh = deferred();
+    const adapter = { ticketlinePreview: vi.fn().mockReturnValueOnce(old.promise).mockReturnValueOnce(fresh.promise) } as unknown as DataEntryAdapter;
+    render(<TicketlineReviewPanel adapter={adapter} context={ctx} messageId="m" initial={initial} />);
+    fireEvent.click(screen.getByRole("button", { name: "Recalcular prévia" }));
+    fireEvent.change(screen.getByLabelText("Total"), { target: { value: "2,00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Recalcular prévia" }));
+    expect(adapter.ticketlinePreview).toHaveBeenCalledTimes(2);
+    await act(async () => old.reject(new Error("OLD ERROR")));
+    expect(screen.queryByText("OLD ERROR")).toBeNull();
+    expect(screen.getByRole("button", { name: "Recalcular prévia" })).toBeDisabled();
+    await act(async () => fresh.resolve(PREVIEW));
+    expect(screen.getByRole("button", { name: "Recalcular prévia" })).not.toBeDisabled();
+  });
+
+});
+
+
+describe("#333 residual — anexo vazio/falha nunca promove linhas do email", () => {
+  it.each(["empty", "failure", "closed", "legacy"])("corpo com linhas + scanner %s fica parcial sem linhas de corpo", async mode => {
+    const d = deps(mode === "empty" ? { scanApuramento: async () => apuramentoFromWire({ ...WIRE_OK, lines: [] }) }
+      : mode === "failure" ? { scanApuramento: async () => { throw new Error("unavailable"); } }
+      : mode === "legacy" ? { scanAttachment: async () => ({ answer: "", warnings: [], fields: [{ field: "invoice_number", value: "AP-SINT-01", quote: null, page: null, confidence: null, uncertainty: null }] }) as never } : {});
+    const baseReader = await (d.gmail as unknown as { reader: () => Promise<unknown> }).reader() as unknown as Record<string, unknown>;
+    d.gmail = { reader: async () => ({ ...baseReader, read: async (id: string) => ({ message_id: id, body_text: "Apuramento nº AP-SINT-01\nRepasse quinzenal: -300,00 €", truncated: false }) }) } as never;
+    const r = await post(createHandler(d), { action: "ticketline_candidate", message_id: "msgSINT02", part_id: "2.1" });
+    expect(r.status).toBe(200);
+    const { candidate: c, candidate_token: token } = await r.json();
+    expect(c.lines).toEqual([]);
+    expect(c.sources.some((p: { source: string }) => p.source === "email_body")).toBe(true);
+    expect(c.sources.some((p: { source: string }) => p.source === "attachment")).toBe(true);
+    expect(c.blocking.some((b: { code: string }) => b.code === "no_lines")).toBe(true);
+    const preview = await (await post(createHandler(d), { action: "ticketline_preview", candidate_token: token, edits: { confirm_review: true } })).json();
+    expect(preview.proposal.sum_cents).toBe(0);
+    expect(preview.proposal.effects.human_reviewed).toBe(false);
   });
 });

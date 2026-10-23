@@ -53,3 +53,8 @@ Contrato dedicado `_shared/assistant-ticketline-apuramento.ts` extrai as LINHAS 
 - Valores monetários sem arredondamento (>2 casas recusados, tolerância só a ruído IEEE754); event_hint de repasse/transitado normalizado a null no servidor; moeda ausente nunca presumida EUR.
 - Pendências bloqueantes são estruturadas (`blocking: {code,message}[]`, assinadas no token e no hash); resolução humana explícita por código + recomputação (no_lines/sum_mismatch); regex de mensagem nunca resolve; avisos informativos não bloqueiam.
 - Guarda seq do painel cobre load, recalc e authorize (respostas tardias descartadas). Duplicados cedo via leitura ERP isolada (JWT do chamador); outra empresa não vê IDs.
+
+
+## #333 residual — versão da revisão e ausência de extração (23/10/2026)
+Toda alteração dos dados, resolução/confirmacão, origem, candidato inicial (mesmo token), utilizador/empresa e seleção de ações invalida pedidos e autorização. Sucesso/erro/notice/finally só se aplicam à versão e pedido atuais; editar durante autorização nunca restaura autorização antiga. Guarda no handler local além dos botões; sem autorização executável antiga no contexto novo.
+Escolhido anexo, ZERO linhas, falha/ausência do scanner ou scanner só de metadados significam linhas vazias + bloqueio/revisão manual; corpo mantém só contexto/proveniência, nunca linhas promovidas à fonte PDF. Testes sintéticos não autorizam deploy/Publish nem validam PDF original.
