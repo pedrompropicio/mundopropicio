@@ -1,94 +1,105 @@
-# Issue #346 (R2, D-ERP291) — Ligar adiantamento livre a um contrato de cachê existente
+# #339 — Plano: fórmula em receitas (A), receitas no Master (B), rateio de receitas (C)
 
-Executor 7 · Fecho e Sócios, autorizado pelo Pedro a 23/10/2026. HEAD de partida c5dfad1. Este passo é só plano.
+## Factos confirmados nesta leitura (Live + código)
 
-## O que foi lido
-- Issue #346: pelo resumo do despacho (a função `github-issues` pede sessão; não reli o corpo).
-- `.lovable/memory/features/cache-payment-contracts.md`; D-ERP288 e adendas de 20/10 e 21/10 em `docs/DECISIONS.md`.
-- `drizzle/migrations/0214`, `0215`, `0216`, `0217` (lista das funções).
-- Live, só leitura: `pg_get_functiondef` de `_cache_create_contract` (lida por inteiro), `_cache_free_advances` (embrulha `_cache_free_advances_x` com `_cache_guc_choices()`), `_run_invariant_checks_cache_contracts` (lida); assinatura, tamanho e SECURITY DEFINER de `_cache_alloc`, `_cache_cities`, `add_cache_contract_advance`, `update_cache_payment_contract`, `_cache_cancel_contract`, `cache_contract_context`. Antes de escrever a migração leio também o corpo destas seis.
-- `src/components/CacheContractsPanel.tsx` (painel, modal "Novo contrato de pagamento"/"Alterar contrato", diálogo do adiantamento).
-- `attach_cache_advance_to_contract` ainda não existe em Live.
+- Live, versão activa: SM Lisboa e SM Porto têm cada uma uma linha de RECEITA `1.3.04 "Ticketline — Revenue Share 2,5% l vendas online"`, `formula_type='fixed'`, sem parâmetros: Lisboa 4.200,75 · Porto 5.278,875 (3 casas decimais). É 2,5% (não 2%) e sobre "vendas online" — não sobre toda a bilheteira.
+- Live: SM Porto tem a despesa `2.6.07 "2% de comissão ticketline"` com fórmula (2%, base líquida 241.934,10 → 4.838,68, overhead). Em SM Lisboa a pesquisa não devolveu linha equivalente — confirmar no passo A0.
+- `BpFormulaPanel` filtra `.eq("type","expense")` e exclui linhas de cachê → linhas de receita nunca aparecem no painel.
+- `useSyncFormulaForecasts` não filtra por tipo (lê por `formula_type`), mas no Master devolve `masterBlocked` e não recalcula.
+- O motor `bp-formula.ts` é neutro quanto ao tipo (calcula um valor a partir de vendas/convites).
+- `computeMasterQuota(masterCost, n)` = divisão igualitária ÷N; usado só no card de custos (`useEventFinancialCardData`).
+- `event-revenue-basis.ts`: "outras receitas" = linhas de BP `income` da versão activa não cobertas por sintéticas; perímetro da raiz já junta Master + cidades.
+- `real-cache-calc.ts`: a base do cachê é SÓ `ticket_sales` (bruta/líquida); linhas de BP de receita não entram no cachê.
+- `TransactionFormModal`: o interruptor de rateio não depende do tipo (aparece também em Receita). Verba e linha de BP por perna usam `form.type`. Retenção na fonte e sócio ordenante/pagador só em despesa.
+- Conciliação (`reconcile.ts`): só liga linha do banco a transações existentes; não há confirmação lida aqui de como trata uma mãe sem evento com crédito — fica para C1.
 
-## Estado real em Live (lido hoje)
-Contrato 1 `0db87a56` (85.000,00, IRS 25%):
-- mãe de saldo `a6d6199d` 63.750,00; filhas: Lisboa (`95051bc2`) `a6f0f847` 28.272,01, Porto (`56e431e8`) `30c6d752` 35.477,99 (âncora da linha de BP do Porto);
-- mãe de retenção `b3fa1e9f` 21.250,00; filhas: Lisboa 9.424,01, Porto 11.825,99;
-- nada pago, nenhum `transaction_payments`.
+Não lidos nesta sessão (a ler antes de executar): corpo e comentários da Issue #339 (github-issues dá 401), `docs/INDEX.md`, D24/D-ERP127 completos.
 
-Adiantamento `204d17ca`: 10.000,00, pago, 1 pagamento, Lisboa, linha de BP `16c052f7`, `cache_role` NULL, fornecedor HENZA (`58d26542`) ≠ beneficiário SIMONE MENDES; é a âncora da linha de BP de Lisboa.
+---
 
-## Resultado esperado (prova 1, ligar ao contrato 1)
-| Linha | Antes | Depois |
-|---|---|---|
-| Filha de saldo de Lisboa `a6f0f847` | 28.272,01 | 18.272,01 |
-| Mãe de saldo `a6d6199d` | 63.750,00 | 53.750,00 |
-| Filha de saldo do Porto `30c6d752` | 35.477,99 | 35.477,99 (só a percentagem muda) |
-| Cidade Lisboa: adiantamentos / saldo | 0 / 28.272,01 | 10.000,00 / 18.272,01 |
-| Contrato: adiantamentos | 0 | 10.000,00 |
-| Adiantamento 204d17ca | livre | `cache_contract_id`=contrato 1, `cache_role`='advance' |
+## A — Fórmula em linhas de RECEITA
 
-Bruto, quotas e retenção ficam iguais. "Usar o restante por contratar" passa de 60.420,19 para 155.420,19 − 85.000,00 = **70.420,19**, e um contrato HENZA de 70.420,19 deixa de bater no teto de Lisboa (37.696,02 + 31.230,13 = 68.926,15).
+O que assume despesa hoje: só o painel (filtro `type='expense'`, textos "custo"). Motor e hook não.
 
-## 1. RPC `attach_cache_advance_to_contract(p_contract_id uuid, p_advance_tx_id uuid, p_confirm_beneficiary boolean DEFAULT false) RETURNS jsonb`
-SECURITY DEFINER, `search_path=public`. Guardas iguais às outras RPC do cachê: `_cache_assert_actor`, empresa ativa (`current_company_id()` = empresa do contrato e do adiantamento), `pg_advisory_xact_lock(hashtext('cache:'||raiz||':'||artista))`, `FOR UPDATE` no contrato, mãe/filhas de saldo e adiantamento (por id).
+Como entra nos números (sem tocar na SSoT):
+- O valor calculado grava em `event_forecasts.amount` da linha de receita (via a RPC observada, mesma auditoria). A receita do BP, o "previsto corrente" e o resultado passam a vê-lo pelo caminho que já existe: bucket "Outros" de `event-revenue-basis` (linha 1.3.x não é classe com módulo). Nenhum cálculo novo de receita.
+- Linhas sintéticas 1.1.01 / 1.1.03: a fórmula fica proibida em linhas dessas classes (a sintética já as substitui — #220). Regra no painel e no hook: recusa `formula_type` em 1.1.01/1.1.03.
+- Cachê: não muda (base continua `ticket_sales`). Se o Pedro quiser que o revenue share conte para o cachê, é decisão nova (pergunta 3).
+- Chão #240 (não descer abaixo do realizado): em receita o realizado são transações `income` da linha — mesma regra, mesmo aviso.
 
-Ordem:
-1. **Idempotência:** se o adiantamento já está neste contrato com `cache_role='advance'`, devolve `{already_attached:true}` e não muda nada.
-2. **Recusas:** `contrato_cancelado`; `adiantamento_inexistente`; `adiantamento_ja_associado` (outro contrato); `adiantamento_invalido` (não está em `_cache_free_advances(raiz, artista)`, ou seja, de outro artista, outra raiz, lançado no Master ou com papel); `adiantamento_estornado` (`reversed_at` não nulo); `empresa_diferente`; `cidade_fora_do_contrato` (a cidade do adiantamento não tem linha em `cache_payment_contract_cities`); `sem_mae_saldo`; `saldo_negativo` (saldo da cidade − valor < 0); `saldo_abaixo_do_pago` (saldo da cidade − valor < pago dessa filha + valor em lista aprovada/paga dessa filha); `beneficiario_diferente: beneficiário <nome> ≠ fornecedor do adiantamento <nome>` quando diferem e `p_confirm_beneficiary` é falso.
-3. **Alterações (por esta ordem, numa transação):**
-   - `transactions` do adiantamento e das suas filhas (se tiver): `cache_contract_id`, `cache_role='advance'`, `cache_root_event_id`, `cache_artist_supplier_id` — o mesmo UPDATE que `_cache_create_contract` faz no fim. Valor, estado, conta, data, fornecedor e pagamentos não mudam.
-   - Filha de saldo da cidade: `amount -= valor`. Mãe de saldo: `amount -= valor`. Percentagens (`split_percentage`) das filhas de saldo recalculadas com a regra da criação (4 casas; a filha maior fica com 100 − soma).
-   - Se a filha da cidade ficar a 0: apagada pelo mesmo tratamento de dependências da 0217 (re-âncora da linha de BP); se a mãe ficar a 0: apagada e `artist_mother_id` a NULL. (Só acontece com adiantamento = saldo da cidade; as recusas do passo 2 garantem que não há pagamento nela.)
-   - `cache_payment_contract_cities` da cidade: `advances += valor`, `artist_balance -= valor`.
-   - `cache_payment_contracts`: `advances_amount += valor`, `updated_at`.
-   - Auditoria: uma linha em `system_audit_log` (ação `cache_advance_attached`, contrato, adiantamento, cidade, saldo antes/depois, confirmação de beneficiário).
-4. **Não muda:** `transaction_payments` (nenhuma linha), retenção (mãe e filhas), quotas, bruto, outros contratos, outras cidades além da percentagem das filhas de saldo do mesmo contrato, `withholding_amount`/`declared_withholding_*` (nunca usados).
-5. **Âncora da linha de BP:** `event_forecasts.transaction_id` não é tocado. Em Lisboa continua o adiantamento `204d17ca` (já âncora); no Porto continua `30c6d752`. Só se a filha for apagada (passo 3) a linha é re-ancorada à próxima transação (date, created_at, id) com `bp_tx_link_allowed`, ou NULL — o mesmo código da 0217.
-6. Devolve `{contract_id, advance_id, event_id, amount, city_balance_before, city_balance_after, contract_advances_after}`.
+DDL: nenhuma (`formula_type` é texto, `formula_params` já é jsonb).
 
-`cache_contract_context` e o estado do contrato passam a refletir a ligação sem alterações (leem as tabelas). Se `cache_contract_context` não devolver os nomes do beneficiário/fornecedor do adiantamento livre, acrescento `supplier_id`/`supplier_name` a `free_advances` (só leitura, campo novo).
+Ficheiros: `BpFormulaPanel.tsx` (tirar o filtro de tipo, rótulos por tipo, recusa 1.1.x), `useSyncFormulaForecasts.ts` (recusa 1.1.x, chão em receita), `bp-formula.ts` (só `describeBpFormula` se o texto disser "custo"), form inline/Planilha (bloqueio já genérico — confirmar).
 
-## 2. Ecrã — "Ligar adiantamento" no cartão do contrato
-- Botão no cartão de cada contrato ativo, visível quando há adiantamentos livres do artista.
-- Diálogo: lista dos livres (descrição, cidade, valor, fornecedor, pago/não pago); ao escolher um, prévia da cidade: saldo antes → depois, adiantamentos do contrato antes → depois; erro em linha se o saldo ficasse negativo ou abaixo do já pago.
-- Se o fornecedor ≠ beneficiário: aviso com os dois nomes e caixa "Confirmo que este adiantamento conta para este contrato" (passa `p_confirm_beneficiary=true`). Sem caixa, o botão fica desligado; se a RPC devolver `beneficiario_diferente`, mostra a mesma caixa.
-- Confirmação final → RPC → invalida as chaves do painel e o helper central dos cartões do evento.
+Testes vitest: cálculo 2,5% bruta/líquida com zonas e mín/máx numa linha income; recusa em 1.1.01/1.1.03; receita do evento com a linha de fórmula conta uma vez em "Outros"; chão em receita.
 
-## 3. Modal "Novo contrato" — aviso antes de "Criar contrato"
-- Com adiantamentos livres por marcar e a divisão proporcional (`previewContract`) a passar o teto de uma cidade, mostrar antes do botão: por cidade, teto, quotas dos contratos ativos, adiantamentos livres e espaço livre; e as duas saídas: "Ligar a um contrato existente" (abre o diálogo da secção 2 já filtrado) e "Marcar neste contrato" (marca o adiantamento na lista do modal).
-- "Criar contrato" fica desligado enquanto o aviso estiver ativo (a RPC recusaria com `teto_cidade_excedido`). O texto do erro da RPC passa a remeter para estas duas saídas.
-- Caso real: depois de ligar o `204d17ca` ao contrato 1, "Usar o restante por contratar" mostra 70.420,19 e o aviso desaparece.
+Aceitação (A0 — query a Live antes): base de "vendas online" Ticketline em SM Lisboa e SM Porto (por zona/canal?) e valor esperado vs 4.200,75 / 5.278,875. Se "online" não for filtrável por zona, a fórmula só serve sobre bilheteira total (pergunta 1).
 
-## 4. Invariante nova em `_run_invariant_checks_cache_contracts`
-`cache_cidade_teto_excedido`: por raiz + artista + cidade, soma das quotas dos contratos ativos + adiantamentos livres (`_cache_free_advances`) ≤ teto da cidade (+0,005). Registo em `system_invariants` com `reference_count=0`; ajuste do `_run_invariant_checks_all` só se precisar de ser listado lá. Antes de aplicar, conto em Live quantos casos já existem; se houver algum, o `reference_count` fica com esse número e documento quais.
+Eventos fechados/selados: o hook já só corre em eventos abertos; acrescentar teste que garante que eventos `completed`/selados não recalculam. Nenhuma conversão de linha existente sem Sim.
 
-## 5. Migração
-- `drizzle/migrations/0237_cache_attach_advance_to_contract.sql` (última livre: 0236).
-- Conteúdo: `CREATE FUNCTION attach_cache_advance_to_contract`; nova versão de `_run_invariant_checks_cache_contracts`; INSERT da invariante em `system_invariants` (`ON CONFLICT DO NOTHING`); `cache_contract_context` só se for preciso o campo de fornecedor.
-- ACL: `REVOKE ALL ON FUNCTION ... FROM PUBLIC, anon; GRANT EXECUTE ... TO authenticated;` (e `service_role`, como na 0215).
-- Rollback (`supabase/manual/rollback_0237.sql`, não aplicado): `DROP FUNCTION attach_cache_advance_to_contract(uuid,uuid,boolean)`; repor `_run_invariant_checks_cache_contracts` com o corpo atual de Live (guardado byte a byte); apagar a linha da invariante. Ligações já feitas não se desfazem pelo rollback — desligam-se com "Alterar" do contrato.
-- Prova antes de aplicar, em `BEGIN … ROLLBACK` (passo R2 com "Sim", sessão de leitura sem COMMIT):
-  - Prova 1: criar a função temporariamente na transação, ligar `204d17ca` ao contrato 1, mostrar as linhas da tabela acima antes/depois, soma de `amount` por contrato/cidade para todos os outros contratos igual antes e depois, invariantes `cache_contrato_cidade_divergente` e nova a 0, e `_cache_free_advances` sem o 204d17ca; ROLLBACK.
-  - Prova 2: na mesma transação de prova, criar o contrato HENZA de 70.420,19 sem adiantamentos, ligar-lhe o `204d17ca`, mostrar saldos de Lisboa antes/depois e o contrato 1 intacto; ROLLBACK.
-  - Recusas: `beneficiario_diferente` sem confirmação; segunda chamada idempotente.
+Passos: A0 query (R0) · A1 código + testes (R1) · A2 converter as 2 linhas SM em Live (R2, Sim).
 
-## 6. Testes, ficheiros e riscos
-**Testes vitest:** prévia por cidade (saldo antes/depois, recusa de saldo negativo e abaixo do pago); aviso do modal com os números do caso real (Lisboa 74.491,32 > 68.926,15; espaço livre por cidade); restante = 70.420,19 após ligação; confirmação de beneficiário obrigatória quando diferem; botão "Criar contrato" desligado com aviso ativo.
-**Testes SQL** (`supabase/tests/`, inertes, sem credenciais): fixture sintética de 2 cidades — ligação idempotente; cada recusa; quotas/retenção inalteradas; invariantes a 0; nada de outro contrato muda; ACL (anon sem EXECUTE).
-**Ficheiros:** migração 0237; rollback manual; `src/components/CacheContractsPanel.tsx` (botão, diálogo, aviso); helper puro em `src/lib/cache-contracts-preview.ts` (ou onde já vive `previewContract`); testes; memória `cache-payment-contracts.md`; adenda a D-ERP288; relatório `docs/testes/issue346-ligar-adiantamento.md`; QUADRO.
+## B — Receitas no Master repartidas pelas cidades
 
-**Riscos:**
-- Listas de pagamento: filha de saldo em lista pendente — a redução muda o valor que a lista mostra; recusar também se a filha estiver em lista não rejeitada (não só aprovada). A decidir: proponho recusar (`saldo_em_lista`).
-- Estornos: adiantamento estornado recusado; estorno depois de ligado segue o caminho atual (fica fora da soma da invariante 1 por `reversed_at`).
-- Retenção: nunca `withholding_amount`/`declared_withholding_*`; a retenção do contrato não muda (o adiantamento sai do saldo líquido, como na criação).
-- Beneficiário diferente (HENZA vs SIMONE MENDES): é a situação real; a confirmação fica registada na auditoria.
-- Mapa de percentagens das filhas: muda dentro do mesmo contrato; relatórios que leem `split_percentage` continuam coerentes porque a regra é a da criação.
-- Portal público e cartões: só leitura destas tabelas; invalidação pelo helper central.
+Modelo de dados (onde vive a regra): coluna nova em `event_forecasts` (só para `type='income'` no Master): `revenue_split_mode` (`equal` | `fixed_pct` | `ticket_share`) + `revenue_split_params` jsonb (`{event_id: pct}` para `fixed_pct`). Sem linhas físicas nas cidades — espelho do modelo B dos custos (proração virtual).
 
-## 7. Passos R2 separados (cada um com "Sim" do Pedro)
-- (a) Prova `BEGIN…ROLLBACK` em Live e, se igual ao esperado, aplicar a migração 0237.
-- (b) Código do ecrã (botão, diálogo, aviso no modal) + testes; Publish à parte.
-- (c) Verificação em Live: ligar `204d17ca` ao contrato 1 no ecrã (com confirmação de beneficiário), ver Lisboa 18.272,01, restante 70.420,19, criar o contrato HENZA sem recusa; invariantes a 0.
+Simetria: função pura nova `computeMasterRevenueQuota(line, cities, ticketRevenueByCity)` ao lado de `computeMasterQuota` em `event-cost-basis.ts` (ou `settlement-revenue.ts`); `equal` reutiliza `computeMasterQuota`.
 
-Nada é aplicado neste passo.
+Como aparece:
+- BP do Master: a linha inteira, com etiqueta da regra.
+- BP de cada cidade: linha virtual "via Master" só de leitura com a quota (como o overhead).
+- Resultado: na raiz (Master+cidades) conta a linha do Master uma vez; numa cidade conta só a quota. Implementado dentro de `event-revenue-basis` (único sítio), com um parâmetro de "vista de cidade".
+- Cachê de cada cidade: não muda (base `ticket_sales`), salvo decisão contrária.
+
+Sem dupla contagem: regra única — no perímetro da raiz entra a linha do Master e nunca as quotas; na cidade entra a quota e nunca a linha do Master. Teste: Σ quotas = linha do Master ao cêntimo (resto ao último) e receita da raiz igual antes/depois de ligar a regra.
+
+Fórmula de A no Master: só depois de A estável. Base = Σ bilheteira das cidades; exige levantar o `masterBlocked` só para receita (pergunta 4). Recomendo fase separada (B3).
+
+DDL (migração + rollback byte a byte em `supabase/manual/`): 2 colunas nullable com CHECK nos valores; rollback = DROP das 2 colunas (só aplicável sem dados). Sem RLS nova (herda da tabela).
+
+Ficheiros: migração 02xx, `event-revenue-basis.ts`, `useEventRevenueBasis`, `useEventFinancialCardData`, `EventForecast.tsx` (linha virtual), Fecho/Portal só se lerem receita por cidade (levantar em B0).
+
+Eventos fechados/selados: colunas novas ficam NULL → números iguais; teste de regressão com Turnê Simone Mendes e Anitta EDA (receita e resultado ao cêntimo antes/depois).
+
+Passos: B0 inventário de leitores de receita por cidade (R0) · B1 migração + rollback (R2, Sim) · B2 código + testes (R1) · B3 fórmula no Master (R1/R2, depois).
+
+## C — Rateio multi-evento em RECEITAS
+
+Já hoje: o interruptor aparece em Receita e grava mãe sem evento + filhas por evento, com verba por linha usando `form.type`.
+
+A verificar em C1 (leitura + testes, sem mudar nada): validação "perna sem linha de BP" com linhas `income`; status da mãe/filhas (pago/recebido); aviso de verba excedida (em receita exceder não é problema — deve ser informativo); diálogo de "reforço local" (`masterDetection`) não deve aparecer em receita; agregações de empresa excluem filhas (`isRateioChild`, neutro ao tipo — confirmar em DRE e saldo de conta).
+
+Conciliação (D-ERP127): um crédito do banco liga à MÃE (é ela que tem `account_id` e move o saldo); as filhas herdam o pago. Teste: crédito único de X ↔ mãe income X com 3 filhas → conciliado, 0 filhas ligadas ao banco.
+
+Ficheiros: `TransactionFormModal.tsx`, `TransactionSplitConfig.tsx` (textos "despesa", aviso de excesso), `reconcile.ts` só se C1 mostrar falha.
+
+DDL: nenhuma prevista.
+
+Testes: perna income com linha de BP do seu evento; Master como uma perna só (D-ERP72 R2); excesso em receita não bloqueia; exclusão de filhas na empresa; conciliação crédito→mãe.
+
+Eventos fechados: nenhum dado muda; só regras de formulário.
+
+Passos: C1 diagnóstico + testes que falham (R1) · C2 correcções (R1).
+
+---
+
+## Ordem recomendada
+
+A (A0→A1) → C (C1→C2) → B (B0→B1→B2) → A2 e B3 com Sim.
+A é pequena e sem DDL; C é independente e só formulário; B é a única com DDL e mexe na SSoT.
+
+## Riscos
+
+- Mexer em `event-revenue-basis` (B) altera todos os cards de receita — mitigado por testes de regressão ao cêntimo em eventos fechados.
+- Revenue share Ticketline sobre "online" pode não ter base filtrável → fórmula imprecisa.
+- 3 casas decimais em Porto (5.278,875) — arredondamento ao gravar.
+
+## Perguntas em aberto para o Pedro
+
+1. Em Live a linha é "Revenue Share 2,5% … vendas online" (1.3.04), não 2%. A taxa é 2,5%? A base é só vendas online da Ticketline ou toda a bilheteira? (Recomendo: só Ticketline, se der para filtrar por fonte.)
+2. Bruta ou líquida para o revenue share? (Recomendo: bruta, como a comissão da despesa estava antes.)
+3. Receita de fórmula entra na base do cachê? (Recomendo: não — o cachê continua só bilheteira.)
+4. Em B, a fórmula pode correr no Master sobre Σ cidades? (Recomendo: sim, mas só em B3.)
+5. Em B, `ticket_share` usa bilheteira líquida real ou previsto corrente antes do evento? (Recomendo: previsto corrente antes, real depois — como em A.)
+6. Em C, exceder a verba de uma linha de receita deve só avisar? (Recomendo: só avisar.)
+7. SM Lisboa tem despesa "2% comissão ticketline" com fórmula como Porto? A leitura não a encontrou.
