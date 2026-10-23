@@ -99,8 +99,8 @@ export async function candidateFromBody(read: { message_id: string; text: string
     const hint = money[1].match(/[-–]\s*(.+)$/)?.[1]?.trim() ?? null;
     c.lines.push({ line_type: type, description: money[1].trim().slice(0, CANDIDATE_LIMITS.description), amount_cents: cents, event_hint: hint, prov: prov(i + 1) });
   });
-  if (unknown) c.incomplete.push(`${unknown} linha(s) com valor não reconhecidas: rever manualmente.`);
-  if (!c.lines.length) c.incomplete.push("Sem linhas reconhecidas: introduzir as linhas na revisão.");
+  if (unknown) pushBlocking(c, BLOCKING.unknown_lines, `${unknown} linha(s) com valor não reconhecidas: rever manualmente.`);
+  if (!c.lines.length) pushBlocking(c, BLOCKING.no_lines, "Sem linhas reconhecidas: introduzir as linhas na revisão.");
   return c;
 }
 
