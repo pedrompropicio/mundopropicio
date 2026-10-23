@@ -616,7 +616,7 @@ function AttachAdvanceDialog({ ctx, cityName, initialContractId, initialAdvanceI
     queryKey: ["cache-free-advance-dates", ctx.free_advances.map((a) => a.id).join(",")],
     enabled: ctx.free_advances.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.from("transactions").select("id, date").in("id", ctx.free_advances.map((a) => a.id));
+      const { data, error } = await supabase.from("transactions").select("id, date").in("id", ctx.free_advances.map((a) => a.id)).limit(500);
       if (error) throw error;
       return Object.fromEntries((data ?? []).map((t: any) => [t.id, t.date as string | null]));
     },
@@ -626,11 +626,11 @@ function AttachAdvanceDialog({ ctx, cityName, initialContractId, initialAdvanceI
     queryKey: ["cache-attach-state", motherId],
     enabled: !!motherId,
     queryFn: async () => {
-      const { data: kids, error } = await supabase.from("transactions").select("id, event_id, amount, paid_amount").eq("parent_transaction_id", motherId!);
+      const { data: kids, error } = await supabase.from("transactions").select("id, event_id, amount, paid_amount").eq("parent_transaction_id", motherId!).limit(1000);
       if (error) throw error;
       const ids = [motherId!, ...(kids ?? []).map((k: any) => k.id)];
       const { data: items, error: e2 } = await supabase.from("payment_list_items")
-        .select("transaction_id, removed_at, payment_lists!inner(status)").in("transaction_id", ids).is("removed_at", null);
+        .select("transaction_id, removed_at, payment_lists!inner(status)").in("transaction_id", ids).is("removed_at", null).limit(1000);
       if (e2) throw e2;
       const inList = (items ?? []).some((i: any) => i.payment_lists?.status !== "rejected");
       return { kids: (kids ?? []) as any[], inList };
