@@ -283,7 +283,7 @@ export function createHandler(d: Deps) {
           gmailSearch: async (f) => { const r = await (await gmailReader()).search(f); await canonicalStorageContext(); return r; },
           gmailRead: async (id) => { const r = await (await gmailReader()).read(id); await canonicalStorageContext(); return r; },
           erpContext: async (text, number) => { await canonicalStorageContext(); const c = await a.erpContext(token, company, text, signal, number); await canonicalStorageContext(); if (c.company_id !== company) throw new SafeError("Contexto alterado.", 403); return c; },
-        }, { text: body.text, history: body.history as TurnInput["history"], selection: body.selection }, signal));
+        }, { text: body.text, history: body.history as TurnInput["history"], selection: body.selection, ...(resume ? { continuation_text: body.continuation_text ?? body.text } : {}) }, signal));
         await canonicalStorageContext();
         const metadata = result.continuation_state; delete result.continuation_state;
         const cs = result.candidate_state; delete result.candidate_state;
@@ -292,7 +292,9 @@ export function createHandler(d: Deps) {
           const cand = await candidateFromModel({ message_id: cs.body.message_id, text: cs.body.body_text, truncated: cs.body.truncated }, cs.statement as Parameters<typeof candidateFromModel>[1]); // zod-parsed in the orchestrator
           candidateOut = { candidate: cand, candidate_token: await signServerPayload("ticketline_candidate", { user: user.id, company }, cand, d.continuationSecret) };
         }
-        if (metadata && d.continuationSecret && (result.status === "select_message" || result.status === "select_event")) result.continuation = await signContinuation({ ...metadata, user: user.id, company, requestHash: await requestHash(body.text), expires: Date.now() + 10 * 60 * 1000 }, d.continuationSecret);
+        // Signed selector also follows a revalidated review so the next turn keeps the original request and choice.
+        // The hash always binds the ORIGINAL request (verified above on resume), never the follow-up text.
+        if (metadata && d.continuationSecret && (result.status === "select_message" || result.status === "select_event" || (result.review_message_id && metadata.message === result.review_message_id))) result.continuation = await signContinuation({ ...metadata, user: user.id, company, requestHash: await requestHash(resume ? (body.continuation_text ?? body.text) : body.text), expires: Date.now() + 10 * 60 * 1000 }, d.continuationSecret);
         if (req.signal.aborted) return reply({ error: "Pedido cancelado." }, 499);
         return reply(candidateOut ? { ...result, ...candidateOut } : result);
       }

@@ -66,6 +66,8 @@ export type AssistantTurnResult = {
   proposal?: AssistantProposal; execution: { available: false; gaps: string[] }; known_message_ids: string[];
   continuation?: string;
   review_message_id?: string;
+  /** Real attachment metadata (no content) of review_message_id, numbered by the server. */
+  attachments?: { n: number; part_id: string; filename: string; mime: string; size_bytes: number }[];
   /** Candidate extracted by the model from the server-read body, signed by the server. */
   candidate?: TicketlineCandidate; candidate_token?: string;
 };

@@ -20,8 +20,10 @@ type Line = { line_type: TicketlineLineType; description: string; amount: string
 type Initial = { candidate: TicketlineCandidate; candidate_token: string };
 
 /** Revisão humana tipada. Qualquer edição invalida a prévia e qualquer autorização anterior. */
-export default function TicketlineReviewPanel({ adapter, context, messageId, partId, events = [], initial }: {
+export default function TicketlineReviewPanel({ adapter, context, messageId, partId, events = [], initial, initialAttachments }: {
   adapter: DataEntryAdapter; context: DataEntryContext; messageId: string; partId?: string; events?: { id: string; label: string }[]; initial?: Initial;
+  /** Server-owned metadata from the revalidated search; the chosen part is revalidated again by the candidate action. */
+  initialAttachments?: TicketlineAttachment[];
 }) {
   const [token, setToken] = useState<string | null>(null);
   const [cand, setCand] = useState<TicketlineCandidate | null>(null);
@@ -31,7 +33,7 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   // #333 fase12f: escolhas humanas do fecho (deduções da lista elegível do servidor, data e conta de destino).
   const [close, setClose] = useState<{ ids: string[]; date: string; to: string }>({ ids: [], date: "", to: "" });
   const [confirmed, setConfirmed] = useState(false);
-  const [attachments, setAttachments] = useState<TicketlineAttachment[] | null>(null);
+  const [attachments, setAttachments] = useState<TicketlineAttachment[] | null>(initialAttachments ?? null);
   const [part, setPart] = useState(partId ?? "");
   const [accounts, setAccounts] = useState<{ id: string; name: string; type?: string | null }[] | null>(null);
   const [auth, setAuth] = useState<{ id: string; action_ids: string[]; executor: boolean } | null>(null);
