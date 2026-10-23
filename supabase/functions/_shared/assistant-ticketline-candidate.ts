@@ -191,7 +191,7 @@ export function applyHumanEdits(c: TicketlineCandidate, edits: ReviewEdits, user
 
 /** Candidato → entrada da proposta. A proveniência entra nos efeitos (hash) para ligar fonte e revisão. */
 export async function candidateToStatement(c: TicketlineCandidate): Promise<ExtractedStatement & { provenance_hash: string }> {
-  const provenance_hash = await sha256Hex(JSON.stringify({ sources: c.sources, number: c.number?.prov ?? null, date: c.date?.prov ?? null, total: c.total_cents?.prov ?? null, lines: c.lines.map(l => l.prov), incomplete: c.incomplete }));
+  const provenance_hash = await sha256Hex(JSON.stringify({ sources: c.sources, number: c.number?.prov ?? null, date: c.date?.prov ?? null, total: c.total_cents?.prov ?? null, lines: c.lines.map(l => l.prov), incomplete: c.incomplete, blocking: (c.blocking ?? []).map(b => b.code) }));
   return {
     source_message_id: c.message_id, source_content_hash: provenance_hash, provenance_hash,
     number: c.number?.value ?? null, statement_date: c.date?.value ?? null, document_total_cents: c.total_cents?.value ?? null,
