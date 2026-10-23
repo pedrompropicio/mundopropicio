@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeAll } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { PDFDocument } from "pdf-lib";
 import { apuramentoFromWire, mergeApuramento, apuramentoSumCheck, generateApuramentoAnalysis, APURAMENTO333_INSTRUCTIONS } from "../../supabase/functions/_shared/assistant-ticketline-apuramento";
-import { candidateFromBody, verifyAttachmentSource, candidateToStatement } from "../../supabase/functions/_shared/assistant-ticketline-candidate";
+import { candidateFromBody, verifyAttachmentSource, candidateToStatement, applyHumanEdits } from "../../supabase/functions/_shared/assistant-ticketline-candidate";
 import { buildTicketlineProposal } from "../../supabase/functions/_shared/assistant-ticketline-proposal";
 import { createHandler, type Deps } from "../../supabase/functions/data-entry/handler";
 import TicketlineReviewPanel from "@/components/data-entry/TicketlineReviewPanel";
