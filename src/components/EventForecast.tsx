@@ -849,6 +849,7 @@ const descRef = useRef<HTMLInputElement>(null);
         _siblingCount: siblingCount,
         _siblingIndex: siblingIndex,
         _isLastSibling: isLastSibling,
+        ...(formula?.warning ? { _master_formula_warning: formula.warning } : {}),
       };
     });
   }, [parentForecasts, siblingCount, parentEventId, isLastSibling, siblingIndex, siblingEvents]);
@@ -3837,6 +3838,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                     via Master
                   </span>
                 )}
+                {item._master_formula_warning && <div className="text-xs text-warning">{item._master_formula_warning.message}</div>}
                 {/* "Sem TX" badge — flags approved BP lines that still have no
                     linked transaction (neither direct transaction_id nor a
                     description-matched one in this event). Helps users find

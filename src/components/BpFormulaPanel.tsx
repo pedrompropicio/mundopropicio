@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useSyncFormulaForecasts, evaluateEventFormulas } from "@/hooks/useSyncFormulaForecasts";
 import { EventCourtesiesEditor } from "@/components/EventCourtesiesEditor";
 import { formulaForbiddenReason, formulaLineNoun } from "@/lib/bp-formula-line-rules";
+import { masterFormulaShares } from "@/lib/master-formula";
 
 const eur = (v: number) => new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(v);
 
@@ -34,6 +35,16 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit, overheadOnly = fals
   const [min, setMin] = useState("");
   const [max, setMax] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const { data: masterChildren = [] } = useQuery({
+    queryKey: ["bp-formula-master-children", eventId],
+    enabled: isMaster,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("events").select("id").eq("parent_event_id", eventId).order("date").order("id");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const { data: candidates = [] } = useQuery({
     queryKey: ["bp-formula-candidates", eventId, overheadOnly],
@@ -137,12 +148,15 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit, overheadOnly = fals
           {lines.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma linha com fórmula neste evento.</p>}
           {lines.map((l: any) => {
             const e = evals.get(l.id);
+            const warning = isMaster && l.type !== "income" && masterChildren.length
+              ? masterFormulaShares(l, masterChildren.map(c => c.id), Number(l.amount))?.warning : undefined;
             return (
               <div key={l.id} className="flex flex-wrap items-baseline justify-between gap-2 text-xs border-b border-border/40 pb-1.5">
                 <div>
                   <span className="font-medium"><Sigma className="inline h-3 w-3 mr-1 text-primary" />{l.description}</span>
                   <div className="text-muted-foreground">{e?.text ?? l.formula_params?.last_text ?? "—"}</div>
                   {l.formula_params?.floor_hit && <div className="text-warning">Gravado o realizado (o recálculo ficava abaixo).</div>}
+                  {warning && <div className="text-warning flex gap-1.5"><AlertTriangle className="h-3.5 w-3.5 shrink-0" />{warning.message}</div>}
                 </div>
                 <div className="text-right">
                   <div className="font-mono font-semibold">{eur(Number(l.amount))}</div>

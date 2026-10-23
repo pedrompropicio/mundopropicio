@@ -45,7 +45,11 @@ describe("#339 B3 — fatias partilhadas", () => {
   });
   it("sem fórmula conserva ÷N sem novo arredondamento", () => { expect(overheadLinesFor(expandOverheadToSplits([{id:'f',event_id:'m',amount:100.01,formula_type:'fixed'}],events),'slices').map(s=>s.amount)).toEqual([50.005,50.005]); });
   it("receita não adopta a proporção da fórmula de custo", () => { expect(masterFormulaShares({formula_type:'fixed'},['a','b'],100)).toBeNull(); });
-  it("composição ausente não inventa ÷N para fórmula", () => { expect(()=>masterFormulaShares({formula_type:'per_head'},['a','b'],100)).toThrow(/por recalcular/); });
+  it("composição ausente reparte ÷N com aviso", () => {
+    const allocation = masterFormulaShares({formula_type:'per_head'},['a','b'],100);
+    expect(allocation?.amounts).toEqual([50,50]);
+    expect(allocation?.warning?.code).toBe('composition_pending');
+  });
   it("base zero com montante zero dá zero", () => { expect(masterFormulaShares({formula_type:'per_head',formula_params:{master_city_bases:{a:0,b:0}}},['a','b'],0)?.amounts).toEqual([0,0]); });
   it("ordem de leitura diferente dá a mesma fatia ao cêntimo", () => {
     expect(masterFormulaShares(formula(),['b','a'],100.01)?.amounts).toEqual([75.01,25]);

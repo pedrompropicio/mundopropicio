@@ -1,4 +1,4 @@
-import { masterFormulaShares } from "./master-formula.ts";
+import { masterFormulaShares, type MasterFormulaWarning } from "./master-formula.ts";
 
 export interface MasterAdoptedExpenseEventLike {
   id: string;
@@ -30,6 +30,7 @@ export type MasterAdoptedExpenseSlice<T extends MasterAdoptedExpenseTransactionL
     _master_transaction_id?: string;
     _master_forecast_id?: string;
     _split_share?: number;
+    _master_formula_warning?: MasterFormulaWarning;
   };
 
 /**
@@ -90,6 +91,7 @@ export function expandMasterAdoptedExpensesToSplits<T extends MasterAdoptedExpen
         _master_event_id: transaction.event_id,
         _master_transaction_id: transaction.id,
         _split_share: formula?.shares[index] ?? 1 / childIds.length,
+        ...(formula?.warning ? { _master_formula_warning: formula.warning } : {}),
       });
     }
   }
