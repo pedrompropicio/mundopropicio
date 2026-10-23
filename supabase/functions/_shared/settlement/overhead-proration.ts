@@ -21,6 +21,8 @@ export interface OverheadLike {
   id: string;
   event_id: string;
   amount: number | string;
+  formula_type?: string | null;
+  formula_params?: any;
   description?: string;
   category_id?: string | null;
   account_categories?: { code: string; name: string } | null;
