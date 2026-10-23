@@ -48,7 +48,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 ## 0 · Cowork (Claude)
 
-- [ ] de 7 · Fecho e Sócios para 0 (23/10/2026): **reimplantar a edge function `partner-statement`** (R2 — edge function em produção; só com "Sim" do Pedro na tua sessão) para o Portal do Sócio passar a mostrar a secção 2 das receitas resumida por origem (#344, gerador partilhado `supabase/functions/_shared/settlement/partner-statement-doc.ts` › `revenueGroups`, commit b76f150). Sem mudança de dados nem de base de cálculo. Verificação depois: Portal do Sócio, Ivete Clareou 2026 · SUPERSOUNDS — secção 2 com uma linha por origem e total 575.355,39; detalhe A com 20 linhas. Se a `partner-statement` já tiver sido reimplantada depois de b76f150, marca [x] com a data.
+- [ ] de 7 · Fecho e Sócios para 0 (23/10/2026): **reimplantar a edge function `partner-statement`** (R2 — edge function em produção; só com "Sim" do Pedro na tua sessão) para o Portal do Sócio passar a mostrar a secção 2 das receitas resumida por origem (#344, gerador partilhado `supabase/functions/_shared/settlement/partner-statement-doc.ts` › `revenueGroups`, commit b76f150). Sem mudança de dados nem de base de cálculo. Verificação depois: Portal do Sócio, Ivete Clareou 2026 · SUPERSOUNDS — secção 2 com uma linha por origem e total 575.355,39; detalhe A com 20 linhas. Se a `partner-statement` já tiver sido reimplantada depois de b76f150, marca [x] com a data. **Actualização 23/10/2026:** a mesma reimplantação passa também a levar ao Portal os detalhes C (despesas pagas pelo sócio) e D (extras) da #345 (commit 76ebd35; `statement-service.ts` passa `paidByPartnerLines`, `partnerExtrasLines` e `disbursementAdjustmentLines`). Verificação extra no Portal: C e D com somas iguais aos totais da secção 5.
 
   - **20/10/2026 ~21:20 UTC — Cachê/retenção (D-ERP288, revê D15), reserva própria aberta e libertada:** convive com a #323 por âmbito distinto, autorizado pelo Pedro em 20/10/2026. Migrações 0214 (aditiva: tabelas cache_payment_contracts*, 4 colunas nulas em transactions, RPCs, invariantes) e 0215 (ACL). Sem DML sobre transações/pagamentos existentes; lote DNS/TAP/TikTok intocado. Sem Publish.
 
@@ -213,7 +213,7 @@ _(sem pedidos)_
 
 ## 7 · Fecho e Sócios
 
-- [ ] **#345 · R1 — pronto para Publish (23/10/2026).** Detalhe C (despesas pagas pelo sócio) e D (extras) no detalhamento do documento do sócio, PDF e Excel, nos dois modos de despesas. Totais e base a transferir sem mudança. Portal só depois da reimplantação da `partner-statement` (já pedida ao 0 pela #344). Fecha depois de o Pedro verificar no ecrã (Ivete Clareou 2026 · SUPERSOUNDS). Relatório: docs/testes/issue345-detalhe-desembolso-extras.md.
+- [x] **#345 · R1 — FECHADA 23/10/2026.** Publicada e testada pelo Pedro no export da equipa (Ivete Clareou 2026 · SUPERSOUNDS: secções C e D com somas iguais aos totais da secção 5; base a receber inalterada). Falta só a reimplantação da `partner-statement` para o Portal — o mesmo pedido da #344, na secção 0 · Cowork (Claude).
 - [x] **#344 · R1 — FECHADA 23/10/2026.** Publicada e verificada pelo Pedro no export da equipa (Ivete Clareou 2026 · SUPERSOUNDS: total das receitas 575.355,39; detalhe A com 20 linhas). Falta só a reimplantação da `partner-statement` para o Portal — pedido na secção 0 · Cowork (Claude).
 
 ## 8 · Tráfego Pago
