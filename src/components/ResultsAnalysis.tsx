@@ -1,3 +1,4 @@
+import { masterFormulaAmountForCity } from "@/lib/master-formula";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { expandOverheadToSplits, overheadLinesFor } from "@/lib/overhead-proration";
@@ -135,7 +136,7 @@ export function ResultsAnalysis() {
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, amount, category_id, event_settlement_id").is("version_id", null));
+        .select("id, event_id, type, amount, category_id, transaction_id, formula_type, formula_params, event_settlement_id").is("version_id", null));
       if (error) throw error;
       return data;
     },
@@ -409,9 +410,15 @@ export function ResultsAnalysis() {
       if (!masterId) return { bpExpense: 0, mergedExpense: 0, closing: 0 };
       const siblings = childrenByMaster[masterId] || [];
       const n = siblings.length || 1;
+      const formulaLines = (forecasts as any[]).filter(f => f.event_id === masterId && f.type === "expense" && (f.formula_type === "pct_ticket_revenue" || f.formula_type === "per_head"));
+      const bpDelta = formulaLines.reduce((sum,f) => sum + masterFormulaAmountForCity(f,siblings,subEventId,Number(f.amount),Number(f.amount)/n) - Number(f.amount)/n,0);
+      const txDelta = (transactions as any[]).filter(t=>t.event_id===masterId && t.type==="expense").reduce((sum,t)=>{
+        const f=formulaLines.find(f=>f.transaction_id===t.id);
+        return sum + (f ? masterFormulaAmountForCity(f,siblings,subEventId,Number(t.amount),Number(t.amount)/n)-Number(t.amount)/n : 0);
+      },0);
       return {
-        bpExpense: bpExpenseTotalForEvent(masterId) / n,
-        mergedExpense: mergeExpenseForEvent(masterId, mode) / n,
+        bpExpense: bpExpenseTotalForEvent(masterId) / n + bpDelta,
+        mergedExpense: mergeExpenseForEvent(masterId, mode) / n + (mode === "realized" ? txDelta : bpDelta),
         closing: 0,
       };
     };
