@@ -6206,3 +6206,7 @@ Passo A instalado em Live a 22/10/2026 com Sim do Pedro.
 - Sem composição gravada, bases a zero ou cidade fora da família: cai para ÷N com aviso (`composition_pending`, `zero_city_bases`, `city_outside_family`) — os leitores nunca rebentam (B3b).
 - O mesmo botão "Definir fórmula…" do BP aparece no separador Overhead, nas cidades e no Master (`BpFormulaPanel` com `overheadOnly`); o valor de uma linha de fórmula no Overhead não se edita à mão (há "Fixar valor à mão…").
 - Em produção: Publish feito pelo Pedro e `partner-statement` reimplantada pelo 0 · Cowork a 23/10/2026 (commit 78773a32, código que já inclui o B3b); testado pelo Pedro em todos os ecrãs.
+
+## D-ERP302 — Biblioteca de modelos de relatório em docs/modelos (23/10/2026)
+**Decisão (Pedro, 23/10/2026).** Os relatórios que ficam bons guardam-se em `docs/modelos/<pasta>/` no repo, com quatro peças fixas (README, queries.sql, template, exemplo anonimizado) e uma linha no catálogo `docs/modelos/INDEX.md`. É a fonte única, usada pelos dois lados (Claude e ChatGPT). Antes de construir um relatório, o chat procura no catálogo; depois de um relatório ficar bom, o chat que o fez promove-o a modelo (R0). Primeira passagem de recuperação a cargo do 1 · Controller (pedido no QUADRO). Regras completas em `docs/modelos/README.md`.
+**Porquê.** Relatórios bons ficavam espalhados por chats, Claude Docs e ficheiros do Projeto, e perdiam-se quando a memória do chat acabava.

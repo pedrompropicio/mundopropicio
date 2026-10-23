@@ -22,6 +22,7 @@ Esta regra integra o Bloco Comum e todos os prompts em `docs/prompts/`; aplica-s
 | **Pedidos entre chats e reservas** | `docs/QUADRO.md` | *Quem me pediu o quê? Quem está a executar o quê?* | Vivo |
 | **Provas** | `docs/TESTES.md` | *Isto já foi visto a funcionar, e quando?* | Vivo |
 | **Mapa de chats** | `docs/CHATS.md` | *Onde trato este tema? Em que ferramenta?* | Vivo — tipos, numeração 0–11, tema→chat, modelo por chat, regra de partilha Claude ↔ ChatGPT |
+| **Modelos de relatório** | `docs/modelos/INDEX.md` | *Já fizemos este relatório? Como se faz?* | Vivo — regras em `docs/modelos/README.md` |
 
 **Prioridade e trabalho em curso são coisas diferentes.** A prioridade vive na label da Issue (`P0`/`P1`/`P2`); o *estar em curso* vive na secção "A trabalhar agora" do `estado-<frente>.md`. Não existem labels de estado.
 
@@ -119,7 +120,7 @@ Ler **D-ERP57** antes de mexer.
 2. Ler `docs/QUADRO.md` — só "Em execução agora" e a tua secção.
 3. Ler `docs/estado/estado-<frente>.md` da frente em causa.
 4. Ler as Issues abertas do teu módulo (labels P0/P1/P2 + módulo; não há labels de estado).
-5. Só então agir. Classe da demanda (R0/R1/R2, D-ERP291) decide o ritual; executor por defeito é a frente dona do tema.
+5. Só então agir. Classe da demanda (R0/R1/R2, D-ERP291) decide o ritual; executor por defeito é a frente dona do tema. Relatório: procura primeiro em docs/modelos/INDEX.md.
 
 Se o tema toca num fluxo já implementado, procurar primeiro em `.lovable/memory/features/`. A hipótese por defeito é que **já existe**.
 
