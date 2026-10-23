@@ -55,6 +55,7 @@ import {
   type PartnerStatementDocInput,
 } from "./partner-statement-doc.ts";
 import { fetchAllPagedQuery } from "../paging.ts";
+import { loadMasterFormulaExpenseSlicesFor } from "./master-formula-load.ts";
 import { loadMasterRevenueSlicesFor } from "./master-revenue-load.ts";
 
 const TRANSFER_IVA_RATE = 23;
@@ -354,6 +355,7 @@ export async function loadStatementBundle(
   // As fatias não têm conta nem `held_by_supplier_id`: caixa e receitas em
   // poder do sócio ficam no Master.
   const masterRevenue = await loadMasterRevenueSlicesFor(client, events as any[]);
+  const masterFormula = await loadMasterFormulaExpenseSlicesFor(client, events as any[]);
 
   return {
     eventId,
@@ -367,8 +369,8 @@ export async function loadStatementBundle(
     },
     calcBasis,
     events,
-    transactions: [...transactions, ...masterRevenue.transactionSlices],
-    forecasts: [...forecasts, ...masterRevenue.forecastSlices],
+    transactions: [...transactions, ...masterRevenue.transactionSlices, ...masterFormula.transactionSlices],
+    forecasts: [...forecasts, ...masterRevenue.forecastSlices, ...masterFormula.forecastSlices],
     categories,
     settlements,
     participants,

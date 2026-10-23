@@ -1,3 +1,4 @@
+import { masterFormulaShares } from "@/lib/master-formula";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import { writeForecastAmount } from "@/lib/forecast-amount";
@@ -833,6 +834,7 @@ const descRef = useRef<HTMLInputElement>(null);
     if (!parentEventId || parentForecasts.length === 0) return [];
     return parentForecasts.map((f: any) => {
       const original = Number(f.amount) || 0;
+      const formula = masterFormulaShares(f, siblingEvents.map((e: any) => e.id), original);
       const baseShare = roundCents(original / siblingCount);
       // Último irmão recebe o que falta para fechar o total (pode ser ±0,01€).
       const share = isLastSibling
@@ -840,7 +842,7 @@ const descRef = useRef<HTMLInputElement>(null);
         : baseShare;
       return {
         ...f,
-        amount: share,
+        amount: formula?.amounts[siblingIndex] ?? share,
         _prorated: true,
         _master_event_id: parentEventId,
         _originalAmount: original,
@@ -849,7 +851,7 @@ const descRef = useRef<HTMLInputElement>(null);
         _isLastSibling: isLastSibling,
       };
     });
-  }, [parentForecasts, siblingCount, parentEventId, isLastSibling, siblingIndex]);
+  }, [parentForecasts, siblingCount, parentEventId, isLastSibling, siblingIndex, siblingEvents]);
 
   // Ticket revenue: price includes IVA ("por dentro"), extract net value for BP
   const ticketRevenueGross = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);

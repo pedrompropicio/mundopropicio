@@ -1,3 +1,4 @@
+import { loadMasterFormulaExpenseSlicesFor } from "@/lib/master-formula-load";
 import { withoutIncomeTax } from "@/lib/fecho-filters";
 import { cacheImpactOnTopOfCost } from "@/lib/event-cost-basis";
 /**
@@ -160,13 +161,18 @@ export function useEventContractResult(
 
   // #339 B2b — cidade sem o Master no perímetro: quota da receita repartida.
   const { slices: masterRevenue, isPending: mrPending } = useMasterRevenueSlicesFor(events as any[]);
+  const { data: masterFormulaSlices } = useQuery({
+    queryKey: ["master-formula-expense-slices", idsKey],
+    queryFn: () => loadMasterFormulaExpenseSlicesFor(supabase, events as any[]),
+    enabled: events.length > 0,
+  });
   const transactions = useMemo(
-    () => [...(transactionsRaw as any[]), ...masterRevenue.transactionSlices],
-    [transactionsRaw, masterRevenue],
+    () => [...(transactionsRaw as any[]), ...masterRevenue.transactionSlices, ...(masterFormulaSlices?.transactionSlices ?? [])],
+    [transactionsRaw, masterRevenue, masterFormulaSlices],
   );
   const forecasts = useMemo(
-    () => [...(forecastsRaw as any[]), ...masterRevenue.forecastSlices],
-    [forecastsRaw, masterRevenue],
+    () => [...(forecastsRaw as any[]), ...masterRevenue.forecastSlices, ...(masterFormulaSlices?.forecastSlices ?? [])],
+    [forecastsRaw, masterRevenue, masterFormulaSlices],
   );
 
   const isLoading = !eventId || eventsPending || txPending || bpPending || tsPending || mrPending || basis.isLoading;

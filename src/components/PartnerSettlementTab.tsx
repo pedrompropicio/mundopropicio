@@ -1,3 +1,4 @@
+import { loadMasterFormulaExpenseSlicesFor } from "@/lib/master-formula-load";
 import { useQuery } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -478,13 +479,18 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: () => fetchMasterRevenueSlicesFor(subEvents as any[]),
     enabled: (subEvents as any[]).length > 0,
   });
+  const { data: masterFormulaSlices } = useQuery({
+    queryKey: ["master-formula-expense-slices", allEventIdsKey],
+    queryFn: () => loadMasterFormulaExpenseSlicesFor(supabase, subEvents as any[]),
+    enabled: subEvents.length > 0,
+  });
   const transactions = useMemo(
-    () => [...(transactionsRaw as any[]), ...(masterRevenueSlices?.transactionSlices ?? [])],
-    [transactionsRaw, masterRevenueSlices],
+    () => [...(transactionsRaw as any[]), ...(masterRevenueSlices?.transactionSlices ?? []), ...(masterFormulaSlices?.transactionSlices ?? [])],
+    [transactionsRaw, masterRevenueSlices, masterFormulaSlices],
   );
   const forecasts = useMemo(
-    () => [...(forecastsRaw as any[]), ...(masterRevenueSlices?.forecastSlices ?? [])],
-    [forecastsRaw, masterRevenueSlices],
+    () => [...(forecastsRaw as any[]), ...(masterRevenueSlices?.forecastSlices ?? []), ...(masterFormulaSlices?.forecastSlices ?? [])],
+    [forecastsRaw, masterRevenueSlices, masterFormulaSlices],
   );
 
   const overheads = useMemo(
