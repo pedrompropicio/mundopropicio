@@ -212,7 +212,7 @@ export function CacheContractsPanel({ eventId, config, canEdit, initialLineChoic
           <div className="rounded-md border border-dashed border-border p-2 text-[11px]">
             <p className="mb-1 font-medium text-muted-foreground">Adiantamentos sem contrato</p>
             {ctx.free_advances.map((a) => (
-              <div key={a.id} className="flex justify-between gap-2">
+              <div key={a.id} className="flex items-start justify-between gap-2">
                 <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]" title={a.description}>{a.description}{a.legacy ? ` · ${Object.keys(a.by_city).map(cityName).join(", ")}` : ""}</span>
                 <span className="font-mono shrink-0">{formatCurrency(Number(a.amount))}</span>
               </div>
@@ -701,7 +701,7 @@ function AttachAdvanceDialog({ ctx, cityName, initialContractId, initialAdvanceI
         <p className="text-xs text-muted-foreground">Adiantamentos livres</p>
         {ctx.free_advances.map((a) => (
           <label key={a.id} className={`flex cursor-pointer items-start gap-2 rounded border px-2 py-1 text-xs ${a.id === advanceId ? "border-primary bg-primary/5" : "border-border"}`}>
-            <input type="radio" name="attach-adv" checked={a.id === advanceId} onChange={() => { setAdvanceId(a.id); setConfirmBen(false); }} className="mt-0.5" />
+            <input type="radio" name="attach-adv" checked={a.id === advanceId} onChange={() => { setAdvanceId(a.id); setConfirmBen(false); }} className="mt-0.5 shrink-0" />
             <span className="flex-1 min-w-0">
               <span className="block break-words [overflow-wrap:anywhere] font-medium" title={a.description ?? undefined}>{a.description ?? "Adiantamento"}</span>
               <span className="block break-words [overflow-wrap:anywhere] text-[11px] text-muted-foreground">
