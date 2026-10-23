@@ -335,3 +335,48 @@ describe("#333 retoma — painel: resposta antiga em voo nunca se reaplica ao no
     expect(screen.queryByDisplayValue("AP-VELHO")).toBeNull();
   });
 });
+
+describe("#333 revisão controller — painel: recalc/autorização tardios após troca de origem", () => {
+  const CAND = { message_id: "m", number: { value: "AP-1", prov: { source: "email_body" as const, message_id: "m", body_sha256: "x", line: 1, truncated: false } }, date: { value: "2026-10-09", prov: { source: "email_body" as const, message_id: "m", body_sha256: "x", line: 2, truncated: false } }, total_cents: { value: 100, prov: { source: "email_body" as const, message_id: "m", body_sha256: "x", line: 3, truncated: false } },
+    lines: [{ line_type: "event_right" as const, description: "Direito A", amount_cents: 100, event_hint: null, prov: { source: "email_body" as const, message_id: "m", body_sha256: "x", line: 4, truncated: false } }], event_id: null, sources: [], incomplete: [], blocking: [] };
+  const PREVIEW = { candidate: CAND, persisted: true, review: { review_id: "11111111-1111-4111-8111-111111111111", version: 1, effects_hash: "h".repeat(64) },
+    proposal: { version: 1 as const, statement_number: "AP-1", event: null, sum_cents: 100, document_total_cents: 100, difference_cents: 0, totals_cents: {}, checks: [], needs: [], effects_hash: "h".repeat(64),
+      actions: [{ id: "a1", kind: "create_statement", label: "Registar apuramento", existing_flow: "x", depends_on: [], blocked_reason: null, stage: "prepare" as const }] } };
+  const atts = [{ part_id: "2.1", filename: "apuramento-sintetico.pdf", mime: "application/pdf", size_bytes: 100 }];
+  it("recalcular prévia em voo quando a origem muda: resposta tardia é descartada", async () => {
+    let resolveRecalc: ((v: unknown) => void) | null = null;
+    const adapter = {
+      ticketlineCandidate: vi.fn(async () => ({ candidate: CAND, candidate_token: "tok" })),
+      ticketlinePreview: vi.fn(() => new Promise(res => { resolveRecalc = res; })),
+    } as unknown as DataEntryAdapter;
+    render(<TicketlineReviewPanel adapter={adapter} context={{ user_id: user, company_id: company } as never} messageId="m" initialAttachments={atts} />);
+    fireEvent.click(screen.getByRole("button", { name: "Rever fecho deste email" }));
+    await waitFor(() => expect(screen.getByDisplayValue("Direito A")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Recalcular prévia" }));
+    fireEvent.click(screen.getByLabelText(/apuramento-sintetico\.pdf/)); // troca de origem: seq invalida o recalc em voo
+    resolveRecalc?.(PREVIEW);
+    await new Promise(r => setTimeout(r, 50));
+    expect(screen.queryByText(/Ações a autorizar/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Rever fecho deste email" })).toBeTruthy();
+  });
+  it("autorização em voo quando a origem muda: resposta tardia nunca é aplicada", async () => {
+    let resolveAuth: ((v: unknown) => void) | null = null;
+    const adapter = {
+      ticketlineCandidate: vi.fn(async () => ({ candidate: CAND, candidate_token: "tok" })),
+      ticketlinePreview: vi.fn(async () => PREVIEW),
+      ticketlineAuthorize: vi.fn(() => new Promise(res => { resolveAuth = res; })),
+    } as unknown as DataEntryAdapter;
+    render(<TicketlineReviewPanel adapter={adapter} context={{ user_id: user, company_id: company } as never} messageId="m" initialAttachments={atts} />);
+    fireEvent.click(screen.getByRole("button", { name: "Rever fecho deste email" }));
+    await waitFor(() => expect(screen.getByDisplayValue("Direito A")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Recalcular prévia" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Autorizar" })).toBeTruthy());
+    fireEvent.click(screen.getByLabelText("Registar apuramento"));
+    fireEvent.click(screen.getByRole("button", { name: "Autorizar" }));
+    fireEvent.click(screen.getByLabelText(/apuramento-sintetico\.pdf/)); // troca de origem durante a autorização
+    resolveAuth?.({ authorization_id: "a", replayed: false, status: "authorized_inert", notice: "Autorização registada.", executor: "indisponível", action_ids: ["a1"] });
+    await new Promise(r => setTimeout(r, 50));
+    expect(screen.queryByText(/Autorização registada/)).toBeNull();
+    expect(adapter.ticketlineAuthorize).toHaveBeenCalledOnce();
+  });
+});
