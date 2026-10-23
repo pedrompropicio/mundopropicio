@@ -55,6 +55,7 @@ import {
   type PartnerStatementDocInput,
 } from "./partner-statement-doc.ts";
 import { fetchAllPagedQuery } from "../paging.ts";
+import { loadMasterRevenueSlicesFor } from "./master-revenue-load.ts";
 
 const TRANSFER_IVA_RATE = 23;
 
@@ -347,6 +348,13 @@ export async function loadStatementBundle(
   const localeBySupplier: Record<string, DocLocale> = {};
   for (const s of suppliers) localeBySupplier[s.id] = (s.doc_locale as DocLocale) ?? "pt-PT";
 
+  // #339 B2b — cidade vista sem o seu Master: recebe a quota da receita do
+  // Master repartida (forecast + transações ligadas), pelo leitor único. Raiz
+  // (Master no perímetro) → nada entra; a linha do Master conta uma vez.
+  // As fatias não têm conta nem `held_by_supplier_id`: caixa e receitas em
+  // poder do sócio ficam no Master.
+  const masterRevenue = await loadMasterRevenueSlicesFor(client, events as any[]);
+
   return {
     eventId,
     eventName: master.name ?? "",
@@ -359,8 +367,8 @@ export async function loadStatementBundle(
     },
     calcBasis,
     events,
-    transactions,
-    forecasts,
+    transactions: [...transactions, ...masterRevenue.transactionSlices],
+    forecasts: [...forecasts, ...masterRevenue.forecastSlices],
     categories,
     settlements,
     participants,
