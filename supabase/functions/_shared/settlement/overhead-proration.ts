@@ -15,6 +15,8 @@
  * para os relatórios (DRE, BP, Acerto com Sócios, Análise de Resultados).
  */
 
+import { masterFormulaShares } from "./master-formula.ts";
+
 export interface OverheadLike {
   id: string;
   event_id: string;
@@ -68,16 +70,17 @@ export function expandOverheadToSplits(
     const splits = splitsByMaster[oh.event_id];
     if (!splits || splits.length === 0) continue;
 
+    const formula = oh.type === "income" ? null : masterFormulaShares(oh, splits, Number(oh.amount));
     const share = Number(oh.amount) / splits.length;
-    for (const splitId of splits) {
+    for (const [index, splitId] of splits.entries()) {
       out.push({
         ...oh,
         id: `${oh.id}::split::${splitId}`,
         event_id: splitId,
-        amount: share,
+        amount: formula?.amounts[index] ?? share,
         _overhead_via_master: true,
         _master_event_id: oh.event_id,
-        _split_share: 1 / splits.length,
+        _split_share: formula?.shares[index] ?? 1 / splits.length,
       });
     }
   }

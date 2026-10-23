@@ -1,3 +1,5 @@
+import { masterFormulaShares } from "./master-formula.ts";
+
 export interface MasterAdoptedExpenseEventLike {
   id: string;
   parent_event_id?: string | null;
@@ -8,6 +10,8 @@ export interface MasterAdoptedExpenseForecastLike {
   event_id: string;
   master_forecast_id?: string | null;
   transaction_id?: string | null;
+  formula_type?: string | null;
+  formula_params?: any;
 }
 
 export interface MasterAdoptedExpenseTransactionLike {
@@ -71,18 +75,21 @@ export function expandMasterAdoptedExpensesToSplits<T extends MasterAdoptedExpen
     if (!adoptedChildren || adoptedChildren.size === 0) continue;
     if (adoptedChildren.size !== childIds.length) continue;
 
+    const adoption = forecasts.find(f => f.transaction_id === transaction.id && !!f.master_forecast_id);
+    const masterLine = forecasts.find(f => f.id === adoption?.master_forecast_id);
+    const formula = masterLine && transaction.type !== "income" ? masterFormulaShares(masterLine, childIds, Number(transaction.amount || 0)) : null;
     const share = Number(transaction.amount || 0) / childIds.length;
-    for (const childId of childIds) {
+    for (const [index, childId] of childIds.entries()) {
       if (!adoptedChildren.has(childId)) continue;
       slices.push({
         ...transaction,
         id: `${transaction.id}::adopted::${childId}`,
         event_id: childId,
-        amount: share,
+        amount: formula?.amounts[index] ?? share,
         _adopted_via_master: true,
         _master_event_id: transaction.event_id,
         _master_transaction_id: transaction.id,
-        _split_share: 1 / childIds.length,
+        _split_share: formula?.shares[index] ?? 1 / childIds.length,
       });
     }
   }
