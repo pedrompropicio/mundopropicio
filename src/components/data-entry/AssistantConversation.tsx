@@ -1,4 +1,6 @@
 import TicketlineReviewPanel from "./TicketlineReviewPanel";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +36,7 @@ function Conversation({ adapter, context }: Props) {
   const generation = useRef(0);
   const abort = useRef<AbortController | null>(null);
   const continuation = useRef<string | undefined>();
+  const continuationText = useRef<string | undefined>();
   const box = useRef<HTMLTextAreaElement>(null);
   useEffect(() => () => { generation.current += 1; abort.current?.abort(); }, []);
   useEffect(() => { box.current?.focus(); }, [busy]);
@@ -47,17 +50,19 @@ function Conversation({ adapter, context }: Props) {
     const base = selection ? history : [...history, { role: "user" as const, text: message.trim() }];
     if (!selection) { persist(base); setText(""); setPendingText(message.trim()); }
     try {
-      const r = await adapter.assistantTurn({ text: message.trim(), history: base.slice(0, selection ? base.length : -1), ...(selection ? { selection, continuation: continuation.current } : {}), known_message_ids: known }, context, controller.signal);
+      const continuing = Boolean(continuation.current && (selection || last?.status === "select_message"));
+      const r = await adapter.assistantTurn({ text: message.trim(), history: base.slice(0, selection ? base.length : -1), ...(selection ? { selection } : {}), ...(continuing ? { continuation: continuation.current, continuation_text: continuationText.current } : {}), known_message_ids: known }, context, controller.signal);
       if (gen !== generation.current) return;
       setLast(r); setKnown(r.known_message_ids ?? []);
       continuation.current = r.continuation;
+      continuationText.current = r.continuation ? message.trim() : undefined;
       persist([...base, { role: "assistant", text: r.text }]);
     } catch (e) {
       if (gen === generation.current) setError(e instanceof Error ? e.message : "Assistente indisponível.");
     } finally { if (gen === generation.current) setBusy(false); }
   };
   const stop = () => { generation.current += 1; abort.current?.abort(); setBusy(false); setError("Cancelamento pedido. Nada foi gravado; a cobrança de IA pode ocorrer."); };
-  const clear = () => { persist([]); setLast(null); setKnown([]); setPendingText(null); try { localStorage.removeItem(historyKey(context)); } catch { /* */ } };
+  const clear = () => { persist([]); setLast(null); setKnown([]); setPendingText(null); continuation.current = undefined; continuationText.current = undefined; try { localStorage.removeItem(historyKey(context)); } catch { /* */ } };
 
   if (!adapter.assistantTurn) return null;
   const p = last?.proposal;
@@ -78,7 +83,12 @@ function Conversation({ adapter, context }: Props) {
       {history.length > 0 && (
         <ol aria-label="Conversa" className="max-h-64 space-y-1.5 overflow-y-auto overscroll-contain text-sm">
           {history.map((t, i) => (
-            <li key={i} className={t.role === "user" ? "ml-6 rounded-md bg-secondary px-2 py-1 text-secondary-foreground break-words" : "mr-6 break-words"}>{t.text}</li>
+            <li key={i} className={t.role === "user" ? "ml-6 rounded-md bg-secondary px-2 py-1 text-secondary-foreground break-words whitespace-pre-wrap" : "min-w-0 break-words [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"}>
+              {t.role === "user" ? t.text : <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={{
+                table: ({ children }) => <div className="max-w-full overflow-x-auto"><table className="w-full text-xs [&_th]:text-left [&_td]:align-top [&_td]:p-1 [&_th]:p-1">{children}</table></div>,
+                a: ({ children }) => <span>{children}</span>, img: () => null,
+              }}>{t.text}</ReactMarkdown>}
+            </li>
           ))}
           {busy && <li role="status" className="text-xs text-muted-foreground">A trabalhar…</li>}
         </ol>
@@ -92,10 +102,11 @@ function Conversation({ adapter, context }: Props) {
         <div role="group" aria-label={last.status === "select_message" ? "Escolher email" : "Escolher evento"} className="space-y-1">
           {last.options.map((o) => (
             <Button key={o.id} size="sm" variant="outline" className="h-auto w-full justify-start whitespace-normal break-words text-left" disabled={busy}
-              onClick={() => void send(pendingText ?? history.filter((h) => h.role === "user").at(-1)?.text ?? "", last.status === "select_message" ? { message_id: o.id } : { event_id: o.id })}>{o.label}</Button>
+              onClick={() => void send(pendingText ?? history.filter((h) => h.role === "user").at(-1)?.text ?? "", last.status === "select_message" ? { message_id: o.id } : { event_id: o.id })}><span className="min-w-0 whitespace-pre-line">{o.label}</span></Button>
           ))}
         </div>
       )}
+      {last?.review_message_id && adapter.ticketlineCandidate && <TicketlineReviewPanel key={last.review_message_id} adapter={adapter} context={context} messageId={last.review_message_id} />}
       {p && (
         <div aria-label="Proposta" className="space-y-2 rounded-md border border-border p-2 text-xs">
           <div className="flex flex-wrap gap-1.5">

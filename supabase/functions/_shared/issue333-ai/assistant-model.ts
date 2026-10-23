@@ -79,8 +79,12 @@ export function createAssistantModel(config: { apiKey: string; control: Provider
         const value = await result.output;
         if (upstream) throw upstream;
         const usage = await result.totalUsage;
-        if (!Number.isSafeInteger(usage.totalTokens) || Number(usage.totalTokens) > inputBudget + outputBudget) throw new ModelInvalid("Utilização reportada pelo serviço inválida. Nada foi gravado.");
-        return { step: parseModelStep(value), tokens: Number(usage.totalTokens) };
+        if (!Number.isSafeInteger(usage.totalTokens) || Number(usage.totalTokens) < 0 || Number(usage.totalTokens) > inputBudget + outputBudget) throw new ModelInvalid("Utilização reportada pelo serviço inválida. Nada foi gravado.");
+        const step = parseModelStep(value);
+        // Release unused headroom ONLY after a complete, validated response and usage. Each subsequent
+        // input is still charged (including replayed context); errors/uncertainty retain the reservation.
+        reserved -= inputBudget + outputBudget - Number(usage.totalTokens);
+        return { step, tokens: Number(usage.totalTokens) };
       } catch (error) {
         const e = upstream ?? error;
         if (e instanceof ModelDenied || e instanceof ModelInvalid) throw e;

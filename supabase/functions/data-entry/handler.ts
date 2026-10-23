@@ -94,7 +94,7 @@ export const commandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("assistant_turn"), text: z.string().max(2000),
     history: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string().max(4000) }).strict()).max(20),
     selection: z.object({ message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/).optional(), event_id: z.string().uuid().optional() }).strict().optional(),
-    known_message_ids: z.array(z.string().regex(/^[A-Za-z0-9]{6,64}$/)).max(50).optional(), continuation: z.string().max(8000).optional() }).strict(),
+    known_message_ids: z.array(z.string().regex(/^[A-Za-z0-9]{6,64}$/)).max(50).optional(), continuation: z.string().max(8000).optional(), continuation_text: z.string().max(2000).optional() }).strict(),
   z.object({ action: z.literal("ticketline_candidate"), message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/), part_id: z.string().regex(/^[A-Za-z0-9.]{1,32}$/).optional(), expected_sha256: z.string().regex(/^[a-f0-9]{64}$/).optional() }).strict(),
   z.object({ action: z.literal("ticketline_preview"), candidate_token: z.string().max(120000),
     edits: z.object({ number: z.string().max(60).nullable().optional(), date: z.string().max(10).nullable().optional(), total_cents: z.number().int().nullable().optional(), event_id: z.string().uuid().nullable().optional(),
@@ -273,7 +273,7 @@ export function createHandler(d: Deps) {
         if (body.selection && (!body.continuation || !d.continuationSecret)) throw new SafeError("Seleção sem prova do servidor; repete a pesquisa.", 409);
         let resume: AssistantContinuation | undefined;
         if (body.continuation) {
-          try { resume = await verifyContinuation(body.continuation, d.continuationSecret ?? "", { user: user.id, company }, body.text); }
+          try { resume = await verifyContinuation(body.continuation, d.continuationSecret ?? "", { user: user.id, company }, body.continuation_text ?? body.text); }
           catch { throw new SafeError("Seleção expirada ou contexto alterado; repete a pesquisa.", 409); }
         }
         const a = d.assistantFactory ? await d.assistantFactory(req, { user: user.id, company }, canonicalStorageContext) : d.assistant;

@@ -42,7 +42,7 @@ export type GmailConnectionStatus = { linked: boolean; reconnect_required: boole
 export type GmailSearchResult = { messages: GmailMessage[]; next_page_token: string | null; search_info?: GmailSearchInfo };
 export type GmailMessageBody = { message_id: string; from: string; subject: string; date: string; kind: "plain" | "html" | "none"; body_text: string; truncated: boolean };
 
-export type AssistantTurnInput = { text: string; history: { role: "user" | "assistant"; text: string }[]; selection?: { message_id?: string; event_id?: string }; known_message_ids?: string[]; continuation?: string };
+export type AssistantTurnInput = { text: string; history: { role: "user" | "assistant"; text: string }[]; selection?: { message_id?: string; event_id?: string }; known_message_ids?: string[]; continuation?: string; continuation_text?: string };
 export type AssistantProposal = {
   version: 1; statement_number: string | null; event: { id: string; name: string } | null; sum_cents: number; document_total_cents: number | null; difference_cents: number | null;
   totals_cents: Record<string, number>; checks: { code: string; ok: boolean; message: string }[];
@@ -65,6 +65,7 @@ export type AssistantTurnResult = {
   text: string; trace: { tool: string; ok: boolean; summary: string }[]; options?: { id: string; label: string }[];
   proposal?: AssistantProposal; execution: { available: false; gaps: string[] }; known_message_ids: string[];
   continuation?: string;
+  review_message_id?: string;
   /** Candidate extracted by the model from the server-read body, signed by the server. */
   candidate?: TicketlineCandidate; candidate_token?: string;
 };
