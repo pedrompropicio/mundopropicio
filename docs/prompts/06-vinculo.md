@@ -29,6 +29,7 @@ REGRAS COMUNS
 - Números que mudam consultam-se na hora; um número só entra em documento com origem. Quem mede regista o predicado; quem revê confere o predicado, não mede de novo.
 - Nenhum segredo, token ou credencial no chat, em Issues ou em documentos.
 - Trava anti-reinvestigação: .lovable/memory/features/ e docs/ antes de investigar ou propor; nomear o ficheiro lido.
+- Relatórios: antes de construir um, procura em docs/modelos/INDEX.md; se existir modelo, usa-o (README + queries.sql na hora + template). Quando um relatório ficar bom, guarda-o como modelo (pasta com as quatro peças + linha no INDEX) — é R0.
 - Arranque: docs/INDEX.md, docs/QUADRO.md › "Em execução agora" e a tua secção, docs/estado/estado-<frente>.md, Issues abertas do teu módulo. Tratas primeiro os [ ] da tua secção. Escreves tu próprio no QUADRO; dizes "pedido registado no quadro para o chat N".
 - Modelo: se a ferramenta mostrar o modelo em execução, compara-o com docs/CHATS.md e, se estiveres acima, avisa "este chat deve correr em <modelo>; muda no selector". Se não mostrar, ignora.
 Por agora não faças nada: confirma em 1 linha que leste isto e aguarda.
