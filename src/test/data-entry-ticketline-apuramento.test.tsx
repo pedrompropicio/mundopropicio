@@ -186,14 +186,15 @@ describe("#333 retoma — painel: resposta antiga em voo nunca se reaplica ao no
     const atts = [{ part_id: "2.1", filename: "apuramento-sintetico.pdf", mime: "application/pdf", size_bytes: 100 }];
     render(<TicketlineReviewPanel adapter={adapter} context={{ user_id: user, company_id: company } as never} messageId="m" initialAttachments={atts} />);
     fireEvent.click(screen.getByRole("button", { name: "Rever fecho deste email" }));
-    // Troca para o anexo ANTES de a resposta do corpo chegar e relê com a nova origem.
+    // Troca para o anexo ANTES de a resposta do corpo chegar.
     fireEvent.click(screen.getByLabelText(/apuramento-sintetico\.pdf/));
-    fireEvent.click(screen.getByRole("button", { name: "Rever fecho deste email" }));
-    await waitFor(() => expect(screen.getByDisplayValue("Direito B")).toBeTruthy());
-    // A resposta antiga (corpo) chega tarde: tem de ser descartada.
+    // A resposta antiga (corpo) chega tarde: tem de ser descartada (nunca aplicada ao novo radio).
     resolveA?.({ candidate: { message_id: "m", number: { value: "AP-VELHO", prov: { source: "email_body", message_id: "m", body_sha256: "x", line: 1, truncated: false } }, date: null, total_cents: null, lines: [], event_id: null, sources: [], incomplete: [] }, candidate_token: "tokA" });
     await new Promise(r => setTimeout(r, 50));
     expect(screen.queryByDisplayValue("AP-VELHO")).toBeNull();
-    expect(screen.getByDisplayValue("Direito B")).toBeTruthy();
+    // Reler com a origem escolhida mostra o candidato do anexo.
+    fireEvent.click(screen.getByRole("button", { name: "Rever fecho deste email" }));
+    await waitFor(() => expect(screen.getByDisplayValue("Direito B")).toBeTruthy());
+    expect(screen.queryByDisplayValue("AP-VELHO")).toBeNull();
   });
 });
