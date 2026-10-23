@@ -46,6 +46,7 @@ import { fetchRootSettlements } from "@/hooks/useEventRootSettlements";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { isEventRealized } from "@/lib/event-realized";
+import { fetchMasterRevenueSplit, emptyMasterRevenueSplit } from "@/lib/master-revenue-split-context";
 
 export type RevenueBucket = "bilheteira" | "ab" | "patrocinio" | "outros";
 
@@ -83,6 +84,12 @@ export interface EventRevenueBasis {
   committed: { total: MoneyPair; buckets: Record<RevenueBucket, MoneyPair> };
   sponsorship: SponsorshipSyntheticResult;
   ticketForecast: LiveTicketForecast | null;
+  /**
+   * #339 B — fatias virtuais da receita do Master que ESTA vista recebeu (só
+   * quando a cidade é vista sem o Master). Já estão somadas acima; expostas
+   * para o Fecho e o BP mostrarem as linhas "via Master".
+   */
+  masterRevenue?: { forecastSlices: any[]; transactionSlices: any[]; warnings: any[] };
 }
 
 export interface EventRevenueBasisArgs {
@@ -273,21 +280,40 @@ export async function computeEventRevenueBasis(
 
   const { data: fcs } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
-    .select("id, event_id, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, account_categories(code)")
+    .select("id, event_id, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, revenue_split_mode, account_categories(code)")
     .in("event_id", ids)
     .is("version_id", null)
     .eq("type", "income"));
 
-  return computeRevenueBasisFromRows({
+  // #339 B — cidade vista SEM o seu Master: recebe a fatia da receita repartida.
+  // Na raiz (Master no perímetro) as linhas originais contam uma vez e as
+  // fatias nunca entram (`masterRevenueView` "root").
+  const { data: evRows } = await supabase.from("events").select("id, parent_event_id").in("id", ids);
+  const orphanMasters = Array.from(new Set(
+    ((evRows ?? []) as any[]).map((e) => e.parent_event_id).filter((p: any) => p && !ids.includes(p)),
+  )) as string[];
+  const masterRevenue = orphanMasters.length
+    ? await fetchMasterRevenueSplit(orphanMasters)
+    : emptyMasterRevenueSplit();
+  const forecastSlices = masterRevenue.forecastSlices.filter((s) => ids.includes(s.event_id));
+  const txSlices = masterRevenue.transactionSlices
+    .filter((s) => ids.includes(s.event_id))
+    .filter((t) => isValidFechoTransaction(t));
+
+  const result = computeRevenueBasisFromRows({
     ticket,
-    incomeTx: allIncomeTxRows,
-    incomeForecasts: keepRootPerimeter((fcs ?? []) as any[], roots.rootIds),
+    incomeTx: [...allIncomeTxRows, ...txSlices],
+    incomeForecasts: [...keepRootPerimeter((fcs ?? []) as any[], roots.rootIds), ...forecastSlices],
     sponsorship,
     ticketForecast,
     abForecastNet,
     abForecastIvaRate: args.abForecastIvaRate ?? null,
     eventRealized,
   });
+  return {
+    ...result,
+    masterRevenue: { forecastSlices, transactionSlices: txSlices, warnings: masterRevenue.warnings },
+  };
 }
 
 export function computeRevenueBasisFromRows(rows: RevenueBasisRows): EventRevenueBasis {

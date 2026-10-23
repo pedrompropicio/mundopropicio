@@ -66,6 +66,7 @@ import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { BpFormulaPanel } from "@/components/BpFormulaPanel";
+import { MasterRevenueViaMasterPanel } from "@/components/bp/MasterRevenueViaMasterPanel";
 import { isFormulaType } from "@/lib/bp-formula";
 import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
@@ -2352,6 +2353,10 @@ const descRef = useRef<HTMLInputElement>(null);
       {/* #263 / D-ERP149 — linhas com fórmula + convites (só na Ativa) */}
       {!selectedVersionId && (
         <BpFormulaPanel eventId={eventId} isMaster={!!(childEventIds && childEventIds.length > 0)} canEdit={canEditBP && !forceReadOnly} />
+      )}
+      {/* #339 B — receitas do Master repartidas (só leitura) */}
+      {!selectedVersionId && !expenseOnly && (
+        <MasterRevenueViaMasterPanel eventId={eventId} parentEventId={parentEventId} isMaster={!!(childEventIds && childEventIds.length > 0)} />
       )}
       {/* Summary cards */}
       <div className={`grid gap-4 ${expenseOnly ? "sm:grid-cols-2" : parentEventId ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4"}`}>

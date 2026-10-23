@@ -7,6 +7,7 @@ import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
+import { useMasterRevenueSplit, masterTxAmountForCity } from "@/hooks/useMasterRevenueSplit";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
@@ -468,6 +469,10 @@ export default function ReportDREBrasil() {
 
   const activeEvents = expandedActiveEvents;
 
+  // #339 B — receita do Master com regra de repartição: a cidade vê a fatia da
+  // regra; sem regra mantém-se ÷N (comportamento anterior, sem regressão).
+  const revenueSplit = useMasterRevenueSplit(Object.keys(childrenByParent));
+
   function getEffectiveTransactions(eventId: string) {
     let evtTx = transactions.filter((t: any) => t.event_id === eventId);
     const parentId = subEventParentMap[eventId];
@@ -475,7 +480,11 @@ export default function ReportDREBrasil() {
       const siblingCount = subCountByParent[parentId] || 1;
       const parentTx = transactions
         .filter((t: any) => t.event_id === parentId)
-        .map((t: any) => ({ ...t, amount: Number(t.amount) / siblingCount, _prorated: true }));
+        .map((t: any) => ({
+          ...t,
+          amount: masterTxAmountForCity(revenueSplit, t, eventId, Number(t.amount) / siblingCount),
+          _prorated: true,
+        }));
       evtTx = [...evtTx, ...parentTx];
     }
     const children = childrenByParent[eventId];
