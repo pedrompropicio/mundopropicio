@@ -1,3 +1,4 @@
+import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import { writeForecastAmount } from "@/lib/forecast-amount";
 import { recordUndo } from "@/lib/undo";
@@ -478,23 +479,15 @@ const descRef = useRef<HTMLInputElement>(null);
         .select("id")
         .eq("parent_event_id", parentEventId);
       if (sErr) throw sErr;
-      const n = (siblings ?? []).length || 1;
       const { data: oh, error: ohErr } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("*, account_categories(code, name, type), suppliers(name)")
         .eq("event_id", parentEventId)
         .eq("is_overhead", true).is("version_id", null));
       if (ohErr) throw ohErr;
-      return (oh ?? []).map((o: any) => ({
-        ...o,
-        id: `${o.id}::split::${eventId}`,
-        event_id: eventId,
-        amount: Number(o.amount) / n,
-        formula_value: Number(o.amount) / n,
-        _overhead_via_master: true,
-        _master_event_id: parentEventId,
-        _readonly: true,
-      }));
+      return expandOverheadToSplits(oh ?? [], (siblings ?? []).map(c => ({ ...c, parent_event_id: parentEventId })))
+        .filter(o => o._overhead_via_master && o.event_id === eventId)
+        .map(o => ({ ...o, formula_value: Number(o.amount), _readonly: true }));
     },
     enabled: !!parentEventId,
   });

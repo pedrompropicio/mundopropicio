@@ -1,3 +1,5 @@
+import { BpFormulaPanel } from "@/components/BpFormulaPanel";
+import { isFormulaType } from "@/lib/bp-formula";
 import { writeForecastAmount } from "@/lib/forecast-amount";
 import { withCompanyPath } from "@/lib/storage";
 import { deleteStorageObject, deleteStorageObjects } from "@/lib/storage-delete";
@@ -85,6 +87,17 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     },
   });
 
+  const { data: children = [] } = useQuery({
+    queryKey: ["overhead-children", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("events").select("id").eq("parent_event_id", eventId);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const editingCost = costs.find((c: any) => c.id === editingId) as any;
+  const formulaReadOnly = isFormulaType(editingCost?.formula_type);
+
   // BP existente (local + Master, se houver) — para detetar conflito de categoria
   const { data: existingBpCategoryIds = [] } = useQuery({
     queryKey: ["bp-categories-for-overhead-check", eventId, eventInfo?.parent_event_id, selectedVersionId ?? "active"],
@@ -147,7 +160,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const amt = parseFloat(amount) || 0;
+      const amt = formulaReadOnly ? Number(editingCost.amount) : parseFloat(amount) || 0;
       const iva = parseInt(ivaRate, 10) || 0;
       const payload = {
         event_id: eventId,
@@ -187,14 +200,14 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
             notes: notes || null,
             type,
             iva_rate: iva,
-            formula_value: amt,
+            ...(hasFormula && !amountChanged ? {} : { formula_value: amt }),
             master_forecast_id: bpForecastId || null,
             ...(hasFormula && amountChanged ? { formula_type: "fixed" } : {}),
           })
           .eq("id", editingId);
         if (error) throw error;
         // #240: amount pelo helper (chão = realizado; observação se reduz linha com realizado)
-        await writeForecastAmount({ forecastId: editingId, newAmount: amt, interactive: true });
+        if (!hasFormula || amountChanged) await writeForecastAmount({ forecastId: editingId, newAmount: amt, interactive: true });
       } else {
         const { data, error } = await supabase
           .from("event_forecasts")
@@ -312,10 +325,12 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
         )}
       </div>
 
+      {!selectedVersionId && <BpFormulaPanel eventId={eventId} isMaster={children.length > 0} canEdit={!isEventLocked} overheadOnly />}
+
       <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
         <Info className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
         <span>
-          As linhas aqui criadas <strong>já nascem aprovadas</strong> e <strong>não geram transação</strong>. Aparecem em <strong>BP</strong> e <strong>DRE</strong> com badge <em>Overhead</em>, mas são excluídas do resultado da empresa. Em turnês, são distribuídas igualmente (÷N) pelos sub-eventos como "via Master".
+          As linhas aqui criadas <strong>já nascem aprovadas</strong> e <strong>não geram transação</strong>. Aparecem em <strong>BP</strong> e <strong>DRE</strong> com badge <em>Overhead</em>, mas são excluídas do resultado da empresa. Em turnês, linhas fixas são distribuídas igualmente (÷N); linhas com fórmula seguem a contribuição de cada cidade para a base, como "via Master".
         </span>
       </div>
 
@@ -339,7 +354,18 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Valor s/ IVA (€) *</Label>
-              <Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+              <Input type="number" step="0.01" value={formulaReadOnly ? String(editingCost.amount) : amount} readOnly={formulaReadOnly} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+              {formulaReadOnly && <>
+                <p className="text-xs text-muted-foreground">{editingCost.formula_params?.last_text ?? "Por recalcular"}</p>
+                <Button type="button" size="sm" variant="outline" onClick={async () => {
+                  if (!window.confirm("Esta linha é calculada automaticamente (fórmula sobre a bilheteira). Gravar um valor manual desliga a fórmula e o valor fica fixo. Continuar?")) return;
+                  const { error } = await supabase.from("event_forecasts").update({ formula_type: "fixed", formula_params: null, formula_value: Number(editingCost.amount) }).eq("id", editingCost.id);
+                  if (error) { toast({ title: "Erro ao guardar", description: error.message, variant: "destructive" }); return; }
+                  setAmount(String(editingCost.amount));
+                  queryClient.invalidateQueries({ queryKey: ["event-overhead-forecasts", eventId] });
+                  queryClient.invalidateQueries({ queryKey: ["bp-formula-sync", eventId] });
+                }}>Fixar valor à mão…</Button>
+              </>}
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
@@ -415,7 +441,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
               <label className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-medium cursor-pointer hover:bg-secondary/80 transition-colors">
                 <Paperclip className="h-3.5 w-3.5" /> Anexar ficheiro
                 <input type="file" className="hidden" multiple onChange={(e) => {
-                  if (e.target.files) setPendingFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                  if (e.target.files) setPendingFiles(prev => [...prev, ...Array.from(e.target.files ?? [])]);
                   e.target.value = "";
                 }} />
               </label>

@@ -361,7 +361,7 @@ export default function ReportDREBrasil() {
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, amount, description, category_id, account_categories(code, name)")
+        .select("id, event_id, amount, type, formula_type, formula_params, description, category_id, account_categories(code, name)")
         .eq("is_overhead", true).is("version_id", null));
       if (error) throw error;
       return data;

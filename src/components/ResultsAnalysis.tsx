@@ -187,7 +187,7 @@ export function ResultsAnalysis() {
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, amount")
+        .select("id, event_id, amount, type, formula_type, formula_params")
         .eq("is_overhead", true).is("version_id", null));
       if (error) throw error;
       return data;
@@ -210,7 +210,7 @@ export function ResultsAnalysis() {
   // Proração Master→Splits (÷N) — ver src/lib/overhead-proration.ts
   const closingCosts = useMemo(
     // (#292) A quota do Master ÷N já entra por getMasterShare → só as originais.
-    () => overheadLinesFor(expandOverheadToSplits(closingCostsRaw as any, events as any), "originals"),
+    () => overheadLinesFor(expandOverheadToSplits(closingCostsRaw as any, events as any), "slices"),
     [closingCostsRaw, events],
   );
 
@@ -412,7 +412,7 @@ export function ResultsAnalysis() {
       return {
         bpExpense: bpExpenseTotalForEvent(masterId) / n,
         mergedExpense: mergeExpenseForEvent(masterId, mode) / n,
-        closing: (closingMap[masterId] ?? 0) / n,
+        closing: 0,
       };
     };
 

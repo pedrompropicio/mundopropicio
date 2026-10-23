@@ -149,7 +149,7 @@ export async function loadStatementBundle(
       fetchAllPagedQuery(client
         .from("event_forecasts")
         .select(
-          "id, event_id, description, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, vat_non_recoverable, account_categories(name, code, ebitda_class)",
+          "id, event_id, description, type, amount, formula_type, formula_params, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, vat_non_recoverable, account_categories(name, code, ebitda_class)",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")
