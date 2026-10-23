@@ -85,6 +85,9 @@ export function paidByPartnerDocLines(
   ];
 }
 
+/** (g20 · #345) Rótulo da origem dos extras (igual a `ORIGIN_LABEL` do ERP). */
+export const PARTNER_EXTRA_ORIGIN_LABEL: Record<string, string> = { transacao: "Despesa", manual: "Manual" };
+
 /** (g20 · #345) Normalização ÚNICA das linhas D. */
 export function partnerExtrasDocLines(
   extras: Array<{ date?: string | null; description?: string | null; origin?: string | null; amount: number }>,

@@ -57,7 +57,15 @@ import {
   exportPartnerStatementDocExcel,
   exportPartnerStatementDocPdf,
 } from "@/lib/export-partner-statement-doc";
-import { statementTerms, TRANSFER_IVA_RATE, type DocLocale, type PartnerStatementDocInput } from "@/lib/partner-statement-doc";
+import {
+  statementTerms,
+  TRANSFER_IVA_RATE,
+  paidByPartnerDocLines,
+  partnerExtrasDocLines,
+  PARTNER_EXTRA_ORIGIN_LABEL,
+  type DocLocale,
+  type PartnerStatementDocInput,
+} from "@/lib/partner-statement-doc";
 import { fetchExportBranding } from "@/lib/export-header";
 import { exportDisbursementExcel } from "@/lib/export-partner-disbursement";
 import {
@@ -1753,6 +1761,21 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         value: r.amount,
       })),
       partnerExtras: row.totalPartnerExtras,
+      // (g20 · #345) Detalhe C/D — as mesmas linhas que formam os totais acima.
+      paidByPartnerLines: paidByPartnerDocLines(row.paidExpenses, row.bpPaidLines),
+      disbursementAdjustmentLines: row.disbursementAdjustments.map((a) => ({
+        date: a.date || null,
+        description: a.description,
+        amount: a.amount,
+      })),
+      partnerExtrasLines: partnerExtrasDocLines(
+        row.partnerExtras.map((e) => ({
+          date: e.date,
+          description: e.description,
+          origin: (e.origem && PARTNER_EXTRA_ORIGIN_LABEL[e.origem]) || e.originLabel || "—",
+          amount: e.amount,
+        })),
+      ),
       partnerAdvances: 0,
       transferWithVat: row.transferWithVat,
       participants: settlements.map((s) => ({
