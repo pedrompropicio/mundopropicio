@@ -10,6 +10,7 @@ import { Sigma, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useSyncFormulaForecasts } from "@/hooks/useSyncFormulaForecasts";
 import { EventCourtesiesEditor } from "@/components/EventCourtesiesEditor";
+import { formulaForbiddenReason, formulaLineNoun } from "@/lib/bp-formula-line-rules";
 
 const eur = (v: number) => new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(v);
 
@@ -39,8 +40,8 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit }: { eventId: string
     enabled: open,
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery((supabase as any).from("event_forecasts")
-        .select("id, description, amount, formula_type, formula_params, account_categories(code)")
-        .eq("event_id", eventId).is("version_id", null).eq("type", "expense").is("cache_config_id", null).order("description"));
+        .select("id, type, description, amount, formula_type, formula_params, account_categories(code)")
+        .eq("event_id", eventId).is("version_id", null).in("type", ["expense", "income"]).is("cache_config_id", null).order("description"));
       if (error) throw error;
       return data ?? [];
     },
@@ -60,6 +61,12 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit }: { eventId: string
   const anyPending = (sync.data?.evals ?? []).some((e) => e.result.composition.pendingFinalCourtesies);
   const hasPerHead = lines.some((l: any) => l.formula_type === "per_head");
 
+  const selected: any = candidates.find((c: any) => c.id === lineId);
+  const selectedNoun = formulaLineNoun(selected?.type);
+  const selectedForbidden = selected ? formulaForbiddenReason(selected.type, selected.account_categories?.code) : null;
+  const forbidden = sync.data?.forbidden ?? [];
+  const frozen = !!sync.data?.frozen;
+
   const pick = (id: string) => {
     setLineId(id);
     const l: any = candidates.find((c: any) => c.id === id);
@@ -77,6 +84,7 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit }: { eventId: string
 
   const save = async () => {
     if (!lineId) return;
+    if (selectedForbidden && kind !== "fixed") { toast.error(selectedForbidden); return; }
     setSaving(true);
     try {
       const num = (s: string) => (s.trim() === "" ? null : Number(s.replace(",", ".")));
@@ -122,6 +130,10 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit }: { eventId: string
           {canEdit && <Button size="sm" variant="outline" onClick={() => { setOpen(true); setLineId(""); }}>Definir fórmula…</Button>}
         </CardHeader>
         <CardContent className="pt-0 space-y-1.5">
+          {frozen && lines.length > 0 && <p className="text-xs text-warning">Evento concluído ou fechamento selado — as fórmulas não recalculam.</p>}
+          {forbidden.map((f: any) => (
+            <div key={f.id} className="text-xs text-destructive flex gap-1.5"><AlertTriangle className="h-3.5 w-3.5 shrink-0" />{f.description}: {f.reason}</div>
+          ))}
           {lines.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma linha com fórmula neste evento.</p>}
           {lines.map((l: any) => {
             const e = evals.get(l.id);
@@ -161,16 +173,17 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit }: { eventId: string
           <DialogHeader><DialogTitle>Linha com fórmula</DialogTitle></DialogHeader>
           <div className="space-y-3 text-sm">
             <select className="w-full rounded-md border bg-background p-2" value={lineId} onChange={(e) => pick(e.target.value)}>
-              <option value="">Escolher linha de despesa…</option>
+              <option value="">Escolher linha de despesa ou receita…</option>
               {candidates.map((c: any) => (
-                <option key={c.id} value={c.id}>{c.account_categories?.code ?? ""} {c.description} — {eur(Number(c.amount))}</option>
+                <option key={c.id} value={c.id}>{c.type === "income" ? "[Receita]" : "[Despesa]"} {c.account_categories?.code ?? ""} {c.description} — {eur(Number(c.amount))}</option>
               ))}
             </select>
             <div className="flex gap-2">
-              {([["fixed", "Fixo"], ["pct_ticket_revenue", "% da receita de bilhetes"], ["per_head", "Custo por pessoa"]] as const).map(([k, lbl]) => (
+              {([["fixed", "Fixo"], ["pct_ticket_revenue", "% da receita de bilhetes"], ["per_head", selectedNoun === "receita" ? "Receita por pessoa" : "Custo por pessoa"]] as const).map(([k, lbl]) => (
                 <Button key={k} size="sm" type="button" variant={kind === k ? "default" : "outline"} onClick={() => setKind(k)}>{lbl}</Button>
               ))}
             </div>
+            {selectedForbidden && <p className="text-xs text-destructive">{selectedForbidden}</p>}
             {kind === "pct_ticket_revenue" && (
               <div className="flex gap-2 items-center">
                 <Input className="w-24" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="%" />
@@ -203,13 +216,13 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit }: { eventId: string
                   <Input value={min} onChange={(e) => setMin(e.target.value)} placeholder="mínimo € (opcional)" />
                   <Input value={max} onChange={(e) => setMax(e.target.value)} placeholder="máximo € (opcional)" />
                 </div>
-                <p className="text-[11px] text-muted-foreground">O valor da linha passa a ser calculado e não se edita à mão.</p>
+                <p className="text-[11px] text-muted-foreground">O valor da linha de {selectedNoun} passa a ser calculado e não se edita à mão.</p>
               </>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={save} disabled={!lineId || saving}>Gravar</Button>
+            <Button onClick={save} disabled={!lineId || saving || (!!selectedForbidden && kind !== "fixed")}>Gravar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
