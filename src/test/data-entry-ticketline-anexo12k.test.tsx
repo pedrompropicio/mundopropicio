@@ -12,7 +12,7 @@ import type { AssistantTurnResult, DataEntryAdapter } from "@/lib/data-entry-cli
 // #333 fase12k — fixtures SINTÉTICAS; não reproduzem o PDF real (bytes indisponíveis neste sandbox).
 const company = "22222222-2222-4222-8222-222222222222", event = "44444444-4444-4444-8444-444444444444";
 const ctx = { user_id: "u", company_id: "c" };
-let PDF = new Uint8Array();
+let PDF: Uint8Array = new Uint8Array();
 beforeAll(async () => { const d = await PDFDocument.create(); d.addPage(); PDF = await d.save(); });
 beforeEach(() => localStorage.clear());
 // 18 anexos como na aceitação: 14 imagens pequenas + 4 PDFs (nomes sintéticos).
