@@ -193,6 +193,8 @@ export interface PartnerStatementDoc {
   recipientName: string;
   agreement: StatementShareRow[];
   revenues: StatementRevenueLine[];
+  /** (g19 · #344) Resumo por origem exata, na ordem da primeira aparição. */
+  revenueGroups: Array<{ origin: string; net: number }>;
   revenueNet: number;
   extras: StatementExtraItem[];
   extrasTotal: number;
@@ -515,6 +517,19 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     .map((r) => ({ ...r, net: roundCents(r.net) }))
     .filter((r) => Math.abs(r.net) > 0.004);
   const revenueNet = roundCents(revenues.reduce((s, r) => s + r.net, 0));
+  // Resumo apenas: detalhe e total continuam a ser os mesmos. Reconciliar
+  // os grupos absorve eventual resíduo sem alterar o total das receitas.
+  const revenueGroupMap = new Map<string, { origin: string; net: number }>();
+  for (const row of revenues) {
+    const group = revenueGroupMap.get(row.origin);
+    if (group) group.net += row.net;
+    else revenueGroupMap.set(row.origin, { origin: row.origin, net: row.net });
+  }
+  const revenueGroups = reconcileDisplayField(
+    [...revenueGroupMap.values()].map((group) => ({ ...group, net: roundCents(group.net) })),
+    "net",
+    revenueNet,
+  );
 
   const extras = (input.extras ?? [])
     .map((e) => ({
@@ -637,6 +652,7 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     recipientName: recipient.name,
     agreement,
     revenues,
+    revenueGroups,
     revenueNet,
     extras,
     extrasTotal,

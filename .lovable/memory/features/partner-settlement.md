@@ -198,6 +198,15 @@ maiúsculas). Totais, resultado, parte do sócio e base a transferir NÃO mudam
 — o modo só muda colunas e rótulos. Portal do Sócio e relatório interno de
 gestão não são tocados (nunca passam o campo → sempre detalhado).
 
+## (g19 · #344) Resumo das receitas por origem
+
+A secção 2 da prestação de contas (PDF e Excel, equipa e Portal do Sócio)
+mostra uma linha por origem exata, na ordem da primeira aparição. Soma as
+linhas já arredondadas ao cêntimo e absorve eventual resíduo nos grupos,
+sem alterar o total. O detalhe A conserva todas as linhas, descrições e
+ordem. Vale nos dois modos de despesas da #342; despesas, resultado,
+acerto e relatório completo de gestão ficam inalterados.
+
 ## (g5) Linha final do sócio
 
 parte · + desembolso · ± ajustes ao desembolso · − receitas em poder do sócio

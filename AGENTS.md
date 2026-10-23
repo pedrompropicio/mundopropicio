@@ -1,4 +1,5 @@
 # Architecture rules
+- Partner statement revenue summaries are grouped in the shared document builder; exporters only render groups and retain original detail lines, keeping team and partner documents consistent.
 - #333 assistant replay uses bounded client context, the hash-bound original request and only the selected revalidated email metadata (with its server-numbered attachments); each email is read once per turn and repeated refusals terminate, so the model cannot loop; release budget headroom only on validated completion/usage; post-selection results always route to the existing review panel.
 - Read nested AGENTS.md (data-entry/ too). Entry closed pending storage/uniqueness; retain artifacts. Inert tests credential-free. Strong keys retain separators; broad matches prove no reuse. #333 SQL inert/ACL guarded; no SELECT/timers across turns. Controller-message: request, exact bytes/hash/schema; local sizes aren't delivery proof.
 
