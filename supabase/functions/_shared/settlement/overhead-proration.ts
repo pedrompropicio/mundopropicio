@@ -15,7 +15,7 @@
  * para os relatórios (DRE, BP, Acerto com Sócios, Análise de Resultados).
  */
 
-import { masterFormulaShares } from "./master-formula.ts";
+import { masterFormulaShares, type MasterFormulaWarning } from "./master-formula.ts";
 
 export interface OverheadLike {
   id: string;
@@ -42,6 +42,7 @@ export interface ExpandedOverhead extends OverheadLike {
   _master_event_id?: string;
   /** Quota desta fatia (ex.: 1/3 quando há 3 splits). */
   _split_share?: number;
+  _master_formula_warning?: MasterFormulaWarning;
 }
 
 /**
@@ -83,6 +84,7 @@ export function expandOverheadToSplits(
         _overhead_via_master: true,
         _master_event_id: oh.event_id,
         _split_share: formula?.shares[index] ?? 1 / splits.length,
+        ...(formula?.warning ? { _master_formula_warning: formula.warning } : {}),
       });
     }
   }
