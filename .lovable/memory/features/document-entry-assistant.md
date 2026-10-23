@@ -45,3 +45,11 @@ O scanner existente só lê número/data/total do anexo; linhas vêm só do corp
 
 ## Retoma corretiva — linhas do apuramento (23/10/2026)
 Contrato dedicado `_shared/assistant-ticketline-apuramento.ts` extrai as LINHAS do anexo (schema zod estrito, tipos fechados, sinais/cêntimos/moeda, Σ=total, zero nunca é linha, sem deduplicação por nome, data ausente fica ausente, pendências nunca silenciosas). Reusa o transporte do scanner e o controlo durável/abort; o scanner genérico de faturas não mudou. Falha do scanner de linhas = pendência, nunca derruba o candidato. Painel: guarda de sequência impede resposta antiga em voo de se reaplicar ao novo radio; data usa o DatePicker padrão do ERP (vazio inequívoco). Deploy da data-entry e Publish continuam por autorizar (R2); PDF real nunca lido — validação com bytes reais pendente de autorização específica.
+
+## #333 revisão controller (23/10/2026) — continuação corretiva
+- Anexo escolhido é a AUTORIDADE das linhas: corpo do email é só contexto (conflito sinalizado, nunca linhas extra silenciosas); soma validada sobre o candidato efetivo; truncagem silenciosa proibida.
+- Revalidação de auth/empresa corre FORA do catch do scanner; revogação durante o scanner é recusa, nunca candidato parcial assinado.
+- Caminho apuramento = UMA chamada dedicada (multi-página); scanner genérico de faturas não é chamado nesse caminho.
+- Valores monetários sem arredondamento (>2 casas recusados, tolerância só a ruído IEEE754); event_hint de repasse/transitado normalizado a null no servidor; moeda ausente nunca presumida EUR.
+- Pendências bloqueantes são estruturadas (`blocking: {code,message}[]`, assinadas no token e no hash); resolução humana explícita por código + recomputação (no_lines/sum_mismatch); regex de mensagem nunca resolve; avisos informativos não bloqueiam.
+- Guarda seq do painel cobre load, recalc e authorize (respostas tardias descartadas). Duplicados cedo via leitura ERP isolada (JWT do chamador); outra empresa não vê IDs.
