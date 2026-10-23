@@ -77,3 +77,5 @@
 - [x] #339 B1 — migração 0238 revenue_split (aplicada; aguarda verificação chat 5)
 - [x] #339 B2 — receita do Master repartida (código + testes; Publish pendente)
 - [x] #339 B2b — fecho por cidade com quota (Publish + deploy partner-statement pendentes)
+- [ ] #339/#344/#345 — deploy só partner-statement, SELECT + gerador local, fechar pedidos QUADRO; sem sessão/HTTP/Publish.
+- [ ] #339 B3 — reservado; implementação suspensa enquanto decorre o deploy autorizado pelo 0.
