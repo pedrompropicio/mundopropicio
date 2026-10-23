@@ -71,7 +71,7 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
     if (form.total && total === null) throw new Error("Total inválido.");
     const closing = close.date && close.to ? { deduction_ids: close.ids, settlement_date: close.date, transfer_account_id: close.to } : null;
     return { number: form.number.trim() || null, date: form.date || null, total_cents: total, event_id: form.event_id || null, office_account_id: form.office || null, closing,
-      lines: parsed as NonNullable<TicketlineEdits["lines"]>, confirm_review: confirmed };
+      lines: parsed as NonNullable<TicketlineEdits["lines"]>, confirm_review: confirmed && !partial };
   };
   const settlement = () => {
     if (!settle.account && !settle.date && !settle.amount) return undefined;
@@ -215,8 +215,9 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
         </div>
         <label className="flex items-start gap-1.5"><input type="checkbox" className="mt-0.5" checked={settle.confirm} onChange={e => edit(() => setSettle({ ...settle, confirm: e.target.checked }))} /> <span>Confirmo que verifiquei este recebimento no banco</span></label>
       </fieldset>
-      <label className="flex items-start gap-1.5 rounded border border-border p-1.5"><input type="checkbox" className="mt-0.5" aria-label="Confirmo a revisão" checked={confirmed} onChange={e => edit(() => setConfirmed(e.target.checked))} />
+      <label className="flex items-start gap-1.5 rounded border border-border p-1.5"><input type="checkbox" className="mt-0.5" aria-label="Confirmo a revisão" disabled={partial} checked={confirmed && !partial} onChange={e => edit(() => setConfirmed(e.target.checked))} />
         <span>Revi número, data, total, evento e linhas no documento original.</span></label>
+      {partial && <p className="text-muted-foreground">Revisão parcial: preencher número, data, total e pelo menos uma linha a partir do documento original antes de confirmar.</p>}
       {stale && preview && <p role="status" className="text-destructive">Alterado: a prévia anterior e qualquer autorização deixaram de valer. Recalcula.</p>}
       <div className="flex flex-wrap gap-2">
         <Button size="sm" disabled={busy} onClick={() => recalc()}>Recalcular prévia</Button>
