@@ -1,3 +1,5 @@
+import { masterFormulaAmountForCity } from "@/lib/master-formula";
+import { loadMasterFormulaExpenseSlicesFor } from "@/lib/master-formula-load";
 import { useQuery } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -462,7 +464,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           // select de propósito — acrescentá-los mudaria o universo de despesa
           // deste ecrã (o filtro `operationalForecasts` passaria a excluí-las),
           // e o critério de despesa não é objecto desta mudança.
-          .select("id, event_id, description, type, amount, iva_rate, status, is_overhead, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, account_categories(name, code, ebitda_class)")
+          .select("id, event_id, description, type, amount, formula_type, formula_params, iva_rate, status, is_overhead, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, account_categories(name, code, ebitda_class)")
         .in("event_id", allEventIds)
         .eq("status", "approved").is("version_id", null));
       if (error) throw error;
@@ -478,13 +480,18 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: () => fetchMasterRevenueSlicesFor(subEvents as any[]),
     enabled: (subEvents as any[]).length > 0,
   });
+  const { data: masterFormulaSlices } = useQuery({
+    queryKey: ["master-formula-expense-slices", allEventIdsKey],
+    queryFn: () => loadMasterFormulaExpenseSlicesFor(supabase, subEvents as any[]),
+    enabled: subEvents.length > 0,
+  });
   const transactions = useMemo(
-    () => [...(transactionsRaw as any[]), ...(masterRevenueSlices?.transactionSlices ?? [])],
-    [transactionsRaw, masterRevenueSlices],
+    () => [...(transactionsRaw as any[]), ...(masterRevenueSlices?.transactionSlices ?? []), ...(masterFormulaSlices?.transactionSlices ?? [])],
+    [transactionsRaw, masterRevenueSlices, masterFormulaSlices],
   );
   const forecasts = useMemo(
-    () => [...(forecastsRaw as any[]), ...(masterRevenueSlices?.forecastSlices ?? [])],
-    [forecastsRaw, masterRevenueSlices],
+    () => [...(forecastsRaw as any[]), ...(masterRevenueSlices?.forecastSlices ?? []), ...(masterFormulaSlices?.forecastSlices ?? [])],
+    [forecastsRaw, masterRevenueSlices, masterFormulaSlices],
   );
 
   const overheads = useMemo(
@@ -793,16 +800,17 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           masterInc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) +
           masterTbRows.reduce((s, r) => s + r.totalGross, 0)
         ) / childCount;
-         const masterOverheadShareNet = overheads
-           .filter((o: any) => o.event_id === eventId)
-           .reduce((s: number, o: any) => s + Number(o.amount), 0) / childCount;
-         const masterOverheadShareGross = overheads
-           .filter((o: any) => o.event_id === eventId)
-           .reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount), Number(o.iva_rate)), 0) / childCount;
-         const masterExpensesNetShare = masterExp.reduce((s: number, t: any) => s + Number(t.amount), 0) / childCount;
-         const masterExpensesGrossShare = masterExp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) / childCount;
 
         return childRows.map((se: any) => {
+          const childIds = childRows.map((e: any) => e.id);
+          const overheadSlices = expandOverheadToSplits(overheads.filter((o: any) => o.event_id === eventId), childRows as any[]).filter(o => o._overhead_via_master && o.event_id === se.id);
+          const masterOverheadShareNet = overheadSlices.reduce((sum,o)=>sum+Number(o.amount),0);
+          const masterOverheadShareGross = overheadSlices.reduce((sum,o)=>sum+calcTotalWithIva(Number(o.amount),Number(o.iva_rate)),0);
+          const masterExpensesNetShare = masterExp.reduce((sum,t)=>sum+masterFormulaAmountForCity(
+            (forecasts as any[]).find(f=>f.transaction_id===t.id) ?? {},childIds,se.id,Number(t.amount),Number(t.amount)/childCount),0);
+          const masterExpensesGrossShare = masterExp.reduce((sum,t)=>sum+calcTotalWithIva(masterFormulaAmountForCity(
+            (forecasts as any[]).find(f=>f.transaction_id===t.id) ?? {},childIds,se.id,Number(t.amount),Number(t.amount)/childCount),Number(t.iva_rate)),0);
+
           const evtTx = validTx.filter((t: any) => t.event_id === se.id);
           const inc = evtTx.filter((t: any) => t.type === "income" && !(hasTicketSales && isTicketingRevenueTx(t)));
           const exp = evtTx.filter((t: any) => t.type === "expense");

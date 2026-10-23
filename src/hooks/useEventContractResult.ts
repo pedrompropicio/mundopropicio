@@ -1,3 +1,4 @@
+import { loadMasterFormulaExpenseSlicesFor } from "@/lib/master-formula-load";
 import { withoutIncomeTax } from "@/lib/fecho-filters";
 import { cacheImpactOnTopOfCost } from "@/lib/event-cost-basis";
 /**
@@ -115,7 +116,7 @@ export function useEventContractResult(
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select(
-          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable, formula_type, cache_config_id, account_categories(code, name, ebitda_class)",
+          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable, formula_type, formula_params, cache_config_id, account_categories(code, name, ebitda_class)",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")
@@ -160,13 +161,18 @@ export function useEventContractResult(
 
   // #339 B2b — cidade sem o Master no perímetro: quota da receita repartida.
   const { slices: masterRevenue, isPending: mrPending } = useMasterRevenueSlicesFor(events as any[]);
+  const { data: masterFormulaSlices } = useQuery({
+    queryKey: ["master-formula-expense-slices", idsKey],
+    queryFn: () => loadMasterFormulaExpenseSlicesFor(supabase, events as any[]),
+    enabled: events.length > 0,
+  });
   const transactions = useMemo(
-    () => [...(transactionsRaw as any[]), ...masterRevenue.transactionSlices],
-    [transactionsRaw, masterRevenue],
+    () => [...(transactionsRaw as any[]), ...masterRevenue.transactionSlices, ...(masterFormulaSlices?.transactionSlices ?? [])],
+    [transactionsRaw, masterRevenue, masterFormulaSlices],
   );
   const forecasts = useMemo(
-    () => [...(forecastsRaw as any[]), ...masterRevenue.forecastSlices],
-    [forecastsRaw, masterRevenue],
+    () => [...(forecastsRaw as any[]), ...masterRevenue.forecastSlices, ...(masterFormulaSlices?.forecastSlices ?? [])],
+    [forecastsRaw, masterRevenue, masterFormulaSlices],
   );
 
   const isLoading = !eventId || eventsPending || txPending || bpPending || tsPending || mrPending || basis.isLoading;

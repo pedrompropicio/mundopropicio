@@ -55,6 +55,7 @@ import {
   type PartnerStatementDocInput,
 } from "./partner-statement-doc.ts";
 import { fetchAllPagedQuery } from "../paging.ts";
+import { loadMasterFormulaExpenseSlicesFor } from "./master-formula-load.ts";
 import { loadMasterRevenueSlicesFor } from "./master-revenue-load.ts";
 
 const TRANSFER_IVA_RATE = 23;
@@ -149,7 +150,7 @@ export async function loadStatementBundle(
       fetchAllPagedQuery(client
         .from("event_forecasts")
         .select(
-          "id, event_id, description, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, vat_non_recoverable, account_categories(name, code, ebitda_class)",
+          "id, event_id, description, type, amount, formula_type, formula_params, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, vat_non_recoverable, account_categories(name, code, ebitda_class)",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")
@@ -354,6 +355,7 @@ export async function loadStatementBundle(
   // As fatias não têm conta nem `held_by_supplier_id`: caixa e receitas em
   // poder do sócio ficam no Master.
   const masterRevenue = await loadMasterRevenueSlicesFor(client, events as any[]);
+  const masterFormula = await loadMasterFormulaExpenseSlicesFor(client, events as any[]);
 
   return {
     eventId,
@@ -367,8 +369,8 @@ export async function loadStatementBundle(
     },
     calcBasis,
     events,
-    transactions: [...transactions, ...masterRevenue.transactionSlices],
-    forecasts: [...forecasts, ...masterRevenue.forecastSlices],
+    transactions: [...transactions, ...masterRevenue.transactionSlices, ...masterFormula.transactionSlices],
+    forecasts: [...forecasts, ...masterRevenue.forecastSlices, ...masterFormula.forecastSlices],
     categories,
     settlements,
     participants,

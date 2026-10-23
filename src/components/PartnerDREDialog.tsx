@@ -72,7 +72,7 @@ export default function PartnerDREDialog({ open, onOpenChange, eventId, eventNam
         supabase.from("event_partners").select("*, suppliers(name)"),
         fetchAllPagedQuery(supabase
           .from("event_forecasts")
-          .select("id, event_id, amount, description, category_id, iva_rate, account_categories(code, name)")
+          .select("id, event_id, amount, type, formula_type, formula_params, description, category_id, iva_rate, account_categories(code, name)")
           .eq("is_overhead", true)
           .is("version_id", null)),
       ]);

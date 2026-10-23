@@ -41,3 +41,5 @@
 - Arrival comparison uses UTC hourly raw counts, not unique visitors. Nonwaiting artist/hour trigger locks preserve capture; bounded rebuilds acknowledge only pending IDs captured before their source snapshot, retaining late commits for repair.
 <!-- LOVABLE:END -->
 
+
+- Master formula composition is computed through the canonical city formula engine and carried on the BP line; every expense proration reads that composition through shared helpers, preventing ERP/statement drift without a second ticketing calculation.

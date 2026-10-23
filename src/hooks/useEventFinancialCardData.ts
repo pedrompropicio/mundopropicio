@@ -1,3 +1,4 @@
+import { masterFormulaCostInputsForCity } from "@/lib/master-formula";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -143,7 +144,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id, formula_type, cache_config_id, account_categories(ebitda_class)")
+        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id, formula_type, formula_params, cache_config_id, account_categories(ebitda_class)")
         .in("event_id", ids)
         .is("version_id", null)
         .eq("type", kind));
@@ -180,7 +181,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id, formula_type, cache_config_id, account_categories(ebitda_class)")
+        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id, formula_type, formula_params, cache_config_id, account_categories(ebitda_class)")
         .in("event_id", masterIdsArr)
         .is("version_id", null)
         .eq("type", kind));
@@ -201,6 +202,16 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     () => keepRootPerimeter(masterForecastsAll, masterRootIds),
     [masterForecastsAll, masterRootIds],
   );
+
+  const { data: formulaSiblings = EMPTY_ARR_STABLE } = useQuery({
+    queryKey: ["formula-card-siblings", masterId], enabled: !!masterId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("events").select("id").eq("parent_event_id", masterId ?? "").order("date").order("id");
+      if (error) throw error; return data ?? [];
+    },
+  });
+  const formulaMasterCost = useMemo(() => formulaSiblings.length ? masterFormulaCostInputsForCity(masterForecasts, masterTxs, formulaSiblings.map(e => e.id), eventId) : null,
+    [masterForecasts, masterTxs, formulaSiblings, eventId]);
 
   // ── Simulator (apenas em forecast+income) ──
   const simEnabled = mode === "forecast" && kind === "income";
@@ -295,7 +306,9 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
           transactions: (masterTxs as any[]).filter((t) => t.type === "expense"),
           mode: m, withVat: vat, includeOverhead,
         }).total;
-        quota = computeMasterQuota(masterCost, args.masterQuota.siblingCount);
+        quota = formulaMasterCost ? computeEventCostOnBasis({
+          ...formulaMasterCost, mode: m, withVat: vat, includeOverhead,
+        }).total : computeMasterQuota(masterCost, args.masterQuota.siblingCount);
       }
 
       return { total, overhead, excess, approvedCount, quota };
@@ -602,7 +615,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
 
   }, [txs, forecasts, revenue, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate, withVat,
       includeOverhead, eventId, masterForecasts, masterTxs,
-      args.ticketSales, args.masterQuota, args.cacheImpact]);
+      args.ticketSales, args.masterQuota, args.cacheImpact, formulaMasterCost]);
 
   // ── Vista EBITDA (D-ERP151): parcelas classificadas sobre a MESMA base do card ──
   const ebitdaParcels = useMemo(() => {
@@ -630,7 +643,9 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             transactions: (masterTxs as any[]).filter((t) => t.type === "expense"),
             mode: basis, withVat: vat, includeOverhead, classMap,
           });
-          acc = addParcels(acc, scaleParcels(m, computeMasterQuota(1, args.masterQuota.siblingCount)));
+          acc = addParcels(acc, formulaMasterCost ? costParcelsOnBasis({
+            ...formulaMasterCost, mode: basis, withVat: vat, includeOverhead, classMap,
+          }) : scaleParcels(m, computeMasterQuota(1, args.masterQuota.siblingCount)));
         }
         return acc;
       }
@@ -654,7 +669,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       return out;
     };
     return { net: forVat(false), gross: forVat(true) };
-  }, [classMap, base.modeUsed, kind, forecasts, txs, masterForecasts, masterTxs, includeOverhead, eventId, args.masterQuota]);
+  }, [classMap, base.modeUsed, kind, forecasts, txs, masterForecasts, masterTxs, includeOverhead, eventId, args.masterQuota, formulaMasterCost]);
 
   return { ...base, ebitdaParcels };
 }

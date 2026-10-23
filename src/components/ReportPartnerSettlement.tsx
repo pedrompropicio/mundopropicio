@@ -68,7 +68,7 @@ export default function ReportPartnerSettlement() {
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("event_id, amount, status, is_overhead")
+        .select("id, event_id, amount, status, is_overhead, type, formula_type, formula_params")
         .eq("is_overhead", true)
         .eq("status", "approved").is("version_id", null));
       if (error) throw error;

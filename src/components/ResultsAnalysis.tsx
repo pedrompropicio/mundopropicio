@@ -1,3 +1,4 @@
+import { masterFormulaAmountForCity, masterFormulaCostInputsForCity } from "@/lib/master-formula";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { expandOverheadToSplits, overheadLinesFor } from "@/lib/overhead-proration";
@@ -135,7 +136,7 @@ export function ResultsAnalysis() {
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, amount, category_id, event_settlement_id").is("version_id", null));
+        .select("id, event_id, type, amount, category_id, transaction_id, formula_type, formula_params, event_settlement_id").is("version_id", null));
       if (error) throw error;
       return data;
     },
@@ -187,7 +188,7 @@ export function ResultsAnalysis() {
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, amount")
+        .select("id, event_id, amount, type, formula_type, formula_params")
         .eq("is_overhead", true).is("version_id", null));
       if (error) throw error;
       return data;
@@ -210,7 +211,7 @@ export function ResultsAnalysis() {
   // Proração Master→Splits (÷N) — ver src/lib/overhead-proration.ts
   const closingCosts = useMemo(
     // (#292) A quota do Master ÷N já entra por getMasterShare → só as originais.
-    () => overheadLinesFor(expandOverheadToSplits(closingCostsRaw as any, events as any), "originals"),
+    () => overheadLinesFor(expandOverheadToSplits(closingCostsRaw as any, events as any), "slices"),
     [closingCostsRaw, events],
   );
 
@@ -409,10 +410,24 @@ export function ResultsAnalysis() {
       if (!masterId) return { bpExpense: 0, mergedExpense: 0, closing: 0 };
       const siblings = childrenByMaster[masterId] || [];
       const n = siblings.length || 1;
+      const formulaLines = (forecasts as any[]).filter(f => f.event_id === masterId && f.type === "expense" && (f.formula_type === "pct_ticket_revenue" || f.formula_type === "per_head"));
+      const bpDelta = formulaLines.reduce((sum,f) => sum + masterFormulaAmountForCity(f,siblings,subEventId,Number(f.amount),Number(f.amount)/n) - Number(f.amount)/n,0);
+      const scaled = masterFormulaCostInputsForCity(
+        (forecasts as any[]).filter(f=>f.event_id===masterId && f.type==="expense"),
+        (transactions as any[]).filter(t=>t.event_id===masterId && t.type==="expense"), siblings, subEventId,
+      );
+      let mergedFormulaCost: number | null = null;
+      if (scaled) {
+        const byCat = new Map<string,{bp:number;paid:number;approved:number}>();
+        const bucket=(id:string)=>{let b=byCat.get(id);if(!b){b={bp:0,paid:0,approved:0};byCat.set(id,b);}return b;};
+        for(const f of scaled.forecasts) bucket(f.category_id ?? "__none__").bp+=Number(f.amount);
+        for(const t of scaled.transactions){const b=bucket(t.category_id ?? "__none__");if(t.status==="paid")b.paid+=Number(t.amount);else if(t.status==="approved")b.approved+=Number(t.amount);}
+        mergedFormulaCost=[...byCat.values()].reduce((sum,b)=>sum+(mode==="realized"?b.paid+b.approved:b.paid+Math.max(b.approved,Math.max(0,b.bp-b.paid))),0);
+      }
       return {
-        bpExpense: bpExpenseTotalForEvent(masterId) / n,
-        mergedExpense: mergeExpenseForEvent(masterId, mode) / n,
-        closing: (closingMap[masterId] ?? 0) / n,
+        bpExpense: bpExpenseTotalForEvent(masterId) / n + bpDelta,
+        mergedExpense: mergedFormulaCost ?? mergeExpenseForEvent(masterId, mode) / n,
+        closing: 0,
       };
     };
 

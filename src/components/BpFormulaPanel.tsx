@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sigma, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { useSyncFormulaForecasts } from "@/hooks/useSyncFormulaForecasts";
+import { useSyncFormulaForecasts, evaluateEventFormulas } from "@/hooks/useSyncFormulaForecasts";
 import { EventCourtesiesEditor } from "@/components/EventCourtesiesEditor";
 import { formulaForbiddenReason, formulaLineNoun } from "@/lib/bp-formula-line-rules";
 
@@ -18,9 +18,9 @@ type Kind = "fixed" | "pct_ticket_revenue" | "per_head";
 
 /**
  * #263 / D-ERP149 — linhas de BP com fórmula + convites (Previsto / Final).
- * No Master (turnê) não se oferecem estes tipos; linhas existentes não recalculam.
+ * Master usa a composição agregada das cidades; mesmo editor no Overhead.
  */
-export function BpFormulaPanel({ eventId, isMaster, canEdit }: { eventId: string; isMaster: boolean; canEdit: boolean }) {
+export function BpFormulaPanel({ eventId, isMaster, canEdit, overheadOnly = false }: { eventId: string; isMaster: boolean; canEdit: boolean; overheadOnly?: boolean }) {
   const qc = useQueryClient();
   const sync = useSyncFormulaForecasts({ eventId, isMaster });
   const [open, setOpen] = useState(false);
@@ -36,27 +36,31 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit }: { eventId: string
   const [saving, setSaving] = useState(false);
 
   const { data: candidates = [] } = useQuery({
-    queryKey: ["bp-formula-candidates", eventId],
+    queryKey: ["bp-formula-candidates", eventId, overheadOnly],
     enabled: open,
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery((supabase as any).from("event_forecasts")
-        .select("id, type, description, amount, formula_type, formula_params, account_categories(code)")
+        .select("id, type, description, amount, is_overhead, formula_type, formula_params, account_categories(code)")
         .eq("event_id", eventId).is("version_id", null).in("type", ["expense", "income"]).is("cache_config_id", null).order("description"));
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).filter((l: any) => !overheadOnly || l.is_overhead);
     },
   });
   const { data: zoneRows = [] } = useQuery({
     queryKey: ["bp-formula-zones", eventId],
     enabled: open,
     queryFn: async () => {
-      const { data, error } = await supabase.from("event_ticket_zones").select("id, name").eq("event_id", eventId).is("version_id", null).order("name");
+      const { data: children, error: childError } = await supabase.from("events").select("id, name").eq("parent_event_id", eventId).order("date").order("id");
+      if (childError) throw childError;
+      const ids = isMaster && children?.length ? children.map(c => c.id) : [eventId];
+      const names = new Map((children ?? []).map(c => [c.id, c.name]));
+      const { data, error } = await supabase.from("event_ticket_zones").select("id, name, event_id").in("event_id", ids).is("version_id", null).order("name");
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).map(z => ({ ...z, name: isMaster ? `${names.get(z.event_id) ?? ""} · ${z.name}` : z.name }));
     },
   });
 
-  const lines = sync.data?.lines ?? [];
+  const lines = (sync.data?.lines ?? []).filter((l: any) => !overheadOnly || l.is_overhead);
   const evals = new Map((sync.data?.evals ?? []).map((e) => [e.forecastId, e]));
   const anyPending = (sync.data?.evals ?? []).some((e) => e.result.composition.pendingFinalCourtesies);
   const hasPerHead = lines.some((l: any) => l.formula_type === "per_head");
@@ -98,6 +102,10 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit }: { eventId: string
           ? { rate: num(rate) ?? 0, basis, zone_ids, min: num(min), max: num(max) }
           : { unit_amount: num(unit) ?? 0, include_courtesies: incCourt, zone_ids, min: num(min), max: num(max) };
         patch = { formula_type: kind, formula_params: params };
+        if (isMaster && !frozen) {
+          const [evaluation] = await evaluateEventFormulas(eventId, [{ id: lineId, ...patch }]);
+          if (evaluation?.cityBases) patch.formula_params.master_city_bases = evaluation.cityBases;
+        }
       }
       const { error } = await (supabase as any).from("event_forecasts").update(patch).eq("id", lineId);
       if (error) throw error;
@@ -105,6 +113,7 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit }: { eventId: string
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["bp-formula-sync", eventId] });
       qc.invalidateQueries({ queryKey: ["event_forecasts"] });
+      qc.invalidateQueries({ queryKey: ["event-overhead-forecasts"] });
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -112,22 +121,13 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit }: { eventId: string
     }
   };
 
-  if (isMaster) {
-    if (!lines.length) return null;
-    return (
-      <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-xs flex gap-2">
-        <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
-        Há {lines.length} linha(s) com fórmula no Master. Fórmulas de receita/público só se aplicam às cidades; estas linhas não recalculam.
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-3">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 py-3">
           <CardTitle className="text-sm flex items-center gap-2"><Sigma className="h-4 w-4" /> Linhas com fórmula</CardTitle>
-          {canEdit && <Button size="sm" variant="outline" onClick={() => { setOpen(true); setLineId(""); }}>Definir fórmula…</Button>}
+          {canEdit && !frozen && <Button size="sm" variant="outline" onClick={() => { setOpen(true); setLineId(""); }}>Definir fórmula…</Button>}
         </CardHeader>
         <CardContent className="pt-0 space-y-1.5">
           {frozen && lines.length > 0 && <p className="text-xs text-warning">Evento concluído ou fechamento selado — as fórmulas não recalculam.</p>}
@@ -161,7 +161,7 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit }: { eventId: string
           <AlertTriangle className="h-4 w-4 text-warning shrink-0" /> Convites finais por preencher — o evento já aconteceu e as linhas por pessoa estão a usar o previsto.
         </div>
       )}
-      {hasPerHead && (
+      {hasPerHead && !isMaster && !overheadOnly && (
         <div className="grid gap-3 lg:grid-cols-2">
           <EventCourtesiesEditor eventId={eventId} scenario="forecast" title="Convites — Previsto" description="Usados nas linhas por pessoa antes do evento." />
           <EventCourtesiesEditor eventId={eventId} scenario="real" title="Convites — Final" description="Depois do evento substituem o previsto. São as mesmas cortesias da Bilheteira." />
@@ -169,7 +169,7 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit }: { eventId: string
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg" aria-describedby={undefined}>
           <DialogHeader><DialogTitle>Linha com fórmula</DialogTitle></DialogHeader>
           <div className="space-y-3 text-sm">
             <select className="w-full rounded-md border bg-background p-2" value={lineId} onChange={(e) => pick(e.target.value)}>
@@ -222,7 +222,7 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit }: { eventId: string
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={save} disabled={!lineId || saving || (!!selectedForbidden && kind !== "fixed")}>Gravar</Button>
+            <Button onClick={save} disabled={frozen || !lineId || saving || (!!selectedForbidden && kind !== "fixed")}>Gravar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

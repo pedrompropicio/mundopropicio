@@ -7,6 +7,7 @@ import { computeLiveTicketForecast } from "@/lib/event-simulator-forecast-live";
 import { fetchEventRealized } from "@/lib/event-revenue-basis";
 import { writeForecastAmount, ForecastBelowRealizedError } from "@/lib/forecast-amount";
 import { toast } from "@/hooks/use-toast";
+import { computeMasterBpFormula } from "@/lib/master-formula";
 import { mustWrite } from "@/lib/must-write";
 import { invalidateEventFinancials } from "@/lib/invalidate-event-financials";
 import {
@@ -15,7 +16,7 @@ import {
 
 /**
  * #263 / D-ERP149 — recálculo das linhas de BP com fórmula (padrão useSyncCacheForecasts).
- * Só em eventos simples ou sub-eventos (cidade). No Master não recalcula.
+ * Master: soma do motor de cada cidade; limites aplicados ao total.
  * Subir: UPDATE normal. Descer: regra #240 — nunca abaixo do realizado; se bater no chão grava o chão.
  * baseline_amount nunca é tocado (D3).
  * #339 A1: também em linhas de RECEITA (exceto 1.1.01/1.1.03); chão em receita pelo
@@ -26,6 +27,7 @@ export interface FormulaEvaluation {
   forecastId: string;
   result: BpFormulaResult;
   text: string;
+  cityBases?: Record<string, number>;
 }
 
 async function loadInputs(eventId: string) {
@@ -52,15 +54,20 @@ async function loadInputs(eventId: string) {
 
 export async function evaluateEventFormulas(eventId: string, lines: any[]): Promise<FormulaEvaluation[]> {
   if (lines.length === 0) return [];
-  const [{ sales, courtesies }, realized] = await Promise.all([loadInputs(eventId), fetchEventRealized(eventId)]);
-  const needsSim = !realized && lines.some((l) => !(l.formula_params?.zone_ids?.length));
-  const live = needsSim ? await computeLiveTicketForecast(eventId).catch(() => null) : null;
-  return lines.map((l) => {
-    const result = computeBpFormula({
-      formulaType: l.formula_type, params: l.formula_params ?? {}, sales, courtesies: courtesies as any,
-      realized, liveForecast: live,
-    });
-    return { forecastId: l.id, result, text: describeBpFormula(result) };
+  const { data: children, error } = await supabase.from("events").select("id").eq("parent_event_id", eventId).order("date").order("id");
+  if (error) throw error;
+  const ids = children?.length ? children.map(c => c.id) : [eventId];
+  const cities = await Promise.all(ids.map(async id => {
+    const [{ sales, courtesies }, realized] = await Promise.all([loadInputs(id), fetchEventRealized(id)]);
+    const needsSim = !realized && lines.some(l => !l.formula_params?.zone_ids?.length);
+    const liveForecast = needsSim ? await computeLiveTicketForecast(id) : null;
+    return { eventId: id, sales, courtesies: courtesies as any, realized, liveForecast };
+  }));
+  return lines.map(l => {
+    const config = { formulaType: l.formula_type, params: l.formula_params ?? {} };
+    const result = children?.length ? computeMasterBpFormula({ ...config, cities }) : computeBpFormula({ ...config, ...cities[0] });
+    const cityBases = "cityBases" in result ? result.cityBases as Record<string, number> : undefined;
+    return { forecastId: l.id, result, cityBases, text: describeBpFormula(result) };
   });
 }
 
@@ -73,7 +80,7 @@ export function useSyncFormulaForecasts({ eventId, isMaster, enabled = true }: {
     refetchInterval: 60000,
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery((supabase as any).from("event_forecasts")
-        .select("id, type, description, amount, formula_type, formula_params, formula_value, version_id, account_categories(code)")
+        .select("id, type, description, amount, is_overhead, formula_type, formula_params, formula_value, version_id, account_categories(code)")
         .eq("event_id", eventId).is("version_id", null).in("formula_type", ["pct_ticket_revenue", "per_head"]));
       if (error) throw error;
       const all = (data ?? []).filter((l: any) => isFormulaType(l.formula_type));
@@ -82,16 +89,15 @@ export function useSyncFormulaForecasts({ eventId, isMaster, enabled = true }: {
         .filter((f) => f.reason) as { id: string; description: string; reason: string }[];
       const forbiddenIds = new Set(forbidden.map((f) => f.id));
       const lines = all.filter((l: any) => !forbiddenIds.has(l.id));
-      if (isMaster) return { lines, forbidden, evals: [] as FormulaEvaluation[], masterBlocked: lines.length > 0, frozen: false };
       const [{ data: ev, error: evErr }, { data: seals, error: sErr }] = await Promise.all([
-        supabase.from("events").select("status").eq("id", eventId!).maybeSingle(),
-        (supabase as any).from("event_settlements").select("id").eq("event_id", eventId!).not("sealed_at", "is", null).limit(1),
+        supabase.from("events").select("status").eq("id", eventId ?? "").maybeSingle(),
+        (supabase as any).from("event_settlements").select("id").eq("event_id", eventId ?? "").not("sealed_at", "is", null).limit(1),
       ]);
       if (evErr) throw evErr;
       if (sErr) throw sErr;
       const frozen = !canRecalculateFormulas({ status: (ev as any)?.status, hasSealedSettlement: (seals ?? []).length > 0 });
       if (frozen) return { lines, forbidden, evals: [] as FormulaEvaluation[], masterBlocked: false, frozen };
-      return { lines, forbidden, evals: await evaluateEventFormulas(eventId!, lines), masterBlocked: false, frozen };
+      return { lines, forbidden, evals: await evaluateEventFormulas(eventId ?? "", lines), masterBlocked: false, frozen };
     },
   });
 
@@ -105,7 +111,7 @@ export function useSyncFormulaForecasts({ eventId, isMaster, enabled = true }: {
       const p = l.formula_params ?? {};
       // Já tratado só se o valor da linha bate com o calculado (ou ficou no chão).
       // Antes bastava last_text: a escrita do overhead falhava em silêncio e nunca se repetia.
-      const same = p.last_text === e.text && Number(p.last_calculated) === e.result.amount;
+      const same = p.last_text === e.text && Number(p.last_calculated) === e.result.amount && JSON.stringify(p.master_city_bases) === JSON.stringify(e.cityBases);
       if (same && (p.floor_hit || Math.abs(Number(l.amount || 0) - e.result.amount) < 0.005)) return false;
       return true;
     });
@@ -150,7 +156,7 @@ export function useSyncFormulaForecasts({ eventId, isMaster, enabled = true }: {
             continue;
           }
         }
-        const patch = buildFormulaRecalcPatch(l.formula_params, { text: e.text, amount: e.result.amount }, written, floorHit, new Date().toISOString());
+        const patch = buildFormulaRecalcPatch({ ...l.formula_params, ...(e.cityBases ? { master_city_bases: e.cityBases } : {}) }, { text: e.text, amount: e.result.amount }, written, floorHit, new Date().toISOString());
         try {
           await mustWrite((supabase as any).from("event_forecasts").update(patch).eq("id", e.forecastId).select("id"), "Fórmula: parâmetros", { expectRows: true });
         } catch (pErr: any) {
@@ -160,6 +166,10 @@ export function useSyncFormulaForecasts({ eventId, isMaster, enabled = true }: {
       running.current = false;
       qc.invalidateQueries({ queryKey: ["event_forecasts"] });
       qc.invalidateQueries({ queryKey: ["bp-formula-sync", eventId] });
+      qc.invalidateQueries({ queryKey: ["event-overhead-forecasts"] });
+      qc.invalidateQueries({ queryKey: ["bp_overhead_via_master"] });
+      qc.invalidateQueries({ queryKey: ["closing-costs-all"] });
+      qc.invalidateQueries({ queryKey: ["ra_closing_costs"] });
       invalidateEventFinancials(qc, [eventId]);
     })();
   }, [q.data, eventId, qc]);

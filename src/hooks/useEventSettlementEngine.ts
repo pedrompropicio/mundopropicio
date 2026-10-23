@@ -1,3 +1,4 @@
+import { loadMasterFormulaExpenseSlicesFor } from "@/lib/master-formula-load";
 /**
  * Carrega os dados e corre o MOTOR dos apuramentos (#146 (c)).
  *
@@ -94,7 +95,7 @@ export function useEventSettlementEngine(eventId: string) {
         .select(
           // (#226) `account_categories(code)` é obrigatório: a receita do fecho
           // classifica as linhas de BP por rubrica.
-          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable, account_categories(code, name, ebitda_class)",
+          "id, event_id, type, amount, formula_type, formula_params, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable, account_categories(code, name, ebitda_class)",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")
@@ -107,13 +108,18 @@ export function useEventSettlementEngine(eventId: string) {
 
   // #339 B2b — cidade sem o Master no perímetro: quota da receita repartida.
   const { slices: masterRevenue } = useMasterRevenueSlicesFor(events as any[]);
+  const { data: masterFormulaSlices } = useQuery({
+    queryKey: ["master-formula-expense-slices", idsKey],
+    queryFn: () => loadMasterFormulaExpenseSlicesFor(supabase, events as any[]),
+    enabled: events.length > 0,
+  });
   const transactions = useMemo(
-    () => [...(transactionsRaw as any[]), ...masterRevenue.transactionSlices],
-    [transactionsRaw, masterRevenue],
+    () => [...(transactionsRaw as any[]), ...masterRevenue.transactionSlices, ...(masterFormulaSlices?.transactionSlices ?? [])],
+    [transactionsRaw, masterRevenue, masterFormulaSlices],
   );
   const forecasts = useMemo(
-    () => [...(forecastsRaw as any[]), ...masterRevenue.forecastSlices],
-    [forecastsRaw, masterRevenue],
+    () => [...(forecastsRaw as any[]), ...masterRevenue.forecastSlices, ...(masterFormulaSlices?.forecastSlices ?? [])],
+    [forecastsRaw, masterRevenue, masterFormulaSlices],
   );
 
   const { data: ticketSales = [] } = useQuery({

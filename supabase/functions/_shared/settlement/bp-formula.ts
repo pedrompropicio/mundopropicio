@@ -169,9 +169,9 @@ export function computeBpFormula(input: BpFormulaInput): BpFormulaResult {
   const useSim = !input.realized && !zoneIds && !!lf && lf.gross !== null && lf.net !== null;
   const zoneFilterUsesReal = !input.realized && !!zoneIds;
 
-  const gross = useSim ? roundCents(lf!.gross!) : real.gross;
-  const net = useSim ? roundCents(lf!.net!) : real.net;
-  const sold = useSim ? Math.round(lf!.totalQty) : real.sold;
+  const gross = useSim ? roundCents(lf?.gross ?? 0) : real.gross;
+  const net = useSim ? roundCents(lf?.net ?? 0) : real.net;
+  const sold = useSim ? Math.round(lf?.totalQty ?? 0) : real.sold;
 
   let raw = 0;
   let revenue: number | null = null;

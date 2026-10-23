@@ -15,10 +15,14 @@
  * para os relatórios (DRE, BP, Acerto com Sócios, Análise de Resultados).
  */
 
+import { masterFormulaShares } from "./master-formula.ts";
+
 export interface OverheadLike {
   id: string;
   event_id: string;
   amount: number | string;
+  formula_type?: string | null;
+  formula_params?: any;
   description?: string;
   category_id?: string | null;
   account_categories?: { code: string; name: string } | null;
@@ -68,16 +72,17 @@ export function expandOverheadToSplits(
     const splits = splitsByMaster[oh.event_id];
     if (!splits || splits.length === 0) continue;
 
+    const formula = oh.type === "income" ? null : masterFormulaShares(oh, splits, Number(oh.amount));
     const share = Number(oh.amount) / splits.length;
-    for (const splitId of splits) {
+    for (const [index, splitId] of splits.entries()) {
       out.push({
         ...oh,
         id: `${oh.id}::split::${splitId}`,
         event_id: splitId,
-        amount: share,
+        amount: formula?.amounts[index] ?? share,
         _overhead_via_master: true,
         _master_event_id: oh.event_id,
-        _split_share: 1 / splits.length,
+        _split_share: formula?.shares[index] ?? 1 / splits.length,
       });
     }
   }
@@ -100,7 +105,11 @@ export function overheadLinesFor<T extends ExpandedOverhead>(
   expanded: T[],
   mode: "originals" | "slices",
 ): T[] {
-  if (mode === "originals") return expanded.filter((o) => !o._overhead_via_master);
+  if (mode === "originals") {
+    const presentIds = new Set(expanded.filter(o => !o._overhead_via_master).map(o => o.id));
+    // A city-only bundle contains the received slice, not its original Master line.
+    return expanded.filter(o => !o._overhead_via_master || !presentIds.has(o.id.split("::split::")[0]));
+  }
   const mastersWithSlices = new Set(
     expanded.filter((o) => o._overhead_via_master).map((o) => o._master_event_id as string),
   );
