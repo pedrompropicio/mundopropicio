@@ -258,7 +258,8 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
       ? [{ gross: revenueBasis.real.ticket.gross, net: revenueBasis.real.ticket.net }]
       : [],
     incomeTransactions: revenueBasis?.real.incomeTx ?? [],
-    incomeForecasts,
+    // #339 B — fatias da receita repartida do Master (só numa cidade vista sem o Master).
+    incomeForecasts: [...incomeForecasts, ...(revenueBasis?.masterRevenue?.forecastSlices ?? [])],
   });
   const revenueNet = fechoRevenue.revenueNet;
   const revenueGross = fechoRevenue.revenueGross;
