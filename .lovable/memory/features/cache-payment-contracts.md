@@ -21,3 +21,4 @@ type: feature
 - Ligar adiantamento (#346): adiantamento livre liga-se a um contrato existente no lugar (RPC attach_cache_advance_to_contract), abatendo ao saldo da cidade onde foi lançado; bruto, retenção e outros contratos não mudam. Ação "Ligar adiantamento" no cartão do contrato.
 - Recusas da ligação: saldo negativo, abaixo do já pago, saldo (filha ou mãe) em qualquer lista não rejeitada, adiantamento estornado/de outro contrato/não livre, contrato cancelado; fornecedor ≠ beneficiário exige confirmação explícita.
 - Modal "Novo contrato": se adiantamentos livres por marcar + quotas ativas + quota nova passam o teto de uma cidade, mostra aviso por cidade (teto, contratos, adiantamentos livres, espaço livre) com "Ligar a um contrato existente" / "Marcar neste contrato"; "Criar contrato" fica desligado.
+- Listas de adiantamentos (modal, diálogo de ligação, painel): descrição sempre inteira com quebra de linha, nunca cortada; valor sempre visível à direita (#346).
