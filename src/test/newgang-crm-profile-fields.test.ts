@@ -8,7 +8,7 @@ let db: PGlite;
 const company = '10000000-0000-0000-0000-000000000001';
 const site = '40000000-0000-0000-0000-000000000001';
 const sql = readFileSync('drizzle/migrations/0199_newgang_crm_profile_fields.sql', 'utf8');
-const sql2 = readFileSync('/tmp/mig.sql', 'utf8');
+const sql2 = readFileSync('drizzle/migrations/0236_newgang_summary_estimated_city.sql', 'utf8');
 const list = (args = '') => db.query<any>(`SELECT * FROM clube_newgang_list(${args})`).then((r) => r.rows);
 
 beforeAll(async () => {
