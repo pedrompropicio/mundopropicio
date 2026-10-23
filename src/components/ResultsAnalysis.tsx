@@ -545,7 +545,7 @@ export function ResultsAnalysis() {
     };
 
     return { completed, active, yearTotals };
-  }, [events, transactions, forecasts, ticketSales, partners, ticketLots, closingCosts, eventDates, currentYear, includeOverhead, resultModeOverride]);
+  }, [events, transactions, forecasts, ticketSales, partners, ticketLots, closingCosts, eventDates, currentYear, includeOverhead, resultModeOverride, revenueSplit]);
 
   const generatePdf = () => {
     const doc = new jsPDF({ orientation: "landscape" });
