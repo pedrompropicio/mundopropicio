@@ -128,12 +128,12 @@ export async function verifyAttachmentSource(x: { message_id: string; part_id: s
 
 /** Funde campos do scanner existente (número/data/total) no candidato; conflito → campo vazio + pendência. */
 export function mergeScanner(c: TicketlineCandidate, wire: AnalysisWire, prov: Extract<Provenance, { source: "attachment" }>): TicketlineCandidate {
-  const out: TicketlineCandidate = { ...c, sources: [...c.sources, prov], incomplete: [...c.incomplete] };
+  const out: TicketlineCandidate = { ...c, sources: [...c.sources, prov], incomplete: [...c.incomplete], blocking: [...(c.blocking ?? [])] };
   const get = (k: string) => wire.fields.find(f => f.field === k)?.value ?? null;
   const merge = <T>(key: "number" | "date" | "total_cents", v: T | null, label: string) => {
     if (v === null) return;
     const cur = out[key] as Field<T>;
-    if (cur && cur.value !== v) { (out as Record<string, unknown>)[key] = null; out.incomplete.push(`${label} difere entre o anexo e o corpo do email: indicar na revisão.`); return; }
+    if (cur && cur.value !== v) { (out as Record<string, unknown>)[key] = null; pushBlocking(out, BLOCKING.field_conflict, `${label} difere entre o anexo e o corpo do email: indicar na revisão.`); return; }
     if (!cur) (out as Record<string, unknown>)[key] = { value: v, prov };
   };
   merge("number", get("invoice_number"), "Número");
@@ -142,9 +142,10 @@ export function mergeScanner(c: TicketlineCandidate, wire: AnalysisWire, prov: E
   // #333 fase12k: o scanner existente só devolve número/data/total; nunca linhas. Dizê-lo em vez de sugerir que as procurou.
   if (!out.lines.length) {
     out.incomplete = out.incomplete.filter(x => !x.startsWith("Sem linhas reconhecidas"));
-    out.incomplete.push("Revisão parcial: o scanner lê só número, data e total do anexo e não extrai as linhas do apuramento — introduzir as linhas a partir do documento original.");
+    out.blocking = out.blocking.filter(b => b.code !== BLOCKING.no_lines);
+    pushBlocking(out, BLOCKING.no_lines, "Revisão parcial: o scanner lê só número, data e total do anexo e não extrai as linhas do apuramento — introduzir as linhas a partir do documento original.");
   }
-  if (!out.date) out.incomplete.push("Data não lida no anexo (ausente ou formato ambíguo): fica vazia; preencher a partir do documento.");
+  if (!out.date) pushBlocking(out, BLOCKING.date_ambiguous, "Data não lida no anexo (ausente ou formato ambíguo): fica vazia; preencher a partir do documento.");
   if ([out.number, out.total_cents].some(f => f?.prov.source === "attachment")) out.incomplete.push("Número e total lidos pelo scanner: conferir no documento original antes de confirmar.");
   return out;
 }
