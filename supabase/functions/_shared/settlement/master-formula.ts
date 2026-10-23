@@ -48,3 +48,16 @@ export function masterFormulaAmountForCity(line: { formula_type?: string | null;
   if (index < 0) throw new Error("Fórmula do Master: cidade fora da família.");
   return masterFormulaShares(line, childIds, amount)?.amounts[index] ?? legacy;
 }
+
+/** Scale inputs before the canonical cost engine, preserving the exact legacy path without formulas. */
+export function masterFormulaCostInputsForCity(forecasts: any[], transactions: any[], childIds: string[], cityId: string) {
+  if (!forecasts.some(f => isFormulaType(f.formula_type))) return null;
+  const n = childIds.length || 1;
+  const scale = (row: any, line: any) => ({ ...row, amount: masterFormulaAmountForCity(line ?? {}, childIds, cityId, Number(row.amount), Number(row.amount) / n) });
+  return {
+    forecasts: forecasts.map(f => scale(f, f)),
+    transactions: transactions.map(t => scale(t,
+      forecasts.find(f => f.transaction_id === t.id || f.id === t.forecast_id)
+      ?? (forecasts.filter(f => f.category_id && f.category_id === t.category_id).length === 1 ? forecasts.find(f => f.category_id === t.category_id) : null))),
+  };
+}
