@@ -105,7 +105,11 @@ export function overheadLinesFor<T extends ExpandedOverhead>(
   expanded: T[],
   mode: "originals" | "slices",
 ): T[] {
-  if (mode === "originals") return expanded.filter((o) => !o._overhead_via_master);
+  if (mode === "originals") {
+    const presentIds = new Set(expanded.filter(o => !o._overhead_via_master).map(o => o.id));
+    // A city-only bundle contains the received slice, not its original Master line.
+    return expanded.filter(o => !o._overhead_via_master || !presentIds.has(o.id.split("::split::")[0]));
+  }
   const mastersWithSlices = new Set(
     expanded.filter((o) => o._overhead_via_master).map((o) => o._master_event_id as string),
   );
