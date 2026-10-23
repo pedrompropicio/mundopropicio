@@ -41,3 +41,10 @@ export function masterFormulaShares(line: { formula_type?: string | null; formul
   });
   return { amounts, shares };
 }
+
+/** Canonical formula override for an existing legacy quota; no formula means exact legacy value. */
+export function masterFormulaAmountForCity(line: { formula_type?: string | null; formula_params?: any }, childIds: string[], cityId: string, amount: number, legacy: number): number {
+  const index = childIds.indexOf(cityId);
+  if (index < 0) throw new Error("Fórmula do Master: cidade fora da família.");
+  return masterFormulaShares(line, childIds, amount)?.amounts[index] ?? legacy;
+}
