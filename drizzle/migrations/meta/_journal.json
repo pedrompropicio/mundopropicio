@@ -1653,6 +1653,13 @@
       "when": 1792583883241,
       "tag": "0235_campaign_alerts_account_calendar",
       "breakpoints": true
+    },
+    {
+      "idx": 236,
+      "version": "7",
+      "when": 1792753639889,
+      "tag": "0236_newgang_summary_estimated_city",
+      "breakpoints": true
     }
   ]
 }

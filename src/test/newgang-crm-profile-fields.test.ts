@@ -8,6 +8,7 @@ let db: PGlite;
 const company = '10000000-0000-0000-0000-000000000001';
 const site = '40000000-0000-0000-0000-000000000001';
 const sql = readFileSync('drizzle/migrations/0199_newgang_crm_profile_fields.sql', 'utf8');
+const sql2 = readFileSync('drizzle/migrations/0236_newgang_summary_estimated_city.sql', 'utf8');
 const list = (args = '') => db.query<any>(`SELECT * FROM clube_newgang_list(${args})`).then((r) => r.rows);
 
 beforeAll(async () => {
@@ -32,6 +33,7 @@ beforeAll(async () => {
  INSERT INTO ip_city_ranges VALUES('203.0.113.0','203.0.113.255','PT','Lisboa','Lisboa','2026-10-01');`);
   // Live drift guard is checked by the official tool; locally skip it.
   await db.exec(sql.slice(sql.indexOf('CREATE TEMP TABLE')).replace('ON COMMIT DROP', ''));
+  await db.exec(sql2.slice(sql2.indexOf('CREATE OR REPLACE FUNCTION')));
   await db.exec(`
  INSERT INTO club_members VALUES
  ('30000000-0000-0000-0000-000000000001','${company}','${site}',null,'perfil@fixture.invalid',null,1,now(),'2026-10-10'),
@@ -70,13 +72,33 @@ describe('CRM Newgang profile-first list', () => {
   it('summary counts unique people and uses the profile city/age first', async () => {
     const s = (await db.query<any>('SELECT clube_newgang_summary() s')).rows[0].s;
     expect(s.total).toBe(3);
-    expect(s.by_city).toEqual(expect.arrayContaining([{ k: 'Lisboa', n: 1 }, { k: 'Faro', n: 1 }, { k: '(sem cidade)', n: 1 }]));
+    expect(s.by_city).toEqual(expect.arrayContaining([{ k: 'Lisboa', n: 1, n_declarada: 1, n_estimada: 0 }, { k: 'Faro', n: 1, n_declarada: 1, n_estimada: 0 }, { k: 'Braga', n: 1, n_declarada: 0, n_estimada: 1 }]));
+    expect(s.by_city.find((x: any) => x.k === '(sem cidade)')).toBeUndefined();
+    expect(s.by_city.find((x: any) => x.k === 'Madrid')).toBeUndefined();
     expect(s.by_city.find((x: any) => x.k === 'Porto')).toBeUndefined();
     expect(s.by_age.find((x: any) => x.k === 'sem data').n).toBe(1);
   });
   it('preserves the previous grant on the new signature', async () => {
     const r = (await db.query<any>("SELECT has_function_privilege('authenticated','clube_newgang_list(text,int,int,boolean)','EXECUTE') ok")).rows[0];
     expect(r.ok).toBe(true);
+  });
+});
+
+describe('summary city: declared, estimated only, none', () => {
+  it('counts declared and estimated separately, keeps PT/BR only and leaves the list unchanged', async () => {
+    await db.exec(`INSERT INTO lead_capture(id,name,email,raw,company_id,source,created_at,geo_city,geo_country) VALUES
+     ('50000000-0000-0000-0000-000000000021','Est','est@fixture.invalid','{}','${company}','clube_newgang','2026-10-14','Lisbon','PT'),
+     ('50000000-0000-0000-0000-000000000022','Dec','dec@fixture.invalid','{"city":"Lisboa"}','${company}','clube_newgang','2026-10-15','Porto','PT'),
+     ('50000000-0000-0000-0000-000000000023','Nada','nada@fixture.invalid','{}','${company}','clube_newgang','2026-10-16',null,null),
+     ('50000000-0000-0000-0000-000000000024','Fora','fora@fixture.invalid','{}','${company}','clube_newgang','2026-10-17','Madrid','ES');`);
+    const s = (await db.query<any>('SELECT clube_newgang_summary() s')).rows[0].s;
+    expect(s.by_city.find((x: any) => x.k === 'Lisboa')).toEqual({ k: 'Lisboa', n: 3, n_declarada: 2, n_estimada: 1 });
+    expect(s.by_city.find((x: any) => x.k === '(sem cidade)')).toEqual({ k: '(sem cidade)', n: 2, n_declarada: 0, n_estimada: 0 });
+    expect(s.by_city.find((x: any) => x.k === 'Porto')).toBeUndefined();
+    const l = (await list("'est@'"))[0];
+    expect(l).toMatchObject({ city: null, city_source: null, estimated_city: 'Lisbon', estimated_country: 'PT' });
+    expect((await list("'dec@'"))[0]).toMatchObject({ city: 'Lisboa', city_source: 'formulario', estimated_city: 'Porto' });
+    await db.exec("DELETE FROM lead_capture WHERE id::text LIKE '50000000-0000-0000-0000-00000000002%'");
   });
 });
 

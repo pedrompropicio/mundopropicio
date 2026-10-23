@@ -6176,3 +6176,7 @@ Passo A instalado em Live a 22/10/2026 com Sim do Pedro.
 - Só disponível com base efectiva das despesas c/IVA; com base s/IVA a tabela deixaria de somar ao resultado, por isso o seletor fica desactivado e o documento sai detalhado.
 - O modo muda só colunas e rótulos: totais, resultado, parte do sócio e base a transferir iguais ao cêntimo. Portal do Sócio e relatório de gestão inalterados.
 - Implementação: commit 71d920c; memória partner-settlement.md (g18); teste partner-statement-expense-columns.test.tsx.
+
+## D-ERP300 — 23/10/2026 — Cidade estimada por IP no resumo do CRM Newgang
+- No cartão "Por cidade" a cidade estimada (PT/BR) entra só quando não há declarada; cada linha separa declaradas e estimadas. O nome inglês do DB-IP "Lisbon" conta como Lisboa (só no resumo; a lista mostra o valor bruto).
+- A estimada continua fora da lista, CSV, filtros, audiências e anúncios (decisão de 18/10). Migração 0236; teste newgang-crm-profile-fields.

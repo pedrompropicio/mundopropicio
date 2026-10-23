@@ -22,7 +22,7 @@ const META = 15000;
 const META_DATA = "02/11/2026";
 const PAGE = 50;
 
-type Kv = { k: string; n: number };
+type Kv = { k: string; n: number; n_declarada?: number; n_estimada?: number };
 type Summary = { total: number; today: number; last7: number; by_day: { d: string; n: number }[]; by_city: Kv[]; by_utm: Kv[]; by_age: Kv[] };
 type Row = {
   id: string; name: string | null; email: string | null; phone: string | null; birth_date: string | null;
@@ -40,19 +40,26 @@ function csvCell(v: unknown): string {
   return /[";\n,]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-function Ranked({ title, items }: { title: string; items: Kv[] }) {
+function Ranked({ title, items, footnote }: { title: string; items: Kv[]; footnote?: string }) {
   const max = Math.max(1, ...items.map((i) => i.n));
+  const [open, setOpen] = useState<string | null>(null);
+  const origin = (i: Kv) => (i.n_declarada != null && i.n_estimada != null && i.k !== "(sem cidade)" ? `${n(i.n_declarada)} declaradas · ${n(i.n_estimada)} estimadas (IP)` : null);
   return (
     <Card>
       <CardHeader className="pb-2"><CardTitle className="text-sm">{title}</CardTitle></CardHeader>
       <CardContent className="space-y-2">
         {items.length === 0 && <p className="text-sm text-muted-foreground">0 inscritos</p>}
-        {items.map((i) => (
-          <div key={i.k} className="space-y-1">
-            <div className="flex justify-between gap-2 text-xs"><span className="truncate">{i.k}</span><span className="tabular-nums">{n(i.n)}</span></div>
-            <div className="h-1.5 rounded bg-muted"><div className="h-1.5 rounded bg-primary" style={{ width: `${(i.n / max) * 100}%` }} /></div>
-          </div>
-        ))}
+        {items.map((i) => {
+          const o = origin(i);
+          return (
+            <div key={i.k} className={`space-y-1 ${o ? "cursor-pointer" : ""}`} title={o ?? undefined} onClick={o ? () => setOpen(open === i.k ? null : i.k) : undefined}>
+              <div className="flex justify-between gap-2 text-xs"><span className="truncate">{i.k}</span><span className="tabular-nums">{n(i.n)}</span></div>
+              <div className="h-1.5 rounded bg-muted"><div className="h-1.5 rounded bg-primary" style={{ width: `${(i.n / max) * 100}%` }} /></div>
+              {o && open === i.k && <p className="text-xs text-muted-foreground">{o}</p>}
+            </div>
+          );
+        })}
+        {footnote && <p className="pt-1 text-[11px] text-muted-foreground">{footnote}</p>}
       </CardContent>
     </Card>
   );
@@ -160,7 +167,7 @@ export default function ClubeNewgang() {
       </Card>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Ranked title="Por cidade (top 10)" items={s?.by_city ?? []} />
+        <Ranked title="Por cidade (top 10)" items={s?.by_city ?? []} footnote="Inclui cidade estimada por IP (DB-IP, CC BY 4.0)" />
         <Ranked title="Por fonte / UTM" items={s?.by_utm ?? []} />
         <Ranked title="Por faixa etária" items={s?.by_age ?? []} />
       </div>
