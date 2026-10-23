@@ -213,6 +213,8 @@ _(sem pedidos)_
 
 ## 7 · Fecho e Sócios
 
+- [ ] **#346 · R2 — passo a concluído (23/10/2026) — migração 0237 aplicada; aguarda Sim para o passo b.** Nova função attach_cache_advance_to_contract (liga adiantamento livre a contrato existente, no lugar), invariante cache_cidade_teto_excedido e fornecedor nos adiantamentos livres do contexto. Prova em Live anulada bateu (Lisboa 28.272,01→18.272,01; restante 70.420,19). Nada ligado ainda. Relatório: docs/testes/issue346-ligar-adiantamento.md.
+
 - [x] **#345 · R1 — FECHADA 23/10/2026.** Publicada e testada pelo Pedro no export da equipa (Ivete Clareou 2026 · SUPERSOUNDS: secções C e D com somas iguais aos totais da secção 5; base a receber inalterada). Falta só a reimplantação da `partner-statement` para o Portal — o mesmo pedido da #344, na secção 0 · Cowork (Claude).
 - [x] **#344 · R1 — FECHADA 23/10/2026.** Publicada e verificada pelo Pedro no export da equipa (Ivete Clareou 2026 · SUPERSOUNDS: total das receitas 575.355,39; detalhe A com 20 linhas). Falta só a reimplantação da `partner-statement` para o Portal — pedido na secção 0 · Cowork (Claude).
 
