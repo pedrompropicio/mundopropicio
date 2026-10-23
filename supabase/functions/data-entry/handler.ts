@@ -98,7 +98,7 @@ export const commandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("assistant_turn"), text: z.string().max(2000),
     history: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string().max(4000) }).strict()).max(20),
     selection: z.object({ message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/).optional(), event_id: z.string().uuid().optional() }).strict().optional(),
-    known_message_ids: z.array(z.string().regex(/^[A-Za-z0-9]{6,64}$/)).max(50).optional(), continuation: z.string().max(8000).optional(), continuation_text: z.string().max(2000).optional() }).strict(),
+    known_message_ids: z.array(z.string().regex(/^[A-Za-z0-9]{6,64}$/)).max(50).optional(), continuation: z.string().max(8000).optional(), continuation_text: z.string().max(2000).optional(), intent: z.literal("list").optional() }).strict(),
   z.object({ action: z.literal("ticketline_candidate"), message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/), part_id: z.string().regex(/^[A-Za-z0-9.]{1,32}$/).optional(), expected_sha256: z.string().regex(/^[a-f0-9]{64}$/).optional() }).strict(),
   z.object({ action: z.literal("ticketline_preview"), candidate_token: z.string().max(120000),
     edits: z.object({ number: z.string().max(60).nullable().optional(), date: z.string().max(10).nullable().optional(), total_cents: z.number().int().nullable().optional(), event_id: z.string().uuid().nullable().optional(),
@@ -275,7 +275,7 @@ export function createHandler(d: Deps) {
         if (d.assistantScopeAllowed && !(await d.assistantScopeAllowed(user.id, company))) throw new SafeError("Assistente fora da janela autorizada para este utilizador e empresa.", 503);
         if (d.assistantEnabled === false || !d.assistant && !(d.assistantEnabled === true && d.assistantFactory)) throw new SafeError("O assistente conversacional ainda não está ativado. Podes usar a pesquisa do Gmail abaixo.", 503);
         await canonicalStorageContext();
-        if (body.selection && (!body.continuation || !d.continuationSecret)) throw new SafeError("Seleção sem prova do servidor; repete a pesquisa.", 409);
+        if ((body.selection || body.intent) && (!body.continuation || !d.continuationSecret)) throw new SafeError("Seleção sem prova do servidor; repete a pesquisa.", 409);
         let resume: AssistantContinuation | undefined;
         if (body.continuation) {
           try { resume = await verifyContinuation(body.continuation, d.continuationSecret ?? "", { user: user.id, company }, body.continuation_text ?? body.text); }
@@ -288,7 +288,7 @@ export function createHandler(d: Deps) {
           gmailSearch: async (f) => { const r = await (await gmailReader()).search(f); await canonicalStorageContext(); return r; },
           gmailRead: async (id) => { const r = await (await gmailReader()).read(id); await canonicalStorageContext(); return r; },
           erpContext: async (text, number) => { await canonicalStorageContext(); const c = await a.erpContext(token, company, text, signal, number); await canonicalStorageContext(); if (c.company_id !== company) throw new SafeError("Contexto alterado.", 403); return c; },
-        }, { text: body.text, history: body.history as TurnInput["history"], selection: body.selection, ...(resume ? { continuation_text: body.continuation_text ?? body.text } : {}) }, signal));
+        }, { text: body.text, history: body.history as TurnInput["history"], selection: body.selection, ...(body.intent ? { intent: body.intent } : {}), ...(resume ? { continuation_text: body.continuation_text ?? body.text } : {}) }, signal));
         await canonicalStorageContext();
         const metadata = result.continuation_state; delete result.continuation_state;
         const cs = result.candidate_state; delete result.candidate_state;
@@ -299,7 +299,7 @@ export function createHandler(d: Deps) {
         }
         // Signed selector also follows a revalidated review so the next turn keeps the original request and choice.
         // The hash always binds the ORIGINAL request (verified above on resume), never the follow-up text.
-        if (metadata && d.continuationSecret && (result.status === "select_message" || result.status === "select_event" || (result.review_message_id && metadata.message === result.review_message_id))) result.continuation = await signContinuation({ ...metadata, user: user.id, company, requestHash: await requestHash(resume ? (body.continuation_text ?? body.text) : body.text), expires: Date.now() + 10 * 60 * 1000 }, d.continuationSecret);
+        if (metadata && d.continuationSecret && (result.status === "select_message" || result.status === "select_event" || (result.review_message_id && metadata.message === result.review_message_id))) result.continuation = await signContinuation({ ...metadata, user: user.id, company, requestHash: await requestHash(resume && !result.continuation_rebound ? (body.continuation_text ?? body.text) : body.text), expires: Date.now() + 10 * 60 * 1000 }, d.continuationSecret);
         if (req.signal.aborted) return reply({ error: "Pedido cancelado." }, 499);
         return reply(candidateOut ? { ...result, ...candidateOut } : result);
       }
