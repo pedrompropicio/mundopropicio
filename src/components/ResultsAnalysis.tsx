@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { expandOverheadToSplits, overheadLinesFor } from "@/lib/overhead-proration";
+import { useMasterRevenueSplit } from "@/hooks/useMasterRevenueSplit";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
@@ -213,6 +214,10 @@ export function ResultsAnalysis() {
     [closingCostsRaw, events],
   );
 
+  const revenueSplit = useMasterRevenueSplit(
+    Array.from(new Set((events as any[]).map((e) => e.parent_event_id).filter(Boolean))),
+  );
+
   const { completed, active, yearTotals } = useMemo(() => {
     // ── Build sub-event children index per Master event ──
     const childrenByMaster: Record<string, string[]> = {};
@@ -296,6 +301,21 @@ export function ResultsAnalysis() {
       const key = t.category_id ?? "__none__";
       target[eid].set(key, (target[eid].get(key) ?? 0) + net);
     });
+
+    // ── #339 B — receita do Master com regra de repartição: o resultado de cada
+    // cidade leva a sua quota; o Master deixa de a contar (soma do ano igual).
+    for (const s of revenueSplit.forecastSlices as any[]) {
+      const amt = Number(s.amount || 0);
+      bpIncomeMap[s._master_event_id] = (bpIncomeMap[s._master_event_id] ?? 0) - amt;
+      bpIncomeMap[s.event_id] = (bpIncomeMap[s.event_id] ?? 0) + amt;
+    }
+    const countedTxIds = new Set((transactions as any[]).filter((t) => t.type === "income").map((t) => t.id));
+    for (const s of revenueSplit.transactionSlices as any[]) {
+      if (!countedTxIds.has(s._master_transaction_id)) continue;
+      const amt = Number(s.amount || 0);
+      txnIncomeMap[s._master_event_id] = (txnIncomeMap[s._master_event_id] ?? 0) - amt;
+      txnIncomeMap[s.event_id] = (txnIncomeMap[s.event_id] ?? 0) + amt;
+    }
 
     // ── Closing costs (overhead) per event — só entram quando toggle ON (Vista Sócio) ──
     const closingMap: Record<string, number> = {};
