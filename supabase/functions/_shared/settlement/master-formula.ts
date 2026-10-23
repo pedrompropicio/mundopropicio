@@ -36,7 +36,7 @@ export function masterFormulaShares(line: { formula_type?: string | null; formul
   const shares = childIds.map(id => total ? Number(bases[id]) / total : 0);
   let assigned = 0;
   const allocation = new Map<string, number>();
-  const ordered = [...childIds].sort();
+  const ordered = Object.keys(bases).filter(id => childIds.includes(id));
   ordered.forEach((id,i) => {
     const share = shares[childIds.indexOf(id)];
     const value = i === ordered.length - 1 ? roundCents(amount - assigned) : roundCents(amount * share);
