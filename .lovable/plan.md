@@ -1,57 +1,56 @@
-# #358 — Correspondência segura na captura diária Ticketline (plano R2)
+# #358 — Correspondência segura na captura diária Ticketline (plano final R2, passo único)
 
-## Situação de partida (confirmada no código)
-- `runCaptureDay` (fetch-ticketline-reports/index.ts, ~1432–1629) pega em todos os configs `enabled=true` da company, faz um único relatório do dia e liga linha→config:
-  1. por código (`[106160/127631]` no label) quando o config tem `ticketline_report_codes`;
-  2. senão, por nome — inclui apenas os segmentos do nome do evento ("RG - Braga" → "rg", "braga") com `includes` em ambos os sentidos.
-- Problemas: o segmento de cidade sozinho apanha RG e Deive (ambiguidade que aborta o lote); a chave "rg" (≥3? não, mas "deive"/cidade sim) e o `includes` invertido permitem match por fragmento; linhas sem match são ignoradas em silêncio; qualquer config sem linha vai a **0/0** no UPSERT, sem distinguir "não vendeu" de "não consegui ligar".
-- Não há testes para esta função; não há ficheiro `_shared` com a lógica de match.
+## Factos confirmados no código
+- `runCaptureDay` (fetch-ticketline-reports/index.ts ~1432–1629) avalia todos os configs `enabled=true` da company (#184). Casa cada linha por código (igualdade exata, tirando apenas os espaços). Quando não há código, casa por segmentos do nome com `includes` nos dois sentidos. Qualquer alvo sem linha é gravado a 0/0.
+- O estado da corrida é a própria string de fase (`fail(phase)` grava `status = phase`). Não existe hoje nenhuma fase `capture_day_unmatched_config`; essa referência do plano anterior estava errada.
+- Saúde: as views/RPCs das migrações tratam como problema qualquer `status not in ('success','warning','skipped')`. A frescura da captura diária usa `triggered_by like 'capture_day:%' and status = 'success'`. Uma fase de falha nova é, portanto, apanhada pela saúde genérica sem mudar contratos. O UI marca as falhas pelo badge com o próprio status.
 
-## Comportamento proposto (regras exatas)
-Separar a decisão numa função pura `resolveCaptureMapping(rows, targets, nameById)` que devolve `{ assignments, unmatchedRows, decisions, errors }`. O UPSERT só corre se `errors` estiver vazio.
+## Regras (todas avaliadas antes de qualquer UPSERT)
+- Comparação de códigos: igual à atual (retirar espaços, sem reordenar, separadores mantidos).
+- Nome completo seguro: normKey(label sem `[...]` e sem sufixo `|`) é igual a normKey(nome completo do evento), ou começa por ele seguido de espaço (labels longos). Um nome de evento com menos de 2 tokens não pode casar por nome.
+- Candidata suspeita: linha não atribuída que contém um token de cidade ou de artista de um alvo, sem ser nome completo seguro dele.
+- Consumidor da série: `daily_fallback_active = true` ou `promotores_migrated_at` preenchido. As duas colunas entram no SELECT dos alvos **só** para classificar a gravidade. Nenhum alvo deixa de ser avaliado ou captado.
 
-1. **Linha com código conhecido** (códigos normalizados, como conjunto ordenado, iguais aos de exatamente 1 config): atribui a esse config. Igual a 2+ configs → erro `capture_day_ambiguous_match` (antes de qualquer escrita).
-2. **Linha com código desconhecido** (não pertence a nenhum config): nunca cai para match por nome. Fica em `unmatchedRows` como "fora dos configs" — legítimo no relatório global; não aborta e não é atribuída. Exceção: se o nome completo da linha coincidir exatamente com um config **sem** códigos → erro `capture_day_code_unknown_for_named_config` (sinal de código em falta/errado; não adivinhar).
-3. **Config sem código**: só aceita linha sem código ou desconhecida por **nome completo seguro**: chave normalizada do nome completo do evento (ex.: "rg braga") igual à do label sem `[..]` e sem sufixo `|...`, ou o label começa por essa chave seguida de separador. Proibido casar só pelo segmento da cidade ou de artista; proibido `k.includes(lk)`. Chave completa <2 tokens → não elegível para nome (config fica "sem regra segura").
-4. **Label longo** (nome do evento + data/local/sessão): aceite apenas pela regra 3 (prefixo com nome completo + separador). Se dois configs tiverem prefixo compatível → ambiguidade, falha.
-5. **Duplicados**: 2+ linhas para o mesmo config, ou 1 linha para 2+ configs → falha antes do UPSERT (mantém-se).
-6. **Zero legítimo vs falha de correspondência** — antes de escrever 0/0 num config sem linha:
-   - Config **com códigos** e sem linha → 0/0 legítimo (o relatório omite eventos sem movimento; o código é identificador forte).
-   - Config **sem códigos** e sem linha → só 0/0 se nenhuma linha não atribuída for "candidata fraca" (partilha o token da cidade ou do artista). Se existir candidata fraca → **não escreve** esse config (fica sem linha para o dia, não a zero) e a corrida termina `partial_unmatched` com o detalhe na auditoria; os restantes configs seguros escrevem-se. Alternativa mais estrita (a decidir): abortar a corrida inteira nesse caso.
-7. Mantidos sem alteração: escopo `enabled`+company, confirmação do período na sessão, validação TOTAL = soma das linhas (sobre todas as linhas, incluindo fora dos configs), limite de qty, `onConflict event_id,sale_date`, formato da resposta e de `import_audit` (só se acrescentam `decisions`, `unmatchedRows`, `skippedConfigs`).
+Por linha:
+1. Código conhecido em exatamente 1 alvo: atribui (tem prioridade). Código igual em 2 ou mais alvos: aborta `capture_day_ambiguous_match`.
+2. Código desconhecido: nunca é atribuído por nome. Se o nome seguro identificar um alvo (com ou sem código), aborta `capture_day_code_conflict`. Se não identificar, é evento externo: ignora e audita.
+3. Sem código: só casa com alvo sem código, por nome seguro. Se servir a 2 ou mais alvos, aborta ambígua. Se não servir a nenhum mas for suspeita, aborta `capture_day_suspect_match`. Se não, é externa: ignora e audita.
+4. Mais de uma linha para o mesmo alvo: aborta `capture_day_ambiguous_match`.
 
-## Ficheiros (R1)
-- novo `supabase/functions/_shared/ticketline-capture-mapping.ts` — função pura acima (regra AGENTS: partilha só via `_shared/`).
-- `supabase/functions/fetch-ticketline-reports/index.ts` — `runCaptureDay` passa a chamar a função pura; o bloco 5–6 é substituído; nada mais muda; `VERSION` incrementada.
-- novo `src/test/ticketline-capture-mapping.test.ts` (Vitest, importa o `_shared`), e opcional `supabase/functions/_shared/ticketline-capture-mapping_test.ts` (Deno).
+Por alvo sem linha:
+5. Com código: 0/0, desde que o relatório seja válido (período, TOTAL, qty) e não haja conflito nem suspeita pendente.
+6. Sem código e não consumidor: fica fora do payload e o espelho existente é preservado. É auditado como `not_identifiable_no_movement`. Nunca se grava zero inferido.
+7. Sem código e consumidor: aborta `capture_day_unmatched_consumer` antes do UPSERT, porque afeta uma fonte de leitura ativa.
 
-## Fixtures sintéticas mínimas (sem dados Live)
-Nomes fictícios ("Artista X - Cidade A", "Artista Y - Cidade A", códigos `900001/900002`, valores pequenos):
-- código conhecido único → atribuído; código em 2 configs → falha sem escrita.
-- código desconhecido de evento alheio → ignorado, sem abortar, TOTAL continua a bater.
-- duas linhas da mesma cidade, artistas diferentes, configs sem código → cada uma pelo nome completo; nunca pela cidade.
-- label longo "Artista X - Cidade A | 25/10 21h" → atribuído pelo prefixo.
-- config sem código + linha só "Cidade A" → candidata fraca → config não escrito, estado `partial_unmatched`.
-- config com código e sem linha → 0/0 legítimo.
-- duplicado (2 linhas para 1 config) → falha antes do UPSERT.
-- regressão: cenário equivalente ao Braga sem código (RG/Deive) já não aborta nem atribui ao Deive.
-- teste estático: o ficheiro `index.ts` não contém `k.includes(lk)` e chama `resolveCaptureMapping` antes de `.upsert(`.
+Resultado:
+- Qualquer aborto não grava nada. A fase fica no `status`, detalhe em `error_message` e `import_audit`.
+- Sem aborto: um UPSERT com os alvos atribuídos mais os zeros do ponto 5. `status = 'success'` (mantém a frescura), com `import_audit.coverage = 'coded_and_matched'` e as contagens `matched`, `zeroed`, `omitted`, `external`, mais a lista `skippedConfigs` com a razão de cada um.
+- Quando `omitted > 0`, `error_message` recebe um aviso curto com a contagem. A resposta HTTP inclui os mesmos campos. Não se cria nenhum estado novo.
+
+## Implementação (um único passo R2, após "Sim" específico)
+- Novo `supabase/functions/_shared/ticketline-capture-mapping.ts`: função pura `resolveCaptureMapping(rows, targets, nameById)` que devolve `{ abort?: {phase, message}, payload, decisions, externalRows, skippedConfigs, counts }`.
+- `fetch-ticketline-reports/index.ts`: acrescentar as 2 colunas ao SELECT dos alvos. Substituir os blocos 5–6 pela função pura e montar run/resposta como acima. Extrair o núcleo pós-parse para `applyCaptureDay(admin, ctx, parsed)`, que se pode testar com um `admin` simulado. Subir `VERSION`. Nada mais muda.
+- Novo `src/test/ticketline-capture-mapping.test.ts` (Vitest): função pura mais `applyCaptureDay`, com um `admin` simulado que regista `.upsert` e `updateRun`.
+
+## Testes (fixtures sintéticas, nomes e códigos fictícios)
+- **Obrigatório, forma da corrida recente:** 8 alvos com código e 5 sem código, não consumidores. O relatório tem 1 linha com código conhecido. Resultado esperado: `success`, 1 UPSERT com 8 linhas (1 real + 7 zeros), as 5 omitidas com `not_identifiable_no_movement`, histórico simulado das 5 intacto e `coverage`/contagens certas.
+- **Obrigatório:** alvo sem código e consumidor sem linha → `capture_day_unmatched_consumer`, 0 chamadas a upsert.
+- Código igual em 2 alvos; 2 linhas para 1 alvo; código desconhecido com nome seguro de alvo (com e sem código); linha só com a cidade ou só com o artista. Em todos: aborto, 0 upserts, fase gravada.
+- Códigos `900001/900002` vs `900002/900001` não casam.
+- Código desconhecido externo é ignorado e a linha conta para o TOTAL.
+- Label longo `Artista X - Cidade A | 25/10 21h` casa; `Artista X - Cidade AB` não casa.
+- Regressão RG/Deive fictícia na mesma cidade: nunca atribui ao Deive e nunca grava zero a um alvo sem código.
 
 ## Validações
-- `bunx vitest run src/test/ticketline-capture-mapping.test.ts` + suite completa; `tsgo`; `deno check` da função; CI do SHA reportado ao controller.
-- Prova pré-deploy por leitura: aplicar a função pura (localmente) a `import_audit.reportRows` das últimas corridas de sucesso via SELECT, só contagens/decisões no relatório (sem labels/valores Live copiados para docs).
+- Vitest do ficheiro + suite completa, `tsgo`, `deno check` da função, CI do SHA.
+- Prova só de leitura antes do deploy: aplicar a função pura ao `import_audit.reportRows` e aos alvos da última corrida com sucesso (SELECT). O resultado esperado é o mesmo do teste obrigatório. Reportam-se apenas contagens e decisões, sem labels nem valores Live em docs ou fixtures.
 
-## Separação R1 / R2 e efeitos Live
-- Neste ambiente, alterações em `supabase/functions/**` são implantadas automaticamente ao fim da mensagem; não consigo garantir ausência de efeito Live. Logo **a edição da edge function é R2**: só com o "Sim" a este plano.
-- Passo A (pode ser R1): criar só `_shared/ticketline-capture-mapping.ts` + testes, sem tocar em `index.ts`. Nota: ficheiro novo em `_shared` não altera o comportamento de nenhuma função até ser importado, mas a reimplantação pode mesmo assim acontecer — confirmar com o Pedro se o trata como R1.
-- Passo B (R2): ligar em `index.ts` e implantar só `fetch-ticketline-reports`; verificar OPTIONS/403 sem invocar captura; a primeira captura automática seguinte (cron existente) serve de prova, lida por SELECT.
-- Sem DML, DDL, cron, captura manual nem Publish em nenhum passo. D+1 de 24/10 continua pendente e separado.
+## R2 e limites
+- O autodeploy está confirmado, por isso editar a fonte já é R2. O código, os testes e o deploy **só de `fetch-ticketline-reports`** fazem-se num só passo.
+- Depois do deploy, verificar OPTIONS e um pedido sem autorização, sem invocar a captura. A prova funcional é a próxima captura do cron existente, lida por SELECT.
+- Sem DML, DDL, crons, captura manual nem Publish. O D+1 de 24/10 fica separado. Exigir códigos em todos os configs fica fora deste âmbito.
 
 ## Rollback
-- Repor o bloco anterior de `runCaptureDay` (commit anterior ao passo B) e reimplantar só a função; dados não são alterados pela mudança (não há backfill), por isso não há rollback de dados.
-- Se o passo B produzir `partial_unmatched` inesperado, nada fica a zero indevidamente; recuperar por decisão humana (código no config) em R2 próprio.
-
-## Decisões em aberto para o Pedro
-1. Regra 6: config sem código com candidata fraca → (a) saltar só esse config e marcar `partial_unmatched` [recomendado] ou (b) abortar a corrida inteira.
-2. Passo A como R1 isolado [recomendado] ou tudo junto em R2.
-3. Exigir códigos em todos os configs ativos no futuro (eliminaria o match por nome) — fora deste âmbito, R2 de dados separado.
+- Repor o bloco anterior e reimplantar só esta função.
+- Reverter o código não reverte as linhas que as capturas entretanto gravem. Preservar `ticketline_sync_runs.import_audit` como trilho. Qualquer correção em `ticketline_daily_sales` exige R2 de dados com autorização própria.
+- Abortos não gravam nada; a série do dia fica intacta até decisão humana.
