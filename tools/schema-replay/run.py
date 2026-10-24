@@ -64,7 +64,28 @@ for name in network:
 reset=run(['supabase','db','reset','--local','--no-seed'],cwd=work)
 (out/'bootstrap-reset.log').write_text(clean(reset.stdout+reset.stderr))
 if reset.returncode: raise SystemExit(reset.returncode)
-assert sql("SHOW cron.launch_active_jobs;").strip()=='off'
+# CLI reset restores local configuration; no app SQL has run yet.
+(out/'cron-after-empty-reset.json').write_text(json.dumps({'value':sql('SHOW cron.launch_active_jobs;').strip(),'application_migrations_applied':0}))
+sql("ALTER SYSTEM SET cron.launch_active_jobs = 'off';",role='supabase_admin')
+sql('SELECT pg_reload_conf();',role='supabase_admin')
+import time
+for attempt in range(20):
+    if sql('SHOW cron.launch_active_jobs;').strip()=='off':break
+    time.sleep(0.1)
+else:raise RuntimeError('Cron guard not restored after empty reset')
+# Check the reset did not move containers off the fenced Docker networks.
+network_after=json.loads(run(['docker','inspect',db]).stdout)[0]['NetworkSettings']['Networks']
+if set(network_after)!=set(network):raise RuntimeError('Docker network changed after reset')
+for name in network_after:
+    info=json.loads(run(['docker','network','inspect',name]).stdout)[0]
+    bridge=info.get('Options',{}).get('com.docker.network.bridge.name') or 'br-'+info['Id'][:12]
+    for ipam in info['IPAM']['Config']:
+        subnet=ipam.get('Subnet')
+        if subnet:
+            binary='ip6tables' if ':' in subnet else 'iptables'
+            check=run(['sudo',binary,'-C','DOCKER-USER','-i',bridge,'!','-d',subnet,'-j','REJECT'])
+            if check.returncode:raise RuntimeError('Egress fence missing after reset')
+assert sql('SHOW cron.launch_active_jobs;').strip()=='off'
 sql("CREATE SCHEMA IF NOT EXISTS drizzle; CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (id serial PRIMARY KEY, hash text NOT NULL, created_at bigint);")
 sql("CREATE SCHEMA IF NOT EXISTS supabase_migrations; CREATE TABLE IF NOT EXISTS supabase_migrations.schema_migrations (version text PRIMARY KEY, statements text[], name text);")
 executed=[]; failure=None
