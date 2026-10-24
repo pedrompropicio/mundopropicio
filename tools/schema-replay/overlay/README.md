@@ -21,3 +21,7 @@ Somente replay descartável, não Live/db push. Originais preservados. Hash orig
 
 0205: linhas efectivas52–53 neste snapshot; o parecer referia50–51. A selecção é o INSERT em ugc_watchdog_config, mantendo integralmente notification_templates.
 Nenhum overlay de homologação gerida materializado; --target=homolog é recusado.
+
+## Correcção iterativa após run40119163318
+
+20260408191828: 42710, trigger igual ao criado em20260317122916. Adicionado DROP TRIGGER IF EXISTS antes da recriação, preservando a função e o original. Iteração local autorizada pelo passo5 do Pedro; correcção Codex pendente da revisão final Claude.

@@ -804,8 +804,12 @@
       "version": "20260408191828",
       "candidate_time_ms": 1775675908000,
       "original_sha256": "1d3a2014dd70b366e42f3667e544f5a2c5186a3e8ae39ebad0d4e896620e952e",
-      "executed_sha256": "1d3a2014dd70b366e42f3667e544f5a2c5186a3e8ae39ebad0d4e896620e952e",
-      "ledger_hash": "1d3a2014dd70b366e42f3667e544f5a2c5186a3e8ae39ebad0d4e896620e952e"
+      "executed_sha256": "00fbc0253a937424971837bcb4e53ad4ba25536866e634015daad4a30599640d",
+      "ledger_hash": "1d3a2014dd70b366e42f3667e544f5a2c5186a3e8ae39ebad0d4e896620e952e",
+      "overlay_path": "overlay/20260408191828_7b155ec4-fceb-4bfa-a2ce-0f5b9b2b885e.sql",
+      "reason": "corrective local iteration: duplicate identical trigger 42710; original preserved",
+      "iteration_authorization": "Pedro latest step5 iterate G1; Codex correction pending Claude final review",
+      "failure_run": 40119163318
     },
     {
       "source": "supabase",
@@ -11074,11 +11078,22 @@
     "overlay/20260924202758_ed08efce-1944-4b70-b975-cd4d0996a981.sql": "310980d1c87963cbf22346816cc0094a36c97aea2e077ffcc8839870b9913c13",
     "overlay/0205_ugc_ios_watchdog.sql": "6bb0b9ab2386d6a1667f94469e2ebfaa855fa899acae0d6a3b77c6308de6be18",
     "overlay/0200_capi_v2_consent_events.sql": "b8921b08c53c2d7d12690192954fcd2608ef8da5b0b7beda71abe1f0f777816b",
-    "overlay/0016_derp178_tiktok_sync_status_per_connection.sql": "6ee7fe434ac3732bb6abe3b18231349549ae948fd83c0c95d901b1277dd6839b"
+    "overlay/0016_derp178_tiktok_sync_status_per_connection.sql": "6ee7fe434ac3732bb6abe3b18231349549ae948fd83c0c95d901b1277dd6839b",
+    "overlay/20260408191828_7b155ec4-fceb-4bfa-a2ce-0f5b9b2b885e.sql": "00fbc0253a937424971837bcb4e53ad4ba25536866e634015daad4a30599640d"
   },
   "known_unresolved": [
     "ledger Drizzle id165: nonblocking per review; read-only Lovable history in step7",
     "history rollups reconciled through G2; do not exclude objects by ledger absence"
   ],
-  "scanner_file": "scanner-homolog.json"
+  "scanner_file": "scanner-homolog.json",
+  "corrective_iterations": [
+    {
+      "path": "supabase/migrations/20260408191828_7b155ec4-fceb-4bfa-a2ce-0f5b9b2b885e.sql",
+      "sqlstate": "42710",
+      "run": 40119163318,
+      "proof": "same CREATE TRIGGER on auth.users AFTER INSERT FOR EACH ROW EXECUTE FUNCTION public.handle_new_user() in migration5 and87",
+      "change": "DROP TRIGGER IF EXISTS before recreation; no other SQL changes",
+      "review_status": "Codex correction pending Claude final review"
+    }
+  ]
 }
