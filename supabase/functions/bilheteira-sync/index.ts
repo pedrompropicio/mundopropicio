@@ -583,16 +583,14 @@ Deno.serve(async (req) => {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  let q = admin
+  const eventQuery = admin
     .from("events")
-    .select("id, name, slug, date, ticketing_url, ticketing_provider, portal_visible, company_id")
-    .eq("portal_visible", true)
-    .not("ticketing_url", "is", null)
-    .gte("date", today);
-  if (body.eventId) q = admin
-    .from("events")
-    .select("id, name, slug, date, ticketing_url, ticketing_provider, portal_visible, company_id")
-    .eq("id", body.eventId);
+    .select("id, name, slug, date, ticketing_url, ticketing_provider, portal_visible, company_id");
+  const q = body.eventId
+    ? eventQuery.eq("id", body.eventId)
+    : eventQuery.eq("portal_visible", true)
+      .not("ticketing_url", "is", null)
+      .gte("date", today);
 
   const { data: events, error: evErr } = await q;
   if (evErr) return json({ error: evErr.message }, 500);
