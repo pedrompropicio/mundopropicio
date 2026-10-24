@@ -1,0 +1,760 @@
+{
+  "status": "INERT_REVIEW_ONLY",
+  "source_sha": "c35223207e22cff887cdcbe39de7c882005d14d9",
+  "native_replay_executed": false,
+  "activation": "Forbidden until Claude review; existing workflow and runner unchanged",
+  "sequence": {
+    "supabase_files": 1012,
+    "drizzle_files": 240,
+    "ordering": "timestamp filename / journal.when, candidate only; dependency proof pending",
+    "blockers": [
+      "chronology not yet validated against dependencies and two Live ledgers",
+      "Live Drizzle id165 hash not recovered from reachable history",
+      "Supabase ledger/repository mismatch: not a proven original Live replay",
+      "overlay origin proofs missing for seven candidates",
+      "seed/reference dependency review pending",
+      "external-effect review pending for DO/WITH/SELECT and function-trigger execution"
+    ]
+  },
+  "code_candidates": {
+    "runner.py": {
+      "sha256": "e651d6a42ae3e5d8dd9795faff491f7dd8ef0688893c57a7db52a64c5d4da228",
+      "content": "# CANDIDATE FOR CLAUDE REVIEW ONLY. Not wired into workflow.\nimport json, pathlib, hashlib, sys\nreview_root=pathlib.Path(__file__).resolve().parent\nplan_path=review_root/'plan.json'\nplan=json.loads(plan_path.read_text())\napproval_path=review_root/'approval.json'\nif not approval_path.exists():\n    raise SystemExit('BLOCKED: missing Claude review approval; no Docker/SQL started')\napproval=json.loads(approval_path.read_text())\nif (approval.get('status')!='approved' or not approval.get('review_url')\n    or approval.get('plan_sha256')!=hashlib.sha256(plan_path.read_bytes()).hexdigest()\n    or plan.get('blockers') or not plan.get('execution_allowed')):\n    raise SystemExit('BLOCKED: unresolved plan or approval/hash mismatch; no Docker/SQL started')\nfor entry in plan['entries']:\n    original=pathlib.Path(entry['path']).read_bytes()\n    if hashlib.sha256(original).hexdigest()!=entry['original_sha256']:\n        raise SystemExit('BLOCKED: source changed '+entry['path'])\n    if entry.get('overlay_candidate'):\n        candidate=(review_root/entry['overlay_candidate']).read_bytes()\n        if hashlib.sha256(candidate).hexdigest()!=entry['overlay_sha256']:\n            raise SystemExit('BLOCKED: overlay changed '+entry['path'])\n\"\"\"#352 native local Supabase replay. No remote credentials or application functions.\"\"\"\nimport pathlib, subprocess, json, re, os, hashlib, datetime, sys\nroot=pathlib.Path.cwd(); out=root/'replay-evidence'; out.mkdir(exist_ok=True)\nwork=root/'.replay-local';work.mkdir(exist_ok=True)\ndef run(args,**kw):return subprocess.run(args,capture_output=True,text=True,**kw)\ndef clean(s):\n    s=re.sub(r\"'(?:''|[^'])*'\",\"'<redigido>'\",s)\n    s=re.sub(r'https?://[^\\s\"<>]+','<redigido>',s,flags=re.I)\n    s=re.sub(r'eyJ[A-Za-z0-9_.-]+|sb_secret_[A-Za-z0-9_-]+|sbp_[A-Za-z0-9_-]+','<redigido>',s)\n    s=re.sub(r'(?im)^.*(?:Bearer|Authorization|api.key|secret.key|service.role.key|anon.key|publishable.key).*$','<redigido>',s)\n    return s\nmeta={'sha':os.environ.get('GITHUB_SHA'),'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'cli':run(['supabase','--version']).stdout.strip(),'scope':'supabase/migrations only; no manual/drizzle/seed/functions'}\n(out/'metadata.json').write_text(json.dumps(meta,indent=2))\ninit=run(['supabase','init'],cwd=work)\nif init.returncode: (out/'bootstrap.log').write_text(clean(init.stdout+init.stderr));sys.exit(init.returncode)\nconfig=work/'supabase/config.toml';s=config.read_text();s=re.sub(r'^project_id = .*$', 'project_id = \"mp352\"',s,flags=re.M);s=s.replace('[db.seed]\\nenabled = true','[db.seed]\\nenabled = false');config.write_text(s)\n# Bootstrap without app migrations or functions. Never publish local generated keys.\nstart=run(['supabase','start','-x','studio,imgproxy,edge-runtime,logflare,vector,supavisor'],cwd=work)\nif start.returncode:\n    (out/'bootstrap.log').write_text(clean(start.stdout+start.stderr));sys.exit(start.returncode)\ndb='supabase_db_mp352'\ndef sql(q,role='postgres'):\n    r=run(['docker','exec','-i','-e','PGPASSWORD=postgres',db,'psql','-X','-h','127.0.0.1','-U',role,'-d','postgres','-At','-v','ON_ERROR_STOP=1'],input=q)\n    if r.returncode:raise RuntimeError(clean(r.stderr))\n    return r.stdout\n# Disable scheduled execution before copying any application SQL.\nsql(\"ALTER SYSTEM SET cron.launch_active_jobs = 'off';\",role=\"supabase_admin\")\nsql(\"SELECT pg_reload_conf();\",role=\"supabase_admin\")\nassert sql(\"SHOW cron.launch_active_jobs;\").strip()=='off'\n# Firewall: containers may talk to each other, never to external integrations.\nnetwork=json.loads(run(['docker','inspect',db]).stdout)[0]['NetworkSettings']['Networks']\nfor name in network:\n    info=json.loads(run(['docker','network','inspect',name]).stdout)[0]\n    bridge=info.get('Options',{}).get('com.docker.network.bridge.name') or 'br-'+info['Id'][:12]\n    for ipam in info['IPAM']['Config']:\n        subnet=ipam.get('Subnet')\n        if subnet:\n            binary='ip6tables' if ':' in subnet else 'iptables'\n            result=run(['sudo',binary,'-I','DOCKER-USER','1','-i',bridge,'!','-d',subnet,'-j','REJECT'])\n            if result.returncode:raise RuntimeError('Cannot establish container egress fence')\n(out/'isolation.json').write_text(json.dumps({'cron_launch_active_jobs':'off','external_container_egress':'REJECT','functions_copied':False,'manual_copied':False,'drizzle_copied':False}))\n\n# Only the disposable CLI bootstrap is reset. Original app migrations are not copied.\nreset=run(['supabase','db','reset','--local','--no-seed'],cwd=work)\n(out/'bootstrap-reset.log').write_text(clean(reset.stdout+reset.stderr))\nif reset.returncode: raise SystemExit(reset.returncode)\nassert sql(\"SHOW cron.launch_active_jobs;\").strip()=='off'\nsql(\"CREATE SCHEMA IF NOT EXISTS drizzle; CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (id serial PRIMARY KEY, hash text NOT NULL, created_at bigint);\")\nsql(\"CREATE SCHEMA IF NOT EXISTS supabase_migrations; CREATE TABLE IF NOT EXISTS supabase_migrations.schema_migrations (version text PRIMARY KEY, statements text[], name text);\")\nexecuted=[]; failure=None\nfor entry in plan['entries']:\n    path=review_root/entry['overlay_candidate'] if entry.get('overlay_candidate') else root/entry['path']\n    body=path.read_text()\n    def literal(v): return \"'\"+str(v).replace(\"'\",\"''\")+\"'\"\n    # Standard ledger records historical source identity; manifest separately exposes actual overlay bytes.\n    if entry['source']=='drizzle':\n        record=\"INSERT INTO drizzle.__drizzle_migrations(hash,created_at) VALUES (\"+literal(entry['original_sha256'])+\",\"+str(entry['candidate_time_ms'])+\");\"\n    else:\n        record=\"INSERT INTO supabase_migrations.schema_migrations(version,name,statements) VALUES (\"+literal(entry['version'])+\",\"+literal(pathlib.Path(entry['path']).stem)+\",ARRAY[]::text[]);\"\n    result=run(['docker','exec','-i',db,'psql','-X','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose'],input='BEGIN;\\n'+body+'\\n'+record+'\\nCOMMIT;')\n    item={**entry,'executed_sha256':hashlib.sha256(body.encode()).hexdigest(),'exit_code':result.returncode}\n    executed.append(item)\n    (out/'execution-manifest.json').write_text(json.dumps(executed,indent=2))\n    if result.returncode:\n        failure={**item,'message_sanitized':clean(result.stderr)}\n        (out/'failure.json').write_text(json.dumps(failure,indent=2))\n        break  # Never continue on an unknown failure or manufacture later ledger entries.\n    assert sql(\"SHOW cron.launch_active_jobs;\").strip()=='off'\n# Local disposable database only: unschedule imported jobs before any downstream test.\ncron_exists=sql(\"SELECT to_regclass('cron.job') IS NOT NULL;\").strip()=='t'\nif cron_exists:\n    before=int(sql('SELECT count(*) FROM cron.job;').strip())\n    sql('SELECT cron.unschedule(jobid) FROM cron.job;')\n    after=int(sql('SELECT count(*) FROM cron.job;').strip())\n    assert after==0\nelse: before=after=0\n(out/'cron-cleanup.json').write_text(json.dumps({'before':before,'after':after,'local_only':True,'scheduler_remained_off':True}))\nmeta['replay_exit_code']=1 if failure else 0\nqueries=json.loads((root/'docs/estudos/saas-e-desenvolvimento/verificacoes-352/catalogo-queries.json').read_text())\nfor category,query in queries.items():\n    # Query content unchanged; psql CSV envelope is decoded without rewriting the SQL.\n    r=run(['docker','exec','-i',db,'psql','-X','-U','postgres','-d','postgres','--csv','-v','ON_ERROR_STOP=1'],input=query)\n    if r.returncode:raise RuntimeError(clean(r.stderr))\n    import csv,io\n    rows=list(csv.DictReader(io.StringIO(r.stdout)))\n    (out/(category+'.csv')).write_text(r.stdout)\n    (out/(category+'.json')).write_text(json.dumps(rows,ensure_ascii=False,indent=2))\nmeta['finished_utc']=datetime.datetime.now(datetime.timezone.utc).isoformat()\n(out/'metadata.json').write_text(json.dumps(meta,indent=2))\n\nsys.exit(1 if failure else 0)\n\n"
+    },
+    "sql_scan.py": {
+      "sha256": "83185d7bb015c0e9aca8d7fb793b1389c7f443999051b02158432c629cf87bda",
+      "content": "\"\"\"Lexical statement inventory, not a SQL semantic/dependency validator.\"\"\"\nimport re\n\ndef statements(text):\n    start = i = 0\n    quote = None\n    escaped = False\n    depth = 0\n    line_comment = False\n    while i < len(text):\n        if line_comment:\n            if text[i] == '\\n': line_comment = False\n            i += 1; continue\n        if depth:\n            if text.startswith('/*', i): depth += 1; i += 2\n            elif text.startswith('*/', i): depth -= 1; i += 2\n            else: i += 1\n            continue\n        if quote:\n            if text.startswith(quote, i):\n                if quote in (\"'\", '\"') and text.startswith(quote * 2, i): i += 2; continue\n                i += len(quote); quote = None\n            elif text[i] == '\\\\' and quote == \"'\" and escaped: i += 2\n            else: i += 1\n            continue\n        if text.startswith('--', i): line_comment = True; i += 2; continue\n        if text.startswith('/*', i): depth = 1; i += 2; continue\n        if text[i] in (\"'\", '\"'):\n            escaped = i > 0 and text[i-1] in 'eE' and (i < 2 or not (text[i-2].isalnum() or text[i-2] == '_'))\n            quote = text[i]; i += 1; continue\n        tag = re.match(r'\\$(?:[A-Za-z_][A-Za-z_0-9]*)?\\$', text[i:])\n        if tag: quote = tag.group(); i += len(quote); continue\n        if text[i] == ';':\n            yield start, i + 1, text[start:i+1]\n            start = i + 1\n        i += 1\n    if quote or depth: raise ValueError('Unterminated SQL quote/comment; manual review required')\n    if text[start:].strip(): yield start, len(text), text[start:]\n\ndef head(sql):\n    # Strip leading comments only; SQL bodies remain intact for review.\n    sql = sql.lstrip()\n    while sql.startswith(('--', '/*')):\n        if sql.startswith('--'): sql = sql.partition('\\n')[2].lstrip()\n        else:\n            depth = 1; i = 2\n            while depth and i < len(sql):\n                if sql.startswith('/*', i): depth += 1; i += 2\n                elif sql.startswith('*/', i): depth -= 1; i += 2\n                else: i += 1\n            sql = sql[i:].lstrip()\n    return sql\n\ndef inventory(text):\n    result = []\n    for start, end, sql in statements(text):\n        h = head(sql); word = re.match(r'[A-Za-z]+', h)\n        if not word: continue\n        kind = word.group().upper()\n        # WITH/DO/SELECT/CALL may have side effects; never certify them as DDL.\n        result.append({'start': start, 'end': end, 'line': text.count('\\n',0,start)+1,\n                       'kind': kind, 'needs_effect_review': kind in ('INSERT','UPDATE','DELETE','MERGE','WITH','DO','SELECT','CALL'),\n                       'cron': bool(re.search(r'cron\\.(schedule|unschedule)',sql,re.I)),\n                       'network': bool(re.search(r'net\\.http_|http\\(|dblink',sql,re.I))})\n    return result\n"
+    },
+    "prepare.py": {
+      "sha256": "6f3a7165ead107887aebb765524c8970321baf7e54c0cc737ad811f8a9eb7469",
+      "content": "import pathlib,json,hashlib,datetime,re\nfrom sql_scan import inventory,head\nROOT=pathlib.Path('r0-352/source'); OUT=pathlib.Path('r352-review'); digest=lambda b:hashlib.sha256(b).hexdigest()\nj=json.load(open('r352-journal.json'))['entries']; ledger=json.load(open('r352-live-drizzle.json'))['rows']; sl=json.load(open('r352-live-supabase.json'))['rows']; versions={x['version'] for x in sl}\nfiles=sorted((ROOT/'supabase/migrations').glob('*.sql')); overlays={}; entries=[]; scan=[]\nselected={32:'operational',61:'operational',62:'operational',63:'operational',83:'reference_pending_seed',84:'reference_pending_seed',109:'reference_pending_seed',624:'mixed_operational',949:'mixed_operational'}\nfor source, paths in [('supabase',files),('drizzle',sorted((ROOT/'drizzle/migrations').glob('*.sql')))]:\n for order,p in enumerate(paths,1):\n  b=p.read_bytes();text=b.decode(); inv=inventory(text); rel=str(p.relative_to(ROOT)); sha=digest(b)\n  if source=='supabase': version=p.name.split('_')[0];ms=int(datetime.datetime.strptime(version,'%Y%m%d%H%M%S').replace(tzinfo=datetime.timezone.utc).timestamp()*1000); proof=version in versions\n  else:\n   e=next(e for e in j if e['tag']==p.stem);version=e['tag'];ms=e['when'];proof=any(r['created_at']==ms and r['hash']==sha for r in ledger)\n  entry={'source':source,'path':rel,'version':version,'candidate_time_ms':ms,'original_sha256':sha,'live_ledger_match':proof}\n  entries.append(entry)\n  effects=[x for x in inv if x['needs_effect_review'] or x['cron'] or x['network']]\n  if effects: scan.append({'path':rel,'statements':effects})\n  if source=='supabase' and order in selected:\n   removed=[x for x in inv if x['kind'] in ('INSERT','UPDATE','DELETE','MERGE')]\n   kept=''.join(text[x['start']:x['end']] for x in inv if x not in removed)\n   if selected[order] in ('operational','reference_pending_seed') and kept.strip():raise Exception('Unexpected non-DML in proposed empty overlay '+rel)\n   header=f'-- PROPOSTA INERTE; revisão Claude pendente; nunca aplicar em Live.\\n-- Versão: {version}; original SHA256: {sha}\\n-- Motivo: {selected[order]}; retiradas instruções de topo: '+','.join(str(x['line'])+':'+x['kind'] for x in removed)+'\\n'\n   header+=f'-- Prova de aplicação original em Live: {\"versão consta do ledger SELECT 24/10/2026\" if proof else \"NÃO CONFIRMADA; versão ausente do ledger actual\"}.\\n'\n   if order==32:header+='-- SELECT 24/10/2026: evento pai=0, filhos=0; não prova execução histórica.\\n'\n   if selected[order]=='reference_pending_seed':header+='-- Só candidato para catálogo; seed de referência pendente; PROIBIDO declarar prontidão funcional.\\n'\n   body=header+kept+'\\n'; target='overlays/'+p.name+'.txt';(OUT/'overlays').mkdir(exist_ok=True);(OUT/target).write_text(body)\n   entry['overlay_candidate']=target;entry['overlay_sha256']=digest(body.encode())\n   overlays[rel]={'candidate':target,'reason':selected[order],'removed':removed,'proof_confirmed':proof,'review':'pending'}\nentries.sort(key=lambda x:(x['candidate_time_ms'],x['source'],x['version']))\nlocal_versions={p.name.split('_')[0] for p in files}\nresult={'source_sha':'c35223207e22cff887cdcbe39de7c882005d14d9','review_status':'pending','execution_allowed':False,'blockers':['chronology not yet validated against dependencies and two Live ledgers','Live Drizzle id165 hash not recovered from reachable history','Supabase ledger/repository mismatch: not a proven original Live replay','overlay origin proofs missing for seven candidates','seed/reference dependency review pending','external-effect review pending for DO/WITH/SELECT and function-trigger execution'],'entries':entries,'overlays':overlays,'supabase_ledger':{'count':len(sl),'matching_versions':len(local_versions&versions),'repo_only':sorted(local_versions-versions),'live_only':sorted(versions-local_versions)},'drizzle_ledger':{'count':len(ledger),'journal_count':len(j),'files':len(list((ROOT/'drizzle/migrations').glob('*.sql')))},'historical_0016':{'commit':'c075613c65affa494d83cf080cbc995e2fe73fe8','sha256':digest(pathlib.Path('r352-old16.sql').read_bytes()),'live_id':17,'status':'recovered exact bytes; substitution requires review; current source not edited'}}\n(OUT/'plan.json').write_text(json.dumps(result,ensure_ascii=False,indent=2));(OUT/'scan.json').write_text(json.dumps(scan,ensure_ascii=False,indent=2))\nprint(json.dumps({'entries':len(entries),'overlays':len(overlays),'effect_files':len(scan),'supabase':{k:v if not isinstance(v,list) else len(v) for k,v in result['supabase_ledger'].items()},'drizzle':result['drizzle_ledger']},ensure_ascii=False))\n"
+    },
+    "test_review.py": {
+      "sha256": "af8c7abaaa9e9cd8f9e64c82e5a5fd79236add59e3434bd1fa83ed66bd0c8acf",
+      "content": "import unittest,subprocess,sys,pathlib,json,hashlib\nfrom sql_scan import inventory\nclass ReviewTests(unittest.TestCase):\n def test_function_dml_not_top_level(self):\n  s=\"CREATE FUNCTION f() RETURNS void AS $body$ BEGIN INSERT INTO x VALUES ('a;b'); END $body$ LANGUAGE plpgsql; INSERT INTO x VALUES (1);\"\n  self.assertEqual([r['kind'] for r in inventory(s)],['CREATE','INSERT'])\n def test_comments_quotes(self):\n  s=\"/* x /* nested; */ z */ CREATE TABLE x (s text DEFAULT ';'); -- hi;\\nINSERT INTO x VALUES ('it''s;ok');\"\n  self.assertEqual([r['kind'] for r in inventory(s)],['CREATE','INSERT'])\n def test_effect_blocks_flagged(self):\n  self.assertTrue(all(r['needs_effect_review'] for r in inventory(\"DO $$ BEGIN PERFORM f(); END $$; WITH x AS (DELETE FROM t RETURNING *) SELECT * FROM x; SELECT cron.schedule('x','* * * * *','select 1');\")))\n def test_bad_quote_rejected(self):\n  with self.assertRaises(ValueError):inventory(\"SELECT 'unfinished\")\n def test_review_required_before_bootstrap(self):\n  r=subprocess.run([sys.executable,str(pathlib.Path(__file__).with_name('runner.py'))],capture_output=True,text=True)\n  self.assertNotEqual(r.returncode,0);self.assertIn('missing Claude review approval',r.stderr)\n def test_overlay_hashes(self):\n  base=pathlib.Path(__file__).parent;p=json.loads((base/'plan.json').read_text())\n  self.assertFalse(p['execution_allowed']);self.assertTrue(p['blockers'])\n  for e in p['entries']:\n   if 'overlay_candidate' in e:\n    self.assertEqual(hashlib.sha256((base/e['overlay_candidate']).read_bytes()).hexdigest(),e['overlay_sha256'])\n    self.assertFalse(any(x['kind'] in ('INSERT','UPDATE','DELETE','MERGE') for x in inventory((base/e['overlay_candidate']).read_text())))\nif __name__=='__main__':unittest.main()\n"
+    }
+  },
+  "overlay_descriptors": [
+    {
+      "source_path": "supabase/migrations/20260318234226_f2f475fc-98eb-4588-8b5e-2fb64205897b.sql",
+      "source_sha256": "2b86ba1e3e56aa4e43b0738463c22a011ff3f947f97e2b6496c33017533b09bc",
+      "reason": "operational",
+      "candidate_sha256": "7693a6754450dc173a0498d87eaeb8cdd66aca5ef13ab707f70b79a8e1dfff60",
+      "proof_confirmed": false,
+      "review_status": "pending",
+      "note": "Offsets are Unicode character offsets in UTF-8-decoded original, NOT byte offsets; preserve original bytes elsewhere. No SQL bodies or Live row values included.",
+      "remove_character_spans": [
+        {
+          "start": 0,
+          "end": 238,
+          "line": 1,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 238,
+          "end": 602,
+          "line": 4,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 602,
+          "end": 964,
+          "line": 9,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 964,
+          "end": 1093,
+          "line": 14,
+          "kind": "DELETE",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        }
+      ]
+    },
+    {
+      "source_path": "supabase/migrations/20260324035801_115c5b3e-ab42-41f5-9c90-60025dcaf818.sql",
+      "source_sha256": "9243dbc57bac0a3947f85e413d6b300d9f99cc52de72cc33eefc7f88fb0be2ca",
+      "reason": "operational",
+      "candidate_sha256": "f3789d457cb9a8edd817cab4f7fcce794a5cef4c79fa0b8a825e2a6a4356df4a",
+      "proof_confirmed": false,
+      "review_status": "pending",
+      "note": "Offsets are Unicode character offsets in UTF-8-decoded original, NOT byte offsets; preserve original bytes elsewhere. No SQL bodies or Live row values included.",
+      "remove_character_spans": [
+        {
+          "start": 0,
+          "end": 295,
+          "line": 1,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 295,
+          "end": 473,
+          "line": 7,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 473,
+          "end": 639,
+          "line": 11,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 639,
+          "end": 805,
+          "line": 15,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 805,
+          "end": 985,
+          "line": 19,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 985,
+          "end": 1173,
+          "line": 23,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        }
+      ]
+    },
+    {
+      "source_path": "supabase/migrations/20260324035826_ca2ba0c8-0fea-488c-a69c-34e4c1b49443.sql",
+      "source_sha256": "3b412fcf6cfd141098ce5fc678a157024425634cfcd6fd002073e5dc14bca861",
+      "reason": "operational",
+      "candidate_sha256": "b9e6e4ec73fc757849f103629ebecd82e06b27156b5ca17afff7f476eeeebf9c",
+      "proof_confirmed": false,
+      "review_status": "pending",
+      "note": "Offsets are Unicode character offsets in UTF-8-decoded original, NOT byte offsets; preserve original bytes elsewhere. No SQL bodies or Live row values included.",
+      "remove_character_spans": [
+        {
+          "start": 0,
+          "end": 420,
+          "line": 1,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 420,
+          "end": 618,
+          "line": 7,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 618,
+          "end": 811,
+          "line": 11,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 811,
+          "end": 1004,
+          "line": 15,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 1004,
+          "end": 1310,
+          "line": 19,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 1310,
+          "end": 1512,
+          "line": 24,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        }
+      ]
+    },
+    {
+      "source_path": "supabase/migrations/20260324035849_5b7af418-e4e0-4131-a9f0-8b472602d608.sql",
+      "source_sha256": "88f869eb7ad37fa9da36bbf9a022235051725bac17a6cdf787f651307a657ff5",
+      "reason": "operational",
+      "candidate_sha256": "6e03bf24c40ee77459159cb0bd098918cbd3d3ba7a84e37f4c5e8a62fbf61c48",
+      "proof_confirmed": false,
+      "review_status": "pending",
+      "note": "Offsets are Unicode character offsets in UTF-8-decoded original, NOT byte offsets; preserve original bytes elsewhere. No SQL bodies or Live row values included.",
+      "remove_character_spans": [
+        {
+          "start": 0,
+          "end": 888,
+          "line": 1,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        }
+      ]
+    },
+    {
+      "source_path": "supabase/migrations/20260408095142_424ff4e0-37da-4779-89b7-69f7ee04f5e9.sql",
+      "source_sha256": "19fee908160c38eccb4efd53dab68768589ea0cf0d902f2a783200ca049de7f4",
+      "reason": "reference_pending_seed",
+      "candidate_sha256": "401c0934979864a6878a3289632546c8864458bf5f236b0e7d4767fb5a466301",
+      "proof_confirmed": false,
+      "review_status": "pending",
+      "note": "Offsets are Unicode character offsets in UTF-8-decoded original, NOT byte offsets; preserve original bytes elsewhere. No SQL bodies or Live row values included.",
+      "remove_character_spans": [
+        {
+          "start": 0,
+          "end": 349,
+          "line": 1,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 349,
+          "end": 601,
+          "line": 6,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 601,
+          "end": 849,
+          "line": 11,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 849,
+          "end": 1169,
+          "line": 16,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 1169,
+          "end": 1525,
+          "line": 21,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 1525,
+          "end": 1833,
+          "line": 27,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 1833,
+          "end": 2192,
+          "line": 32,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        }
+      ]
+    },
+    {
+      "source_path": "supabase/migrations/20260408111916_8baef1fa-b052-4ac0-aec8-910547c23917.sql",
+      "source_sha256": "7c1fe29ddbd9d4e82796e82562c2b533b24893007704848429f3147b9b7caadb",
+      "reason": "reference_pending_seed",
+      "candidate_sha256": "26e2d68bc4c29f36f8d4fdbeca7ca26cf74602501c5583955f5d6603693f7c79",
+      "proof_confirmed": false,
+      "review_status": "pending",
+      "note": "Offsets are Unicode character offsets in UTF-8-decoded original, NOT byte offsets; preserve original bytes elsewhere. No SQL bodies or Live row values included.",
+      "remove_character_spans": [
+        {
+          "start": 0,
+          "end": 112,
+          "line": 1,
+          "kind": "UPDATE",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 112,
+          "end": 201,
+          "line": 3,
+          "kind": "UPDATE",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        },
+        {
+          "start": 201,
+          "end": 1307,
+          "line": 4,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        }
+      ]
+    },
+    {
+      "source_path": "supabase/migrations/20260411120205_d9b969db-165f-4aa0-86e3-6e549305beda.sql",
+      "source_sha256": "933f4cb5ed0be8817ec6d467cde44d91fc9e763d45416b6d82e0859c27a8f340",
+      "reason": "reference_pending_seed",
+      "candidate_sha256": "ef2f31e9e6984eeb13e2948149802c09f984feee8c696871c5fac8362005deca",
+      "proof_confirmed": false,
+      "review_status": "pending",
+      "note": "Offsets are Unicode character offsets in UTF-8-decoded original, NOT byte offsets; preserve original bytes elsewhere. No SQL bodies or Live row values included.",
+      "remove_character_spans": [
+        {
+          "start": 0,
+          "end": 286,
+          "line": 1,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        }
+      ]
+    },
+    {
+      "source_path": "supabase/migrations/20260814221539_c29025c8-49fb-4c65-a4d5-2a24dae88daa.sql",
+      "source_sha256": "a909bd3f34cd317d991f5556f23e518f185baf9cdef6ff350e5159171d998eb4",
+      "reason": "mixed_operational",
+      "candidate_sha256": "7d8fbd916fbaf15498c82166ca1fab6d2b48ed4ff57562dab3199425869a141b",
+      "proof_confirmed": true,
+      "review_status": "pending",
+      "note": "Offsets are Unicode character offsets in UTF-8-decoded original, NOT byte offsets; preserve original bytes elsewhere. No SQL bodies or Live row values included.",
+      "remove_character_spans": [
+        {
+          "start": 3192,
+          "end": 3768,
+          "line": 61,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        }
+      ]
+    },
+    {
+      "source_path": "supabase/migrations/20260924202758_ed08efce-1944-4b70-b975-cd4d0996a981.sql",
+      "source_sha256": "fd84f3323c2bb90c48f5d5297c6a494232704eaa5d2bd5ac189154e432ba3881",
+      "reason": "mixed_operational",
+      "candidate_sha256": "342fc151bc024a6e17620ffdd148fd80acdbfb3c3f5d33696659108e12a3e043",
+      "proof_confirmed": true,
+      "review_status": "pending",
+      "note": "Offsets are Unicode character offsets in UTF-8-decoded original, NOT byte offsets; preserve original bytes elsewhere. No SQL bodies or Live row values included.",
+      "remove_character_spans": [
+        {
+          "start": 13529,
+          "end": 14240,
+          "line": 294,
+          "kind": "INSERT",
+          "needs_effect_review": true,
+          "cron": false,
+          "network": false
+        }
+      ]
+    }
+  ],
+  "historical_0016": {
+    "commit": "c075613c65affa494d83cf080cbc995e2fe73fe8",
+    "sha256": "6ee7fe434ac3732bb6abe3b18231349549ae948fd83c0c95d901b1277dd6839b",
+    "live_id": 17,
+    "status": "recovered exact bytes; substitution requires review; current source not edited"
+  },
+  "test_result": "6 tests PASS; py_compile PASS; missing approval prevents bootstrap before any subprocess Docker/SQL",
+  "drizzle_dml_scan": [
+    {
+      "path": "drizzle/migrations/0027_derp185_song_link_canal.sql",
+      "statements": [
+        {
+          "line": 8,
+          "kind": "UPDATE"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0043_derp196_283_parte4_backfill_pax_guard.sql",
+      "statements": [
+        {
+          "line": 23,
+          "kind": "UPDATE"
+        },
+        {
+          "line": 27,
+          "kind": "UPDATE"
+        },
+        {
+          "line": 29,
+          "kind": "UPDATE"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0044_derp197_284_invariante_transacao_duplica_fatura.sql",
+      "statements": [
+        {
+          "line": 1,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0047_derp200_287_camarim_adiantamento_entrada.sql",
+      "statements": [
+        {
+          "line": 118,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0048_derp201_supplier_similarity_flags.sql",
+      "statements": [
+        {
+          "line": 126,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0049_derp202_285_invariante_pago_abaixo_do_bruto.sql",
+      "statements": [
+        {
+          "line": 1,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0052_derp_remove_tx_paga_sem_linha_ref_paid_157.sql",
+      "statements": [
+        {
+          "line": 283,
+          "kind": "DELETE"
+        },
+        {
+          "line": 285,
+          "kind": "UPDATE"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0061_derp214_ticketline_parallel_series_invariant.sql",
+      "statements": [
+        {
+          "line": 39,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0062_derp215_invariant_documentos_inalcancaveis.sql",
+      "statements": [
+        {
+          "line": 26,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0063_derp216_isolation_email_company_views.sql",
+      "statements": [
+        {
+          "line": 56,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0064_derp217_views_readonly_storage_backup_manifest.sql",
+      "statements": [
+        {
+          "line": 137,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0067_derp219_delete_cascade_settlement_reverse_forecast_amount_rateio.sql",
+      "statements": [
+        {
+          "line": 215,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0074_emails_presos_pending_ignore_sent_pairs.sql",
+      "statements": [
+        {
+          "line": 14,
+          "kind": "UPDATE"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0089_derp238_invariant_cash_negativo.sql",
+      "statements": [
+        {
+          "line": 1,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0096_derp_304_invariant_natureza_divergente.sql",
+      "statements": [
+        {
+          "line": 1,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0097_derp_299_invariant_tabelas_1000_por_nome.sql",
+      "statements": [
+        {
+          "line": 32,
+          "kind": "UPDATE"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0101_0101_derp_243_portal_error_log_backup_retention.sql",
+      "statements": [
+        {
+          "line": 1,
+          "kind": "INSERT"
+        },
+        {
+          "line": 4,
+          "kind": "UPDATE"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0106_derp248_tiktok_event_trackers.sql",
+      "statements": [
+        {
+          "line": 39,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0147_derp259_area_modes_view_edit.sql",
+      "statements": [
+        {
+          "line": 3,
+          "kind": "UPDATE"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0160_derp277_crm_coala_eb27_list.sql",
+      "statements": [
+        {
+          "line": 194,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0163_derp277_consent_fallback_lead_capture.sql",
+      "statements": [
+        {
+          "line": 79,
+          "kind": "UPDATE"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0165_issue320_capi_p1_foundations_mirror.sql",
+      "statements": [
+        {
+          "line": 1,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0170_issue321_club_welcome_reservation.sql",
+      "statements": [
+        {
+          "line": 14,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0177_issue327_club_points_core.sql",
+      "statements": [
+        {
+          "line": 485,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0183_issue332_consent_signup_backfill.sql",
+      "statements": [
+        {
+          "line": 44,
+          "kind": "WITH"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0196_newgang_crm_members_whatsapp.sql",
+      "statements": [
+        {
+          "line": 11,
+          "kind": "UPDATE"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0200_capi_v2_consent_events.sql",
+      "statements": [
+        {
+          "line": 31,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0203_issue333_analysis_control.sql",
+      "statements": [
+        {
+          "line": 54,
+          "kind": "INSERT"
+        },
+        {
+          "line": 56,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0205_ugc_ios_watchdog.sql",
+      "statements": [
+        {
+          "line": 43,
+          "kind": "INSERT"
+        },
+        {
+          "line": 50,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0208_ugc_watchdog_config_recipient_profile_company.sql",
+      "statements": [
+        {
+          "line": 2,
+          "kind": "UPDATE"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0211_issue333_assistant_review.sql",
+      "statements": [
+        {
+          "line": 26,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0212_issue333_assistant_executor.sql",
+      "statements": [
+        {
+          "line": 35,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0214_cache_payment_contracts.sql",
+      "statements": [
+        {
+          "line": 651,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0233_period_report_exact_daily_visitors.sql",
+      "statements": [
+        {
+          "line": 35,
+          "kind": "INSERT"
+        },
+        {
+          "line": 38,
+          "kind": "INSERT"
+        }
+      ]
+    },
+    {
+      "path": "drizzle/migrations/0237_cache_attach_advance_to_contract.sql",
+      "statements": [
+        {
+          "line": 192,
+          "kind": "INSERT"
+        }
+      ]
+    }
+  ]
+}
