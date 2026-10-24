@@ -1,6 +1,6 @@
 // @vitest-environment node
 // capi-v2-send (#322 opção A) — testes herméticos, sem rede real nem Cloud.
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import {
@@ -10,6 +10,8 @@ import {
 } from "../../supabase/functions/capi-v2-send/handler";
 
 const NOW = new Date("2026-10-19T02:00:00Z");
+const HOST_DATE = Date;
+const REAL_SET_TIMEOUT = setTimeout;
 const PIXEL_COALA = "1142136723579970";
 const PIXEL_NG = "1158654246468410";
 
@@ -193,6 +195,9 @@ describe("helpers puros", () => {
     expect(nextBackoff(5, NOW)).toBe("2026-10-19T05:00:00.000Z");
     expect(isOlderThanMaxAge("2026-10-12T01:59:00Z", NOW)).toBe(true);
     expect(isOlderThanMaxAge("2026-10-18T00:00:00Z", NOW)).toBe(false);
+    expect(isOlderThanMaxAge("2026-10-13T02:00:00.001Z", NOW)).toBe(false);
+    expect(isOlderThanMaxAge("2026-10-13T02:00:00.000Z", NOW)).toBe(false);
+    expect(isOlderThanMaxAge("2026-10-13T01:59:59.999Z", NOW)).toBe(true);
   });
   it("classifica 200 ok, 200 mismatch terminal, 429/5xx transient, 4xx validação terminal", () => {
     expect(classifyGraphResponse(200, { events_received: 2, fbtrace_id: "f" }, 2)).toEqual({ kind: "ok", fbtrace_id: "f" });
@@ -214,6 +219,32 @@ describe("helpers puros", () => {
 });
 
 describe("handler", () => {
+  beforeEach(() => {
+    // #353: buildPayloadForRow também lê Date global. Fixar só Date evita
+    // envelhecimento das fixtures sem bloquear PG, crypto ou Promises.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it.each([
+    ["antes", "2026-10-13T02:00:00.001Z", 1, 0],
+    ["no limite", "2026-10-13T02:00:00.000Z", 1, 0],
+    ["depois", "2026-10-13T01:59:59.999Z", 0, 1],
+  ] as const)("expiração de seis dias: %s mantém a guarda no handler", async (_label, created_at, sent, expired) => {
+    const { h, graphCalls, updates } = makeHandler({
+      events: [row()], leads: { l1: leadCapture({ created_at }) },
+      targets: [{ event_slug: "s", pixel_id: PIXEL_COALA, enabled: true, start_at: "2026-09-01" }],
+    });
+    expect(Date.now()).toBe(NOW.getTime());
+    expect(setTimeout).toBe(REAL_SET_TIMEOUT);
+    const j = await (await h(post({ action: "send" }))).json();
+    expect(j.sent).toBe(sent);
+    expect(j.expired).toBe(expired);
+    expect(graphCalls).toHaveLength(sent);
+    expect(updates[0].patch.status).toBe(expired ? "expired" : "sent");
+  });
+
   it("send recusa com suspensão ativa (sem override)", async () => {
     const { h, graphCalls } = makeHandler({ dispatchAllowed: false });
     const r = await h(post({ action: "send" }));
@@ -443,5 +474,14 @@ describe("handler", () => {
     const f = fakeSb({});
     const h = createHandler({ sb: f.sb, fetchFn: f.fetchFn, env: () => undefined, now: () => NOW, isServiceRole: async () => false });
     expect((await h(post({ action: "health" }))).status).toBe(401);
+  });
+});
+
+describe("#353 — isolamento após handler", () => {
+  it("restaura Date do host e conserva temporizadores reais", async () => {
+    expect(Date).toBe(HOST_DATE);
+    expect(vi.isFakeTimers()).toBe(false);
+    expect(setTimeout).toBe(REAL_SET_TIMEOUT);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
   });
 });

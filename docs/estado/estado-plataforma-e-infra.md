@@ -1,5 +1,8 @@
 # ESTADO — Plataforma & Infra
 
+## #353 — correção R1 de CI: relógio determinístico nos testes
+24/10/2026 11:42 UTC — base comum 3afd243a92c6462f49be483faccf954391276d3b limpa. Só src/test/capi-v2.test.ts: Date fixo em NOW no describe handler, afterEach restaura; temporizadores reais preservados. Baseline host 24/10: 11 FAIL/18 PASS; depois 33 PASS no host atual e em 01/01/2030 simulado, fronteiras antes/no/depois de 6 dias e isolamento provados. Suite integral final 2409 PASS/6 skip/11 todo, exit 0; build automático OK. Código c83ca22ec; relatório docs/testes/issue353-ci-relogio.md. Reserva #353 mantida até controller conferir tsgo e CI no SHA final; local não prova GitHub verde. Sem código de produção, rede externa/Live, DDL/DML/config/segredos/flags/deploy/Publish/reenvios; reserva #322 e restantes estados preservados. Issue não editada nem fechada.
+
 ## #333 — tarefa88 ACL/rollback local corrigidos, aplicação não autorizada
 Base8cb9968/CI413SUCCESS confirmados controller. DefaultALL local comprovou falhaINSERT no candidato87; REVOKEALL explícito service_role antesSELECT/EXECUTE e barreira catálogoowner/searchpath/ACLefetiva adicionados.6PG88+2regressõesPASSexit0; herançaUPDATE e owner-authority detectadas, sem alegar revogação de owner/heranças. RollbackINERTE retém audit íntegra+revisãoclosed, semDROPaudit. Histórico87/fontes antigas hashes/diff preservados, prova88 supersede sóACLrollback. HarnessbuildOK; types/CI novoSHA ao controller.0Cloudquery/write/aplicação/deploy/Publish/ativação/modelo real;#322Claude/#323 preservadas, só reserva88 libertada.8PARCIAL/9não liberada/10PARCIAL; próximo revisãoSQL/ACLalvo/númeroLive e autorização própria.
 
