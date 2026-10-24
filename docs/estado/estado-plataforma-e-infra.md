@@ -1,5 +1,11 @@
 # ESTADO — Plataforma & Infra
 
+## #352 — R0 documentada com pendências; arquitectura A decidida
+
+24/10/2026 — Pedro escolheu desenvolvimento local + Supabase próprio de homologação, mantendo produção no Lovable Cloud (D-ERP304). Codex executor; Claude (0 - Cowork) revisor por leitura. [Relatório e plano R2 INERTE](../estudos/saas-e-desenvolvimento/verificacoes-352.md).
+
+Cliente usa env; laboratório inalterado,11 testes unitários PASS. Replay diagnóstico PGlite:1126 SQL,81 sem erro/1045 com erro, dominados por bootstrap ausente; comparação de catálogo anexada. Replay nativo pendente. Baseline714 assets com hashes; dist original integral e retenção pós-Publish pendentes. Último infra.json global localizado em21/10, conteúdo privado não lido; Live complementar81crons/14nomesVault/34buckets, nunca valores. Documentação Cloud e custos consultados. Plano proposto com responsáveis, rollback e autorizações próprias. Nenhuma infraestrutura/conta/custo/escritaLive/deploy/Publish; criação R2 não autorizada. Fecho documental não certifica todas as verificações; #352 permanece aberta. Reserva própria libertada no fecho.
+
 ## #353 — correção R1 de CI: relógio determinístico nos testes
 24/10/2026 11:42 UTC — base comum 3afd243a92c6462f49be483faccf954391276d3b limpa. Só src/test/capi-v2.test.ts: Date fixo em NOW no describe handler, afterEach restaura; temporizadores reais preservados. Baseline host 24/10: 11 FAIL/18 PASS; depois 33 PASS no host atual e em 01/01/2030 simulado, fronteiras antes/no/depois de 6 dias e isolamento provados. Suite integral final 2409 PASS/6 skip/11 todo, exit 0; build automático OK. Código c83ca22ec; relatório docs/testes/issue353-ci-relogio.md. Reserva #353 mantida até controller conferir tsgo e CI no SHA final; local não prova GitHub verde. Sem código de produção, rede externa/Live, DDL/DML/config/segredos/flags/deploy/Publish/reenvios; reserva #322 e restantes estados preservados. Issue não editada nem fechada.
 
