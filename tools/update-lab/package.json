@@ -1,0 +1,11 @@
+{
+  "name": "mp-update-lab",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --experimental-vm-modules --test tests/unit.test.mjs",
+    "test:browser": "node --test tests/browser.test.mjs"
+  },
+  "engines": { "node": ">=24" }
+}

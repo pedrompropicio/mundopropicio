@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MP · Laboratório de atualizações</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style.css">
+  <script type="importmap">
+    {"imports":{"react":"/adapters.js","@tanstack/react-query":"/adapters.js","sonner":"/adapters.js","@/lib/pwa":"/lib/pwa.js","@/lib/versionCheck":"/lib/versionCheck.js","virtual:pwa-register":"/sw-register.js"}}
+  </script>
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <main>
+    <header><span class="tag">ESTUDO #351 / #352 · SEM DADOS REAIS</span><h1>Atualizar sem interromper</h1><p>Código real do atualizador, formulário fictício e versões simuladas numa origem local.</p></header>
+    <nav><a href="/?mode=baseline">Comportamento atual</a><a href="/?mode=proposal">Proposta no laboratório</a></nav>
+    <section class="summary"><div><small>Modo</small><strong id="mode"></strong></div><div><small>Versão aberta</small><strong id="version"></strong></div><div><small>Carregamentos nesta sessão</small><strong id="boots"></strong></div></section>
+    <section class="card"><h2>Trabalho em curso</h2><label for="draft">Descrição fictícia</label><textarea id="draft" placeholder="Escreva uma descrição de teste…"></textarea><div class="actions"><button id="save">Guardar simulação</button><label class="check"><input id="mutation" type="checkbox"> Gravação simulada em curso</label></div><p id="draft-status" class="muted">Sem alterações por guardar.</p></section>
+    <section class="card"><h2>Simular uma publicação</h2><p>Cria a versão seguinte apenas neste processo local. Nenhuma função, base ou publicação do ERP é chamada.</p><div class="actions"><button id="deploy">Disponibilizar nova versão local</button><button id="open-modal" class="secondary">Abrir modal fictício</button></div><p id="publication" aria-live="polite"></p></section>
+    <aside id="update" class="notice" hidden><div><strong>Nova versão disponível</strong><p id="update-help"></p></div><button id="update-now">Atualizar agora</button></aside>
+    <footer>Os adaptadores de hooks, notificações e registo do service worker pertencem ao laboratório. Isto não é uma cópia funcional do ERP nem uma homologação completa.</footer>
+    <dialog id="modal" role="dialog"><h2>Modal fictício</h2><p>Simula uma janela aberta durante uma atualização.</p><button id="close-modal">Fechar</button></dialog>
+  </main>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "commit": "29e18c96f4ebcc76bd1471cd4a68b333f966f12f",
+  "files": {
+    "src/components/PWAUpdateManager.tsx": "a4467f4be524660d6e7cc34dbe56b13341f200ee50eee0c0bcc04f2bdef6c4ce",
+    "src/lib/pwa.ts": "df52e9746bedd2d67a79053f1f3d68f600ab10e7118bad30f7b4820d8d84d105",
+    "src/lib/versionCheck.ts": "a623789b9fa7e2082ac3d7b99b32d525678e57e2251f847d99e1ae9191d2312c",
+    "src/main.tsx": "abcfa1aed2fa6092f9f66ace606e27a96c86e5a34c09909f91fd34bd75a6ce21",
+    "vite.config.ts": "fc09f4ff204e4633ebb18cbc20debc19bbd85e15d472fc45c42353da6eec6106"
+  }
+}

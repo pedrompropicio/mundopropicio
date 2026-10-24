@@ -1,0 +1,33 @@
+name: Update laboratory (isolated)
+on:
+  push:
+    branches: [study/351-isolated-update-lab]
+    paths:
+      - tools/update-lab/**
+      - .github/workflows/update-lab.yml
+permissions:
+  contents: read
+concurrency:
+  group: update-lab-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  isolated-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Unit behavior and source provenance
+        run: node --experimental-vm-modules --test tools/update-lab/tests/unit.test.mjs
+      - name: Install isolated browser test dependency
+        run: npm install --prefix "$RUNNER_TEMP/update-lab-deps" --no-save --ignore-scripts playwright@1.57.0
+      - name: Install Chromium
+        run: node "$RUNNER_TEMP/update-lab-deps/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Local-only browser scenarios
+        run: |
+          export UPDATE_LAB_PLAYWRIGHT_ROOT="$RUNNER_TEMP/update-lab-deps/node_modules/playwright"
+          node --test tools/update-lab/tests/browser.test.mjs
