@@ -1,0 +1,28 @@
+name: Schema replay 352
+on:
+  push:
+    branches: [study/352-schema-replay]
+permissions:
+  contents: read
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.84.2
+      - name: Native bootstrap and migration replay (local only)
+        shell: bash
+        run: python3 tools/schema-replay/run.py
+      - name: Upload sanitised evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema-replay-352
+          path: replay-evidence/
+          if-no-files-found: error
+          retention-days: 30
