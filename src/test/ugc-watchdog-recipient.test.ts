@@ -28,6 +28,18 @@ describe("resolveRecipient", () => {
 });
 
 describe("index.ts não lê recipient_phone da config", () => {
+  it("tipos de ugc_watchdog_config não reintroduzem recipient_phone", () => {
+    const types = readFileSync("src/integrations/supabase/types.ts", "utf8");
+    const start = types.indexOf("      ugc_watchdog_config: {");
+    expect(start).toBeGreaterThan(-1);
+    const end = types.indexOf("\n      ", start + 1);
+    // The next table starts at the same indentation, unlike fields inside this table.
+    const block = types.slice(start, end);
+    expect(block).toContain("Row:");
+    expect(block).toContain("Insert:");
+    expect(block).toContain("Update:");
+    expect(block).not.toContain("recipient_phone");
+  });
   it("recipient_phone só aparece no insert em notification_queue", () => {
     const src = readFileSync("supabase/functions/ugc-ios-reading-watchdog/index.ts", "utf8");
     const start = src.indexOf('from("notification_queue").insert(');
