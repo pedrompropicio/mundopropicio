@@ -33,12 +33,18 @@ Resultado: tudo o que foi criado em Live fora de uma migration tracked desaparec
 - **03/06/2026 madrugada** — Publish de outra alteração gerou `pg_dump diff`. Live foi alinhado a Test (que nunca teve o schema portal). Todas as 14 colunas, 6 tabelas e 3 views foram DROPPED. Edge functions começaram a devolver `Could not find the table 'public.lead_capture'`.
 - **04/06/2026** — Recovery via migration tracked aplicada pelo agente Lovable em Test, depois Publish propagou correctamente.
 
+## Evidência actual dos históricos — #352, 24/10/2026
+
+O journal Drizzle contém entradas desde 02/10/2026; a configuração usa LOVABLE_DB_MIGRATION_URL e os hashes foram confrontados com drizzle.__drizzle_migrations em Live. Em 24/10: 240 ficheiros/journal entries e 241 registos Live; há versões históricas por reconciliar. Os ficheiros Supabase vão até 13/10, mas o ledger Live consultado termina em 02/10 e não coincide integralmente com o repo. Estes factos não provam a ordem exacta de execução, o executável invocado, nem uma data de migração exclusiva entre mecanismos.
+
+A instalação nova não está validada por `supabase db reset` isoladamente nem pela concatenação cega das duas pastas. Ver [preparação R0](../../../docs/estudos/saas-e-desenvolvimento/gates-352/revisao-r0-20261024.md). Originais preservados; overlays só após revisão, só em contexto isolado autorizado, nunca por db push em Live. A #352 não autoriza alterar Live, criar homologação ou remover crons de produção.
+
 ## Workflow correcto
 
 ### Para qualquer alteração ao schema (CREATE TABLE, ALTER TABLE, CREATE VIEW, CREATE POLICY, GRANT, CREATE FUNCTION):
 
 1. **O autor pede ao agente Lovable a alteração**, descrita em linguagem natural.
-2. **O agente escreve a migration** em `supabase/migrations/<timestamp>_<nome>.sql` e aplica-a em Live.
+2. **O agente escreve uma migration rastreada pelo mecanismo em uso e aplica-a em Live, só com a autorização própria.** Há duas fontes neste repositório: `supabase/migrations/<timestamp>_*.sql` e `drizzle/migrations/*.sql` com `meta/_journal.json`. Não presumir que todo o DDL novo entra em `supabase/migrations/`.
 3. **Confirmação por query de validação** (ver secção "Validação" abaixo).
 
 O Publish propaga código, edge functions e frontend — **não objectos SQL**. Não há passo de propagação Test→Live: só existe Live (D2).

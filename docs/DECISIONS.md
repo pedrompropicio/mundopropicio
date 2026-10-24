@@ -6227,3 +6227,12 @@ Passo A instalado em Live a 22/10/2026 com Sim do Pedro.
 > 
 
 Verificações e plano R2 INERTE: [verificacoes-352.md](estudos/saas-e-desenvolvimento/verificacoes-352.md). Este registo não autoriza criar a homologação.
+
+
+## D-ERP305 — #352: preparar replay com duas fontes e overlays revistos (24/10/2026)
+
+**Pedro, neste chat com Codex — “Autorizo”, após o parecer do Claude (0 - Cowork).** Autoriza rever o âmbito R0: validar uma sequência candidata Supabase/Drizzle, preservar migrações originais, preparar runner e overlays explícitos para revisão por leitura do Claude **antes de novo replay**. Dados operacionais não são inventados para satisfazer FKs; dados de referência exigem seed oficial antes de testes funcionais. Nenhum overlay activo, instalação de homologação ou execução em Live é autorizado por este registo.
+
+Ordem por timestamps não substitui validação de dependências/históricos. Crons e chamadas externas devem estar impedidos antes e durante qualquer replay; unschedule posterior não basta para a homologação gerida. Guardar proveniência e hashes de fonte/execução separadamente. G6 e criação R2 continuam com Pedro, sem pressupor Sim.
+
+Regra de futuro proposta no parecer (migrações DDL + referência idempotente; DML operacional run-once separado) fica documentada para consolidação com o revisor, sem reclassificar nem editar retroactivamente migrações nesta R0. Esta autorização é de preparação/revisão, não de aplicação. [Provas e bloqueios](estudos/saas-e-desenvolvimento/gates-352/revisao-r0-20261024.md).
