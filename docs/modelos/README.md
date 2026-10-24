@@ -19,6 +19,25 @@ Decisão do Pedro, 23/10/2026: os relatórios que ficam bons guardam-se aqui, no
 - Se o resultado exigiu desvios ao modelo que valem para o futuro, o chat actualiza o modelo (R0) no mesmo fecho; desvios só daquele caso ficam no relatório, não no modelo.
 - Um modelo novo nasce de um relatório que o Pedro deu por bom. O chat que o fez cria a pasta com as quatro peças e acrescenta a linha ao `INDEX.md`.
 
+## Identidade dos relatórios
+
+Decisão do Pedro, 24/10/2026: os relatórios da MP têm cara própria. Quem os recebe não deve conseguir dizer que foram feitos por um LLM — nem pelo ChatGPT nem pelo Claude. Esta secção lê-se antes de produzir qualquer relatório, com ou sem modelo.
+
+Obrigatório
+- Cabeçalho fixo: nome do relatório · evento ou período · data de emissão · "Mundo Propício" (nunca o nome da ferramenta).
+- Rodapé fixo: origem dos números (tabelas/RPC + hora da consulta) e chat que emitiu.
+- Uma língua por relatório (pt-PT ou pt-BR, conforme o destinatário); moeda €; duas casas decimais; separador de milhares; datas dd/mm/aaaa.
+- Estrutura: título → número-chave numa linha → secções na ordem do modelo → observações. Prosa curta; tabela só quando há mais de 4 linhas de dados comparáveis.
+- Ficheiros (xlsx/pdf/html): paleta e tipografia MP definidas em `docs/modelos/_identidade/identidade.md` (a criar pelo Pedro); até existir, uma só fonte, uma cor de destaque, sem sombras nem gradientes.
+- Bloco WhatsApp (quando é para a equipa): asteriscos simples para negrito, linhas curtas, sem tabelas, sem emoji de título.
+
+Proibido (tiques de LLM)
+- Emoji em títulos ou marcadores; "Resumo executivo", "Visão geral", "Principais insights", "Próximos passos", "Conclusão" como títulos.
+- Negrito em cada frase; listas de três por reflexo; separadores `---`; citações em bloco decorativas.
+- Frases de abertura ou fecho ("Aqui está…", "Espero que ajude", "Fico à disposição").
+- Tabelas com colunas vazias ou "N/A" em cascata; percentagens sem base.
+- Qualquer menção a Claude, ChatGPT, LLM ou "gerado por IA" no corpo ou nos metadados do ficheiro.
+
 ## Molde do `README.md` de um modelo
 
 ```

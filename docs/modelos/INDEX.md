@@ -2,6 +2,8 @@
 
 > Fonte única dos modelos de relatório da Mundo Propício, nas duas ferramentas (Claude e ChatGPT). Antes de construir um relatório, procura aqui; se existir, usa o modelo. Quando um relatório ficar bom, guarda-o como modelo (R0). Regras e molde em `README.md` desta pasta.
 
+> **Antes de produzir qualquer relatório, com ou sem modelo, lê `README.md` › "Identidade dos relatórios"**: cara própria MP, nunca com tiques de ChatGPT ou de Claude.
+
 Uma linha por modelo. Ordem alfabética pelo nome da pasta.
 
 | Pasta | Nome | Para que serve | Chat dono | Fontes de dados | Saída | Última utilização |
