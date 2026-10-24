@@ -87,7 +87,8 @@ describe.sequential('club_reminder SQL', () => {
     expect(await reserve(9)).toBe('too_recent');
     expect(await reserve(9, true)).toBe('reserved');
     expect((await one(`SELECT test FROM club_reminder_reservations WHERE member_id='${id(9)}'`)).test).toBe(true);
-    expect(await reserve(9)).toBe('already_reserved');
+    expect(await reserve(9, true)).toBe('already_reserved');
+    expect((await one(`SELECT count(*)::int n FROM club_reminder_reservations WHERE member_id='${id(9)}'`)).n).toBe(1);
     expect(await reserve(3, true)).toBe('suppressed');
     expect(await reserve(2, true)).toBe('confirmed');
   });
