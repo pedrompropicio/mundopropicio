@@ -1,6 +1,10 @@
 # ESTADO — Plataforma & Infra
 
-## #352 — regra destrutiva validada; G1 parou numa dependência construtiva
+## #352 — plano v2 aguarda definição do pareamento ledger/órfãos
+
+24/10/2026, 22:39 UTC — pré-verificação: 1.012 hashes Git conferidos no checkout ad160ee9; 389 pares anteriores eram exactos, sem tolerância de segundos. Restam 623 candidatos (589 até Agosto), com 90 proximidades até 10 segundos apenas diagnósticas. Paragem conforme despacho: Claude deve definir tolerância/pareamento antes de gerar o plano v2; depois scanner e aprovação dos INSERT VALUES antes do G1. Privado/runner/plano inalterados; nenhum novo G1/G2/Live. [Relatório](../estudos/saas-e-desenvolvimento/gates-352/plano-v2-preflight.md). Reserva própria libertada.
+
+### Resultado anterior preservado — regra destrutiva
 
 24/10/2026 — runner privado25ca0209 implementa savepoint por instrução e salto só para DROP/ALTER DROP com42P01/42703/42704/42883.7 testes locais e5 casos nativos passaram; PII gate verde. [Run40138529654](https://github.com/pedrompropicio/mundopropicio-replay/actions/runs/40138529654):127entradas concluídas,1falhada,825por executar; Drizzle ainda não executado.
 

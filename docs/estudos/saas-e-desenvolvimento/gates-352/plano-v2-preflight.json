@@ -1,0 +1,659 @@
+{
+  "utc": "2026-10-24T22:39:57.398143+00:00",
+  "status": "STOPPED_MATCHING_RULE_UNDEFINED",
+  "source_sha": "ad160ee9fbc5b7c5a73f0a63fc44b0c1c86a2708",
+  "source_files": 1012,
+  "git_blobs_verified": 1012,
+  "matching_used_for_previous_389": "exact version only; no seconds tolerance",
+  "exact_matches": 389,
+  "equal": 383,
+  "different_ledger_prevails": 6,
+  "exact_unmatched": 623,
+  "unmatched_by_month": {
+    "202603": 65,
+    "202604": 223,
+    "202605": 157,
+    "202606": 120,
+    "202607": 22,
+    "202608": 2,
+    "202609": 3,
+    "202610": 31
+  },
+  "unmatched_through_august": 589,
+  "nearby_unmatched_within_10_seconds": [
+    {
+      "path": "supabase/migrations/20260317112302_0966ea18-afee-468b-9299-db8ad68609d7.sql",
+      "sha": "9cc90cfdbdb4d2469487a0a08a66d7aa2618ebfc",
+      "version": "20260317112302",
+      "nearest_ledger_version": "20260317112301",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260317115615_1a935844-68c1-40c2-8bba-3340da3909cd.sql",
+      "sha": "c1c35d8ead60f053ee7e4c7ebed1c4a435973fda",
+      "version": "20260317115615",
+      "nearest_ledger_version": "20260317115614",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260317120649_65dff232-0760-4087-aa6e-a85f3957f760.sql",
+      "sha": "acff6bb754fbf5e017f8200a17c48b63e680f9c9",
+      "version": "20260317120649",
+      "nearest_ledger_version": "20260317120648",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260317121553_f5bda9d5-63d6-4455-a91f-33f51ea4cf67.sql",
+      "sha": "fa786157053604982b3a6a0da08740a4ea0d7b76",
+      "version": "20260317121553",
+      "nearest_ledger_version": "20260317121552",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260317122916_cc89baf6-cf80-4b1e-a72c-09c5ed25d38b.sql",
+      "sha": "67bbe92d024de4214dbc63155b0d45429f578c45",
+      "version": "20260317122916",
+      "nearest_ledger_version": "20260317122915",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260317124948_bb5589cb-5a0d-42d9-8efe-cfde82cce5ee.sql",
+      "sha": "a08938e2f360b365b81dbe255fffc1911270d5f8",
+      "version": "20260317124948",
+      "nearest_ledger_version": "20260317124947",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260317132752_71db9fdf-1705-4e45-97a9-fcc833e94634.sql",
+      "sha": "aa35cba0427fbd6f62a271c25273b0634aa40e99",
+      "version": "20260317132752",
+      "nearest_ledger_version": "20260317132751",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260317133443_f470c553-1483-4388-a6fa-2ae8c61053e5.sql",
+      "sha": "762261da4d277073b17f57995d90ec4c5590bf09",
+      "version": "20260317133443",
+      "nearest_ledger_version": "20260317133441",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260317140515_561ff4fc-98ea-4903-ad48-07f65d7400b7.sql",
+      "sha": "32d1754751e671cfb09bbfcffc5fd2b31dcee884",
+      "version": "20260317140515",
+      "nearest_ledger_version": "20260317140514",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260317143149_346cef8f-fa7f-4226-8e55-2abe3660161d.sql",
+      "sha": "06aa7629622ee021c01fd959db904ed304dcdb35",
+      "version": "20260317143149",
+      "nearest_ledger_version": "20260317143148",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260317144444_fc3fc44e-4878-47db-ba58-5e2490235150.sql",
+      "sha": "a9a032a8b058789673ba604cda0a011551c65ad2",
+      "version": "20260317144444",
+      "nearest_ledger_version": "20260317144442",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260317152052_fcc859f4-37db-4469-97f8-2969b8d5a539.sql",
+      "sha": "d68d62679da145323f651c55e9191fc5b2f215db",
+      "version": "20260317152052",
+      "nearest_ledger_version": "20260317152050",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260317212423_f452592c-11e3-4aa0-9d1c-624f4bf3ee21.sql",
+      "sha": "b5b182a81b3ab8d3980e6f6c44f5e7d5cc5d0479",
+      "version": "20260317212423",
+      "nearest_ledger_version": "20260317212421",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260317212720_489b04b9-18d1-4945-ba66-78fcfed963e1.sql",
+      "sha": "5e97c5f556637bbeaacd386ca3e83a65c9184d2b",
+      "version": "20260317212720",
+      "nearest_ledger_version": "20260317212719",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260317214227_7b205982-364e-4a3f-b2f0-c3157519687b.sql",
+      "sha": "814d56004282a2406d5f12b70ea72b996976058b",
+      "version": "20260317214227",
+      "nearest_ledger_version": "20260317214226",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260317214906_78417250-b1d7-4089-898d-02599e7b6d76.sql",
+      "sha": "1f2b8e57563d2b76680e8df8e3a912184b945ff6",
+      "version": "20260317214906",
+      "nearest_ledger_version": "20260317214904",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260318030328_f48b333d-b544-46c1-a40b-bc2e3d3a1208.sql",
+      "sha": "0165a9f8b0d0f15f42029c02a7c88a33018d4270",
+      "version": "20260318030328",
+      "nearest_ledger_version": "20260318030327",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260318031654_319769d2-6426-453b-baa3-2cc8ac196a13.sql",
+      "sha": "cad9798c8943a845467b5caa68d138c45c37b166",
+      "version": "20260318031654",
+      "nearest_ledger_version": "20260318031652",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260318034532_93d8b79f-4705-42a9-8f37-265d1d0769af.sql",
+      "sha": "74ae4aa8279c41b13e983456f91958ecf65a9e7f",
+      "version": "20260318034532",
+      "nearest_ledger_version": "20260318034531",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260318034858_a5f02c0b-2eac-406c-a612-7de26022460f.sql",
+      "sha": "62a3f54b73e1c45189e020bff479a3fce5b0aba7",
+      "version": "20260318034858",
+      "nearest_ledger_version": "20260318034857",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260318045504_e342e510-2fda-4e27-bc5d-f7367a3960ab.sql",
+      "sha": "31cf36aff80825996d3e08fe17242191455bc1af",
+      "version": "20260318045504",
+      "nearest_ledger_version": "20260318045503",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260318050153_c9df0a2d-3a50-450c-a936-dbc323adf60a.sql",
+      "sha": "dd1eb86732723a48800d5aea451c62d4c57ce573",
+      "version": "20260318050153",
+      "nearest_ledger_version": "20260318050151",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260318052231_f598915d-9365-416e-a85d-da3b582e23c0.sql",
+      "sha": "1d683572ec42e91eeb0978c1b56e56d882445031",
+      "version": "20260318052231",
+      "nearest_ledger_version": "20260318052229",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260318131523_8317a01b-149a-4670-b9a1-8edaa47a207b.sql",
+      "sha": "b4162eafddcd78b664db929b5a7385b32abf1ef7",
+      "version": "20260318131523",
+      "nearest_ledger_version": "20260318131521",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260318131620_4ee1cb70-fc78-41a0-99fe-6d01a434420f.sql",
+      "sha": "4ce00c4b8ac5a6fe7424df8c95be4b35cb587660",
+      "version": "20260318131620",
+      "nearest_ledger_version": "20260318131618",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260318165425_0be933f8-e5b9-4878-96c2-ded5162803f8.sql",
+      "sha": "504c0d83c571ca503ee4075088d1b622d58bc6b9",
+      "version": "20260318165425",
+      "nearest_ledger_version": "20260318165423",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260318191502_ba77d527-72a5-4de4-99bd-cec8ecf8fdc3.sql",
+      "sha": "3e5dd33015490bb658307a55f5649a4608686b56",
+      "version": "20260318191502",
+      "nearest_ledger_version": "20260318191459",
+      "distance_seconds": 3.0
+    },
+    {
+      "path": "supabase/migrations/20260318202014_f42a0329-0703-4709-8948-3a0641f5115d.sql",
+      "sha": "d1bc0b424a6c2a77228d8dda3eef20fc6912fe43",
+      "version": "20260318202014",
+      "nearest_ledger_version": "20260318202008",
+      "distance_seconds": 6.0
+    },
+    {
+      "path": "supabase/migrations/20260318210925_6c5c2eed-11de-4962-876c-84cc1173bc2e.sql",
+      "sha": "4d6345db0aefba5f634b7e136f5906a0a8ded46b",
+      "version": "20260318210925",
+      "nearest_ledger_version": "20260318210923",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260318232712_7b54c78f-5975-4e72-93d1-6246da4c4cbb.sql",
+      "sha": "d0d9802e32c3f6028a809e6343edec5dd2717197",
+      "version": "20260318232712",
+      "nearest_ledger_version": "20260318232709",
+      "distance_seconds": 3.0
+    },
+    {
+      "path": "supabase/migrations/20260318233931_f14eaa0f-0378-4a92-9652-29f41846be74.sql",
+      "sha": "a0a056f594c88f78194847a895cadc9eee2337a8",
+      "version": "20260318233931",
+      "nearest_ledger_version": "20260318233929",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260318234226_f2f475fc-98eb-4588-8b5e-2fb64205897b.sql",
+      "sha": "5e5c7b750ae877409d9f666837cefb51620e8bbf",
+      "version": "20260318234226",
+      "nearest_ledger_version": "20260318234225",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260318234854_edc32e86-e7f8-4233-a761-b477ac0686d0.sql",
+      "sha": "8e3e41589cfe5da2b867d61b5760d3c8dbab0d55",
+      "version": "20260318234854",
+      "nearest_ledger_version": "20260318234852",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260318235338_1cc0d561-d68c-4912-91f2-faf4b32640f0.sql",
+      "sha": "700dc22410d50257c33c07c3e250933a28eb4c89",
+      "version": "20260318235338",
+      "nearest_ledger_version": "20260318235336",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260318235517_15a21eed-4dba-42b1-b6e3-238e1d3962bb.sql",
+      "sha": "f23440301e40f5e2b51718c51398bcaa3c6cc513",
+      "version": "20260318235517",
+      "nearest_ledger_version": "20260318235515",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260623122546_576be17a-b08e-47df-98c2-109f1fbc8ec7.sql",
+      "sha": "4f2cc7e4c6d4c1830007955e733683c4485f533e",
+      "version": "20260623122546",
+      "nearest_ledger_version": "20260623122540",
+      "distance_seconds": 6.0
+    },
+    {
+      "path": "supabase/migrations/20260623195511_a9e94878-8e82-488f-99fc-c220ca1b45ff.sql",
+      "sha": "0e96eb8f4f68ec7377439b522747f4f48282cc51",
+      "version": "20260623195511",
+      "nearest_ledger_version": "20260623195510",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260623212742_crm_audience_validate.sql",
+      "sha": "6fa11af83d37f16b58a168311c05733540bb5626",
+      "version": "20260623212742",
+      "nearest_ledger_version": "20260623212740",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260624014525_b6c8acc3-02ee-40ee-a838-46815489be20.sql",
+      "sha": "2bc9c38e443406353da383749d0acb18b65581c4",
+      "version": "20260624014525",
+      "nearest_ledger_version": "20260624014523",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260624021306_3f398950-72df-4b8c-9752-af3368c99bcc.sql",
+      "sha": "7789bc434fc82eb3c91d1fd753a90264a5e52142",
+      "version": "20260624021306",
+      "nearest_ledger_version": "20260624021304",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260624032435_fe22daf6-f956-4d89-a617-30d3a90be0c2.sql",
+      "sha": "6b6066c536b9b58b629e47eabeb9b5413e217a05",
+      "version": "20260624032435",
+      "nearest_ledger_version": "20260624032434",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260624033637_2868ce11-c05d-4999-a2aa-6cf95f059b8a.sql",
+      "sha": "c76a9284cc3c7984a0aec26a3fa13bee270796b8",
+      "version": "20260624033637",
+      "nearest_ledger_version": "20260624033635",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260624171751_a4080654-2066-4615-9a44-590fd53dfff6.sql",
+      "sha": "1748e1f47c647d176cb02bf6d6090b269b32b1c6",
+      "version": "20260624171751",
+      "nearest_ledger_version": "20260624171749",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260624211241_6eef60d0-d391-4016-b5b6-4747be5a21c1.sql",
+      "sha": "96534abfada9f0582a7f2b55b69396aa2e7b8559",
+      "version": "20260624211241",
+      "nearest_ledger_version": "20260624211240",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260624224138_6cc376f9-aa4f-497d-a954-dcfe09c191fa.sql",
+      "sha": "f273d2d87f283af3dc60a322803be17f52acca14",
+      "version": "20260624224138",
+      "nearest_ledger_version": "20260624224136",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260624234250_6c3aca0e-5cfd-49db-a77e-c552e466b9a9.sql",
+      "sha": "3750d229d45165c9ec5c2901866fcec8d886cf2b",
+      "version": "20260624234250",
+      "nearest_ledger_version": "20260624234248",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260624235031_11e5a20d-7e1b-40a8-81a8-59126db1f172.sql",
+      "sha": "f591c75dd4afe87daf2d5b74d25781a04687d321",
+      "version": "20260624235031",
+      "nearest_ledger_version": "20260624235029",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260624235755_e73235c7-c69b-4a0a-83c8-934cb6f93708.sql",
+      "sha": "7b68985e1ee1bee3ebb6aec5d69227ccf01fefb3",
+      "version": "20260624235755",
+      "nearest_ledger_version": "20260624235753",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260625025141_104205ec-1960-45bc-857d-f5e214987fae.sql",
+      "sha": "000193c72e66f75fdce31170c0d6330115818075",
+      "version": "20260625025141",
+      "nearest_ledger_version": "20260625025138",
+      "distance_seconds": 3.0
+    },
+    {
+      "path": "supabase/migrations/20260625025930_e19193a8-29be-4e3d-a83b-c0a63cc44738.sql",
+      "sha": "63457da41d886ccf0ab6f509086d52679d400e44",
+      "version": "20260625025930",
+      "nearest_ledger_version": "20260625025927",
+      "distance_seconds": 3.0
+    },
+    {
+      "path": "supabase/migrations/20260625030417_a6fb580d-8d55-4ed2-aa30-198d29725fea.sql",
+      "sha": "5acb39c547f806b392cdb7069cdf4fa76301d4c1",
+      "version": "20260625030417",
+      "nearest_ledger_version": "20260625030415",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260625031235_365f3a33-07fa-4698-ac2d-2b5c42138dcb.sql",
+      "sha": "7e94124b6742fffa712e8326648d0ef5a17f0558",
+      "version": "20260625031235",
+      "nearest_ledger_version": "20260625031234",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260625035641_79ce5086-af71-4576-a1ae-49d1d7dd2b6e.sql",
+      "sha": "12112a7561a9d4b0c14e60a0469cf61d93880711",
+      "version": "20260625035641",
+      "nearest_ledger_version": "20260625035640",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260625040351_a3e11abc-45ed-436d-9775-fe4785fd9938.sql",
+      "sha": "4ca20a223913c86c6c6cda7b0e10a205d4df5a62",
+      "version": "20260625040351",
+      "nearest_ledger_version": "20260625040349",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260625202410_5ba9fa2c-acea-4e41-a8ae-406ebbae3d23.sql",
+      "sha": "15c643e29a4ccb2da962bd7e363741211a1ddbd0",
+      "version": "20260625202410",
+      "nearest_ledger_version": "20260625202409",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260625214454_fe01afaf-452c-4bb8-bc9e-54362f1ff782.sql",
+      "sha": "90d51e6eb52aeb2195bfe11d287c46ac434cc536",
+      "version": "20260625214454",
+      "nearest_ledger_version": "20260625214452",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260627004100_a356355a-b373-473d-818a-8e9622acfedf.sql",
+      "sha": "6611fc479f849eb2362a67fffae9452fa0eab313",
+      "version": "20260627004100",
+      "nearest_ledger_version": "20260627004059",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260627011137_1cfeda22-7aab-4551-8125-6a47a7d6b183.sql",
+      "sha": "1abf52e686360a6736fdd8816a4ecceacbde2d78",
+      "version": "20260627011137",
+      "nearest_ledger_version": "20260627011136",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260627013635_0f626c87-223c-4ce5-8903-af058eb7918f.sql",
+      "sha": "4348083e1a96300ddcb8ba1602cd5100bc85513e",
+      "version": "20260627013635",
+      "nearest_ledger_version": "20260627013633",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260627154433_9aa8795a-e9f5-4657-b407-653d4051ea42.sql",
+      "sha": "3748f1ed9a52a92239992272255acc80f32db07e",
+      "version": "20260627154433",
+      "nearest_ledger_version": "20260627154432",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260627174243_5e3b2d98-08a7-4e78-b529-19e4af714e7c.sql",
+      "sha": "4e6b33756d4e1a66e4d2f1c6d2cfa5ad704a9d7f",
+      "version": "20260627174243",
+      "nearest_ledger_version": "20260627174241",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260627181059_b387e25c-b555-4386-af61-d31de7033fbd.sql",
+      "sha": "a6b46da9051a9e8dbdfdcc9245a60c77d2ba10bb",
+      "version": "20260627181059",
+      "nearest_ledger_version": "20260627181055",
+      "distance_seconds": 4.0
+    },
+    {
+      "path": "supabase/migrations/20260628000730_869f4825-f0c9-47a1-b9bc-54aa97894e5d.sql",
+      "sha": "ff86bb2207c293aa0856ad3aaecddec882d19fa3",
+      "version": "20260628000730",
+      "nearest_ledger_version": "20260628000729",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260628161127_86216e64-78a3-46eb-8b90-3a7ace1f0aa9.sql",
+      "sha": "e2d6fe9529b42a38e4e2e110bbe959d40f241728",
+      "version": "20260628161127",
+      "nearest_ledger_version": "20260628161125",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260628172427_d249aafa-5b23-4f98-ab87-c6c4be253d11.sql",
+      "sha": "3c0556a7dfd61b4a738212828c357154f3730712",
+      "version": "20260628172427",
+      "nearest_ledger_version": "20260628172425",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260628194341_23bb862a-36d0-44cd-8aea-f6471cce13ee.sql",
+      "sha": "a6b01a44038dcc7a138415930cb5a1438feb3697",
+      "version": "20260628194341",
+      "nearest_ledger_version": "20260628194339",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260628201726_db4fb302-f2f3-4a91-a8b7-d13e7571e377.sql",
+      "sha": "0d8192f59f97afe829eb78320c55141b5e6eb013",
+      "version": "20260628201726",
+      "nearest_ledger_version": "20260628201723",
+      "distance_seconds": 3.0
+    },
+    {
+      "path": "supabase/migrations/20260628214034_a6644514-d1b9-41ec-8612-ad0c2172ba09.sql",
+      "sha": "03f429aa9e677343ec6e6f63e3687a7ee2949a70",
+      "version": "20260628214034",
+      "nearest_ledger_version": "20260628214032",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260701012433_a78e411c-c819-49b5-a71b-edf8343be3be.sql",
+      "sha": "6cbfc8be013bac4c0d35eb7141249eb72292cebf",
+      "version": "20260701012433",
+      "nearest_ledger_version": "20260701012432",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260709144752_c4b59592-3146-431f-a062-497a05c82fae.sql",
+      "sha": "95efd87bb10dac1ef5b760dfdd3453fb484d38cb",
+      "version": "20260709144752",
+      "nearest_ledger_version": "20260709144755",
+      "distance_seconds": 3.0
+    },
+    {
+      "path": "supabase/migrations/20260709152951_7eb784dd-9e32-4a3a-a345-546c68432556.sql",
+      "sha": "f18fa365474d147d435e15e9328269d0b55e48b5",
+      "version": "20260709152951",
+      "nearest_ledger_version": "20260709152954",
+      "distance_seconds": 3.0
+    },
+    {
+      "path": "supabase/migrations/20260709164409_a341582a-94f5-44f9-87e4-505856fd084a.sql",
+      "sha": "80bf6aee24f6977f9fcc15a4c23a0520d2db434e",
+      "version": "20260709164409",
+      "nearest_ledger_version": "20260709164411",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260709171326_5bc3b131-7bad-4370-aa0d-5762d53c0e56.sql",
+      "sha": "922dffd69793e4fc92847d45615116af043e3058",
+      "version": "20260709171326",
+      "nearest_ledger_version": "20260709171328",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260709175608_9e67fdf6-d902-404f-b739-92ce60727d72.sql",
+      "sha": "ed0c0be1cda00041f85e7e08123e5eec14eac088",
+      "version": "20260709175608",
+      "nearest_ledger_version": "20260709175610",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260709182441_b6b79160-2a6a-4540-8f19-4ec3765e9c94.sql",
+      "sha": "237c0c496837009043254e87a67c12860ad48f76",
+      "version": "20260709182441",
+      "nearest_ledger_version": "20260709182444",
+      "distance_seconds": 3.0
+    },
+    {
+      "path": "supabase/migrations/20260712223418_b7afd536-1158-425e-8efc-f48c0cb28e09.sql",
+      "sha": "31c5400d0eea16f5f0a2e358679cf98ce226e9c8",
+      "version": "20260712223418",
+      "nearest_ledger_version": "20260712223419",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260713083527_64d143e3-26db-4583-97e4-fab14dc24674.sql",
+      "sha": "7b99c8b24362ebd70c1f73bc72d3cbc014daebfd",
+      "version": "20260713083527",
+      "nearest_ledger_version": "20260713083529",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260713150328_e5dfa76c-6b54-491e-a224-b7692d72833a.sql",
+      "sha": "1b4d1fe734296624a3148d45f3e965fb7ed85467",
+      "version": "20260713150328",
+      "nearest_ledger_version": "20260713150330",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260713152827_dfab06f4-6929-46cf-af97-cfbd9d77ec7a.sql",
+      "sha": "0df013f752aa96c86724e10d40363d4c84d0439b",
+      "version": "20260713152827",
+      "nearest_ledger_version": "20260713152832",
+      "distance_seconds": 5.0
+    },
+    {
+      "path": "supabase/migrations/20260713153334_41b25c4d-796a-4bb5-b850-9d85e648c0a8.sql",
+      "sha": "b9509c718200c8509b5dfac2e37de2a3788e7ded",
+      "version": "20260713153334",
+      "nearest_ledger_version": "20260713153338",
+      "distance_seconds": 4.0
+    },
+    {
+      "path": "supabase/migrations/20260713154616_e8b2ce23-af1c-4975-a53c-34845e04412d.sql",
+      "sha": "2af5710aa09d03eaa085ee01c2c380b0f0f23dd7",
+      "version": "20260713154616",
+      "nearest_ledger_version": "20260713154619",
+      "distance_seconds": 3.0
+    },
+    {
+      "path": "supabase/migrations/20260713160024_415cdb8b-7a48-4928-b27f-1b6c8a6c020c.sql",
+      "sha": "8760e16216451c65bff3a08f0dbfeb5f7fdf32a1",
+      "version": "20260713160024",
+      "nearest_ledger_version": "20260713160027",
+      "distance_seconds": 3.0
+    },
+    {
+      "path": "supabase/migrations/20260714160212_3ffac88f-fc7a-4f41-984f-40935bfc0d87.sql",
+      "sha": "b7e4205de74de6fd716ab93521e26547a2d231dc",
+      "version": "20260714160212",
+      "nearest_ledger_version": "20260714160214",
+      "distance_seconds": 2.0
+    },
+    {
+      "path": "supabase/migrations/20260714184732_743491f3-ce7d-476b-b069-4fcc3cf99b43.sql",
+      "sha": "ce784bc0a560415e4b773831f5d9d8d97ba9f1d7",
+      "version": "20260714184732",
+      "nearest_ledger_version": "20260714184733",
+      "distance_seconds": 1.0
+    },
+    {
+      "path": "supabase/migrations/20260714192415_46e408aa-aa47-43d1-8042-c7b8211508b2.sql",
+      "sha": "d5efa222db54e38c559d9c6cc26a4db6f9872f9d",
+      "version": "20260714192415",
+      "nearest_ledger_version": "20260714192418",
+      "distance_seconds": 3.0
+    },
+    {
+      "path": "supabase/migrations/20260715142416_2e7076f7-5f43-48db-a0b8-f91413e9a918.sql",
+      "sha": "5ca7e29079a1ee379cfac858d97b7354dbc70ca2",
+      "version": "20260715142416",
+      "nearest_ledger_version": "20260715142419",
+      "distance_seconds": 3.0
+    },
+    {
+      "path": "supabase/migrations/20260717161537_ce5533a8-5ee1-48ce-a4fe-1a4443515da5.sql",
+      "sha": "cbf4ec7df7a6c1f903105f651eb823cc5fdc5cf3",
+      "version": "20260717161537",
+      "nearest_ledger_version": "20260717161540",
+      "distance_seconds": 3.0
+    },
+    {
+      "path": "supabase/migrations/20260717163128_f0c0129d-9de1-4d42-851f-3981b17c0669.sql",
+      "sha": "f3dea69ec377cfa26d4cce6f2353a2a01d30e3a4",
+      "version": "20260717163128",
+      "nearest_ledger_version": "20260717163131",
+      "distance_seconds": 3.0
+    },
+    {
+      "path": "supabase/migrations/20260717164454_b8ddaff1-95ab-4a4d-a7d4-ff715210a18a.sql",
+      "sha": "124bb61fb8db680de3b456bfefad44d80cb3fd5c",
+      "version": "20260717164454",
+      "nearest_ledger_version": "20260717164459",
+      "distance_seconds": 5.0
+    },
+    {
+      "path": "supabase/migrations/20260720204457_4fe1327c-f0ff-404f-954c-6a4ae09675da.sql",
+      "sha": "be862be199c5a00a947486f2a1656fe0c296ba4e",
+      "version": "20260720204457",
+      "nearest_ledger_version": "20260720204500",
+      "distance_seconds": 3.0
+    }
+  ],
+  "nearby_count": 90,
+  "warning": "10 seconds is a diagnostic bound only, not an approved matching rule; no pairs reclassified",
+  "G1": "not run",
+  "G2": "not run"
+}
