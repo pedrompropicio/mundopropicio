@@ -101,3 +101,16 @@ Deno.test("lote para ao 3.º unknown seguido; limite máx. 500", async () => {
   assert(!calls.includes("send:d"));
   assertEquals([clampLimit(1000), clampLimit(300), clampLimit(-1), clampLimit("500"), clampLimit(undefined)], [REMINDER_MAX_BATCH, 300, 0, 0, 0]);
 });
+
+Deno.test("rodapé com as duas promotoras: Mundo Propício (84) antes de Newgang Produções (110), tabela, link de cancelar 1x", () => {
+  const { html } = reminderEmail({ firstName: "Ana", link: L1, unsubscribeUrl: U });
+  const mp = "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang/logo-mundo-propicio.png";
+  const ng = "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang/logo-newgang-producoes-branco.png";
+  const iMp = html.indexOf(`src="${mp}"`), iNg = html.indexOf(`src="${ng}"`);
+  assert(iMp > 0 && iNg > iMp);
+  assert(html.includes('width="84" alt="Mundo Propício"') && html.includes('width="110" alt="Newgang Produções"'));
+  assert(!html.includes('width="140"'));
+  assert(html.indexOf("Cancelar a subscrição") > iNg);
+  assertEquals(count(html, "Cancelar a subscrição"), 1);
+  assert(!html.includes("{{") && !html.includes("display:flex"));
+});
