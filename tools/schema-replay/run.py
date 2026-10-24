@@ -20,7 +20,7 @@ if start.returncode:
     (out/'bootstrap.log').write_text(clean(start.stdout+start.stderr));sys.exit(start.returncode)
 db='supabase_db_mp352'
 def sql(q,role='postgres'):
-    r=run(['docker','exec','-i',db,'psql','-X','-U',role,'-d','postgres','-At','-v','ON_ERROR_STOP=1'],input=q)
+    r=run(['docker','exec','-i','-e','PGPASSWORD=postgres',db,'psql','-X','-h','127.0.0.1','-U',role,'-d','postgres','-At','-v','ON_ERROR_STOP=1'],input=q)
     if r.returncode:raise RuntimeError(clean(r.stderr))
     return r.stdout
 # Disable scheduled execution before copying any application SQL.
