@@ -19,6 +19,8 @@ import { createCitiesReader } from "./cities.ts";
 import * as GW from "./wallet-google.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { PreSendError, sendWelcomeOnce } from "./welcome.ts";
+import { REMINDER_SUBJECT, reminderEmail } from "./reminder-email.ts";
+import { clampLimit, runReminderBatch, sendReminderOnce, type ReminderDeps } from "./reminder.ts";
 // #327: leituras canónicas (nível com piso, conquistas, montra de regras) — mesma fonte para site, me, ranking e Wallet.
 import { levelFromPoints, memberLevel, referralProgress, rulesPublic, type MemberLevel, type RulesView } from "./club-canon.ts";
 const rpc = (fn: string, a: Record<string, unknown>) => sb.rpc(fn, a) as any;
@@ -154,7 +156,7 @@ async function unsubscribeUrls(companyId: string, email: string) {
 /** Enfileira um email do Clube com link pessoal (sessão access de 30 dias; só o hash fica guardado).
  *  Erros antes do enfileiramento -> PreSendError; erro/incerteza no enfileiramento -> Error (resultado desconhecido). */
 async function sendClubLink(site: { id: string; company_id: string }, m: { id: string; first_name: string | null; email: string },
-  kind: "welcome" | "access", messageId: string) {
+  kind: "welcome" | "access" | "reminder", messageId: string) {
   const email = m.email.trim().toLowerCase();
   let html: string, text: string, unsub: { page: string; oneClick: string }, link: string;
   try {
@@ -164,6 +166,11 @@ async function sendClubLink(site: { id: string; company_id: string }, m: { id: s
   } catch (e) { throw new PreSendError((e as Error).message); }
   const greet = m.first_name ? `Olá ${m.first_name},` : "Olá,";
   const welcome = kind === "welcome";
+  const reminder = kind === "reminder";
+  if (reminder) {
+    try { ({ html, text } = reminderEmail({ firstName: m.first_name, link, unsubscribeUrl: unsub.page })); }
+    catch { throw new PreSendError("email_render_failed"); }
+  } else {
   try { ({ html, text } = clubEmail({
     greet,
     lines: welcome
@@ -172,7 +179,8 @@ async function sendClubLink(site: { id: string; company_id: string }, m: { id: s
     cta: welcome ? "Confirmar e entrar no Clube" : "Entrar no Clube",
     link, note: `O link é pessoal e válido durante ${SESSION_DAYS} dias.`, unsubscribeUrl: unsub.page,
   })); } catch { throw new PreSendError("email_render_failed"); }
-  const label = welcome ? "newgang_club_welcome" : "newgang_club_access";
+  }
+  const label = reminder ? "newgang_club_reminder" : welcome ? "newgang_club_welcome" : "newgang_club_access";
   const { error: logErr } = await sb.from("email_send_log").insert({
     message_id: messageId, template_name: label, recipient_email: email, company_id: site.company_id, status: "pending",
     metadata: { member_id: m.id },
@@ -183,7 +191,7 @@ async function sendClubLink(site: { id: string; company_id: string }, m: { id: s
     payload: {
       message_id: messageId, company_id: site.company_id, to: email,
       from: `Newgang Festival <clube@${SENDER_DOMAIN}>`, sender_domain: SENDER_DOMAIN,
-      subject: welcome ? "Confirma a tua entrada no Clube Newgang" : "O teu acesso ao Clube Newgang",
+      subject: reminder ? REMINDER_SUBJECT : welcome ? "Confirma a tua entrada no Clube Newgang" : "O teu acesso ao Clube Newgang",
       html, text, purpose: "transactional", label, idempotency_key: messageId,
       unsubscribe_http_url: unsub.oneClick, queued_at: new Date().toISOString(),
     },
@@ -218,6 +226,55 @@ async function notifyPending(site: { id: string; company_id: string }, memberId?
     if (r === "sent") sent++;
   }
   return sent;
+}
+
+/** Lembrete de confirmação (manual). club_reminder_test: um member_id, ignora só as 48 h e conta como o lembrete dessa pessoa.
+ *  club_reminder_batch: até 500 candidatos por chamada. Resposta só com contagens (e member_id dos dlq/sem registo no resumo). */
+async function notifyReminders(site: { id: string; company_id: string }, b: any) {
+  const dryRun = b?.dry_run !== false;
+  const summary = async () => {
+    const { data, error } = await sb.rpc("club_reminder_summary", { p_company_id: site.company_id, p_site_id: site.id });
+    if (error) throw new Error(`summary: ${error.message}`);
+    return data;
+  };
+  const deps = (byId: Map<string, { id: string; first_name: string | null; email: string }>): ReminderDeps => ({
+    reserve: async (id, mid, test) => {
+      const { data, error } = await sb.rpc("club_reminder_reserve",
+        { p_company_id: site.company_id, p_site_id: site.id, p_member_id: id, p_message_id: mid, p_test: test });
+      if (error) throw new Error(error.message);
+      return String(data);
+    },
+    mark: async (id, st, err) => {
+      const { error } = await sb.rpc("club_reminder_mark", { p_member_id: id, p_status: st, p_error: err ?? null });
+      if (error) throw new Error(error.message);
+    },
+    send: (id, mid) => { const m = byId.get(id); if (!m) throw new PreSendError("member_missing"); return sendClubLink(site, m, "reminder", mid); },
+    log: (msg, id, detail) => console.error(msg, id, detail ?? ""),
+  });
+  const load = async (ids: string[]) => {
+    if (!ids.length) return new Map();
+    const { data, error } = await sb.from("club_members").select("id, first_name, email").eq("site_id", site.id).in("id", ids);
+    if (error) throw new PreSendError(`members: ${error.message}`);
+    return new Map(((data ?? []) as any[]).map((m) => [m.id, m]));
+  };
+  if (b.action === "club_reminder_test") {
+    const id = typeof b.member_id === "string" && /^[0-9a-f-]{36}$/i.test(b.member_id) ? b.member_id : null;
+    if (!id) throw new Error("invalid member_id");
+    if (dryRun) {
+      const { data, error } = await sb.rpc("_club_reminder_reason", { p_company_id: site.company_id, p_site_id: site.id, p_member_id: id, p_test: true });
+      if (error) throw new Error(error.message);
+      return { dry_run: true, test: true, reason: data };
+    }
+    const r = await sendReminderOnce(deps(await load([id])), id, true);
+    return { dry_run: false, test: true, ...r };
+  }
+  const limit = clampLimit(b?.limit);
+  const { data: cand, error } = await sb.rpc("club_reminder_candidates", { p_company_id: site.company_id, p_site_id: site.id, p_limit: limit });
+  if (error) throw new Error(`candidates: ${error.message}`);
+  const ids = ((cand ?? []) as any[]).map((r) => r.member_id as string);
+  if (dryRun) return { dry_run: true, limit, would_send: ids.length, summary: await summary() };
+  const out = await runReminderBatch(deps(await load(ids)), ids);
+  return { dry_run: false, limit, candidates: ids.length, ...out, summary: await summary() };
 }
 
 // ---------- Google Wallet ----------
@@ -478,6 +535,11 @@ Deno.serve(async (req) => {
       }
       if (b?.action === "wallet_test_url" && typeof b.member_id === "string") return json({ save_url: await walletSave(site, b.member_id) });
     } catch (e) { console.error("wallet", (e as Error).message); return json({ error: "wallet", detail: (e as Error).message }, 502); }
+    // Lembrete de confirmação: só manual, só service_role, dry_run por defeito (dry_run:false explícito para enviar).
+    if (b?.action === "club_reminder_batch" || b?.action === "club_reminder_test") {
+      try { return json(await notifyReminders(site, b)); }
+      catch (e) { console.error("club_reminder", (e as Error).message); return json({ error: "club_reminder", detail: (e as Error).message }, 502); }
+    }
     if (b?.action !== "notify_pending") return json({ error: "invalid" }, 400);
     return json({ ok: true, sent: await notifyPending(site) });
   }
