@@ -6244,3 +6244,10 @@ Regra de futuro proposta no parecer (migrações DDL + referência idempotente; 
 **Porquê.** Preservar a unicidade do lembrete e separar o lote concluído de uma eventual avaliação posterior dos membros ainda demasiado recentes. O reteste pontual do membro 9528, documentado no passo 4A, não cria uma regra de reenvio.
 
 **Estado.** Vigente. Resultado e exclusões em `docs/estado/estado-crm-portal-e-leads.md`; correção do tamanho dos lotes separada na Issue #356 (P2 · MP-CRM · R1), sem alteração de código neste fecho.
+
+## D-ERP307 — Dados de pessoas e IDs de produção fora do repositório (24/10/2026)
+- O quê: dados de contacto (telefone, email), identificadores de pessoas (UUID de perfil/utilizador/membro) e IDs de contas, pixels, datasets ou públicos de produção não entram em migrações nem em nenhum ficheiro do repositório. Valores destes vão por UPDATE run-once via query_database com bloco SQL curto e "Corro?" ao Pedro, ou por seed fora do repositório. Migrações só levam esquema e lógica.
+- Porquê: o repositório é público; a 0205 gravou um contacto pessoal em claro (#355). Reescrever o histórico do git foi descartado pelo Pedro (24/10/2026): quebraria a sincronização GitHub↔Lovable e as referências a SHA. Corrige-se para a frente.
+- Resíduo aceite: 0205 (contacto) e 0208 (UUID de perfil) ficam no histórico; deixam de estar expostos quando o repositório passar a privado.
+- Verificação: passo semanal em PROC-revisao-semanal.md. Liga a #352 (reprodutibilidade das migrações).
+- Estado: vigente.
