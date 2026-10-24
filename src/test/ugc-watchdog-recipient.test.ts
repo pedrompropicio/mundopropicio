@@ -32,9 +32,10 @@ describe("index.ts não lê recipient_phone da config", () => {
     const types = readFileSync("src/integrations/supabase/types.ts", "utf8");
     const start = types.indexOf("      ugc_watchdog_config: {");
     expect(start).toBeGreaterThan(-1);
-    const end = types.indexOf("\n      ", start + 1);
-    // The next table starts at the same indentation, unlike fields inside this table.
-    const block = types.slice(start, end);
+    const remainder = types.slice(start);
+    const end = remainder.indexOf("\n      }", 1);
+    expect(end).toBeGreaterThan(-1);
+    const block = remainder.slice(0, end);
     expect(block).toContain("Row:");
     expect(block).toContain("Insert:");
     expect(block).toContain("Update:");
