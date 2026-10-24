@@ -239,8 +239,9 @@ Deno.serve(async (req) => {
     let docCount = 0;
 
     for (const t of txList) {
-      const supName = t.suppliers?.name ?? "";
-      const supNif = t.suppliers?.nif ?? "";
+      const supplier = Array.isArray(t.suppliers) ? t.suppliers[0] : t.suppliers;
+      const supName = supplier?.name ?? "";
+      const supNif = supplier?.nif ?? "";
       const tdocs = docsByTx.get(t.id) ?? [];
       const folder = `${t.payment_date ?? "sem-data"}_${slug(supName)}_${slug(t.invoice_ref ?? "no-ref")}`;
       if (tdocs.length === 0) {

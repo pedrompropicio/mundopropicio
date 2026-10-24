@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
 
   const { data: channel } = await admin
     .from("artist_channels")
-    .select("id, company_id, artist_id, platform, handle")
+    .select("id, company_id, artist_id, platform, handle, external_id")
     .eq("id", st.artist_channel_id)
     .maybeSingle();
   if (!channel || channel.platform !== "facebook") return fail("canal inválido (tem de ser o canal facebook)");

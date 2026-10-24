@@ -279,8 +279,9 @@ async function checkPermissions(req: Request, connectionId: string) {
     const host = tiktokHost();
     const c = await loadTikTokConnection(admin, { connectionId: conn.id, masterKey: MASTER_KEY, exigirToken: true });
     if (!c.ok || !host) return jsonResponse({ ok: false, error: c.ok ? "tiktok_host_em_falta" : c.error }, 422);
-    const info = await tiktokGET<any>(host, "advertiser/info/", { advertiser_ids: JSON.stringify([c.advertiserId]), fields: JSON.stringify(["name", "currency", "status", "role"]) } as any, c.accessToken!);
-    const it = ((info.data as any)?.list ?? [])[0] ?? null;
+    if (!c.accessToken) return jsonResponse({ ok: false, error: "token_tiktok_em_falta" }, 422);
+    const info = await tiktokGET<any>(host, "advertiser/info/", { advertiser_ids: JSON.stringify([c.advertiserId]), fields: JSON.stringify(["name", "currency", "status", "role"]) } as any, c.accessToken);
+    const it = info.ok ? ((info.data as any)?.list ?? [])[0] ?? null : null;
     return jsonResponse({ ok: info.ok, platform: "tiktok", advertiser_id: c.advertiserId,
       advertiser: it, error: info.ok ? null : info.message });
   }

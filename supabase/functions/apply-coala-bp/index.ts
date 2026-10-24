@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
     // Permite chamadas internas (ex.: sync-coala-from-drive) com service_role
     const isServiceRole = await isServiceRoleRequest(req);
 
-    let user: { id: string } | null = null;
+    let user: { id: string; email?: string } | null = null;
     if (!isServiceRole) {
       const userClient = createClient(
         Deno.env.get("SUPABASE_URL")!,
@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
       );
       const { data: { user: u } } = await userClient.auth.getUser(auth.replace(/^Bearer\s+/i, ""));
       if (!u) return json({ error: "Sessão inválida" }, 401);
-      user = { id: u.id };
+      user = { id: u.id, email: u.email };
     }
 
     const admin = createClient(
