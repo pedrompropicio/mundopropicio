@@ -44,5 +44,11 @@ INVARIANTES — revisão de AAAA-MM-DD
   decisão: corrigir | aceitar (nova ref = N, motivo: ...) | Issue #...
 ```
 
+Dados de pessoas fora do repositório (D-ERP307). Varre só o que entrou desde a última revisão:
+```sh
+git log --since="8 days ago" --diff-filter=AM --name-only --pretty=format: -- supabase/migrations supabase/manual drizzle/migrations | sort -u | xargs -r grep -nEI '\+?[0-9]{9,15}|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|eyJ[A-Za-z0-9_-]{20,}|sk_(live|test)_[A-Za-z0-9]+|EAA[A-Za-z0-9]{20,}'
+```
+Cada ocorrência nova abre Issue (P1 se for contacto ou token). Na Issue cita só ficheiro:linha, nunca o valor. Falsos positivos conhecidos (timestamps em nomes, ids de teste fictícios) anotam-se na própria revisão.
+
 ## 7. Fechar
 Atualizar os estados tocados. Não escrever handoff — a revisão semanal não é sessão de trabalho.

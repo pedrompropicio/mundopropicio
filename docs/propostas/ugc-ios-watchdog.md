@@ -1,3 +1,5 @@
+Nota 24/10/2026 (#355): o destinatário passou a vir de recipient_profile_id → notification_optin; a coluna recipient_phone vai ser removida. Contactos não entram no repositório (D-ERP307).
+
 # Proposta — Watchdog UGC iOS (alerta WhatsApp diário)
 
 Pedido do quadro (chat 6 → chat 2, 19/10/2026). **Estado: ATIVO desde 19/10/2026** — template aprovado, envio de teste `sent` (22:2x UTC), crons 14:00/20:00 UTC criados em Live. Destinatário com `recipient_profile_id` + `company_id` em `ugc_watchdog_config` (migration 0208).
@@ -15,7 +17,7 @@ Pedido do quadro (chat 6 → chat 2, 19/10/2026). **Estado: ATIVO desde 19/10/20
 
 2. **Tabela `ugc_watchdog_log`**: `song_id`, `check_date` (data Lisboa), `status` (`ok`/`missing_alerted`/`still_missing_alerted`), `sent_at`. UNIQUE(song_id, check_date, status) → garante no máximo 1 aviso por música por janela.
 
-3. **Tabela `ugc_watchdog_config`** (editável, sem número fixo no código): `song_id`, `label` (ex.: "Litto"), `recipient_phone` (E.164, seed: +351914001573), `active`. O número do Pedro fica **só** nesta tabela.
+3. **Tabela `ugc_watchdog_config`** (editável, sem número fixo no código): `song_id`, `label` (ex.: "Litto"), `recipient_phone` (E.164, seed: <telefone-do-destinatário>), `active`. O número do Pedro fica **só** nesta tabela.
 
 4. **pg_cron** (2 jobs, aplicados em Live via SQL Editor — crons não propagam com Publish):
    - `ugc_watchdog_1400` — `0 14 * * *`
@@ -25,7 +27,7 @@ Pedido do quadro (chat 6 → chat 2, 19/10/2026). **Estado: ATIVO desde 19/10/20
    - Verificado em 19/10: `notification_templates` tem 6 templates; os aprovados (`chamado_ocorrencia`→hello_world, `fase_evento_avancou`→hello_world, `subscricao_confirmada`) **não servem**.
    - Registar na Meta: nome `ugc_leitura_em_falta`, categoria **UTILITY**, idioma **pt_PT**, corpo:
      `Alerta da sua conta Mundo Propício: a leitura diária do UGC TikTok do {{1}} está pendente. Última leitura registada: {{2}} vídeos.`
-     (texto final aprovado pela Meta em 19/10; WABA 1454120833108603, phone_number_id 1183687074822342)
+     (texto final aprovado pela Meta em 19/10; WABA <telefone-do-destinatário>3, phone_number_id <telefone-do-destinatário>2)
      (2 variáveis; exemplo para a revisão: `{{1}}`="Litto", `{{2}}`="18/10 = 16.800").
    - Estado: **approved** em `notification_templates`.
    - (Histórico) Enquanto não estava aprovado, o dispatcher falha o envio (template pendente) — o watchdog continua a registar `missing_alerted` no log.
@@ -41,7 +43,7 @@ CREATE TABLE public.ugc_watchdog_config (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   song_id uuid NOT NULL REFERENCES public.artist_songs(id) ON DELETE CASCADE,
   label text NOT NULL,
-  recipient_phone text NOT NULL,           -- E.164, ex.: +351914001573
+  recipient_phone text NOT NULL,           -- E.164, ex.: <telefone-do-destinatário>
   active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -91,7 +93,7 @@ VALUES
 
 -- Seed da configuração (número editável depois na tabela, não no código)
 INSERT INTO public.ugc_watchdog_config (song_id, label, recipient_phone)
-VALUES ('74c40d7b-357b-4311-acbe-eb9bfa7ba7c7', 'Litto', '+351914001573');
+VALUES ('74c40d7b-357b-4311-acbe-eb9bfa7ba7c7', 'Litto', '<telefone-do-destinatário>');
 ```
 
 ## Cron (SQL Editor em Live, só após OK)
