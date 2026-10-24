@@ -9,7 +9,7 @@
 type Admin = any;
 
 export type SyncStatus = "running" | "success" | "partial" | "no_data" | "error";
-export type TriggerSource = "cron" | "manual" | "api" | "data_change";
+export type TriggerSource = "cron" | "manual" | "api";
 
 /**
  * Deduz a origem: chamada com JWT de service_role (pg_cron / interno, sem

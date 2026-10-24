@@ -62,11 +62,8 @@ export async function runFeverPipeline(opts: {
   triggeredBy?: string | null;
 }): Promise<{ filesAudit: any[]; audit: any }> {
   const { admin, cfg, downloaded, triggeredBy } = opts;
-  const salesXlsx = downloaded.find(d => d.label === "tickets_per_purchase_date");
-  const pricesXlsx = downloaded.find(d => d.label === "sales_per_ticket_type");
-  if (!salesXlsx || !pricesXlsx) {
-    throw Object.assign(new Error("Ficheiros XLSX de vendas e preços obrigatórios"), { phase: "parse_failed" });
-  }
+  const salesXlsx = downloaded.find(d => d.label === "tickets_per_purchase_date")!;
+  const pricesXlsx = downloaded.find(d => d.label === "sales_per_ticket_type")!;
   const filesAudit = [
     { name: salesXlsx.filename, size: salesXlsx.bytes.length, sheet_name: "sales" },
     { name: pricesXlsx.filename, size: pricesXlsx.bytes.length, sheet_name: "prices" },
@@ -74,7 +71,7 @@ export async function runFeverPipeline(opts: {
 
   let parseResult: any, grouped: any;
   try {
-    parseResult = parseFeverXlsxBuffers(new Uint8Array(salesXlsx.bytes).buffer, new Uint8Array(pricesXlsx.bytes).buffer);
+    parseResult = parseFeverXlsxBuffers(salesXlsx.bytes.buffer, pricesXlsx.bytes.buffer);
     console.log(`[fever-metabase] parsed: lots=${parseResult.lots.length} sales=${parseResult.sales.length} qty=${parseResult.totals.totalQty} gross=${parseResult.totals.totalGross} warns=${parseResult.warnings.length}`);
     grouped = groupFeverLots(parseResult.lots);
   } catch (e: any) {

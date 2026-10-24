@@ -94,11 +94,4 @@ const codeStyle = {
   backgroundColor: '#f3f4f6',
   borderRadius: '12px',
 }
-const button = {
-  color: '#ffffff',
-  fontSize: '14px',
-  borderRadius: '8px',
-  padding: '12px 20px',
-  textDecoration: 'none',
-}
 const footer = { fontSize: '12px', color: '#9ca3af', margin: '30px 0 0', lineHeight: '1.5' }
