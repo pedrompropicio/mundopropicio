@@ -6251,3 +6251,8 @@ Regra de futuro proposta no parecer (migrações DDL + referência idempotente; 
 - Resíduo aceite: 0205 (contacto) e 0208 (UUID de perfil) ficam no histórico; deixam de estar expostos quando o repositório passar a privado.
 - Verificação: passo semanal em PROC-revisao-semanal.md. Liga a #352 (reprodutibilidade das migrações).
 - Estado: vigente.
+
+
+## D-ERP308 — #352: replay e homologação em repositório privado (24/10/2026)
+
+**Decisão Pedro, chat 0 - Cowork Claude, [6389766357](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6389766357):** “replay e homologação vivem em repositório privado; o público nunca recebe SQL derivado de Live.” Destino: pedrompropicio/mundopropicio-replay, privado. Ledger com redacções aprovadas, overlays revistos, plano e runner ficam nesse repositório; o público recebe só documentação. Drizzle é lido do checkout público com SHA fixado, sem token; os dois históricos conservam proveniência. Nunca Live, DSN de produção ou segredos. Seeds/overlays de homologação ficam para etapa própria. A branch pública de estudo fica intacta até ao fecho da #352. Não autoriza R2/criação de projecto/custos; G6 continua com Pedro.
