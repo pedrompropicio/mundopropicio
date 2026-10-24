@@ -1,57 +1,53 @@
-# #358 — Correspondência segura na captura diária Ticketline (plano R2)
+# #358 — Correspondência segura na captura diária Ticketline (plano R2, passo único)
 
-## Situação de partida (confirmada no código)
-- `runCaptureDay` (fetch-ticketline-reports/index.ts, ~1432–1629) pega em todos os configs `enabled=true` da company, faz um único relatório do dia e liga linha→config:
-  1. por código (`[106160/127631]` no label) quando o config tem `ticketline_report_codes`;
-  2. senão, por nome — inclui apenas os segmentos do nome do evento ("RG - Braga" → "rg", "braga") com `includes` em ambos os sentidos.
-- Problemas: o segmento de cidade sozinho apanha RG e Deive (ambiguidade que aborta o lote); a chave "rg" (≥3? não, mas "deive"/cidade sim) e o `includes` invertido permitem match por fragmento; linhas sem match são ignoradas em silêncio; qualquer config sem linha vai a **0/0** no UPSERT, sem distinguir "não vendeu" de "não consegui ligar".
-- Não há testes para esta função; não há ficheiro `_shared` com a lógica de match.
+## Ponto de partida (código atual, runCaptureDay ~1432–1629)
+- Linha→config por código (igualdade exata depois de retirar espaços) e, se não houver, por nome com segmentos isolados (cidade/artista) e `includes` nos dois sentidos.
+- Linhas sem correspondência são ignoradas sem aviso; todo o config sem linha é gravado a 0/0. Isto dá falsos zeros e atribuições pela cidade.
+- Não há testes desta lógica.
 
-## Comportamento proposto (regras exatas)
-Separar a decisão numa função pura `resolveCaptureMapping(rows, targets, nameById)` que devolve `{ assignments, unmatchedRows, decisions, errors }`. O UPSERT só corre se `errors` estiver vazio.
+## Regras (todas avaliadas antes de qualquer UPSERT; nada é gravado em parte)
+Definições: `codes(x)` = valor retirando só os espaços; os separadores mantêm-se e a comparação é exata (como hoje). `fullKey(evento)` = normKey do nome completo do evento no ERP (se for vazio ou tiver só um token, o evento não pode ser casado por nome). `labelKey(linha)` = normKey do label sem `[...]` e sem o sufixo depois de `|`. **Nome completo seguro**: labelKey === fullKey, ou labelKey começa por fullKey seguido de espaço (é o caso dos labels longos). **Candidata fraca**: linha não atribuída cuja labelKey contém um token de cidade ou de artista de um alvo, sem ser nome completo seguro.
 
-1. **Linha com código conhecido** (códigos normalizados, como conjunto ordenado, iguais aos de exatamente 1 config): atribui a esse config. Igual a 2+ configs → erro `capture_day_ambiguous_match` (antes de qualquer escrita).
-2. **Linha com código desconhecido** (não pertence a nenhum config): nunca cai para match por nome. Fica em `unmatchedRows` como "fora dos configs" — legítimo no relatório global; não aborta e não é atribuída. Exceção: se o nome completo da linha coincidir exatamente com um config **sem** códigos → erro `capture_day_code_unknown_for_named_config` (sinal de código em falta/errado; não adivinhar).
-3. **Config sem código**: só aceita linha sem código ou desconhecida por **nome completo seguro**: chave normalizada do nome completo do evento (ex.: "rg braga") igual à do label sem `[..]` e sem sufixo `|...`, ou o label começa por essa chave seguida de separador. Proibido casar só pelo segmento da cidade ou de artista; proibido `k.includes(lk)`. Chave completa <2 tokens → não elegível para nome (config fica "sem regra segura").
-4. **Label longo** (nome do evento + data/local/sessão): aceite apenas pela regra 3 (prefixo com nome completo + separador). Se dois configs tiverem prefixo compatível → ambiguidade, falha.
-5. **Duplicados**: 2+ linhas para o mesmo config, ou 1 linha para 2+ configs → falha antes do UPSERT (mantém-se).
-6. **Zero legítimo vs falha de correspondência** — antes de escrever 0/0 num config sem linha:
-   - Config **com códigos** e sem linha → 0/0 legítimo (o relatório omite eventos sem movimento; o código é identificador forte).
-   - Config **sem códigos** e sem linha → só 0/0 se nenhuma linha não atribuída for "candidata fraca" (partilha o token da cidade ou do artista). Se existir candidata fraca → **não escreve** esse config (fica sem linha para o dia, não a zero) e a corrida termina `partial_unmatched` com o detalhe na auditoria; os restantes configs seguros escrevem-se. Alternativa mais estrita (a decidir): abortar a corrida inteira nesse caso.
-7. Mantidos sem alteração: escopo `enabled`+company, confirmação do período na sessão, validação TOTAL = soma das linhas (sobre todas as linhas, incluindo fora dos configs), limite de qty, `onConflict event_id,sale_date`, formato da resposta e de `import_audit` (só se acrescentam `decisions`, `unmatchedRows`, `skippedConfigs`).
+1. **Código conhecido único** (codes(linha) igual a codes de exatamente 1 alvo): atribui a esse alvo e tem prioridade. Se for igual em 2 ou mais alvos → falha `capture_day_ambiguous_match`.
+2. **Código desconhecido** (a linha tem código, mas nenhum alvo o tem): não se atribui por nome. Se um nome completo seguro identificar um alvo, com ou sem código → falha `capture_day_code_conflict`. Se não, é um evento externo legítimo: fica ignorado e auditado.
+3. **Linha sem código**: só casa com alvos sem código, e só por nome completo seguro. Se servir a 2 ou mais alvos → falha ambígua. Se não servir a nenhum mas for candidata fraca de algum alvo → falha `capture_day_suspect_match`. Se não, é externa: ignorada e auditada.
+4. **Duplicados**: 2 ou mais linhas para o mesmo alvo → falha `capture_day_ambiguous_match`.
+5. **Zeros**:
+   - Alvo com código e sem linha → 0/0 só quando o relatório é válido (período confirmado, TOTAL = soma de todas as linhas, limite de qty) e nenhuma linha não atribuída é candidata fraca ou tem nome seguro desse alvo. Caso contrário, falha suspeita.
+   - Alvo sem código e sem linha → nunca há zero presumido. Não entra no payload, a linha existente desse dia fica intacta, e o alvo é auditado em `omittedConfigs`.
+6. **Como se comunicam as omissões**: se houver ≥1 alvo omitido, a corrida fecha com o estado de falha existente `capture_day_unmatched_config` e **nada é gravado** (nenhum success enganoso, nenhum estado novo de saúde). Assim a regra de "sem escrita parcial" vale para tudo e a omissão aparece onde as falhas já aparecem hoje. Com zero omissões e zero falhas → UPSERT de todos os alvos → `success`.
+7. Ficam iguais: escopo enabled+company, login, confirmação do período, validação do TOTAL e da qty, `onConflict event_id,sale_date`, forma da resposta. Em `import_audit`/`debug` só se acrescentam `decisions`, `externalRows`, `omittedConfigs`.
 
-## Ficheiros (R1)
-- novo `supabase/functions/_shared/ticketline-capture-mapping.ts` — função pura acima (regra AGENTS: partilha só via `_shared/`).
-- `supabase/functions/fetch-ticketline-reports/index.ts` — `runCaptureDay` passa a chamar a função pura; o bloco 5–6 é substituído; nada mais muda; `VERSION` incrementada.
-- novo `src/test/ticketline-capture-mapping.test.ts` (Vitest, importa o `_shared`), e opcional `supabase/functions/_shared/ticketline-capture-mapping_test.ts` (Deno).
+Efeito no cenário que deu origem à #358: o config sem código que casava com RG e com Deive pela cidade passa a ser nome seguro ou falha clara. Nunca é atribuído ao Deive e nunca fica a zero.
 
-## Fixtures sintéticas mínimas (sem dados Live)
-Nomes fictícios ("Artista X - Cidade A", "Artista Y - Cidade A", códigos `900001/900002`, valores pequenos):
-- código conhecido único → atribuído; código em 2 configs → falha sem escrita.
-- código desconhecido de evento alheio → ignorado, sem abortar, TOTAL continua a bater.
-- duas linhas da mesma cidade, artistas diferentes, configs sem código → cada uma pelo nome completo; nunca pela cidade.
-- label longo "Artista X - Cidade A | 25/10 21h" → atribuído pelo prefixo.
-- config sem código + linha só "Cidade A" → candidata fraca → config não escrito, estado `partial_unmatched`.
-- config com código e sem linha → 0/0 legítimo.
-- duplicado (2 linhas para 1 config) → falha antes do UPSERT.
-- regressão: cenário equivalente ao Braga sem código (RG/Deive) já não aborta nem atribui ao Deive.
-- teste estático: o ficheiro `index.ts` não contém `k.includes(lk)` e chama `resolveCaptureMapping` antes de `.upsert(`.
+## Implementação (um único passo R2)
+- Novo `supabase/functions/_shared/ticketline-capture-mapping.ts`, com a função pura `resolveCaptureMapping(rows, targets, nameById)` → `{ ok, phase?, message?, payload, decisions, externalRows, omittedConfigs }`.
+- `fetch-ticketline-reports/index.ts`: os blocos 5–6 passam a usar a função pura. O UPSERT só corre quando `ok` e sem omissões. `VERSION` sobe uma versão. Nada mais muda.
+- Novo `src/test/ticketline-capture-mapping.test.ts` (Vitest) e um teste de integração do caminho de escrita: um `admin` simulado regista as chamadas `.upsert` e `updateRun`, e o runner é extraído para receber o fetch/parse injetado.
 
-## Validações
-- `bunx vitest run src/test/ticketline-capture-mapping.test.ts` + suite completa; `tsgo`; `deno check` da função; CI do SHA reportado ao controller.
-- Prova pré-deploy por leitura: aplicar a função pura (localmente) a `import_audit.reportRows` das últimas corridas de sucesso via SELECT, só contagens/decisões no relatório (sem labels/valores Live copiados para docs).
+## Testes (fixtures sintéticas, nomes e códigos fictícios, sem dados Live)
+Cada caso de falha confirma **zero chamadas a upsert** e o estado de falha gravado na corrida. Cada sucesso confirma o payload exato.
+- Código único → atribuído; código em 2 alvos → falha, 0 escritas.
+- Códigos `"900001/900002"` vs `"900002/900001"` → não casam (comparação exata mantida).
+- Código desconhecido de evento externo → ignorado; os restantes gravam; TOTAL inclui a linha externa.
+- Código desconhecido com nome seguro de um alvo (com código e sem código) → falha conflito, 0 escritas.
+- Dois artistas na mesma cidade, alvos sem código → cada um pelo nome completo; uma linha só com a cidade → falha suspeita, 0 escritas.
+- Label longo "Artista X - Cidade A | 25/10 21h" → atribuído; "Artista X - Cidade AB" → não casa por prefixo.
+- 2 linhas para o mesmo alvo → falha, 0 escritas.
+- Alvo com código e sem linha, relatório válido → 0/0 gravado; o mesmo caso com uma candidata fraca por mapear → falha, 0 escritas.
+- Alvo sem código e sem linha → `capture_day_unmatched_config`, 0 escritas, linha existente intacta.
+- Regressão #358: cenário RG/Deive fictício com a mesma cidade → nunca atribui ao Deive e nunca grava zero.
 
-## Separação R1 / R2 e efeitos Live
-- Neste ambiente, alterações em `supabase/functions/**` são implantadas automaticamente ao fim da mensagem; não consigo garantir ausência de efeito Live. Logo **a edição da edge function é R2**: só com o "Sim" a este plano.
-- Passo A (pode ser R1): criar só `_shared/ticketline-capture-mapping.ts` + testes, sem tocar em `index.ts`. Nota: ficheiro novo em `_shared` não altera o comportamento de nenhuma função até ser importado, mas a reimplantação pode mesmo assim acontecer — confirmar com o Pedro se o trata como R1.
-- Passo B (R2): ligar em `index.ts` e implantar só `fetch-ticketline-reports`; verificar OPTIONS/403 sem invocar captura; a primeira captura automática seguinte (cron existente) serve de prova, lida por SELECT.
-- Sem DML, DDL, cron, captura manual nem Publish em nenhum passo. D+1 de 24/10 continua pendente e separado.
+## Validações antes do deploy
+- `bunx vitest run` desse ficheiro + suite completa; `tsgo`; `deno check` da função; CI do SHA reportado ao controller.
+- Prova só de leitura: aplicar a função pura ao `import_audit.reportRows` das últimas corridas com sucesso (SELECT). Reportam-se só contagens e decisões; não se copiam labels nem valores para docs ou fixtures.
+
+## R2 e limites
+- O autodeploy está confirmado, por isso editar a fonte já é R2. Código, testes e deploy **só de `fetch-ticketline-reports`** acontecem num passo, depois de um "Sim" específico.
+- Depois do deploy: OPTIONS e pedido sem autorização, sem invocar a captura. A prova funcional é a próxima captura automática do cron já existente, lida por SELECT (estado da corrida, decisões, linhas do dia).
+- Sem DML, DDL, crons, captura manual nem Publish. O fecho D+1 de 24/10 continua separado.
 
 ## Rollback
-- Repor o bloco anterior de `runCaptureDay` (commit anterior ao passo B) e reimplantar só a função; dados não são alterados pela mudança (não há backfill), por isso não há rollback de dados.
-- Se o passo B produzir `partial_unmatched` inesperado, nada fica a zero indevidamente; recuperar por decisão humana (código no config) em R2 próprio.
-
-## Decisões em aberto para o Pedro
-1. Regra 6: config sem código com candidata fraca → (a) saltar só esse config e marcar `partial_unmatched` [recomendado] ou (b) abortar a corrida inteira.
-2. Passo A como R1 isolado [recomendado] ou tudo junto em R2.
-3. Exigir códigos em todos os configs ativos no futuro (eliminaria o match por nome) — fora deste âmbito, R2 de dados separado.
+- Repor o bloco anterior de `runCaptureDay` e reimplantar só esta função.
+- Reverter o código não reverte as linhas que a primeira captura gravar. Preservam-se `ticketline_sync_runs.import_audit` (payload e decisões) como trilho. Qualquer correção de linhas em `ticketline_daily_sales` exige um R2 de dados com autorização própria.
+- Uma falha bloqueante não grava nada: a série do dia fica como estava até haver uma decisão humana.
