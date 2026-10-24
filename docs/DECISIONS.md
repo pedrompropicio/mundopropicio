@@ -6236,3 +6236,11 @@ Verificações e plano R2 INERTE: [verificacoes-352.md](estudos/saas-e-desenvolv
 Ordem por timestamps não substitui validação de dependências/históricos. Crons e chamadas externas devem estar impedidos antes e durante qualquer replay; unschedule posterior não basta para a homologação gerida. Guardar proveniência e hashes de fonte/execução separadamente. G6 e criação R2 continuam com Pedro, sem pressupor Sim.
 
 Regra de futuro proposta no parecer (migrações DDL + referência idempotente; DML operacional run-once separado) fica documentada para consolidação com o revisor, sem reclassificar nem editar retroactivamente migrações nesta R0. Esta autorização é de preparação/revisão, não de aplicação. [Provas e bloqueios](estudos/saas-e-desenvolvimento/gates-352/revisao-r0-20261024.md).
+
+## D-ERP306 — Lembrete de confirmação Newgang único por membro (24/10/2026)
+
+**Decisão (Pedro, fecho comunicado às 18:19 UTC).** O lembrete de confirmação é enviado uma única vez por membro, com `message_id` canónico `ng-reminder-<member_id>`. Os membros excluídos por terem menos de 48 h são reavaliados depois, por decisão do Pedro; não há reavaliação com envio automático autorizada neste fecho.
+
+**Porquê.** Preservar a unicidade do lembrete e separar o lote concluído de uma eventual avaliação posterior dos membros ainda demasiado recentes. O reteste pontual do membro 9528, documentado no passo 4A, não cria uma regra de reenvio.
+
+**Estado.** Vigente. Resultado e exclusões em `docs/estado/estado-crm-portal-e-leads.md`; correção do tamanho dos lotes separada na Issue #356 (P2 · MP-CRM · R1), sem alteração de código neste fecho.
