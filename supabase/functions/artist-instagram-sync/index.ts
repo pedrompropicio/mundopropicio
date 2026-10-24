@@ -415,7 +415,7 @@ Deno.serve(async (req) => {
 
   let graphCalls = 0;
   let rowsWritten = 0;
-  const errors: Array<{ connection_id: string | null; error: string }> = [];
+  const errors: Array<{ connection_id: string; error: string }> = [];
   const summary: Array<Record<string, unknown>> = [];
 
   try {

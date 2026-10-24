@@ -10,7 +10,7 @@ export async function getCallerContext(adminClient: any, callerId: string) {
     adminClient.from("user_roles").select("role, company_id").eq("user_id", callerId),
   ]);
 
-  const roleRows: Array<{ role: string; company_id: string | null }> = (roles ?? []).map((row: any) => ({
+  const roleRows = (roles ?? []).map((row: any) => ({
     role: row.role as string,
     company_id: (row.company_id as string | null) ?? null,
   }));
