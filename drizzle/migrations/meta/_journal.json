@@ -1681,6 +1681,13 @@
       "when": 1792855278379,
       "tag": "0239_newgang_club_reminder",
       "breakpoints": true
+    },
+    {
+      "idx": 240,
+      "version": "7",
+      "when": 1792868880000,
+      "tag": "0240_issue355_drop_recipient_phone",
+      "breakpoints": true
     }
   ]
 }
