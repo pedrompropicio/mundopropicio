@@ -73,3 +73,6 @@ Migração 0239 aplicada em Live e newgang-portal implantada; zero reservas e ze
 
 ## 24/10/2026 — Lembrete Newgang: rodapé com as duas promotoras
 Rodapé do lembrete passa a mostrar Mundo Propício (84 px) e Newgang Produções (110 px) lado a lado, numa tabela compatível com Outlook. Só no código; falta deploy da newgang-portal. Boas-vindas/acesso inalterados (mesma impressão digital).
+
+## 24/10/2026 — Lembrete Newgang: rodapé de dois logos implantado
+newgang-portal implantada (~15:42 UTC, SHA 3a788d5b). Sem envios; aguarda teste na caixa de entrada.
