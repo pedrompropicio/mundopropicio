@@ -1,6 +1,6 @@
 # ESTADO — MP CRM, Portal & Leads
 
-Atualizado: 2026-10-16 · Issues: #251, #252, #321 (validada e publicada 16/10; Issue fechada pelo ChatGPT), #320 (P1 validado; fecho documental autorizado; Pedro fecha a Issue) · Fechadas: #253 (24/09), #254 (10/10) · Bloqueio: #62
+Atualizado: 2026-10-24 · Issues: #251, #252, #321 (validada e publicada 16/10; Issue fechada pelo ChatGPT), #320 (P1 validado; fecho documental autorizado; Pedro fecha a Issue) · Fechadas: #253 (24/09), #254 (10/10) · Bloqueio: #62
 
 ## Em que pé está
 Dois portais distintos, dois projetos Lovable, a mesma base Supabase:
@@ -65,14 +65,30 @@ Pendência anterior superada: backfill consentimento executado byte-exato após 
 - Inalterados: clube_newgang_list (md5 7d2e640e… antes = depois), CSV, filtros, audiências, anúncios (D-ERP300).
 - Prova Live por SELECT (11:05 → 11:07 UTC; MP; 8 811 pessoas): "(sem cidade)" 6 964 → 537; Lisboa declarada 692, estimada 803 (contagem por texto, sem a normalização de municípios, que o leitor não pode executar). md5 resumo depois 542420d6….
 
-## 24/10/2026 — Lembrete de confirmação do Clube Newgang (passo 2/4)
-Código e testes prontos: e-mail novo "Falta 1 clique para entrares no Clube Newgang" (pt-PT), um por membro, reserva própria `club_reminder_reservations`, envio só manual em lotes (máx. 500, dry_run por defeito) e teste por member_id. dlq/sem registo de boas-vindas ficam fora e aparecem só no resumo. SQL escrito em `supabase/manual/20261024_newgang_club_reminder.sql`, NÃO aplicado; sem deploy nem Publish. Próximo: passo 3 (migração + deploy, Sim próprio). Relatório `docs/testes/newgang-lembrete/passo2-codigo-20261024.md`.
+## 24/10/2026 — Lembrete de confirmação Clube Newgang: feito
 
-## 24/10/2026 — Lembrete Newgang (passo 3/4)
-Migração 0239 aplicada em Live e newgang-portal implantada; zero reservas e zero envios. Elegíveis agora: 1662 (207 com menos de 48 h, 5 suprimidos, 15 boas-vindas presas em pending, 2 sem registo). Próximo: teste no membro 9528 com OK do Pedro. Relatório `docs/testes/newgang-lembrete/passo3-live-20261024.md`.
+Origem: medições do 0·Cowork por query em Live, comunicadas pelo Pedro a 24/10/2026, 18:19 UTC. Este fecho R0 transcreve essas medições; não repetiu queries nem envios.
 
-## 24/10/2026 — Lembrete Newgang: rodapé com as duas promotoras
-Rodapé do lembrete passa a mostrar Mundo Propício (84 px) e Newgang Produções (110 px) lado a lado, numa tabela compatível com Outlook. Só no código; falta deploy da newgang-portal. Boas-vindas/acesso inalterados (mesma impressão digital).
+Migração 0239 e `newgang-portal` já implantadas, incluindo o rodapé com Mundo Propício e Newgang Produções. Pedro confirmou receção do teste e que o botão abriu a página de confirmação. Dry_run e teste executados pelo 0·Cowork via `net.http_post` com a chave do cofre, sem exposição da chave.
 
-## 24/10/2026 — Lembrete Newgang: rodapé de dois logos implantado
-newgang-portal implantada (~15:42 UTC, SHA 3a788d5b). Sem envios; aguarda teste na caixa de entrada.
+### Disparo e resultado
+- Canário às 16:45 UTC: 300 enviados, 0 falhas, 0 supressões novas; 28 confirmações em cerca de 1 h.
+- Tentativa de 500 às 17:42 UTC: falha ANTES de reservar/enviar (502, erro http2), causada pelos 500 IDs na URL da busca em `club_members`. Nenhuma reserva nem e-mail desse lote.
+- Lotes às 17:50, 17:56, 18:02, 18:09 e 18:15 UTC: até 300 por lote; último com 174 candidatos; todos com 0 falhas.
+- Total real: **1.674 reservas** (`test=false`), todas `enqueued`, mais **1 reserva de teste**. `email_send_log`: **0 failed/dlq** do envio real; **0 supressões novas**.
+- Consulta às **18:19 UTC**: **64 confirmações desde as 16:44 UTC**; **1.910 ainda por confirmar**. Não atribuir todas as confirmações ao lembrete nem inferir taxa de queixas a partir de supressões.
+
+### Exclusões deliberadas
+- 5 suprimidos.
+- 234 com menos de 48 h na altura: podem tornar-se elegíveis com o tempo; reavaliação posterior apenas por decisão do Pedro, sem envio automático.
+- 15 com boas-vindas encravada (`welcome_not_sent`).
+- 2 sem registo de boas-vindas (`welcome_none`). Os IDs completos da resposta original do dry_run não estão disponíveis neste fecho; não reproduzimos o prefixo/identificador incerto indicado na mensagem. Recuperar os IDs exclusivamente dessa resposta, sem inventar nem executar nova ação de lembrete.
+
+### Lições e pendências
+- `process-email-queue` descarta sem enviar uma mensagem cujo `message_id` já tenha uma linha `sent` em `email_send_log`. No reteste do membro 9528, o 0·Cowork renomeou a linha `sent` antiga para `...-teste1` e apagou a `pending` órfã. Rasto em `docs/testes/newgang-lembrete/passo4a-teste-20261024.md`; não é procedimento automático para repetir lembretes.
+- A Resend devolve `409 invalid_idempotent_request` durante 24 h ao reutilizar a chave de idempotência com corpo diferente. O reteste exigiu mudar a chave da mensagem na fila para `...-t2`. Não se aplica ao envio em massa descrito: uma chave por membro, corpo sem mudança.
+- Limite operacional provado: **300** enquanto os IDs forem na URL. O código ainda permite 500; **Issue [#356](https://github.com/pedrompropicio/mundopropicio/issues/356), P2 · MP-CRM · R1**, para partir a busca em blocos ou limitar `limit`. Nenhuma correção de código neste fecho.
+- Decisão do Pedro: um único lembrete por membro, `message_id` canónico `ng-reminder-<member_id>`; excluídos por menos de 48 h são reavaliados depois por decisão do Pedro (D-ERP306).
+- Demanda de envio concluída; reserva removida do QUADRO. Pendências separadas: #356, reavaliação dos recentes por decisão do Pedro e recuperação dos dois IDs completos da resposta original do dry_run.
+
+Fecho apenas em `docs/` e abertura da Issue: sem deploy, DDL, DML, crons, Publish, envios ou chamadas às ações do lembrete.
