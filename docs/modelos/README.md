@@ -21,15 +21,21 @@ Decisão do Pedro, 23/10/2026: os relatórios que ficam bons guardam-se aqui, no
 
 ## Identidade dos relatórios
 
-Decisão do Pedro, 24/10/2026: os relatórios da MP têm cara própria. Quem os recebe não deve conseguir dizer que foram feitos por um LLM — nem pelo ChatGPT nem pelo Claude. Esta secção lê-se antes de produzir qualquer relatório, com ou sem modelo.
+Decisão do Pedro, 24/10/2026 (D-ERP303): os relatórios da MP têm cara própria. Quem os recebe não deve conseguir dizer que foram feitos por um LLM — nem pelo ChatGPT nem pelo Claude. Esta secção lê-se antes de produzir qualquer relatório, com ou sem modelo.
 
 Obrigatório
-- Cabeçalho fixo: nome do relatório · evento ou período · data de emissão · "Mundo Propício" (nunca o nome da ferramenta).
+- Cabeçalho fixo: nome do relatório · evento ou período · data de emissão · marca do projeto (ver "Paleta por projeto") e "Mundo Propício" (nunca o nome da ferramenta).
 - Rodapé fixo: origem dos números (tabelas/RPC + hora da consulta) e chat que emitiu.
 - Uma língua por relatório (pt-PT ou pt-BR, conforme o destinatário); moeda €; duas casas decimais; separador de milhares; datas dd/mm/aaaa.
 - Estrutura: título → número-chave numa linha → secções na ordem do modelo → observações. Prosa curta; tabela só quando há mais de 4 linhas de dados comparáveis.
-- Ficheiros (xlsx/pdf/html): paleta e tipografia MP definidas em `docs/modelos/_identidade/identidade.md` (a criar pelo Pedro); até existir, uma só fonte, uma cor de destaque, sem sombras nem gradientes.
+- Ficheiros (xlsx/pdf/html): paleta e tipografia do projeto a que o relatório diz respeito, conforme "Paleta por projeto"; uma só fonte, sem sombras nem gradientes.
 - Bloco WhatsApp (quando é para a equipa): asteriscos simples para negrito, linhas curtas, sem tabelas, sem emoji de título.
+
+Paleta por projeto (Pedro, 24/10/2026)
+- Cada relatório sai com a paleta e a tipografia do projeto com que tem relação directa: evento ou festival (Newgang, Coala, …) com a marca desse festival; MP Gestão Eventos com a do ERP; gestão de carreira artística com a do artista/projeto; e assim por diante.
+- Relatório da empresa sem projeto (DRE gerencial, conciliação bancária, triagem de Issues, auditorias transversais) → paleta corporativa Mundo Propício.
+- Relatório que cruza vários projetos → paleta corporativa Mundo Propício; os projetos aparecem só como etiquetas.
+- As paletas vivem em `docs/modelos/_identidade/<projeto>.md` (uma por projeto: cor primária, secundária, neutros, fonte, logo e a origem de cada valor — ficheiro CSS do projeto Lovable, manual de marca ou logo). Sem ficheiro de identidade com origem, ninguém inventa cores: usa-se a corporativa MP e regista-se a falta como pedido R0 no QUADRO.
 
 Proibido (tiques de LLM)
 - Emoji em títulos ou marcadores; "Resumo executivo", "Visão geral", "Principais insights", "Próximos passos", "Conclusão" como títulos.
