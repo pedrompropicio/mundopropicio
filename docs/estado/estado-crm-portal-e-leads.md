@@ -64,3 +64,6 @@ Pendência anterior superada: backfill consentimento executado byte-exato após 
 - `clube_newgang_summary` (migração 0236, CREATE OR REPLACE com guarda md5 f5d46cba…): declarada manda; sem declarada entra a estimada por IP (PT/BR, DB-IP "Lisbon" → Lisboa). Itens de by_city com k, n, n_declarada, n_estimada. Ecrã: toque/rato mostra "X declaradas · Y estimadas (IP)"; rodapé com atribuição DB-IP. Sem DML, sem Publish.
 - Inalterados: clube_newgang_list (md5 7d2e640e… antes = depois), CSV, filtros, audiências, anúncios (D-ERP300).
 - Prova Live por SELECT (11:05 → 11:07 UTC; MP; 8 811 pessoas): "(sem cidade)" 6 964 → 537; Lisboa declarada 692, estimada 803 (contagem por texto, sem a normalização de municípios, que o leitor não pode executar). md5 resumo depois 542420d6….
+
+## 24/10/2026 — Lembrete de confirmação do Clube Newgang (passo 2/4)
+Código e testes prontos: e-mail novo "Falta 1 clique para entrares no Clube Newgang" (pt-PT), um por membro, reserva própria `club_reminder_reservations`, envio só manual em lotes (máx. 500, dry_run por defeito) e teste por member_id. dlq/sem registo de boas-vindas ficam fora e aparecem só no resumo. SQL escrito em `supabase/manual/20261024_newgang_club_reminder.sql`, NÃO aplicado; sem deploy nem Publish. Próximo: passo 3 (migração + deploy, Sim próprio). Relatório `docs/testes/newgang-lembrete/passo2-codigo-20261024.md`.
