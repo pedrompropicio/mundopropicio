@@ -1390,8 +1390,12 @@
       "version": "20260420204859",
       "candidate_time_ms": 1776718139000,
       "original_sha256": "eed08c2936664aaa72c01b85317b6b9417d4c2d4c5c7a7fe34d705ed42ce3bfa",
-      "executed_sha256": "eed08c2936664aaa72c01b85317b6b9417d4c2d4c5c7a7fe34d705ed42ce3bfa",
-      "ledger_hash": "eed08c2936664aaa72c01b85317b6b9417d4c2d4c5c7a7fe34d705ed42ce3bfa"
+      "executed_sha256": "0180fb82cfea89ad689c82a7c3cdf99ddb2c35521ac381b27118a91a95390ccf",
+      "ledger_hash": "eed08c2936664aaa72c01b85317b6b9417d4c2d4c5c7a7fe34d705ed42ce3bfa",
+      "overlay_path": "overlay/20260420204859_dd2e878c-fd9a-43dc-8f91-af151330e6f2.sql",
+      "reason": "remove operational backfill only; all DDL retained; missing formula columns remain visible to G2",
+      "iteration_authorization": "Pedro latest step5; Codex correction pending Claude final review",
+      "failure_run": 40120020259
     },
     {
       "source": "supabase",
@@ -11084,7 +11088,8 @@
     "overlay/0200_capi_v2_consent_events.sql": "b8921b08c53c2d7d12690192954fcd2608ef8da5b0b7beda71abe1f0f777816b",
     "overlay/0016_derp178_tiktok_sync_status_per_connection.sql": "6ee7fe434ac3732bb6abe3b18231349549ae948fd83c0c95d901b1277dd6839b",
     "overlay/20260408191828_7b155ec4-fceb-4bfa-a2ce-0f5b9b2b885e.sql": "00fbc0253a937424971837bcb4e53ad4ba25536866e634015daad4a30599640d",
-    "overlay/20260420192118_02ea9f73-0037-4a27-b6a2-dfe6803d4f1c.sql": "da7f06523c159e583f32052e2022bd20c7fd6fb61603f56394732e40d75d0bc5"
+    "overlay/20260420192118_02ea9f73-0037-4a27-b6a2-dfe6803d4f1c.sql": "da7f06523c159e583f32052e2022bd20c7fd6fb61603f56394732e40d75d0bc5",
+    "overlay/20260420204859_dd2e878c-fd9a-43dc-8f91-af151330e6f2.sql": "0180fb82cfea89ad689c82a7c3cdf99ddb2c35521ac381b27118a91a95390ccf"
   },
   "known_unresolved": [
     "ledger Drizzle id165: nonblocking per review; read-only Lovable history in step7",
@@ -11107,6 +11112,13 @@
       "source_snapshot_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d",
       "source_catalogue_key": "table:public.ticket_sales",
       "change": "ADD COLUMN IF NOT EXISTS zone_id uuid before original index; only required column, remaining catalogue differences left to G2",
+      "review_status": "Codex correction pending Claude final review"
+    },
+    {
+      "path": "supabase/migrations/20260420204859_dd2e878c-fd9a-43dc-8f91-af151330e6f2.sql",
+      "sqlstate": "42703",
+      "run": 40120020259,
+      "change": "remove only INSERT SELECT operational backfill (source event_closing_costs); preserve is_overhead column/index and comments",
       "review_status": "Codex correction pending Claude final review"
     }
   ]
