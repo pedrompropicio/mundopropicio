@@ -1,0 +1,241 @@
+{
+  "run": 40141040181,
+  "run_sha": "bc5d4c5c21a9224d2117b3c00af7a2cabae395eb",
+  "metadata": {
+    "sha": "bc5d4c5c21a9224d2117b3c00af7a2cabae395eb",
+    "utc": "2026-10-24T23:02:22.717121+00:00",
+    "cli": "2.84.2",
+    "scope": "V2 chronological 711 ledger +499 orphan +242 Drizzle; no manual/external seed/functions",
+    "replay_exit_code": 1,
+    "finished_utc": "2026-10-24T23:04:40.870014+00:00"
+  },
+  "counts": {
+    "planned": 1452,
+    "attempted": 44,
+    "completed": 43,
+    "failed": 1,
+    "not_attempted": 1408,
+    "completed_by_source": {
+      "ledger": 40,
+      "orphan": 3
+    }
+  },
+  "skipped_destructive": [],
+  "skipped_idempotent": [
+    {
+      "verb": "CREATE TABLE",
+      "object": "\"public\" . \"role_permissions\"",
+      "destructive_candidate": false,
+      "idempotent_candidate": true,
+      "line": 26,
+      "statement_index": 4,
+      "sqlstate": "42P07",
+      "skip_class": "idempotent",
+      "version": "20260319231859",
+      "id": null,
+      "source": "ledger",
+      "file": "ledger/20260319231859_20260319231855_publish_migration_from_pg_dump.sql",
+      "version_hash": "b25cc9046f6e0033b04fb1c0ff92e72c7be6b6c08cd11634862c9c8f1c68299f",
+      "published_hash": "b25cc9046f6e0033b04fb1c0ff92e72c7be6b6c08cd11634862c9c8f1c68299f",
+      "executed_hash": "b25cc9046f6e0033b04fb1c0ff92e72c7be6b6c08cd11634862c9c8f1c68299f",
+      "version_committed": false
+    },
+    {
+      "verb": "CREATE POLICY",
+      "object": "\"Role permissions manageable by admin\"",
+      "destructive_candidate": false,
+      "idempotent_candidate": true,
+      "line": 33,
+      "statement_index": 5,
+      "sqlstate": "42710",
+      "skip_class": "idempotent",
+      "version": "20260319231859",
+      "id": null,
+      "source": "ledger",
+      "file": "ledger/20260319231859_20260319231855_publish_migration_from_pg_dump.sql",
+      "version_hash": "b25cc9046f6e0033b04fb1c0ff92e72c7be6b6c08cd11634862c9c8f1c68299f",
+      "published_hash": "b25cc9046f6e0033b04fb1c0ff92e72c7be6b6c08cd11634862c9c8f1c68299f",
+      "executed_hash": "b25cc9046f6e0033b04fb1c0ff92e72c7be6b6c08cd11634862c9c8f1c68299f",
+      "version_committed": false
+    },
+    {
+      "verb": "CREATE POLICY",
+      "object": "\"Role permissions viewable by authenticated\"",
+      "destructive_candidate": false,
+      "idempotent_candidate": true,
+      "line": 40,
+      "statement_index": 6,
+      "sqlstate": "42710",
+      "skip_class": "idempotent",
+      "version": "20260319231859",
+      "id": null,
+      "source": "ledger",
+      "file": "ledger/20260319231859_20260319231855_publish_migration_from_pg_dump.sql",
+      "version_hash": "b25cc9046f6e0033b04fb1c0ff92e72c7be6b6c08cd11634862c9c8f1c68299f",
+      "published_hash": "b25cc9046f6e0033b04fb1c0ff92e72c7be6b6c08cd11634862c9c8f1c68299f",
+      "executed_hash": "b25cc9046f6e0033b04fb1c0ff92e72c7be6b6c08cd11634862c9c8f1c68299f",
+      "version_committed": false
+    },
+    {
+      "verb": "CREATE INDEX",
+      "object": "role_permissions_pkey",
+      "destructive_candidate": false,
+      "idempotent_candidate": true,
+      "line": 48,
+      "statement_index": 8,
+      "sqlstate": "42P07",
+      "skip_class": "idempotent",
+      "version": "20260319231859",
+      "id": null,
+      "source": "ledger",
+      "file": "ledger/20260319231859_20260319231855_publish_migration_from_pg_dump.sql",
+      "version_hash": "b25cc9046f6e0033b04fb1c0ff92e72c7be6b6c08cd11634862c9c8f1c68299f",
+      "published_hash": "b25cc9046f6e0033b04fb1c0ff92e72c7be6b6c08cd11634862c9c8f1c68299f",
+      "executed_hash": "b25cc9046f6e0033b04fb1c0ff92e72c7be6b6c08cd11634862c9c8f1c68299f",
+      "version_committed": false
+    }
+  ],
+  "first_failure": {
+    "source": "ledger",
+    "version": "20260319231859",
+    "path": "ledger/20260319231859_20260319231855_publish_migration_from_pg_dump.sql",
+    "original_sha256": "b25cc9046f6e0033b04fb1c0ff92e72c7be6b6c08cd11634862c9c8f1c68299f",
+    "executed_sha256": "b25cc9046f6e0033b04fb1c0ff92e72c7be6b6c08cd11634862c9c8f1c68299f",
+    "sqlstate": "55000",
+    "statement": {
+      "verb": "ALTER TABLE ADD",
+      "object": "\"public\" . \"role_permissions\": CONSTRAINT \"role_permissions_pkey\"",
+      "destructive_candidate": false,
+      "idempotent_candidate": true,
+      "line": 50,
+      "statement_index": 9,
+      "sqlstate": "55000"
+    }
+  },
+  "failure_message": "index role_permissions_pkey is already associated with a constraint",
+  "companies_slug_null_case": false,
+  "local_tests_passed": 14,
+  "native_selftests": [
+    {
+      "case": "four_missing_destructive",
+      "passed": true,
+      "skips": [
+        "42P01",
+        "42703",
+        "42704",
+        "42883"
+      ],
+      "failure_state": null,
+      "committed": true
+    },
+    {
+      "case": "constructive_missing",
+      "passed": true,
+      "skips": [],
+      "failure_state": "42P01",
+      "committed": false
+    },
+    {
+      "case": "mixed_alter",
+      "passed": true,
+      "skips": [],
+      "failure_state": "42703",
+      "committed": false
+    },
+    {
+      "case": "do_body",
+      "passed": true,
+      "skips": [],
+      "failure_state": "42P01",
+      "committed": false
+    },
+    {
+      "case": "duplicate_table",
+      "passed": true,
+      "skips": [
+        "42P07"
+      ],
+      "failure_state": null,
+      "committed": true
+    },
+    {
+      "case": "duplicate_column",
+      "passed": true,
+      "skips": [
+        "42701"
+      ],
+      "failure_state": null,
+      "committed": true
+    },
+    {
+      "case": "duplicate_constraint",
+      "passed": true,
+      "skips": [
+        "42710"
+      ],
+      "failure_state": null,
+      "committed": true
+    },
+    {
+      "case": "duplicate_function",
+      "passed": true,
+      "skips": [
+        "42723"
+      ],
+      "failure_state": null,
+      "committed": true
+    },
+    {
+      "case": "duplicate_schema",
+      "passed": true,
+      "skips": [
+        "42P06"
+      ],
+      "failure_state": null,
+      "committed": true
+    },
+    {
+      "case": "mixed_add_drop",
+      "passed": true,
+      "skips": [],
+      "failure_state": "42703",
+      "committed": false
+    },
+    {
+      "case": "other_error",
+      "passed": true,
+      "skips": [],
+      "failure_state": "42601",
+      "committed": false
+    }
+  ],
+  "cron": {
+    "before": 0,
+    "after": 0,
+    "local_only": true,
+    "scheduler_remained_off": true
+  },
+  "isolation": {
+    "cron_launch_active_jobs": "off",
+    "external_container_egress": "REJECT",
+    "functions_copied": false,
+    "manual_copied": false,
+    "drizzle_applied_via_plan": true
+  },
+  "G1": "red",
+  "G2": "not_run_G1_red",
+  "live_catalog_recollected": false,
+  "artifact": {
+    "id": 12579385781,
+    "zip_sha256": "85337bb248c98faafaed253cb1236d1d6fbef12183f6c3fd3be67328aebbcb80",
+    "files": 25
+  },
+  "partial_catalog_counts": {
+    "tables": 81,
+    "columns": 728,
+    "functions": 124,
+    "policies": 79,
+    "triggers": 13,
+    "extensions": 8
+  }
+}

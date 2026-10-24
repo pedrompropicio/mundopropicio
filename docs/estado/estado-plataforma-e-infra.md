@@ -1,12 +1,12 @@
 # ESTADO — Plataforma & Infra
 
-## #352 — pareamento v2 confirmado; órfãos aguardam revisão Claude
+## #352 — plano v2 publicado; G1 parou em SQLSTATE55000
 
-24/10/2026, 22:47 UTC — regra por MD5 sem whitespace aplicada aos originais: até04/08 90pares+2exactos iguais+6diferentes+497órfãos, exactamente conforme despacho. Total499órfãos (2posteriores),31excluídos após corte; 1.012Gitblobs e711hashes originais verificados.
+24/10/2026,23:04UTC — privado05e1761a + corretivo de autotestebc5d4c5c. Plano1.452:711ledger+499órfãos+242Drizzle;6overlays novos retiram só16INSERT VALUES aprovados;58restantes preservados;15overlays totais. PIIremoto1.227ficheiros/0ocorrências;14testes locais e11autotestes nativos PASS.
 
-Scanner:74INSERT VALUES em47ficheiros para aprovação Claude,102UPDATE/30DELETE/12INSERT SELECT preservados;109DO/8WITH inventariados. Cópias locais:81redacções em literais; check-pii499ficheiros/1email restante num comentário fora de literal (20260429021930,linha196). Publicação SQL bloqueada pela política actual; pede-se revisão da lista e tratamento explícito do comentário. [Relatório e lista](../estudos/saas-e-desenvolvimento/gates-352/orfaos-v2-revisao.md), [anexo](../estudos/saas-e-desenvolvimento/gates-352/orfaos-v2-revisao.json).
+[Run40141040181](https://github.com/pedrompropicio/mundopropicio-replay/actions/runs/40141040181): **43concluídas (40ledger+3órfãs),1falhada,1.408não tentadas**. Primeira falha:ledger20260319231859,linha50,ALTER TABLE role_permissions ADD CONSTRAINT role_permissions_pkey,55000 (índice já associado a constraint). Não é companies por slug→NULL. Paragem respeitada; originais intactos.
 
-Plano/runner/overlays/workflow privados inalterados; regra construtiva ainda não implementada. G1 não repetido (último40138529654:127concluídas,42703 construtivo),G2 não executado. SemLive/DSN/infraestrutura paga/deploy/Publish. Reserva própria libertada; #352aberta,G6Pedro.
+Saltos:0destrutivos/4idempotentes, todos na versão revertida (version_committed=false). Registos persistidos no privado208bae80. G2nãoexecutado; nenhum catálogo Live novo/equivalência afirmada. Scheduler off/firewall;cron0antes/0depois. Próximo Claude: decidir caso específico ADD CONSTRAINT USING INDEX;55000 não foi alargado genericamente. [Relatório](../estudos/saas-e-desenvolvimento/gates-352/plano-v2-g1.md),[anexo](../estudos/saas-e-desenvolvimento/gates-352/plano-v2-g1.json). Reserva própria libertada;#352aberta;G6Pedro. Sem escritaLive/DSN/infra paga/deploy/Publish.
 
 ## #353 — correção R1 de CI: relógio determinístico nos testes
 24/10/2026 11:42 UTC — base comum 3afd243a92c6462f49be483faccf954391276d3b limpa. Só src/test/capi-v2.test.ts: Date fixo em NOW no describe handler, afterEach restaura; temporizadores reais preservados. Baseline host 24/10: 11 FAIL/18 PASS; depois 33 PASS no host atual e em 01/01/2030 simulado, fronteiras antes/no/depois de 6 dias e isolamento provados. Suite integral final 2409 PASS/6 skip/11 todo, exit 0; build automático OK. Código c83ca22ec; relatório docs/testes/issue353-ci-relogio.md. Reserva #353 mantida até controller conferir tsgo e CI no SHA final; local não prova GitHub verde. Sem código de produção, rede externa/Live, DDL/DML/config/segredos/flags/deploy/Publish/reenvios; reserva #322 e restantes estados preservados. Issue não editada nem fechada.
