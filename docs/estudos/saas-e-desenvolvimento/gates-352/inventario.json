@@ -1,0 +1,1213 @@
+{
+  "checked_at": "2026-10-24T14:08:42.282093Z",
+  "source": "Live SELECT cron.job (jobid,jobname,schedule,active); command replaced server-side entirely; names of referenced functions extracted server-side",
+  "total": 81,
+  "proposals": [
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 5,
+      "jobname": "cleanup-old-backups",
+      "referenced_functions": [],
+      "schedule": "0 4 * * 0",
+      "proposal": "não recriar",
+      "justification": "cleanup-old-backups: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 6,
+      "jobname": "monthly-backup-test",
+      "referenced_functions": [],
+      "schedule": "0 5 1 * *",
+      "proposal": "não recriar",
+      "justification": "monthly-backup-test: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": false,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 11,
+      "jobname": "coala-sync-regular",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 7 */3 * *",
+      "proposal": "não recriar",
+      "justification": "coala-sync-regular: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": false,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 12,
+      "jobname": "coala-sync-festival",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 7-21 * * *",
+      "proposal": "não recriar",
+      "justification": "coala-sync-festival: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": false,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 13,
+      "jobname": "fever-sync-regular",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 8 * * *",
+      "proposal": "não recriar",
+      "justification": "fever-sync-regular: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": false,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 14,
+      "jobname": "fever-sync-festival",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 8,12,16,20 28-31 5 *",
+      "proposal": "não recriar",
+      "justification": "fever-sync-festival: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": false,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 15,
+      "jobname": "fever-sync-festival-jun",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 8,12,16,20 1-2 6 *",
+      "proposal": "não recriar",
+      "justification": "fever-sync-festival-jun: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 19,
+      "jobname": "crm-measure-action-impact",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 4 * * *",
+      "proposal": "não recriar",
+      "justification": "crm-measure-action-impact: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 20,
+      "jobname": "crm-pause-replaced-originals",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 5 * * *",
+      "proposal": "não recriar",
+      "justification": "crm-pause-replaced-originals: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": false,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 23,
+      "jobname": "fever-refresh-token",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "15 */3 * * *",
+      "proposal": "não recriar",
+      "justification": "fever-refresh-token: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 25,
+      "jobname": "whatsapp_dispatcher_minute",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "*/5 * * * *",
+      "proposal": "não recriar",
+      "justification": "whatsapp_dispatcher_minute: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 27,
+      "jobname": "ticketline-sync-daily",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "5 * * * *",
+      "proposal": "não recriar",
+      "justification": "ticketline-sync-daily: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 35,
+      "jobname": "crm-meta-audiences-daily-sync",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 4 * * *",
+      "proposal": "não recriar",
+      "justification": "crm-meta-audiences-daily-sync: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": false,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 41,
+      "jobname": "crm-meta-sync-creatives",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "*/3 * * * *",
+      "proposal": "não recriar",
+      "justification": "crm-meta-sync-creatives: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 42,
+      "jobname": "crm-google-lead-conversion-enqueue",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "*/15 * * * *",
+      "proposal": "não recriar",
+      "justification": "crm-google-lead-conversion-enqueue: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 43,
+      "jobname": "crm-google-conversion-upload",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "7-59/15 * * * *",
+      "proposal": "não recriar",
+      "justification": "crm-google-conversion-upload: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 87,
+      "jobname": "bilheteira-sync-daily",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 8 * * *",
+      "proposal": "não recriar",
+      "justification": "bilheteira-sync-daily: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 88,
+      "jobname": "bol-sync-daily",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "25 * * * *",
+      "proposal": "não recriar",
+      "justification": "bol-sync-daily: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 89,
+      "jobname": "vip-coupon-reminder-daily",
+      "referenced_functions": [
+        "public.run_vip_coupon_reminder"
+      ],
+      "schedule": "30 8 * * *",
+      "proposal": "não recriar",
+      "justification": "vip-coupon-reminder-daily: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 90,
+      "jobname": "ticketline-capture-day-hourly",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "15 * * * *",
+      "proposal": "não recriar",
+      "justification": "ticketline-capture-day-hourly: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 91,
+      "jobname": "ticketline-capture-day-seal",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "25 0 * * *",
+      "proposal": "não recriar",
+      "justification": "ticketline-capture-day-seal: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 92,
+      "jobname": "leads-capi-health",
+      "referenced_functions": [
+        "public.check_leads_capi_health"
+      ],
+      "schedule": "7 * * * *",
+      "proposal": "recriar desligado",
+      "justification": "Validar public.check_leads_capi_health apenas com dados sintéticos; manter active=false.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 93,
+      "jobname": "crm-meta-insights-hourly",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "40 * * * *",
+      "proposal": "não recriar",
+      "justification": "crm-meta-insights-hourly: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 94,
+      "jobname": "carreira-suamusica-sync-diario",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 9 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-suamusica-sync-diario: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 96,
+      "jobname": "carreira-instagram-sync-diario",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "20 9 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-instagram-sync-diario: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 97,
+      "jobname": "carreira-soundcharts-sync-diario",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "10 9 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-soundcharts-sync-diario: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 99,
+      "jobname": "carreira-song-sync-diario",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "40 9 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-song-sync-diario: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 100,
+      "jobname": "carreira-shorts-sync-diario",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "50 9 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-shorts-sync-diario: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 101,
+      "jobname": "carreira-song-report-diario",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 10 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-song-report-diario: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 102,
+      "jobname": "carreira-tiktok-sync-diario",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "55 9 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-tiktok-sync-diario: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 107,
+      "jobname": "carreira-reference-songs-semanal",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "35 9 * * 0",
+      "proposal": "não recriar",
+      "justification": "carreira-reference-songs-semanal: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 131,
+      "jobname": "invariant-checks-daily",
+      "referenced_functions": [
+        "public.run_invariant_checks_and_log"
+      ],
+      "schedule": "10 7 * * *",
+      "proposal": "recriar desligado",
+      "justification": "Validar public.run_invariant_checks_and_log apenas com dados sintéticos; manter active=false.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 207,
+      "jobname": "daily-database-backup",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 3 * * *",
+      "proposal": "não recriar",
+      "justification": "daily-database-backup: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": false,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 217,
+      "jobname": "ticketing-sync-health",
+      "referenced_functions": [
+        "public.check_ticketing_sync_health"
+      ],
+      "schedule": "45 * * * *",
+      "proposal": "recriar desligado",
+      "justification": "Validar public.check_ticketing_sync_health apenas com dados sintéticos; manter active=false.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 241,
+      "jobname": "crm-meta-campaigns-hourly",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "25 * * * *",
+      "proposal": "não recriar",
+      "justification": "crm-meta-campaigns-hourly: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 242,
+      "jobname": "crm-google-sync-campaigns-3h",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "10 */3 * * *",
+      "proposal": "não recriar",
+      "justification": "crm-google-sync-campaigns-3h: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 249,
+      "jobname": "fx-rates-daily",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "10 0,16 * * *",
+      "proposal": "não recriar",
+      "justification": "fx-rates-daily: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 261,
+      "jobname": "carreira-song-report-stale",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "*/15 * * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-song-report-stale: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 262,
+      "jobname": "cron-purge-run-details",
+      "referenced_functions": [],
+      "schedule": "15 3 * * *",
+      "proposal": "recriar desligado",
+      "justification": "Validar cron-purge-run-details apenas com dados sintéticos; manter active=false.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 267,
+      "jobname": "carreira-tiktok-sync-catalogo-semanal",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "10 4 * * 0",
+      "proposal": "não recriar",
+      "justification": "carreira-tiktok-sync-catalogo-semanal: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 268,
+      "jobname": "carreira-instagram-sync-catalogo-semanal",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "40 4 * * 0",
+      "proposal": "não recriar",
+      "justification": "carreira-instagram-sync-catalogo-semanal: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 269,
+      "jobname": "carreira-meta-breakdowns-diario",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "20 10 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-meta-breakdowns-diario: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 270,
+      "jobname": "carreira-google-breakdowns-diario",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "25 10 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-google-breakdowns-diario: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 276,
+      "jobname": "crm-google-video-metrics-3h",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "20 */3 * * *",
+      "proposal": "não recriar",
+      "justification": "crm-google-video-metrics-3h: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 300,
+      "jobname": "ticketline-sync-runs-retention",
+      "referenced_functions": [
+        "public.ticketline_sync_runs_compact_audit"
+      ],
+      "schedule": "20 3 * * *",
+      "proposal": "recriar desligado",
+      "justification": "Validar public.ticketline_sync_runs_compact_audit apenas com dados sintéticos; manter active=false.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 301,
+      "jobname": "traffic-events-anonymize",
+      "referenced_functions": [
+        "public.anonymize_traffic_events"
+      ],
+      "schedule": "40 3 * * *",
+      "proposal": "recriar desligado",
+      "justification": "Validar public.anonymize_traffic_events apenas com dados sintéticos; manter active=false.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 305,
+      "jobname": "meta-creatives-retention",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "10 4 * * 0",
+      "proposal": "não recriar",
+      "justification": "meta-creatives-retention: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 349,
+      "jobname": "onebox-sync-hourly",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "35 * * * *",
+      "proposal": "não recriar",
+      "justification": "onebox-sync-hourly: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 602,
+      "jobname": "carreira-tiktok-artists-sync-diario",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "40 9 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-tiktok-artists-sync-diario: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 645,
+      "jobname": "carreira-tiktok-sounds-daily",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "30 9 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-tiktok-sounds-daily: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 1142,
+      "jobname": "carreira-s4a-daily-sync",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "30 8 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-s4a-daily-sync: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 1382,
+      "jobname": "carreira-youtube-purge-revogados-diario",
+      "referenced_functions": [
+        "public.purge_revoked_youtube_data"
+      ],
+      "schedule": "0 4 * * *",
+      "proposal": "recriar desligado",
+      "justification": "Validar public.purge_revoked_youtube_data apenas com dados sintéticos; manter active=false.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 1640,
+      "jobname": "ticketline-crosscheck-daily",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "50 6 * * *",
+      "proposal": "não recriar",
+      "justification": "ticketline-crosscheck-daily: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 1646,
+      "jobname": "system-reminders-daily",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "30 7 * * *",
+      "proposal": "não recriar",
+      "justification": "system-reminders-daily: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 1805,
+      "jobname": "carreira-youtube-sync-diario",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "5 9 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-youtube-sync-diario: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 1808,
+      "jobname": "carreira-youtube-public-diario",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 7 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-youtube-public-diario: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 1835,
+      "jobname": "carreira-s4a-audience-diario",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "45 8 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-s4a-audience-diario: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 1853,
+      "jobname": "carreira-song-link-health-diario",
+      "referenced_functions": [
+        "public.song_link_health_run"
+      ],
+      "schedule": "30 6 * * *",
+      "proposal": "recriar desligado",
+      "justification": "Validar public.song_link_health_run apenas com dados sintéticos; manter active=false.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 1867,
+      "jobname": "carreira-tiktok-ads-sync",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "20 7,13,19 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-tiktok-ads-sync: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 1875,
+      "jobname": "carreira-soundcharts-sync-referencias-diario",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "30 9 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-soundcharts-sync-referencias-diario: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 2001,
+      "jobname": "ticketline-capture-ticket-types-daily",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "30 6 * * *",
+      "proposal": "não recriar",
+      "justification": "ticketline-capture-ticket-types-daily: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 2068,
+      "jobname": "portal-error-log-retention",
+      "referenced_functions": [
+        "public.purge_portal_error_log"
+      ],
+      "schedule": "25 3 * * *",
+      "proposal": "recriar desligado",
+      "justification": "Validar public.purge_portal_error_log apenas com dados sintéticos; manter active=false.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 2155,
+      "jobname": "carreira-instagram-stories-1h",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "15 * * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-instagram-stories-1h: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 2177,
+      "jobname": "newgang-club-welcome-5m",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "*/5 * * * *",
+      "proposal": "não recriar",
+      "justification": "newgang-club-welcome-5m: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 2189,
+      "jobname": "carreira-s4a-daily-sync-2030",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "30 20 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-s4a-daily-sync-2030: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 2190,
+      "jobname": "carreira-s4a-audience-diario-2045",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "45 20 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-s4a-audience-diario-2045: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 2193,
+      "jobname": "carreira-spotify-charts-2100",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 21 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-spotify-charts-2100: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 2197,
+      "jobname": "carreira-dbip-city-mensal",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "20 4 3 * *",
+      "proposal": "não recriar",
+      "justification": "carreira-dbip-city-mensal: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 2234,
+      "jobname": "carreira-ads-saldo-12h",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 0,12 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-ads-saldo-12h: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 2235,
+      "jobname": "carreira-ads-entrega-parada",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 13,16,20 * * *",
+      "proposal": "não recriar",
+      "justification": "carreira-ads-entrega-parada: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 2256,
+      "jobname": "newgang-portal-quente",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "*/4 * * * *",
+      "proposal": "não recriar",
+      "justification": "newgang-portal-quente: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 2281,
+      "jobname": "newgang-wallet-sync",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "*/10 * * * *",
+      "proposal": "não recriar",
+      "justification": "newgang-wallet-sync: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 2398,
+      "jobname": "crm-ingest-lead-captures",
+      "referenced_functions": [
+        "public.crm_ingest_lead_captures"
+      ],
+      "schedule": "*/5 * * * *",
+      "proposal": "recriar desligado",
+      "justification": "Validar public.crm_ingest_lead_captures apenas com dados sintéticos; manter active=false.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 2494,
+      "jobname": "coala-eb27-audience-sync",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "30 4 * * *",
+      "proposal": "não recriar",
+      "justification": "coala-eb27-audience-sync: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 2499,
+      "jobname": "ng27-clube-audience-sync",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "35 4 * * *",
+      "proposal": "não recriar",
+      "justification": "ng27-clube-audience-sync: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 4667,
+      "jobname": "ugc_watchdog_1400",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 14 * * *",
+      "proposal": "não recriar",
+      "justification": "ugc_watchdog_1400: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 4668,
+      "jobname": "ugc_watchdog_2000",
+      "referenced_functions": [
+        "net.http_post"
+      ],
+      "schedule": "0 20 * * *",
+      "proposal": "não recriar",
+      "justification": "ugc_watchdog_2000: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 7110,
+      "jobname": "artist-ads-refresh-twice-daily",
+      "referenced_functions": [
+        "net.http_post",
+        "public.get_vault_secret"
+      ],
+      "schedule": "0 1,15 * * *",
+      "proposal": "não recriar",
+      "justification": "artist-ads-refresh-twice-daily: depende de operação/integração de produção; não copiar nesta etapa.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 7111,
+      "jobname": "artist-ads-hourly-retention",
+      "referenced_functions": [],
+      "schedule": "0 4 * * *",
+      "proposal": "recriar desligado",
+      "justification": "Validar artist-ads-hourly-retention apenas com dados sintéticos; manter active=false.",
+      "homologation_active": false
+    },
+    {
+      "active": true,
+      "checked_at": "2026-10-24 14:08:42.282093+00",
+      "command_sanitized": "<redigido>",
+      "jobid": 7243,
+      "jobname": "song-link-arrivals-hourly-reconcile",
+      "referenced_functions": [
+        "public.song_link_arrivals_hourly_reconcile"
+      ],
+      "schedule": "20 4 * * *",
+      "proposal": "recriar desligado",
+      "justification": "Validar public.song_link_arrivals_hourly_reconcile apenas com dados sintéticos; manter active=false.",
+      "homologation_active": false
+    }
+  ],
+  "vault": {
+    "checked_at": "2026-10-24T14:08:49.659267Z",
+    "source": "SELECT name FROM vault.secrets",
+    "total": 14,
+    "items": [
+      {
+        "checked_at": "2026-10-24 14:08:49.659267+00",
+        "name": "bol_master",
+        "proposal": "não entra na homologação",
+        "purpose": "Credencial de produção; integração desactivada ou simulada. Não copiar o valor existente."
+      },
+      {
+        "checked_at": "2026-10-24 14:08:49.659267+00",
+        "name": "email_queue_service_role_key",
+        "proposal": "precisa de valor de teste",
+        "purpose": "Chave exclusiva do futuro projecto de teste; fila sem entregas externas."
+      },
+      {
+        "checked_at": "2026-10-24 14:08:49.659267+00",
+        "name": "fever_b2b_token_coala_2026",
+        "proposal": "não entra na homologação",
+        "purpose": "Credencial de produção; integração desactivada ou simulada. Não copiar o valor existente."
+      },
+      {
+        "checked_at": "2026-10-24 14:08:49.659267+00",
+        "name": "fever_credentials_coala_2026",
+        "proposal": "não entra na homologação",
+        "purpose": "Credencial de produção; integração desactivada ou simulada. Não copiar o valor existente."
+      },
+      {
+        "checked_at": "2026-10-24 14:08:49.659267+00",
+        "name": "IPINFO_TOKEN",
+        "proposal": "não entra na homologação",
+        "purpose": "Credencial de produção; integração desactivada ou simulada. Não copiar o valor existente."
+      },
+      {
+        "checked_at": "2026-10-24 14:08:49.659267+00",
+        "name": "META_CAPI_ACCESS_TOKEN",
+        "proposal": "não entra na homologação",
+        "purpose": "Credencial de produção; integração desactivada ou simulada. Não copiar o valor existente."
+      },
+      {
+        "checked_at": "2026-10-24 14:08:49.659267+00",
+        "name": "META_WA_PHONE_NUMBER_ID",
+        "proposal": "precisa de valor de teste",
+        "purpose": "Identificador de número sandbox, se futuramente autorizado; nunca o número real."
+      },
+      {
+        "checked_at": "2026-10-24 14:08:49.659267+00",
+        "name": "META_WA_SYSTEM_TOKEN",
+        "proposal": "não entra na homologação",
+        "purpose": "Credencial de produção; integração desactivada ou simulada. Não copiar o valor existente."
+      },
+      {
+        "checked_at": "2026-10-24 14:08:49.659267+00",
+        "name": "ticketline_3def1b85-0ed0-4166-b45d-3a4561564e15",
+        "proposal": "não entra na homologação",
+        "purpose": "Credencial de produção; integração desactivada ou simulada. Não copiar o valor existente."
+      },
+      {
+        "checked_at": "2026-10-24 14:08:49.659267+00",
+        "name": "ticketline_4fca2381-1db9-4ff5-9dc0-91068de88a02",
+        "proposal": "não entra na homologação",
+        "purpose": "Credencial de produção; integração desactivada ou simulada. Não copiar o valor existente."
+      },
+      {
+        "checked_at": "2026-10-24 14:08:49.659267+00",
+        "name": "ticketline_56e431e8-adcc-4f87-99fd-545c9bb1aefa",
+        "proposal": "não entra na homologação",
+        "purpose": "Credencial de produção; integração desactivada ou simulada. Não copiar o valor existente."
+      },
+      {
+        "checked_at": "2026-10-24 14:08:49.659267+00",
+        "name": "ticketline_95051bc2-8580-405c-a1ad-f2526ddf9bd4",
+        "proposal": "não entra na homologação",
+        "purpose": "Credencial de produção; integração desactivada ou simulada. Não copiar o valor existente."
+      },
+      {
+        "checked_at": "2026-10-24 14:08:49.659267+00",
+        "name": "ticketline_fdfb39fe-45f2-43f5-9ec9-7cb536360ae1",
+        "proposal": "não entra na homologação",
+        "purpose": "Credencial de produção; integração desactivada ou simulada. Não copiar o valor existente."
+      },
+      {
+        "checked_at": "2026-10-24 14:08:49.659267+00",
+        "name": "ticketline_master",
+        "proposal": "não entra na homologação",
+        "purpose": "Credencial de produção; integração desactivada ou simulada. Não copiar o valor existente."
+      }
+    ],
+    "edge_function_names": [],
+    "edge_names_status": "Pedro deve colar exclusivamente os nomes do painel Lovable; nunca os valores."
+  }
+}
