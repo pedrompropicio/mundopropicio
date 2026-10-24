@@ -25,3 +25,5 @@ Nenhum overlay de homologação gerida materializado; --target=homolog é recusa
 ## Correcção iterativa após run40119163318
 
 20260408191828: 42710, trigger igual ao criado em20260317122916. Adicionado DROP TRIGGER IF EXISTS antes da recriação, preservando a função e o original. Iteração local autorizada pelo passo5 do Pedro; correcção Codex pendente da revisão final Claude.
+
+20260420192118: 42703, zone_id inexistente no replay. Pré-requisito mínimo zone_id uuid nullable, definido no snapshot de catálogo do repositório e confirmado na recolha24/10. Apenas coluna necessária antes do índice; não copiar tabela nem placeholders issue335_dropped, não seed. FK/CHECK/index adicional não presumidos; diferenças remanescentes para G2. Correcção Codex pendente de revisão final.

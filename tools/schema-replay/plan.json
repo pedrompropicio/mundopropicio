@@ -1368,8 +1368,12 @@
       "version": "20260420192118",
       "candidate_time_ms": 1776712878000,
       "original_sha256": "e1bd87b3d2a37352ed5bfc8723946e017b45837ad9d0fdb6e19a00200e8de1a9",
-      "executed_sha256": "e1bd87b3d2a37352ed5bfc8723946e017b45837ad9d0fdb6e19a00200e8de1a9",
-      "ledger_hash": "e1bd87b3d2a37352ed5bfc8723946e017b45837ad9d0fdb6e19a00200e8de1a9"
+      "executed_sha256": "da7f06523c159e583f32052e2022bd20c7fd6fb61603f56394732e40d75d0bc5",
+      "ledger_hash": "e1bd87b3d2a37352ed5bfc8723946e017b45837ad9d0fdb6e19a00200e8de1a9",
+      "overlay_path": "overlay/20260420192118_02ea9f73-0037-4a27-b6a2-dfe6803d4f1c.sql",
+      "reason": "restore required nullable uuid column from exact repository catalogue snapshot before index",
+      "iteration_authorization": "Pedro latest step5 iterative G1; Codex correction pending Claude final review",
+      "failure_run": 40119543266
     },
     {
       "source": "supabase",
@@ -11079,7 +11083,8 @@
     "overlay/0205_ugc_ios_watchdog.sql": "6bb0b9ab2386d6a1667f94469e2ebfaa855fa899acae0d6a3b77c6308de6be18",
     "overlay/0200_capi_v2_consent_events.sql": "b8921b08c53c2d7d12690192954fcd2608ef8da5b0b7beda71abe1f0f777816b",
     "overlay/0016_derp178_tiktok_sync_status_per_connection.sql": "6ee7fe434ac3732bb6abe3b18231349549ae948fd83c0c95d901b1277dd6839b",
-    "overlay/20260408191828_7b155ec4-fceb-4bfa-a2ce-0f5b9b2b885e.sql": "00fbc0253a937424971837bcb4e53ad4ba25536866e634015daad4a30599640d"
+    "overlay/20260408191828_7b155ec4-fceb-4bfa-a2ce-0f5b9b2b885e.sql": "00fbc0253a937424971837bcb4e53ad4ba25536866e634015daad4a30599640d",
+    "overlay/20260420192118_02ea9f73-0037-4a27-b6a2-dfe6803d4f1c.sql": "da7f06523c159e583f32052e2022bd20c7fd6fb61603f56394732e40d75d0bc5"
   },
   "known_unresolved": [
     "ledger Drizzle id165: nonblocking per review; read-only Lovable history in step7",
@@ -11093,6 +11098,15 @@
       "run": 40119163318,
       "proof": "same CREATE TRIGGER on auth.users AFTER INSERT FOR EACH ROW EXECUTE FUNCTION public.handle_new_user() in migration5 and87",
       "change": "DROP TRIGGER IF EXISTS before recreation; no other SQL changes",
+      "review_status": "Codex correction pending Claude final review"
+    },
+    {
+      "path": "supabase/migrations/20260420192118_02ea9f73-0037-4a27-b6a2-dfe6803d4f1c.sql",
+      "sqlstate": "42703",
+      "run": 40119543266,
+      "source_snapshot_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d",
+      "source_catalogue_key": "table:public.ticket_sales",
+      "change": "ADD COLUMN IF NOT EXISTS zone_id uuid before original index; only required column, remaining catalogue differences left to G2",
       "review_status": "Codex correction pending Claude final review"
     }
   ]
