@@ -1674,6 +1674,13 @@
       "when": 1792773588156,
       "tag": "0238_event_forecasts_revenue_split",
       "breakpoints": true
+    },
+    {
+      "idx": 239,
+      "version": "7",
+      "when": 1792855278379,
+      "tag": "0239_newgang_club_reminder",
+      "breakpoints": true
     }
   ]
 }

@@ -6800,6 +6800,59 @@ export type Database = {
           },
         ]
       }
+      club_reminder_reservations: {
+        Row: {
+          attempt_count: number
+          company_id: string
+          created_at: string
+          error: string | null
+          member_id: string
+          message_id: string
+          next_attempt_at: string | null
+          retry_safe: boolean
+          site_id: string
+          status: string
+          test: boolean
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          company_id: string
+          created_at?: string
+          error?: string | null
+          member_id: string
+          message_id: string
+          next_attempt_at?: string | null
+          retry_safe?: boolean
+          site_id: string
+          status?: string
+          test?: boolean
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          company_id?: string
+          created_at?: string
+          error?: string | null
+          member_id?: string
+          message_id?: string
+          next_attempt_at?: string | null
+          retry_safe?: boolean
+          site_id?: string
+          status?: string
+          test?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_reminder_reservations_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: true
+            referencedRelation: "club_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       club_rewards: {
         Row: {
           company_id: string
@@ -23074,6 +23127,15 @@ export type Database = {
         }
         Returns: number
       }
+      _club_reminder_reason: {
+        Args: {
+          p_company_id: string
+          p_member_id: string
+          p_site_id: string
+          p_test: boolean
+        }
+        Returns: string
+      }
       _club_rule_used: {
         Args: { p_cfg: string; p_member: string; p_rule: string }
         Returns: number
@@ -24927,6 +24989,30 @@ export type Database = {
         Returns: boolean
       }
       club_referral_progress: { Args: { p_member: string }; Returns: Json }
+      club_reminder_candidates: {
+        Args: { p_company_id: string; p_limit: number; p_site_id: string }
+        Returns: {
+          member_id: string
+        }[]
+      }
+      club_reminder_mark: {
+        Args: { p_error?: string; p_member_id: string; p_status: string }
+        Returns: boolean
+      }
+      club_reminder_reserve: {
+        Args: {
+          p_company_id: string
+          p_member_id: string
+          p_message_id: string
+          p_site_id: string
+          p_test?: boolean
+        }
+        Returns: string
+      }
+      club_reminder_summary: {
+        Args: { p_company_id: string; p_site_id: string }
+        Returns: Json
+      }
       club_rules_public: {
         Args: { p_site: string }
         Returns: {

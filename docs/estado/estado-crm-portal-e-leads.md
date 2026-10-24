@@ -67,3 +67,6 @@ Pendência anterior superada: backfill consentimento executado byte-exato após 
 
 ## 24/10/2026 — Lembrete de confirmação do Clube Newgang (passo 2/4)
 Código e testes prontos: e-mail novo "Falta 1 clique para entrares no Clube Newgang" (pt-PT), um por membro, reserva própria `club_reminder_reservations`, envio só manual em lotes (máx. 500, dry_run por defeito) e teste por member_id. dlq/sem registo de boas-vindas ficam fora e aparecem só no resumo. SQL escrito em `supabase/manual/20261024_newgang_club_reminder.sql`, NÃO aplicado; sem deploy nem Publish. Próximo: passo 3 (migração + deploy, Sim próprio). Relatório `docs/testes/newgang-lembrete/passo2-codigo-20261024.md`.
+
+## 24/10/2026 — Lembrete Newgang (passo 3/4)
+Migração 0239 aplicada em Live e newgang-portal implantada; zero reservas e zero envios. Elegíveis agora: 1662 (207 com menos de 48 h, 5 suprimidos, 15 boas-vindas presas em pending, 2 sem registo). Próximo: teste no membro 9528 com OK do Pedro. Relatório `docs/testes/newgang-lembrete/passo3-live-20261024.md`.
