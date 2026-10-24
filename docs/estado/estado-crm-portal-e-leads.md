@@ -70,3 +70,6 @@ Código e testes prontos: e-mail novo "Falta 1 clique para entrares no Clube New
 
 ## 24/10/2026 — Lembrete Newgang (passo 3/4)
 Migração 0239 aplicada em Live e newgang-portal implantada; zero reservas e zero envios. Elegíveis agora: 1662 (207 com menos de 48 h, 5 suprimidos, 15 boas-vindas presas em pending, 2 sem registo). Próximo: teste no membro 9528 com OK do Pedro. Relatório `docs/testes/newgang-lembrete/passo3-live-20261024.md`.
+
+## 24/10/2026 — Lembrete Newgang: rodapé com as duas promotoras
+Rodapé do lembrete passa a mostrar Mundo Propício (84 px) e Newgang Produções (110 px) lado a lado, numa tabela compatível com Outlook. Só no código; falta deploy da newgang-portal. Boas-vindas/acesso inalterados (mesma impressão digital).

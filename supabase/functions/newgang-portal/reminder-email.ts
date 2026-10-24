@@ -3,6 +3,7 @@
 export const REMINDER_SUBJECT = "Falta 1 clique para entrares no Clube Newgang";
 export const REMINDER_HEADER_BASE = "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang";
 const LOGO = "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang/logo-newgang-producoes-branco.png";
+const LOGO_MP = "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang/logo-mundo-propicio.png";
 
 function esc(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -13,7 +14,11 @@ export const REMINDER_TEMPLATE = `<!DOCTYPE html><html lang="pt-PT" xmlns="http:
 /** Rodapé atual do Clube (logo Newgang Produções + Cancelar a subscrição). A frase "Recebeste este e-mail..." já está no
  *  corpo do criativo, por isso não é repetida aqui. */
 function footer(unsubscribeUrl: string) {
-  return `<img src="${LOGO}" width="140" alt="Newgang Produções" style="display:inline-block;width:140px;height:auto;border:0;margin-bottom:12px;">` +
+  // Duas promotoras lado a lado (tabela de 2 células, compatível com Outlook); em ecrãs estreitos encolhem (max-width 100%).
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 12px auto;max-width:100%;"><tr>` +
+    `<td valign="middle" align="center" style="padding:0 14px 0 0;border-right:1px solid #1f3d2a;"><img src="${LOGO_MP}" width="84" alt="Mundo Propício" style="display:block;width:84px;max-width:100%;height:auto;border:0;"></td>` +
+    `<td valign="middle" align="center" style="padding:0 0 0 14px;"><img src="${LOGO}" width="110" alt="Newgang Produções" style="display:block;width:110px;max-width:100%;height:auto;border:0;"></td>` +
+    `</tr></table>` +
     `<p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7fa58c;">` +
     `<a href="${esc(unsubscribeUrl)}" style="color:#9cc3aa;text-decoration:underline;">Cancelar a subscrição</a></p>`;
 }
