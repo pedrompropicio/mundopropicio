@@ -20590,7 +20590,6 @@ export type Database = {
           created_at: string
           id: string
           label: string
-          recipient_phone: string
           recipient_profile_id: string
           song_id: string
           updated_at: string
@@ -20601,7 +20600,6 @@ export type Database = {
           created_at?: string
           id?: string
           label: string
-          recipient_phone: string
           recipient_profile_id: string
           song_id: string
           updated_at?: string
@@ -20612,7 +20610,6 @@ export type Database = {
           created_at?: string
           id?: string
           label?: string
-          recipient_phone?: string
           recipient_profile_id?: string
           song_id?: string
           updated_at?: string
