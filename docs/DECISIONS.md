@@ -6213,3 +6213,17 @@ Passo A instalado em Live a 22/10/2026 com Sim do Pedro.
 
 ## D-ERP303 — Identidade dos relatórios (24/10/2026)
 **Decisão (Pedro, 24/10/2026, chat 0 - Cowork Claude).** Os relatórios da MP têm cara própria e não podem ser reconhecíveis como produzidos por ChatGPT ou Claude. Regra de forma em `docs/modelos/README.md` › "Identidade dos relatórios" (cabeçalho/rodapé fixos, língua única, formatação de números, estrutura, lista de tiques de LLM proibidos). Lê-se antes de qualquer relatório, com ou sem modelo. Paleta e tipografia ficam para `docs/modelos/_identidade/identidade.md`, a definir pelo Pedro. Aplicação: linha "Relatórios" do Bloco Comum nos 16 prompts + aviso no topo de `docs/modelos/INDEX.md`.
+
+
+## D-ERP304 — #352: arquitectura A (24/10/2026)
+
+**Pedro — chat 0 - Cowork Claude.** Texto integral do [comentário 6384461152](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6384461152):
+
+> **Decisão do Pedro (24/10/2026, chat 0 - Cowork Claude): arquitectura A.** Desenvolvimento local + projeto Supabase próprio de homologação; produção mantém-se no Lovable Cloud. B descartada; C não é pré-requisito (a homologação serve de ensaio para uma eventual migração futura, sem decisão de sair do Lovable).
+> 
+> Executor da #352: Codex; revisão por leitura: Claude (0 - Cowork). Próxima etapa autorizada: verificações R0 (sem criar infraestrutura, contas, custos, DDL/DML, deploy ou Publish) — detalhe no despacho ao executor. A decisão vai para docs/DECISIONS.md no fecho dessa etapa (D-ERP seguinte ao último registado).
+> 
+> A decisão não autoriza criar o projeto de homologação; isso é R2 com "Sim" próprio depois das verificações.
+> 
+
+Verificações e plano R2 INERTE: [verificacoes-352.md](estudos/saas-e-desenvolvimento/verificacoes-352.md). Este registo não autoriza criar a homologação.
