@@ -1,0 +1,13 @@
+Falta 1 clique
+
+Olá Ana,
+
+Inscreveste-te no Clube Newgang, mas o teu e-mail ainda não está confirmado.
+
+Falta 1 clique para entrares no Clube e teres acesso aos benefícios, incluindo a compra no lote promocional exclusivo.
+
+Confirmar o meu e-mail: https://newgangfestival.pt/clube/entrar?t=EXEMPLO_TOKEN_INDIVIDUAL
+
+Recebeste este e-mail porque te inscreveste no Clube Newgang. Se não foste tu, podes ignorar esta mensagem.
+
+Cancelar a subscrição: https://newgangfestival.pt/descadastrar?token=EXEMPLO_TOKEN_DESCADASTRO
