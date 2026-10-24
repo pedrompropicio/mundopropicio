@@ -19,13 +19,13 @@ start=run(['supabase','start','-x','studio,imgproxy,edge-runtime,logflare,vector
 if start.returncode:
     (out/'bootstrap.log').write_text(clean(start.stdout+start.stderr));sys.exit(start.returncode)
 db='supabase_db_mp352'
-def sql(q):
-    r=run(['docker','exec','-i',db,'psql','-X','-U','postgres','-d','postgres','-At','-v','ON_ERROR_STOP=1'],input=q)
+def sql(q,role='postgres'):
+    r=run(['docker','exec','-i',db,'psql','-X','-U',role,'-d','postgres','-At','-v','ON_ERROR_STOP=1'],input=q)
     if r.returncode:raise RuntimeError(clean(r.stderr))
     return r.stdout
 # Disable scheduled execution before copying any application SQL.
-sql("ALTER SYSTEM SET cron.launch_active_jobs = 'off';")
-sql("SELECT pg_reload_conf();")
+sql("ALTER SYSTEM SET cron.launch_active_jobs = 'off';",role="supabase_admin")
+sql("SELECT pg_reload_conf();",role="supabase_admin")
 assert sql("SHOW cron.launch_active_jobs;").strip()=='off'
 # Firewall: containers may talk to each other, never to external integrations.
 network=json.loads(run(['docker','inspect',db]).stdout)[0]['NetworkSettings']['Networks']
