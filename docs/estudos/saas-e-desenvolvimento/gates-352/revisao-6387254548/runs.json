@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-24",
+  "runs": [
+    {
+      "id": 40118930695,
+      "sha": "4a3b39813484f61b783defe745a599316398fdbe",
+      "applied": 0,
+      "result": "failure",
+      "failure": "runner: cron.launch_active_jobs=on após reset vazio",
+      "artifact_id": 12570154180,
+      "url": "https://github.com/pedrompropicio/mundopropicio/actions/runs/40118930695"
+    },
+    {
+      "id": 40119163318,
+      "sha": "954582751009546b8930892d291efbd63c0af3bb",
+      "applied": 86,
+      "result": "failure",
+      "failure": "42710 trigger on_auth_user_created já existe",
+      "artifact_id": 12570353279,
+      "url": "https://github.com/pedrompropicio/mundopropicio/actions/runs/40119163318"
+    },
+    {
+      "id": 40119543266,
+      "sha": "28b09fb41b31333d5b2e2197d9e0965cbb7e6525",
+      "applied": 148,
+      "result": "failure",
+      "failure": "42703 ticket_sales.zone_id ausente",
+      "artifact_id": 12571100268,
+      "url": "https://github.com/pedrompropicio/mundopropicio/actions/runs/40119543266"
+    },
+    {
+      "id": 40120020259,
+      "sha": "c6625e02880f0f9615ba8f512fbc48bf9d2b3f34",
+      "applied": 150,
+      "result": "failure",
+      "failure": "42703 event_forecasts.formula_type ausente no backfill",
+      "artifact_id": 12570906235,
+      "url": "https://github.com/pedrompropicio/mundopropicio/actions/runs/40120020259"
+    },
+    {
+      "id": 40120338753,
+      "sha": "e7f04426ad0fbcc9d73884dd939f0e591f597f71",
+      "applied": 161,
+      "result": "failure",
+      "failure": "42703 account_categories.event_required ausente",
+      "artifact_id": 12571171504,
+      "url": "https://github.com/pedrompropicio/mundopropicio/actions/runs/40120338753"
+    }
+  ],
+  "last_zip_sha256": "c31ef511cb16b8ed625386b30f8049a4bf915491ba6f93698641b682f9a62ac8",
+  "failure": {
+    "source": "supabase",
+    "path": "supabase/migrations/20260423215818_691e8504-be88-46f2-a204-d88473cf2fca.sql",
+    "version": "20260423215818",
+    "candidate_time_ms": 1776981498000,
+    "original_sha256": "819801f5ad52a5523503b44e0b13806032d66db364c573788f7bfb7d86087bfa",
+    "executed_sha256": "819801f5ad52a5523503b44e0b13806032d66db364c573788f7bfb7d86087bfa",
+    "ledger_hash": "819801f5ad52a5523503b44e0b13806032d66db364c573788f7bfb7d86087bfa",
+    "exit_code": 3,
+    "message_sanitized": "ERROR:  42703: column \"event_required\" of relation \"account_categories\" does not exist\nLINE 1: ....account_categories (code, name, type, parent_id, event_requ...\n                                                             ^\nLOCATION:  checkInsertTargets, parse_target.c:1065\n"
+  },
+  "cron_cleanup": {
+    "before": 0,
+    "after": 0,
+    "local_only": true,
+    "scheduler_remained_off": true
+  },
+  "metadata": {
+    "sha": "e7f04426ad0fbcc9d73884dd939f0e591f597f71",
+    "utc": "2026-10-24T18:21:54.784535+00:00",
+    "cli": "2.84.2",
+    "scope": "reviewed Supabase/Drizzle deduplicated plan; no manual/seed/functions",
+    "replay_exit_code": 1,
+    "finished_utc": "2026-10-24T18:23:49.317198+00:00"
+  }
+}

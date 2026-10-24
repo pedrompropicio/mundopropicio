@@ -1,0 +1,25 @@
+{
+  "date_utc": "2026-10-24T18:27:33.892Z",
+  "method": "Lovable list_edits(before=2026-10-15T22:13:00Z,limit=50), selected 21:40–22:12 UTC; get_diff for all three returned edits in window; raw Github fetch at recovered commit",
+  "commits": [
+    "08a13251b31ce223dab124279e29d192e3ec5315",
+    "0a59d741af650541fcfbff9a3aa361ea33038d92",
+    "b7b62836ba79b2cabff0bfe99b1d84f739cea3a0"
+  ],
+  "recovered_path": "drizzle/migrations/0164_issue320_capi_p1_guard.sql",
+  "recovered_commit": "b7b62836ba79b2cabff0bfe99b1d84f739cea3a0",
+  "created_at": "2026-10-15T22:02:47Z",
+  "ledger_id": 165,
+  "ledger_created_at": 1792101295963,
+  "sha256": "d11d60cc6fb7ceeb690f7617ea52b28640400c3c62f28adf23fad1f3fd2a0f51",
+  "bytes": 17508,
+  "status": "Recovered exact bytes; hash matches previously collected Live ledger. Documentation only, not inserted into active replay plan in this run. Position/control reconciliation with current 0164/0165 remains for next replay.",
+  "recovered_journal_entry": {
+    "idx": 164,
+    "version": "7",
+    "when": 1792101295963,
+    "tag": "0164_issue320_capi_p1_guard",
+    "breakpoints": true
+  },
+  "journal_when_matches_live_ledger": true
+}

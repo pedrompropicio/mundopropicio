@@ -1,0 +1,382 @@
+{
+  "source_sha": "8755177d33cc8f7841f24ba6a117bb9808c4e445",
+  "normalization": "remove literal --> statement-breakpoint and all whitespace (including strings); comparison rule requested by review; no comments removed",
+  "last_live_supabase_version": "20261002120810",
+  "pairs": [
+    {
+      "supabase": "20261002103000_camarim_invariant_saldo_sessao.sql",
+      "status": "sem par",
+      "drizzle": [],
+      "basis": "sem igualdade de conteúdo e sem candidato nominal forte",
+      "normalized_sha256": "421251952627508b95d99949f3b5c3f04b3facaecdcd7820b6b31175c17ac5f9",
+      "after_ledger_cutoff": false,
+      "include": true
+    },
+    {
+      "supabase": "20261002104613_97c7794e-9110-4dea-8875-253ec3a30e10.sql",
+      "status": "sem par",
+      "drizzle": [],
+      "basis": "sem igualdade de conteúdo e sem candidato nominal forte",
+      "normalized_sha256": "51a9a080e78774b175dbefc59bd3df92703cb981a603e5fc681c18c49c974b48",
+      "after_ledger_cutoff": false,
+      "include": true
+    },
+    {
+      "supabase": "20261002120740_6be30c36-594d-4678-9477-1a3b995136ac.sql",
+      "status": "sem par",
+      "drizzle": [],
+      "basis": "sem igualdade de conteúdo e sem candidato nominal forte",
+      "normalized_sha256": "cf2377e799a30ee57a169ba786928e699a75ec398f14d29a2f206d456bca5681",
+      "after_ledger_cutoff": false,
+      "include": true
+    },
+    {
+      "supabase": "20261002120810_4a5a8ca5-26f1-4233-95d9-e3dbbec58dbc.sql",
+      "status": "sem par",
+      "drizzle": [],
+      "basis": "sem igualdade de conteúdo e sem candidato nominal forte",
+      "normalized_sha256": "5011718f2b0b54e49a6f7a24ff02a46f81d2330cda0b88a369d89c5112561a0e",
+      "after_ledger_cutoff": false,
+      "include": true
+    },
+    {
+      "supabase": "20261002181500_derp160_song_growth_summary_grupo_musica.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0000_derp160_song_growth_summary_grupo_musica.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "807bd643c4df7c3aff4d823e6e2e8acb36b58db23331a627da246cf6be272845",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261002181600_derp160_playlist_streams_uri.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0001_derp160_playlist_streams_uri.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "7950f7f2758ccdf8725f1d3389bf33555cea3cab77f2c687de9b3c0b8c81ec83",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261002190000_derp161_artist_ads_period_report_medicao.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0002_derp161_artist_ads_period_report_medicao.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "d08d9fc6ce5af1f9eb7d52b005db75be5a1a5d8481ccfa1fd697e219fa1030cb",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261007163500_card_session_items_transaction_id_non_unique.sql",
+      "status": "sem par",
+      "drizzle": [],
+      "basis": "sem igualdade de conteúdo e sem candidato nominal forte",
+      "normalized_sha256": "4aca40282601f798c28e92848601ac9a2ff9248da2538b511e99853e73762e77",
+      "after_ledger_cutoff": true,
+      "include": true
+    },
+    {
+      "supabase": "20261010164000_derp235_growth_period.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0081_derp235_growth_period.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "a608d4fa9419abed647cdad60b6ae3d43a39514a13052c1abbe3b913950a4098",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261010165000_derp236_investment_report.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0082_derp236_investment_report.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "642cb48cacd81ea98eccbe992cc94641e8dab44148103b141eb057c7402a014f",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261010170000_derp236_record_fix.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0083_derp236_record_fix.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "35b2a28c47d83cb67e33afd7e684b806a0dc616e34746c410b771a40a52cd4b8",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261010170500_derp236_fast_shared_projection.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0084_derp236_fast_shared_projection.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "3fcd917f27106f4e71478aaa93efd7938edab5d53abd36fe7136f73e7cf65245",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261010171000_derp235236_contract_refinements.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0085_derp235236_contract_refinements.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "47b04103af530648b3323b456fafb8faedb7a50d4f79871520451bfe3f23ffa8",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261010172000_derp236_projection_budget_legs.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0086_derp236_projection_budget_legs.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "b3a0df56102a7653c7399944aeb5c1679bd66bee686af3ac0510be96c0365256",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261010173000_derp236_projection_identity.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0087_derp236_projection_identity.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "8266aa2e0d8f7b4677496ade0db66726195b95169a0e9237f487fa52b7381b23",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261010175000_derp236_projection_complete.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0088_derp236_projection_complete.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "d1256d1c6eafcb414d0f26d03b2b91752825d0c8f9029272029fb6a5df95259b",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261010184500_derp238_invariant_cash_negativo.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0089_derp238_invariant_cash_negativo.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "37b7c065d2fb7b4ece59e864912cea4d199d5242944df712561310c938a9222b",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261010190000_ticket_office_statement_documents.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0090_ticket_office_statement_documents.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "52683d2da7dec7315c0834c511f40aae71af26df957adfe9eb493dbc867ce942",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261010213100_0091_derp_296_save_ticket_office_settlement.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0091_derp_296_save_ticket_office_settlement.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "f62c6fd5c967e25648d355e479210a68c072b677e1b01717bfed379fc08ee893",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261010213200_0092_derp_296_conciliated_by.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0092_derp_296_conciliated_by.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "edfd396106973ce8a8e2c7794a5b58caea85ea6f7f324f8e251e2faf85a6f8d8",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261010213300_0093_derp_296_link_only_non_eligible.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0093_derp_296_link_only_non_eligible.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "ca3e2d00e48c3e36ef5b039d853409e9a32d3dc63a76ee5e21b0b88f4b3ed43f",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261010213400_0094_derp_296_triggers_own_invoice_paid.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0094_derp_296_triggers_own_invoice_paid.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "3334f65f6c3c9492d910b160c67924710fc439665714f6098222d7a5a8e99636",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261010214500_0095_derp_297_bp_frozen_version_guard.sql",
+      "status": "diferentes",
+      "drizzle": [
+        "0095_derp_297_bp_frozen_version_guard.sql"
+      ],
+      "basis": "candidato por semelhança de nome; conteúdo normalizado diferente",
+      "normalized_sha256": "187a4d7da74a38d78867e4735160efce3426c4d171c1675d5ca6d18938c4a80c",
+      "after_ledger_cutoff": true,
+      "include": true
+    },
+    {
+      "supabase": "20261012165000_0118_derp237_artist_ads_budget_changes.sql",
+      "status": "diferentes",
+      "drizzle": [
+        "0118_derp237_artist_ads_budget_changes.sql"
+      ],
+      "basis": "candidato por semelhança de nome; conteúdo normalizado diferente",
+      "normalized_sha256": "3a7ee286dfa35f1d2ba0f2c8cbfeb3e772a520c1d0826e9cf101774bd088237b",
+      "after_ledger_cutoff": true,
+      "include": true
+    },
+    {
+      "supabase": "20261013020000_0119_newgang_lineup_reveals_security.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0119_0119_newgang_lineup_reveals_security.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "2638983c9994447ff366a5de1e89302e58897941c17e60f2cbfcb2d91cc7b3c6",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261013020500_0120_newgang_portal_sites_editions_club.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0120_0120_newgang_portal_sites_editions_club.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "a790dce77533520841e9f61eda15bf3f03ecbdc6bbd7e0d594ab906c83c0d8d6",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261013023000_0121_derp258_meta_reconnect_by_ad_account.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0121_0121_meta_reconnect_by_ad_account.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "326810e661d6d9109c8f9ed519bf3110249c95780b8166ac5e1afb1123d3452d",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261013023500_0122_derp258_artist_ads_sync_status_connection_id.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0122_0122_artist_ads_sync_status_connection_id.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "6e17f1f9a54c69f64082c1d53f579a3165f3d99d2dae1bd4bbaaa15d5a6d86c3",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261013030000_0123_derp259_artist_user_access.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0123_0123_derp259_artist_user_access.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "b10884fa12c1418d2f8ab6e9f4bf323d18657b92e7fb30d2bb42d372c65f1cf8",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261013031000_0124_derp259_ignore_default_user_role.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0124_0124_derp259_ignore_default_user_role.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "fd362a16f4f5f60099e316c78cc7392b3c3e987e2e9fcb15ac4915344180de20",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261013032000_0125_derp259_artist_tables_rls_scope.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0125_0125_derp259_artist_tables_rls_scope.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "07c5fe08e7f361bf45cebc9f841653d46a94182923e911225098dcfa5c099417",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261013033000_0126_derp259_growth_momentum_scope.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0126_0126_derp259_growth_momentum_scope.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "bccc6a9e55e422dcdd88bf499f6f910374fa4cfb71fdb60b6e909045dfd86c6d",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261013040000_0129_newgang_f2_immediate_welcome.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0129_0129_newgang_f2_immediate_welcome.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "ea58a9bf1609e5e1f3d5b92034ec13bace59118cd465bb3fd558c28d71d553d8",
+      "after_ledger_cutoff": true,
+      "include": false
+    },
+    {
+      "supabase": "20261013054500_0131_derp261_spotify_chart_daily.sql",
+      "status": "diferentes",
+      "drizzle": [
+        "0131_derp261_spotify_chart_daily.sql"
+      ],
+      "basis": "candidato por semelhança de nome; conteúdo normalizado diferente",
+      "normalized_sha256": "ce3b3b54e806332ae2e7c232818ad44cac79a2f3f5a25fe8b2ebb32b6cd3bbdf",
+      "after_ledger_cutoff": true,
+      "include": true
+    },
+    {
+      "supabase": "20261013143000_0134_derp264_camarim_item_bp_line_guard.sql",
+      "status": "iguais",
+      "drizzle": [
+        "0134_0134_camarim_item_bp_line_guard.sql"
+      ],
+      "basis": "SHA256 normalizado igual",
+      "normalized_sha256": "56ad8b821536956e4ecc583a187f72058df45b47eb18c236ab188930fcc39d14",
+      "after_ledger_cutoff": true,
+      "include": false
+    }
+  ]
+}

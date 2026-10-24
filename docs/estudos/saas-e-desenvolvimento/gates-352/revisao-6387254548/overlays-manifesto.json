@@ -1,0 +1,144 @@
+{
+  "review_comment": 6387254548,
+  "reviewed_initial_overlays": 12,
+  "corrective_overlays_pending_final_review": 3,
+  "overlays": [
+    {
+      "path": "supabase/migrations/20260318234226_f2f475fc-98eb-4588-8b5e-2fb64205897b.sql",
+      "overlay_path": "overlay/20260318234226_f2f475fc-98eb-4588-8b5e-2fb64205897b.sql",
+      "original_sha256": "2b86ba1e3e56aa4e43b0738463c22a011ff3f947f97e2b6496c33017533b09bc",
+      "executed_sha256": "3b745e9ac5834990c8ffc3b4c07df16e12fb9aa27ace9294bba681a13a367b55",
+      "reason": "versão fora do ledger Live; sem efeito de schema; DML operacional ausente de Live (SELECT 24/10 17:04 UTC); overlay reproduz o estado de Live"
+    },
+    {
+      "path": "supabase/migrations/20260324035801_115c5b3e-ab42-41f5-9c90-60025dcaf818.sql",
+      "overlay_path": "overlay/20260324035801_115c5b3e-ab42-41f5-9c90-60025dcaf818.sql",
+      "original_sha256": "9243dbc57bac0a3947f85e413d6b300d9f99cc52de72cc33eefc7f88fb0be2ca",
+      "executed_sha256": "3473632629c620d0c422fed052456ff12ac3273029af9cf48aa6204112bbd905",
+      "reason": "versão fora do ledger Live; sem efeito de schema; DML operacional ausente de Live (SELECT 24/10 17:04 UTC); overlay reproduz o estado de Live"
+    },
+    {
+      "path": "supabase/migrations/20260324035826_ca2ba0c8-0fea-488c-a69c-34e4c1b49443.sql",
+      "overlay_path": "overlay/20260324035826_ca2ba0c8-0fea-488c-a69c-34e4c1b49443.sql",
+      "original_sha256": "3b412fcf6cfd141098ce5fc678a157024425634cfcd6fd002073e5dc14bca861",
+      "executed_sha256": "93c12e77722946f7c75ba37f943f7d9570b3ad908b7bf98b9269e50f123f878e",
+      "reason": "versão fora do ledger Live; sem efeito de schema; DML operacional ausente de Live (SELECT 24/10 17:04 UTC); overlay reproduz o estado de Live"
+    },
+    {
+      "path": "supabase/migrations/20260324035849_5b7af418-e4e0-4131-a9f0-8b472602d608.sql",
+      "overlay_path": "overlay/20260324035849_5b7af418-e4e0-4131-a9f0-8b472602d608.sql",
+      "original_sha256": "88f869eb7ad37fa9da36bbf9a022235051725bac17a6cdf787f651307a657ff5",
+      "executed_sha256": "602e8f06fe4e6e1422014f64b71af6b6c6a992fa23b5c7ae4c7f0b44fce5ee0a",
+      "reason": "versão fora do ledger Live; sem efeito de schema; DML operacional ausente de Live (SELECT 24/10 17:04 UTC); overlay reproduz o estado de Live"
+    },
+    {
+      "path": "supabase/migrations/20260408095142_424ff4e0-37da-4779-89b7-69f7ee04f5e9.sql",
+      "overlay_path": "overlay/20260408095142_424ff4e0-37da-4779-89b7-69f7ee04f5e9.sql",
+      "original_sha256": "19fee908160c38eccb4efd53dab68768589ea0cf0d902f2a783200ca049de7f4",
+      "executed_sha256": "607e2dedb71a3f69f8bfd6ee0a7e6293984607a489c7d7bfc5869642e14d346a",
+      "reason": "provisorio_catalogo_only; filhos do plano de contas substituídos futuramente pelo seed oficial; nenhum teste funcional sem seed"
+    },
+    {
+      "path": "supabase/migrations/20260408111916_8baef1fa-b052-4ac0-aec8-910547c23917.sql",
+      "overlay_path": "overlay/20260408111916_8baef1fa-b052-4ac0-aec8-910547c23917.sql",
+      "original_sha256": "7c1fe29ddbd9d4e82796e82562c2b533b24893007704848429f3147b9b7caadb",
+      "executed_sha256": "4c888b52c4d613b80f9fce8fafd7e3ecdd5fa9abe5182edcce56fa353456a54d",
+      "reason": "provisorio_catalogo_only; filhos do plano de contas substituídos futuramente pelo seed oficial; nenhum teste funcional sem seed"
+    },
+    {
+      "path": "supabase/migrations/20260408191828_7b155ec4-fceb-4bfa-a2ce-0f5b9b2b885e.sql",
+      "overlay_path": "overlay/20260408191828_7b155ec4-fceb-4bfa-a2ce-0f5b9b2b885e.sql",
+      "original_sha256": "1d3a2014dd70b366e42f3667e544f5a2c5186a3e8ae39ebad0d4e896620e952e",
+      "executed_sha256": "00fbc0253a937424971837bcb4e53ad4ba25536866e634015daad4a30599640d",
+      "reason": "corrective local iteration: duplicate identical trigger 42710; original preserved",
+      "iteration_authorization": "Pedro latest step5 iterate G1; Codex correction pending Claude final review",
+      "failure_run": 40119163318
+    },
+    {
+      "path": "supabase/migrations/20260411120205_d9b969db-165f-4aa0-86e3-6e549305beda.sql",
+      "overlay_path": "overlay/20260411120205_d9b969db-165f-4aa0-86e3-6e549305beda.sql",
+      "original_sha256": "933f4cb5ed0be8817ec6d467cde44d91fc9e763d45416b6d82e0859c27a8f340",
+      "executed_sha256": "62360c062be66c321bbab71cfb26a0e067a9d637c8577a767906e9f814f7c2d1",
+      "reason": "provisorio_catalogo_only; filhos do plano de contas substituídos futuramente pelo seed oficial; nenhum teste funcional sem seed"
+    },
+    {
+      "path": "supabase/migrations/20260420192118_02ea9f73-0037-4a27-b6a2-dfe6803d4f1c.sql",
+      "overlay_path": "overlay/20260420192118_02ea9f73-0037-4a27-b6a2-dfe6803d4f1c.sql",
+      "original_sha256": "e1bd87b3d2a37352ed5bfc8723946e017b45837ad9d0fdb6e19a00200e8de1a9",
+      "executed_sha256": "da7f06523c159e583f32052e2022bd20c7fd6fb61603f56394732e40d75d0bc5",
+      "reason": "restore required nullable uuid column from exact repository catalogue snapshot before index",
+      "iteration_authorization": "Pedro latest step5 iterative G1; Codex correction pending Claude final review",
+      "failure_run": 40119543266
+    },
+    {
+      "path": "supabase/migrations/20260420204859_dd2e878c-fd9a-43dc-8f91-af151330e6f2.sql",
+      "overlay_path": "overlay/20260420204859_dd2e878c-fd9a-43dc-8f91-af151330e6f2.sql",
+      "original_sha256": "eed08c2936664aaa72c01b85317b6b9417d4c2d4c5c7a7fe34d705ed42ce3bfa",
+      "executed_sha256": "0180fb82cfea89ad689c82a7c3cdf99ddb2c35521ac381b27118a91a95390ccf",
+      "reason": "remove operational backfill only; all DDL retained; missing formula columns remain visible to G2",
+      "iteration_authorization": "Pedro latest step5; Codex correction pending Claude final review",
+      "failure_run": 40120020259
+    },
+    {
+      "path": "supabase/migrations/20260814221539_c29025c8-49fb-4c65-a4d5-2a24dae88daa.sql",
+      "overlay_path": "overlay/20260814221539_c29025c8-49fb-4c65-a4d5-2a24dae88daa.sql",
+      "original_sha256": "a909bd3f34cd317d991f5556f23e518f185baf9cdef6ff350e5159171d998eb4",
+      "executed_sha256": "f37e3ef604eb6ca75ee7844291166df4ad81e7bf0466152579d83e1778def474",
+      "reason": "só DDL; remover INSERT operacional"
+    },
+    {
+      "path": "supabase/migrations/20260924202758_ed08efce-1944-4b70-b975-cd4d0996a981.sql",
+      "overlay_path": "overlay/20260924202758_ed08efce-1944-4b70-b975-cd4d0996a981.sql",
+      "original_sha256": "fd84f3323c2bb90c48f5d5297c6a494232704eaa5d2bd5ac189154e432ba3881",
+      "executed_sha256": "310980d1c87963cbf22346816cc0094a36c97aea2e077ffcc8839870b9913c13",
+      "reason": "só DDL; remover INSERT operacional"
+    },
+    {
+      "path": "drizzle/migrations/0016_derp178_tiktok_sync_status_per_connection.sql",
+      "overlay_path": "overlay/0016_derp178_tiktok_sync_status_per_connection.sql",
+      "original_sha256": "254359e9a9b635a5fa36833749267b28ab466724d3c6446e6f2c43603da707e1",
+      "executed_sha256": "6ee7fe434ac3732bb6abe3b18231349549ae948fd83c0c95d901b1277dd6839b",
+      "reason": "0016 histórico exacto; 0016 actual é gémeo de0017 e não é aplicado"
+    },
+    {
+      "path": "drizzle/migrations/0200_capi_v2_consent_events.sql",
+      "overlay_path": "overlay/0200_capi_v2_consent_events.sql",
+      "original_sha256": "d6b2596236d762f8402799d7f4efd08da19a8ad40d85e06acb834fa50b35ab94",
+      "executed_sha256": "b8921b08c53c2d7d12690192954fcd2608ef8da5b0b7beda71abe1f0f777816b",
+      "reason": "retirar apenas INSERT operacional capi_v2_targets; preservar DDL, templates e controlos de segurança"
+    },
+    {
+      "path": "drizzle/migrations/0205_ugc_ios_watchdog.sql",
+      "overlay_path": "overlay/0205_ugc_ios_watchdog.sql",
+      "original_sha256": "c1c1d3022a8d8de51368fcdfbc58e82407568ad5377f1389bf05fb25612c1b4e",
+      "executed_sha256": "6bb0b9ab2386d6a1667f94469e2ebfaa855fa899acae0d6a3b77c6308de6be18",
+      "reason": "retirar apenas INSERT operacional ugc_watchdog_config; preservar DDL, templates e controlos de segurança"
+    }
+  ],
+  "corrective_iterations": [
+    {
+      "path": "supabase/migrations/20260408191828_7b155ec4-fceb-4bfa-a2ce-0f5b9b2b885e.sql",
+      "sqlstate": "42710",
+      "run": 40119163318,
+      "proof": "same CREATE TRIGGER on auth.users AFTER INSERT FOR EACH ROW EXECUTE FUNCTION public.handle_new_user() in migration5 and87",
+      "change": "DROP TRIGGER IF EXISTS before recreation; no other SQL changes",
+      "review_status": "Codex correction pending Claude final review"
+    },
+    {
+      "path": "supabase/migrations/20260420192118_02ea9f73-0037-4a27-b6a2-dfe6803d4f1c.sql",
+      "sqlstate": "42703",
+      "run": 40119543266,
+      "source_snapshot_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d",
+      "source_catalogue_key": "table:public.ticket_sales",
+      "change": "ADD COLUMN IF NOT EXISTS zone_id uuid before original index; only required column, remaining catalogue differences left to G2",
+      "review_status": "Codex correction pending Claude final review"
+    },
+    {
+      "path": "supabase/migrations/20260420204859_dd2e878c-fd9a-43dc-8f91-af151330e6f2.sql",
+      "sqlstate": "42703",
+      "run": 40120020259,
+      "change": "remove only INSERT SELECT operational backfill (source event_closing_costs); preserve is_overhead column/index and comments",
+      "review_status": "Codex correction pending Claude final review"
+    }
+  ]
+}

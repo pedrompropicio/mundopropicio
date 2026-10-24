@@ -1,0 +1,36 @@
+{
+  "status": "vermelho/bloqueado",
+  "complete_native_catalog": false,
+  "reason": "G1 stopped at entry 162/1225; all 240 Drizzle entries remain unexecuted. Partial catalogue cannot establish actual drift or a/b/c/d classification.",
+  "classification_performed": false,
+  "unclassified_count": null,
+  "zero_unclassified_claimed": false,
+  "categories": {
+    "tables": {
+      "local_partial_rows": 134,
+      "query_unchanged": true
+    },
+    "columns": {
+      "local_partial_rows": 1290,
+      "query_unchanged": true
+    },
+    "functions": {
+      "local_partial_rows": 173,
+      "query_unchanged": true
+    },
+    "policies": {
+      "local_partial_rows": 259,
+      "query_unchanged": true
+    },
+    "triggers": {
+      "local_partial_rows": 39,
+      "query_unchanged": true
+    },
+    "extensions": {
+      "local_partial_rows": 9,
+      "query_unchanged": true
+    }
+  },
+  "catalogue_artifact_run": 40120338753,
+  "fresh_live_catalog_collected": false
+}
