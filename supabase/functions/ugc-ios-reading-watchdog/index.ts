@@ -5,6 +5,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { dailySourceAlerts } from "./freshness.ts";
+import { resolveRecipient, type OptinRow } from "./recipient.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,13 +48,30 @@ Deno.serve(async (req) => {
 
   const { data: configs, error: cfgErr } = await supabase
     .from("ugc_watchdog_config")
-    .select("song_id, label, recipient_phone, recipient_profile_id, company_id")
+    .select("song_id, label, recipient_profile_id, company_id")
     .eq("active", true);
   if (cfgErr) {
     return new Response(JSON.stringify({ error: cfgErr.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  }
+
+  // Contacto vem do opt-in do perfil (uma só consulta).
+  const profileIds = [...new Set((configs ?? []).map((c) => c.recipient_profile_id).filter(Boolean))];
+  const optins = new Map<string, OptinRow>();
+  if (profileIds.length > 0) {
+    const { data: optRows, error: optErr } = await supabase
+      .from("notification_optin")
+      .select("profile_id, phone_number, opted_in_at, opted_out_at")
+      .in("profile_id", profileIds);
+    if (optErr) {
+      return new Response(JSON.stringify({ error: optErr.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    for (const r of optRows ?? []) optins.set(r.profile_id, r as OptinRow);
   }
 
   // Template tem de existir (mesmo pending) para enfileirar.
@@ -128,6 +146,12 @@ Deno.serve(async (req) => {
       continue;
     }
 
+    const recipient = resolveRecipient(cfg, cfg.recipient_profile_id ? optins.get(cfg.recipient_profile_id) : null);
+    if (!recipient.ok) {
+      decisions.push({ song_id: cfg.song_id, label: cfg.label, decision: "skipped_no_recipient", reason: recipient.reason, last_reading: lastLabel });
+      continue;
+    }
+
     const status = alertsToday === 0 ? "missing_alerted" : "still_missing_alerted";
     const decision: Record<string, unknown> = {
       song_id: cfg.song_id,
@@ -153,8 +177,8 @@ Deno.serve(async (req) => {
       }
       const { error: qErr } = await supabase.from("notification_queue").insert({
         template_id: tpl.id,
-        recipient_phone: cfg.recipient_phone,
-        recipient_profile_id: cfg.recipient_profile_id,
+        recipient_phone: recipient.phone,
+        recipient_profile_id: recipient.profile_id,
         company_id: cfg.company_id,
         params: [cfg.label, lastLabel],
         status: "queued",
