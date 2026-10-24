@@ -1,6 +1,6 @@
 # Mundo Propício — identidade corporativa
 
-**Origem.** Portal mundopropicio.com, projeto Lovable 26b95793-17b6-478c-a6e8-745c0cfb7ed9, ficheiro `src/styles.css` (bloco "Mundo Propício — design tokens", `:root`), lido a 24/10/2026. Por confirmar pelo Pedro como identidade corporativa oficial; até lá é a única com origem.
+**Origem.** Portal mundopropicio.com, projeto Lovable 26b95793-17b6-478c-a6e8-745c0cfb7ed9, ficheiro `src/styles.css` (bloco "Mundo Propício — design tokens", `:root`), lido a 24/10/2026. Confirmada pelo Pedro como identidade corporativa oficial a 24/10/2026 (chat 0 - Cowork Claude). Na mesma decisão: relatórios de artistas saem com `gestao-artistica.md` até o artista ter identidade própria registada nesta pasta.
 
 **Usa-se em.** Relatórios da empresa sem projeto ou que cruzam vários projetos.
 
