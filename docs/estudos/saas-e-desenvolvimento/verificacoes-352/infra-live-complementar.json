@@ -1,0 +1,172 @@
+{
+  "source": "Lovable.query_database; current Live, NOT contents of backup infra.json",
+  "sql": "SELECT now() AS checked_at,(SELECT count(*) FROM cron.job) AS cron_count,(SELECT jsonb_agg(name ORDER BY name) FROM vault.secrets) AS vault_secret_names,(SELECT jsonb_agg(jsonb_build_object('id',id,'public',public) ORDER BY id) FROM storage.buckets) AS buckets",
+  "result": {
+    "buckets": [
+      {
+        "id": "accountant-exports",
+        "public": false
+      },
+      {
+        "id": "ads-invoices",
+        "public": false
+      },
+      {
+        "id": "bank-statements",
+        "public": false
+      },
+      {
+        "id": "bp-version-snapshots",
+        "public": false
+      },
+      {
+        "id": "cache-extra-documents",
+        "public": false
+      },
+      {
+        "id": "camarim-documents",
+        "public": false
+      },
+      {
+        "id": "card-documents",
+        "public": false
+      },
+      {
+        "id": "closing-cost-documents",
+        "public": false
+      },
+      {
+        "id": "club-mission-assets",
+        "public": true
+      },
+      {
+        "id": "club-proofs",
+        "public": false
+      },
+      {
+        "id": "company-branding",
+        "public": true
+      },
+      {
+        "id": "company-logos",
+        "public": true
+      },
+      {
+        "id": "crm-meta-creatives",
+        "public": true
+      },
+      {
+        "id": "data-entry-staging",
+        "public": false
+      },
+      {
+        "id": "database-backups",
+        "public": false
+      },
+      {
+        "id": "entity-documents",
+        "public": false
+      },
+      {
+        "id": "event-ab-attachments",
+        "public": false
+      },
+      {
+        "id": "event-forecast-attachments",
+        "public": false
+      },
+      {
+        "id": "event-images",
+        "public": true
+      },
+      {
+        "id": "exports-temp",
+        "public": false
+      },
+      {
+        "id": "festival-edition-videos",
+        "public": true
+      },
+      {
+        "id": "funnel-test-screenshots",
+        "public": false
+      },
+      {
+        "id": "implementation-files",
+        "public": false
+      },
+      {
+        "id": "import-reports",
+        "public": false
+      },
+      {
+        "id": "operacao-media",
+        "public": false
+      },
+      {
+        "id": "partner-extra-documents",
+        "public": false
+      },
+      {
+        "id": "portal-marketing-images",
+        "public": true
+      },
+      {
+        "id": "press-clippings",
+        "public": true
+      },
+      {
+        "id": "standalone-invoices",
+        "public": false
+      },
+      {
+        "id": "supplier-credit-documents",
+        "public": false
+      },
+      {
+        "id": "supplier-documents",
+        "public": false
+      },
+      {
+        "id": "test-artifacts",
+        "public": true
+      },
+      {
+        "id": "ticket-office-settlements",
+        "public": false
+      },
+      {
+        "id": "transaction-documents",
+        "public": false
+      }
+    ],
+    "checked_at": "2026-10-24 12:49:33.178482+00",
+    "cron_count": 81,
+    "vault_secret_names": [
+      "bol_master",
+      "email_queue_service_role_key",
+      "fever_b2b_token_coala_2026",
+      "fever_credentials_coala_2026",
+      "IPINFO_TOKEN",
+      "META_CAPI_ACCESS_TOKEN",
+      "META_WA_PHONE_NUMBER_ID",
+      "META_WA_SYSTEM_TOKEN",
+      "ticketline_3def1b85-0ed0-4166-b45d-3a4561564e15",
+      "ticketline_4fca2381-1db9-4ff5-9dc0-91068de88a02",
+      "ticketline_56e431e8-adcc-4f87-99fd-545c9bb1aefa",
+      "ticketline_95051bc2-8580-405c-a1ad-f2526ddf9bd4",
+      "ticketline_fdfb39fe-45f2-43f5-9ec9-7cb536360ae1",
+      "ticketline_master"
+    ]
+  },
+  "latest_backup_metadata": {
+    "source": "SELECT name,created_at,updated_at,metadata->>size FROM storage.objects, only metadata",
+    "checked_at": "2026-10-24 12:51:22.091032+00",
+    "bucket": "database-backups",
+    "name": "global/2026-10-21T03-00-05/infra.json",
+    "created_at": "2026-10-21 03:04:27.705548+00",
+    "updated_at": "2026-10-21 03:04:27.705548+00",
+    "bytes": 116310,
+    "content_read": false
+  }
+}
