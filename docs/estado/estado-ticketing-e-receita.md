@@ -1,6 +1,6 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-10-13 · D-ERP239 (SM Porto: 120,00 repostos em ticket_sales) · #303 continua aberta · Issues: `agora` — · `a-seguir` #206 · `depois` #73, #78 · `bloqueada` #211 (transversal, plataforma-e-infra)
+Atualizado: 2026-10-24 · prioridade P1 #358 (avaliação técnica concluída, conferência do portal e aprovação pendentes) · #348 separada, sondagem ainda não despachada. Últimas alterações operacionais anteriores: D-ERP239; mantidas.
 
 ## Em vigor
 
@@ -14,6 +14,11 @@ Atualizado: 2026-10-13 · D-ERP239 (SM Porto: 120,00 repostos em ticket_sales) �
 
 ## A trabalhar agora
 
+- **#358 — vendas RG27 incompletas desde 21/10, avaliação sem correções.** Frente 3 / ChatGPT. Código v2.43 e SELECT Live lidos em 24/10, ~21:27–21:30 UTC; diagnóstico/proposta e predicados no [comentário 6389784666](https://github.com/pedrompropicio/mundopropicio/issues/358#issuecomment-6389784666). Braga sem ticketline_report_codes faz match por cidade com RG Braga e Deive Braga (ambos enabled): aborta o lote capture_day antes do UPSERT de todas as cidades. Com labels extensos, o texto antes do primeiro "|" não identifica Braga/Montijo; linhas com venda ficam sem match e são gravadas como zero em runs success. Braga/Montijo/Porto têm fallback=false, portanto o RPC continua a ler ticket_sales. O handler da landing só reclassifica em skipped quando a flag já está ligada; não liga fallback nem marca migração.
+- **#358 — evidência e limites.** Audits guardados do sales_per_event já mostram vendas que o ERP não reflete (tabela por cidade/dia na Issue); não são conferência direta autenticada do Pedro. Browser abriu em sign_in. Falta confirmar Total Vendas de 22–24/10 na nova área de Promotores, com hora de corte no dia corrente. Os cinco configs não RG mantêm sucessos no XLSX e não apresentam a mesma landing no universo consultado, mas têm 503 intermitentes; Deive participa no erro de Braga. Não assumir zero real, migração de outros eventos ou completude pela existência de linhas no espelho.
+- **#358 — proposta, não implementada (R2).** Validar códigos; preencher somente os mapeamentos RG Braga/Montijo com prévia e autorização; corrigir proteção contra vendas não mapeadas/zero falso (código/testes isolados R1, produção R2); recuperar 21–24/10 por UPSERT com âmbito controlado e preservação dos valores anteriores/audits; validar a cobertura histórica do espelho ANTES de ativar as três flags e definir corte por evento, sem data universal presumida. Manter corte de Lisboa salvo nova prova. Verificar RPC/vista/acumulado e consumidores ainda em ticket_sales. Cada passo de dados/configuração/edge exige aprovação própria; Publish/crons pelo 0. Nenhuma correção, invocação de capture_day, código, DDL/DML, cron, deploy ou Publish nesta avaliação; sem reserva ativa.
+- **#348 — canal online/balcão para Revenue Share.** Sondagem preparada na sessão anterior, sem despacho autorizado/executado nesta avaliação; não misturar com #358. BP 1.3.04 fica na frente 5.
+
 - **Cadeia de apuramento incompleta (#303):** Ivete Clareou 2026 e Henry&Klaus Porto têm fecho sem apuramento; Maiara e Maraisa Lisboa e Porto não têm nenhum dos dois. Obter os PDFs anteriores ao 3163, sem inventar ligações ou valores.
 - **Conciliação do 3163 contra o PDF (#303):** conferir linha a linha; a soma −49.050,59 já fecha, mas não prova equivalência documental.
 - **Fecho Deive Leonardo Braga:** permanece em draft, direito 20.384,11, ligado ao 3163; aguarda a confirmação do Pedro no ecrã.
@@ -21,6 +26,7 @@ Atualizado: 2026-10-13 · D-ERP239 (SM Porto: 120,00 repostos em ticket_sales) �
 
 ## Bloqueios
 
+- **#358:** falta conferência do Pedro no portal e aprovação do plano R2 antes de qualquer correção. Ligar só o fallback pode trocar todo o histórico da série por um espelho incompleto (#197); marcar migração não recupera linhas perdidas. O capture_day atual escreve todos os configs da empresa, mesmo recebendo configId de uma cidade — qualquer reprocessamento exige âmbito explícito.
 - **#303 — cadeia de apuramentos incompleta.** Quatro eventos acertados fora do sistema de apuramentos:
   - Ivete Clareou 2026: tem fecho, sem apuramento.
   - Henry&Klaus Porto: tem fecho, sem apuramento.
