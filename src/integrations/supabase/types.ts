@@ -17220,6 +17220,7 @@ export type Database = {
       }
       song_link_events: {
         Row: {
+          ab_variant: string | null
           arrival_event_id: string | null
           artist_id: string | null
           capi_external_id: boolean | null
@@ -17254,6 +17255,7 @@ export type Database = {
           utm_term: string | null
         }
         Insert: {
+          ab_variant?: string | null
           arrival_event_id?: string | null
           artist_id?: string | null
           capi_external_id?: boolean | null
@@ -17288,6 +17290,7 @@ export type Database = {
           utm_term?: string | null
         }
         Update: {
+          ab_variant?: string | null
           arrival_event_id?: string | null
           artist_id?: string | null
           capi_external_id?: boolean | null
