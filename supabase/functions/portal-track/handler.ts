@@ -4,6 +4,7 @@
 // Aceita text/plain (sendBeacon, sem preflight) e application/json.
 // verify_jwt = false (config.toml) — ABERTA por desenho.
 import { consentRecordResponse, interpretBind, parseConsentDecision, portalForOrigin, readConsentReceipt, readConsentToken, stripMetaIdentifiers } from "../_shared/consent-contract.ts";
+import { hasConsentVersionFields, resolveConsentVersions } from "./consent-versions.ts";
 
 export type Deps = {
   fetch: typeof fetch;
@@ -281,6 +282,26 @@ return async (req: Request): Promise<Response> => {
       row.geo_country = g.country;
       row.geo_city = g.city;
       row.geo_region = g.region;
+    }
+  }
+
+  // #359: versão do texto das caixas. Só com campos de versão no payload; sem eles o row fica igual ao de hoje.
+  if (kind === "lead" && hasConsentVersionFields(body.payload)) {
+    const res = await resolveConsentVersions(
+      { payload: body.payload, company: companyForOrigin(origin), now: new Date() },
+      async (company, versions) => {
+        const list = versions.map(v => `"${v}"`).join(",");
+        const r = await fetch(`${url}/rest/v1/consent_text_versions?select=version,locale,channel,valid_from,valid_to&company_id=eq.${company}&version=in.(${list})`, {
+          headers: { apikey: key, Authorization: `Bearer ${key}` },
+        });
+        if (!r.ok) throw new Error(`lookup ${r.status}`);
+        return await r.json();
+      },
+    );
+    if (res.applies) {
+      Object.assign(row, res.columns);
+      if (Object.keys(res.raw).length) row.raw = { ...((row.raw as Record<string, unknown>) ?? {}), ...res.raw };
+      if (Array.isArray(res.raw.consent_version_warnings)) console.warn("[portal-track] consent version", res.raw.consent_version_warnings);
     }
   }
 
