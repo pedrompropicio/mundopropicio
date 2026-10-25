@@ -23,6 +23,7 @@ import {
   type AppOpenParsed, testDeliveryPolicy, metaReceipt, tiktokReceipt,
   arrivalClickSignals, type ArrivalClickRow,
 } from "./app-open.ts";
+import { abVariantFor, AB_IOS_BTN_WINDOW } from "./ab-variant.ts";
 
 const ALLOWED_ORIGINS = new Set<string>([
   "https://www.mundopropicio.com",
