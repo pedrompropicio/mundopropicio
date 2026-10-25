@@ -1,3 +1,4 @@
+// @vitest-environment node
 // #359 — rascunhos SQL (supabase/manual) executados em PGlite com stubs mínimos.
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
