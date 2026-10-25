@@ -21,6 +21,7 @@ import {
   canonicalOpenId, destinationConfigured, isDuplicateArrival, isUuid,
   parseAppOpenBody, validateArrivalForAppOpen, VIEWCONTENT_DEDUP_WINDOW_MS,
   type AppOpenParsed, testDeliveryPolicy, metaReceipt, tiktokReceipt,
+  arrivalClickSignals, type ArrivalClickRow,
 } from "./app-open.ts";
 
 const ALLOWED_ORIGINS = new Set<string>([
@@ -334,6 +335,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
   let appOpen: AppOpenParsed | null = null;
   let arrivalEventId: string | null = null;
   let arrivalMode: string | null = null;
+  let clickArrival: ArrivalClickRow | null = null;
   if (event === "app_open") {
     const parsed = parseAppOpenBody(body);
     if (!parsed.ok) return json({ ok: false, error: parsed.error }, 400, origin);
@@ -343,24 +345,28 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     appOpen = parsed.value;
     arrivalEventId = parsed.value.arrival_event_id;
     const { data: arr, error: arrErr } = await admin.from("song_link_events")
-      .select("id, origin, created_at, mode")
+      .select("id, origin, created_at, mode, link_id, event, fbclid, ttclid")
       .eq("event_id", arrivalEventId).eq("event", "arrival").eq("link_id", link.id)
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (arrErr) return json({ ok: false, error: "erro_interno" }, 500, origin);
     const va = validateArrivalForAppOpen(arr, Date.now());
     if (!va.ok) return json({ ok: false, error: va.error }, 403, origin);
     arrivalMode = arr?.mode ?? null;
+    clickArrival = arr;
   } else if (event === "choice" && isUuid(body?.arrival_event_id) && destination) {
     // Choice COM arrival_event_id (Portal novo): partilha o slot ListenClick Meta.
     // Choice SEM arrival_event_id (Portal atual): comportamento inalterado, sem slot.
     arrivalEventId = String(body.arrival_event_id).trim().toLowerCase();
     const { data: arr, error: arrErr } = await admin.from("song_link_events")
-      .select("mode").eq("event_id", arrivalEventId).eq("event", "arrival").eq("link_id", link.id)
+      .select("mode, created_at, link_id, event, fbclid, ttclid").eq("event_id", arrivalEventId).eq("event", "arrival").eq("link_id", link.id)
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (arrErr) return json({ ok: false, error: "erro_interno" }, 500, origin);
     arrivalMode = arr?.mode ?? null;
+    clickArrival = arr;
   }
 
+  const inheritedClicks = arrivalClickSignals(clickArrival, link.id);
+  const inheritClicks = event === "app_open" || (event === "choice" && arrivalEventId !== null);
   const testPolicy = testDeliveryPolicy(s(body.mode, 30), arrivalMode, metaTest, ttTest);
 
   // D-ERP234: atomic INSERT ON CONFLICT happens before any external delivery.
@@ -374,7 +380,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
       event_id: appOpen.event_id, arrival_event_id: appOpen.arrival_event_id,
       utm_source: s(body.utm_source, 200), utm_medium: s(body.utm_medium, 200),
       utm_campaign: s(body.utm_campaign, 200), utm_content: s(body.utm_content, 200), utm_term: s(body.utm_term, 200),
-      fbclid: s(body.fbclid, 500), ttclid: s(body.ttclid, 500),
+      fbclid: inheritedClicks.fbclid, ttclid: inheritedClicks.ttclid,
       country: hdrCountry, region: hdrRegion, city: hdrCity, device, os, in_app_browser,
       ip_hash: ipHash, origin: "browser", capi_status: "pendente", tiktok_status: "pendente",
     }).select("id").maybeSingle();
@@ -527,10 +533,10 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
           const user_data: Record<string, unknown> = {};
           if (ip) user_data.client_ip_address = ip;
           if (ua) user_data.client_user_agent = ua;
-          let fbc = s(body?.fbc, 500); const fbp = s(body?.fbp, 500);
+          let fbc = inheritClicks ? inheritedClicks.fbc : s(body?.fbc, 500); const fbp = s(body?.fbp, 500);
           // D-ERP171: fbc no servidor a partir do fbclid quando o Portal não o enviou.
           const fbclidIn = s(body?.fbclid, 500);
-          if (!fbc && fbclidIn) fbc = `fb.1.${Date.now()}.${fbclidIn}`;
+          if (!inheritClicks && !fbc && fbclidIn) fbc = `fb.1.${Date.now()}.${fbclidIn}`;
           if (fbc) user_data.fbc = fbc;
           if (fbp) user_data.fbp = fbp;
           // D-ERP171: external_id = sha256(sal:ip:ua). Nunca gravado; sem cookies.
@@ -584,7 +590,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
       else {
         try {
           const user: Record<string, unknown> = {};
-          const ttclid = s(body?.ttclid, 500); const ttp = s(body?.ttp, 500);
+          const ttclid = inheritClicks ? inheritedClicks.ttclid : s(body?.ttclid, 500); const ttp = s(body?.ttp, 500);
           if (ttclid) user.ttclid = ttclid;
           if (ttp) user.ttp = ttp;
           if (ip) user.ip = ip;
