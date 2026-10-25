@@ -27,7 +27,8 @@ Mais `CREATE OR REPLACE public.song_link_event_claim` copiado byte-a-byte da ver
 WITH a AS (
   SELECT event_id, ab_variant FROM public.song_link_events
   WHERE event='arrival' AND os='ios' AND ab_variant IS NOT NULL
-    AND created_at >= '2026-10-26')
+    AND created_at >= '2026-10-25T22:07:00Z' AND created_at < '2026-11-01T22:07:00Z'
+    AND ab_variant IN ('A','B') AND coalesce(utm_content,'') NOT LIKE 'teste_%')
 SELECT a.ab_variant,
        count(*) AS chegadas,
        count(c.id) AS toques,

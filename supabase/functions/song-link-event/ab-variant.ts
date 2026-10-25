@@ -7,7 +7,7 @@ export type AbVariant = "A" | "B" | "A_forcado" | "B_forcado";
 export type AbWindow = { start: string; end: string } | null;
 
 // Janela de 7 dias a contar do deploy; preenchida no passo de deploy. null = teste desligado.
-export const AB_IOS_BTN_WINDOW: AbWindow = { start: "2026-10-25T21:54:00Z", end: "2026-11-01T21:54:00Z" };
+export const AB_IOS_BTN_WINDOW: AbWindow = { start: "2026-10-25T22:07:00Z", end: "2026-11-01T22:07:00Z" };
 export const AB_IOS_BTN_SALT = "ab-ios-btn-v1:";
 
 export function abForceParam(v: unknown): "A" | "B" | null {
