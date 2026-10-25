@@ -1,12 +1,10 @@
 # ESTADO — Plataforma & Infra
 
-## #352 — efeito Coala validado; G1 parou no checkpoint histórico
+## #352 — checkpoint corrigido; faltam3códigos na reprodução
 
-Run40156547812,código privado0dbe73a1:382/1454 entradas concluídas sem erroSQL (133ledger+247órfãos+2seeds). Ordenação por effective_at autorizada resolveu20260429225802. ProvaLive agregada183categorias Coala,min23:49:50.008786UTC,158nesse segundo. SQL/seed/overlays inalterados.38testes locais e28autotestes nativos PASS.
+Run40157490655,código privado164a068a:382/1454entradas concluídas sem erroSQL. Queries separadas:referênciaLive114inalterada com filtro histórico;localpor códigos semcreated_at. Checkpoint20260430033938:111/114,as 111 coincidem exactamente;ausentes10.7.01,10.7.02,10.7.03(row_count). G1vermelho/G2não executado. Parou sem alterar referência/seed/migrações. Leitura sugere dupla transformação em 20260430032104 e 20260430033938;parecerClaude pendente.
 
-Checkpoint20260430033938 alcançado:0linhas locais/114referência;parou. Seed omitecreated_at(default now),checkpoint exige data histórica. Seed isolado117linhas/0pais por resolver;0linhas filtradas não significa tabela vazia. G1vermelho/G2não executado. ParecerClaude necessário sobre população histórica;sem alteração do filtro nem datas inventadas.
-
-100saltos destrutivos;1012idempotentes(527base+74using_index+84trigger_equal+326policy_equal+1insert_duplicate_equal). PII SQL1229/0;2crons exportados/abatidos localmente. [Relatório](../estudos/saas-e-desenvolvimento/gates-352/effective-order-g1.md) e [anexo](../estudos/saas-e-desenvolvimento/gates-352/effective-order-g1.json). Reserva libertada;#352aberta;D-ERP309já registada. Live sóSELECT agregado;semDSN/homolog/deploy/Publish.
+47testes locais PASS,28autotestes nativos PASS;seed117/0pais por resolver.100saltos destrutivos;1012idempotentes(527base+74using_index+84trigger_equal+326policy_equal+1insert_duplicate_equal). PII1229origens+2queries/0;2crons exportados/abatidos localmente. [Relatório](../estudos/saas-e-desenvolvimento/gates-352/checkpoint-dual-query-g1.md) e [anexo](../estudos/saas-e-desenvolvimento/gates-352/checkpoint-dual-query-g1.json). Reserva libertada;#352aberta;D-ERP309já registada. Sem nova leitura/escritaLive,DSN,homolog,deploy ouPublish.
 
 ## #353 — correção R1 de CI: relógio determinístico nos testes
 24/10/2026 11:42 UTC — base comum 3afd243a92c6462f49be483faccf954391276d3b limpa. Só src/test/capi-v2.test.ts: Date fixo em NOW no describe handler, afterEach restaura; temporizadores reais preservados. Baseline host 24/10: 11 FAIL/18 PASS; depois 33 PASS no host atual e em 01/01/2030 simulado, fronteiras antes/no/depois de 6 dias e isolamento provados. Suite integral final 2409 PASS/6 skip/11 todo, exit 0; build automático OK. Código c83ca22ec; relatório docs/testes/issue353-ci-relogio.md. Reserva #353 mantida até controller conferir tsgo e CI no SHA final; local não prova GitHub verde. Sem código de produção, rede externa/Live, DDL/DML/config/segredos/flags/deploy/Publish/reenvios; reserva #322 e restantes estados preservados. Issue não editada nem fechada.
