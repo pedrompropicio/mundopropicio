@@ -61,6 +61,7 @@ beforeAll(async()=>{
  INSERT INTO public.song_link_events
   SELECT gen_random_uuid(),NULL,'${artist}','arrival','tiktok','paid','campanha_misteriosa_xyz',NULL,'BR','ios',timestamptz '2026-10-19 10:30' FROM generate_series(1,5);`);
  await db.exec(readFileSync('drizzle/migrations/0245_ads_compare_custo_por_chegada_destino.sql','utf8'));
+ await db.exec(readFileSync('drizzle/migrations/0246_ads_compare_custo_denominador_chegadas.sql','utf8'));
 },30000);
 afterAll(async()=>{await db?.close();});
 const row=async(platform:string)=>{
