@@ -13,7 +13,7 @@ beforeAll(async()=>{
  CREATE TABLE artist_song_tiktok_sound_daily(song_id uuid,company_id uuid,metric_date date,video_count bigint,music_id text,source text);
  INSERT INTO artist_songs VALUES('10000000-0000-4000-8000-000000000003','Synthetic','2026-09-02','10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000002','ativo');`);
  await db.exec(readFileSync(process.env.S4A_ADJUST_SQL ?? 'drizzle/migrations/0242_s4a_playlist_kind_estimates.sql','utf8'));
- await db.exec(`INSERT INTO artist_song_playlist_streams SELECT '10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','radio',d,28,least((d-'2026-09-02'::date)+1,28)*10,'s4a_api','Radio','spotify:playlist:radio','spotify','algorithmic' FROM generate_series('2026-09-02'::date,'2026-10-01'::date,'1 day') d;
+ await db.exec(`INSERT INTO artist_song_playlist_streams SELECT '10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','radio',d::date,28,least((d::date-'2026-09-02'::date)+1,28)*10,'s4a_api','Radio','spotify:playlist:radio','spotify','algorithmic' FROM generate_series('2026-09-02'::date,'2026-10-01'::date,'1 day') d;
  INSERT INTO artist_song_playlist_streams VALUES('10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','radio','2026-10-01',1,12,'s4a_api','Radio','spotify:playlist:radio','spotify','algorithmic');`);
 },30000);
 afterAll(async()=>{await db?.close();});
