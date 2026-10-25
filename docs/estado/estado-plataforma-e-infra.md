@@ -1,10 +1,12 @@
 # ESTADO — Plataforma & Infra
 
-## #352 — checkpoint114/114; G1 parou em delimitador transacional
+## #352 — txn_control validado; dependênciaCRM bloqueiaG1
 
-Run40158646792,código privadoc284343e:checkpoint20260430033938 PASS114/114,zero diferenças.20260430032104 superseded com overlay vazio;final no efeito04:19UTC eSQLintacto.439/1454entradas concluídas(1superseded incluída),440tentadas. Primeira falha20260509140408:COMMITL7encerra transação do runner;RELEASE SAVEPOINT falha25P01. Não afirmar rollback da versão,o COMMITlocal já ocorreu. G1vermelho/G2não executado;parecerClaude necessário para delimitadores de topo,sem alterar originais.
+Run40159254069,código privado71661330:452/1454entradas concluídas,453tentadas.3testes nativos txn_control PASS (BEGIN/COMMIT,ROLLBACK,erro intermédio com reversão);39testes locais PASS;28autotestes anteriores PASS. Checkpoint114/114mantido.4delimitadores registados em2ficheiros;plano/SQL/hashes intactos.
 
-52testes locais e28autotestes nativos PASS;seed117/0pais por resolver.117saltos destrutivos;1288idempotentes(701base+104using_index+113trigger_equal+369policy_equal+1insert_duplicate_equal);1superseded separado. PII SQL1230/0;2crons exportados/abatidos localmente. [Relatório](../estudos/saas-e-desenvolvimento/gates-352/superseded-pair-g1.md) e [anexo](../estudos/saas-e-desenvolvimento/gates-352/superseded-pair-g1.json). Reserva libertada;#352aberta;D-ERP309já registada. Live só2SELECT agregados;sem escritaLive/DSN/homolog/deploy/Publish.
+Primeira falha20260510034250,L21,CREATE TABLE crm.role_budget_limits,3F000:crm ausente. Ledger20260510024841é sócomentário backfill;ficheiro público da mesma versão cria crm,L2,mas foi excluído pela regra de prevalêncialedger. ParecerClaude necessário;sem schema/overlay/excepção nova. G1vermelho/G2não executado.
+
+119saltos destrutivos;1298idempotentes(703base+104using_index+113trigger_equal+373policy_equal+1insert_duplicate_equal+4txn_control);1superseded separado. PII1230/0;cronoff,2jobs exportados/abatidos localmente. [Relatório](../estudos/saas-e-desenvolvimento/gates-352/txn-control-g1.md) e [anexo](../estudos/saas-e-desenvolvimento/gates-352/txn-control-g1.json). Reserva libertada;#352aberta;D-ERP309já registada. Sem nova leitura/escritaLive,DSN,homolog/deploy/Publish.
 
 ## #353 — correção R1 de CI: relógio determinístico nos testes
 24/10/2026 11:42 UTC — base comum 3afd243a92c6462f49be483faccf954391276d3b limpa. Só src/test/capi-v2.test.ts: Date fixo em NOW no describe handler, afterEach restaura; temporizadores reais preservados. Baseline host 24/10: 11 FAIL/18 PASS; depois 33 PASS no host atual e em 01/01/2030 simulado, fronteiras antes/no/depois de 6 dias e isolamento provados. Suite integral final 2409 PASS/6 skip/11 todo, exit 0; build automático OK. Código c83ca22ec; relatório docs/testes/issue353-ci-relogio.md. Reserva #353 mantida até controller conferir tsgo e CI no SHA final; local não prova GitHub verde. Sem código de produção, rede externa/Live, DDL/DML/config/segredos/flags/deploy/Publish/reenvios; reserva #322 e restantes estados preservados. Issue não editada nem fechada.
