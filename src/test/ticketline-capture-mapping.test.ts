@@ -75,6 +75,31 @@ describe("#358 whole-report capture with real fake-admin UPSERT boundary", () =>
   it.each(["900001", null])("unknown code with safe full name conflicts with target code %s", async code => {
     await blocked([target("a", code)], [row("Cantor Fictício - Vila Solar | sessão futura", "999999")], ["Cantor Fictício - Vila Solar"], "capture_day_code_conflict");
   });
+  it.each([
+    "Vila Solar",
+    "Cantor Fictício",
+    "Espetáculo descritivo de longa duração | local: Vila Solar | sessão 21h",
+  ])("unknown code with visible partial identity %s blocks the entire UPSERT", async label => {
+    await blocked([target("a", "900001"), target("b", "900002"), target("legacy", null)],
+      [row("Venda forte já mapeada", "900002"), row(label, "999999")],
+      ["Cantor Fictício - Vila Solar - edição especial", "Outra Banda - Vila Lunar", "Terceira Banda - Vila Nova"],
+      "capture_day_suspect_match");
+  });
+  it("unknown external code sharing edition words or city substring remains audited external", async () => {
+    const db = await execute([target("a", "900001")],
+      [row("Festival Exterior especial | local: Vila Solaria", "999999")],
+      ["Cantor Fictício - Vila Solar - especial 2027"]);
+    expect(db.result.ok).toBe(true);
+    expect(db.upserts).toHaveLength(1);
+    expect(db.result.audit).toMatchObject({ counts: { external: 1, zeroed: 1 }, externalRows: [{ reason: "unknown_code_external" }] });
+  });
+  it("known strong code remains prioritized despite identity after the pipe", async () => {
+    const db = await execute([target("a", "900001"), target("b", "900002")],
+      [row("Label descritivo | local: Vila Solar | Cantor Fictício", "900002")],
+      ["Cantor Fictício - Vila Solar", "Outra Banda - Vila Lunar"]);
+    expect(db.result.ok).toBe(true);
+    expect(db.upserts[0].payload.map(p => [p.event_id, p.quantity])).toEqual([["event-a", 0], ["event-b", 3]]);
+  });
   it("legitimate unknown-code external row ignored but included in TOTAL", async () => {
     const db = await execute([target("a", "900001")], [row("Festival Exterior", "999999", 5, 150)], ["Cantor Fictício - Vila Solar"]);
     expect(db.result.ok).toBe(true);
