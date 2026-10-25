@@ -12,7 +12,16 @@ export function responseShape(value: unknown, depth = 0): unknown {
   return value === null ? "null" : typeof value;
 }
 export type PlaylistItem = { uri?: unknown; playlistUri?: unknown; spotifyUri?: unknown; title?: unknown; author?: unknown; isAlgorithmic?: unknown; isAlgotorial?: unknown; streams?: unknown; dateAdded?: unknown };
-export type PlaylistRow = { snapshot_date: string; period_days: 1 | 28; rank: number; playlist_name: string; playlist_uri: string | null; made_by: string; streams: number | null; date_added: string | null; source: string };
+export type PlaylistKind = "algorithmic" | "algotorial" | "editorial" | "listener";
+export function classifyPlaylist(p: PlaylistItem): PlaylistKind {
+  const title = String(p.title ?? "").trim().toLowerCase();
+  const uri = String(p.uri ?? p.playlistUri ?? p.spotifyUri ?? "").trim();
+  const spotify = p.author === "Spotify" || p.isAlgorithmic === true || p.isAlgotorial === true;
+  if (p.isAlgorithmic === true || (spotify && (uri === "spotify:playlist:radio" || /^(radio|mixes|daily mix(?: \d+)?|descobertas da semana|radar de novidades)$/.test(title)))) return "algorithmic";
+  if (p.isAlgotorial === true) return "algotorial";
+  return p.author === "Spotify" ? "editorial" : "listener";
+}
+export type PlaylistRow = { snapshot_date: string; period_days: 1 | 28; rank: number; playlist_name: string; playlist_uri: string | null; made_by: string; playlist_kind: PlaylistKind; streams: number | null; date_added: string | null; source: string };
 export function playlistRows(items: PlaylistItem[], day: string, period: 1 | 28): { rows: PlaylistRow[]; notes: string[] } {
   const byKey = new Map<string, PlaylistRow>();
   const notes: string[] = [];
@@ -24,6 +33,7 @@ export function playlistRows(items: PlaylistItem[], day: string, period: 1 | 28)
     const added = String(p.dateAdded ?? "").slice(0, 10);
     const row: PlaylistRow = { snapshot_date: day, period_days: period, rank: index + 1, playlist_name: title, playlist_uri: uri,
       made_by: p.author === "Spotify" || p.isAlgorithmic === true || p.isAlgotorial === true ? "spotify" : "user",
+      playlist_kind: classifyPlaylist(p),
       streams: Number.isFinite(value) && value >= 0 ? Math.round(value) : null,
       date_added: /^\d{4}-\d{2}-\d{2}$/.test(added) ? added : null, source: "s4a_api" };
     const key = uri ?? `name:${title}`;
