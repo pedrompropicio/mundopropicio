@@ -1,7 +1,9 @@
 - [x] #344 R1: resumo de receitas por origem no gerador partilhado/PDF/Excel; 13 regressões PASS, suite 2.197→2.210 PASS, tsgo 0; relatório e reserva libertada, sem DDL/DML/deploy/Publish. CI remoto e aceitação pelo Pedro pendentes da janela do 0.
-- [ ] Carreira/S4A 25/10: captura playlist diária comprovada, origens gated após forma confirmada, testes e deploy sem Publish.
-- [ ] Carreira/S4A 25/10: comparação diária Spotify/UGC e custo por plataforma; frontend pertence ao projeto Gestão Artística (snapshot apenas de leitura aqui).
-- [ ] Carreira/S4A 25/10: relatório 10/10–D, prova da queda UGC, documentação e validações.
+- [x] Carreira/S4A 25/10: 1day/7day comprovados; captura 1day + testes/deploy só s4a-daily-sync; dry_run HTTP200 e escrita não disparada.
+- [x] Carreira/S4A 25/10: comparação SQL diária Spotify/UGC e custos plataforma/moeda, migração0241 + acesso canónico; RPCs HTTP200, testes PostgreSQL sintéticos.
+- [x] Carreira/S4A 25/10: relatório 10/10–D, queda −604 mesmos29sons/ator, sem prova de remoção; 21 testes novos, suite2464→2485PASS, Deno/buildOK, sem Publish.
+- [ ] Carreira/S4A 25/10: categorias de origem bloqueadas por falta de endpoint/forma real comprovada; flag=false, não inventar parser. Ativação depende de OK posterior.
+- [ ] Carreira/S4A 25/10: frontend/colunas/card dependem de edição no projeto Gestão Artística; este ambiente só permite snapshot leitura. CI remoto e tsgo manual não verificados.
 - [x] #333 fase11c: identidade própria no adapter e isolamento de resultados por sessão/empresa.
 - [x] #333 corretivo datas Gmail: Desde/Até e data da fatura canónicos; 12 novos testes e suite final completa 2393 PASS, relatório; sem chamadas reais/Publish, reserva mantida para controller conferir SHA/CI/tipos.
 - [x] #333 12j leitura única/anexos 23/10: sem releituras nem loop de recusas, anexos reais do servidor, revisão existente; relatório fase12j-anexos-leitura-unica.md; sem deploy.
