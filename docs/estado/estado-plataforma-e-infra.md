@@ -1,10 +1,12 @@
 # ESTADO — Plataforma & Infra
 
-## #352 — cinco placeholders aplicados ao plano; dependência do enum
+## #352 — placeholders reposicionados; dependência anterior do schema CRM
 
-Run40160614580,código privadodc9ba22e:450entradas concluídas,451tentadas de1454. Dois repo-for-placeholder PASS;exceção20260510033845ledger/no-op intacta. Terceiro20260510034045L41falhou22P02:marketing_manager ainda não existe emapp_role. DDLdo enum em 20260510034212/20260510041732vem depois. Nenhuma reordenação ou enum_value_exists. Duas substituições restantes não alcançadas. Checkpoint114/114PASS;G1vermelho/G2não executado.
+Commit privado f1e9523a; run 40161921145: G1 vermelho, 449 entradas concluídas e 450 tentadas de 1454. Checkpoint 114/114 e seed 117/0 pais por resolver aprovados. As três entradas repo-for-placeholder de 10/05 passaram para 11/05 às 00:00 UTC, pela prova textual autorizada; entradas do meio-dia e hashes SQL intactos.
 
-4testes novos e31autotestes nativos PASS.119saltos destrutivos;1298idempotentes;1superseded separado. Manifesto privado preserva placeholders e hashes. [Relatório](../estudos/saas-e-desenvolvimento/gates-352/placeholders5-g1.md) e [anexo](../estudos/saas-e-desenvolvimento/gates-352/placeholders5-g1.json). Reserva libertada;#352aberta;D-ERP309já registada. Sem Live novo/DSN/homolog/deploy/Publish. ParecerClaude necessário sobre precedência histórica do enum.
+Primeira falha: órfão 20260510034250, linha 21, SQLSTATE 3F000 ao criar crm.role_budget_limits; schema crm ainda não existe. A criação está no ficheiro 20260510024841, linha 2, agora posterior. Trio não alcançado; G2 não executado. Necessário parecer sobre precedência histórica, sem alargar regras. Quatro testes locais e 31 nativos passaram; 119 saltos destrutivos e 1298 idempotentes.
+
+[Relatório](../estudos/saas-e-desenvolvimento/gates-352/placeholder-effect-g1.md) e [anexo](../estudos/saas-e-desenvolvimento/gates-352/placeholder-effect-g1.json). Reserva libertada no fecho; #352 aberta; D-ERP309 já registada. Sem Live novo, DSN, homologação, deploy ou Publish.
 
 ## #353 — correção R1 de CI: relógio determinístico nos testes
 24/10/2026 11:42 UTC — base comum 3afd243a92c6462f49be483faccf954391276d3b limpa. Só src/test/capi-v2.test.ts: Date fixo em NOW no describe handler, afterEach restaura; temporizadores reais preservados. Baseline host 24/10: 11 FAIL/18 PASS; depois 33 PASS no host atual e em 01/01/2030 simulado, fronteiras antes/no/depois de 6 dias e isolamento provados. Suite integral final 2409 PASS/6 skip/11 todo, exit 0; build automático OK. Código c83ca22ec; relatório docs/testes/issue353-ci-relogio.md. Reserva #353 mantida até controller conferir tsgo e CI no SHA final; local não prova GitHub verde. Sem código de produção, rede externa/Live, DDL/DML/config/segredos/flags/deploy/Publish/reenvios; reserva #322 e restantes estados preservados. Issue não editada nem fechada.

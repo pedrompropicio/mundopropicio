@@ -1,0 +1,2684 @@
+{
+  "metadata": {
+    "sha": "f1e9523a660c442d74761df4240d510feff88424",
+    "utc": "2026-10-25T04:27:32.250091+00:00",
+    "cli": "2.84.2",
+    "scope": "V3 chronological 706 ledger +5 repo-for-placeholder +499 orphan +242 Drizzle +2 authorised seeds; no manual/external seed/functions",
+    "replay_exit_code": 1,
+    "finished_utc": "2026-10-25T04:31:33.552635+00:00"
+  },
+  "completed": 449,
+  "attempted": 450,
+  "not_attempted": 1004,
+  "completed_sources": {
+    "ledger": 154,
+    "seed": 2,
+    "orphan": 293
+  },
+  "skips": {
+    "destructive": 119,
+    "idempotent": 1298,
+    "variants": {
+      "base": 703,
+      "policy_equal": 373,
+      "using_index": 104,
+      "trigger_equal": 113,
+      "insert_duplicate_equal": 1,
+      "txn_control": 4
+    }
+  },
+  "seed": {
+    "count": 117,
+    "unresolved_parents": 0,
+    "passed": true
+  },
+  "cron": {
+    "before": 2,
+    "after": 0,
+    "local_only": true,
+    "scheduler_remained_off": true
+  },
+  "checkpoint": {
+    "version": "20260430033938",
+    "expected_count": 114,
+    "actual_count": 114,
+    "required_count": 114,
+    "passed": true,
+    "differences": []
+  },
+  "failure": {
+    "kind": null,
+    "version": "20260510034250",
+    "path": "orphan/20260510034250_cd86320c-2133-4a42-a2e2-7a51e9ad9c84.sql",
+    "sqlstate": "3F000",
+    "statement": {
+      "line": 21,
+      "verb": "CREATE TABLE",
+      "object": "crm . role_budget_limits",
+      "sqlstate": "3F000"
+    }
+  },
+  "skip_files": [
+    {
+      "file": "ledger/20260319231859_20260319231855_publish_migration_from_pg_dump.sql",
+      "count": 15,
+      "variants": {
+        "idempotent": 7,
+        "policy_equal": 4,
+        "using_index": 4
+      },
+      "lines": [
+        26,
+        33,
+        40,
+        48,
+        50,
+        52,
+        54,
+        56,
+        64,
+        71,
+        79,
+        83,
+        85,
+        87,
+        89
+      ],
+      "original_sha256": "b25cc9046f6e0033b04fb1c0ff92e72c7be6b6c08cd11634862c9c8f1c68299f"
+    },
+    {
+      "file": "ledger/20260321021238_20260321021236_publish_migration_from_pg_dump.sql",
+      "count": 10,
+      "variants": {
+        "idempotent": 6,
+        "policy_equal": 2,
+        "using_index": 1,
+        "trigger_equal": 1
+      },
+      "lines": [
+        3,
+        26,
+        33,
+        41,
+        45,
+        49,
+        53,
+        55,
+        57,
+        59
+      ],
+      "original_sha256": "84d0e3f241b1c573c3f742a40c8759dbc23088a218a5840a54ff4e5fce490314"
+    },
+    {
+      "file": "ledger/20260321032407_20260321032405_publish_migration_from_pg_dump.sql",
+      "count": 36,
+      "variants": {
+        "idempotent": 20,
+        "policy_equal": 9,
+        "using_index": 7
+      },
+      "lines": [
+        67,
+        78,
+        80,
+        86,
+        92,
+        101,
+        103,
+        105,
+        107,
+        109,
+        111,
+        113,
+        123,
+        125,
+        134,
+        136,
+        138,
+        146,
+        152,
+        159,
+        167,
+        169,
+        171,
+        173,
+        175,
+        177,
+        179,
+        181,
+        189,
+        191,
+        197,
+        205,
+        207,
+        209,
+        211,
+        213
+      ],
+      "original_sha256": "d08e5f49c72d7b54af0e2fc309c615c07119f3b9fd5ec95bce52a3c38a0fa6a7"
+    },
+    {
+      "file": "ledger/20260321132341_20260321132339_publish_migration_from_pg_dump.sql",
+      "count": 87,
+      "variants": {
+        "destructive": 31,
+        "policy_equal": 51,
+        "idempotent": 4,
+        "using_index": 1
+      },
+      "lines": [
+        10,
+        12,
+        32,
+        52,
+        72,
+        92,
+        112,
+        132,
+        152,
+        154,
+        162,
+        170,
+        190,
+        192,
+        194,
+        214,
+        234,
+        236,
+        238,
+        258,
+        260,
+        262,
+        316,
+        318,
+        320,
+        328,
+        348,
+        350,
+        352,
+        372,
+        392,
+        3,
+        14,
+        20,
+        26,
+        34,
+        40,
+        46,
+        54,
+        60,
+        66,
+        74,
+        80,
+        86,
+        94,
+        100,
+        106,
+        114,
+        120,
+        126,
+        134,
+        140,
+        146,
+        156,
+        164,
+        172,
+        178,
+        184,
+        196,
+        202,
+        208,
+        216,
+        222,
+        228,
+        240,
+        246,
+        252,
+        264,
+        276,
+        282,
+        290,
+        292,
+        294,
+        296,
+        298,
+        304,
+        310,
+        322,
+        330,
+        336,
+        342,
+        354,
+        360,
+        366,
+        374,
+        380,
+        386
+      ],
+      "original_sha256": "4079655a7b78942c2659ae6a7bbf482c3388bd4a5eea77c1791d04ede015bfb0"
+    },
+    {
+      "file": "ledger/20260322013745_20260322013743_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "088f332779fa6624e19143a9b1bae431e12fd2c7c63c3fa87b623db2ebedeeb8"
+    },
+    {
+      "file": "ledger/20260322164644_20260322164643_publish_migration_from_pg_dump.sql",
+      "count": 18,
+      "variants": {
+        "destructive": 2,
+        "idempotent": 8,
+        "policy_equal": 4,
+        "using_index": 2,
+        "trigger_equal": 2
+      },
+      "lines": [
+        80,
+        82,
+        21,
+        32,
+        34,
+        40,
+        46,
+        52,
+        60,
+        62,
+        64,
+        66,
+        68,
+        70,
+        72,
+        74,
+        78,
+        84
+      ],
+      "original_sha256": "bc082900abfc3490387b273f1a6808f33dafa1bd52523fb1403ab1d8d33f6608"
+    },
+    {
+      "file": "ledger/20260323021039_20260323021037_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "0db7ebd87f45e34cc6bef9c95c32a74ca5073603dc90ecfa658c55c4e740763c"
+    },
+    {
+      "file": "ledger/20260323132127_20260323132124_publish_migration_from_pg_dump.sql",
+      "count": 33,
+      "variants": {
+        "destructive": 13,
+        "idempotent": 5,
+        "policy_equal": 14,
+        "using_index": 1
+      },
+      "lines": [
+        11,
+        25,
+        27,
+        41,
+        43,
+        82,
+        84,
+        98,
+        100,
+        114,
+        116,
+        130,
+        132,
+        3,
+        5,
+        13,
+        19,
+        29,
+        35,
+        45,
+        53,
+        62,
+        64,
+        66,
+        68,
+        70,
+        76,
+        86,
+        92,
+        102,
+        108,
+        118,
+        124
+      ],
+      "original_sha256": "439f8856e6e0d07990bc5b4e83cbb1b94d2503a74d87907a41f13e1efda06c74"
+    },
+    {
+      "file": "ledger/20260325013652_20260325013651_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "04c268947b3297ce864ddf48f95b9ed223b786172f6eecdf829c3fb06ed07af6"
+    },
+    {
+      "file": "ledger/20260402225148_20260402225146_publish_migration_from_pg_dump.sql",
+      "count": 7,
+      "variants": {
+        "idempotent": 4,
+        "policy_equal": 2,
+        "using_index": 1
+      },
+      "lines": [
+        3,
+        14,
+        20,
+        28,
+        32,
+        34,
+        36
+      ],
+      "original_sha256": "ad668c9b298eac7777ac0e363169441770915e52ddca74d6c6667f9d4bbe0065"
+    },
+    {
+      "file": "ledger/20260404005700_20260404005658_publish_migration_from_pg_dump.sql",
+      "count": 20,
+      "variants": {
+        "idempotent": 11,
+        "policy_equal": 4,
+        "using_index": 3,
+        "trigger_equal": 2
+      },
+      "lines": [
+        3,
+        17,
+        24,
+        32,
+        36,
+        38,
+        40,
+        42,
+        44,
+        46,
+        50,
+        63,
+        70,
+        78,
+        82,
+        84,
+        86,
+        90,
+        92,
+        94
+      ],
+      "original_sha256": "403ceae96aee99f0517eb910c0a02ce8dfc731bcf0a410bb4fb97648d5a5fc4a"
+    },
+    {
+      "file": "ledger/20260406165543_20260406165539_publish_migration_from_pg_dump.sql",
+      "count": 5,
+      "variants": {
+        "idempotent": 5
+      },
+      "lines": [
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "original_sha256": "0db35eb3538c5ad99ff1b06888ade6b852e175e0bbee40c62a62d5848223636a"
+    },
+    {
+      "file": "ledger/20260406205625_20260406205623_publish_migration_from_pg_dump.sql",
+      "count": 20,
+      "variants": {
+        "destructive": 1,
+        "idempotent": 8,
+        "policy_equal": 7,
+        "using_index": 3,
+        "trigger_equal": 1
+      },
+      "lines": [
+        104,
+        3,
+        14,
+        20,
+        26,
+        32,
+        40,
+        44,
+        46,
+        48,
+        62,
+        66,
+        73,
+        80,
+        88,
+        90,
+        92,
+        94,
+        96,
+        106
+      ],
+      "original_sha256": "4d003aa56d6cd692e416edc69a254d94ac2a8490651c833f1c04601abe12b689"
+    },
+    {
+      "file": "ledger/20260406234536_20260406234535_publish_migration_from_pg_dump.sql",
+      "count": 20,
+      "variants": {
+        "idempotent": 8,
+        "policy_equal": 8,
+        "using_index": 2,
+        "trigger_equal": 2
+      },
+      "lines": [
+        3,
+        14,
+        20,
+        26,
+        32,
+        40,
+        44,
+        46,
+        48,
+        50,
+        61,
+        67,
+        73,
+        79,
+        87,
+        89,
+        91,
+        93,
+        97,
+        101
+      ],
+      "original_sha256": "ac1ca4f2ffddc7b8d84bca65e14c4717b74d338be5ebf3b78d1608e6570c46ed"
+    },
+    {
+      "file": "ledger/20260407114337_20260407114334_publish_migration_from_pg_dump.sql",
+      "count": 7,
+      "variants": {
+        "idempotent": 3,
+        "policy_equal": 3,
+        "using_index": 1
+      },
+      "lines": [
+        3,
+        15,
+        21,
+        27,
+        35,
+        37,
+        39
+      ],
+      "original_sha256": "b860b70da74ca63adcfc7ce0dad2aa68f0074998db1444614564fca43ac19a87"
+    },
+    {
+      "file": "ledger/20260407125138_20260407125137_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "12428e9e13168be130fa81f56c6b10af136524631dbe452b9cabee3e9def7840"
+    },
+    {
+      "file": "ledger/20260407133515_20260407133512_publish_migration_from_pg_dump.sql",
+      "count": 13,
+      "variants": {
+        "idempotent": 7,
+        "policy_equal": 4,
+        "using_index": 1,
+        "trigger_equal": 1
+      },
+      "lines": [
+        3,
+        14,
+        20,
+        26,
+        32,
+        40,
+        42,
+        44,
+        46,
+        48,
+        50,
+        54,
+        56
+      ],
+      "original_sha256": "3e7028e0b5c5ed70d8dd90868a4f1d657e503629fbf77237114fb70c88bd083d"
+    },
+    {
+      "file": "ledger/20260407231344_20260407231340_publish_migration_from_pg_dump.sql",
+      "count": 7,
+      "variants": {
+        "idempotent": 4,
+        "policy_equal": 2,
+        "using_index": 1
+      },
+      "lines": [
+        3,
+        19,
+        25,
+        33,
+        37,
+        39,
+        41
+      ],
+      "original_sha256": "1ede6b3fc76192f8c58085bf5619eeb6f947ffb986d876042e498768e70ae0b5"
+    },
+    {
+      "file": "ledger/20260408015510_20260408015509_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "ba5b43a4e5cca19532925dba8fc40e40900bdbf7266ff2afa9c0bfd0fb03ea8f"
+    },
+    {
+      "file": "ledger/20260408180413_20260408180410_publish_migration_from_pg_dump.sql",
+      "count": 4,
+      "variants": {
+        "idempotent": 4
+      },
+      "lines": [
+        3,
+        5,
+        7,
+        9
+      ],
+      "original_sha256": "08742ed72f55019b92e0ceb3125edb04f78bdcddd6912bc3304d5286caef0406"
+    },
+    {
+      "file": "ledger/20260408192833_20260408192831_publish_migration_from_pg_dump.sql",
+      "count": 9,
+      "variants": {
+        "idempotent": 4,
+        "policy_equal": 2,
+        "using_index": 2,
+        "trigger_equal": 1
+      },
+      "lines": [
+        34,
+        44,
+        51,
+        59,
+        63,
+        65,
+        67,
+        69,
+        71
+      ],
+      "original_sha256": "ea42764d6cf96e0ce46b12c584d4f5f6e625fd7a15d81c3b39ff514de225ec6f"
+    },
+    {
+      "file": "ledger/20260409072850_20260409072847_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "9707aecf9aa57795c1e4ec795b1cc2b1ec539bde92036dc7f095ade52bdbe235"
+    },
+    {
+      "file": "ledger/20260409115535_20260409115533_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "9fbe7e6647f84f77c19f5e1dad0f52c7a0df4a89fad3f6abd5c19a87aa87df19"
+    },
+    {
+      "file": "ledger/20260409122359_20260409122357_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "218d7f286d8a53c954339a902e5b43a22ad3588acebe65b89e8bc2dd2a55323f"
+    },
+    {
+      "file": "ledger/20260409134442_20260409134440_publish_migration_from_pg_dump.sql",
+      "count": 2,
+      "variants": {
+        "idempotent": 2
+      },
+      "lines": [
+        3,
+        5
+      ],
+      "original_sha256": "ef618eb7f421b6106d1d3ba3d61e186e05adc8c3c5da79a9c0915693f9b77a70"
+    },
+    {
+      "file": "ledger/20260410092326_20260410092324_publish_migration_from_pg_dump.sql",
+      "count": 106,
+      "variants": {
+        "destructive": 34,
+        "policy_equal": 46,
+        "idempotent": 18,
+        "using_index": 6,
+        "trigger_equal": 2
+      },
+      "lines": [
+        37,
+        39,
+        53,
+        55,
+        75,
+        77,
+        79,
+        93,
+        95,
+        109,
+        111,
+        125,
+        127,
+        141,
+        143,
+        151,
+        159,
+        212,
+        226,
+        228,
+        335,
+        337,
+        351,
+        359,
+        373,
+        375,
+        383,
+        391,
+        417,
+        425,
+        445,
+        447,
+        461,
+        463,
+        25,
+        31,
+        41,
+        47,
+        57,
+        63,
+        69,
+        81,
+        87,
+        97,
+        103,
+        113,
+        119,
+        129,
+        135,
+        145,
+        153,
+        161,
+        170,
+        176,
+        182,
+        190,
+        194,
+        198,
+        200,
+        202,
+        204,
+        206,
+        214,
+        220,
+        230,
+        237,
+        243,
+        249,
+        257,
+        259,
+        261,
+        263,
+        265,
+        281,
+        287,
+        293,
+        299,
+        307,
+        309,
+        311,
+        313,
+        315,
+        319,
+        321,
+        323,
+        329,
+        339,
+        345,
+        353,
+        361,
+        367,
+        377,
+        385,
+        393,
+        395,
+        397,
+        399,
+        403,
+        407,
+        411,
+        419,
+        427,
+        433,
+        439,
+        449,
+        455
+      ],
+      "original_sha256": "68d5b5a76e0969ea3354cbb20f7c13a945e6b1242b627e8a9561123ca4c09af5"
+    },
+    {
+      "file": "ledger/20260410111639_20260410111637_publish_migration_from_pg_dump.sql",
+      "count": 18,
+      "variants": {
+        "idempotent": 8,
+        "policy_equal": 7,
+        "using_index": 2,
+        "trigger_equal": 1
+      },
+      "lines": [
+        3,
+        13,
+        19,
+        25,
+        33,
+        35,
+        37,
+        53,
+        59,
+        65,
+        71,
+        79,
+        83,
+        85,
+        87,
+        91,
+        93,
+        97
+      ],
+      "original_sha256": "03ed28dc32f5574e0da63807009fb943fc2b1769293d6c5f68fb31a9fe049f92"
+    },
+    {
+      "file": "ledger/20260410114406_20260410114404_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "20bfed1ce272642064f16075f33329adf943b6712115dbc0f4e796cffbfb7ed1"
+    },
+    {
+      "file": "ledger/20260410122602_20260410122600_publish_migration_from_pg_dump.sql",
+      "count": 5,
+      "variants": {
+        "idempotent": 1,
+        "policy_equal": 4
+      },
+      "lines": [
+        3,
+        5,
+        11,
+        17,
+        23
+      ],
+      "original_sha256": "92c745e93b0e05def6ec50e48803c2fcf0b7cf07117d92023fc2791aeb239498"
+    },
+    {
+      "file": "ledger/20260410184932_20260410184929_publish_migration_from_pg_dump.sql",
+      "count": 10,
+      "variants": {
+        "idempotent": 5,
+        "policy_equal": 4,
+        "using_index": 1
+      },
+      "lines": [
+        3,
+        15,
+        21,
+        27,
+        33,
+        41,
+        43,
+        45,
+        47,
+        49
+      ],
+      "original_sha256": "b02b3332502b39c52fadd57bf51b4d1672f947b9814accf6fd70ac87b8dc2eb3"
+    },
+    {
+      "file": "ledger/20260410201457_20260410201454_publish_migration_from_pg_dump.sql",
+      "count": 15,
+      "variants": {
+        "idempotent": 10,
+        "policy_equal": 3,
+        "using_index": 2
+      },
+      "lines": [
+        3,
+        10,
+        16,
+        22,
+        30,
+        32,
+        34,
+        36,
+        38,
+        40,
+        42,
+        46,
+        50,
+        52,
+        54
+      ],
+      "original_sha256": "602ffaa1bc2615901bff1074e8bacf183049fe5de00ff9c8ae62b2edfbbea5d4"
+    },
+    {
+      "file": "ledger/20260411004911_20260411004909_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "trigger_equal": 1
+      },
+      "lines": [
+        16
+      ],
+      "original_sha256": "ad65bb3d4bd577a302594fae85264d53d5620243db1360110fcec2c32be71131"
+    },
+    {
+      "file": "ledger/20260411085326_20260411085323_publish_migration_from_pg_dump.sql",
+      "count": 2,
+      "variants": {
+        "idempotent": 2
+      },
+      "lines": [
+        3,
+        5
+      ],
+      "original_sha256": "7c75f0046c4a0455e4955efcc2f53ca48d6a0cf4596d3e7046c8bd2e656bce50"
+    },
+    {
+      "file": "ledger/20260411111539_20260411111537_publish_migration_from_pg_dump.sql",
+      "count": 19,
+      "variants": {
+        "destructive": 10,
+        "idempotent": 9
+      },
+      "lines": [
+        3,
+        5,
+        9,
+        11,
+        23,
+        27,
+        33,
+        37,
+        43,
+        45,
+        7,
+        13,
+        15,
+        17,
+        19,
+        25,
+        29,
+        35,
+        39
+      ],
+      "original_sha256": "19116ea7ac32c40f970a2be2df590397eb1988d5ce37b29a7ac211b2d1a53e3f"
+    },
+    {
+      "file": "ledger/20260411142041_20260411142039_publish_migration_from_pg_dump.sql",
+      "count": 4,
+      "variants": {
+        "idempotent": 4
+      },
+      "lines": [
+        3,
+        5,
+        7,
+        9
+      ],
+      "original_sha256": "66f6aa0c5fe14ff32431148cf23f364b8a016f148d1d70ece377e5ce08e12ca6"
+    },
+    {
+      "file": "ledger/20260411163743_20260411163741_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "56cfa5f1170e0251b7899ce8e4bd77a222f64e98d5d10b50b879801104e7b8d0"
+    },
+    {
+      "file": "ledger/20260412021953_20260412021952_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "aa895501e08e4b2d02b5503d369c8ef0dd52c5cf7c3efb59c2875ebc9b4c5293"
+    },
+    {
+      "file": "ledger/20260412134850_20260412134847_publish_migration_from_pg_dump.sql",
+      "count": 4,
+      "variants": {
+        "idempotent": 4
+      },
+      "lines": [
+        3,
+        5,
+        7,
+        9
+      ],
+      "original_sha256": "793d6d5058668ea4c5fada97a040f8158065d36a67c75901923b1759ccb05b20"
+    },
+    {
+      "file": "ledger/20260412194251_20260412194249_publish_migration_from_pg_dump.sql",
+      "count": 9,
+      "variants": {
+        "idempotent": 3,
+        "policy_equal": 4,
+        "using_index": 1,
+        "trigger_equal": 1
+      },
+      "lines": [
+        3,
+        16,
+        22,
+        28,
+        34,
+        42,
+        44,
+        46,
+        48
+      ],
+      "original_sha256": "254f1094a1bd0897784a75ba20bc842308c768c195c34dde812b871adde1afce"
+    },
+    {
+      "file": "ledger/20260413151810_20260413151808_publish_migration_from_pg_dump.sql",
+      "count": 31,
+      "variants": {
+        "idempotent": 21,
+        "policy_equal": 7,
+        "using_index": 2,
+        "trigger_equal": 1
+      },
+      "lines": [
+        3,
+        5,
+        7,
+        9,
+        11,
+        13,
+        15,
+        17,
+        33,
+        39,
+        45,
+        51,
+        59,
+        63,
+        67,
+        69,
+        71,
+        73,
+        77,
+        81,
+        85,
+        89,
+        93,
+        100,
+        106,
+        112,
+        120,
+        124,
+        126,
+        128,
+        130
+      ],
+      "original_sha256": "db0f99a00ad2212299c31b1cb042e0341eb00e55887a08b079369ef2d4cdf7ab"
+    },
+    {
+      "file": "ledger/20260413224543_20260413224541_publish_migration_from_pg_dump.sql",
+      "count": 5,
+      "variants": {
+        "idempotent": 3,
+        "policy_equal": 1,
+        "using_index": 1
+      },
+      "lines": [
+        3,
+        12,
+        21,
+        25,
+        27
+      ],
+      "original_sha256": "59339fd767e1ac0db876318dfb17234bd15e4b80938a0e6d20c3d6a002ca4a81"
+    },
+    {
+      "file": "ledger/20260414030348_20260414030346_publish_migration_from_pg_dump.sql",
+      "count": 2,
+      "variants": {
+        "idempotent": 2
+      },
+      "lines": [
+        3,
+        5
+      ],
+      "original_sha256": "330c552543d8345716fca75c9a76a4548cc7103d97d0d2a42d68c737acc8a036"
+    },
+    {
+      "file": "ledger/20260414135418_20260414135415_publish_migration_from_pg_dump.sql",
+      "count": 2,
+      "variants": {
+        "destructive": 1,
+        "policy_equal": 1
+      },
+      "lines": [
+        9,
+        3
+      ],
+      "original_sha256": "3880d19d6704af776fe90208d66918fe2c560b041419efcb5dcc8d32d0eb9266"
+    },
+    {
+      "file": "ledger/20260414171355_20260414171351_publish_migration_from_pg_dump.sql",
+      "count": 10,
+      "variants": {
+        "destructive": 4,
+        "policy_equal": 6
+      },
+      "lines": [
+        95,
+        97,
+        99,
+        113,
+        71,
+        77,
+        83,
+        89,
+        101,
+        107
+      ],
+      "original_sha256": "e19fb34054b11bc98d4d837320b315d1b4c1d8f531cd71f057deb41f21cec599"
+    },
+    {
+      "file": "ledger/20260414220757_20260414220754_publish_migration_from_pg_dump.sql",
+      "count": 5,
+      "variants": {
+        "idempotent": 5
+      },
+      "lines": [
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "original_sha256": "b507703e817692bc9a0c96dc6e891bcc7818ad6d5a137f1c6eb6cd881bacdcfb"
+    },
+    {
+      "file": "ledger/20260415103754_20260415103752_publish_migration_from_pg_dump.sql",
+      "count": 2,
+      "variants": {
+        "idempotent": 1,
+        "policy_equal": 1
+      },
+      "lines": [
+        3,
+        5
+      ],
+      "original_sha256": "85b342514bc95d8f9c15f1063a6605d7be7f6404081fa57d800399170ec41bed"
+    },
+    {
+      "file": "ledger/20260415202009_20260415201944_publish_migration_from_pg_dump.sql",
+      "count": 11,
+      "variants": {
+        "idempotent": 5,
+        "policy_equal": 4,
+        "using_index": 1,
+        "trigger_equal": 1
+      },
+      "lines": [
+        3,
+        21,
+        27,
+        33,
+        40,
+        48,
+        52,
+        54,
+        56,
+        58,
+        60
+      ],
+      "original_sha256": "17dee0aae205aebd741a05062b6c09e1ba7bd8bfefd58805092d8df97875d10a"
+    },
+    {
+      "file": "ledger/20260416000828_20260416000826_publish_migration_from_pg_dump.sql",
+      "count": 7,
+      "variants": {
+        "idempotent": 3,
+        "policy_equal": 1,
+        "using_index": 2,
+        "trigger_equal": 1
+      },
+      "lines": [
+        3,
+        13,
+        22,
+        24,
+        26,
+        28,
+        30
+      ],
+      "original_sha256": "f3693ffffcaee7006905f3f2d6d39a3daee64d4a67ad120aaab01fd5b7588d26"
+    },
+    {
+      "file": "ledger/20260416153915_20260416153909_publish_migration_from_pg_dump.sql",
+      "count": 3,
+      "variants": {
+        "idempotent": 3
+      },
+      "lines": [
+        3,
+        5,
+        7
+      ],
+      "original_sha256": "f1faf6611c3ebb799a1d7e656f2b5fe13eaeb9f496d308224e2f5ae29f12da11"
+    },
+    {
+      "file": "ledger/20260417142655_20260417142653_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "d2ea146c1a2babd7a8f7e2eb4a8a7ac27290aeb80db21511db0e269d29bb12ca"
+    },
+    {
+      "file": "ledger/20260417163713_20260417163711_publish_migration_from_pg_dump.sql",
+      "count": 19,
+      "variants": {
+        "idempotent": 13,
+        "policy_equal": 4,
+        "using_index": 1,
+        "trigger_equal": 1
+      },
+      "lines": [
+        3,
+        29,
+        31,
+        37,
+        43,
+        49,
+        57,
+        61,
+        65,
+        69,
+        71,
+        73,
+        75,
+        77,
+        79,
+        81,
+        83,
+        87,
+        89
+      ],
+      "original_sha256": "19860d19fce241706a2d75a636ee9880a71a167a513ad94e99f438de54c02079"
+    },
+    {
+      "file": "ledger/20260418014934_20260418014932_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "2c77ff149dbf35f19f765cdeb31c7478a20cbae8b5ae598c63210dce4b142957"
+    },
+    {
+      "file": "ledger/20260418114156_20260418114153_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "3b46d685709d737315ed39bc9869d4ce0a7342e53725f0d6c9414a066d9799bd"
+    },
+    {
+      "file": "ledger/20260418140555_20260418140551_publish_migration_from_pg_dump.sql",
+      "count": 13,
+      "variants": {
+        "idempotent": 7,
+        "policy_equal": 4,
+        "using_index": 1,
+        "trigger_equal": 1
+      },
+      "lines": [
+        3,
+        18,
+        24,
+        30,
+        36,
+        44,
+        46,
+        48,
+        50,
+        52,
+        54,
+        56,
+        58
+      ],
+      "original_sha256": "bf8edf852f170f1ab9b8cc6d6621b8c0c26d5ac11790acf50a27fbff4cbf9e82"
+    },
+    {
+      "file": "ledger/20260418163031_20260418163029_publish_migration_from_pg_dump.sql",
+      "count": 10,
+      "variants": {
+        "idempotent": 5,
+        "policy_equal": 4,
+        "using_index": 1
+      },
+      "lines": [
+        3,
+        20,
+        26,
+        32,
+        39,
+        47,
+        49,
+        51,
+        53,
+        55
+      ],
+      "original_sha256": "7309b5c40ee318f6fc5c11b0e32cfce09db81d3e83f0ffd93b4ae475d91715b7"
+    },
+    {
+      "file": "ledger/20260418221833_20260418221830_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "684c3e8f89bfb05896183f98ef80c3a4f6a27cd22982dbf1176a1dd27dca529d"
+    },
+    {
+      "file": "ledger/20260419043419_20260419043417_publish_migration_from_pg_dump.sql",
+      "count": 12,
+      "variants": {
+        "idempotent": 5,
+        "policy_equal": 4,
+        "using_index": 2,
+        "trigger_equal": 1
+      },
+      "lines": [
+        3,
+        19,
+        25,
+        31,
+        37,
+        45,
+        47,
+        49,
+        51,
+        53,
+        55,
+        57
+      ],
+      "original_sha256": "d464e2e5e64142487c5163ee34901a6c08bdc76ba8c06b30c218fa30406a98a8"
+    },
+    {
+      "file": "ledger/20260419132006_20260419132001_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "6f8f8681d5868c609a6bc2ee6e2352b487008e3d022d7485aacfe3682cc25da4"
+    },
+    {
+      "file": "ledger/20260419140337_20260419140332_publish_migration_from_pg_dump.sql",
+      "count": 14,
+      "variants": {
+        "idempotent": 7,
+        "policy_equal": 4,
+        "using_index": 2,
+        "trigger_equal": 1
+      },
+      "lines": [
+        3,
+        17,
+        23,
+        29,
+        35,
+        43,
+        45,
+        47,
+        49,
+        51,
+        53,
+        55,
+        57,
+        61
+      ],
+      "original_sha256": "e1f7434a982c92037474c3871d50f2686a34203ef74bae0954759fa0db04fb32"
+    },
+    {
+      "file": "ledger/20260419193044_20260419193040_publish_migration_from_pg_dump.sql",
+      "count": 12,
+      "variants": {
+        "idempotent": 12
+      },
+      "lines": [
+        3,
+        5,
+        9,
+        11,
+        13,
+        15,
+        17,
+        19,
+        23,
+        25,
+        27,
+        29
+      ],
+      "original_sha256": "c3c2e0d8cfbaba0f1dbceafeb7323c46d402f5c9fcfde4112dfe54440ecff071"
+    },
+    {
+      "file": "ledger/20260420135631_20260420135629_publish_migration_from_pg_dump.sql",
+      "count": 4,
+      "variants": {
+        "idempotent": 4
+      },
+      "lines": [
+        3,
+        5,
+        7,
+        9
+      ],
+      "original_sha256": "ea1b93a104f00b69590f3040ae3a2a45d9e6d67ad265516a3771a34a1eaaba8f"
+    },
+    {
+      "file": "ledger/20260420223104_20260420223101_publish_migration_from_pg_dump.sql",
+      "count": 3,
+      "variants": {
+        "idempotent": 3
+      },
+      "lines": [
+        3,
+        5,
+        7
+      ],
+      "original_sha256": "3a3ec12f19c5c5da3db24c03effcedc49fc1fe7a3e93cdd1f16b3c052a6928e2"
+    },
+    {
+      "file": "ledger/20260421052359_20260421052357_publish_migration_from_pg_dump.sql",
+      "count": 15,
+      "variants": {
+        "idempotent": 8,
+        "policy_equal": 4,
+        "using_index": 2,
+        "trigger_equal": 1
+      },
+      "lines": [
+        3,
+        13,
+        19,
+        25,
+        31,
+        39,
+        43,
+        47,
+        49,
+        51,
+        53,
+        55,
+        57,
+        59,
+        61
+      ],
+      "original_sha256": "1b7b2fcbd12ca9f6bc8418d0affa630793a0afe4c875a98bb63e02a7eb8660b4"
+    },
+    {
+      "file": "ledger/20260421215216_20260421215213_publish_migration_from_pg_dump.sql",
+      "count": 10,
+      "variants": {
+        "idempotent": 10
+      },
+      "lines": [
+        3,
+        5,
+        7,
+        9,
+        11,
+        13,
+        15,
+        17,
+        19,
+        23
+      ],
+      "original_sha256": "7998a04aac674f507cddf343b819bab0c95f6d72ca3ac9c467634fb1d6c11f83"
+    },
+    {
+      "file": "ledger/20260423135301_20260423135258_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "trigger_equal": 1
+      },
+      "lines": [
+        50
+      ],
+      "original_sha256": "ae3344872b8f302d6b85519bb4a3650d8c93ce46df991be1c0363b34be8ad37f"
+    },
+    {
+      "file": "ledger/20260423203111_20260423203109_publish_migration_from_pg_dump.sql",
+      "count": 94,
+      "variants": {
+        "idempotent": 69,
+        "policy_equal": 14,
+        "using_index": 8,
+        "trigger_equal": 3
+      },
+      "lines": [
+        3,
+        18,
+        20,
+        22,
+        29,
+        37,
+        39,
+        41,
+        43,
+        45,
+        47,
+        57,
+        59,
+        61,
+        68,
+        76,
+        78,
+        80,
+        82,
+        94,
+        96,
+        103,
+        111,
+        113,
+        115,
+        117,
+        128,
+        130,
+        137,
+        145,
+        147,
+        149,
+        151,
+        185,
+        187,
+        189,
+        191,
+        193,
+        195,
+        197,
+        199,
+        201,
+        208,
+        216,
+        220,
+        222,
+        224,
+        226,
+        228,
+        230,
+        232,
+        234,
+        238,
+        242,
+        244,
+        252,
+        259,
+        267,
+        269,
+        271,
+        273,
+        275,
+        277,
+        279,
+        297,
+        299,
+        301,
+        303,
+        310,
+        318,
+        320,
+        322,
+        324,
+        326,
+        330,
+        334,
+        338,
+        342,
+        344,
+        348,
+        352,
+        356,
+        360,
+        364,
+        368,
+        372,
+        376,
+        380,
+        384,
+        388,
+        392,
+        396,
+        400,
+        404
+      ],
+      "original_sha256": "709de992f3845a73fb472b98d797c2e436c98766f62fa8f3c72406e06b3140c9"
+    },
+    {
+      "file": "ledger/20260423232005_20260423232002_publish_migration_from_pg_dump.sql",
+      "count": 12,
+      "variants": {
+        "idempotent": 10,
+        "policy_equal": 2
+      },
+      "lines": [
+        3,
+        5,
+        7,
+        9,
+        11,
+        15,
+        17,
+        19,
+        21,
+        23,
+        43,
+        54
+      ],
+      "original_sha256": "09ce54c320809b6ad545ddc1d6729aef8d5a82d27446950a731fcfcc0dad6755"
+    },
+    {
+      "file": "ledger/20260423234932_20260423234928_publish_migration_from_pg_dump.sql",
+      "count": 36,
+      "variants": {
+        "idempotent": 36
+      },
+      "lines": [
+        3,
+        5,
+        7,
+        9,
+        11,
+        13,
+        15,
+        17,
+        19,
+        21,
+        23,
+        25,
+        27,
+        29,
+        31,
+        33,
+        35,
+        37,
+        39,
+        41,
+        43,
+        45,
+        47,
+        49,
+        51,
+        53,
+        55,
+        57,
+        59,
+        61,
+        63,
+        65,
+        67,
+        69,
+        71,
+        73
+      ],
+      "original_sha256": "9b056e599cd9d14fb0346c9d49394588fada39fa2cf8e0f3b015f41592b59cbd"
+    },
+    {
+      "file": "ledger/20260424004253_20260424004252_publish_migration_from_pg_dump.sql",
+      "count": 7,
+      "variants": {
+        "policy_equal": 5,
+        "idempotent": 1,
+        "trigger_equal": 1
+      },
+      "lines": [
+        16,
+        24,
+        32,
+        41,
+        50,
+        59,
+        61
+      ],
+      "original_sha256": "5a59b4a272f0a7d7bc6f786d49c7d146e0f0ac911d86f7f4845dc8f2b210251d"
+    },
+    {
+      "file": "ledger/20260424034414_20260424034411_publish_migration_from_pg_dump.sql",
+      "count": 3,
+      "variants": {
+        "idempotent": 3
+      },
+      "lines": [
+        3,
+        5,
+        7
+      ],
+      "original_sha256": "00cc8332c503a32902d60611ed06bc82953fca60eb5c909fd50b8b19f8d814a4"
+    },
+    {
+      "file": "ledger/20260424112957_20260424112955_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "trigger_equal": 1
+      },
+      "lines": [
+        44
+      ],
+      "original_sha256": "9f408e1527df2629d82f729c194fd56ff11cc0571fa2bcf475e700ce747e76e9"
+    },
+    {
+      "file": "ledger/20260424120144_20260424120142_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "trigger_equal": 1
+      },
+      "lines": [
+        30
+      ],
+      "original_sha256": "79483949a7e64cfef30b0452bfaa41c65bfc502e2656aa96c8b85320cd34ca4a"
+    },
+    {
+      "file": "ledger/20260425135233_20260425135230_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "destructive": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "c457381664d179d9e2fbc8aaa5aa3d35dc4d7102dc27016a8dde8cdb796cd02c"
+    },
+    {
+      "file": "ledger/20260426180941_20260426180939_publish_migration_from_pg_dump.sql",
+      "count": 71,
+      "variants": {
+        "idempotent": 50,
+        "policy_equal": 11,
+        "using_index": 4,
+        "trigger_equal": 6
+      },
+      "lines": [
+        2118,
+        2129,
+        2131,
+        2137,
+        2143,
+        2151,
+        2153,
+        2155,
+        2157,
+        2159,
+        2161,
+        2173,
+        2179,
+        2187,
+        2189,
+        2191,
+        2193,
+        2195,
+        2197,
+        2199,
+        2201,
+        2203,
+        2205,
+        2212,
+        2214,
+        2216,
+        2218,
+        2222,
+        2224,
+        2226,
+        2228,
+        2230,
+        2232,
+        2234,
+        2236,
+        2240,
+        2242,
+        2244,
+        2246,
+        2250,
+        2254,
+        2258,
+        2281,
+        2283,
+        2289,
+        2295,
+        2301,
+        2307,
+        2319,
+        2323,
+        2327,
+        2331,
+        2333,
+        2335,
+        2337,
+        2339,
+        2341,
+        2343,
+        2345,
+        2347,
+        2349,
+        2351,
+        2353,
+        2357,
+        2361,
+        2365,
+        2369,
+        2373,
+        2377,
+        2381,
+        2383
+      ],
+      "original_sha256": "3fe9fd7987ae608c9a46e9ab9d10bfa4d13bdd292c10600056aa702e9e45598c"
+    },
+    {
+      "file": "ledger/20260427145510_20260427145508_publish_migration_from_pg_dump.sql",
+      "count": 3,
+      "variants": {
+        "idempotent": 3
+      },
+      "lines": [
+        3,
+        5,
+        7
+      ],
+      "original_sha256": "cf58008027267948bed5aa3a299c235a56af71efff49d0ae4680b09d44b1b642"
+    },
+    {
+      "file": "ledger/20260427182452_20260427182450_publish_migration_from_pg_dump.sql",
+      "count": 4,
+      "variants": {
+        "destructive": 2,
+        "policy_equal": 2
+      },
+      "lines": [
+        3,
+        5,
+        7,
+        19
+      ],
+      "original_sha256": "a4ee99d3e85b7a8e129d62943ace76ef18d4943011ef5ca0f2d44384e8a9704b"
+    },
+    {
+      "file": "ledger/20260428103457_20260428103454_publish_migration_from_pg_dump.sql",
+      "count": 3,
+      "variants": {
+        "idempotent": 3
+      },
+      "lines": [
+        3,
+        5,
+        9
+      ],
+      "original_sha256": "313279eb934be4ea9de0d4d25d25e52ca6d4919dcd9ce48dab0a9336684039c9"
+    },
+    {
+      "file": "ledger/20260428112514_20260428112513_publish_migration_from_pg_dump.sql",
+      "count": 2,
+      "variants": {
+        "idempotent": 2
+      },
+      "lines": [
+        9,
+        11
+      ],
+      "original_sha256": "020d8c5874a767400bc60af1dd46b62ed1063140fce71f6c553980c48e9e0aeb"
+    },
+    {
+      "file": "ledger/20260428123600_20260428123558_publish_migration_from_pg_dump.sql",
+      "count": 4,
+      "variants": {
+        "idempotent": 4
+      },
+      "lines": [
+        3,
+        5,
+        7,
+        9
+      ],
+      "original_sha256": "fde534eb69b78ffb2f10c9631d6554a646761789775427f082f77a7233c3eca4"
+    },
+    {
+      "file": "ledger/20260429203825_20260429203822_publish_migration_from_pg_dump.sql",
+      "count": 85,
+      "variants": {
+        "destructive": 1,
+        "trigger_equal": 44,
+        "idempotent": 28,
+        "policy_equal": 7,
+        "using_index": 5
+      },
+      "lines": [
+        1447,
+        497,
+        509,
+        541,
+        553,
+        565,
+        607,
+        609,
+        611,
+        613,
+        617,
+        621,
+        623,
+        627,
+        631,
+        633,
+        645,
+        657,
+        669,
+        681,
+        693,
+        705,
+        717,
+        729,
+        741,
+        893,
+        917,
+        925,
+        931,
+        937,
+        945,
+        949,
+        951,
+        953,
+        955,
+        957,
+        970,
+        979,
+        983,
+        985,
+        987,
+        989,
+        1001,
+        1013,
+        1025,
+        1037,
+        1053,
+        1061,
+        1065,
+        1077,
+        1089,
+        1101,
+        1113,
+        1125,
+        1137,
+        1149,
+        1161,
+        1195,
+        1207,
+        1209,
+        1217,
+        1219,
+        1228,
+        1230,
+        1232,
+        1234,
+        1254,
+        1256,
+        1263,
+        1271,
+        1275,
+        1279,
+        1281,
+        1283,
+        1285,
+        1287,
+        1289,
+        1331,
+        1373,
+        1385,
+        1397,
+        1409,
+        1421,
+        1433,
+        1445
+      ],
+      "original_sha256": "063652a03ea8909ce54ce7f5ed7038631ac28902e230b64d1accdc56c8b61b5a"
+    },
+    {
+      "file": "ledger/20260429215200_20260429215158_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "policy_equal": 1
+      },
+      "lines": [
+        135
+      ],
+      "original_sha256": "00d5dcd7054d129d5a2ab6a6a56d17f9105f8749d17e0b3e6903210f63746111"
+    },
+    {
+      "file": "ledger/20260430024850_20260430024849_publish_migration_from_pg_dump.sql",
+      "count": 14,
+      "variants": {
+        "idempotent": 11,
+        "trigger_equal": 3
+      },
+      "lines": [
+        74,
+        76,
+        78,
+        80,
+        82,
+        84,
+        86,
+        88,
+        90,
+        94,
+        96,
+        98,
+        100,
+        102
+      ],
+      "original_sha256": "227de76a503e4f74320b10613afa53f4b6ee779e6330254a5abf2be4114d3c35"
+    },
+    {
+      "file": "ledger/20260430033446_20260430033443_publish_migration_from_pg_dump.sql",
+      "count": 55,
+      "variants": {
+        "policy_equal": 55
+      },
+      "lines": [
+        3,
+        9,
+        15,
+        21,
+        27,
+        33,
+        39,
+        45,
+        51,
+        57,
+        63,
+        69,
+        75,
+        81,
+        87,
+        93,
+        99,
+        105,
+        111,
+        117,
+        123,
+        129,
+        135,
+        141,
+        147,
+        153,
+        159,
+        165,
+        171,
+        177,
+        183,
+        189,
+        195,
+        201,
+        207,
+        213,
+        219,
+        225,
+        231,
+        237,
+        243,
+        249,
+        255,
+        261,
+        267,
+        273,
+        279,
+        285,
+        291,
+        297,
+        303,
+        309,
+        315,
+        321,
+        327
+      ],
+      "original_sha256": "3021d7753a21745aa7b4f7ed9d3ff0c81461de271bdf8e05842cb88bb620a826"
+    },
+    {
+      "file": "ledger/20260430155759_20260430155752_publish_migration_from_pg_dump.sql",
+      "count": 68,
+      "variants": {
+        "idempotent": 36,
+        "policy_equal": 13,
+        "using_index": 10,
+        "trigger_equal": 9
+      },
+      "lines": [
+        68,
+        107,
+        109,
+        115,
+        124,
+        126,
+        128,
+        130,
+        132,
+        134,
+        149,
+        155,
+        164,
+        168,
+        170,
+        172,
+        174,
+        176,
+        178,
+        202,
+        208,
+        217,
+        219,
+        221,
+        223,
+        225,
+        227,
+        229,
+        231,
+        233,
+        246,
+        248,
+        250,
+        258,
+        262,
+        264,
+        266,
+        268,
+        270,
+        272,
+        274,
+        293,
+        299,
+        308,
+        310,
+        312,
+        314,
+        316,
+        318,
+        320,
+        322,
+        324,
+        333,
+        341,
+        349,
+        357,
+        367,
+        371,
+        375,
+        379,
+        383,
+        387,
+        391,
+        393,
+        395,
+        397,
+        399,
+        401
+      ],
+      "original_sha256": "ab059c4de9720f18e0a3e70b62c3658b34e4974bcee3df1fb24684b728714eba"
+    },
+    {
+      "file": "ledger/20260501131308_20260501131307_publish_migration_from_pg_dump.sql",
+      "count": 14,
+      "variants": {
+        "idempotent": 11,
+        "trigger_equal": 1,
+        "policy_equal": 1,
+        "using_index": 1
+      },
+      "lines": [
+        76,
+        78,
+        80,
+        84,
+        86,
+        88,
+        90,
+        92,
+        94,
+        108,
+        116,
+        118,
+        120,
+        122
+      ],
+      "original_sha256": "22b8323aac4634d104d0b9786d2a464640d74c42914b9f46e5b3b55a3bcdb9ba"
+    },
+    {
+      "file": "ledger/20260501192504_20260501192502_publish_migration_from_pg_dump.sql",
+      "count": 30,
+      "variants": {
+        "idempotent": 19,
+        "policy_equal": 7,
+        "using_index": 2,
+        "trigger_equal": 2
+      },
+      "lines": [
+        53,
+        85,
+        87,
+        93,
+        99,
+        105,
+        114,
+        118,
+        122,
+        126,
+        130,
+        132,
+        134,
+        136,
+        138,
+        140,
+        142,
+        144,
+        146,
+        148,
+        159,
+        165,
+        171,
+        179,
+        183,
+        187,
+        189,
+        191,
+        193,
+        197
+      ],
+      "original_sha256": "c5b7d46ad68ad1cbd446a365c84daf6cde441b467d53d7752e55809f56248e27"
+    },
+    {
+      "file": "ledger/20260502115136_20260502115134_publish_migration_from_pg_dump.sql",
+      "count": 2,
+      "variants": {
+        "idempotent": 2
+      },
+      "lines": [
+        93,
+        95
+      ],
+      "original_sha256": "3bcd2aabdbf5a5bcc4d981a264ad7987add98db0e1c9f12b951887d027d699f0"
+    },
+    {
+      "file": "ledger/20260502212615_20260502212608_publish_migration_from_pg_dump.sql",
+      "count": 28,
+      "variants": {
+        "idempotent": 16,
+        "policy_equal": 4,
+        "using_index": 4,
+        "trigger_equal": 4
+      },
+      "lines": [
+        17,
+        30,
+        32,
+        38,
+        47,
+        51,
+        53,
+        55,
+        57,
+        59,
+        61,
+        63,
+        65,
+        81,
+        83,
+        89,
+        98,
+        102,
+        104,
+        106,
+        108,
+        110,
+        112,
+        114,
+        116,
+        118,
+        122,
+        126
+      ],
+      "original_sha256": "bef6f5f3de56b924dd76d17bb381261999ca8c6320d6d001859090a7333d4f29"
+    },
+    {
+      "file": "ledger/20260503022637_20260503022636_publish_migration_from_pg_dump.sql",
+      "count": 24,
+      "variants": {
+        "idempotent": 14,
+        "policy_equal": 5,
+        "using_index": 2,
+        "trigger_equal": 3
+      },
+      "lines": [
+        20,
+        33,
+        35,
+        37,
+        43,
+        49,
+        55,
+        61,
+        70,
+        74,
+        76,
+        78,
+        80,
+        82,
+        84,
+        86,
+        88,
+        90,
+        92,
+        96,
+        98,
+        102,
+        104,
+        108
+      ],
+      "original_sha256": "b7f1862e7caa03c482df4adc876b9bcdc4778dba46a65e258df5a57722beea25"
+    },
+    {
+      "file": "ledger/20260503034734_20260503034732_publish_migration_from_pg_dump.sql",
+      "count": 38,
+      "variants": {
+        "destructive": 1,
+        "idempotent": 21,
+        "policy_equal": 6,
+        "using_index": 5,
+        "trigger_equal": 5
+      },
+      "lines": [
+        177,
+        29,
+        44,
+        50,
+        59,
+        61,
+        63,
+        65,
+        67,
+        69,
+        71,
+        79,
+        85,
+        94,
+        96,
+        98,
+        100,
+        102,
+        104,
+        106,
+        108,
+        122,
+        128,
+        137,
+        139,
+        141,
+        143,
+        145,
+        149,
+        153,
+        155,
+        157,
+        159,
+        161,
+        165,
+        169,
+        171,
+        175
+      ],
+      "original_sha256": "f47346b9e4bb363384c6af31d6c37f21f3e57acd29a513842949f03f28aada27"
+    },
+    {
+      "file": "ledger/20260503041518_20260503041515_publish_migration_from_pg_dump.sql",
+      "count": 7,
+      "variants": {
+        "destructive": 4,
+        "idempotent": 3
+      },
+      "lines": [
+        3,
+        13,
+        15,
+        17,
+        5,
+        7,
+        11
+      ],
+      "original_sha256": "ac6760184042730ceec01d8beff80dc52f48305dafe4501d224dc16c1013c697"
+    },
+    {
+      "file": "ledger/20260503125335_20260503125330_publish_migration_from_pg_dump.sql",
+      "count": 18,
+      "variants": {
+        "destructive": 12,
+        "idempotent": 6
+      },
+      "lines": [
+        15,
+        17,
+        19,
+        21,
+        23,
+        25,
+        27,
+        29,
+        31,
+        33,
+        35,
+        37,
+        3,
+        5,
+        7,
+        9,
+        11,
+        13
+      ],
+      "original_sha256": "63defe7dda9d99e589ae1ff501d0dd47e8ff5d7c30b7b0b81051796cfcb7a029"
+    },
+    {
+      "file": "ledger/20260505025727_20260505025724_publish_migration_from_pg_dump.sql",
+      "count": 16,
+      "variants": {
+        "idempotent": 12,
+        "policy_equal": 2,
+        "using_index": 1,
+        "trigger_equal": 1
+      },
+      "lines": [
+        3,
+        25,
+        27,
+        33,
+        42,
+        46,
+        50,
+        52,
+        54,
+        56,
+        58,
+        60,
+        62,
+        66,
+        68,
+        70
+      ],
+      "original_sha256": "1a494fa396ff06285de948cada04c16267f02bcc5b5044ff0ddddc27c6bb1422"
+    },
+    {
+      "file": "ledger/20260505201643_20260505201641_publish_migration_from_pg_dump.sql",
+      "count": 10,
+      "variants": {
+        "idempotent": 10
+      },
+      "lines": [
+        3,
+        5,
+        9,
+        11,
+        15,
+        17,
+        19,
+        21,
+        23,
+        25
+      ],
+      "original_sha256": "11fd1782d5c96eb99750b9277598298afabd187b2ab1111d29e4a922d0197e06"
+    },
+    {
+      "file": "ledger/20260506000624_20260506000622_publish_migration_from_pg_dump.sql",
+      "count": 1,
+      "variants": {
+        "idempotent": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "48fb5a8f2f13d595f6c27dc069519e6a78ae9d49bac46e437fc598ab2225cce3"
+    },
+    {
+      "file": "ledger/20260507140655_20260507140653_publish_migration_from_pg_dump.sql",
+      "count": 33,
+      "variants": {
+        "idempotent": 21,
+        "policy_equal": 5,
+        "using_index": 5,
+        "trigger_equal": 2
+      },
+      "lines": [
+        9,
+        25,
+        32,
+        40,
+        42,
+        44,
+        46,
+        48,
+        110,
+        123,
+        134,
+        144,
+        148,
+        150,
+        152,
+        154,
+        156,
+        158,
+        160,
+        183,
+        185,
+        187,
+        189,
+        197,
+        201,
+        203,
+        205,
+        207,
+        213,
+        217,
+        221,
+        225,
+        229
+      ],
+      "original_sha256": "dfb1ed5a05b2cf61dc346ecf2d5c0180a8ebac0f70d5793df0d36402402e605c"
+    },
+    {
+      "file": "ledger/20260507212138_20260507212135_publish_migration_from_pg_dump.sql",
+      "count": 2,
+      "variants": {
+        "trigger_equal": 2
+      },
+      "lines": [
+        69,
+        71
+      ],
+      "original_sha256": "a5be3266947ee35c6ae6ee0564c5d0a47e592655d85d319ea31d583160d2f9de"
+    },
+    {
+      "file": "ledger/20260509000045_20260509000040_publish_migration_from_pg_dump.sql",
+      "count": 2,
+      "variants": {
+        "idempotent": 2
+      },
+      "lines": [
+        3,
+        5
+      ],
+      "original_sha256": "714418c79432a8d562c441bdabdea80f4956571b77f9250ad78e8e487993a1d8"
+    },
+    {
+      "file": "ledger/20260509150146_20260509150141_publish_migration_from_pg_dump.sql",
+      "count": 5,
+      "variants": {
+        "policy_equal": 4,
+        "idempotent": 1
+      },
+      "lines": [
+        1158,
+        1164,
+        1166,
+        1172,
+        1178
+      ],
+      "original_sha256": "06655379dcd673cee6a59686345615edcaff715e3c40ff3bb28fd4752f678b68"
+    },
+    {
+      "file": "ledger/20260509214146_20260509214137_publish_migration_from_pg_dump.sql",
+      "count": 3,
+      "variants": {
+        "destructive": 2,
+        "idempotent": 1
+      },
+      "lines": [
+        320,
+        324,
+        322
+      ],
+      "original_sha256": "c9f11c52b573bad1c5bff749400fc16e5a19e22bdc656ea3005605830ee2aa55"
+    },
+    {
+      "file": "orphan/20260408191828_7b155ec4-fceb-4bfa-a2ce-0f5b9b2b885e.sql",
+      "count": 1,
+      "variants": {
+        "trigger_equal": 1
+      },
+      "lines": [
+        18
+      ],
+      "original_sha256": "1d3a2014dd70b366e42f3667e544f5a2c5186a3e8ae39ebad0d4e896620e952e"
+    },
+    {
+      "file": "orphan/20260411120205_d9b969db-165f-4aa0-86e3-6e549305beda.sql",
+      "count": 1,
+      "variants": {
+        "insert_duplicate_equal": 1
+      },
+      "lines": [
+        3
+      ],
+      "original_sha256": "933f4cb5ed0be8817ec6d467cde44d91fc9e763d45416b6d82e0859c27a8f340"
+    },
+    {
+      "file": "orphan/20260509140408_b726e518-1c42-48e8-8ca1-f5cbe2b8851a.sql",
+      "count": 2,
+      "variants": {
+        "txn_control": 2
+      },
+      "lines": [
+        1,
+        7
+      ],
+      "original_sha256": "11ba8d7cf5175601199a8c8a6802626947a2eca820cb999d748dc33d96999f30"
+    },
+    {
+      "file": "orphan/20260509221355_ea2371ed-bc9e-40ab-a3f3-47e42f6dc888.sql",
+      "count": 2,
+      "variants": {
+        "txn_control": 2
+      },
+      "lines": [
+        1,
+        238
+      ],
+      "original_sha256": "648f3ea2714262a70c569909a77d769ddf9954b2de7886a74fd1a9f7a4405cef"
+    }
+  ],
+  "g1": "red",
+  "g2": "not_run",
+  "run": 40161921145,
+  "artifact_id": 12587250155,
+  "artifact_sha256": "a0dbfa8c3a045c9a87fc69ecf718ddab12865153a0f5d12766e86a0c549194e5",
+  "validation": {
+    "total": 1454,
+    "changed_effective_at": [
+      "20260510024841",
+      "20260510025749",
+      "20260510034045"
+    ],
+    "other_entries_unchanged": true,
+    "other_relative_order_unchanged": true,
+    "checkpoint_unchanged": true,
+    "manifest_sha256": "0834a7b806c5cb70fdcab1335b6b84d0a10ede09abfa62198f897cc222fb769b",
+    "plan_sha256": "f8cc822ed7adba32da03e16503dfa4fef087c4b14c17b8c8378ad674f90db30b"
+  },
+  "tests": {
+    "new_local_passed": 4,
+    "native_passed": 31
+  },
+  "docs_baseline": {
+    "files": 52,
+    "preexisting_candidates": 12,
+    "git_hashes_verified": true
+  },
+  "dependency": {
+    "required_schema": "crm",
+    "creator_version": "20260510024841",
+    "creator_line": 2,
+    "consumer_version": "20260510034250",
+    "consumer_line": 21
+  }
+}
