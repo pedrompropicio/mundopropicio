@@ -1716,6 +1716,13 @@
       "when": 1792930278781,
       "tag": "0244_ugc_ios_primary_compare",
       "breakpoints": true
+    },
+    {
+      "idx": 245,
+      "version": "7",
+      "when": 1792938621261,
+      "tag": "0245_ads_compare_custo_por_chegada_destino",
+      "breakpoints": true
     }
   ]
 }
