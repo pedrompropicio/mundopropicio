@@ -52,12 +52,17 @@ export function resolveCaptureMapping(rows: CaptureRow[], targets: CaptureTarget
   for (const row of rows) {
     const code = normCodes(row.codes);
     const key = labelKey(row.label);
+    // Suspicion inspects the whole visible label, including venue/city after '|'.
+    // It never authorizes assignment; known exact codes remain prioritized.
+    const visibleKey = normKey(row.label.replace(/\[[^\]]*\]/g, ""));
+    const suspect = identityKeys.some(identity => hasToken(visibleKey, identity));
     const byName = targets.filter(t => safeName(key, names.get(t.id) || ""));
     const byCode = code ? targets.filter(t => normCodes(t.ticketline_report_codes) === code) : [];
     let hits: CaptureTarget[] = byCode;
     let method = "code";
     if (code && hits.length === 0) {
       if (byName.length) return abort("capture_day_code_conflict", "código desconhecido com nome completo de um alvo");
+      if (suspect) return abort("capture_day_suspect_match", "código desconhecido contém identidade parcial de um alvo");
       externalRows.push({ row, reason: "unknown_code_external" });
     } else if (!code) {
       method = "name";
@@ -67,7 +72,6 @@ export function resolveCaptureMapping(rows: CaptureRow[], targets: CaptureTarget
       }
       if (!hits.length) {
         // Whole tokens only: Cidade A must never match Cidade AB by prefix.
-        const suspect = identityKeys.some(identity => hasToken(key, identity));
         if (byName.length || suspect) return abort("capture_day_suspect_match", "linha sem código contém identidade parcial de um alvo");
         externalRows.push({ row, reason: "unrelated_name_external" });
       }

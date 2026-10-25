@@ -18,7 +18,7 @@ import { unescapeSjr, extractTables, parseNumberLabel } from "../_shared/ticketl
 import { parseTicketTypesGrid, type Grid } from "../_shared/ticketline-ticket-types-parser.ts";
 import { applyCaptureDay } from "../_shared/ticketline-capture-mapping.ts";
 
-const VERSION = "v2.44_capture_mapping_358";
+const VERSION = "v2.45_capture_identity_guard_358";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
