@@ -18,6 +18,25 @@ export function canonicalOpenId(arrivalEventId: string): string {
   return `${arrivalEventId}:open`;
 }
 
+// Missing or cross-link arrivals never contribute advertising click IDs.
+export type ArrivalClickRow = {
+  link_id: string;
+  event: string;
+  created_at: string;
+  fbclid: string | null;
+  ttclid: string | null;
+};
+export function arrivalClickSignals(arrival: ArrivalClickRow | null, linkId: string) {
+  if (!arrival || arrival.link_id !== linkId || arrival.event !== "arrival") {
+    return { fbclid: null, ttclid: null, fbc: null };
+  }
+  const fbclid = arrival.fbclid?.trim() || null;
+  const ttclid = arrival.ttclid?.trim() || null;
+  const timestamp = Date.parse(arrival.created_at);
+  return { fbclid, ttclid,
+    fbc: fbclid && Number.isFinite(timestamp) ? `fb.1.${timestamp}.${fbclid}` : null };
+}
+
 export type AppOpenParsed = {
   arrival_event_id: string;
   destination: string;
