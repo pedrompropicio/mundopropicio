@@ -7,7 +7,7 @@ CREATE TABLE public.consent_text_versions (
   locale text NOT NULL CHECK (locale ~ '^[a-z]{2}$'),
   channel text NOT NULL CHECK (channel IN ('email','whatsapp')),
   text text NOT NULL CHECK (length(text) BETWEEN 1 AND 2000),
-  text_sha256 text GENERATED ALWAYS AS (encode(sha256(convert_to(text,'UTF8')),'hex')) STORED,
+  text_sha256 text NOT NULL, -- calculado pelo trigger abaixo (convert_to não é IMMUTABLE, não serve para coluna gerada)
   valid_from timestamptz NOT NULL DEFAULT now(),
   valid_to timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -20,12 +20,19 @@ GRANT ALL ON public.consent_text_versions TO service_role;
 ALTER TABLE public.consent_text_versions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY consent_text_versions_read ON public.consent_text_versions
   FOR SELECT TO authenticated USING (public.row_belongs_to_current_company(company_id));
+-- sha256 sempre do servidor: qualquer valor enviado é substituído.
+CREATE FUNCTION public._consent_text_versions_hash() RETURNS trigger
+LANGUAGE plpgsql SET search_path=public,pg_temp AS $$
+BEGIN NEW.text_sha256 := encode(sha256(convert_to(NEW.text,'UTF8')),'hex'); RETURN NEW; END $$;
+REVOKE ALL ON FUNCTION public._consent_text_versions_hash() FROM PUBLIC,anon,authenticated;
+CREATE TRIGGER consent_text_versions_hash BEFORE INSERT ON public.consent_text_versions
+  FOR EACH ROW EXECUTE FUNCTION public._consent_text_versions_hash();
 -- Imutável: nova redação = nova versão. Só valid_to pode ser fechado (uma vez).
 CREATE FUNCTION public._consent_text_versions_immutable() RETURNS trigger
 LANGUAGE plpgsql SET search_path=public,pg_temp AS $$
 BEGIN
-  IF TG_OP='DELETE' OR (NEW.text,NEW.version,NEW.locale,NEW.channel,NEW.company_id,NEW.valid_from,NEW.created_at,NEW.id)
-     IS DISTINCT FROM (OLD.text,OLD.version,OLD.locale,OLD.channel,OLD.company_id,OLD.valid_from,OLD.created_at,OLD.id)
+  IF TG_OP='DELETE' OR (NEW.text,NEW.version,NEW.locale,NEW.channel,NEW.company_id,NEW.valid_from,NEW.created_at,NEW.id,NEW.text_sha256)
+     IS DISTINCT FROM (OLD.text,OLD.version,OLD.locale,OLD.channel,OLD.company_id,OLD.valid_from,OLD.created_at,OLD.id,OLD.text_sha256)
      OR (OLD.valid_to IS NOT NULL AND NEW.valid_to IS DISTINCT FROM OLD.valid_to)
   THEN RAISE EXCEPTION 'consent_text_version_immutable'; END IF;
   RETURN NEW;

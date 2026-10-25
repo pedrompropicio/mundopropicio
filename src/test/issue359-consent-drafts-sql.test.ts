@@ -38,7 +38,8 @@ describe("#359 rascunhos", () => {
   it("A cria tabela com sha256 gerado e imutável; colunas opcionais", async () => {
     await db.exec(read("supabase/manual/draft_359_migracao_A.sql"));
     const t = "Autorizo o Coala Festival Portugal a enviar-me mensagens por WhatsApp sobre bilhetes, cartaz e novidades do festival. Posso cancelar quando quiser.";
-    await db.query(`INSERT INTO consent_text_versions(version,company_id,locale,channel,text,valid_from) VALUES ('coala-form-2026-10-v1',$1,'pt','whatsapp',$2,'2026-10-01')`, [C, t]);
+    await db.query(`INSERT INTO consent_text_versions(version,company_id,locale,channel,text,valid_from,text_sha256) VALUES ('coala-form-2026-10-v1',$1,'pt','whatsapp',$2,'2026-10-01','falso')`, [C, t]);
+    await db.query(`SELECT 1 WHERE $1::uuid IS NOT NULL AND $2 <> ''`, [C, t]);
     const { createHash } = await import("node:crypto");
     const r = await db.query<{ text_sha256: string }>(`SELECT text_sha256 FROM consent_text_versions`);
     expect(r.rows[0].text_sha256).toBe(createHash("sha256").update(t, "utf8").digest("hex"));
