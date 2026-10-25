@@ -296,6 +296,9 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const artistId = body?.artist_id;
   const dryRun = body?.dry_run !== false;
+  // force=true repete a captura do mesmo D (upsert idempotente). Só chega aqui
+  // quem já passou na autorização abaixo: service_role ou admin da empresa.
+  const force = body?.force === true;
   if (artistId !== undefined && (typeof artistId !== "string" || !UUID_RE.test(artistId))) {
     return json({ ok: false, error: "artist_id inválido" }, 400);
   }
@@ -356,6 +359,6 @@ Deno.serve(async (req) => {
 
   const trigger = deduceTriggerSource(req);
   const results = [];
-  for (const a of artists) results.push(await syncArtist(admin, a, dryRun, trigger));
+  for (const a of artists) results.push(await syncArtist(admin, a, dryRun, trigger, force));
   return json({ ok: true, dry_run: dryRun, artistas: results.length, resultados: results });
 });
