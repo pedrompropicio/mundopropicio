@@ -34,6 +34,7 @@ Lidos D-ERP67/140/160/172, `s4a-daily-sync`, a cadeia `_shared/s4a.ts` e a compa
 - `rest` é total menos top-100 observado, inclui playlists não listadas e outras origens; NÃO é a categoria «outras» do S4A. Categoria ausente no top-100 não prova ausência global de plays.
 - Correção Pedro25/10: UGC PRINCIPAL é artist_song_metrics_daily,metric=ugc_videos,source=ios_shortcut. Total de publicações com precisão à centena; novas=diferença ao último dia com captura, com indicação dos dias cobertos. Dia sem captura fica vazio/assinalado, nunca interpolado. Queda desta série aciona o alerta principal.
 - Apify/artist_song_tiktok_sound_daily é secundário («sons acompanhados, Apify»), nunca substitui iOS ausente. Sua queda19/10 fica apenas nota técnica, sem alerta principal. Mesmo nº de sons não basta: comparar IDs e fontes.
+- Migração0244 aplicada: ugc_total/ugc_new/ugc_drop passam a iOS; ugc_days_covered,ugc_previous_capture_day,ugc_capture_missing,ugc_precision=centena,ugc_source=ios_shortcut. Apify em apify_total/apify_new/apify_drop/sound_count. Delta à captura anterior considera histórico antes do intervalo; UGC não é cortado pela dataS4A.
 - Evidência 18→19/10: 6.350→5.746, −604, 29/29 sons nos dois dias, mesmo ator `dzN8Pp8yxmp9Jzzyd`, precisão completa. Som principal 5.377→4.851 (−526). Prova de contagem menor devolvida; remoções ou versão do ator não demonstradas.
 
 ## Frontend proprietário
