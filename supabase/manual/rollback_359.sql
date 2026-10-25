@@ -206,3 +206,6 @@ GRANT EXECUTE ON FUNCTION public.crm_ingest_lead_captures(integer, uuid[]) TO se
 -- ALTER TABLE public.lead_capture DROP COLUMN consent_email_text_version, DROP COLUMN consent_whatsapp_text_version, DROP COLUMN consent_decided_at;
 -- DROP TABLE public.consent_text_versions;
 -- portal-track: redeploy do commit anterior ao passo 5.
+-- Grants (0251) — inverso, NÃO aplicado:
+-- GRANT ALL ON public.consent_text_versions TO anon;
+-- GRANT INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.consent_text_versions TO authenticated;
