@@ -1723,6 +1723,13 @@
       "when": 1792938621261,
       "tag": "0245_ads_compare_custo_por_chegada_destino",
       "breakpoints": true
+    },
+    {
+      "idx": 246,
+      "version": "7",
+      "when": 1792938776487,
+      "tag": "0246_ads_compare_custo_denominador_chegadas",
+      "breakpoints": true
     }
   ]
 }
