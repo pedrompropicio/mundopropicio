@@ -1,10 +1,10 @@
 # ESTADO — Plataforma & Infra
 
-## #352 — placeholders: divergência documental antes de implementar
+## #352 — cinco placeholders aplicados ao plano; dependência do enum
 
-Etapa de placeholders suspensa antes de publicação no privado ou novo G1. Cinco versões correspondem ao critério aplicado via Claude MCP; 20260510033845 refere aplicação anterior pelo Lovable na migração consolidada 20260510041732, sem remissão para repo. A lista autorizada inclui a versão, mas a condição textual não: aguarda confirmação de exceção explícita, com prova real preservada. enum_value_exists ainda não implementado.
+Run40160614580,código privadodc9ba22e:450entradas concluídas,451tentadas de1454. Dois repo-for-placeholder PASS;exceção20260510033845ledger/no-op intacta. Terceiro20260510034045L41falhou22P02:marketing_manager ainda não existe emapp_role. DDLdo enum em 20260510034212/20260510041732vem depois. Nenhuma reordenação ou enum_value_exists. Duas substituições restantes não alcançadas. Checkpoint114/114PASS;G1vermelho/G2não executado.
 
-[Nota](../estudos/saas-e-desenvolvimento/gates-352/placeholders-criterio-bloqueio.md). Reserva libertada; #352 aberta. Resultado anterior: checkpoint114/114;452 entradas concluídas;G1 bloqueado por3F000/schema crm;G2 não executado. Sem Live novo, SQL publicado, replay, deploy ou Publish nesta etapa.
+4testes novos e31autotestes nativos PASS.119saltos destrutivos;1298idempotentes;1superseded separado. Manifesto privado preserva placeholders e hashes. [Relatório](../estudos/saas-e-desenvolvimento/gates-352/placeholders5-g1.md) e [anexo](../estudos/saas-e-desenvolvimento/gates-352/placeholders5-g1.json). Reserva libertada;#352aberta;D-ERP309já registada. Sem Live novo/DSN/homolog/deploy/Publish. ParecerClaude necessário sobre precedência histórica do enum.
 
 ## #353 — correção R1 de CI: relógio determinístico nos testes
 24/10/2026 11:42 UTC — base comum 3afd243a92c6462f49be483faccf954391276d3b limpa. Só src/test/capi-v2.test.ts: Date fixo em NOW no describe handler, afterEach restaura; temporizadores reais preservados. Baseline host 24/10: 11 FAIL/18 PASS; depois 33 PASS no host atual e em 01/01/2030 simulado, fronteiras antes/no/depois de 6 dias e isolamento provados. Suite integral final 2409 PASS/6 skip/11 todo, exit 0; build automático OK. Código c83ca22ec; relatório docs/testes/issue353-ci-relogio.md. Reserva #353 mantida até controller conferir tsgo e CI no SHA final; local não prova GitHub verde. Sem código de produção, rede externa/Live, DDL/DML/config/segredos/flags/deploy/Publish/reenvios; reserva #322 e restantes estados preservados. Issue não editada nem fechada.
