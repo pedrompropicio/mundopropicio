@@ -6256,3 +6256,14 @@ Regra de futuro proposta no parecer (migrações DDL + referência idempotente; 
 ## D-ERP308 — #352: replay e homologação em repositório privado (24/10/2026)
 
 **Decisão Pedro, chat 0 - Cowork Claude, [6389766357](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6389766357):** “replay e homologação vivem em repositório privado; o público nunca recebe SQL derivado de Live.” Destino: pedrompropicio/mundopropicio-replay, privado. Ledger com redacções aprovadas, overlays revistos, plano e runner ficam nesse repositório; o público recebe só documentação. Drizzle é lido do checkout público com SHA fixado, sem token; os dois históricos conservam proveniência. Nunca Live, DSN de produção ou segredos. Seeds/overlays de homologação ficam para etapa própria. A branch pública de estudo fica intacta até ao fecho da #352. Não autoriza R2/criação de projecto/custos; G6 continua com Pedro.
+
+
+### D-ERP309 — Transferência dos repositórios após homologação operacional
+
+**Data:**25/10/2026 (registo de origem). **Decisor:**Pedro,0 · Cowork Claude. **Estado:**vigente.
+
+**Decisão (texto de6391926149):** os repositórios `mundopropicio` e `mundopropicio-replay` ficam em `pedrompropicio` até o ambiente de homologação estar operacional (G1–G5 verdes e runner ligado ao `mp-homolog`). A transferência para a organização faz-se depois, numa janela planeada, com Codex parado (reserva no QUADRO), `get_project` com `agentFinished=true`, e lista de verificação: religar Lovable ao novo caminho; reconfirmar segredos e permissões do GitHub Actions do privado; reautorizar conectores GitHub do Claude e do Codex; verificar o token/owner da edge function `github-issues` (R2); confirmar #329 no fim. Não se transfere entre runs do G1.
+
+**Origem:**https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6391926149
+
+Registo documental;nenhuma transferência/ligação/alteração de segredos ou execução R2 nesta etapa.
