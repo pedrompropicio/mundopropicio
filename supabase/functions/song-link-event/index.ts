@@ -315,6 +315,9 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
   const contentId: string = link.song_id ?? link.id;
 
   const { device, os, in_app_browser } = parseUA(ua);
+  // Teste A/B ios-btn-v1: decidido só no servidor; nunca entra nos payloads Meta/TikTok.
+  const abVariant = event === "app_open" ? null
+    : await abVariantFor({ os, ipHash, force: body.ab_force, nowMs: Date.now(), window: AB_IOS_BTN_WINDOW });
   const detail = prefetchDetail(body.prefetch === true, body.purpose, ua);
   if (detail !== null) {
     const { error } = await admin.from("song_link_diag").insert({ kind: "prefetch", slug: slug.slice(0, 80),
@@ -403,6 +406,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     fbclid: s(body.fbclid, 500), ttclid: s(body.ttclid, 500),
     country: hdrCountry, region: hdrRegion, city: hdrCity, device, os, in_app_browser,
     ip_hash: ipHash, origin: isSsr ? "ssr" : "browser",
+    ...(abVariant ? { ab_variant: abVariant } : {}),
   }});
   if (claimError) {
     console.warn("[song-link-event] claim falhou", claimError.message);
@@ -462,7 +466,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
         }
       }
     }
-    return json({ ok: true, duplicate: true, enriched, delivery: "ja_enviada_pelo_ssr" }, 200, origin);
+    return json({ ok: true, duplicate: true, enriched, delivery: "ja_enviada_pelo_ssr", ab_variant: abVariant }, 200, origin);
   }
   }
 
@@ -646,5 +650,5 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
   if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(work);
   else await work;
 
-  return json({ ok: true }, 200, origin);
+  return json({ ok: true, ab_variant: abVariant }, 200, origin);
 }
