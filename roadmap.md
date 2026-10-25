@@ -4,6 +4,7 @@
 - [x] Carreira/S4A 25/10: relatório 10/10–D, queda −604 mesmos29sons/ator, sem prova de remoção; 21 testes novos, suite2464→2485PASS, Deno/buildOK, sem Publish.
 - [ ] Carreira/S4A 25/10: categorias de origem bloqueadas por falta de endpoint/forma real comprovada; flag=false, não inventar parser. Ativação depende de OK posterior.
 - [x] Carreira/S4A ajustes25/10: classificação playlist_kind, vista estimada com prioridade real, Rádio23/10=36.634/desvio0%; contrato e ficheiros Gestão Artística entregues.
+- [ ] Carreira/UGC correção25/10: iOS principal, diferença última captura/dias cobertos, Apify secundário, testes RPC e contrato atualizado.
 - [ ] Carreira/S4A 25/10: frontend/colunas/card serão implementados pelo agente Gestão Artística; contrato entregue ao Pedro. CI remoto e tsgo manual não verificados.
 - [x] #333 fase11c: identidade própria no adapter e isolamento de resultados por sessão/empresa.
 - [x] #333 corretivo datas Gmail: Desde/Até e data da fatura canónicos; 12 novos testes e suite final completa 2393 PASS, relatório; sem chamadas reais/Publish, reserva mantida para controller conferir SHA/CI/tipos.
