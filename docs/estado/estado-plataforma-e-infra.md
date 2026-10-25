@@ -1,10 +1,12 @@
 # ESTADO — Plataforma & Infra
 
-## #352 — insert_duplicate_equal validado; G1 parou na cópia Coala
+## #352 — efeito Coala validado; G1 parou no checkpoint histórico
 
-Run40155054478, código privado ae4b5419:366/1454 entradas concluídas,367tentadas. Regra nova e7testes nativos PASS; seed117linhas/0pais por resolver. Passaram20260411120205 e20260429023935. Primeira falha:20260429225802,L60,SELECT da função de cópia Coala,23505 account_categories_code_key; a mudança de unicidade vem no ficheiro20260429233657. Não cabe em INSERT VALUES; parada sem alargar regras. Checkpoint30/04 não alcançado;G2 não executado.
+Run40156547812,código privado0dbe73a1:382/1454 entradas concluídas sem erroSQL (133ledger+247órfãos+2seeds). Ordenação por effective_at autorizada resolveu20260429225802. ProvaLive agregada183categorias Coala,min23:49:50.008786UTC,158nesse segundo. SQL/seed/overlays inalterados.38testes locais e28autotestes nativos PASS.
 
-100saltos destrutivos;943idempotentes (516base+74using_index+81trigger_equal+271policy_equal+1insert_duplicate_equal). PII SQL1229/0;2crons exportados e abatidos localmente,agendador off. [Relatório](../estudos/saas-e-desenvolvimento/gates-352/insert-duplicate-equal-g1.md) e [anexo](../estudos/saas-e-desenvolvimento/gates-352/insert-duplicate-equal-g1.json). Reserva libertada;#352aberta;D-ERP309 já registada. Sem escritaLive/DSN/homolog/deploy/Publish. RevisãoClaude necessária sobre dependência histórica;G2 aguardaG1verde.
+Checkpoint20260430033938 alcançado:0linhas locais/114referência;parou. Seed omitecreated_at(default now),checkpoint exige data histórica. Seed isolado117linhas/0pais por resolver;0linhas filtradas não significa tabela vazia. G1vermelho/G2não executado. ParecerClaude necessário sobre população histórica;sem alteração do filtro nem datas inventadas.
+
+100saltos destrutivos;1012idempotentes(527base+74using_index+84trigger_equal+326policy_equal+1insert_duplicate_equal). PII SQL1229/0;2crons exportados/abatidos localmente. [Relatório](../estudos/saas-e-desenvolvimento/gates-352/effective-order-g1.md) e [anexo](../estudos/saas-e-desenvolvimento/gates-352/effective-order-g1.json). Reserva libertada;#352aberta;D-ERP309já registada. Live sóSELECT agregado;semDSN/homolog/deploy/Publish.
 
 ## #353 — correção R1 de CI: relógio determinístico nos testes
 24/10/2026 11:42 UTC — base comum 3afd243a92c6462f49be483faccf954391276d3b limpa. Só src/test/capi-v2.test.ts: Date fixo em NOW no describe handler, afterEach restaura; temporizadores reais preservados. Baseline host 24/10: 11 FAIL/18 PASS; depois 33 PASS no host atual e em 01/01/2030 simulado, fronteiras antes/no/depois de 6 dias e isolamento provados. Suite integral final 2409 PASS/6 skip/11 todo, exit 0; build automático OK. Código c83ca22ec; relatório docs/testes/issue353-ci-relogio.md. Reserva #353 mantida até controller conferir tsgo e CI no SHA final; local não prova GitHub verde. Sem código de produção, rede externa/Live, DDL/DML/config/segredos/flags/deploy/Publish/reenvios; reserva #322 e restantes estados preservados. Issue não editada nem fechada.
