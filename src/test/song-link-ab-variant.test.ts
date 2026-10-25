@@ -36,8 +36,9 @@ describe("abVariantFor (pura)", () => {
     expect(await abVariantFor({ os: "ios", ipHash: "h1", force: "b", nowMs: IN, window: null })).toBeNull();
     expect(await abVariantFor({ os: "ios", ipHash: "h1", force: "C", nowMs: IN, window: null })).toBeNull();
   });
-  it("janela de produção desligada até ao passo de deploy", () => {
-    expect(abMod.AB_IOS_BTN_WINDOW).toBeNull();
+  it("janela de produção = 7 dias exatos", () => {
+    const w = abMod.AB_IOS_BTN_WINDOW!;
+    expect(Date.parse(w.end) - Date.parse(w.start)).toBe(7 * 24 * 3600 * 1000);
   });
 });
 
