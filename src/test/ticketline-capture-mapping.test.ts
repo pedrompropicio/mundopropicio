@@ -123,6 +123,14 @@ describe("#358 whole-report capture with real fake-admin UPSERT boundary", () =>
     expect(db.result.ok).toBe(true);
     expect(db.result.audit).toMatchObject({ counts: { external: 1 } });
   });
+  it("generic edition words shared by external labels do not block capture", async () => {
+    const db = await execute([target("a", "900001")], [row("Festival Exterior especial", null)], ["Cantor Fictício - Vila Solar - especial 2027"]);
+    expect(db.result.ok).toBe(true);
+    expect(db.result.audit).toMatchObject({ counts: { external: 1, zeroed: 1 } });
+  });
+  it("short artist identity without code blocks zeros but never assigns another artist in same city", async () => {
+    await blocked([target("a", "900001"), target("b", null)], [row("ZX", null)], ["ZX - Vila Solar", "Outra Banda - Vila Solar"], "capture_day_suspect_match");
+  });
   it("valid no-movement TOTAL writes legitimate coded zeros", async () => {
     const db = await execute([target("a", "900001")], [], ["Cantor Fictício - Vila Solar"]);
     expect(db.result.ok).toBe(true);

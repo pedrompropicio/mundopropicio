@@ -23,6 +23,10 @@ const hasToken = (label: string, token: string) => (` ${label} `).includes(` ${t
 
 export function resolveCaptureMapping(rows: CaptureRow[], targets: CaptureTarget[], nameById: ReadonlyMap<string, string>) {
   const names = new Map(targets.map(t => [t.id, normKey(nameById.get(t.event_id) || t.organization_name || "")]));
+  // Artist/city identity segments, not arbitrary words from an edition/tour suffix.
+  // Phrase boundaries also preserve short identities such as a two-letter artist.
+  const identityKeys = targets.flatMap(t => (nameById.get(t.event_id) || t.organization_name || "")
+    .split(/\s+[-–—]\s+/).slice(0, 2).map(normKey).filter(Boolean));
   const matched = new Map<string, { row: CaptureRow; method: string }>();
   const decisions: Array<{ label: string; codes: string | null; qty: number; value: number; method: string | null; matched: Array<{ configId: string; event_id: string }> }> = [];
   const externalRows: Array<{ row: CaptureRow; reason: string }> = [];
@@ -63,8 +67,7 @@ export function resolveCaptureMapping(rows: CaptureRow[], targets: CaptureTarget
       }
       if (!hits.length) {
         // Whole tokens only: Cidade A must never match Cidade AB by prefix.
-        const suspect = targets.some(t => (names.get(t.id) || "").split(" ")
-          .filter(token => token.length >= 3).some(token => hasToken(key, token)));
+        const suspect = identityKeys.some(identity => hasToken(key, identity));
         if (byName.length || suspect) return abort("capture_day_suspect_match", "linha sem código contém identidade parcial de um alvo");
         externalRows.push({ row, reason: "unrelated_name_external" });
       }
