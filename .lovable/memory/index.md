@@ -198,6 +198,7 @@ Uma linha por tema, por frente: pergunta → ficheiros (mem://pasta/ficheiro). S
 - [Simulador — curva histórica (#89 m2)](mem://features/simulator-prior-curve) — Usar histórico de…" grava prior_editions + evento-fonte; só sugere, piso manual ganha
 - [Simulator public unit (Pagantes×dia)](mem://features/simulator-public-unit) — Cards Hoje/BE/Forecast do Simulador mostram só pagantes×dia; cortesias só informativas
 - [Chegada SSR dos smart links](mem://features/song-link-ssr) — D-ERP234; autenticação partilhada, prefetch só diagnóstico e unicidade antes de Meta/TikTok
+- [Teste A/B botão iPhone](mem://features/smart-link-ios-ab-test) — 7 dias desde deploy, só iOS, ?ab= forçado fora da taxa
 - [Sponsorship Pipeline ↔ BP/Simulador](mem://features/sponsorship-pipeline-simulator-integration) — Pipeline de patrocínios alimenta BP só via botão manual; Simulador lê só BP; reset_reimport preserva vínculos
 - [Standalone invoices (Scanner de Faturas Avulsas)](mem://features/standalone-invoices) — Faturas no NIF da empresa pagas com recursos próprios da diretoria — só documento + metadados em standalone_invoices; NUNCA cria transação, BP, lista de pagamento ou movimento de conta
 - [Remoção de ficheiros contabilísticos (#265)](mem://features/storage-deletion-log) — 7 buckets sem DELETE directo; tudo via edge storage-delete / _shared/storage-trash.ts, registo em storage_deletion_log e move para _trash/<data>/
