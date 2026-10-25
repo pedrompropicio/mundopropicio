@@ -29,6 +29,7 @@
 - Marketing proof stays in the service-role ledger, ordered by server revision, never client clocks. Client subject tokens use Origin-derived company+portal scope and per-decision receipts; capture triggers revalidate under subject locks, stripping Meta identifiers without proof. Stale retries, legacy and direct inserts never become CAPI-eligible.
 - Person advertising consent links session-resolved Club members to the existing marketing ledger through immutable references, with separate purpose subjects and an independent email history; unsubscribe commits revocation, suppression and token claim together to avoid partial withdrawal.
 - Edge functions share only via `_shared/`. Scanner/entry share extraction, never writers; entry retains guards.
+- S4A playlist capture uses a side-effect-free shared parser for current 1/28-day windows; daily comparisons retain unknown coverage and canonical artist access, never infer missing historical seeds or treat top-100 playlists as all stream sources.
 - Ticketline daily capture uses the side-effect-free shared mapping/core before one UPSERT; strong codes retain order/separators and omitted unidentified nonconsumers preserve their mirror, preventing partial writes and inferred false zeros.
 
 - CRM WhatsApp uses crm_whatsapp_eligible/invoker views. Ledger/member-phone triggers share a contact-locked projection; matching-fingerprint phones only fill empty contacts, avoiding leaks/overwrites.

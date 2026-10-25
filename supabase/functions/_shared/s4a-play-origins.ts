@@ -50,7 +50,7 @@ export function playlistCategory(row: Pick<PlaylistRow, "playlist_uri" | "playli
 export function estimateDaily(windows: ReadonlyMap<string, number | null>, release: string, from: string, to: string, observed: ReadonlyMap<string, number | null> = new Map()) {
   const cache = new Map<string, number | null>();
   function daily(day: string): number | null {
-    if (day < release) return 0;
+    if (day < release) { cache.set(day, 0); return 0; }
     if (cache.has(day)) return cache.get(day) ?? null;
     const real = observed.get(day);
     if (real != null) { cache.set(day, real); return real; }
