@@ -1,6 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { estimateDaily, playlistRows, playlistCategory, responseShape, soundDailySummary, SOURCE_ORIGIN_CAPTURE_ENABLED } from "../../supabase/functions/_shared/s4a-play-origins";
+import { classifyPlaylist, estimateDaily, playlistRows, playlistCategory, responseShape, soundDailySummary, SOURCE_ORIGIN_CAPTURE_ENABLED } from "../../supabase/functions/_shared/s4a-play-origins";
 describe("S4A daily playlist origins", () => {
+  it.each(["Radio", "Mixes", "Daily Mix 2", "Descobertas da Semana", "Radar de Novidades"])("classifies Spotify %s as algorithmic", title => expect(classifyPlaylist({title, author:"Spotify"})).toBe("algorithmic"));
+  it("flags take precedence over author and ordinary titles", () => {
+    expect(classifyPlaylist({title:"Synthetic",isAlgorithmic:true})).toBe("algorithmic");
+    expect(classifyPlaylist({title:"Synthetic",author:"Spotify",isAlgotorial:true})).toBe("algotorial");
+    expect(classifyPlaylist({title:"Synthetic",isAlgorithmic:true,isAlgotorial:true})).toBe("algorithmic");
+  });
+  it.each(["pisa e sofre", "This Is Synthetic"])("classifies unflagged Spotify %s as editorial", title => expect(classifyPlaylist({title,author:"Spotify"})).toBe("editorial"));
+  it("does not promote listener titles to Spotify algorithmic playlists", () => expect(classifyPlaylist({title:"Radio",author:"Listener"})).toBe("listener"));
+  it("observed daily data wins over estimates", () => expect(estimateDaily(new Map([["2026-09-02",10]]),"2026-09-02","2026-09-02","2026-09-02",new Map([["2026-09-02",12]])).get("2026-09-02")).toBe(12));
   it("keeps unapproved origin capture disabled", () => expect(SOURCE_ORIGIN_CAPTURE_ENABLED).toBe(false));
   it("uses actual day and period without copying a window to earlier days", () => {
     const { rows } = playlistRows([{ title: "Radio", uri: "spotify:playlist:radio", streams: "36634", author: "Spotify" }], "2026-10-23", 1);

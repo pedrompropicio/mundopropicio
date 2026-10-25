@@ -1815,6 +1815,7 @@ export type Database = {
           made_by: string | null
           period_days: number
           playlist_key: string | null
+          playlist_kind: string | null
           playlist_name: string
           playlist_uri: string | null
           rank: number | null
@@ -1832,6 +1833,7 @@ export type Database = {
           made_by?: string | null
           period_days?: number
           playlist_key?: string | null
+          playlist_kind?: string | null
           playlist_name: string
           playlist_uri?: string | null
           rank?: number | null
@@ -1849,6 +1851,7 @@ export type Database = {
           made_by?: string | null
           period_days?: number
           playlist_key?: string | null
+          playlist_kind?: string | null
           playlist_name?: string
           playlist_uri?: string | null
           rank?: number | null
@@ -21009,6 +21012,24 @@ export type Database = {
       }
     }
     Views: {
+      artist_song_playlist_daily: {
+        Row: {
+          artist_id: string | null
+          category: string | null
+          company_id: string | null
+          day: string | null
+          estimated: boolean | null
+          first_real: string | null
+          made_by: string | null
+          playlist_key: string | null
+          playlist_kind: string | null
+          playlist_name: string | null
+          playlist_uri: string | null
+          song_id: string | null
+          streams_day: number | null
+        }
+        Relationships: []
+      }
       blog_posts_public: {
         Row: {
           company_id: string | null

@@ -238,7 +238,7 @@ async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSou
         playlistRowsToWrite.push(...rows);
         notes.push(...parsed.notes.map(note => `"${song.title}" 1day: ${note}`));
         const preview = (samples.playlists_1day ?? []) as unknown[];
-        preview.push({ song_id: song.id, day: D, rows: rows.map(({ playlist_uri, playlist_name, made_by, streams }) => ({ playlist_uri, playlist_name, made_by, streams })) });
+        preview.push({ song_id: song.id, day: D, rows: rows.map(({ playlist_uri, playlist_name, made_by, playlist_kind, streams }) => ({ playlist_uri, playlist_name, made_by, playlist_kind, streams })) });
         samples.playlists_1day = preview;
       }
     }
