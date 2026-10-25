@@ -6267,3 +6267,7 @@ Regra de futuro proposta no parecer (migrações DDL + referência idempotente; 
 **Origem:**https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6391926149
 
 Registo documental;nenhuma transferência/ligação/alteração de segredos ou execução R2 nesta etapa.
+
+### D-ERP310 — Fluxos pós-homologação e executores elegíveis (25/10/2026)
+
+Com o ambiente mp-homolog (#352) verde, as demandas R1 e R2 de código passam a correr contra homologação antes de Live. Executores elegíveis: o agente Lovable (único escritor em Live), Codex e Claude Code — ambos por CLI com as subscrições existentes, em repo/branch com PR, CI verde e revisão por leitura do outro lado. Um executor por demanda; "Executor atual" na Issue prevalece. O "Sim" do Pedro continua a anteceder qualquer tarefa R1/R2 e é sempre dele. Esta decisão não altera D-ERP291 (Publish e crons só pelo 0, em janela); a revisão de D-ERP278/D-ERP291 à luz do painel (#360) é decisão futura, só após a E2 ser aprovada.
