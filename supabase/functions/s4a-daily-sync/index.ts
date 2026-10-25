@@ -280,7 +280,7 @@ async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSou
   const status = resolveStatus(written, errors);
   await finishSyncRun(admin, runId, started, {
     status, api_calls: c.calls(), rows_written: written,
-    details: { D, counts, notes, source_origin_capture_enabled: SOURCE_ORIGIN_CAPTURE_ENABLED }, error_text: errors ? notes[notes.length - 1] ?? null : null,
+    details: { D, counts, notes, forced: force, source_origin_capture_enabled: SOURCE_ORIGIN_CAPTURE_ENABLED }, error_text: errors ? notes[notes.length - 1] ?? null : null,
   });
   return {
     artist_id: artist.id, D, dry_run: dryRun, status: dryRun ? "dry_run" : status, api_calls: c.calls(),
