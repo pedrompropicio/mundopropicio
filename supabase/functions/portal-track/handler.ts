@@ -284,6 +284,26 @@ return async (req: Request): Promise<Response> => {
     }
   }
 
+  // #359: versão do texto das caixas. Só com campos de versão no payload; sem eles o row fica igual ao de hoje.
+  if (kind === "lead" && hasConsentVersionFields(body.payload)) {
+    const res = await resolveConsentVersions(
+      { payload: body.payload, company: companyForOrigin(origin), now: new Date() },
+      async (company, versions) => {
+        const list = versions.map(v => `"${v}"`).join(",");
+        const r = await fetch(`${url}/rest/v1/consent_text_versions?select=version,locale,channel,valid_from,valid_to&company_id=eq.${company}&version=in.(${list})`, {
+          headers: { apikey: key, Authorization: `Bearer ${key}` },
+        });
+        if (!r.ok) throw new Error(`lookup ${r.status}`);
+        return await r.json();
+      },
+    );
+    if (res.applies) {
+      Object.assign(row, res.columns);
+      if (Object.keys(res.raw).length) row.raw = { ...((row.raw as Record<string, unknown>) ?? {}), ...res.raw };
+      if (Array.isArray(res.raw.consent_version_warnings)) console.warn("[portal-track] consent version", res.raw.consent_version_warnings);
+    }
+  }
+
   // #322: marketing_bound reflete o que ficou PERSISTIDO (o trigger revalida sob lock e pode retirar o vínculo).
   // Só se pede de volta a coluna consent_event_id (sem PII).
   let marketingBound = false;
