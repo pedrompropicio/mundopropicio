@@ -1,12 +1,10 @@
 # ESTADO — Plataforma & Infra
 
-## #352 — txn_control validado; dependênciaCRM bloqueiaG1
+## #352 — placeholders: divergência documental antes de implementar
 
-Run40159254069,código privado71661330:452/1454entradas concluídas,453tentadas.3testes nativos txn_control PASS (BEGIN/COMMIT,ROLLBACK,erro intermédio com reversão);39testes locais PASS;28autotestes anteriores PASS. Checkpoint114/114mantido.4delimitadores registados em2ficheiros;plano/SQL/hashes intactos.
+Etapa de placeholders suspensa antes de publicação no privado ou novo G1. Cinco versões correspondem ao critério aplicado via Claude MCP; 20260510033845 refere aplicação anterior pelo Lovable na migração consolidada 20260510041732, sem remissão para repo. A lista autorizada inclui a versão, mas a condição textual não: aguarda confirmação de exceção explícita, com prova real preservada. enum_value_exists ainda não implementado.
 
-Primeira falha20260510034250,L21,CREATE TABLE crm.role_budget_limits,3F000:crm ausente. Ledger20260510024841é sócomentário backfill;ficheiro público da mesma versão cria crm,L2,mas foi excluído pela regra de prevalêncialedger. ParecerClaude necessário;sem schema/overlay/excepção nova. G1vermelho/G2não executado.
-
-119saltos destrutivos;1298idempotentes(703base+104using_index+113trigger_equal+373policy_equal+1insert_duplicate_equal+4txn_control);1superseded separado. PII1230/0;cronoff,2jobs exportados/abatidos localmente. [Relatório](../estudos/saas-e-desenvolvimento/gates-352/txn-control-g1.md) e [anexo](../estudos/saas-e-desenvolvimento/gates-352/txn-control-g1.json). Reserva libertada;#352aberta;D-ERP309já registada. Sem nova leitura/escritaLive,DSN,homolog/deploy/Publish.
+[Nota](../estudos/saas-e-desenvolvimento/gates-352/placeholders-criterio-bloqueio.md). Reserva libertada; #352 aberta. Resultado anterior: checkpoint114/114;452 entradas concluídas;G1 bloqueado por3F000/schema crm;G2 não executado. Sem Live novo, SQL publicado, replay, deploy ou Publish nesta etapa.
 
 ## #353 — correção R1 de CI: relógio determinístico nos testes
 24/10/2026 11:42 UTC — base comum 3afd243a92c6462f49be483faccf954391276d3b limpa. Só src/test/capi-v2.test.ts: Date fixo em NOW no describe handler, afterEach restaura; temporizadores reais preservados. Baseline host 24/10: 11 FAIL/18 PASS; depois 33 PASS no host atual e em 01/01/2030 simulado, fronteiras antes/no/depois de 6 dias e isolamento provados. Suite integral final 2409 PASS/6 skip/11 todo, exit 0; build automático OK. Código c83ca22ec; relatório docs/testes/issue353-ci-relogio.md. Reserva #353 mantida até controller conferir tsgo e CI no SHA final; local não prova GitHub verde. Sem código de produção, rede externa/Live, DDL/DML/config/segredos/flags/deploy/Publish/reenvios; reserva #322 e restantes estados preservados. Issue não editada nem fechada.
