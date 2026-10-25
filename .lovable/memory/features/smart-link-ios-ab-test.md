@@ -7,3 +7,8 @@ type: feature
 - Sorteio estável por ip_hash, só iOS, 50/50. A = página atual; B = botão Spotify grande/fixo no topo.
 - ?ab=A|B força a variante para teste manual e grava A_forcado/B_forcado (fora da consulta da taxa).
 - Android e payloads Meta/TikTok inalterados. SQL e deploy só com "Sim"/OK do Pedro.
+- Janela reiniciada na publicação da página B: 2026-10-25T22:07:00Z a 2026-11-01T22:07:00Z (UTC).
+- Consulta da taxa de toque:
+  arrivals WHERE event='arrival' AND os='ios' AND created_at >= '2026-10-25T22:07:00Z' AND created_at < '2026-11-01T22:07:00Z'
+  AND ab_variant IN ('A','B') AND coalesce(utm_content,'') NOT LIKE 'teste_%';
+  toque = existe choice com arrival_event_id = arrival.event_id.
