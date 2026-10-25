@@ -4,6 +4,7 @@
 // Aceita text/plain (sendBeacon, sem preflight) e application/json.
 // verify_jwt = false (config.toml) — ABERTA por desenho.
 import { consentRecordResponse, interpretBind, parseConsentDecision, portalForOrigin, readConsentReceipt, readConsentToken, stripMetaIdentifiers } from "../_shared/consent-contract.ts";
+import { hasConsentVersionFields, resolveConsentVersions } from "./consent-versions.ts";
 
 export type Deps = {
   fetch: typeof fetch;
