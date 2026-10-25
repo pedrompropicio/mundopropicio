@@ -24567,6 +24567,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      artist_song_play_origins_compare: {
+        Args: { p_artist_id: string; p_from: string; p_to: string }
+        Returns: Json
+      }
       artist_song_playlist_streams_set: {
         Args: {
           p_period_days: number

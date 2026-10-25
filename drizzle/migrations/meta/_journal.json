@@ -1688,6 +1688,13 @@
       "when": 1792868880000,
       "tag": "0240_issue355_drop_recipient_phone",
       "breakpoints": true
+    },
+    {
+      "idx": 241,
+      "version": "7",
+      "when": 1792928219935,
+      "tag": "0241_s4a_daily_compare",
+      "breakpoints": true
     }
   ]
 }
