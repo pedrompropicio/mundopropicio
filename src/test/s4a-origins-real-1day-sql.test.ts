@@ -15,6 +15,8 @@ beforeAll(async()=>{
  CREATE TABLE artist_song_metrics_daily(id uuid,song_id uuid,artist_id uuid,company_id uuid,platform text,metric text,metric_date date,value numeric,source text,captured_at timestamptz);
  CREATE TABLE artist_song_playlist_streams(song_id uuid,artist_id uuid,company_id uuid,snapshot_date date,period_days int,source text,streams int,made_by text,playlist_uri text,playlist_name text);
  CREATE TABLE artist_song_tiktok_sound_daily(song_id uuid,company_id uuid,metric_date date,music_id text,video_count bigint,source text);
+ CREATE FUNCTION public.artist_ads_compare(p_artist_id uuid,p_from date,p_to date,p_country text,p_tz text) RETURNS jsonb LANGUAGE plpgsql AS $$
+ DECLARE r jsonb; BEGIN SELECT jsonb_build_object('old','preserved') INTO r; RETURN r; END $$;
  INSERT INTO artist_songs VALUES
   ('${songA}','Song A','2026-09-02','${artist}','${company}','ativo'),
   ('${songB}','Song B','2026-09-02','${artist}','${company}','ativo');
