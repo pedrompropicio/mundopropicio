@@ -1730,6 +1730,27 @@
       "when": 1792938776487,
       "tag": "0246_ads_compare_custo_denominador_chegadas",
       "breakpoints": true
+    },
+    {
+      "idx": 247,
+      "version": "7",
+      "when": 1792939578649,
+      "tag": "0247_s4a_origins_real_1day_priority",
+      "breakpoints": true
+    },
+    {
+      "idx": 248,
+      "version": "7",
+      "when": 1792939631173,
+      "tag": "0248_s4a_origins_real_1day_keep_other_spotify",
+      "breakpoints": true
+    },
+    {
+      "idx": 249,
+      "version": "7",
+      "when": 1792939844751,
+      "tag": "0249_s4a_origins_fix_sounds_scope",
+      "breakpoints": true
     }
   ]
 }
