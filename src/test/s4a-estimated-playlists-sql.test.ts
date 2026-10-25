@@ -18,7 +18,7 @@ beforeAll(async()=>{
 },30000);
 afterAll(async()=>{await db?.close();});
 it('derives release boundary and D-28 then prefers actual daily',async()=>{
- const r=(await db.query(`SELECT day,streams_day,estimated FROM artist_song_playlist_daily WHERE day IN('2026-09-02','2026-09-30','2026-10-01') ORDER BY day`)).rows;
+ const r=(await db.query(`SELECT day::text,streams_day,estimated FROM artist_song_playlist_daily WHERE day IN('2026-09-02','2026-09-30','2026-10-01') ORDER BY day`)).rows;
  expect(r).toEqual([{day:'2026-09-02',streams_day:'10',estimated:true},{day:'2026-09-30',streams_day:'10',estimated:true},{day:'2026-10-01',streams_day:'12',estimated:false}]);
 });
 it('missing predecessor stays null and cannot invent a seed',async()=>{
