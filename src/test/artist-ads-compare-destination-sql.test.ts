@@ -68,13 +68,13 @@ const row=async(platform:string)=>{
  return rows[0].r.trafego_diario.find((x:any)=>x.platform===platform);
 };
 describe('trafego_diario com destino ao smart link (0245)',()=>{
- it('Meta: gasto com destino só da campanha com criativo /m/; custo = gasto_destino ÷ chegadas atribuídas',async()=>{
+ it('Meta: gasto com destino só da campanha com criativo /m/; custo = gasto_destino ÷ chegadas pagas',async()=>{
   const r=await row('meta');
-  expect(r).toMatchObject({day:'2026-10-19',currency:'BRL',gasto:120,gasto_com_destino:50,gasto_sem_destino:70,chegadas:45,chegadas_sem_campanha:5,custo_por_chegada:1.25});
+  expect(r).toMatchObject({day:'2026-10-19',currency:'BRL',gasto:120,gasto_com_destino:50,gasto_sem_destino:70,chegadas:45,chegadas_sem_campanha:5,custo_por_chegada:1.1111});
  });
  it('TikTok: campanha de visualizações fora do numerador; chave de utm_campaign liga à campanha de tráfego',async()=>{
   const r=await row('tiktok');
-  expect(r).toMatchObject({day:'2026-10-19',gasto:1000,gasto_com_destino:100,gasto_sem_destino:900,chegadas:45,chegadas_sem_campanha:5,custo_por_chegada:2.5});
+  expect(r).toMatchObject({day:'2026-10-19',gasto:1000,gasto_com_destino:100,gasto_sem_destino:900,chegadas:45,chegadas_sem_campanha:5,custo_por_chegada:2.2222});
  });
  it('mantém as chaves antigas e o bloco musica_daily',async()=>{
   const {rows}=await db.query<{r:any}>(`SELECT artist_ads_compare($1,'2026-10-19','2026-10-19',NULL,'UTC') r`,[artist]);
