@@ -16,8 +16,9 @@ import {
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 import { unescapeSjr, extractTables, parseNumberLabel } from "../_shared/ticketline-sjr-parser.ts";
 import { parseTicketTypesGrid, type Grid } from "../_shared/ticketline-ticket-types-parser.ts";
+import { applyCaptureDay } from "../_shared/ticketline-capture-mapping.ts";
 
-const VERSION = "v2.43_ticket_types_batch";
+const VERSION = "v2.44_capture_mapping_358";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -1261,10 +1262,9 @@ function isoMinusDays(iso: string, days: number): string {
 // O relatório devolve UMA LINHA POR EVENTO (incluindo os migrados). O período
 // vem da SESSÃO: fixa-se com POST period=5 + datas em /managers/dashboard/
 // sale_summary (SEM evento no form). Eventos sem movimento no período NÃO
-// aparecem no relatório (ausência = 0).
+// aparecem no relatório; zero inferido exige código forte e relatório válido (#358).
 // ============================================================================
 const SALES_PER_EVENT_URL = `${BASE}/managers/dashboard/sales_per_event`;
-const CAPTURE_DAY_MAX_QTY = 5000;
 
 /** lowercase + sem acentos + espaços colapsados. */
 function normKey(s: string): string {
@@ -1275,16 +1275,6 @@ function normKey(s: string): string {
     .replace(/[^a-z0-9 ]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-/** Chaves candidatas de um nome de evento do ERP ("RG - Albufeira" → albufeira). */
-function eventNameKeys(name: string): string[] {
-  const keys = new Set<string>();
-  const full = normKey(name);
-  if (full) keys.add(full);
-  const parts = String(name || "").split(/\s+[-–—]\s+/).map(normKey).filter(Boolean);
-  for (const p of parts) keys.add(p);
-  return Array.from(keys);
 }
 
 function dayTokenToIso(t: string): string | null {
@@ -1440,7 +1430,7 @@ async function runCaptureDay(admin: any, configId?: string, dateISO?: string) {
   // de daily_fallback_active.
   const { data: targets, error: tErr } = await admin
     .from("ticketline_sync_config")
-    .select("id, event_id, company_id, ticketline_event_id, organization_name, ticketline_report_codes")
+    .select("id, event_id, company_id, ticketline_event_id, organization_name, ticketline_report_codes, daily_fallback_active, promotores_migrated_at")
     .eq("company_id", cfg.company_id)
     .eq("enabled", true);
   if (tErr) return json(500, { error: tErr.message });
@@ -1510,119 +1500,13 @@ async function runCaptureDay(admin: any, configId?: string, dateISO?: string) {
     debug.tablesFound = parsed.tablesFound;
     debug.tableChoice = parsed.tableChoice;
 
-    const sumQty = parsed.rows.reduce((s, r) => s + r.qty, 0);
-    const sumValue = Math.round(parsed.rows.reduce((s, r) => s + r.value, 0) * 100) / 100;
-    debug.sums = { qty: sumQty, value: sumValue };
-    if (parsed.totalRow) {
-      const qtyOk = parsed.totalRow.qty === null || parsed.totalRow.qty === sumQty;
-      const valOk = parsed.totalRow.value === null || Math.abs((parsed.totalRow.value || 0) - sumValue) < 0.005;
-      if (!qtyOk || !valOk) {
-        return await fail(
-          "capture_day_total_mismatch",
-          `TOTAL (${parsed.totalRow.qty}, ${parsed.totalRow.value}) ≠ soma das linhas (${sumQty}, ${sumValue})`,
-        );
-      }
-    }
-    const insane = parsed.rows.filter((r) => r.qty > CAPTURE_DAY_MAX_QTY);
-    if (insane.length > 0) {
-      return await fail("capture_day_sanity", `qty acima do limite (${insane.map((r) => `${r.label}=${r.qty}`).join(", ")} > ${CAPTURE_DAY_MAX_QTY})`);
-    }
-
-    // 5. mapeamento linha → config (v2.36: por código quando disponível)
-    const normCodes = (v: any) => String(v ?? "").replace(/\s+/g, "").trim();
-    const codeConfigs = targetList.filter((t: any) => normCodes(t.ticketline_report_codes).length > 0);
-    debug.codeConfigs = codeConfigs.map((t: any) => ({ configId: t.id, codes: normCodes(t.ticketline_report_codes) }));
-
-    const mapping: any[] = [];
-    const matchedByConfig = new Map<string, string[]>();
-    const matchMethodByConfig = new Map<string, string>();
-    for (const row of parsed.rows) {
-      const rowCodes = normCodes(row.codes);
-      let method = "code";
-      let hits: any[] = rowCodes
-        ? codeConfigs.filter((t: any) => normCodes(t.ticketline_report_codes) === rowCodes)
-        : [];
-
-      const labelName = row.label.split("|")[0];
-      const lk = normKey(labelName.replace(/\[[^\]]*\]/g, ""));
-
-      if (hits.length === 0) {
-        // fallback por nome — só para configs SEM códigos definidos
-        method = "name";
-        hits = targetList.filter((t: any) => {
-          if (normCodes(t.ticketline_report_codes).length > 0) return false;
-          const keys = eventNameKeys(nameById.get(t.event_id) || t.organization_name || "");
-          return keys.some((k) => k.length >= 3 && (k === lk || lk.includes(k) || k.includes(lk)));
-        });
-      }
-
-      mapping.push({
-        label: row.label, labelKey: lk, codes: row.codes, qty: row.qty, value: row.value,
-        method: hits.length > 0 ? method : null,
-        matched: hits.map((h: any) => ({ configId: h.id, event_id: h.event_id, event_name: nameById.get(h.event_id) || null })),
-      });
-      if (hits.length > 1) {
-        debug.mapping = mapping;
-        return await fail(
-          "capture_day_ambiguous_match",
-          method === "code"
-            ? `códigos "${rowCodes}" estão em ${hits.length} configs`
-            : `label "${row.label}" casa com ${hits.length} configs (match por nome)`,
-        );
-      }
-      if (hits.length === 1) {
-        const arr = matchedByConfig.get(hits[0].id) || [];
-        arr.push(row.label);
-        matchedByConfig.set(hits[0].id, arr);
-        matchMethodByConfig.set(hits[0].id, method);
-      }
-    }
-    debug.mapping = mapping;
-    for (const [cid, labels] of matchedByConfig) {
-      if (labels.length > 1) {
-        return await fail("capture_day_ambiguous_match", `config ${cid} casa com ${labels.length} labels (${labels.join(" / ")})`);
-      }
-    }
-
-    // 6. UPSERT — só a data alvo; configs sem linha ficam a 0/0
-    const payload = targetList.map((t: any) => {
-      const label = (matchedByConfig.get(t.id) || [])[0] || null;
-      const row = label ? parsed.rows.find((r) => r.label === label) : null;
-      return {
-        company_id: t.company_id,
-        event_id: t.event_id,
-        sale_date: dayIso,
-        quantity: row?.qty ?? 0,
-        total_value: row?.value ?? 0,
-      };
-    });
-    const { error: upErr } = await admin
-      .from("ticketline_daily_sales")
-      .upsert(payload, { onConflict: "event_id,sale_date" });
-    if (upErr) return await fail("import_failed", `UPSERT ticketline_daily_sales: ${upErr.message}`);
-
-    const audit = {
-      dataSource: "sales_per_event_day",
-      day: dayIso,
-      reportRows: parsed.rows,
-      totalRow: parsed.totalRow,
-      totals: { qty: sumQty, value: sumValue },
-      headerRange: per.headerText,
-      mapping,
-      upserted: payload,
-      configsTargeted: targetList.length,
-      matchedConfigs: matchedByConfig.size,
-      matchMethods: Object.fromEntries(matchMethodByConfig),
-    };
-    if (runId) {
-      await updateRun(admin, runId, {
-        status: "success", finished_at: new Date().toISOString(),
-        files_downloaded: [{ name: `sales_per_event_${dayIso}.sjr.js`, size: got.size }],
-        error_message: null,
-        import_audit: { ...audit, debug, source_mode: "sales_per_event_day" },
-      });
-    }
-    return json(200, { ok: true, version: VERSION, runId, day: dayIso, audit });
+    // #358: complete validation/mapping before one UPSERT; omitted configs keep their mirror.
+    const result = await applyCaptureDay(admin, {
+      dayIso, targets: targetList, nameById, debug,
+      headerRange: per.headerText, fileSize: got.size,
+      updateRun: async (patch) => { if (runId) await updateRun(admin, runId, patch); },
+    }, parsed);
+    return json(result.ok ? 200 : 500, { ...result, version: VERSION, runId, day: dayIso });
   } catch (e: any) {
     return await fail(e?.phase || "capture_day_failed", e?.message || String(e));
   }
