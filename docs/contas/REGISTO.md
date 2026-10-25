@@ -4,7 +4,7 @@ Fonte única das contas de plataformas da empresa. **Nunca** contém passwords, 
 
 Regras (D-ERP309 e esta página):
 - Toda a conta nova da empresa entra aqui no dia em que é criada, com origem (fatura, email de confirmação).
-- Emails de confirmação, faturas e recibos: etiqueta Gmail `Contas/Plataformas` em `pedroneto@mundopropicio.com`; reencaminhamento para a caixa partilhada `contas@mundopropicio.com` quando existir.
+- Emails de confirmação, faturas e recibos: etiqueta Gmail `Contas/Plataformas` em `pedroneto@mundopropicio.com` e reencaminhamento para a caixa partilhada **`contas@mundopropicio.com`** (Google Group, caixa de entrada colaborativa, criada 25/10/2026; owner Pedro; externos podem enviar; entrada só por convite).
 - Faturas com IVA/NIPC: seguem para a contabilidade (Expert Numbers) pelo fluxo financeiro habitual.
 - Números que mudam (custos, créditos) consultam-se na plataforma; aqui fica o último valor com data.
 
@@ -12,6 +12,7 @@ Regras (D-ERP309 e esta página):
 
 | Plataforma | Identidade / login | Entidade / org | Plano | Ciclo | Custo (última origem) | Owner | Notas |
 |---|---|---|---|---|---|---|---|
+| Google Workspace | `pedroneto@mundopropicio.com` (admin) | domínio `mundopropicio.com` | a confirmar | — | — | Pedro | Grupos: `contas@` (caixa colaborativa, 25/10/2026), `api@` (API Fever MP) |
 | GitHub (conta pessoal) | `pedrompropicio` · email principal `pedroneto@mundopropicio.com` (desde 25/10/2026) | repos `mundopropicio` (público) e `mundopropicio-replay` (privado) | Free | — | 0 | Pedro | Gmail pessoal mantido como email secundário de recuperação |
 | GitHub Organization | `mundopropicio` | Mundo Propício Unipessoal Lda · contacto `pedroneto@mundopropicio.com` | Free | — | 0 | Pedro (owner) | Criada 25/10/2026, vazia; transferência dos repos planeada para depois do G2 da #352 (D-ERP309) |
 | Supabase | login GitHub `pedrompropicio` · email `pedroneto@mundopropicio.com` | org `Mundo Propício` (slug `mugcbktatsidtwqnfval`) · Company, 10–49 | **Pro** | mensal | $25/mês + uso (fatura 25/10/2026) · spend cap **ligado** | Pedro | Projecto `mp-homolog` ref `lletodraoaruvmzyecac`, West EU (Ireland) eu-west-1, Nano, Healthy. Faturação como empresa com NIPC. Password da base no gestor de passwords do Pedro |
@@ -25,9 +26,9 @@ Regras (D-ERP309 e esta página):
 
 ## Pendentes
 
-- Criar `contas@mundopropicio.com` no Google Workspace (caixa colaborativa) e configurar o reencaminhamento a partir da etiqueta `Contas/Plataformas`.
+- Gmail de `pedroneto@`: adicionar `contas@mundopropicio.com` como endereço de encaminhamento (confirmar o código que chega ao grupo) e criar o filtro `from:(openai.com OR supabase.com OR github.com OR lovable.dev OR anthropic.com OR stripe.com)` → encaminhar para `contas@` + etiqueta `Contas/Plataformas`.
 - OpenAI: Tax ID (NIPC) no Billing do workspace `Mundo Propicio`; resposta do suporte ao reembolso CNMX5UAR-0001.
-- Completar plano/custo de Lovable, Anthropic, browserless, ElevenLabs a partir das faturas etiquetadas.
+- Completar plano/custo de Google Workspace, Lovable, Anthropic, browserless, ElevenLabs a partir das faturas etiquetadas.
 - Meta, Google Ads, TikTok, Fever, Ticketline, BOL e restantes contas operacionais: inventariar na revisão semanal (PROC-revisao-semanal).
 
-_Última actualização: 25/10/2026, 0 · Cowork (Claude). Origem: dashboards Supabase/OpenAI/GitHub vistos nesta data e emails etiquetados._
+_Última actualização: 25/10/2026, 0 · Cowork (Claude). Origem: dashboards Supabase/OpenAI/GitHub/Google Admin vistos nesta data e emails etiquetados._
