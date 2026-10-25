@@ -4,7 +4,7 @@
 // Contrato: janelas acabam em D = meta/latest-date (nunca "hoje").
 //  (1) catalog-view songs 28day → só filtra (nada gravado)
 //  (2) song-stats-view stats: (a) F=max(release,D−27) (b) F=release
-//  (3) top-playlists 28day → artist_song_playlist_streams + derivadas
+//  (3) top-playlists 28day + 1day → artist_song_playlist_streams; 7day shape only in dry_run
 //  (4) geografia: fora desta fase
 //  (5) artist-home-metrics: só em dry_run, sem gravar
 //  prova: { artist_id, prova:{track_id,from,to} } → só (2), sem gravar
@@ -13,6 +13,7 @@ import { adminClient, corsHeaders, json } from "../_shared/artist-meta.ts";
 import { authorizeArtistAdmin, getS4aAccessToken, S4aError } from "../_shared/s4a.ts";
 import { deduceTriggerSource, finishSyncRun, resolveStatus, startSyncRun } from "../_shared/sync-run.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
+import { playlistRows, responseShape as shape, SOURCE_ORIGIN_CAPTURE_ENABLED } from "../_shared/s4a-play-origins.ts";
 
 const FN = "s4a-daily-sync";
 const BASE = "https://generic.wg.spotify.com";
@@ -34,19 +35,6 @@ function addDays(d: string, n: number): string {
   const t = new Date(d + "T00:00:00Z");
   t.setUTCDate(t.getUTCDate() + n);
   return t.toISOString().slice(0, 10);
-}
-
-/** Estrutura de chaves sem valores. */
-// deno-lint-ignore no-explicit-any
-function shape(v: any, depth = 0): unknown {
-  if (depth > 6) return "…";
-  if (Array.isArray(v)) return v.length ? [shape(v[0], depth + 1)] : [];
-  if (v && typeof v === "object") {
-    const o: Record<string, unknown> = {};
-    for (const k of Object.keys(v)) o[k] = shape(v[k], depth + 1);
-    return o;
-  }
-  return v === null ? "null" : typeof v;
 }
 
 /** Cliente S4A por artista: pausa, contagem, 401 → nova leitura/rotação e repete 1×. */
@@ -123,7 +111,7 @@ async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSou
   const c = s4aClient(admin, artist.id);
 
   const metricRows: any[] = [];
-  const playlistRows: any[] = [];
+  const playlistRowsToWrite: any[] = [];
 
   try {
     const { data: ch } = await admin.from("artist_channels").select("external_id")
@@ -218,39 +206,40 @@ async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSou
         if (!formas.playlistOverall && pl.body?.playlistOverall !== undefined) formas.playlistOverall = shape(pl.body.playlistOverall);
         const list: any[] = (pl.body?.data ?? []).slice(0, 100);
         if (!formas.playlistItem && list[0]) formas.playlistItem = shape(list[0]);
-        // D-ERP160: a playlist identifica-se pelo URI do S4A; sem URI, pelo título.
-        const byKey = new Map<string, any>();
-        list.forEach((p, i) => {
-          const title = String(p?.title ?? "").trim();
-          if (!title) return;
-          const uriRaw = String(p?.uri ?? p?.playlistUri ?? p?.spotifyUri ?? "").trim();
-          const playlist_uri = uriRaw ? uriRaw.slice(0, 200) : null;
-          const row = {
-            company_id: artist.company_id, artist_id: artist.id, song_id: song.id,
-            snapshot_date: D, period_days: 28, rank: i + 1, playlist_name: title, playlist_uri,
-            made_by: p?.author === "Spotify" || p?.isAlgorithmic === true || p?.isAlgotorial === true ? "spotify" : "user",
-            streams: Number.isFinite(Number(p?.streams)) ? Math.round(Number(p.streams)) : null,
-            date_added: DATE_RE.test(String(p?.dateAdded ?? "").slice(0, 10)) ? String(p.dateAdded).slice(0, 10) : null,
-            source: "s4a_api",
-          };
-          const key = playlist_uri ?? `name:${title}`;
-          const prev = byKey.get(key);
-          if (!prev) byKey.set(key, row);
-          else {
-            const keep = (row.streams ?? 0) > (prev.streams ?? 0) ? row : prev;
-            const drop = keep === row ? prev : row;
-            byKey.set(key, keep);
-            notes.push(`"${song.title}": playlist repetida "${title}" (${playlist_uri ?? "sem uri"}) — fica #${keep.rank} (${keep.streams}), fora #${drop.rank} (${drop.streams})`);
-          }
-        });
-        const semUri = [...byKey.values()].filter((r) => !r.playlist_uri).length;
-        if (semUri) notes.push(`"${song.title}": ${semUri} playlists sem uri — chave pelo título`);
-        const rows = [...byKey.values()];
-        playlistRows.push(...rows);
+        // Shared identity rules retain 28day URI/name semantics.
+        const parsed = playlistRows(list, D, 28);
+        const rows = parsed.rows.map(row => ({ company_id: artist.company_id, artist_id: artist.id, song_id: song.id, ...row }));
+        notes.push(...parsed.notes.map(note => `"${song.title}": ${note}`));
+        playlistRowsToWrite.push(...rows);
         const sumAll = list.reduce((s, p) => s + (Number(p?.streams) || 0), 0);
         const sumSp = rows.filter((r) => r.made_by === "spotify").reduce((s, r) => s + (r.streams ?? 0), 0);
         metricRows.push({ ...base(song), metric: "s4a_top100_playlist_streams_28d", metric_date: D, value: sumAll, source_ref: `s4a top-playlists 28day ${D}` });
         metricRows.push({ ...base(song), metric: "s4a_spotify_owned_playlist_streams_28d", metric_date: D, value: sumSp, source_ref: `s4a top-playlists 28day ${D}` });
+      }
+
+      // 1day and 7day verified on 25/10/2026 against this exact endpoint.
+      // No backfill: only the current window at meta/latest-date. 7day is probe-only.
+      for (const period of dryRun ? [1, 7] : [1]) {
+        const daily = await c.get(`${BASE}/song-stats-view/v2/artist/${artistExt}/recording/${track}/top-playlists?time-filter=${period}day`);
+        if (dryRun) {
+          const probes = (formas.top_playlists ?? {}) as Record<string, unknown>;
+          probes[`${period}day`] = { status_http: daily.status, forma: shape(daily.body) };
+          formas.top_playlists = probes;
+        }
+        if (daily.status !== 200) {
+          if (period === 1) errors++;
+          notes.push(`"${song.title}": top-playlists ${period}day HTTP ${daily.status}`);
+          continue;
+        }
+        if (period !== 1) continue;
+        if (!Array.isArray(daily.body?.data)) { errors++; notes.push(`"${song.title}": top-playlists 1day forma inválida`); continue; }
+        const parsed = playlistRows(daily.body.data, D, 1);
+        const rows = parsed.rows.map(row => ({ company_id: artist.company_id, artist_id: artist.id, song_id: song.id, ...row }));
+        playlistRowsToWrite.push(...rows);
+        notes.push(...parsed.notes.map(note => `"${song.title}" 1day: ${note}`));
+        const preview = (samples.playlists_1day ?? []) as unknown[];
+        preview.push({ song_id: song.id, day: D, rows: rows.map(({ playlist_uri, playlist_name, made_by, streams }) => ({ playlist_uri, playlist_name, made_by, streams })) });
+        samples.playlists_1day = preview;
       }
     }
 
@@ -264,9 +253,9 @@ async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSou
     }
 
     for (const r of metricRows) counts[r.metric] = (counts[r.metric] ?? 0) + 1;
-    counts["artist_song_playlist_streams"] = playlistRows.length;
+    counts["artist_song_playlist_streams"] = playlistRowsToWrite.length;
     samples.artist_song_metrics_daily = metricRows.slice(0, 3);
-    samples.artist_song_playlist_streams = playlistRows.slice(0, 3);
+    samples.artist_song_playlist_streams = playlistRowsToWrite.slice(0, 3);
 
     if (!dryRun) {
       for (let i = 0; i < metricRows.length; i += 500) {
@@ -275,10 +264,10 @@ async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSou
           .upsert(chunk, { onConflict: "song_id,platform,metric,metric_date,source" });
         if (error) { errors++; notes.push(`gravação métricas falhou: ${error.message}`); } else written += chunk.length;
       }
-      if (playlistRows.length) {
+      if (playlistRowsToWrite.length) {
         const { error } = await admin.from("artist_song_playlist_streams")
-          .upsert(playlistRows, { onConflict: "song_id,snapshot_date,period_days,playlist_key" });
-        if (error) { errors++; notes.push(`gravação playlists falhou: ${error.message}`); } else written += playlistRows.length;
+          .upsert(playlistRowsToWrite, { onConflict: "song_id,snapshot_date,period_days,playlist_key" });
+        if (error) { errors++; notes.push(`gravação playlists falhou: ${error.message}`); } else written += playlistRowsToWrite.length;
       }
     }
   } catch (e) {
@@ -291,10 +280,11 @@ async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSou
   const status = resolveStatus(written, errors);
   await finishSyncRun(admin, runId, started, {
     status, api_calls: c.calls(), rows_written: written,
-    details: { D, counts, notes }, error_text: errors ? notes[notes.length - 1] ?? null : null,
+    details: { D, counts, notes, source_origin_capture_enabled: SOURCE_ORIGIN_CAPTURE_ENABLED }, error_text: errors ? notes[notes.length - 1] ?? null : null,
   });
   return {
     artist_id: artist.id, D, dry_run: dryRun, status: dryRun ? "dry_run" : status, api_calls: c.calls(),
+    source_origins: { enabled: SOURCE_ORIGIN_CAPTURE_ENABLED, status: "endpoint_unverified" },
     counts, ...(dryRun ? { amostra: samples, formas } : { rows_written: written }), notes,
   };
 }
