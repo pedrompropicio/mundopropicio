@@ -14,7 +14,7 @@ beforeAll(async()=>{
  CREATE TABLE artist_song_tiktok_sound_daily(song_id uuid,company_id uuid,metric_date date,music_id text,video_count bigint,source text);
  CREATE FUNCTION public.artist_ads_compare(p_artist_id uuid,p_from date,p_to date,p_country text,p_tz text) RETURNS jsonb LANGUAGE plpgsql AS $$
  DECLARE r jsonb; BEGIN
- WITH sho AS (SELECT '2026-10-19'::timestamp ts,'meta'::text platform,'BRL'::text cur,60::numeric g,30::bigint n UNION ALL SELECT '2026-10-19'::timestamp,'tiktok','BRL',20,10 UNION ALL SELECT '2026-10-19'::timestamp,'meta','EUR',5,0),lac AS (SELECT 'existing'::text note)
+ WITH sho AS (SELECT '2026-10-19'::timestamp ts,'meta'::text platform,'BRL'::text cur,60::numeric g,30::bigint n UNION ALL SELECT '2026-10-19'::timestamp,'tiktok','BRL',20,10 UNION ALL SELECT '2026-10-19'::timestamp,'meta','EUR',5,0),lac AS (SELECT jsonb_build_object('note','existing') t)
  SELECT jsonb_build_object('old','preserved','lacunas', (SELECT coalesce(jsonb_agg(t),'[]'::jsonb) FROM lac)) INTO r;
   RETURN r;
  END $$;
