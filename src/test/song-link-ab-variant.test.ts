@@ -45,11 +45,12 @@ const source = readFileSync("supabase/functions/song-link-event/index.ts", "utf8
   .replace(/^import[\s\S]*?from\s+"[^"]+";\s*/gm, "");
 const compiled = transformSync(source, { loader: "ts", format: "cjs" }).code;
 const arrivalId = "00000000-0000-4000-8000-000000000001";
+const ARR_AT = new Date(Date.now() - 60_000).toISOString();
 
 async function run(ua: string, extra: Record<string, unknown>, event: "arrival" | "choice" = "choice") {
   const sent: { url: string; body: any }[] = [];
   const rpcs: any[] = [];
-  const arrival = { id: "arr", origin: "ssr", event: "arrival", link_id: "link-a", created_at: new Date(Date.now() - 60_000).toISOString(), mode: null, fbclid: "c1", ttclid: "c2" };
+  const arrival = { id: "arr", origin: "ssr", event: "arrival", link_id: "link-a", created_at: ARR_AT, mode: null, fbclid: "c1", ttclid: "c2" };
   const admin = {
     from(table: string) {
       let write = false; const filters: Record<string, unknown> = {};
