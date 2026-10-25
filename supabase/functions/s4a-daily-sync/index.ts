@@ -95,7 +95,7 @@ const METRICS = [
 ] as const;
 
 // deno-lint-ignore no-explicit-any
-async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSource: "cron" | "manual" | "api") {
+async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSource: "cron" | "manual" | "api", force = false) {
   const started = Date.now();
   const runId = await startSyncRun(admin, {
     function_name: FN, trigger_source: triggerSource, dry_run: dryRun,
@@ -129,7 +129,7 @@ async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSou
         .eq("function_name", FN).eq("artist_id", artist.id).eq("dry_run", false)
         .in("status", ["success", "partial"]).order("started_at", { ascending: false })
         .limit(1).maybeSingle();
-      if (last?.details?.D === D) {
+      if (last?.details?.D === D && !force) {
         notes.push("S4A sem dia novo");
         await finishSyncRun(admin, runId, started, {
           status: "no_data", api_calls: c.calls(), rows_written: 0, details: { D, notes },
@@ -280,7 +280,7 @@ async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSou
   const status = resolveStatus(written, errors);
   await finishSyncRun(admin, runId, started, {
     status, api_calls: c.calls(), rows_written: written,
-    details: { D, counts, notes, source_origin_capture_enabled: SOURCE_ORIGIN_CAPTURE_ENABLED }, error_text: errors ? notes[notes.length - 1] ?? null : null,
+    details: { D, counts, notes, forced: force, source_origin_capture_enabled: SOURCE_ORIGIN_CAPTURE_ENABLED }, error_text: errors ? notes[notes.length - 1] ?? null : null,
   });
   return {
     artist_id: artist.id, D, dry_run: dryRun, status: dryRun ? "dry_run" : status, api_calls: c.calls(),
@@ -296,6 +296,9 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const artistId = body?.artist_id;
   const dryRun = body?.dry_run !== false;
+  // force=true repete a captura do mesmo D (upsert idempotente). Só chega aqui
+  // quem já passou na autorização abaixo: service_role ou admin da empresa.
+  const force = body?.force === true;
   if (artistId !== undefined && (typeof artistId !== "string" || !UUID_RE.test(artistId))) {
     return json({ ok: false, error: "artist_id inválido" }, 400);
   }
@@ -356,6 +359,6 @@ Deno.serve(async (req) => {
 
   const trigger = deduceTriggerSource(req);
   const results = [];
-  for (const a of artists) results.push(await syncArtist(admin, a, dryRun, trigger));
+  for (const a of artists) results.push(await syncArtist(admin, a, dryRun, trigger, force));
   return json({ ok: true, dry_run: dryRun, artistas: results.length, resultados: results });
 });
