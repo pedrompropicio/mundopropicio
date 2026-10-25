@@ -95,7 +95,7 @@ const METRICS = [
 ] as const;
 
 // deno-lint-ignore no-explicit-any
-async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSource: "cron" | "manual" | "api") {
+async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSource: "cron" | "manual" | "api", force = false) {
   const started = Date.now();
   const runId = await startSyncRun(admin, {
     function_name: FN, trigger_source: triggerSource, dry_run: dryRun,
@@ -129,7 +129,7 @@ async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSou
         .eq("function_name", FN).eq("artist_id", artist.id).eq("dry_run", false)
         .in("status", ["success", "partial"]).order("started_at", { ascending: false })
         .limit(1).maybeSingle();
-      if (last?.details?.D === D) {
+      if (last?.details?.D === D && !force) {
         notes.push("S4A sem dia novo");
         await finishSyncRun(admin, runId, started, {
           status: "no_data", api_calls: c.calls(), rows_written: 0, details: { D, notes },
