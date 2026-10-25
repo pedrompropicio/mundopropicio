@@ -8113,6 +8113,53 @@ export type Database = {
         }
         Relationships: []
       }
+      consent_text_versions: {
+        Row: {
+          channel: string
+          company_id: string
+          created_at: string
+          id: string
+          locale: string
+          text: string
+          text_sha256: string
+          valid_from: string
+          valid_to: string | null
+          version: string
+        }
+        Insert: {
+          channel: string
+          company_id: string
+          created_at?: string
+          id?: string
+          locale: string
+          text: string
+          text_sha256: string
+          valid_from?: string
+          valid_to?: string | null
+          version: string
+        }
+        Update: {
+          channel?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          locale?: string
+          text?: string
+          text_sha256?: string
+          valid_from?: string
+          valid_to?: string | null
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consent_text_versions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           company_id: string
@@ -13861,11 +13908,14 @@ export type Database = {
         Row: {
           client_event_id: string | null
           company_id: string | null
+          consent_decided_at: string | null
           consent_email: boolean
+          consent_email_text_version: string | null
           consent_event_id: number | null
           consent_portal: string | null
           consent_subject_id: string | null
           consent_whatsapp: boolean
+          consent_whatsapp_text_version: string | null
           created_at: string
           email: string | null
           event_slug: string | null
@@ -13892,11 +13942,14 @@ export type Database = {
         Insert: {
           client_event_id?: string | null
           company_id?: string | null
+          consent_decided_at?: string | null
           consent_email?: boolean
+          consent_email_text_version?: string | null
           consent_event_id?: number | null
           consent_portal?: string | null
           consent_subject_id?: string | null
           consent_whatsapp?: boolean
+          consent_whatsapp_text_version?: string | null
           created_at?: string
           email?: string | null
           event_slug?: string | null
@@ -13923,11 +13976,14 @@ export type Database = {
         Update: {
           client_event_id?: string | null
           company_id?: string | null
+          consent_decided_at?: string | null
           consent_email?: boolean
+          consent_email_text_version?: string | null
           consent_event_id?: number | null
           consent_portal?: string | null
           consent_subject_id?: string | null
           consent_whatsapp?: boolean
+          consent_whatsapp_text_version?: string | null
           created_at?: string
           email?: string | null
           event_slug?: string | null
