@@ -20,14 +20,18 @@ Lidos D-ERP67/140/160/172, `s4a-daily-sync`, a cadeia `_shared/s4a.ts` e a compa
 - `estimateDaily` implementa diário(D)=janela28(D)−janela28(D−1)+diário(D−28).
 - Antes do lançamento, diário=0. Snapshot, predecessor ou semente D−28 em falta resulta em null. Não interpolar, promediar, inventar semente nem converter null para zero.
 - Valor negativo contraditório fica null. A janela top-100 pode mudar de composição; uma diferença não prova contribuição diária de todo Spotify.
-- Como 1day existe, não foi criada uma vista estimada. A função pura está testada para eventual derivação; o histórico sem base comprovada permanece indisponível.
+- Ajuste aprovado 25/10: vista só leitura `artist_song_playlist_daily`, security_invoker, mantém diário estimado antes do primeiro 1day por playlist; a partir dele usa o real, lacuna posterior fica null. Migrações 0242/0243; nenhuma linha histórica reescrita.
+- Rádio histórico usava name:Radio antes da URI. A vista liga apenas a identidade Spotify Radio sem URI à URI especial comprovada; não generaliza títulos nem mistura playlists de ouvintes.
+- Validação Rádio 23/10: 274.939−241.241+(30.775−27.839)=36.634, desvio 0,00% do real1day. 10–20/10 permanecem nulos por seeds/snapshots em falta; 21/10=37.469,22/10=33.432.
+- `playlist_kind` nullable por linha nova: algorithmic antes de algotorial, depois editorial (author Spotify), senão listener. Títulos canónicos Radio/Mixes/Daily Mix/Descobertas da Semana/Radar de Novidades só ganham classe algorítmica com identidade Spotify; flag isAlgorithmic é suficiente. Sem reclassificação escrita histórica; editorial/algotorial antigas desconhecidas ficam null.
 
 ## Comparação
 - Migração `0241_s4a_daily_compare.sql`, aplicada: `artist_song_play_origins_compare` lê os últimos 14 dias do período com acesso canónico `artist_access_check(...,'songs')`; anon sem EXECUTE, authenticated/service_role autorizados após guarda.
 - `artist_ads_compare` mantém todos os CTEs de gasto/chegadas e keys anteriores. Acrescenta `trafego_diario` (dia/plataforma/moeda/gasto/chegadas/custo_por_chegada) e `musica_daily`. Sem acesso a músicas, tráfego continua e a secção devolve `available=false,songs_access_required`.
 - `musica_daily.days`: song_id/title/day/s4a_until/spotify_total/radio/radio_pct/other_spotify/listener_playlists/rest/source_categories/playlist_coverage/ugc_total/ugc_new/sound_count/ugc_drop/same_sounds/same_sources.
 - Spotify/UGC são globais da música, não divididos pelo país das campanhas. Data da música é o dia fornecido pela fonte; tráfego usa o fuso escolhido na comparação.
-- Playlists só por 1day efetivamente armazenado; sem leitura, campos null. `rest` é total menos top-100 observado, inclui playlists não listadas e outras origens; NÃO é a categoria «outras» do S4A. Categoria ausente no top-100 não prova ausência global de plays.
+- Comparação acrescenta other_algorithmic,editorial,algotorial,estimated,estimated_fields; real prioritário, derivação anterior rotulada e lacunas null. Contrato e ficheiros do frontend em `docs/testes/carreira-s4a-ajustes-contrato-20261025.md`.
+- `rest` é total menos top-100 observado, inclui playlists não listadas e outras origens; NÃO é a categoria «outras» do S4A. Categoria ausente no top-100 não prova ausência global de plays.
 - UGC delta é diferença de dias consecutivos, signed; não atravessa um dia ausente. Uma queda alerta, mas nunca prova remoção de vídeos. Mesmo nº de sons não basta: comparar IDs e fontes.
 - Evidência 18→19/10: 6.350→5.746, −604, 29/29 sons nos dois dias, mesmo ator `dzN8Pp8yxmp9Jzzyd`, precisão completa. Som principal 5.377→4.851 (−526). Prova de contagem menor devolvida; remoções ou versão do ator não demonstradas.
 
