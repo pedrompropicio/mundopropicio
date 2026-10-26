@@ -142,3 +142,5 @@ Fecho apenas em `docs/` e abertura da Issue: sem deploy, DDL, DML, crons, Publis
 
 ### #356 — CI do guard de edge functions (R1, 26/10)
 - CI vermelha desde #826 por 'newgang-email-events: sem_identidade' — corrigida com excepção POR_DESENHO (assinatura Svix); deploy newgang-portal (#356) por fazer, depende de CI verde.
+
+- [x] 26/10/2026 15:40 UTC — **#356 R1 correctiva:** REMINDER_MAX_BATCH era ainda 500 em 29863fe (troca anterior não aplicada); agora 300 em reminder.ts (+ comentários index.ts/reminder_test.ts) a partir do commit desta correcção (sucessor de 29863fe). Novo teste Vitest src/test/issue356-reminder-max-batch.test.ts lê reminder.ts e exige 300 (a CI apanha regressões). Vitest 2562 PASS; 2 ficheiros com timeout sob carga passaram isolados (16/16); tsgo limpo; Deno local não corre (crash interno). **Deploy newgang-portal por fazer (R2, novo Sim após CI verde).** Sem DDL/DML/deploy/Publish.
