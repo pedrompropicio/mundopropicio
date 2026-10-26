@@ -139,3 +139,6 @@ Fecho apenas em `docs/` e abertura da Issue: sem deploy, DDL, DML, crons, Publis
 
 ### #368 — extras na resposta de erase_account (R1+R2, 26/10)
 - erase_account devolve `extras:{storage:ok|failed|none, wallet:ok|failed|none}` (wallet expired ⇒ ok; dry_run ⇒ none/none); mantém 200 e status erased/already_erased/dry_run. Deno 3 novos (47/47). Incluído no deploy `4b96073f…`.
+
+### #356 — CI do guard de edge functions (R1, 26/10)
+- CI vermelha desde #826 por 'newgang-email-events: sem_identidade' — corrigida com excepção POR_DESENHO (assinatura Svix); deploy newgang-portal (#356) por fazer, depende de CI verde.
