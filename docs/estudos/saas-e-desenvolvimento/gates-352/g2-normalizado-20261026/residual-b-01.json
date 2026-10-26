@@ -1,0 +1,637 @@
+[
+  {
+    "category": "acl",
+    "object": "function:public.has_role(pg_catalog.uuid,public.app_role)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "710253bc2bbd6881b79cc38eca851d8610894d43ea3e596232ec53dc3475d9b1",
+    "live_sha256": "2668c5de09eed657545e8da8024a1b5eee61879e64d78bba0b02eb44cbfad326",
+    "root_object": "public.has_role(pg_catalog.uuid,public.app_role)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.is_platform_admin(pg_catalog.uuid)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "710253bc2bbd6881b79cc38eca851d8610894d43ea3e596232ec53dc3475d9b1",
+    "live_sha256": "2668c5de09eed657545e8da8024a1b5eee61879e64d78bba0b02eb44cbfad326",
+    "root_object": "public.is_platform_admin(pg_catalog.uuid)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_balance_invariant_count()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
+    "root_object": "public.issue335_balance_invariant_count()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_cash_watch.ROLLBACK-INERTE.sql",
+        "line": 5,
+        "file_sha256": "876f384e8eda70575b0af1106989d3eb10ba02577edf62fe51a46b2e2882bded",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_balance.INERTE.sql",
+        "line": 118,
+        "file_sha256": "db667f07a1e4d4900e3d14712dd2bb4e1b38a6d1a6c5ad1d8378e43da5bd0b48",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_cash_watch.INERTE.sql",
+        "line": 73,
+        "file_sha256": "b906804631d2d5da00b13b4e24aebb8030b5368d05b928015265720b380c9f08",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_camarim_leg(pg_catalog.uuid)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "0a7fa0e88436a7657a16cee5452a02842c6d646b7fab61a9a943437392514b2a",
+    "root_object": "public.issue335_camarim_leg(pg_catalog.uuid)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 97,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_cash_watch()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
+    "root_object": "public.issue335_cash_watch()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_cash_watch.INERTE.sql",
+        "line": 13,
+        "file_sha256": "b906804631d2d5da00b13b4e24aebb8030b5368d05b928015265720b380c9f08",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_context_valid(pg_catalog.text)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "2d6ad02fa9b330073d051917f78b33cfc06cb53ec0c0bf0ed81a4589ae7e92da",
+    "root_object": "public.issue335_context_valid(pg_catalog.text)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 42,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_dispatch()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "9c0f4fafde0abb2a3e98188b65cca86563cccc1eed9425a8ffa0220c9728f956",
+    "root_object": "public.issue335_dispatch()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 1101,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_group_visible(pg_catalog.uuid)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "42d80ba8078e02bedb2f4473cc5a621f277b301fcfe75318c2edab50a0f005f8",
+    "root_object": "public.issue335_group_visible(pg_catalog.uuid)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 75,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_guard()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "0a7fa0e88436a7657a16cee5452a02842c6d646b7fab61a9a943437392514b2a",
+    "root_object": "public.issue335_guard()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 121,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_invariant_counts()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
+    "root_object": "public.issue335_invariant_counts()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_invariants.INERTE.sql",
+        "line": 5,
+        "file_sha256": "dd40e9200173cff04a40ccb54178e072b8a53bbc2566b464fb8c3097e3f605f3",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_lock_parents(pg_catalog.text,pg_catalog._uuid)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "0a7fa0e88436a7657a16cee5452a02842c6d646b7fab61a9a943437392514b2a",
+    "root_object": "public.issue335_lock_parents(pg_catalog.text,pg_catalog._uuid)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 51,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_matching_transactions(pg_catalog.uuid)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "0a7fa0e88436a7657a16cee5452a02842c6d646b7fab61a9a943437392514b2a",
+    "root_object": "public.issue335_matching_transactions(pg_catalog.uuid)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 16,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_normalize(pg_catalog.text)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "0a7fa0e88436a7657a16cee5452a02842c6d646b7fab61a9a943437392514b2a",
+    "root_object": "public.issue335_normalize(pg_catalog.text)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 6,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_payment_flow_blocked(pg_catalog.uuid)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "0a7fa0e88436a7657a16cee5452a02842c6d646b7fab61a9a943437392514b2a",
+    "root_object": "public.issue335_payment_flow_blocked(pg_catalog.uuid)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 77,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_score(pg_catalog.text,pg_catalog.text)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "0a7fa0e88436a7657a16cee5452a02842c6d646b7fab61a9a943437392514b2a",
+    "root_object": "public.issue335_score(pg_catalog.text,pg_catalog.text)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 9,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_trigger_watch()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
+    "root_object": "public.issue335_trigger_watch()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_trigger_watch.INERTE.sql",
+        "line": 13,
+        "file_sha256": "34a69e357ca4ddb90a4251bc391c3e3815a7e7e372e7ec8591c4965aaf7c8421",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_tx_visible(pg_catalog.uuid)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "42d80ba8078e02bedb2f4473cc5a621f277b301fcfe75318c2edab50a0f005f8",
+    "root_object": "public.issue335_tx_visible(pg_catalog.uuid)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 69,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_uid()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "0a7fa0e88436a7657a16cee5452a02842c6d646b7fab61a9a943437392514b2a",
+    "root_object": "public.issue335_uid()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 61,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.issue335_worker(pg_catalog.jsonb)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "44ba3b624474faf0eb6718f4024d214d2c4c4842ab16b2291481b5ba35aad858",
+    "root_object": "public.issue335_worker(pg_catalog.jsonb)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 1117,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.log_formalidade_change()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.log_formalidade_change()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.move_to_dlq(pg_catalog.text,pg_catalog.text,pg_catalog.int8,pg_catalog.jsonb)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.move_to_dlq(pg_catalog.text,pg_catalog.text,pg_catalog.int8,pg_catalog.jsonb)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.prevent_split_absorbs_admin()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.prevent_split_absorbs_admin()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.read_email_batch(pg_catalog.text,pg_catalog.int4,pg_catalog.int4)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.read_email_batch(pg_catalog.text,pg_catalog.int4,pg_catalog.int4)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.reconcile_bank_line(pg_catalog.uuid,pg_catalog.jsonb)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "0deb2e822ea99f72b8e210499f1b4cdfee0db2ce4745a30aa73034f69bbbb779",
+    "root_object": "public.reconcile_bank_line(pg_catalog.uuid,pg_catalog.jsonb)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.rederive_paid_amount_on_amount_change()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
+    "root_object": "public.rederive_paid_amount_on_amount_change()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 956,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/tests/issue335/live/functions.sql",
+        "line": 1526,
+        "file_sha256": "55e6b6d91a977aa97dcd8001c50dffb9df71a290b047f24e0703634686181bf1",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.reimbursement_propagate_payment()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.reimbursement_propagate_payment()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.reimbursement_revert_on_tx_delete()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.reimbursement_revert_on_tx_delete()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.relink_orphan_transactions(pg_catalog.uuid,pg_catalog.jsonb,pg_catalog.uuid,pg_catalog.text)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.relink_orphan_transactions(pg_catalog.uuid,pg_catalog.jsonb,pg_catalog.uuid,pg_catalog.text)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.resolve_ads_event(pg_catalog.uuid,pg_catalog.text,pg_catalog.date)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "live_sha256": "56567f30dfe91171e6989a10a6e8574a605b83f765784ff481ccd88216bfe209",
+    "root_object": "public.resolve_ads_event(pg_catalog.uuid,pg_catalog.text,pg_catalog.date)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.run_rls_isolation_test()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "live_sha256": "710253bc2bbd6881b79cc38eca851d8610894d43ea3e596232ec53dc3475d9b1",
+    "root_object": "public.run_rls_isolation_test()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.run_rls_legacy_audit_cron()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.run_rls_legacy_audit_cron()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.seed_operacao_frentes_default(pg_catalog.uuid)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "f70ab5b8f33d5c3f8936f2ec80a59d9fb596c5cfbd732f348523195c38faddda",
+    "live_sha256": "710253bc2bbd6881b79cc38eca851d8610894d43ea3e596232ec53dc3475d9b1",
+    "root_object": "public.seed_operacao_frentes_default(pg_catalog.uuid)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.set_combo_pass_child_company_id()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.set_combo_pass_child_company_id()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.set_combo_pass_company_id()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.set_combo_pass_company_id()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.set_company_id_on_insert()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.set_company_id_on_insert()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.set_event_ab_company_id()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.set_event_ab_company_id()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.set_formalidade_auto_suggested(pg_catalog.bool)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.set_formalidade_auto_suggested(pg_catalog.bool)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.snapshot_bp_versions_to_trash()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.snapshot_bp_versions_to_trash()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.sync_partner_aporte_mirror()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "42d80ba8078e02bedb2f4473cc5a621f277b301fcfe75318c2edab50a0f005f8",
+    "root_object": "public.sync_partner_aporte_mirror()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 1247,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/tests/issue335/live/functions.sql",
+        "line": 2229,
+        "file_sha256": "55e6b6d91a977aa97dcd8001c50dffb9df71a290b047f24e0703634686181bf1",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.test_latest_backup()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.test_latest_backup()",
+    "group": "b",
+    "cause": "property_mismatch"
+  }
+]

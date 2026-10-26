@@ -1,0 +1,17 @@
+{
+  "total": 1185,
+  "groups": {
+    "b": 618,
+    "a": 398,
+    "c": 169
+  },
+  "causes": {
+    "property_mismatch": 289,
+    "presence_with_repository_origin_candidate": 327,
+    "only_live_no_repository_definition_found": 398,
+    "only_replay": 169,
+    "physical_dropped_column_slot": 2
+  },
+  "unclassified": 0,
+  "classification_reused_from_same_object_property_hashes": true
+}

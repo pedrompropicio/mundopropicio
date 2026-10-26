@@ -1,0 +1,807 @@
+[
+  {
+    "category": "indexes",
+    "object": "public.transaction_offset_items_pkey",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "138d1de62c62ba85cc77cc1ca923cbf637fe56e28ab3c346256b749a1c5a6c83",
+    "root_object": "public.transaction_offset_items",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 38,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "indexes",
+    "object": "public.transactions_active_installment_unique_idx",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "0af3986257d0732d11ebb260837d1063665079318025db8a10fd9d0bb952dd31",
+    "live_sha256": "4386e320db7340357ae8f4ad7e18adfb8d591661771949d1e8a1d49b9ebe1625",
+    "root_object": "public.transactions",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "indexes",
+    "object": "public.transactions_active_installment_unique_idx",
+    "property": "predicate_sha256",
+    "kind": "property",
+    "replay_sha256": "1e3f55ff67f7bf00b70bed12c3e00f50f2d551b29f68c2dbee628b9db9a163e4",
+    "live_sha256": "393986c38233c1efe3ab27b73d99eec8d4bd8a6adf301d1abe2d6c09a4f57cda",
+    "root_object": "public.transactions",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "indexes",
+    "object": "public.uq_standalone_invoice_supplier_number",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "acfd86c7f61938cbd3c843b2aa9ab1ec689f1b48d966fed7ca88431820228ad9",
+    "root_object": "public.standalone_invoices",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/docs/testes/issue333/pg/fixture.sql",
+        "line": 29,
+        "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+        "match": "identifier_reference"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "indexes",
+    "object": "storage.idx_objects_bucket_id_name_lower",
+    "property": "valid",
+    "kind": "property",
+    "replay_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+    "live_sha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+    "root_object": "storage.objects",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.bank_statement_lines.bank_statement_lines_offset_group_id_fkey [trigger_table] public.transaction_offset_groups#17#pg_catalog.\"RI_FKey_noaction_upd\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "1b6a83153ef4d5940608044b2df738365aea030d3c6c7a91ae7a7fdcd7180474",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "3f8b24c526ffdd2702468249ce40e8d622331bef5c36584316b95240cc93fd12",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.bank_statement_lines.bank_statement_lines_offset_group_id_fkey [trigger_table] public.transaction_offset_groups#9#pg_catalog.\"RI_FKey_restrict_del\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "32ab53ada55998219ca6fa30ad59ce4cd78b05db2bf92c081645663e006f4bc6",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "4e77cf4286acfedfb6613f36197a86fa8cf34baa120e0435670ffb472d6f5bf4",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.consent_text_versions.consent_text_versions_company_id_fkey [trigger_table] public.consent_text_versions#17#pg_catalog.\"RI_FKey_check_upd\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "0af5e9c9a70aa03eeb97ef68a34082f90c5a2f44601877b3dba987b580014f3b",
+    "root_object": "public.consent_text_versions",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "e237fc764a51e6aa5ce15efbeea26332b6209b3e7a4ed75af584c5e76ead5ecc",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.consent_text_versions.consent_text_versions_company_id_fkey [trigger_table] public.consent_text_versions#5#pg_catalog.\"RI_FKey_check_ins\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "81db251231abe48881fdbb4c5ffbf3e02a25f8be11619e01ad718c55b660783f",
+    "root_object": "public.consent_text_versions",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "49fc83c9b6104db334313b56218ce2fc64f1df2af64927de9402629b9c625094",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.ticket_sales.ticket_sales_lot_id_fkey [trigger_table] public.event_ticket_lots#17#pg_catalog.\"RI_FKey_noaction_upd\"()",
+    "property": "on_delete",
+    "kind": "property",
+    "replay_sha256": "879923da020d1533f4d8e921ea7bac61e8ba41d3c89d17a4d14e3a89c6780d5d",
+    "live_sha256": "2659efe5502f101c13c3d4f2b330ba7bc6969f33ce5aee8377560e7470bf30b4",
+    "root_object": "public.event_ticket_lots",
+    "group": "b",
+    "cause": "property_mismatch",
+    "object_key_sha256": "b4d4353457fb2ed7cc9fd25b0d06b3ce0de90b967310088b093a47299f4054df",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.ticket_sales.ticket_sales_lot_id_fkey [trigger_table] public.ticket_sales#17#pg_catalog.\"RI_FKey_check_upd\"()",
+    "property": "on_delete",
+    "kind": "property",
+    "replay_sha256": "879923da020d1533f4d8e921ea7bac61e8ba41d3c89d17a4d14e3a89c6780d5d",
+    "live_sha256": "2659efe5502f101c13c3d4f2b330ba7bc6969f33ce5aee8377560e7470bf30b4",
+    "root_object": "public.ticket_sales",
+    "group": "b",
+    "cause": "property_mismatch",
+    "object_key_sha256": "c71911d6d49347dbd569002f0b637c1458da1ceaedb6a2947a245a80d60d6266",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.ticket_sales.ticket_sales_lot_id_fkey [trigger_table] public.ticket_sales#5#pg_catalog.\"RI_FKey_check_ins\"()",
+    "property": "on_delete",
+    "kind": "property",
+    "replay_sha256": "879923da020d1533f4d8e921ea7bac61e8ba41d3c89d17a4d14e3a89c6780d5d",
+    "live_sha256": "2659efe5502f101c13c3d4f2b330ba7bc6969f33ce5aee8377560e7470bf30b4",
+    "root_object": "public.ticket_sales",
+    "group": "b",
+    "cause": "property_mismatch",
+    "object_key_sha256": "ca2b3fda9e465301ad5e4de0b26b2841d37fb2ddc54f5c3f74563f70acdce627",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.ticket_sales.ticket_sales_zone_id_fkey [trigger_table] public.event_ticket_zones#17#pg_catalog.\"RI_FKey_noaction_upd\"()",
+    "property": "on_delete",
+    "kind": "property",
+    "replay_sha256": "879923da020d1533f4d8e921ea7bac61e8ba41d3c89d17a4d14e3a89c6780d5d",
+    "live_sha256": "2659efe5502f101c13c3d4f2b330ba7bc6969f33ce5aee8377560e7470bf30b4",
+    "root_object": "public.event_ticket_zones",
+    "group": "b",
+    "cause": "property_mismatch",
+    "object_key_sha256": "08b635d69af20290eb19b90c2c3cb63759c3993391e0d78ab2c5d83dcb6e3411",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.ticket_sales.ticket_sales_zone_id_fkey [trigger_table] public.ticket_sales#17#pg_catalog.\"RI_FKey_check_upd\"()",
+    "property": "on_delete",
+    "kind": "property",
+    "replay_sha256": "879923da020d1533f4d8e921ea7bac61e8ba41d3c89d17a4d14e3a89c6780d5d",
+    "live_sha256": "2659efe5502f101c13c3d4f2b330ba7bc6969f33ce5aee8377560e7470bf30b4",
+    "root_object": "public.ticket_sales",
+    "group": "b",
+    "cause": "property_mismatch",
+    "object_key_sha256": "5a5b5e33fe1a23b3a2c4d1a0d556f90d51378f20ba1aa0ec28cb2369a92de0b8",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.ticket_sales.ticket_sales_zone_id_fkey [trigger_table] public.ticket_sales#5#pg_catalog.\"RI_FKey_check_ins\"()",
+    "property": "on_delete",
+    "kind": "property",
+    "replay_sha256": "879923da020d1533f4d8e921ea7bac61e8ba41d3c89d17a4d14e3a89c6780d5d",
+    "live_sha256": "2659efe5502f101c13c3d4f2b330ba7bc6969f33ce5aee8377560e7470bf30b4",
+    "root_object": "public.ticket_sales",
+    "group": "b",
+    "cause": "property_mismatch",
+    "object_key_sha256": "388d17841cfecc5fc369958d3df1e484a9fe93fb738b767ad903a1c312c1666b",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_groups.transaction_offset_groups_account_id_fkey [trigger_table] public.transaction_offset_groups#17#pg_catalog.\"RI_FKey_check_upd\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "d8b82ae69c042477fe3bc796e86478c11bba7560ad18c8d7cc0ae137dbddf4f4",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "bfb896d111eaac3f0d46dea1449e58a50dc77992dabb9cab3f902baf3f56028d",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_groups.transaction_offset_groups_account_id_fkey [trigger_table] public.transaction_offset_groups#5#pg_catalog.\"RI_FKey_check_ins\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "4e92e8caf36769f5736d82464ecb4132224ea002a07f8e6b796212b6ae3eec72",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "8ed09e9160d64af0385410d19e2f623a408e25c429ecba13e98dad3425799617",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_groups.transaction_offset_groups_bank_line_id_fkey [trigger_table] public.transaction_offset_groups#17#pg_catalog.\"RI_FKey_check_upd\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "edddd1369c35436a813496e7d38013b8dfb492773d41288682d3ac6aa53f813a",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "49ba747838ed73031e8d293f3cf3956744abfb599835ef60018b1aeaa30120b3",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_groups.transaction_offset_groups_bank_line_id_fkey [trigger_table] public.transaction_offset_groups#5#pg_catalog.\"RI_FKey_check_ins\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "930a81af2eb31c450e7f2de347c77d6a5788aeab8afa2107cc8fa204d9cf7d89",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "1276f532639f1ed4e880e4f42eddfe06d274f4852494230978b99e543006e10c",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_groups.transaction_offset_groups_company_id_fkey [trigger_table] public.transaction_offset_groups#17#pg_catalog.\"RI_FKey_check_upd\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "185e4b248c9a3974ab32441bc100f9bc9767b965ee5cc0f1d15850bc85bc2380",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "9c52e644dac85cc1e02804a2d5bab4f20b5538d42c8dc40ebd9605306db02ed6",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_groups.transaction_offset_groups_company_id_fkey [trigger_table] public.transaction_offset_groups#5#pg_catalog.\"RI_FKey_check_ins\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "afeddc395b6bf24d9289c63670fb34364786b066ec1046793b9f263fa2536e8c",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "42f1490d2e773ba7752b60706a523b551186090d3f2d130f63a7b3e60c79763a",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_groups.transaction_offset_groups_supplier_id_fkey [trigger_table] public.transaction_offset_groups#17#pg_catalog.\"RI_FKey_check_upd\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "87655b9654cccc209da31d39fb9a3c81a92f2517a007ba1f08f327c972404092",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "c70d8c6a4e29f2b57b5bc83fdfd7e60e9517ae6ef1839d0ca1f6a9f04255f8b6",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_groups.transaction_offset_groups_supplier_id_fkey [trigger_table] public.transaction_offset_groups#5#pg_catalog.\"RI_FKey_check_ins\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "2077ac5913af739ae04c175b4c97102918093c0eea0c8f85b6eb616c8c6f06be",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "5999fee4048d7ed16cf67682603b6484922117203f02f7abe1469d94e9125159",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_items.transaction_offset_items_company_id_fkey [trigger_table] public.transaction_offset_items#17#pg_catalog.\"RI_FKey_check_upd\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "8e5c46f27f0f12bcc07d4bd37b8c2f184097fe692dadceec0e5c32bcef36f7bf",
+    "root_object": "public.transaction_offset_items",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 38,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "540eade4255dc223ee0da6f036ae3ce973e177716076255cb6b8791c66f1091c",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_items.transaction_offset_items_company_id_fkey [trigger_table] public.transaction_offset_items#5#pg_catalog.\"RI_FKey_check_ins\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "7b45d271a1e4a982484dec048de8e16d618471d6c908ded6b9acac30e8500351",
+    "root_object": "public.transaction_offset_items",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 38,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "7bacb07e181d66b8b0f93506486ec4b4824c6ef495a1d7112105109fc7f23754",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_items.transaction_offset_items_forecast_id_fkey [trigger_table] public.transaction_offset_items#17#pg_catalog.\"RI_FKey_check_upd\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "96954c2733a88196e59c238fa35b695654ff21956194edf593a4662798ff0d8b",
+    "root_object": "public.transaction_offset_items",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 38,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "96b0e0add551f7a36c0eb465bdf7e9aa0921ccfff655a2226fd08da80fce032d",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_items.transaction_offset_items_forecast_id_fkey [trigger_table] public.transaction_offset_items#5#pg_catalog.\"RI_FKey_check_ins\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "bc0a9f84703835c6b482a1bb59c9a1be65659df9dc031ce6b5777afdf4e56d14",
+    "root_object": "public.transaction_offset_items",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 38,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "4a258683894db3521be2ec0c02e3c3a3f9e1b57b2e05f7162e3a3ec35c54b1b3",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_items.transaction_offset_items_group_id_fkey [trigger_table] public.transaction_offset_groups#17#pg_catalog.\"RI_FKey_noaction_upd\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "6f5c8295b4ba69cb621c53e3e58fc686f4c3c8dbaff18a5aaaaf3bf35a3dc51e",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "f654a7553907abfe4061865afdcc1d04f9e893b7c4ccea900c0c905849ccf534",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_items.transaction_offset_items_group_id_fkey [trigger_table] public.transaction_offset_groups#9#pg_catalog.\"RI_FKey_restrict_del\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "d4361b92b6d1052f6ce847af090af2dd8c0a98089a5f03f8b309091d451e59ab",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "2f78c75dc710e1811345e862aede4c952b6c28c3bda1f6022a60a5fe924d5117",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_items.transaction_offset_items_group_id_fkey [trigger_table] public.transaction_offset_items#17#pg_catalog.\"RI_FKey_check_upd\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "72635bc0ebedd62c8b76cee0d65e87a3575766d35f35aeaf4e0462316434b36b",
+    "root_object": "public.transaction_offset_items",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 38,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "8942dc6bc7f9ce7de916bdf6c95a5d8ed2f22243b851f5e62faf7c5d5c3fc049",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_items.transaction_offset_items_group_id_fkey [trigger_table] public.transaction_offset_items#5#pg_catalog.\"RI_FKey_check_ins\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "f423a3de3137916761c794509a4786e5fb8f33891b4fe77076739a74a170ce4f",
+    "root_object": "public.transaction_offset_items",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 38,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "dbd490064f1624a44043c983f9358450b07b485e556a121f31b333f4638c5521",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_items.transaction_offset_items_transaction_id_fkey [trigger_table] public.transaction_offset_items#17#pg_catalog.\"RI_FKey_check_upd\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "fc4790229beac66bdb9ba79c998b1e3a3b1b916f485b522807ce5eb8b885aa82",
+    "root_object": "public.transaction_offset_items",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 38,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "2633a731446e86b5dd67ffb64d58b026a1615ccbc9e101dfec9a58bf7a18559a",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offset_items.transaction_offset_items_transaction_id_fkey [trigger_table] public.transaction_offset_items#5#pg_catalog.\"RI_FKey_check_ins\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "73b1164e5fd6dbc8be7924de157a3c519b2704e7a4653c3869c890e81bdc4b85",
+    "root_object": "public.transaction_offset_items",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 38,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "86363489f73ace0ad730aab4946150bfe70d0988987f8a50de1328c2e88b2d13",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offsets.transaction_offsets_offset_group_id_fkey [trigger_table] public.transaction_offset_groups#17#pg_catalog.\"RI_FKey_noaction_upd\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "673ff78d79b478db4541b67c5faf083bb87bd9fe0916ab7377c31d316076fdcf",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "06747a995317171cec56a4967cf395f21e6c5697459ea3d7956deba9b38d760f",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_offsets.transaction_offsets_offset_group_id_fkey [trigger_table] public.transaction_offset_groups#9#pg_catalog.\"RI_FKey_restrict_del\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "07ade00400513628760fcbe4322bc6596f20149273be52e3edbd27b65235251f",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "269dc44c778985c6e192a1a69bfc02bc4caea91f13112c9d381d2e0e5ee2da15",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_payments.issue335_payment_item_fk [trigger_table] public.transaction_offset_items#17#pg_catalog.\"RI_FKey_noaction_upd\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "614495a37a4f094de224e5a59e6d1697a84c7a0b99500897c383eefd085b3111",
+    "root_object": "public.transaction_offset_items",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 38,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "269dd2ebb19664620d9745119c33a5683b0385c24dcbbe0e4564c6debe7992dc",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_payments.issue335_payment_item_fk [trigger_table] public.transaction_offset_items#9#pg_catalog.\"RI_FKey_noaction_del\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "ca68ae4373e0ab01d70816a4c8a2c413ac80f405aa14a6b5c7714f718fc2a862",
+    "root_object": "public.transaction_offset_items",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 38,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "6104ec4757326eb19411f48cd83fee08b40b65c6248d575c4eff9136e5f86450",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_payments.transaction_payments_offset_group_id_fkey [trigger_table] public.transaction_offset_groups#17#pg_catalog.\"RI_FKey_noaction_upd\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "98ebfb3934bf987f736028c7db8f764a28a9d65467d9f91ad8fb7ad44892d585",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "a3727dddf6eb778c51ff75685975fed34aabf907bff311a32bff5a2b39f2d346",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "internal_trigger_constraints",
+    "object": "public.transaction_payments.transaction_payments_offset_group_id_fkey [trigger_table] public.transaction_offset_groups#9#pg_catalog.\"RI_FKey_restrict_del\"()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "b930132561139028e23fa03ddd6544768cf8ee496ed69cc8cb448e338c9c452b",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review",
+    "object_key_sha256": "75f2edc5b75eee9c9bfc2400512c276fb71d3a78de67be4c303902dacce0e7c5",
+    "object_display_separator": "[trigger_table] represents the internal @ separator; private canonical key unchanged"
+  },
+  {
+    "category": "policies",
+    "object": "public.consent_text_versions.consent_text_versions_read",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "60457aaeb7edb39048e7f2d212f870c71ff16d6dc1de692a36225f43d3e088d6",
+    "root_object": "public.consent_text_versions",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  }
+]

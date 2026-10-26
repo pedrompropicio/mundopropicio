@@ -1,0 +1,703 @@
+[
+  {
+    "category": "columns",
+    "object": "public.song_links.song_id",
+    "property": "not_null",
+    "kind": "property",
+    "replay_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+    "live_sha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+    "root_object": "public.song_links",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.standalone_invoices.currency",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "43592bac5e2eb7aaea281fa867c095c144761fbe56fa963051792359db6238be",
+    "root_object": "public.standalone_invoices",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/docs/testes/issue333/pg/fixture.sql",
+        "line": 20,
+        "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.standalone_invoices.fx_rate",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "00550fd7ecae5c718fc77e16d6aa8296943b38114c6b9b6d25f5c44909d73424",
+    "root_object": "public.standalone_invoices",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/docs/testes/issue333/pg/fixture.sql",
+        "line": 20,
+        "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.standalone_invoices.fx_rate_source",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "a9f04dfa3f35e1081948a3b2645bca112f23b1580fec830f4d66b8b1b29ca6b7",
+    "root_object": "public.standalone_invoices",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/docs/testes/issue333/pg/fixture.sql",
+        "line": 20,
+        "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.standalone_invoices.invoice_number",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "79a14af2abacc5bb148f23bf6791d4dcc1cb7b402c981be06910dc7e0e98a367",
+    "root_object": "public.standalone_invoices",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/docs/testes/issue333/pg/fixture.sql",
+        "line": 20,
+        "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.standalone_invoices.original_amount",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "c0e1463d492a6297e5e8cae4dc61221adfbc94bb81e017cbceffb5c5fda32b9c",
+    "root_object": "public.standalone_invoices",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/docs/testes/issue333/pg/fixture.sql",
+        "line": 20,
+        "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.standalone_invoices.paid_by_partner_id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "2cdd128e384407614d54e43a4db0b2fe12052d950ed3ca7c42089656ea3744ea",
+    "root_object": "public.standalone_invoices",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/docs/testes/issue333/pg/fixture.sql",
+        "line": 20,
+        "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.suppliers.iban_3",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "6f4b6612125fb3a0daecd2799dfd6c9c299424fd920f9b308110a2c1fbd8f443",
+    "live_sha256": "f5ca38f748a1d6eaf726b8a42fb575c3c71f1864a8143301782de13da2d9202b",
+    "root_object": "public.suppliers",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.suppliers.swift_bic_2",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "f5ca38f748a1d6eaf726b8a42fb575c3c71f1864a8143301782de13da2d9202b",
+    "live_sha256": "6f4b6612125fb3a0daecd2799dfd6c9c299424fd920f9b308110a2c1fbd8f443",
+    "root_object": "public.suppliers",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.system_reminder_settings.default_twilio_from",
+    "property": "default_sha256",
+    "kind": "property",
+    "replay_sha256": "9206d454d1049f02527a1e1c8ca4ef66f723ec098ad342c77ab12b75e9cb447e",
+    "live_sha256": "616f1b5ebe427d36f067ff8461efd99c27287f9a757417ec08b97bd6cc08ece0",
+    "root_object": "public.system_reminder_settings",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.ticket_office_settlements.venue_invoice_remainder_amount",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "624b60c58c9d8bfb6ff1886c2fd605d2adeb6ea4da576068201b6c6958ce93f4",
+    "live_sha256": "b7a56873cd771f2c446d369b649430b65a756ba278ff97ec81bb6f55b2e73569",
+    "root_object": "public.ticket_office_settlements",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.ticket_office_settlements.venue_invoice_remainder_paid",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "35135aaa6cc23891b40cb3f378c53a17a1127210ce60e125ccf03efcfdaec458",
+    "live_sha256": "5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca",
+    "root_object": "public.ticket_office_settlements",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.ticket_office_settlements.venue_invoice_remainder_payment_id",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "eb1e33e8a81b697b75855af6bfcdbcbf7cbbde9f94962ceaec1ed8af21f5a50f",
+    "live_sha256": "670671cd97404156226e507973f2ab8330d3022ca96e0c93bdbdb320c41adcaf",
+    "root_object": "public.ticket_office_settlements",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.ticket_office_settlements.venue_retained_amount",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "b7a56873cd771f2c446d369b649430b65a756ba278ff97ec81bb6f55b2e73569",
+    "live_sha256": "59e19706d51d39f66711c2653cd7eb1291c94d9b55eb14bda74ce4dc636d015a",
+    "root_object": "public.ticket_office_settlements",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.ticket_office_settlements.venue_retained_invoice_id",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca",
+    "live_sha256": "35135aaa6cc23891b40cb3f378c53a17a1127210ce60e125ccf03efcfdaec458",
+    "root_object": "public.ticket_office_settlements",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.ticket_office_settlements.venue_retained_notes",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "59e19706d51d39f66711c2653cd7eb1291c94d9b55eb14bda74ce4dc636d015a",
+    "live_sha256": "624b60c58c9d8bfb6ff1886c2fd605d2adeb6ea4da576068201b6c6958ce93f4",
+    "root_object": "public.ticket_office_settlements",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.ticket_office_settlements.venue_retained_payment_id",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "670671cd97404156226e507973f2ab8330d3022ca96e0c93bdbdb320c41adcaf",
+    "live_sha256": "eb1e33e8a81b697b75855af6bfcdbcbf7cbbde9f94962ceaec1ed8af21f5a50f",
+    "root_object": "public.ticket_office_settlements",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_control.enabled",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "f61dd9778e448346e948ad6909e53c1eb499ae6caba31674ffe322ba66b0de62",
+    "root_object": "public.transaction_offset_control",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 110,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_control.reverse_enabled",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "4cdd4c14a8916e8dc30cbe63c173bfa32a5beb684122378c625add52b9008cee",
+    "root_object": "public.transaction_offset_control",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 110,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_control.singleton",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "9a70a1d52ffdc7f23d54d1df8626ab3d73918833ebbca348da3058bfb1ad7906",
+    "root_object": "public.transaction_offset_control",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 110,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.account_id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "f010299e6b2e48f1467e73a5d2721f70b8cf88793486073b797bfbdf3d9f00c7",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.bank_line_id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "53232ede17797156c5a293e912ed54d669adb259a0b60888ffa44c9d3be3b9cc",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.company_id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "df8b65e91a7efee32bed62b41df04732b9837a93a17be4acfc292a9fb634619b",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.created_at",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "00569906ff5108d86e42df9b6980d8fd87865c077cb86dcc5f0bdb612740a9c9",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.created_by",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "fec051b4e63f87bb17d5beeca87184cf617e6d8b9b476751a8be1b129d540958",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "39c4a64111546979c5b9cf325575ed08e83a362357e4d83052ed6d064427b3e1",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.movement_amount",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "00391bcef5868c846cbddc00bb3922f06a04fcecdf5aa98a83f77115344b1a4e",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.note",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "6e0113d8e093f4192967363d9325b1fc138a600dfaa9867568baa99b77520abf",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.operation_date",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "d06ff49ef782279f6aebc00033c265fcc6702cdc5e238c13a407c642c292d6c2",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.request_hash",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "3142049738834e3343e6ddbb3b4d462e60ba301acbc3f26d41ca402fea570eda",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.request_id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "093f6a8ed3994f6e0c86a44b0dc256af764274a6e6ca8617ff1fa3d9b99fb6dd",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.result",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "cee22f304296839384e4cded5adb667df96331d80edf8309f47b4014ed6d39b7",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.reversal_actor",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "81d8d57165bd5f805c6b063aed294b835d7fe655eedee1afb4d63d3f13e9db70",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.reversal_hash",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "3abed4628ad80d9828c3ea6e644f68c3611c75f72e35b8083500fe5d96260c91",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.reversal_reason",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "f0a52f51fc698445e8dd9730ef281344c27ae81be238409f060819048162e859",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.reversal_request_id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "6e316bb60c32fbb3efc37213ac6da4c7bffbe4e805d35c2b86c8eb237556881f",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.reversed_at",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "ae28a5d33119a9e9e0f765d9ae0311fa423a9094bafcc46859651d0302ce80a4",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.status",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "ddb566449c932b5bb755bbb8e5bf107ba92e0c65dc1fd1d08626164c496bbb96",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_groups.supplier_id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "1fb277d70d5a30c5c6d1d0938fd243006c68b3dadffbeb2b74fe9376378b11d8",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.transaction_offset_items.base_amount",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "92d8576d0bc8cd4fc03bbd51b64905dc48112babdb3066ff037a5c28554e712e",
+    "root_object": "public.transaction_offset_items",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 38,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  }
+]

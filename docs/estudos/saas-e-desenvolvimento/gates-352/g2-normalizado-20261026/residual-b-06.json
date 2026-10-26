@@ -1,0 +1,643 @@
+[
+  {
+    "category": "columns",
+    "object": "public.events.poster_image_url",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "98010bd9270f9b100b6214a21754fd33bdc8d41b2bc9f9dd16ff54d3c34ffd71",
+    "live_sha256": "0e17daca5f3e175f448bacace3bc0da47d0655a74c8dd0dc497a3afbdad95f1f",
+    "root_object": "public.events",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.events.slug",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "031b4af5197ec30a926f48cf40e11a7dbc470048a21e4003b7a3c07c5dab1baa",
+    "live_sha256": "1a6562590ef19d1045d06c4055742d38288e9e6dcd71ccde5cee80f1d5a774eb",
+    "root_object": "public.events",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.events.title_en",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049",
+    "live_sha256": "031b4af5197ec30a926f48cf40e11a7dbc470048a21e4003b7a3c07c5dab1baa",
+    "root_object": "public.events",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.events.title_pt",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "3d914f9348c9cc0ff8a79716700b9fcd4d2f3e711608004eb8f138bcba7f14d9",
+    "live_sha256": "41cfc0d1f2d127b04555b7246d84019b4d27710a3f3aff6e7764375b1e06e05d",
+    "root_object": "public.events",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.events.venue_directions_url",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "1a6562590ef19d1045d06c4055742d38288e9e6dcd71ccde5cee80f1d5a774eb",
+    "live_sha256": "2858dcd1057d3eae7f7d5f782167e24b61153c01551450a628cee722509f6529",
+    "root_object": "public.events",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.events.venue_map_url",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "0e17daca5f3e175f448bacace3bc0da47d0655a74c8dd0dc497a3afbdad95f1f",
+    "live_sha256": "2fca346db656187102ce806ac732e06a62df0dbb2829e511a770556d398e1a6e",
+    "root_object": "public.events",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.fever_sync_config.card_sales_card",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "4ec9599fc203d176a301536c2e091a19bc852759b255bd6818810a42c5fed14a",
+    "live_sha256": "e629fa6598d732768f7c726b4b621285f9c3b85303900aa912017db7617d8bdb",
+    "root_object": "public.fever_sync_config",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.fever_sync_config.card_sales_dashcard",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "4523540f1504cd17100c4835e85b7eefd49911580f8efff0599a8f283be6b9e3",
+    "live_sha256": "b17ef6d19c7a5b1ee83b907c595526dcb1eb06db8227d650d5dda0a9f4ce8cd9",
+    "root_object": "public.fever_sync_config",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.fever_sync_config.card_tickets_card",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "f5ca38f748a1d6eaf726b8a42fb575c3c71f1864a8143301782de13da2d9202b",
+    "live_sha256": "4523540f1504cd17100c4835e85b7eefd49911580f8efff0599a8f283be6b9e3",
+    "root_object": "public.fever_sync_config",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.fever_sync_config.card_tickets_dashcard",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "9400f1b21cb527d7fa3d3eabba93557a18ebe7a2ca4e471cfe5e4c5b4ca7f767",
+    "live_sha256": "4ec9599fc203d176a301536c2e091a19bc852759b255bd6818810a42c5fed14a",
+    "root_object": "public.fever_sync_config",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.fever_sync_config.dashboard_id",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "b17ef6d19c7a5b1ee83b907c595526dcb1eb06db8227d650d5dda0a9f4ce8cd9",
+    "live_sha256": "9400f1b21cb527d7fa3d3eabba93557a18ebe7a2ca4e471cfe5e4c5b4ca7f767",
+    "root_object": "public.fever_sync_config",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.fever_sync_config.partner_id",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "e629fa6598d732768f7c726b4b621285f9c3b85303900aa912017db7617d8bdb",
+    "live_sha256": "f5ca38f748a1d6eaf726b8a42fb575c3c71f1864a8143301782de13da2d9202b",
+    "root_object": "public.fever_sync_config",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.financial_accounts.advance_retention_pct",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "961b35b9099c102a927e7ab29fcae9ecce8a18758badf3e31d58581288500eb4",
+    "root_object": "public.financial_accounts",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/docs/testes/issue333/pilot8/financial-schema58.LOCAL.sql",
+        "line": 4,
+        "file_sha256": "cd2e3661e4838e40fe314b6b2ff23cef7af2f062ae76e5d2bf8d9570c0438844",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 2451,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/tests/issue335/live/dependencies.sql",
+        "line": 447,
+        "file_sha256": "fb1a7398949ce2fb73c0d5749c73591aa91ca1552a8430618ae2bee67c74ed21",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.financial_accounts.email_contact",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "e629fa6598d732768f7c726b4b621285f9c3b85303900aa912017db7617d8bdb",
+    "live_sha256": "8527a891e224136950ff32ca212b45bc93f69fbb801c3b1ebedac52775f99e61",
+    "root_object": "public.financial_accounts",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.financial_accounts.initial_balance_date",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "f5ca38f748a1d6eaf726b8a42fb575c3c71f1864a8143301782de13da2d9202b",
+    "live_sha256": "535fa30d7e25dd8a49f1536779734ec8286108d115da5045d77f3b4185d8f790",
+    "root_object": "public.financial_accounts",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.financial_accounts.is_circuit_account",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "785f3ec7eb32f30b90cd0fcf3657d388b5ff4297f2f9716ff66e9b69c05ddd09",
+    "live_sha256": "b7a56873cd771f2c446d369b649430b65a756ba278ff97ec81bb6f55b2e73569",
+    "root_object": "public.financial_accounts",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.financial_accounts.is_restricted",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "6f4b6612125fb3a0daecd2799dfd6c9c299424fd920f9b308110a2c1fbd8f443",
+    "live_sha256": "c2356069e9d1e79ca924378153cfbbfb4d4416b1f99d41a2940bfdb66c5319db",
+    "root_object": "public.financial_accounts",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.financial_accounts.mirror_partner_aporte",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "073b9d2a94eb595d31dd1d52f83955bfef16918376f0cbfffd44c002ea82ee26",
+    "root_object": "public.financial_accounts",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/docs/testes/issue333/pilot8/financial-schema58.LOCAL.sql",
+        "line": 4,
+        "file_sha256": "cd2e3661e4838e40fe314b6b2ff23cef7af2f062ae76e5d2bf8d9570c0438844",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 2451,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/tests/issue335/live/dependencies.sql",
+        "line": 446,
+        "file_sha256": "fb1a7398949ce2fb73c0d5749c73591aa91ca1552a8430618ae2bee67c74ed21",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.financial_accounts.partner_id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "a22226b750a3158a0cc18b5be7c61186d3e657360a6ac84abbfa548e1c95881a",
+    "root_object": "public.financial_accounts",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/docs/testes/issue333/pilot8/financial-schema58.LOCAL.sql",
+        "line": 4,
+        "file_sha256": "cd2e3661e4838e40fe314b6b2ff23cef7af2f062ae76e5d2bf8d9570c0438844",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 2451,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/tests/issue335/live/dependencies.sql",
+        "line": 445,
+        "file_sha256": "fb1a7398949ce2fb73c0d5749c73591aa91ca1552a8430618ae2bee67c74ed21",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.financial_accounts.phone",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "8527a891e224136950ff32ca212b45bc93f69fbb801c3b1ebedac52775f99e61",
+    "live_sha256": "e629fa6598d732768f7c726b4b621285f9c3b85303900aa912017db7617d8bdb",
+    "root_object": "public.financial_accounts",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.issue335_execution_context.backend_pid",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "11af3222c3c2405d5acf461bad5dae0241568ff2be8fe3e3d3a9392fb5c2a4e9",
+    "root_object": "public.issue335_execution_context",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 34,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.issue335_execution_context.operation",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "b5079167e206a50281d4daae33d97695f12d63865aa7129fddc2f817975bb3ab",
+    "root_object": "public.issue335_execution_context",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 34,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.issue335_execution_context.token",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "0bb76c6c1afc22a2c404494032a1def27ea9254f0f7581711494095fb7fe8d1d",
+    "root_object": "public.issue335_execution_context",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 34,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.issue335_execution_context.transaction_id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "0f520963d54ee8a75ddb9e7588582d9e39007ed2f53f0e60a98606678441a7ad",
+    "root_object": "public.issue335_execution_context",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 34,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.lead_capture.consent_decided_at",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "f9d640187cc9010f4fd1d26eaec81818ccfcfaf592a1eb32a79bcf2cd581156b",
+    "root_object": "public.lead_capture",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 44,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 44,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.lead_capture.consent_email_text_version",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "9f294a9ebb114b8766767c9c9b0e2e5a2943d0036d5811a0a79f694566508725",
+    "root_object": "public.lead_capture",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 44,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 44,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.lead_capture.consent_whatsapp_text_version",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "f351fd2b54b52f0a0354ddd8e801182c95f8d42f3444f84dcafc0477d5424beb",
+    "root_object": "public.lead_capture",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 44,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 44,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.partner_capital_moves.flow",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "606543ac38dc0c833d2014eb77ef8844038b19751919c35f9bd67e05b16d054b",
+    "root_object": "public.partner_capital_moves",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 2483,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/tests/issue335/live/dependencies.sql",
+        "line": 822,
+        "file_sha256": "fb1a7398949ce2fb73c0d5749c73591aa91ca1552a8430618ae2bee67c74ed21",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.profiles.archived_at",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5",
+    "live_sha256": "2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3",
+    "root_object": "public.profiles",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.profiles.first_access_consumed_at",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "3fdba35f04dc8c462986c992bcf875546257113072a909c162f7e470e581e278",
+    "live_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918",
+    "root_object": "public.profiles",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.profiles.first_access_token",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918",
+    "live_sha256": "3fdba35f04dc8c462986c992bcf875546257113072a909c162f7e470e581e278",
+    "root_object": "public.profiles",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.profiles.phone",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3",
+    "live_sha256": "19581e27de7ced00ff1ce50b2047e7a567c76b1cbaebabe5ef03f7c3017bb5b7",
+    "root_object": "public.profiles",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.profiles.profile_type",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "19581e27de7ced00ff1ce50b2047e7a567c76b1cbaebabe5ef03f7c3017bb5b7",
+    "live_sha256": "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5",
+    "root_object": "public.profiles",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.song_link_events.ab_variant",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "9dae4348ead7aadaca8f0c352b1964d335bf404cea024c43528d831d51951656",
+    "root_object": "public.song_link_events",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0252_ab_ios_btn_v1.sql",
+        "line": 7,
+        "file_sha256": "b1a153090f4c73b5c2153939a0247b4611ee146d554dde6b829771059ca515d6",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_ab_ios_btn_v1.sql",
+        "line": 7,
+        "file_sha256": "b1a153090f4c73b5c2153939a0247b4611ee146d554dde6b829771059ca515d6",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.song_link_events.arrival_event_id",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "35135aaa6cc23891b40cb3f378c53a17a1127210ce60e125ccf03efcfdaec458",
+    "live_sha256": "e29c9c180c6279b0b02abd6a1801c7c04082cf486ec027aa13515e4f3884bb6b",
+    "root_object": "public.song_link_events",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.song_link_events.capi_external_id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "bc14674be199111884366775a1326d91926c02a80e45fe4b8b499e5eb631d82e",
+    "root_object": "public.song_link_events",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261004_derp171_song_link_events_capi_flags.sql",
+        "line": 2,
+        "file_sha256": "81c3c18ee09c351ca02c0cd871d2b42a3cb841a2ec4d0a75b0436a7042081255",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.song_link_events.capi_fbc",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "69a91fdb9d335762acd9a54de553f2e44e0404f66b18d0d10ad4add21df2c809",
+    "root_object": "public.song_link_events",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261004_derp171_song_link_events_capi_flags.sql",
+        "line": 2,
+        "file_sha256": "81c3c18ee09c351ca02c0cd871d2b42a3cb841a2ec4d0a75b0436a7042081255",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.song_link_events.capi_fbp",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "101de726dde2002de836f802be83025f80c046c76fb02487b670b8d63aab7389",
+    "root_object": "public.song_link_events",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261004_derp171_song_link_events_capi_flags.sql",
+        "line": 2,
+        "file_sha256": "81c3c18ee09c351ca02c0cd871d2b42a3cb841a2ec4d0a75b0436a7042081255",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.song_link_events.origin",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "59e19706d51d39f66711c2653cd7eb1291c94d9b55eb14bda74ce4dc636d015a",
+    "live_sha256": "eb1e33e8a81b697b75855af6bfcdbcbf7cbbde9f94962ceaec1ed8af21f5a50f",
+    "root_object": "public.song_link_events",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.song_links.canal",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "b17ef6d19c7a5b1ee83b907c595526dcb1eb06db8227d650d5dda0a9f4ce8cd9",
+    "live_sha256": "4523540f1504cd17100c4835e85b7eefd49911580f8efff0599a8f283be6b9e3",
+    "root_object": "public.song_links",
+    "group": "b",
+    "cause": "property_mismatch"
+  }
+]

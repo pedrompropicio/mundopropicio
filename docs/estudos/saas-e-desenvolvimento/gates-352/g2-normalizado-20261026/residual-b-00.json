@@ -1,0 +1,664 @@
+[
+  {
+    "category": "acl",
+    "object": "function:crm.ads_hourly_validate_connection()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "4e3c97e3e2904d509f85cfcfa24f545cfe04d30b0795bfb2ad23e4901c56d8d4",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "crm.ads_hourly_validate_connection()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:crm.artist_ads_event_for_name(pg_catalog.uuid,pg_catalog.text)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "124d75bd6b9bb3831bdcadd6a20a29c6a04ff78575d741ae86a58df114f7c8e4",
+    "live_sha256": "5e1fd22829e3a5360cb53848314e15d46013e6801d50b2ccf94dbfdd2b71b1c2",
+    "root_object": "crm.artist_ads_event_for_name(pg_catalog.uuid,pg_catalog.text)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:crm.artist_ads_event_keyword_name(pg_catalog.text)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "124d75bd6b9bb3831bdcadd6a20a29c6a04ff78575d741ae86a58df114f7c8e4",
+    "live_sha256": "5e1fd22829e3a5360cb53848314e15d46013e6801d50b2ccf94dbfdd2b71b1c2",
+    "root_object": "crm.artist_ads_event_keyword_name(pg_catalog.text)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:crm.artist_ads_profile_name(pg_catalog.text)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "124d75bd6b9bb3831bdcadd6a20a29c6a04ff78575d741ae86a58df114f7c8e4",
+    "live_sha256": "5e1fd22829e3a5360cb53848314e15d46013e6801d50b2ccf94dbfdd2b71b1c2",
+    "root_object": "crm.artist_ads_profile_name(pg_catalog.text)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:crm.artist_ads_song_for_name(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.text)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "124d75bd6b9bb3831bdcadd6a20a29c6a04ff78575d741ae86a58df114f7c8e4",
+    "live_sha256": "5e1fd22829e3a5360cb53848314e15d46013e6801d50b2ccf94dbfdd2b71b1c2",
+    "root_object": "crm.artist_ads_song_for_name(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.text)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:crm.artist_ads_tiktok_alerts_core(pg_catalog.uuid)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "4e3c97e3e2904d509f85cfcfa24f545cfe04d30b0795bfb2ad23e4901c56d8d4",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "crm.artist_ads_tiktok_alerts_core(pg_catalog.uuid)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:crm.audience_retrieve(pg_catalog.text,pg_catalog.text,pg_catalog.text,pg_catalog.text,pg_catalog.int4)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "8e542fdfc523e8fab1ecff0060273744deb9385f6899df8d558a7a40e54253d6",
+    "root_object": "crm.audience_retrieve(pg_catalog.text,pg_catalog.text,pg_catalog.text,pg_catalog.text,pg_catalog.int4)",
+    "origin_evidence": [
+      {
+        "file": "literal352/package/ledger/20260624224136_.sql",
+        "line": 1,
+        "file_sha256": "0dabf07cf97edde32e615c6e726ede2e2aea1188c18bfff82311ef2f15947876",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/migrations/20260624224138_6cc376f9-aa4f-497d-a954-dcfe09c191fa.sql",
+        "line": 1,
+        "file_sha256": "0dabf07cf97edde32e615c6e726ede2e2aea1188c18bfff82311ef2f15947876",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:crm.audience_retrieve_publics(pg_catalog.text,pg_catalog.text,pg_catalog.text,pg_catalog.text)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "8e542fdfc523e8fab1ecff0060273744deb9385f6899df8d558a7a40e54253d6",
+    "root_object": "crm.audience_retrieve_publics(pg_catalog.text,pg_catalog.text,pg_catalog.text,pg_catalog.text)",
+    "origin_evidence": [
+      {
+        "file": "literal352/package/ledger/20260624224136_.sql",
+        "line": 85,
+        "file_sha256": "0dabf07cf97edde32e615c6e726ede2e2aea1188c18bfff82311ef2f15947876",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/migrations/20260624224138_6cc376f9-aa4f-497d-a954-dcfe09c191fa.sql",
+        "line": 85,
+        "file_sha256": "0dabf07cf97edde32e615c6e726ede2e2aea1188c18bfff82311ef2f15947876",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public._account_true_balance_asof_raw(pg_catalog.uuid,pg_catalog.date)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public._account_true_balance_asof_raw(pg_catalog.uuid,pg_catalog.date)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public._account_true_balance_raw(pg_catalog.uuid)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public._account_true_balance_raw(pg_catalog.uuid)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public._club368_resubscribe_clear()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
+    "root_object": "public._club368_resubscribe_clear()",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0264_newgang_erasure_leads_resubscribe.sql",
+        "line": 96,
+        "file_sha256": "4cca1d0159fb451225202d333abc797cfa544cc42adbbc17446178a3861589cf",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/0264_newgang_erasure_leads_resubscribe.sql",
+        "line": 96,
+        "file_sha256": "6af3b048c919f256f38fe0836e82c94652530bed0312b727dc3bf895641833dd",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public._consent_text_versions_hash()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
+    "root_object": "public._consent_text_versions_hash()",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 24,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 24,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public._consent_text_versions_immutable()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
+    "root_object": "public._consent_text_versions_immutable()",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 31,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 31,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public._derive_paid_amount(pg_catalog.uuid)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "live_sha256": "266c6512a934656ede2a5420e9b199bff5049c9c16f21c44e0188f3c486ec920",
+    "root_object": "public._derive_paid_amount(pg_catalog.uuid)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public._issue335_execute(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.jsonb,pg_catalog.jsonb,pg_catalog.date,pg_catalog.text)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "0a7fa0e88436a7657a16cee5452a02842c6d646b7fab61a9a943437392514b2a",
+    "root_object": "public._issue335_execute(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.jsonb,pg_catalog.jsonb,pg_catalog.date,pg_catalog.text)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 215,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public._issue335_reverse(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.text)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "0a7fa0e88436a7657a16cee5452a02842c6d646b7fab61a9a943437392514b2a",
+    "root_object": "public._issue335_reverse(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.text)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 376,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public._lead_capture_consent_proof_guard()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
+    "root_object": "public._lead_capture_consent_proof_guard()",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0260_issue359_consent_proof_guard_c.sql",
+        "line": 11,
+        "file_sha256": "c34ccba7df1c70a6849f2055d202a9037d4be566cbd3e261ab95ca921ba15923",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_C_trigger.sql",
+        "line": 11,
+        "file_sha256": "c34ccba7df1c70a6849f2055d202a9037d4be566cbd3e261ab95ca921ba15923",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public._revert_event_to_version(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.uuid,pg_catalog.text,pg_catalog.bool)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public._revert_event_to_version(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.uuid,pg_catalog.text,pg_catalog.bool)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.ads_event_windows(pg_catalog.uuid)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "a72bac574a47209234891852deafd089866b8aafbaa820cdc5cc76b6875c4a56",
+    "root_object": "public.ads_event_windows(pg_catalog.uuid)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.apply_formalidade_suggestions(pg_catalog._uuid,public.bp_formalidade)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.apply_formalidade_suggestions(pg_catalog._uuid,public.bp_formalidade)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.artist_ads_creatives(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.text)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "42d80ba8078e02bedb2f4473cc5a621f277b301fcfe75318c2edab50a0f005f8",
+    "root_object": "public.artist_ads_creatives(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.text)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261013_derp259_fns_final.sql",
+        "line": 1280,
+        "file_sha256": "098afb811e6dc3f301ed5726832b021edd4402b82ada090da709a49f9c99525e",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.artist_ads_plan_list(pg_catalog.uuid,pg_catalog.text)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "42d80ba8078e02bedb2f4473cc5a621f277b301fcfe75318c2edab50a0f005f8",
+    "root_object": "public.artist_ads_plan_list(pg_catalog.uuid,pg_catalog.text)",
+    "origin_evidence": [
+      {
+        "file": "literal352/package/ledger/20260919105937_495e2856-8019-46a4-b5f7-00d44d419ccf.sql",
+        "line": 68,
+        "file_sha256": "ad804dfe2a6413b92979d8e7b4d81a110adeae614bd768f1905ec27d2e800735",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/manual/20261013_derp259_fns_final.sql",
+        "line": 2119,
+        "file_sha256": "098afb811e6dc3f301ed5726832b021edd4402b82ada090da709a49f9c99525e",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/migrations/20260919105937_495e2856-8019-46a4-b5f7-00d44d419ccf.sql",
+        "line": 68,
+        "file_sha256": "ad804dfe2a6413b92979d8e7b4d81a110adeae614bd768f1905ec27d2e800735",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.artist_ads_promotable_posts(pg_catalog.uuid,pg_catalog.text)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "42d80ba8078e02bedb2f4473cc5a621f277b301fcfe75318c2edab50a0f005f8",
+    "root_object": "public.artist_ads_promotable_posts(pg_catalog.uuid,pg_catalog.text)",
+    "origin_evidence": [
+      {
+        "file": "literal352/package/ledger/20260919105937_495e2856-8019-46a4-b5f7-00d44d419ccf.sql",
+        "line": 133,
+        "file_sha256": "ad804dfe2a6413b92979d8e7b4d81a110adeae614bd768f1905ec27d2e800735",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "literal352/package/ledger/20260919112428_3c92d83a-c644-4254-88f4-64001d9d0706.sql",
+        "line": 1,
+        "file_sha256": "fe1f1ca956b55cbede3b5e84bfe01adb5b1bf6460416031bd836f6cb2caa50eb",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/manual/20261013_derp259_fns_final.sql",
+        "line": 2185,
+        "file_sha256": "098afb811e6dc3f301ed5726832b021edd4402b82ada090da709a49f9c99525e",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.artist_song_play_origins_compare(pg_catalog.uuid,pg_catalog.date,pg_catalog.date)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "42d80ba8078e02bedb2f4473cc5a621f277b301fcfe75318c2edab50a0f005f8",
+    "root_object": "public.artist_song_play_origins_compare(pg_catalog.uuid,pg_catalog.date,pg_catalog.date)",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0254_dia_a_dia_trafego_youtube.sql",
+        "line": 1,
+        "file_sha256": "866ed13e4f5b57b8a49dc7bd640813b5705a7cbe1b3ab12a2094b718eac8c98f",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/drizzle/migrations/0253_play_origins_compare_spotify_br_pt.sql",
+        "line": 1,
+        "file_sha256": "390fd8748e51d73f018f43575efc903d8b3a9b0a080f7e1e6b0efd975b02b22d",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/drizzle/migrations/0242_s4a_playlist_kind_estimates.sql",
+        "line": 29,
+        "file_sha256": "e7117257e6fb15fabde97e9cc4d3fe90676f599addb895efe2ad61e4cb18b33d",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.audit_multi_tenant_isolation()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.audit_multi_tenant_isolation()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.auto_create_initial_bp_version()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.auto_create_initial_bp_version()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.auto_create_retroactive_split_snapshots()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.auto_create_retroactive_split_snapshots()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.bp_tx_link_allowed(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.uuid,pg_catalog.uuid)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "live_sha256": "266c6512a934656ede2a5420e9b199bff5049c9c16f21c44e0188f3c486ec920",
+    "root_object": "public.bp_tx_link_allowed(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.uuid,pg_catalog.uuid)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.can_see_confidential(pg_catalog.uuid)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "f70ab5b8f33d5c3f8936f2ec80a59d9fb596c5cfbd732f348523195c38faddda",
+    "live_sha256": "49fb25fe8a0b15558b4266f36e5dfc8610bc8e6eaadb64e25566315238a1ba51",
+    "root_object": "public.can_see_confidential(pg_catalog.uuid)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.cleanup_old_backups()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.cleanup_old_backups()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.club_member_erase(pg_catalog.uuid,pg_catalog.text,pg_catalog.bool,pg_catalog.uuid)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
+    "root_object": "public.club_member_erase(pg_catalog.uuid,pg_catalog.text,pg_catalog.bool,pg_catalog.uuid)",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0263_newgang_erasure_on_request.sql",
+        "line": 23,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/drizzle/migrations/0264_newgang_erasure_leads_resubscribe.sql",
+        "line": 12,
+        "file_sha256": "4cca1d0159fb451225202d333abc797cfa544cc42adbbc17446178a3861589cf",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/0263_newgang_erasure_on_request.sql",
+        "line": 23,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.create_registro_with_media(pg_catalog.jsonb,pg_catalog.jsonb)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "f70ab5b8f33d5c3f8936f2ec80a59d9fb596c5cfbd732f348523195c38faddda",
+    "live_sha256": "710253bc2bbd6881b79cc38eca851d8610894d43ea3e596232ec53dc3475d9b1",
+    "root_object": "public.create_registro_with_media(pg_catalog.jsonb,pg_catalog.jsonb)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.current_company_id()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "f70ab5b8f33d5c3f8936f2ec80a59d9fb596c5cfbd732f348523195c38faddda",
+    "live_sha256": "2668c5de09eed657545e8da8024a1b5eee61879e64d78bba0b02eb44cbfad326",
+    "root_object": "public.current_company_id()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.delete_email(pg_catalog.text,pg_catalog.int8)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.delete_email(pg_catalog.text,pg_catalog.int8)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.enqueue_email(pg_catalog.text,pg_catalog.jsonb)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.enqueue_email(pg_catalog.text,pg_catalog.jsonb)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.find_admin_absorbing_events(pg_catalog.date,pg_catalog.uuid)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "710253bc2bbd6881b79cc38eca851d8610894d43ea3e596232ec53dc3475d9b1",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.find_admin_absorbing_events(pg_catalog.date,pg_catalog.uuid)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.force_no_account_on_compensation()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
+    "root_object": "public.force_no_account_on_compensation()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 818,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/tests/issue335/triggers.sql",
+        "line": 37,
+        "file_sha256": "4c4d5c91cc3502a066dc4ccbf79bf1930a6cd1dad88ac6b9e1c353e2dac0436b",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/tests/issue335/live/functions.sql",
+        "line": 1955,
+        "file_sha256": "55e6b6d91a977aa97dcd8001c50dffb9df71a290b047f24e0703634686181bf1",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.get_app_secret(pg_catalog.text)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.get_app_secret(pg_catalog.text)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.handle_new_user()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.handle_new_user()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.has_permission(pg_catalog.uuid,pg_catalog.text)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "710253bc2bbd6881b79cc38eca851d8610894d43ea3e596232ec53dc3475d9b1",
+    "live_sha256": "2668c5de09eed657545e8da8024a1b5eee61879e64d78bba0b02eb44cbfad326",
+    "root_object": "public.has_permission(pg_catalog.uuid,pg_catalog.text)",
+    "group": "b",
+    "cause": "property_mismatch"
+  }
+]

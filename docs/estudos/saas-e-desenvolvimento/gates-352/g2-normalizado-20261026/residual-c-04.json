@@ -1,0 +1,101 @@
+[
+  {
+    "category": "types",
+    "object": "_realtime._schema_migrations",
+    "property": "$presence",
+    "kind": "only_replay",
+    "replay_sha256": "37169a27ddbacab4b327fc7b5b6e657a52dbaee0b055425e269687644698efce",
+    "live_sha256": null,
+    "root_object": "_realtime._schema_migrations",
+    "group": "c",
+    "cause": "only_replay"
+  },
+  {
+    "category": "types",
+    "object": "_realtime._tenants",
+    "property": "$presence",
+    "kind": "only_replay",
+    "replay_sha256": "952c4e15d8794bb091c98e6e79c580c92005cff676017e1ea4fced072b62c786",
+    "live_sha256": null,
+    "root_object": "_realtime._tenants",
+    "group": "c",
+    "cause": "only_replay"
+  },
+  {
+    "category": "types",
+    "object": "_realtime.extensions",
+    "property": "$presence",
+    "kind": "only_replay",
+    "replay_sha256": "77f76f87f5dc40abdb4b72776ca34fa1648b93c63a339698e90a5b8a71789899",
+    "live_sha256": null,
+    "root_object": "_realtime.extensions",
+    "group": "c",
+    "cause": "only_replay"
+  },
+  {
+    "category": "types",
+    "object": "_realtime.schema_migrations",
+    "property": "$presence",
+    "kind": "only_replay",
+    "replay_sha256": "0afe27187a6cadc577f760ec500c64c9e9601279f174d5da672d7afeab33eb75",
+    "live_sha256": null,
+    "root_object": "_realtime.schema_migrations",
+    "group": "c",
+    "cause": "only_replay"
+  },
+  {
+    "category": "types",
+    "object": "_realtime.tenants",
+    "property": "$presence",
+    "kind": "only_replay",
+    "replay_sha256": "2ba3c0a599fe1cdaa6523badf977851b7da250a4d05d2740b95ec189789f04eb",
+    "live_sha256": null,
+    "root_object": "_realtime.tenants",
+    "group": "c",
+    "cause": "only_replay"
+  },
+  {
+    "category": "types",
+    "object": "supabase_functions._hooks",
+    "property": "$presence",
+    "kind": "only_replay",
+    "replay_sha256": "f812e72c3f499090cbaf1ab30cf0b2cd4ede1d9ca09ced9a1bc906b3b3b3b792",
+    "live_sha256": null,
+    "root_object": "supabase_functions._hooks",
+    "group": "c",
+    "cause": "only_replay"
+  },
+  {
+    "category": "types",
+    "object": "supabase_functions._migrations",
+    "property": "$presence",
+    "kind": "only_replay",
+    "replay_sha256": "429f8867e2a03711d3d0f19e6c002d70c0681be20f36aba7f28ab2f627ee6f3b",
+    "live_sha256": null,
+    "root_object": "supabase_functions._migrations",
+    "group": "c",
+    "cause": "only_replay"
+  },
+  {
+    "category": "types",
+    "object": "supabase_functions.hooks",
+    "property": "$presence",
+    "kind": "only_replay",
+    "replay_sha256": "ae2fd356e40d0235887f069e04b5cac5276250ead9618d0fdf3886a934d4d89a",
+    "live_sha256": null,
+    "root_object": "supabase_functions.hooks",
+    "group": "c",
+    "cause": "only_replay"
+  },
+  {
+    "category": "types",
+    "object": "supabase_functions.migrations",
+    "property": "$presence",
+    "kind": "only_replay",
+    "replay_sha256": "f2425f3afc73d05e8dddc60508a455bc1b3c49693cfb351ebf4231dda78ab606",
+    "live_sha256": null,
+    "root_object": "supabase_functions.migrations",
+    "group": "c",
+    "cause": "only_replay"
+  }
+]

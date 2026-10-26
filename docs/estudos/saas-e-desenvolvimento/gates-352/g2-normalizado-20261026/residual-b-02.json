@@ -1,0 +1,544 @@
+[
+  {
+    "category": "acl",
+    "object": "function:public.tg_sponsorship_pipeline_autolog()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.tg_sponsorship_pipeline_autolog()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.transaction_offset_control_status()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "42d80ba8078e02bedb2f4473cc5a621f277b301fcfe75318c2edab50a0f005f8",
+    "root_object": "public.transaction_offset_control_status()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261022_issue335_control_status.INERTE.sql",
+        "line": 20,
+        "file_sha256": "41a041e72c25ae25956a814df6a628fda84dc7086413b8dd3cf46d29922fa477",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.transaction_offset_execute(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.jsonb,pg_catalog.jsonb,pg_catalog.date,pg_catalog.text)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "42d80ba8078e02bedb2f4473cc5a621f277b301fcfe75318c2edab50a0f005f8",
+    "root_object": "public.transaction_offset_execute(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.jsonb,pg_catalog.jsonb,pg_catalog.date,pg_catalog.text)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 1142,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.transaction_offset_reverse(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.text)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "42d80ba8078e02bedb2f4473cc5a621f277b301fcfe75318c2edab50a0f005f8",
+    "root_object": "public.transaction_offset_reverse(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.text)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 1146,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.trg_camarim_session_leg_follows_bank()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "5e1fd22829e3a5360cb53848314e15d46013e6801d50b2ccf94dbfdd2b71b1c2",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.trg_camarim_session_leg_follows_bank()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.user_has_event_access(pg_catalog.uuid,pg_catalog.uuid)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "f70ab5b8f33d5c3f8936f2ec80a59d9fb596c5cfbd732f348523195c38faddda",
+    "live_sha256": "710253bc2bbd6881b79cc38eca851d8610894d43ea3e596232ec53dc3475d9b1",
+    "root_object": "public.user_has_event_access(pg_catalog.uuid,pg_catalog.uuid)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.user_supplier_id(pg_catalog.uuid)",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "f70ab5b8f33d5c3f8936f2ec80a59d9fb596c5cfbd732f348523195c38faddda",
+    "live_sha256": "710253bc2bbd6881b79cc38eca851d8610894d43ea3e596232ec53dc3475d9b1",
+    "root_object": "public.user_supplier_id(pg_catalog.uuid)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.validate_category_allocate_flag()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.validate_category_allocate_flag()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.validate_event_admin_absorption()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.validate_event_admin_absorption()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "function:public.vip_coupon_functions_base_url()",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "859c264ae1d870e6e87f2f96ebb29a2629bf7fbcc5f2fcbe68a97b68b9ca1c70",
+    "live_sha256": "d7dba074a2a985f918d718efdfccd82872358abbb50aff02a6d4bc9a0f7d4238",
+    "root_object": "public.vip_coupon_functions_base_url()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:crm.ad_platform_account_links",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "9d399c132f6bb6cb2f2fad08879361b4094146d7072fea2767c40613e37ec4d8",
+    "live_sha256": "f496036b291ad4bc8e6e23da47372ac7676b39cc590918021352fad367e36ecd",
+    "root_object": "crm.ad_platform_account_links",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:crm.meta_campaign_strategies",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "9d399c132f6bb6cb2f2fad08879361b4094146d7072fea2767c40613e37ec4d8",
+    "live_sha256": "f496036b291ad4bc8e6e23da47372ac7676b39cc590918021352fad367e36ecd",
+    "root_object": "crm.meta_campaign_strategies",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:crm.meta_creatives",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "421ce79b665bd9d9be0317c69796eb32ad40333dffa46ef498c4478747fc2398",
+    "live_sha256": "f496036b291ad4bc8e6e23da47372ac7676b39cc590918021352fad367e36ecd",
+    "root_object": "crm.meta_creatives",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.app_secrets",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "cf8c6fac7923fc1cfb642deb97738bafeb3e82084984be967f3086197ade3cfa",
+    "live_sha256": "eadbb86b9d2724a95653fbd3d154193bf5053871d9e03e5609a494c04521d881",
+    "root_object": "public.app_secrets",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.bank_line_transactions",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "eadbb86b9d2724a95653fbd3d154193bf5053871d9e03e5609a494c04521d881",
+    "live_sha256": "478edf09c71d458318d16e29bb5bd3c3eafc5b1d41e0d0336e52716a6367110c",
+    "root_object": "public.bank_line_transactions",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.bank_statement_lines",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "eadbb86b9d2724a95653fbd3d154193bf5053871d9e03e5609a494c04521d881",
+    "live_sha256": "9ecb37c53426637e84c3ee0fdd80ce25c92a05f1963558a95f0ac7ee5b134918",
+    "root_object": "public.bank_statement_lines",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.club_email_events",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "d8459062f645e7e44708bd315c95265c83c0d14ec5225e6eabcf019ccc036eff",
+    "root_object": "public.club_email_events",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0262_newgang_retention_p1_interactions.sql",
+        "line": 4,
+        "file_sha256": "c8268551bde84b2cdd509d1be56aa4e7c7b289260fa52ce8842161ade46b52c0",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.club_retention_log",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "d8459062f645e7e44708bd315c95265c83c0d14ec5225e6eabcf019ccc036eff",
+    "root_object": "public.club_retention_log",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.companies",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "eadbb86b9d2724a95653fbd3d154193bf5053871d9e03e5609a494c04521d881",
+    "live_sha256": "f201f916ae846dba95aee83be83f169897caeff5a93ff0017e3512db5d90f77f",
+    "root_object": "public.companies",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.consent_text_versions",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "a21b65597da7ba7eac16fb1438149c9f724510e6c65b4726f2cd1a6444fa9811",
+    "root_object": "public.consent_text_versions",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.event_forecasts",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "eadbb86b9d2724a95653fbd3d154193bf5053871d9e03e5609a494c04521d881",
+    "live_sha256": "9ecb37c53426637e84c3ee0fdd80ce25c92a05f1963558a95f0ac7ee5b134918",
+    "root_object": "public.event_forecasts",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.event_settlements",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "eadbb86b9d2724a95653fbd3d154193bf5053871d9e03e5609a494c04521d881",
+    "live_sha256": "f201f916ae846dba95aee83be83f169897caeff5a93ff0017e3512db5d90f77f",
+    "root_object": "public.event_settlements",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.events",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "eadbb86b9d2724a95653fbd3d154193bf5053871d9e03e5609a494c04521d881",
+    "live_sha256": "f201f916ae846dba95aee83be83f169897caeff5a93ff0017e3512db5d90f77f",
+    "root_object": "public.events",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.financial_accounts",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "eadbb86b9d2724a95653fbd3d154193bf5053871d9e03e5609a494c04521d881",
+    "live_sha256": "f201f916ae846dba95aee83be83f169897caeff5a93ff0017e3512db5d90f77f",
+    "root_object": "public.financial_accounts",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.forecast_audit_log",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "eadbb86b9d2724a95653fbd3d154193bf5053871d9e03e5609a494c04521d881",
+    "live_sha256": "fab59497f00a4a8460c26c691effdb312edc2423d983033a310b35c2ba2b8641",
+    "root_object": "public.forecast_audit_log",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.issue335_execution_context",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "a0c22bb9f4c459f5363a70aa0cadca7e32ffebd6cf14069cbda3ba4c34990acd",
+    "root_object": "public.issue335_execution_context",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 34,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.suppliers",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "f1dec94a3589f29b13b85edb25a2ff917f82b32dd9a4b07aa33001f15158bab9",
+    "live_sha256": "5e4076ff08d6796db80fad8f6bd97f0cae3b7a75f3c781d3467e79efa95609b6",
+    "root_object": "public.suppliers",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.system_audit_log",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "eadbb86b9d2724a95653fbd3d154193bf5053871d9e03e5609a494c04521d881",
+    "live_sha256": "fab59497f00a4a8460c26c691effdb312edc2423d983033a310b35c2ba2b8641",
+    "root_object": "public.system_audit_log",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.transaction_audit_log",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "eadbb86b9d2724a95653fbd3d154193bf5053871d9e03e5609a494c04521d881",
+    "live_sha256": "fab59497f00a4a8460c26c691effdb312edc2423d983033a310b35c2ba2b8641",
+    "root_object": "public.transaction_audit_log",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.transaction_offset_control",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "081adb45c3ffa7e2075cf0761a264a0c6479bba233f76974360725ffc7ae59fb",
+    "root_object": "public.transaction_offset_control",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 110,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.transaction_offset_groups",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "f04ad3a9f40a50235df049b4fb7b8166813e177660b69e2b82d597a63a17336d",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.transaction_offset_items",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "f04ad3a9f40a50235df049b4fb7b8166813e177660b69e2b82d597a63a17336d",
+    "root_object": "public.transaction_offset_items",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 38,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.transaction_offsets",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "eadbb86b9d2724a95653fbd3d154193bf5053871d9e03e5609a494c04521d881",
+    "live_sha256": "9ecb37c53426637e84c3ee0fdd80ce25c92a05f1963558a95f0ac7ee5b134918",
+    "root_object": "public.transaction_offsets",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.transaction_payments",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "eadbb86b9d2724a95653fbd3d154193bf5053871d9e03e5609a494c04521d881",
+    "live_sha256": "9ecb37c53426637e84c3ee0fdd80ce25c92a05f1963558a95f0ac7ee5b134918",
+    "root_object": "public.transaction_payments",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.transactions",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "eadbb86b9d2724a95653fbd3d154193bf5053871d9e03e5609a494c04521d881",
+    "live_sha256": "9ecb37c53426637e84c3ee0fdd80ce25c92a05f1963558a95f0ac7ee5b134918",
+    "root_object": "public.transactions",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.user_roles",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "eadbb86b9d2724a95653fbd3d154193bf5053871d9e03e5609a494c04521d881",
+    "live_sha256": "f201f916ae846dba95aee83be83f169897caeff5a93ff0017e3512db5d90f77f",
+    "root_object": "public.user_roles",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.v_artist_content_ranking",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "d75690ac1c13a5b8739712cf07a5bba6a4b712ce72d15ff6c26cf79a15a2d3db",
+    "live_sha256": "ea921ab39b1112640388f8be6a0b6fe649a3c7e6e5382a9ccbec87e66bb1fd21",
+    "root_object": "public.v_artist_content_ranking",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.v_content_latest",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "d75690ac1c13a5b8739712cf07a5bba6a4b712ce72d15ff6c26cf79a15a2d3db",
+    "live_sha256": "ea921ab39b1112640388f8be6a0b6fe649a3c7e6e5382a9ccbec87e66bb1fd21",
+    "root_object": "public.v_content_latest",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.v_song_benchmark_aligned",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "d75690ac1c13a5b8739712cf07a5bba6a4b712ce72d15ff6c26cf79a15a2d3db",
+    "live_sha256": "ea921ab39b1112640388f8be6a0b6fe649a3c7e6e5382a9ccbec87e66bb1fd21",
+    "root_object": "public.v_song_benchmark_aligned",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "acl",
+    "object": "relation:public.v_song_content",
+    "property": "grants",
+    "kind": "property",
+    "replay_sha256": "d75690ac1c13a5b8739712cf07a5bba6a4b712ce72d15ff6c26cf79a15a2d3db",
+    "live_sha256": "ea921ab39b1112640388f8be6a0b6fe649a3c7e6e5382a9ccbec87e66bb1fd21",
+    "root_object": "public.v_song_content",
+    "group": "b",
+    "cause": "property_mismatch"
+  }
+]

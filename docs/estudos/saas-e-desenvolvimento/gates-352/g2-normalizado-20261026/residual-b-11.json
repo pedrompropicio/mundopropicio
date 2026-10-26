@@ -1,0 +1,691 @@
+[
+  {
+    "category": "functions",
+    "object": "public.artist_ads_promotable_posts(pg_catalog.uuid,pg_catalog.text)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "6c80a7699365585eb1b112a2c8041cfee7756dea9c89b536a5823bb38a267971",
+    "root_object": "public.artist_ads_promotable_posts(pg_catalog.uuid,pg_catalog.text)",
+    "origin_evidence": [
+      {
+        "file": "literal352/package/ledger/20260919105937_495e2856-8019-46a4-b5f7-00d44d419ccf.sql",
+        "line": 133,
+        "file_sha256": "ad804dfe2a6413b92979d8e7b4d81a110adeae614bd768f1905ec27d2e800735",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "literal352/package/ledger/20260919112428_3c92d83a-c644-4254-88f4-64001d9d0706.sql",
+        "line": 1,
+        "file_sha256": "fe1f1ca956b55cbede3b5e84bfe01adb5b1bf6460416031bd836f6cb2caa50eb",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/manual/20261013_derp259_fns_final.sql",
+        "line": 2185,
+        "file_sha256": "098afb811e6dc3f301ed5726832b021edd4402b82ada090da709a49f9c99525e",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.artist_audience_set_manual(pg_catalog.uuid,pg_catalog.text,pg_catalog.text,pg_catalog.text,pg_catalog.date,pg_catalog.jsonb,pg_catalog.text,pg_catalog.text)",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "78e7256cfd6f68b1c4cd30cacc6058242e3aeb854696c31e06561d5f67783697",
+    "live_sha256": "aef72eeb19cefdd0e8d02808d72e6994e775441070731ea12c6d6bd1df646085",
+    "root_object": "public.artist_audience_set_manual(pg_catalog.uuid,pg_catalog.text,pg_catalog.text,pg_catalog.text,pg_catalog.date,pg_catalog.jsonb,pg_catalog.text,pg_catalog.text)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.artist_song_play_origins_compare(pg_catalog.uuid,pg_catalog.date,pg_catalog.date)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "a7eb891c5ddbc29c94b61a052c37aaaba0466de51d560b3a6401f04ae5f1edd0",
+    "root_object": "public.artist_song_play_origins_compare(pg_catalog.uuid,pg_catalog.date,pg_catalog.date)",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0254_dia_a_dia_trafego_youtube.sql",
+        "line": 1,
+        "file_sha256": "866ed13e4f5b57b8a49dc7bd640813b5705a7cbe1b3ab12a2094b718eac8c98f",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/drizzle/migrations/0253_play_origins_compare_spotify_br_pt.sql",
+        "line": 1,
+        "file_sha256": "390fd8748e51d73f018f43575efc903d8b3a9b0a080f7e1e6b0efd975b02b22d",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/drizzle/migrations/0242_s4a_playlist_kind_estimates.sql",
+        "line": 29,
+        "file_sha256": "e7117257e6fb15fabde97e9cc4d3fe90676f599addb895efe2ad61e4cb18b33d",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.auto_create_initial_bp_version()",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "4557d3ac3bc85cf2dd6a2faee0bd502174e565721dc1e7d589d2eeef1f067173",
+    "live_sha256": "a3267d521fbab0810baba854505ce6f42fbb973909f298a822d9a628dfa6411d",
+    "root_object": "public.auto_create_initial_bp_version()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.auto_create_retroactive_split_snapshots()",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "cb2943456052c5224b7395ba1d749fe6f91702bcae5a966737ac693d79270120",
+    "live_sha256": "6cd5a4b04f9253a4a2bf114776a2feb7e740ef14b7e1d0d36ad3b808303c5a1f",
+    "root_object": "public.auto_create_retroactive_split_snapshots()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.batch_insert_event_forecasts(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.jsonb)",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "0c29c3ec9750c44bd6fee62df788543bd9f3d4d845ee4cc3c882ed5c75229c94",
+    "live_sha256": "aee692281bead99055ebd0f135e4cd416623ae9fbf655b0561d6822a6339f6d2",
+    "root_object": "public.batch_insert_event_forecasts(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.jsonb)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.card_load_on_out_paid()",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "5cb9e2939a347eba9ac608b0d9d6de7d8a4a766fa19bc50bca260c238c7c9b53",
+    "live_sha256": "58bfabbc24a85b72fbf49f592b5b48a1d173818f1a9ce6260b69d57ea78a3c95",
+    "root_object": "public.card_load_on_out_paid()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.check_rpc_smoke()",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "27d76204c7e16b5871f9b2659815f7790d553650212d2211a3b51b7769dc4328",
+    "live_sha256": "6166ce0db597a8fbec2af4a4ca4cc39ab34e8fc8eb7ea356215cb2fdc71b42e8",
+    "root_object": "public.check_rpc_smoke()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.club_member_erase(pg_catalog.uuid,pg_catalog.text,pg_catalog.bool,pg_catalog.uuid)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "64eabed64c0506d2e492b8afdfdaba02189d426db3b1c89333ce07b5283a39ce",
+    "root_object": "public.club_member_erase(pg_catalog.uuid,pg_catalog.text,pg_catalog.bool,pg_catalog.uuid)",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0263_newgang_erasure_on_request.sql",
+        "line": 23,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/drizzle/migrations/0264_newgang_erasure_leads_resubscribe.sql",
+        "line": 12,
+        "file_sha256": "4cca1d0159fb451225202d333abc797cfa544cc42adbbc17446178a3861589cf",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/0263_newgang_erasure_on_request.sql",
+        "line": 23,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.coala_capture_category_change()",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "8b5d6edf06e7e0e4f97a46ff054307e1056b62ca9fe92104b0d6055c042b5629",
+    "live_sha256": "b7a1695c5c83d27574ea1829c095d2a549658aff741a2bde4d4b1508ec79f6e4",
+    "root_object": "public.coala_capture_category_change()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.create_card_session_load(pg_catalog.uuid,pg_catalog.\"numeric\",pg_catalog.date,pg_catalog.uuid,pg_catalog.text)",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "615b2da323e551af3bdea981e7df69015f461866062aa85a94da0383af24da39",
+    "live_sha256": "821019ea4639d268b4668e2358f1e42709da54308a4cc1dc4f433133215693ed",
+    "root_object": "public.create_card_session_load(pg_catalog.uuid,pg_catalog.\"numeric\",pg_catalog.date,pg_catalog.uuid,pg_catalog.text)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.delete_email(pg_catalog.text,pg_catalog.int8)",
+    "property": "config_sha256",
+    "kind": "property",
+    "replay_sha256": "41e5c40d251b6363b496327b8dd927d3d969c89d736c587486e9220a956aed04",
+    "live_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+    "root_object": "public.delete_email(pg_catalog.text,pg_catalog.int8)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.delete_email(pg_catalog.text,pg_catalog.int8)",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "a0819d9e68522f98102744b233a1cd2498f15adaf79011f95d706fc79934d5c3",
+    "live_sha256": "8aca40a522677f45a536ad57b1c99275614a1aa2822bc5afd92d48690f32caf7",
+    "root_object": "public.delete_email(pg_catalog.text,pg_catalog.int8)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.enforce_transaction_approval_permission()",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "4936ee4650917e876e714c0be98124c073af5167632ec3cc2a141e0c2a000678",
+    "live_sha256": "34b933f5430186f49b6442f8e244dbb8934bbccfcfe265cd495f192347ffea59",
+    "root_object": "public.enforce_transaction_approval_permission()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.enqueue_email(pg_catalog.text,pg_catalog.jsonb)",
+    "property": "config_sha256",
+    "kind": "property",
+    "replay_sha256": "41e5c40d251b6363b496327b8dd927d3d969c89d736c587486e9220a956aed04",
+    "live_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+    "root_object": "public.enqueue_email(pg_catalog.text,pg_catalog.jsonb)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.enqueue_email(pg_catalog.text,pg_catalog.jsonb)",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "9766a74381bf0dae69d04b8c3f3696ab0a2b930e33b02bb3eb1c6295eacca9f2",
+    "live_sha256": "9a36ba381bd8264989410be4d57267c555170e384205634f4afea4fe709ebd71",
+    "root_object": "public.enqueue_email(pg_catalog.text,pg_catalog.jsonb)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.ensure_camarim_advance_account()",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "7fc83c7a85d22417480f1aac15c175b6ca6ff154a383394a15eb0653d10f5c35",
+    "live_sha256": "26982f5ffc96bcac5915ec4676f0f13c806d88df4238be3d369e2c92a3665690",
+    "root_object": "public.ensure_camarim_advance_account()",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.force_no_account_on_compensation()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "4d61a059833a855245aaceea482e4191d5b309a487642d1788519a2c4b8ece23",
+    "root_object": "public.force_no_account_on_compensation()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 818,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/tests/issue335/triggers.sql",
+        "line": 37,
+        "file_sha256": "4c4d5c91cc3502a066dc4ccbf79bf1930a6cd1dad88ac6b9e1c353e2dac0436b",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/tests/issue335/live/functions.sql",
+        "line": 1955,
+        "file_sha256": "55e6b6d91a977aa97dcd8001c50dffb9df71a290b047f24e0703634686181bf1",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.get_bp_l3_attachments(pg_catalog._uuid)",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "f3872ab490d6cba30a70e09e9426bc6e1da605510fe4a2d2777593aea0d1aa87",
+    "live_sha256": "8b3dabc97eea2d525935869e260db498d4d95e22504d368808e6a3bcad2a44cf",
+    "root_object": "public.get_bp_l3_attachments(pg_catalog._uuid)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.get_event_cash_position(pg_catalog.uuid,pg_catalog.date,pg_catalog.date)",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "d599e7e772c2ff11be3ee699018f3b77fdc6953c0e4edf3e946315c60e9cde32",
+    "live_sha256": "2c3de2873893931954565353a5a5edd12cd08b7ae479c2a125e030452936fe57",
+    "root_object": "public.get_event_cash_position(pg_catalog.uuid,pg_catalog.date,pg_catalog.date)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.get_event_cash_position_invariant(pg_catalog.uuid)",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "7ed171f00db23d9f362e80b0796a51089de027a610706c9e8b7a47a13e9eae76",
+    "live_sha256": "aa4d62ed938ad96e47d6c2a9ff01231af64873dd3a84adf5b8837fd12a31bf5d",
+    "root_object": "public.get_event_cash_position_invariant(pg_catalog.uuid)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.get_or_create_generic_camarim_supplier(pg_catalog.uuid)",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "0489d28d871ea30ce362ee3216db6e1921193362c96ed1e62cc20b7ebb397169",
+    "live_sha256": "513aef05b7ad9571b35a2fa51c35bb2c55030a77af3f402b8e28d08d38aa5a58",
+    "root_object": "public.get_or_create_generic_camarim_supplier(pg_catalog.uuid)",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_balance_invariant_count()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "035cac91bcc27450938998ed1d57566a5bdb0ce216734bc5be22e30dc341b7b6",
+    "root_object": "public.issue335_balance_invariant_count()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_cash_watch.ROLLBACK-INERTE.sql",
+        "line": 5,
+        "file_sha256": "876f384e8eda70575b0af1106989d3eb10ba02577edf62fe51a46b2e2882bded",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_balance.INERTE.sql",
+        "line": 118,
+        "file_sha256": "db667f07a1e4d4900e3d14712dd2bb4e1b38a6d1a6c5ad1d8378e43da5bd0b48",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_cash_watch.INERTE.sql",
+        "line": 73,
+        "file_sha256": "b906804631d2d5da00b13b4e24aebb8030b5368d05b928015265720b380c9f08",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_camarim_leg(pg_catalog.uuid)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "01424bea5a4c8dab66b1f14c0a79cebf0cd6436a8407dcf1f816da70062bf87d",
+    "root_object": "public.issue335_camarim_leg(pg_catalog.uuid)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 97,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_cash_watch()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "baa1faac5c22992154270fc9adbafe98629cef10b2a01a7a5e2c5af130a44d52",
+    "root_object": "public.issue335_cash_watch()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_cash_watch.INERTE.sql",
+        "line": 13,
+        "file_sha256": "b906804631d2d5da00b13b4e24aebb8030b5368d05b928015265720b380c9f08",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_context_valid(pg_catalog.text)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "7eda38549954e60700712fba2b1b7635f6dc74b67d778cfe4196e69804111d39",
+    "root_object": "public.issue335_context_valid(pg_catalog.text)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 42,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_dispatch()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "8c63d91d50ffb30f1231b4a8f75e9c5c8b1ce5c8a43c881516c718a4e83ca9c0",
+    "root_object": "public.issue335_dispatch()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 1101,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_group_visible(pg_catalog.uuid)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "2ddd769efe490b1c8f10e6b325f92cc2a11a4fd160d630036f2f3bf9bc9fd537",
+    "root_object": "public.issue335_group_visible(pg_catalog.uuid)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 75,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_guard()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "d41cc6bfc751d50527399d3466237358062eca3e18526f8962a881cebf603e30",
+    "root_object": "public.issue335_guard()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 121,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_invariant_counts()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "b91026ac651870bcdd47e63f1789b23cc0f5def34bd2313bcc7ed081d702c793",
+    "root_object": "public.issue335_invariant_counts()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_invariants.INERTE.sql",
+        "line": 5,
+        "file_sha256": "dd40e9200173cff04a40ccb54178e072b8a53bbc2566b464fb8c3097e3f605f3",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_lock_parents(pg_catalog.text,pg_catalog._uuid)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "434d95e6ed06b14993754aed59c7f1d0ce0079b394a38f46daabec264516e718",
+    "root_object": "public.issue335_lock_parents(pg_catalog.text,pg_catalog._uuid)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 51,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_matching_transactions(pg_catalog.uuid)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "e232faa390d192677cbef335f7681f5e66ff7873c9832e22216242a044165973",
+    "root_object": "public.issue335_matching_transactions(pg_catalog.uuid)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 16,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_normalize(pg_catalog.text)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "5d4f8a7b9d673f58e9709a97f23be065e56500aba8af945fd713a95aa316ea27",
+    "root_object": "public.issue335_normalize(pg_catalog.text)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 6,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_payment_flow_blocked(pg_catalog.uuid)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "10eb5c45dffffd6cfff5e1a6d0e9b5afeab7236623ef49de18c9f93610babcca",
+    "root_object": "public.issue335_payment_flow_blocked(pg_catalog.uuid)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 77,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_score(pg_catalog.text,pg_catalog.text)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "f90c3c3ef4340bbf279c31b3b552213bbd4cca5924d7543a74bf027d95e7f807",
+    "root_object": "public.issue335_score(pg_catalog.text,pg_catalog.text)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 9,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_trigger_watch()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "6d76ef8801ee5a96c4135a137bc07d8b23e28be9a3f036066aa3a65611d895ae",
+    "root_object": "public.issue335_trigger_watch()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_trigger_watch.INERTE.sql",
+        "line": 13,
+        "file_sha256": "34a69e357ca4ddb90a4251bc391c3e3815a7e7e372e7ec8591c4965aaf7c8421",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_tx_visible(pg_catalog.uuid)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "f30e74ea215eb329cb18ec5e09837609c6fcddc8d49d4967fa1c40c428e91e9b",
+    "root_object": "public.issue335_tx_visible(pg_catalog.uuid)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 69,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_uid()",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "d3283056e4e4774a77a92e650263e8105bc8c0385712059b870e1f080f7e59e0",
+    "root_object": "public.issue335_uid()",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 61,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.issue335_worker(pg_catalog.jsonb)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "fe77573a9b2e61af088234bef290d070cd171200e73db1d3e5684c00fcf7b942",
+    "root_object": "public.issue335_worker(pg_catalog.jsonb)",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 1117,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "functions",
+    "object": "public.launch_from_bank_lines(pg_catalog.jsonb)",
+    "property": "definition_sha256",
+    "kind": "property",
+    "replay_sha256": "14496e8042c409d1dd3e4d8acdcb54e7ecd120ec7c045eef091a928103406600",
+    "live_sha256": "9763d93ab5ff873ddf7d9ee2d619b6c488e6a11ee2d4294429113262e3b82252",
+    "root_object": "public.launch_from_bank_lines(pg_catalog.jsonb)",
+    "group": "b",
+    "cause": "property_mismatch"
+  }
+]

@@ -1,0 +1,757 @@
+[
+  {
+    "category": "columns",
+    "object": "public.club_email_events.id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "74b4023af3650c4465e873b1a1726d5b34996865f9bcc37ec83035be9f10bb18",
+    "root_object": "public.club_email_events",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0262_newgang_retention_p1_interactions.sql",
+        "line": 4,
+        "file_sha256": "c8268551bde84b2cdd509d1be56aa4e7c7b289260fa52ce8842161ade46b52c0",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.club_email_events.message_id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "a961876213b19b747aead1b0a2b67caa7ad7a269a277db612cec1fb382306b72",
+    "root_object": "public.club_email_events",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0262_newgang_retention_p1_interactions.sql",
+        "line": 4,
+        "file_sha256": "c8268551bde84b2cdd509d1be56aa4e7c7b289260fa52ce8842161ade46b52c0",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.club_email_events.occurred_at",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "6521f42d74e6418b1d07fa581a2b81015db23522b0793f9acae3ff4966a74d08",
+    "root_object": "public.club_email_events",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0262_newgang_retention_p1_interactions.sql",
+        "line": 4,
+        "file_sha256": "c8268551bde84b2cdd509d1be56aa4e7c7b289260fa52ce8842161ade46b52c0",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.club_email_events.provider_event_id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "db199860f9cd5bcc43f32100ee43303b22bd276ce93574312e4b77f48a8f4634",
+    "root_object": "public.club_email_events",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0262_newgang_retention_p1_interactions.sql",
+        "line": 4,
+        "file_sha256": "c8268551bde84b2cdd509d1be56aa4e7c7b289260fa52ce8842161ade46b52c0",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.club_members.erased_at",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "df9328258f6173320043ceaa182b106a86771babdbd524dc17748ad76b026c80",
+    "root_object": "public.club_members",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0263_newgang_erasure_on_request.sql",
+        "line": 3,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/0263_newgang_erasure_on_request.sql",
+        "line": 3,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.club_members.last_seen_at",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "1892bd29908871e2402e3df6158450fc32bd5e1cffd6878af0d68acb0a3d6873",
+    "root_object": "public.club_members",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0262_newgang_retention_p1_interactions.sql",
+        "line": 1,
+        "file_sha256": "c8268551bde84b2cdd509d1be56aa4e7c7b289260fa52ce8842161ade46b52c0",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.club_retention_log.created_at",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "b8778ec9cc01dd3a853c0643b374b0346a3f10ab07a8293232dadc7de79335cf",
+    "root_object": "public.club_retention_log",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.club_retention_log.email_sha256",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "5e9bb8aec7cc3f8b13fd1ab1e0b6db62113d446dab4f27e58eec7850a237a069",
+    "root_object": "public.club_retention_log",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.club_retention_log.id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "d7fe5c7f50356de3dd2963d6739d9c035809894480b8ad3a9c11d1c37ae19ac1",
+    "root_object": "public.club_retention_log",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.club_retention_log.old_member_id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "e25a9e10a2ba6cdcb17114ea0e1a503c1bfb9968855101452e048428fc0380c0",
+    "root_object": "public.club_retention_log",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.club_retention_log.reason",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "4760d081ad968b95aa9bb2a4b66e093e66c41c5da0b200cedd28164fb9963696",
+    "root_object": "public.club_retention_log",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.club_retention_log.run_id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "9708e988caa8c6f0d097ef5b32126d30ebdbf6c43824aa0a6f93a2ea7560d45c",
+    "root_object": "public.club_retention_log",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.club_retention_log.tables_affected",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "d2deca0c7708af1dd5c1a842c5685b4005c4de0220af9ab436e5fd1485e7bf33",
+    "root_object": "public.club_retention_log",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.coala_sync_row_state.bootstrap_source",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "6f4b6612125fb3a0daecd2799dfd6c9c299424fd920f9b308110a2c1fbd8f443",
+    "live_sha256": "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8",
+    "root_object": "public.coala_sync_row_state",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.coala_sync_row_state.center_custo_norm",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "4523540f1504cd17100c4835e85b7eefd49911580f8efff0599a8f283be6b9e3",
+    "live_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918",
+    "root_object": "public.coala_sync_row_state",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.coala_sync_row_state.fallback_key",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918",
+    "live_sha256": "3fdba35f04dc8c462986c992bcf875546257113072a909c162f7e470e581e278",
+    "root_object": "public.coala_sync_row_state",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.coala_sync_row_state.identity_key",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8",
+    "live_sha256": "8527a891e224136950ff32ca212b45bc93f69fbb801c3b1ebedac52775f99e61",
+    "root_object": "public.coala_sync_row_state",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.coala_sync_row_state.invoice_ref_norm",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "b17ef6d19c7a5b1ee83b907c595526dcb1eb06db8227d650d5dda0a9f4ce8cd9",
+    "live_sha256": "e629fa6598d732768f7c726b4b621285f9c3b85303900aa912017db7617d8bdb",
+    "root_object": "public.coala_sync_row_state",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.coala_sync_row_state.last_apply_hash",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "9400f1b21cb527d7fa3d3eabba93557a18ebe7a2ca4e471cfe5e4c5b4ca7f767",
+    "live_sha256": "b17ef6d19c7a5b1ee83b907c595526dcb1eb06db8227d650d5dda0a9f4ce8cd9",
+    "root_object": "public.coala_sync_row_state",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.coala_sync_row_state.legacy_key",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "3fdba35f04dc8c462986c992bcf875546257113072a909c162f7e470e581e278",
+    "live_sha256": "4523540f1504cd17100c4835e85b7eefd49911580f8efff0599a8f283be6b9e3",
+    "root_object": "public.coala_sync_row_state",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.coala_sync_row_state.needs_manual_link",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "f5ca38f748a1d6eaf726b8a42fb575c3c71f1864a8143301782de13da2d9202b",
+    "live_sha256": "4ec9599fc203d176a301536c2e091a19bc852759b255bd6818810a42c5fed14a",
+    "root_object": "public.coala_sync_row_state",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.coala_sync_row_state.net_amount_cents",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "4ec9599fc203d176a301536c2e091a19bc852759b255bd6818810a42c5fed14a",
+    "live_sha256": "9400f1b21cb527d7fa3d3eabba93557a18ebe7a2ca4e471cfe5e4c5b4ca7f767",
+    "root_object": "public.coala_sync_row_state",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.coala_sync_row_state.row_number",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "8527a891e224136950ff32ca212b45bc93f69fbb801c3b1ebedac52775f99e61",
+    "live_sha256": "f5ca38f748a1d6eaf726b8a42fb575c3c71f1864a8143301782de13da2d9202b",
+    "root_object": "public.coala_sync_row_state",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.coala_sync_row_state.supplier_norm",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "e629fa6598d732768f7c726b4b621285f9c3b85303900aa912017db7617d8bdb",
+    "live_sha256": "6f4b6612125fb3a0daecd2799dfd6c9c299424fd920f9b308110a2c1fbd8f443",
+    "root_object": "public.coala_sync_row_state",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.company_invitations.accepted_user_id",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8",
+    "live_sha256": "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5",
+    "root_object": "public.company_invitations",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.company_invitations.status",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "4a44dc15364204a80fe80e9039455cc1608281820fe2b24f1e5233ade6af1dd5",
+    "live_sha256": "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8",
+    "root_object": "public.company_invitations",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.consent_text_versions.channel",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "dae03d75cbca7fe08c28ea38b522ef52df969ea971c975e243d9b53eeef44f64",
+    "root_object": "public.consent_text_versions",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.consent_text_versions.company_id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "d2cb7a28aae5d6fd2027c77d46975b5fcdc480a6a3f43434f06d785c39760978",
+    "root_object": "public.consent_text_versions",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.consent_text_versions.created_at",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "12bd28b6dc7e6b4608eebbccbf83b42e8f49d521ca25d853193f29f88b388f50",
+    "root_object": "public.consent_text_versions",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.consent_text_versions.id",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "63057af4b60698cf0e798e05af2572d149b91835bf48600b402d690d69b5f678",
+    "root_object": "public.consent_text_versions",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.consent_text_versions.locale",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "c0dd4191494bb655d6f6b512987cb3adc1af8da4962149c7a8ca328ec4e7901b",
+    "root_object": "public.consent_text_versions",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.consent_text_versions.text",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "7a13f7ac84c462d12049827b3b19aeda0d77e90e7003228f3ed0371ac7be5cb4",
+    "root_object": "public.consent_text_versions",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.consent_text_versions.text_sha256",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "8684655f6dd566457fbbe0c979192544bb4daf721dc4cff23efc442e8e4b167c",
+    "root_object": "public.consent_text_versions",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.consent_text_versions.valid_from",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "1ba4ce6e039941b4b3d74dbdcaebeceebff4e2e231c8ad42c4e5d763b1d33d9c",
+    "root_object": "public.consent_text_versions",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.consent_text_versions.valid_to",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "5f2e1563938b71fb2cf5981c32eae22d08ba96465772be819cd8ec59a11c709f",
+    "root_object": "public.consent_text_versions",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.consent_text_versions.version",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "d0fced1921ddc286dc076aa0fa0d62a86bad239ad4204cdd0c34b427f3cf852e",
+    "root_object": "public.consent_text_versions",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "columns",
+    "object": "public.email_send_log.company_id",
+    "property": "not_null",
+    "kind": "property",
+    "replay_sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+    "live_sha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+    "root_object": "public.email_send_log",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.event_ab_config.ab_mode_alimentos",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918",
+    "live_sha256": "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8",
+    "root_object": "public.event_ab_config",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.event_ab_config.ab_mode_bebidas",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "4fc82b26aecb47d2868c4efbe3581732a3e7cbcc6c2efb32062c08170a05eeb8",
+    "live_sha256": "6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918",
+    "root_object": "public.event_ab_config",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "columns",
+    "object": "public.event_ab_config.custo_fixo_alimentos",
+    "property": "ordinal_position",
+    "kind": "property",
+    "replay_sha256": "8527a891e224136950ff32ca212b45bc93f69fbb801c3b1ebedac52775f99e61",
+    "live_sha256": "3fdba35f04dc8c462986c992bcf875546257113072a909c162f7e470e581e278",
+    "root_object": "public.event_ab_config",
+    "group": "b",
+    "cause": "property_mismatch"
+  }
+]

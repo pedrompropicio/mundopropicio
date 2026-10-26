@@ -1,0 +1,389 @@
+[
+  {
+    "category": "types",
+    "object": "public._consent_text_versions",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "32be972f5324f73989d8d9a772b0502cad83e3916187936ab0de122a6d66001f",
+    "root_object": "public._consent_text_versions",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "types",
+    "object": "public._issue335_execution_context",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "c2df09871ef520a3a97ab54bc09449010d43a4c44aa0827bd519277d53b2caaa",
+    "root_object": "public._issue335_execution_context",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 34,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "types",
+    "object": "public._transaction_offset_control",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "9bb6d65d21da53be9f3d8603f4e20c7c112aca9fc1f90d4248c4b015ef4803a9",
+    "root_object": "public._transaction_offset_control",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 110,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "types",
+    "object": "public._transaction_offset_groups",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "26f73289d15f122a7e7a17ae4f8fd4a02e67455af810b02c0a4353e7b466553e",
+    "root_object": "public._transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "types",
+    "object": "public._transaction_offset_items",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "36b37698dc3c6d0595b0ee05e32277f308b9cbbdfc1f33f6e79b8587edb7da3d",
+    "root_object": "public._transaction_offset_items",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 38,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "types",
+    "object": "public.app_role",
+    "property": "enum_labels_sha256",
+    "kind": "property",
+    "replay_sha256": "b2f33653171e3b12f8d02c1f7dd1be01f64d55573ad024a045e9a1f7c5c4b481",
+    "live_sha256": "4a4dce6938198fede374c0f1ebeb65a7aff38a00bcaac9de783198a9fc99ed9a",
+    "root_object": "public.app_role",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "types",
+    "object": "public.club_email_events",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "1bd709dd614fcc5f95de2c659cfbc432b1ca84458248344f9eb732b46c0573d1",
+    "root_object": "public.club_email_events",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0262_newgang_retention_p1_interactions.sql",
+        "line": 4,
+        "file_sha256": "c8268551bde84b2cdd509d1be56aa4e7c7b289260fa52ce8842161ade46b52c0",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "types",
+    "object": "public.club_retention_log",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "a27d31739c4272c9db9e7503d07da074cbc895886649cc8df4a599748ebf7643",
+    "root_object": "public.club_retention_log",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/0263_newgang_erasure_on_request.sql",
+        "line": 10,
+        "file_sha256": "e70f9223ec698b91624f9e6102877ab14c662c23015755f4904e007fe089946e",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "types",
+    "object": "public.consent_text_versions",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "175a9b195e9553771a69073fc77306a81a1065605aade1d092f3c1b281017324",
+    "root_object": "public.consent_text_versions",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0250_issue359_consent_text_versions_a.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/draft_359_migracao_A.sql",
+        "line": 3,
+        "file_sha256": "5ae199b6c256829fda0682bf3171547b102295191c72967ef648c8f0d29d0bff",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "types",
+    "object": "public.issue335_execution_context",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "0148955595c188159e6272e7b0f3586eaf04eb8d49682f670a211cd1b2c37668",
+    "root_object": "public.issue335_execution_context",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 34,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "types",
+    "object": "public.transaction_offset_control",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "9cad08d12f90d9058e28f25200373a12e925cacf85d2d4577c3fa858c5adc7cc",
+    "root_object": "public.transaction_offset_control",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 110,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "types",
+    "object": "public.transaction_offset_groups",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "1a56b9c1d727171655dc61292ed751d6d8765cbc456d2eb46e399f31a7d5d4a6",
+    "root_object": "public.transaction_offset_groups",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 5,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "types",
+    "object": "public.transaction_offset_items",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "a5db44b15c7ea0e7cbf089739f4cf0a2e48d94d3b822b6ba54382b572cb6ef04",
+    "root_object": "public.transaction_offset_items",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_group_storage.INERTE.sql",
+        "line": 38,
+        "file_sha256": "5817fca6c2d44f6b18dfaef7f0c49e4a66ee8ac34b87944b20f4b29c3772198f",
+        "match": "definition_candidate"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "views",
+    "object": "public.artist_song_playlist_daily",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "fb34bace9c7800d8585f10aec62f91e45a0dd0ab51bee92eee76c3a7fa5cab28",
+    "root_object": "public.artist_song_playlist_daily",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0243_s4a_radio_historical_identity.sql",
+        "line": 1,
+        "file_sha256": "b91066fa124cdcfde06f7907dbfd90d92ac6858c5657e70cc916fe3167123ac4",
+        "match": "identifier_reference"
+      },
+      {
+        "file": "normg2/current-source/drizzle/migrations/0254_dia_a_dia_trafego_youtube.sql",
+        "line": 35,
+        "file_sha256": "866ed13e4f5b57b8a49dc7bd640813b5705a7cbe1b3ab12a2094b718eac8c98f",
+        "match": "identifier_reference"
+      },
+      {
+        "file": "normg2/current-source/drizzle/migrations/0253_play_origins_compare_spotify_br_pt.sql",
+        "line": 35,
+        "file_sha256": "390fd8748e51d73f018f43575efc903d8b3a9b0a080f7e1e6b0efd975b02b22d",
+        "match": "identifier_reference"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "views",
+    "object": "public.issue335_commands",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "7b31e3ade7b91dd17d0112b103c1a1c2dc69f6b9ffeeba3368b88c1128f8e4f0",
+    "root_object": "public.issue335_commands",
+    "origin_evidence": [
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 896,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c",
+        "match": "identifier_reference"
+      },
+      {
+        "file": "r0-352/source/supabase/manual/20261021_issue335_offset_core.ROLLBACK-INERTE.sql",
+        "line": 17,
+        "file_sha256": "8d1d3d0588a4dbb68adaea65978e357182f6ef5f6d4f47e239fce61b425b5c99",
+        "match": "identifier_reference"
+      },
+      {
+        "file": "r0-352/source/supabase/tests/issue335/phase2e.sql",
+        "line": 134,
+        "file_sha256": "75d54d4dd159081c54a109a8ef40a7aad96aec9ce1107faf12c4653410396ef6",
+        "match": "identifier_reference"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "views",
+    "object": "public.lead_capture_consent_resumo",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "e3d78bef107bb84ec26ff962cf5e3c7cd286ec38c7ef6a50a380cb931740cfb1",
+    "root_object": "public.lead_capture_consent_resumo",
+    "origin_evidence": [
+      {
+        "file": "normg2/current-source/drizzle/migrations/0261_issue359_lead_capture_consent_resumo.sql",
+        "line": 2,
+        "file_sha256": "017f2a0f2fec4487a0c83adf6e219ece20b3287b3da0d615529b1cb45bd91f7c",
+        "match": "identifier_reference"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/0261_issue359_lead_capture_consent_resumo.sql",
+        "line": 2,
+        "file_sha256": "017f2a0f2fec4487a0c83adf6e219ece20b3287b3da0d615529b1cb45bd91f7c",
+        "match": "identifier_reference"
+      },
+      {
+        "file": "normg2/current-source/supabase/manual/rollback_359.sql",
+        "line": 213,
+        "file_sha256": "4e25cf9bde89391fdceccdd9ebc6ab43a8968f46bca1760ffdd525972feb5185",
+        "match": "identifier_reference"
+      }
+    ],
+    "group": "b",
+    "cause": "presence_with_repository_origin_candidate",
+    "origin_status": "candidate_requires_signature_or_execution_review"
+  },
+  {
+    "category": "views",
+    "object": "public.v_artist_content_ranking",
+    "property": "options_sha256",
+    "kind": "property",
+    "replay_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+    "live_sha256": "fd1bd53e08e73ddfeca795329d25b5b7421760281912eb3d43e6db6b2ab9beb1",
+    "root_object": "public.v_artist_content_ranking",
+    "group": "b",
+    "cause": "property_mismatch"
+  },
+  {
+    "category": "views",
+    "object": "public.v_song_content",
+    "property": "options_sha256",
+    "kind": "property",
+    "replay_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+    "live_sha256": "fd1bd53e08e73ddfeca795329d25b5b7421760281912eb3d43e6db6b2ab9beb1",
+    "root_object": "public.v_song_content",
+    "group": "b",
+    "cause": "property_mismatch"
+  }
+]

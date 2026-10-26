@@ -1,0 +1,18 @@
+[
+  {
+    "category": "acl",
+    "object": "function:restore_shadow.take_snapshot(pg_catalog.text,pg_catalog.uuid)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "518d1d856031184c80e7d092d9f2ac8ba5b25640bd145aaa437b42483d17059d"
+  },
+  {
+    "category": "functions",
+    "object": "restore_shadow.take_snapshot(pg_catalog.text,pg_catalog.uuid)",
+    "property": "$presence",
+    "kind": "only_live",
+    "replay_sha256": null,
+    "live_sha256": "dce2fc2b51de29a47a9d1c43324cca6675ddd8b17b32f8444ca38bdc8dae0176"
+  }
+]
