@@ -1793,6 +1793,13 @@
       "when": 1792981945997,
       "tag": "0255_dia_a_dia_trafego_youtube_unaccent_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 256,
+      "version": "7",
+      "when": 1792982046649,
+      "tag": "0256_dia_a_dia_youtube_campaign_match_fix",
+      "breakpoints": true
     }
   ]
 }
