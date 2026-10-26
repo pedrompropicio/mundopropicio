@@ -240,7 +240,7 @@ async function notifyPending(site: { id: string; company_id: string }, memberId?
 }
 
 /** Lembrete de confirmação (manual). club_reminder_test: um member_id, ignora só as 48 h e conta como o lembrete dessa pessoa.
- *  club_reminder_batch: até 500 candidatos por chamada. Resposta só com contagens (e member_id dos dlq/sem registo no resumo). */
+ *  club_reminder_batch: até 300 candidatos por chamada (#356). Resposta só com contagens (e member_id dos dlq/sem registo no resumo). */
 async function notifyReminders(site: { id: string; company_id: string }, b: any) {
   const dryRun = b?.dry_run !== false;
   const summary = async () => {

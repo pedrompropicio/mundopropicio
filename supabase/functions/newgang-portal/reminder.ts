@@ -1,8 +1,8 @@
 // Lembrete de confirmação do Clube Newgang: um por membro, reserva atómica antes do envio (padrão welcome.ts).
-// Envio só manual (ações de operador), sem cron. dry_run por defeito. Máx. 500 por chamada.
+// Envio só manual (ações de operador), sem cron. dry_run por defeito. Máx. 300 por chamada (#356).
 import { PreSendError } from "./welcome.ts";
 
-export const REMINDER_MAX_BATCH = 500;
+export const REMINDER_MAX_BATCH = 300;
 export function reminderMessageId(memberId: string) { return `ng-reminder-${memberId}`; }
 
 export interface ReminderDeps {

@@ -94,7 +94,7 @@ Deno.test("falha pré-fila -> error_pre_send; falha na fila -> unknown; reserva 
   assert(!r.calls.some((c) => c.startsWith("send")));
 });
 
-Deno.test("lote para ao 3.º unknown seguido; limite máx. 500", async () => {
+Deno.test("lote para ao 3.º unknown seguido; limite máx. 300", async () => {
   const { d, calls } = deps("reserved", async () => { throw new Error("enqueue"); });
   const out = await runReminderBatch(d, ["a", "b", "c", "d", "e"]);
   assertEquals(out.unknown, 3); assert(out.stopped);
