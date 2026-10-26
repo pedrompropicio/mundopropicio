@@ -21554,6 +21554,54 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_capture_consent_resumo: {
+        Row: {
+          company_id: string | null
+          consent_decided_at: string | null
+          consent_email: boolean | null
+          consent_email_text_version: string | null
+          consent_whatsapp: boolean | null
+          consent_whatsapp_text_version: string | null
+          cookies_marketing: string | null
+          created_at: string | null
+          email: string | null
+          id: string | null
+          name: string | null
+          origem_prova: string | null
+          source: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          consent_decided_at?: string | null
+          consent_email?: boolean | null
+          consent_email_text_version?: string | null
+          consent_whatsapp?: boolean | null
+          consent_whatsapp_text_version?: string | null
+          cookies_marketing?: never
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          name?: string | null
+          origem_prova?: never
+          source?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          consent_decided_at?: string | null
+          consent_email?: boolean | null
+          consent_email_text_version?: string | null
+          consent_whatsapp?: boolean | null
+          consent_whatsapp_text_version?: string | null
+          cookies_marketing?: never
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          name?: string | null
+          origem_prova?: never
+          source?: string | null
+        }
+        Relationships: []
+      }
       portal_settings_public: {
         Row: {
           category: string | null

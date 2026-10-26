@@ -1828,6 +1828,13 @@
       "when": 1793007032313,
       "tag": "0260_issue359_consent_proof_guard_c",
       "breakpoints": true
+    },
+    {
+      "idx": 261,
+      "version": "7",
+      "when": 1793010972561,
+      "tag": "0261_issue359_lead_capture_consent_resumo",
+      "breakpoints": true
     }
   ]
 }
