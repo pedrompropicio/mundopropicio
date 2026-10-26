@@ -1,3 +1,4 @@
+- [ ] P3 contratos por sócio: passo 1 preparado (não aplicado); aguarda «Sim» de aplicação; depois passos 2–5 com SQL completo antes.
 - [x] #359 P3: vista0261 aplicada, ACL/RLS e count/max iguais; históricos2316 + novo1; cópia/rollback/testes25PASS e QUADRO atualizados; sem B/0252/apply-coala-bp/DML/deploy/Publish.
 - [ ] #359 P3 fecho: CI verde bloqueado por 2 falhas preexistentes em memory-index; correção fora do recorte. Tipos manuais vedados pela plataforma. Comentário Issue em preparação.
 - [x] #344 R1: resumo de receitas por origem no gerador partilhado/PDF/Excel; 13 regressões PASS, suite 2.197→2.210 PASS, tsgo 0; relatório e reserva libertada, sem DDL/DML/deploy/Publish. CI remoto e aceitação pelo Pedro pendentes da janela do 0.
