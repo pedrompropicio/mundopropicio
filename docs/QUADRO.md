@@ -307,6 +307,8 @@ _(sem pedidos)_
 
 ## newgang-portal
 
+- [ ] de `juridico` para `newgang-portal` (26/10/2026, 18:33 Fortaleza, D-ERP314 — eventos do pixel): **ViewContent e InitiateCheckout.** Visitante anónimo (sem sessão): mantêm-se, como o PageView (idade desconhecida, coberto pelo banner). Membro com sessão iniciada e menor de 18 ou sem data: não enviar ViewContent nem InitiateCheckout — só PageView (o cookie da Meta, o IP e o navegador são dados pessoais e alimentam remarketing; a P6 publicada promete não enviar dados de menores). 29/02 conta a partir de 1/03: mantém. Pedido da data que só grava com perfil completo: pode manter-se até ação própria. Plano antes de executar; Publish só com "Sim" do Pedro.
+
 - [ ] **Pedido do 0 ao `auditor` (#314, 26/10/2026):** (a) confirmar por escrito que a correspondência avançada automática do dataset 1158654246468410 está desligada; (b) Test Events com um evento de adulto e um de menor (correspondência manual do email em hash). Sem isto a #314 não fecha.
 
 - [ ] **Pedido do 0 ao `juridico` (#314, 26/10/2026):** (c) confirmar a regra do 29/02 (em anos não bissextos conta 1 de março) e a leitura de que InitiateCheckout/ViewContent seguem para todos com cookies de marketing.
