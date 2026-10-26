@@ -9,7 +9,7 @@ import { clubEmail } from "./email.ts";
 import { ASSET_BUCKET, PROOF_BUCKET, PROOF_EXT, missionsFrom, normalizeHandle, normalizeProofUrl, submitErrorStatus } from "./missions.ts";
 import { eraseExtras, responseExtras } from "./erase-extras.ts";
 import { buildHistory, subjectRef } from "./history.ts";
-import { profileConfirm, profileMe, profilePreferences, profileCountries, profileRuleRead } from "./profile.ts";
+import { profileBirth, profileConfirm, profileMe, profilePreferences, profileCountries, profileRuleRead } from "./profile.ts";
 import { consentMe, consentPreferences } from "./person-consent.ts";
 import { publicEditions } from "./videos.ts";
 import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
@@ -86,7 +86,7 @@ function clientIp(req: Request): string {
 
 const Body = z.object({
   action: z.enum(["bundle", "regulation", "site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending",
-    "missions", "mission_upload_url", "submit_mission", "profile", "profile_confirm", "profile_preferences", "profile_countries", "cities", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google", "erase_account"]),
+    "missions", "mission_upload_url", "submit_mission", "profile", "profile_confirm", "profile_birth", "profile_preferences", "profile_countries", "cities", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google", "erase_account"]),
   confirm: z.literal("APAGAR").optional(),
   dry_run: z.boolean().optional(),
   profile_payload: z.unknown().optional(),
@@ -108,7 +108,7 @@ const Body = z.object({
   new_owner_short: z.number().int().min(0).max(20).optional(),
   op: z.enum(PENDING_OPS).optional(),
 });
-const WRITE_ACTIONS = new Set(["request_access", "guess", "attendance_claim", "confirm_buyer", "session", "mission_upload_url", "submit_mission", "profile", "profile_confirm", "profile_preferences", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google"]);
+const WRITE_ACTIONS = new Set(["request_access", "guess", "attendance_claim", "confirm_buyer", "session", "mission_upload_url", "submit_mission", "profile", "profile_confirm", "profile_birth", "profile_preferences", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google"]);
 
 // Cache por instância (60 s): a configuração do site muda raramente; evita uma ida à base por pedido.
 const SITE_TTL_MS = 60_000;
@@ -575,10 +575,10 @@ Deno.serve(async (req) => {
     const pa = performance.now();
     const raw = await req.json();
     if (raw?.action === "request_access" && typeof raw.email === "string") raw.email = raw.email.trim().toLowerCase();
-    if (["profile_confirm", "profile_preferences"].includes(raw?.action) && Object.keys(raw).some(k => !["action", "token", "profile_payload", "preferences_payload"].includes(k))) return json({ error: "profile_payload" }, 400);
+    if (["profile_confirm", "profile_birth", "profile_preferences"].includes(raw?.action) && Object.keys(raw).some(k => !["action", "token", "profile_payload", "preferences_payload"].includes(k))) return json({ error: "profile_payload" }, 400);
     const p = Body.safeParse(raw);
     timer.mark("parse", performance.now() - pa);
-    if (!p.success && ["me", "profile_confirm", "profile_preferences"].includes(raw?.action) && typeof raw?.token === "string" && (raw.token.length < 20 || raw.token.length > 200)) return json({error:"no_session"},401);
+    if (!p.success && ["me", "profile_confirm", "profile_birth", "profile_preferences"].includes(raw?.action) && typeof raw?.token === "string" && (raw.token.length < 20 || raw.token.length > 200)) return json({error:"no_session"},401);
     if (!p.success) return json({ error: "invalid", fields: p.error.flatten().fieldErrors }, 400);
     body = p.data;
   } catch { return json({ error: "invalid_json" }, 400); }
@@ -586,7 +586,7 @@ Deno.serve(async (req) => {
   if (WRITE_ACTIONS.has(body.action)) {
     const ipHash = await sha256(clientIp(req) + ":ng");
     const { data: ok, error: rateError } = await sb.rpc("portal_rate_hit", { p_bucket: `ng:${body.action}:${ipHash}`, p_max: 20, p_window_seconds: 600 });
-    if (["profile_confirm", "profile_preferences"].includes(body.action) && (rateError || typeof ok !== "boolean")) return json({ error: "rate_unavailable" }, 503);
+    if (["profile_confirm", "profile_birth", "profile_preferences"].includes(body.action) && (rateError || typeof ok !== "boolean")) return json({ error: "rate_unavailable" }, 503);
     if (ok === false) {
       if (body.action === "request_access") console.log(JSON.stringify({ action: "request_access", reason: "limitado", ip_hash: ipHash.slice(0, 12) }));
       return json({ error: "rate_limited" }, 429);
@@ -650,7 +650,7 @@ Deno.serve(async (req) => {
   if (!site) return json({ error: "site_not_configured" }, 503);
   const member = body.action === "bundle" ? null : await timed(timer, "member", memberFromToken(site.id, body.token));
 
-  if (["me", "profile_confirm", "profile_preferences"].includes(body.action) && (!member || member.site_id !== site.id || member.company_id !== site.company_id)) return json({ error: "no_session" }, 401);
+  if (["me", "profile_confirm", "profile_birth", "profile_preferences"].includes(body.action) && (!member || member.site_id !== site.id || member.company_id !== site.company_id)) return json({ error: "no_session" }, 401);
 
   try {
     switch (body.action) {
@@ -807,6 +807,11 @@ Deno.serve(async (req) => {
       case "profile_confirm": {
         if (!member?.confirmed_at || !body.token) return json({ error: "no_session" }, 401);
         const r = await profileConfirm(rpc, site.id, await sha256(body.token), body.profile_payload);
+        return json(r.body, r.status);
+      }
+      case "profile_birth": {
+        if (!member?.confirmed_at || !body.token) return json({ error: "no_session" }, 401);
+        const r = await profileBirth(rpc, site.id, await sha256(body.token), body.profile_payload);
         return json(r.body, r.status);
       }
       case "profile_preferences": {

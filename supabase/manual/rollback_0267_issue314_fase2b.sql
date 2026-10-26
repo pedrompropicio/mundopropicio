@@ -1,0 +1,2 @@
+-- Inverso da 0267 (#314 Fase 2b). NÃO executar sem autorização.
+-- DROP FUNCTION IF EXISTS public.club_profile_birth_date(uuid,text,jsonb);
