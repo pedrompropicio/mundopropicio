@@ -1821,6 +1821,13 @@
       "when": 1793001936841,
       "tag": "0259_song_link_events_artist_event_created_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 260,
+      "version": "7",
+      "when": 1793007032313,
+      "tag": "0260_issue359_consent_proof_guard_c",
+      "breakpoints": true
     }
   ]
 }
