@@ -1891,6 +1891,13 @@
       "when": 1793051645058,
       "tag": "0269_p1_freeze_rpcs",
       "breakpoints": true
+    },
+    {
+      "idx": 270,
+      "version": "7",
+      "when": 1793052129809,
+      "tag": "0270_p1_freeze_guard",
+      "breakpoints": true
     }
   ]
 }
