@@ -5365,6 +5365,33 @@ export type Database = {
           },
         ]
       }
+      club_email_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          message_id: string
+          occurred_at: string
+          provider_event_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          message_id: string
+          occurred_at: string
+          provider_event_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          message_id?: string
+          occurred_at?: string
+          provider_event_id?: string
+        }
+        Relationships: []
+      }
       club_guesses: {
         Row: {
           company_id: string
@@ -6009,6 +6036,7 @@ export type Database = {
           first_name: string | null
           id: string
           instagram_handle: string | null
+          last_seen_at: string | null
           member_no: number
           pending_crew_checked_at: string | null
           pending_crew_code: string | null
@@ -6032,6 +6060,7 @@ export type Database = {
           first_name?: string | null
           id?: string
           instagram_handle?: string | null
+          last_seen_at?: string | null
           member_no: number
           pending_crew_checked_at?: string | null
           pending_crew_code?: string | null
@@ -6055,6 +6084,7 @@ export type Database = {
           first_name?: string | null
           id?: string
           instagram_handle?: string | null
+          last_seen_at?: string | null
           member_no?: number
           pending_crew_checked_at?: string | null
           pending_crew_code?: string | null
