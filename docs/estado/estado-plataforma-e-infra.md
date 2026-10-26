@@ -1,12 +1,29 @@
 # ESTADO — Plataforma & Infra
 
-## #352 — placeholders reposicionados; dependência anterior do schema CRM
+## #352 — G1 verde; G2 autorizado e em curso (26/10/2026)
 
-Commit privado f1e9523a; run 40161921145: G1 vermelho, 449 entradas concluídas e 450 tentadas de 1454. Checkpoint 114/114 e seed 117/0 pais por resolver aprovados. As três entradas repo-for-placeholder de 10/05 passaram para 11/05 às 00:00 UTC, pela prova textual autorizada; entradas do meio-dia e hashes SQL intactos.
+**G1 verde a 26/10/2026.** 1474/1474 entradas executadas com sucesso desde vazio; checkpoints 47/47 e 114/114 sem diferenças; compensação final de ACL aprovada. Run 40362466400 no repositório privado `mundopropicio-replay`; scanner de dados pessoais final com zero ocorrências. Relatório público com hashes e contagens: [sanitized-literal-reconstruction-g1.md](../estudos/saas-e-desenvolvimento/gates-352/sanitized-literal-reconstruction-g1.md); fecho na #352 (comentário 6422158628). G1 verde não declara paridade integral de catálogo; isso é o G2.
 
-Primeira falha: órfão 20260510034250, linha 21, SQLSTATE 3F000 ao criar crm.role_budget_limits; schema crm ainda não existe. A criação está no ficheiro 20260510024841, linha 2, agora posterior. Trio não alcançado; G2 não executado. Necessário parecer sobre precedência histórica, sem alargar regras. Quatro testes locais e 31 nativos passaram; 119 saltos destrutivos e 1298 idempotentes.
+**Regras de classe aprovadas a 26/10/2026** (nomes; texto e limites nos pareceres da #352):
+- `statement_terminator`
+- `grant_revoke_missing_object`
+- `orphan_dml_without_effect`
+- `synthetic_identity_twin`
+- `data_volume_assertion`
+- `platform_role_grant_excluded`
+- `mixed_proof_ddl_extraction`
+- `sanitized_literal_reconstruction`
+- `live_only_ddl_reconstructed` (extensões a relações sem coluna de data e a colunas)
 
-[Relatório](../estudos/saas-e-desenvolvimento/gates-352/placeholder-effect-g1.md) e [anexo](../estudos/saas-e-desenvolvimento/gates-352/placeholder-effect-g1.json). Reserva libertada no fecho; #352 aberta; D-ERP309 já registada. Sem Live novo, DSN, homologação, deploy ou Publish.
+**G2 autorizado pelo Pedro** (comentário 6422225015 da #352) e em curso. Executor: Codex; revisão por leitura: Claude (0 · Cowork). Âmbito: compensação de ACL antes do G2 e comparação de catálogo entre o replay e Live, com Live só por leitura de catálogo. Exclusões fechadas: os papéis de plataforma já aprovados e as substituições de `sanitized_literal_reconstruction`, aplicadas igualmente aos dois lados. Cada diferença é um bloqueio para parecer; nada se corrige por iniciativa própria. Fora do âmbito: dados, seeds novos, crons, segredos, criar o projecto de homologação, deploy e Publish.
+
+**Próximos passos**, cada um com "Sim" próprio do Pedro:
+1. **G2** — comparação de catálogo: diferenças classificadas na #352, relatório público só com contagens, nomes de objectos e hashes.
+2. **G3** — dados de referência e seeds, por fatias autorizadas.
+3. **G4** — crons: proposta individual por cron, nenhum activo na homologação sem aprovação.
+4. **G5** — segredos e URLs: só nomes, nunca valores; substituição dos marcadores pelo projecto de homologação.
+
+Reserva da #352 mantida no QUADRO; #352 aberta. Sem Live novo por esta escrita, sem DSN, deploy ou Publish.
 
 ## #353 — correção R1 de CI: relógio determinístico nos testes
 24/10/2026 11:42 UTC — base comum 3afd243a92c6462f49be483faccf954391276d3b limpa. Só src/test/capi-v2.test.ts: Date fixo em NOW no describe handler, afterEach restaura; temporizadores reais preservados. Baseline host 24/10: 11 FAIL/18 PASS; depois 33 PASS no host atual e em 01/01/2030 simulado, fronteiras antes/no/depois de 6 dias e isolamento provados. Suite integral final 2409 PASS/6 skip/11 todo, exit 0; build automático OK. Código c83ca22ec; relatório docs/testes/issue353-ci-relogio.md. Reserva #353 mantida até controller conferir tsgo e CI no SHA final; local não prova GitHub verde. Sem código de produção, rede externa/Live, DDL/DML/config/segredos/flags/deploy/Publish/reenvios; reserva #322 e restantes estados preservados. Issue não editada nem fechada.
