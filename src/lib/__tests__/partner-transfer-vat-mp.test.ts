@@ -46,6 +46,7 @@ const docBase: PartnerStatementDocInput = {
     { name: "MUNDO PROPÍCIO", percentage: 50, isHouse: true },
   ],
   categories: [],
+  usesGrossExpenses: false,
   revenues: [{ origin: "Bilheteira", description: "Sessão 1", net: 1000 }],
   expenseLines: [],
   resultOverride: 760576.69,
