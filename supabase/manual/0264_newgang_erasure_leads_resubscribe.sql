@@ -63,7 +63,7 @@ BEGIN
  UPDATE public.club_points SET reason=NULL WHERE member_id=m.id AND rule_key<>'profile_complete' AND reason IS NOT NULL;
  UPDATE public.email_send_log SET recipient_email='sha256:'||h WHERE lower(btrim(recipient_email))=e;
 
- -- 3) Leads de todos os módulos: registo mantido (agregados), PII a NULL.
+ -- 3) Leads MP (empresa do membro): registo mantido (agregados), PII a NULL.
  --    lead_capture: não toca em processed nem em raw->city/residence_country (nenhum trigger de ingestão/envio dispara).
  UPDATE public.leads l SET ip_inet=NULL, user_agent=NULL, meta=NULL
    FROM public.contacts c WHERE c.id=l.contact_id AND c.company_id=m.company_id AND lower(btrim(c.email))=e;
