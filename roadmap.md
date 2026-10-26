@@ -1,5 +1,5 @@
 - [x] P3 contratos por sócio: passo 1 (0271) aplicado e verificado pelo Pedro em Live.
-- [ ] P3 passo 2 (0272): CHECK estendido + função num SQL atómico e rollback comentado preparados; NÃO aplicado, aguarda Sim específico. Passos 3–5 não iniciados.
+- [ ] P3 passo 2 (0272): Sim recebido para bytes exatos a0b3153; pré-checks Live OK, Vitest completo 2655 PASS. NÃO aplicado: ferramenta exige omitir BEGIN/COMMIT e gere a transação; aguarda autorização só para essa adaptação. Passos 3–5 não iniciados.
 - [ ] P3 P7: etiqueta distribuicao_resultado no helper e opção derivada no seletor TransactionEditModal; limitação visual mantida até autorização da fase de ecrã.
 - [x] #359 P3: vista0261 aplicada, ACL/RLS e count/max iguais; históricos2316 + novo1; cópia/rollback/testes25PASS e QUADRO atualizados; sem B/0252/apply-coala-bp/DML/deploy/Publish.
 - [ ] #359 P3 fecho: CI verde bloqueado por 2 falhas preexistentes em memory-index; correção fora do recorte. Tipos manuais vedados pela plataforma. Comentário Issue em preparação.
