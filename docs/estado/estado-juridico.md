@@ -10,7 +10,8 @@ Chat criado a 26/10/2026 (D-ERP311). Primeira sessão a 26/10/2026: herdado lido
 ## A trabalhar agora
 
 - Implementação das regras D-ERP312 pelo 9, `coala-portal` e `newgang-portal` (pedidos no QUADRO de 26/10/2026). O jurídico revê os textos finais do banner e das políticas antes de Publish.
-- À espera: resposta do 9 à query de retenção (registos com última interação anterior a 26/10/2023); lista das tags que carregam no site do Coala (pedido ao `coala-portal`).
+- Implementação das regras D-ERP313 (textos novos do Newgang, menores, medição de email, banner do Coala) — pedidos no QUADRO.
+- Retenção verificada a 26/10/2026 (só leitura): nenhum registo acima do prazo de 3 anos. Ressalva: as datas são as da entrada no ERP; bases antigas importadas podem ter recolha anterior.
 
 ## Herdado — trabalho feito noutros chats antes de este existir
 
@@ -37,12 +38,15 @@ Sete documentos copiados a 26/10/2026 para o Drive do Pedro, em **05 Jurídico �
 
 ## Regras em vigor
 
-D-ERP312 (26/10/2026), em resumo:
+D-ERP312 e D-ERP313 (26/10/2026), em resumo:
 - Menores de 18 anos nunca em públicos de anúncios; só comunicações do Clube com consentimento próprio (13 anos para consentimento digital em PT).
 - Públicos de anúncios só com prova no servidor do consentimento do banner; inscrição numa lista não é consentimento para anúncios; lookalikes seguem a lista de origem.
 - WhatsApp só com consentimento próprio versionado; re-pedido só por email.
 - "Hash" não é encriptação; banner e política nomeiam as plataformas que de facto carregam; data de atualização verdadeira; transferências por plataforma.
 - Nova redação ⇒ nova versão; reconstrução do histórico nunca é "prova".
+- Consentimento sem prova do texto: não se usa; suprime-se.
+- Medir aberturas e cliques de email só com consentimento (email-v4); a retenção conta só ações claras do titular.
+- Nada de terceiros carrega antes do consentimento.
 
 ## Fronteiras
 

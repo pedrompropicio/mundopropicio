@@ -6296,3 +6296,15 @@ Com o ambiente mp-homolog (#352) verde, as demandas R1 e R2 de código passam a 
 - **Prova:** nova redação ⇒ nova versão. Prova reconstruída do histórico de código marca-se como reconstrução, nunca como prova.
 - **Quem implementa:** 9 (ERP, públicos, elegibilidade) e os portais (banner, política, formulários) — pedidos no QUADRO de 26/10/2026.
 - **Estado:** vigente.
+
+## D-ERP313 — Textos de consentimento do Newgang, menores e medição de email (26/10/2026)
+
+**Decisão Pedro, chat `juridico` (Claude), 26/10/2026.** Complementa a D-ERP312. Riscos e números no Drive do Pedro (05 Jurídico).
+
+- **Textos novos:** email-v4, anuncios-v2 e whatsapp-v2 (textos no QUADRO, secção `newgang-portal`, 26/10/2026). Cada texto diz quem (Mundo Propício), o quê, com quem partilha e como retirar, e tem ao lado a ligação à política.
+- **Menores:** públicos de tráfego pago só 18+ (as próprias plataformas não permitem anúncios por perfil a menores — DSA, art. 28.º). Email e WhatsApp a partir dos 13 anos com o próprio consentimento, sem conteúdos de álcool, bebidas ou apostas.
+- **Consentimentos sem prova do texto:** não se usam; quem estiver nessa situação é suprimido e pode reinscrever-se. Não se pede novo consentimento por email.
+- **Medição de email:** registar aberturas e cliques exige consentimento (Lei 41/2004, art. 5.º). Só se mede quem aceitou o email-v4. A "última interação" para a retenção conta só ações claras do titular.
+- **Banner do Coala:** só nomeia o que carrega; nada de terceiros carrega antes do consentimento (fontes e ícones alojados no próprio site).
+- **Estado:** vigente.
+
