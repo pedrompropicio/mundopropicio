@@ -16,7 +16,9 @@ BEGIN
     RAISE EXCEPTION 'participante_invalido';
   END IF;
   SELECT * INTO s FROM public.event_settlements WHERE id=p.settlement_id FOR UPDATE;
-  IF s.id IS NULL OR s.company_id IS DISTINCT FROM p.company_id THEN RAISE EXCEPTION 'fechamento_invalido'; END IF;
+  IF s.id IS NULL OR s.company_id IS DISTINCT FROM p.company_id OR s.event_id IS DISTINCT FROM p.event_id
+    OR NOT EXISTS(SELECT 1 FROM public.events WHERE id=p.event_id AND company_id=p.company_id)
+    THEN RAISE EXCEPTION 'fechamento_invalido'; END IF;
   IF p.mode IS DISTINCT FROM 'settles' OR p.frozen_at IS NULL THEN RAISE EXCEPTION 'socio_nao_congelado'; END IF;
   IF coalesce(s.is_sealed,false) THEN RAISE EXCEPTION 'fechamento_selado'; END IF;
   IF jsonb_typeof(p.frozen_values) IS DISTINCT FROM 'object'
@@ -64,7 +66,8 @@ BEGIN
     OR t.supplier_id IS DISTINCT FROM p.supplier_id OR t.type IS DISTINCT FROM 'expense'
     OR t.partner_contract_id IS NOT NULL OR t.partner_contract_role IS NOT NULL
     OR t.parent_transaction_id IS NOT NULL OR t.cache_contract_id IS NOT NULL OR t.invoice_group_id IS NOT NULL
-    OR t.reversed_at IS NOT NULL OR t.amount IS NULL OR t.amount<=0 OR t.amount<>round(t.amount,2)
+    OR t.reversed_at IS NOT NULL OR t.amount IS NULL OR t.amount::text IN ('NaN','Infinity','-Infinity')
+    OR t.amount<=0 OR t.amount<>round(t.amount,2)
     OR coalesce(t.iva_rate,0)<>0 OR coalesce(t.currency,'EUR')<>'EUR'
     OR NOT EXISTS(SELECT 1 FROM public.account_categories WHERE id=t.category_id AND company_id=p.company_id AND code='10.1.03')
     OR EXISTS(SELECT 1 FROM public.transactions WHERE parent_transaction_id=t.id)
@@ -167,7 +170,9 @@ BEGIN
   ids:=ARRAY(SELECT id FROM public.transactions WHERE partner_contract_id=c.id OR id IN(c.balance_tx_id,c.withholding_tx_id) ORDER BY id);
   PERFORM public._partner_contract_assert_unpaid(ids);
   roots:=ARRAY(SELECT id FROM public.transactions WHERE id IN(c.balance_tx_id,c.withholding_tx_id) ORDER BY id);
-  IF EXISTS(SELECT 1 FROM public.transactions WHERE id=ANY(ids) AND company_id IS DISTINCT FROM c.company_id)
+  IF (c.balance_tx_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.transactions WHERE id=c.balance_tx_id AND partner_contract_id=c.id AND partner_contract_role='balance'))
+    OR (c.withholding_tx_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.transactions WHERE id=c.withholding_tx_id AND partner_contract_id=c.id AND partner_contract_role='withholding'))
+    OR EXISTS(SELECT 1 FROM public.transactions WHERE id=ANY(ids) AND company_id IS DISTINCT FROM c.company_id)
     OR EXISTS(SELECT 1 FROM public.transactions WHERE parent_transaction_id=ANY(roots))
     OR EXISTS(SELECT 1 FROM public.transactions WHERE id=ANY(roots) AND (invoice_group_id IS NOT NULL OR cache_contract_id IS NOT NULL))
     OR EXISTS(SELECT 1 FROM public.transactions WHERE partner_contract_id=c.id AND partner_contract_role IS DISTINCT FROM 'advance' AND NOT(id=ANY(roots)))
@@ -235,11 +240,17 @@ BEGIN
   a:=public._partner_contract_advance(pid,_advance_tx_id,c.beneficiary_supplier_id,_confirm_beneficiary);
   SELECT * INTO b FROM public.transactions WHERE id=c.balance_tx_id FOR UPDATE;
   IF b.id IS NULL OR a>b.amount THEN RAISE EXCEPTION 'saldo_negativo'; END IF;
+  IF b.partner_contract_id IS DISTINCT FROM c.id OR b.partner_contract_role IS DISTINCT FROM 'balance'
+    OR b.company_id IS DISTINCT FROM c.company_id OR b.event_id IS DISTINCT FROM c.event_id
+    OR b.amount IS DISTINCT FROM c.gross-c.withholding_amount-c.advances_amount
+    THEN RAISE EXCEPTION 'saldo_inconsistente'; END IF;
   PERFORM public._partner_contract_assert_unpaid(ARRAY[b.id]);
   IF EXISTS(SELECT 1 FROM public.payment_list_items li JOIN public.payment_lists pl ON pl.id=li.payment_list_id
     WHERE li.transaction_id=b.id AND li.removed_at IS NULL AND pl.status<>'rejected') THEN RAISE EXCEPTION 'saldo_em_lista'; END IF;
   PERFORM set_config('app.partner_contract_op','on',true);
   UPDATE public.transactions SET partner_contract_id=c.id,partner_contract_role='advance' WHERE id=t.id;
+  -- Saldo igual ao adiantamento é permitido (>=0): conserva a linha de valor zero,
+  -- sem a apagar fora do cancelamento e sem tocar em documentos/listas.
   UPDATE public.transactions SET amount=amount-a WHERE id=b.id;
   UPDATE public.partner_payment_contracts SET advances_amount=advances_amount+a WHERE id=c.id;
   PERFORM set_config('app.partner_contract_op','off',true);
@@ -261,11 +272,13 @@ BEGIN
   IF p.id IS NULL THEN RAISE EXCEPTION 'participante_invalido'; END IF;
   IF p.frozen_values->>'share_amount' IS NULL THEN RAISE EXCEPTION 'parte_congelada_em_falta'; END IF;
   share:=(p.frozen_values->>'share_amount')::numeric;
+  IF share::text IN ('NaN','Infinity','-Infinity') OR share<0 OR share<>round(share,2) THEN RAISE EXCEPTION 'parte_congelada_invalida'; END IF;
   SELECT coalesce(sum(gross),0),coalesce(jsonb_agg(to_jsonb(c) ORDER BY c.created_at,c.id),'[]'::jsonb)
     INTO contracted,contracts FROM public.partner_payment_contracts c WHERE participant_id=p.id AND cancelled_at IS NULL;
   SELECT coalesce(sum(least(t.amount,greatest(coalesce(t.paid_amount,0),0))),0) INTO paid
     FROM public.transactions t JOIN public.partner_payment_contracts c ON c.id=t.partner_contract_id
-    WHERE c.participant_id=p.id AND c.cancelled_at IS NULL;
+    WHERE c.participant_id=p.id AND c.cancelled_at IS NULL AND t.company_id=p.company_id
+      AND t.partner_contract_role IN ('balance','withholding','advance') AND t.reversed_at IS NULL;
   SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY t.date,t.id),'[]'::jsonb) INTO free FROM public.transactions t
     JOIN public.account_categories ac ON ac.id=t.category_id
     WHERE t.company_id=p.company_id AND t.event_id=p.event_id AND t.supplier_id=p.supplier_id
