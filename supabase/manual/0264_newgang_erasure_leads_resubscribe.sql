@@ -73,12 +73,12 @@ BEGIN
  UPDATE public.lead_capture SET email=NULL, name=NULL, phone=NULL, ip_inet=NULL, user_agent=NULL,
    raw = CASE WHEN raw IS NULL THEN NULL ELSE raw - pii_keys END
    WHERE company_id=m.company_id AND lower(btrim(email))=e;
- UPDATE public.coala_invites SET email=ph, confirm_url=NULL WHERE company_id=m.company_id AND lower(btrim(email))=e;
+ UPDATE public.coala_invites SET email=ph, confirm_url='' WHERE company_id=m.company_id AND lower(btrim(email))=e;
  UPDATE public.coala_list_consents SET email=ph WHERE company_id=m.company_id AND lower(btrim(email))=e;
- UPDATE public.fever_buyers SET email=NULL, first_name=NULL, last_name=NULL WHERE company_id=m.company_id AND lower(btrim(email))=e;
+ UPDATE public.fever_buyers SET email=ph, first_name=NULL, last_name=NULL WHERE company_id=m.company_id AND lower(btrim(email))=e;
  UPDATE public.meta_audience_upload_members SET email=NULL, phone_e164=NULL WHERE company_id=m.company_id AND lower(btrim(email))=e;
  UPDATE public.vip_coupon_email_log SET email=ph WHERE lower(btrim(email))=e;
- UPDATE public.contacts SET email=NULL, phone_e164=NULL, name=NULL, email_hash_sha256=NULL, phone_hash_sha256=NULL,
+ UPDATE public.contacts SET email=NULL, phone_e164=NULL, name=NULL,
    consent_email=false, consent_whatsapp=false, is_active=false, updated_at=now()
    WHERE company_id=m.company_id AND lower(btrim(email))=e AND id IS DISTINCT FROM m.contact_id;
 
