@@ -36,6 +36,12 @@ export function clampLimit(v: unknown): number {
   return Math.max(0, Math.min(REMINDER_MAX_BATCH, n));
 }
 
+/** #356: limit numérico acima do máximo é rejeitado (400) antes de qualquer efeito. Omitido/inválido/≤ máximo → null (comportamento atual). */
+export function reminderLimitError(v: unknown): { error: "limit_too_large"; max: number } | null {
+  return typeof v === "number" && Number.isFinite(v) && Math.floor(v) > REMINDER_MAX_BATCH
+    ? { error: "limit_too_large", max: REMINDER_MAX_BATCH } : null;
+}
+
 /** Lote: percorre os candidatos por ordem; para ao 3.º resultado unknown seguido (resultado incerto na fila). */
 export async function runReminderBatch(deps: ReminderDeps, ids: string[]) {
   const out = { sent: 0, skipped: 0, error_pre_send: 0, unknown: 0, reasons: {} as Record<string, number>, stopped: false };
