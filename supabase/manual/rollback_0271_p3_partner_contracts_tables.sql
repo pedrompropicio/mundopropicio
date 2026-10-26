@@ -1,0 +1,5 @@
+-- Rollback P3 passo 1 (NÃO APLICADO). Só seguro com 0 contratos e 0 transações ligadas.
+-- DROP INDEX IF EXISTS public.transactions_partner_contract_idx;
+-- ALTER TABLE public.transactions DROP COLUMN IF EXISTS partner_contract_role;
+-- ALTER TABLE public.transactions DROP COLUMN IF EXISTS partner_contract_id;
+-- DROP TABLE IF EXISTS public.partner_payment_contracts;
