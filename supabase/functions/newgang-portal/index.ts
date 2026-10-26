@@ -7,7 +7,7 @@ import { assertNoTotals, buildLineup, displayName } from "./lineup.ts";
 import { assemblePublic, bundleFrom, lineupFrom, regulationFrom, termsMeta, type Want } from "./public.ts";
 import { clubEmail } from "./email.ts";
 import { ASSET_BUCKET, PROOF_BUCKET, PROOF_EXT, missionsFrom, normalizeHandle, normalizeProofUrl, submitErrorStatus } from "./missions.ts";
-import { eraseExtras } from "./erase-extras.ts";
+import { eraseExtras, responseExtras } from "./erase-extras.ts";
 import { buildHistory, subjectRef } from "./history.ts";
 import { profileConfirm, profileMe, profilePreferences, profileCountries, profileRuleRead } from "./profile.ts";
 import { consentMe, consentPreferences } from "./person-consent.ts";
