@@ -54,6 +54,8 @@ Mensagens de arranque: `procedimentos/PROC-arranque-chat.md` e `docs/prompts/`. 
 
 **(f) `11 - Testes`.** Corre baterias, marca resultados em `TESTES.md`, abre Issue quando falha. Não corrige, não dispara o agente, não escreve na base.
 
+Toda a Issue nova leva `**Frente dona:**` e `**Executor atual:**` no corpo; o painel (#360) lê estas linhas; sem elas infere pelo label de módulo e marca '(inferida)'.
+
 **Tarefas programadas não são chats.**
 
 ## Proibições

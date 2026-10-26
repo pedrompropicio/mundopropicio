@@ -6,8 +6,8 @@ labels: ''
 assignees: ''
 ---
 
-**Frente:** <1–11 | portal | chat de evento>
-**Executor atual:** <Claude | ChatGPT | Lovable-via-Claude | Lovable-via-ChatGPT | —> (designado pelo Pedro; sem designação não há execução)
+**Frente dona:** <número · nome da frente, conforme docs/CHATS.md>
+**Executor atual:** <a designar pelo Pedro>
 **Revisor:** <o outro lado | —>
 **Âmbito autorizado pelo Pedro:** <o que pode ser feito nesta demanda; o que fica de fora>
 **Versão analisada:** <commit>
