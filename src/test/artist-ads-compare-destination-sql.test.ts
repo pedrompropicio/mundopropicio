@@ -83,4 +83,22 @@ describe('trafego_diario com destino ao smart link (0245)',()=>{
   expect(rows[0].r.serie_horaria.length).toBeGreaterThan(0);
   expect(rows[0].r.lacunas.some((t:string)=>t.includes('gasto_sem_destino'))).toBe(true);
  });
+ it('pré-agregação evk preserva todo o JSON, incluindo normalização e contagens repetidas',async()=>{
+  await db.exec('BEGIN');
+  try {
+   await db.exec(`INSERT INTO public.song_link_events
+    SELECT gen_random_uuid(),NULL,'${artist}','arrival','facebook','paid','mp roupa solteira tráfego',' A1 ','BR','android',timestamptz '2026-10-19 10:35' FROM generate_series(1,37);
+    INSERT INTO public.song_link_events
+    SELECT gen_random_uuid(),NULL,'${artist}','arrival','tiktok','paid','MP Roupa Solteira Tráfego','  ','PT','ios',timestamptz '2026-10-19 10:45' FROM generate_series(1,13);`);
+   const query=`SELECT artist_ads_compare($1,'2026-10-19','2026-10-19',NULL,'UTC') r`;
+   const before=await db.query<{r:unknown}>(query,[artist]);
+   const {rows}=await db.query<{f:string}>(`SELECT pg_get_functiondef('public.artist_ads_compare(uuid,date,date,text,text)'::regprocedure) f`);
+   const draft=readFileSync('supabase/manual/artist_ads_compare_evk_performance.sql','utf8');
+   const old=draft.split('$old$')[1], replacement=draft.split('$new$')[1];
+   expect(rows[0].f.includes(old)).toBe(true);
+   await db.exec(rows[0].f.replace(old,replacement));
+   const after=await db.query<{r:unknown}>(query,[artist]);
+   expect(after.rows[0].r).toEqual(before.rows[0].r);
+  } finally { await db.exec('ROLLBACK'); }
+ });
 });

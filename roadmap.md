@@ -92,3 +92,5 @@
 - [x] #339 B3b: recurso ÷N ao cêntimo com avisos sem throw; BP Master/cidades, 12 testes novos e paridade ERP/documento; suite 2325 PASS; reserva libertada; sem DDL/DML/Publish/deploy. CI remoto e deploy partner-statement (R2) pendentes; tsgo manual não executado por restrição da plataforma.
 
 - [x] #333 corretivo: escolher outro email na conversa (23/10) — deploy data-entry aguarda novo Sim
+- [x] artist_ads_compare desempenho: pré-agregação evk aplicada em Live (0258), igualdade no mesmo snapshot confirmada, 7 dias RPC HTTP200 em 3,359s.
+- [ ] artist_ads_compare índice concorrente: inexistente; bloqueado pelo fluxo de migração transacional. 30 dias EXPLAIN de expressões equivalentes = 5,870s; aguarda via suportada para CONCURRENTLY ou autorização explícita para índice não concorrente.
