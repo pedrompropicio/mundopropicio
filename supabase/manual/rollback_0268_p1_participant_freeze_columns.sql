@@ -1,0 +1,6 @@
+-- ROLLBACK 0268 (NÃO APLICADO). Descomentar só com «Sim» do Pedro.
+-- ALTER TABLE public.event_settlement_participants
+--   DROP COLUMN IF EXISTS frozen_at,
+--   DROP COLUMN IF EXISTS frozen_by,
+--   DROP COLUMN IF EXISTS frozen_values,
+--   DROP COLUMN IF EXISTS freeze_note;
