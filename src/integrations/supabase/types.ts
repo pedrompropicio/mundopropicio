@@ -25155,6 +25155,10 @@ export type Database = {
         Args: { p_points: string[]; p_reason: string }
         Returns: number
       }
+      club_profile_birth_date: {
+        Args: { p_payload: Json; p_session_hash: string; p_site: string }
+        Returns: Json
+      }
       club_profile_configure: {
         Args: { p_enabled: boolean; p_site: string; p_version: string }
         Returns: undefined
