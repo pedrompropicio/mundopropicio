@@ -1835,6 +1835,13 @@
       "when": 1793010972561,
       "tag": "0261_issue359_lead_capture_consent_resumo",
       "breakpoints": true
+    },
+    {
+      "idx": 262,
+      "version": "7",
+      "when": 1793012717325,
+      "tag": "0262_newgang_retention_p1_interactions",
+      "breakpoints": true
     }
   ]
 }
