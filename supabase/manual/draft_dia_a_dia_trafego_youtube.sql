@@ -55,8 +55,8 @@ BEGIN
  traffic AS (SELECT e.song_id,(e.created_at AT TIME ZONE 'America/Sao_Paulo')::date AS metric_day,
    count(*) FILTER(WHERE e.event='app_open') aberturas_android,
    count(*) FILTER(WHERE e.event='choice' AND e.os='ios') toques_ios,
-   count(*) FILTER(WHERE e.utm_source='meta') aberturas_meta,
-   count(*) FILTER(WHERE e.utm_source='tiktok') aberturas_tiktok,
+   count(*) FILTER(WHERE e.fbclid IS NOT NULL OR lower(e.utm_source) IN ('meta','facebook','fb','instagram','ig')) aberturas_meta,
+   count(*) FILTER(WHERE e.ttclid IS NOT NULL OR lower(e.utm_source) IN ('tiktok','tt')) aberturas_tiktok,
    count(DISTINCT e.ip_hash) pessoas_trafego
   FROM public.song_link_events e JOIN songs s ON s.id=e.song_id
   WHERE e.company_id=v_company AND e.artist_id=p_artist_id
