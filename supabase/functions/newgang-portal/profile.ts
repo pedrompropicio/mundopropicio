@@ -40,6 +40,21 @@ export async function profileConfirm(rpc: Rpc,site: string,hash: string,payload:
  return {status:200,body:data};
  } catch { return {status:500,body:{error:"profile_confirm_unavailable"}}; }
 }
+// #314 Fase 2b: ação só para a data de nascimento (sem pontos, sem completar o perfil).
+export function profileBirthError(message: string): number {
+ if (message === "no_session") return 401;
+ if (message === "parental_flow_required" || message === "birth_date_already_set") return 409;
+ if (message === "birth_date_invalid" || message === "profile_payload") return 400;
+ return 500;
+}
+export async function profileBirth(rpc: Rpc,site: string,hash: string,payload: unknown) {
+ try {
+ const {data,error}=await rpc("club_profile_birth_date",{p_site:site,p_session_hash:hash,p_payload:payload});
+ if(error){ const st=profileBirthError(error.message); return {status:st,body:{error:st===500?"profile_birth_unavailable":error.message}}; }
+ if(!data || typeof data!=="object") return {status:500,body:{error:"profile_state_empty"}};
+ return {status:200,body:data};
+ } catch { return {status:500,body:{error:"profile_birth_unavailable"}}; }
+}
 // Adapter WhatsApp bloqué: la preuve #322 ne couvre que meta_ads; aucune fausse préférence locale.
 export function profilePreferences() { return {status:409,body:{error:"whatsapp_adapter_pending"}}; }
 export const profileCountries = () => Object.entries(COUNTRIES).map(([code,name])=>({code,name}));
