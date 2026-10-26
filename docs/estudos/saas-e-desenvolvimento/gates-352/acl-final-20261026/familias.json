@@ -1,0 +1,277 @@
+[
+  {
+    "id": "01",
+    "family": "Encontro de contas e guardas financeiras (#335)",
+    "cause": "Cinco triggers só em Live, com referência candidata em scripts do repo; fora dos 286 objectos do contrato admitido.",
+    "differences": 5,
+    "objects": 5,
+    "groups": {
+      "b": 5
+    },
+    "categories": {
+      "triggers": 5
+    },
+    "property_patterns": {
+      "$presence": 5
+    }
+  },
+  {
+    "id": "02",
+    "family": "Consentimento, Clube e captação",
+    "cause": "Uma definição de função difere por hash; nenhuma normalização de corpo foi aplicada.",
+    "differences": 1,
+    "objects": 1,
+    "groups": {
+      "b": 1
+    },
+    "categories": {
+      "functions": 1
+    },
+    "property_patterns": {
+      "definition_sha256": 1
+    }
+  },
+  {
+    "id": "03",
+    "family": "Carreira artística e relatórios de tráfego",
+    "cause": "Presenças, três ordens de coluna, nulidade e hashes de funções/opções de views; janelas pendentes identificadas na triagem.",
+    "differences": 36,
+    "objects": 36,
+    "groups": {
+      "b": 16,
+      "c": 8,
+      "a": 12
+    },
+    "categories": {
+      "acl": 7,
+      "columns": 12,
+      "constraints": 6,
+      "functions": 8,
+      "indexes": 1,
+      "views": 2
+    },
+    "property_patterns": {
+      "$presence": 28,
+      "ordinal_position": 3,
+      "not_null": 1,
+      "definition_sha256": 2,
+      "options_sha256": 2
+    }
+  },
+  {
+    "id": "04",
+    "family": "CRM e integrações publicitárias",
+    "cause": "Predominam 96 presenças; cinco ordens de coluna e quatro hashes de propriedades restantes. Objectos sem janela provada ficam a parecer.",
+    "differences": 105,
+    "objects": 104,
+    "groups": {
+      "b": 14,
+      "a": 88,
+      "c": 3
+    },
+    "categories": {
+      "acl": 9,
+      "columns": 46,
+      "constraints": 9,
+      "functions": 6,
+      "indexes": 9,
+      "internal_trigger_constraints": 8,
+      "policies": 6,
+      "rewrite_rules": 1,
+      "rls": 1,
+      "tables": 1,
+      "toast_parents": 1,
+      "triggers": 3,
+      "types": 4,
+      "views": 1
+    },
+    "property_patterns": {
+      "$presence": 96,
+      "ordinal_position": 5,
+      "definition_sha256": 3,
+      "config_sha256": 1
+    }
+  },
+  {
+    "id": "05",
+    "family": "Finanças, BP e fecho restantes",
+    "cause": "34 diferenças de ordem lógica de colunas, oito presenças e cinco hashes de definição/predicado.",
+    "differences": 47,
+    "objects": 46,
+    "groups": {
+      "a": 4,
+      "b": 40,
+      "c": 3
+    },
+    "categories": {
+      "acl": 1,
+      "columns": 34,
+      "constraints": 2,
+      "functions": 4,
+      "indexes": 4,
+      "policies": 2
+    },
+    "property_patterns": {
+      "$presence": 8,
+      "ordinal_position": 34,
+      "definition_sha256": 4,
+      "predicate_sha256": 1
+    }
+  },
+  {
+    "id": "06",
+    "family": "Portal, eventos e conteúdo público",
+    "cause": "17 diferenças de ordem lógica de colunas e três índices só em Live.",
+    "differences": 20,
+    "objects": 20,
+    "groups": {
+      "b": 17,
+      "a": 3
+    },
+    "categories": {
+      "columns": 17,
+      "indexes": 3
+    },
+    "property_patterns": {
+      "ordinal_position": 17,
+      "$presence": 3
+    }
+  },
+  {
+    "id": "07",
+    "family": "pgmq e filas de email",
+    "cause": "24 relações de pertença à extensão só no replay e dois triggers só em Live; pgmq é 1.5.1 nos dois lados.",
+    "differences": 26,
+    "objects": 26,
+    "groups": {
+      "c": 24,
+      "a": 2
+    },
+    "categories": {
+      "extension_members": 24,
+      "triggers": 2
+    },
+    "property_patterns": {
+      "$presence": 26
+    }
+  },
+  {
+    "id": "08",
+    "family": "Exceções de aplicação em schemas geridos",
+    "cause": "Excepções da aplicação preservadas por N4: 43 presenças, duas propriedades de grants e uma validade de índice.",
+    "differences": 46,
+    "objects": 46,
+    "groups": {
+      "b": 15,
+      "a": 30,
+      "c": 1
+    },
+    "categories": {
+      "acl": 2,
+      "columns": 9,
+      "constraints": 7,
+      "indexes": 7,
+      "internal_trigger_constraints": 6,
+      "policies": 12,
+      "triggers": 3
+    },
+    "property_patterns": {
+      "grants": 2,
+      "$presence": 43,
+      "valid": 1
+    }
+  },
+  {
+    "id": "09",
+    "family": "Papéis e privilégios globais",
+    "cause": "Quatro ACL de objectos ausentes, uma default ACL, duas memberships e uma configuração de papel; permanecem visíveis após N8.",
+    "differences": 8,
+    "objects": 8,
+    "groups": {
+      "a": 5,
+      "c": 2,
+      "b": 1
+    },
+    "categories": {
+      "acl": 4,
+      "default_acl": 1,
+      "role_memberships": 2,
+      "roles": 1
+    },
+    "property_patterns": {
+      "$presence": 7,
+      "config_sha256": 1
+    }
+  },
+  {
+    "id": "10",
+    "family": "Outras funções e vistas",
+    "cause": "23 hashes de definição, quatro de configuração e quatro funções só em Live.",
+    "differences": 31,
+    "objects": 27,
+    "groups": {
+      "b": 27,
+      "a": 4
+    },
+    "categories": {
+      "functions": 31
+    },
+    "property_patterns": {
+      "definition_sha256": 23,
+      "$presence": 4,
+      "config_sha256": 4
+    }
+  },
+  {
+    "id": "11",
+    "family": "Estrutura e isolamento restantes",
+    "cause": "48 ordens lógicas, 43 presenças, nulidade/default, FKs, predicados e enumeração ainda distintos; não houve reordenação por conveniência.",
+    "differences": 121,
+    "objects": 113,
+    "groups": {
+      "b": 78,
+      "a": 28,
+      "c": 15
+    },
+    "categories": {
+      "columns": 60,
+      "constraints": 10,
+      "enums": 15,
+      "extension_members": 2,
+      "indexes": 7,
+      "internal_trigger_constraints": 12,
+      "policies": 12,
+      "triggers": 2,
+      "types": 1
+    },
+    "property_patterns": {
+      "ordinal_position": 48,
+      "not_null": 1,
+      "$presence": 43,
+      "default_sha256": 1,
+      "definition_sha256": 3,
+      "on_delete": 8,
+      "sort_order": 10,
+      "label_sha256": 5,
+      "predicate_sha256": 1,
+      "enum_labels_sha256": 1
+    }
+  },
+  {
+    "id": "12",
+    "family": "restore_shadow — origem no ledger",
+    "cause": "Função e respectiva ACL ausentes; origem no ledger confirmada, mantidas no grupo b.",
+    "differences": 2,
+    "objects": 2,
+    "groups": {
+      "b": 2
+    },
+    "categories": {
+      "acl": 1,
+      "functions": 1
+    },
+    "property_patterns": {
+      "$presence": 2
+    }
+  }
+]

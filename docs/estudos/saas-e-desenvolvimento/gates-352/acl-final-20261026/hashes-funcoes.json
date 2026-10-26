@@ -1,0 +1,32 @@
+[
+  {
+    "object": "_account_true_balance_raw",
+    "script_sha256": "db667f07a1e4d4900e3d14712dd2bb4e1b38a6d1a6c5ad1d8378e43da5bd0b48",
+    "statement_sha256": "85cd788e43cc881e1c461cbee21955b877870da3f3538788f2b267d664f5b353",
+    "live_definition_sha256": "a9ff971db9914c189192861ad8e7cff2d6c6cfeca6e4315e521c3ed641aa2494"
+  },
+  {
+    "object": "_account_true_balance_asof_raw",
+    "script_sha256": "db667f07a1e4d4900e3d14712dd2bb4e1b38a6d1a6c5ad1d8378e43da5bd0b48",
+    "statement_sha256": "627019a55885cd8fcc152b6cc436c7f8c8be7d007fb3ad76bc7019998fe97e5d",
+    "live_definition_sha256": "25f261a3b6f6061f326f0cc767b3e142b5a565179ee7410f4c2d603efa8ceb0c"
+  },
+  {
+    "object": "issue335_cash_watch",
+    "script_sha256": "b906804631d2d5da00b13b4e24aebb8030b5368d05b928015265720b380c9f08",
+    "statement_sha256": "91a4e30bf7069c0696f4ca7ed85ee885a79bce074af892fa16d2e3e44de60da6",
+    "live_definition_sha256": "6ec5f18bbe0be3a0fd2d3afe4b19db9a5a5ac199d42ad7d7152628a708da2f84"
+  },
+  {
+    "object": "issue335_balance_invariant_count",
+    "script_sha256": "b906804631d2d5da00b13b4e24aebb8030b5368d05b928015265720b380c9f08",
+    "statement_sha256": "e2d0f86d2027f4ed8099024b2d5350a09b8a942b7034475b21688ab89a7e8d8c",
+    "live_definition_sha256": "8d19cd920dd9142054fae27137ff831cd2cc64042e8a55b36878c96c74a3c0ae"
+  },
+  {
+    "object": "transaction_offset_control_status",
+    "script_sha256": "41a041e72c25ae25956a814df6a628fda84dc7086413b8dd3cf46d29922fa477",
+    "statement_sha256": "fdfe23187d4fca49ca5a39b775498597a197f0efd186575f04a46ab371b6b71a",
+    "live_definition_sha256": "2ea9344cee942ada908cd020d6137086ec21e2f6de64c43d655dae74d9d25d3e"
+  }
+]

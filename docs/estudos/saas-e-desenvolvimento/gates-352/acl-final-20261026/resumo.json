@@ -1,0 +1,96 @@
+{
+  "private_sha": "d3c006118d89bf8c7a5b1b1c643df2866a55e52a",
+  "public_sha": "7c6c0f4f5f020275c36f54121668bfd95800be2e",
+  "entries": 1538,
+  "drizzle": 274,
+  "ledger": 711,
+  "review": 6429178426,
+  "run_id": 40420513489,
+  "artifact_id": 12697098914,
+  "artifact_sha256": "29d5e7cc6a0d542a82604a96d46656c71081d3e27eda4272c4cc663142893538",
+  "date": "26/10/2026",
+  "G1": {
+    "passed": true,
+    "executed": 1538,
+    "planned": 1538,
+    "checkpoints": [
+      {
+        "expected": 47,
+        "actual": 47,
+        "passed": true
+      },
+      {
+        "expected": 114,
+        "actual": 114,
+        "passed": true
+      }
+    ],
+    "pgmq": "1.5.1",
+    "acl_compensations": {
+      "passed": true,
+      "object_beneficiary_pairs": 66,
+      "objects": 55,
+      "commands": 102,
+      "absent_objects_for_G2": 18,
+      "unmatched_existing": 0
+    },
+    "skipped_idempotent": 2135,
+    "skipped_destructive": 156,
+    "reviewed_skips": 10,
+    "started_utc": "2026-10-26T23:33:24.948314+00:00",
+    "finished_utc": "2026-10-26T23:43:13.195693+00:00"
+  },
+  "manual_contract": {
+    "passed": true,
+    "ddl_executed_by": "G1 manual-final entries",
+    "ddl_reapplied": false,
+    "objects_checked": 286,
+    "different_objects": 0,
+    "differences": []
+  },
+  "regression_tests": 14,
+  "G2": {
+    "passed": false,
+    "comparison_completed": true,
+    "normalizations": "N1-N8",
+    "residuals": 448,
+    "families": 12,
+    "groups": {
+      "b": 216,
+      "a": 176,
+      "c": 56
+    },
+    "unclassified": 0,
+    "previous_intermediate_residuals": 793,
+    "reduction": 345
+  },
+  "fingerprints": {
+    "categories": 25,
+    "stable": true,
+    "start_utc": "2026-10-26T23:30:59.685Z",
+    "finish_utc": "2026-10-26T23:45:13.042Z"
+  },
+  "ledgers": {
+    "supabase": 711,
+    "drizzle": 274,
+    "stable": true,
+    "missing_from_plan": 0
+  },
+  "plan_sha256": "6ecf4ba4b5965ecdfa619761347bbede5959984401559eea73bb487535ea2dec",
+  "attnum": {
+    "added_columns": 4,
+    "entries": 2,
+    "pending_columns": [
+      "crm.meta_publish_plan.platform",
+      "crm.meta_publish_plan.external_campaign_id",
+      "public.artist_songs.tiktok_hashtags",
+      "public.artist_songs.tiktok_song_id",
+      "public.song_links.link_type",
+      "public.artist_audience_demographics.unit",
+      "public.song_links.artist_line"
+    ],
+    "remaining_tables_with_logical_order_differences": 21
+  },
+  "reservation": "maintained",
+  "front2_issue": 370
+}

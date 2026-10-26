@@ -1,0 +1,26 @@
+{
+  "10": [
+    "public.delete_email(pg_catalog.text,pg_catalog.int8)",
+    "public.enqueue_email(pg_catalog.text,pg_catalog.jsonb)",
+    "public.move_to_dlq(pg_catalog.text,pg_catalog.text,pg_catalog.int8,pg_catalog.jsonb)",
+    "public.read_email_batch(pg_catalog.text,pg_catalog.int4,pg_catalog.int4)",
+    "public._cache_cancel_contract(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.text)",
+    "public._revert_event_to_version(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.uuid,pg_catalog.text,pg_catalog.bool)",
+    "public._run_invariant_checks_cards()",
+    "public._tmp_rollback_probe()",
+    "public.apply_supplier_credit(pg_catalog.uuid,pg_catalog.uuid,pg_catalog.\"numeric\",pg_catalog.uuid)",
+    "public.auto_create_initial_bp_version()"
+  ],
+  "11": [
+    "public.app_role",
+    "public.backup_runs_ok_unico_por_dia_alvo",
+    "public.ticket_sales.ticket_sales_lot_id_fkey",
+    "public.ticket_sales.ticket_sales_zone_id_fkey",
+    "pg_graphql:pg_event_trigger:event trigger graphql_watch_ddl",
+    "pg_graphql:pg_event_trigger:event trigger graphql_watch_drop",
+    "public.camarim_items.approved_without_document",
+    "public.camarim_items.approved_without_document_reason",
+    "public.camarim_items.pending_review_reason",
+    "public.camarim_sessions.spent_total"
+  ]
+}
