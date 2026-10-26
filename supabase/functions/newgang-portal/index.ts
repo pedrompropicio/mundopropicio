@@ -123,6 +123,11 @@ async function memberFromToken(siteId: string, token?: string) {
     .eq("token_hash", await sha256(token)).eq("site_id", siteId).eq("purpose", "access").maybeSingle();
   if (!data || !data.member_id || new Date(data.expires_at) < new Date()) return null;
   const { data: m } = await sb.from("club_members").select("*").eq("id", data.member_id).maybeSingle();
+  // Conservação 30/36m: carimbo de visita identificada, no máximo 1x/hora; falha nunca afeta a resposta.
+  if (m && (!m.last_seen_at || Date.now() - Date.parse(m.last_seen_at) > 3600_000)) {
+    sb.from("club_members").update({ last_seen_at: new Date().toISOString() }).eq("id", m.id)
+      .then(({ error }) => { if (error) console.warn("last_seen_update_failed", error.code); }, () => {});
+  }
   return m;
 }
 
