@@ -6321,4 +6321,4 @@ Com o ambiente mp-homolog (#352) verde, as demandas R1 e R2 de código passam a 
 - **Sem data:** contam como menores para publicidade até indicarem o ano; pedido único do ano, sem supressão.
 - **email-v4** mantém-se.
 - **Estado:** vigente.
-- **Adenda 26/10/2026 (texto final aplicado na #314):** data de nascimento completa obrigatória; 18+ pela data exata; <13 bloqueia e não grava; 13–17 sem eventos de conversão nem anúncios; membros sem data tratados como menores para publicidade; Lead/CompleteRegistration/ClubeConfirmado só 18+; ViewContent/InitiateCheckout/PageView mantidos para todos com consentimento de marketing, com interruptor por evento. Substitui o «pedido único do ano» acima.
+- **Adenda 26/10/2026 (texto final aplicado na #314):** data de nascimento completa obrigatória; 18+ pela data exata; <13 bloqueia e não grava; 13–17 sem eventos de conversão nem anúncios; membros sem data tratados como menores para publicidade; Lead/CompleteRegistration/ClubeConfirmado só 18+; ViewContent/InitiateCheckout/PageView mantidos para todos com consentimento de marketing, com interruptor por evento.
