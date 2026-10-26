@@ -1,8 +1,8 @@
 import { optionalRead, type Rpc } from "./profile.ts";
 export const CONSENT_TEXTS = {
- email: { version: "email-v3", text: "Aceito receber por email as novidades do Newgang Festival e do Clube Newgang, da Mundo Propício. Posso retirar a autorização a qualquer momento." },
- ads: { version: "anuncios-v1", text: "Autorizo a Mundo Propício a usar o meu email para anúncios no Meta, TikTok e Google. Posso retirar a qualquer momento." },
- whatsapp: { version: "whatsapp-v1", text: "Aceito receber novidades da Mundo Propício no WhatsApp. Posso retirar a qualquer momento." },
+ email: { version: "email-v4", text: "Aceito receber emails do Newgang Festival e do Clube Newgang (Mundo Propício), com medição de aberturas e cliques. Posso retirar quando quiser." },
+ ads: { version: "anuncios-v2", text: "Autorizo a Mundo Propício a partilhar o meu email (em hash) com a Meta, TikTok e Google para anúncios do Newgang. Posso retirar quando quiser." },
+ whatsapp: { version: "whatsapp-v2", text: "Aceito receber WhatsApp do Newgang Festival e do Clube Newgang (Mundo Propício). Posso retirar quando quiser." },
 };
 export async function consentMe(rpc: Rpc, site: string, hash: string) {
  try {
