@@ -41,6 +41,8 @@ Live: tabelas/colunas existem, 0 linhas, transactions mesma contagem, md5 das fu
 - Uma transação BEGIN/COMMIT: primeiro DROP/ADD do CHECK transactions_transitory_reason_domain com os oito valores Live + distribuicao_resultado; depois CREATE OR REPLACE da função Live, acrescentando apenas o ramo 10.1.03. Não tocar no CHECK required, sem backfill.
 - Rollback comentado atómico: função Live cf9e97d154a437ea66139ce0b04873ed byte a byte e CHECK original de oito valores. Se houver motivos novos, o rollback falha inteiro sem alterar dados.
 - P7: acrescentar etiqueta em src/lib/transitory-reason.ts e opção derivada no seletor TransactionEditModal; limitação visual mantida até essa fase.
+- Verificação 23:18 UTC: modal inicializa o motivo armazenado sem normalização e reenvia-o nos dois ramos de gravação. Live issue335_guard compara NEW/OLD.transitory_reason em documentos de encontros ativos: valor igual passa nessa comparação; alteração recusa com reverse_entire_group. A função derivadora só recalcula no INSERT ou na mudança de category_id; editar a mesma rubrica preserva o valor reenviado. Nenhum ecrã/guarda alterado.
+- PGlite local: 13/13, CHECK real estendido, oito motivos preservados, required intacto, edição com mesma rubrica, rollback byte-idêntico e rollback recusado atomicamente quando já existem motivos novos.
 - Aplicação do 0272 e passos 3–5 dependem de novo Sim específico.
 
 ### 3 — RPCs de contratos (passo por preparar)
