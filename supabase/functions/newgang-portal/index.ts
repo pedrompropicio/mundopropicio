@@ -783,7 +783,7 @@ Deno.serve(async (req) => {
         const { data, error } = await sb.rpc("club_member_erase", { p_member_id: member.id, p_reason: "erasure_request", p_dry_run: !real });
         if (error || !data) { console.error("erase_account", error?.code); return json({ error: "internal" }, 500); }
         console.log(JSON.stringify({ action: "erase_account", status: (data as any).status, extras }));
-        return json({ status: (data as any).status, dry_run: !real });
+        return json({ status: (data as any).status, dry_run: !real, extras: responseExtras(extras) });
       }
       case "crew_pending": {
         // #328: member vem do token da sessão; qualquer member_id no payload é ignorado (Body não o declara).
