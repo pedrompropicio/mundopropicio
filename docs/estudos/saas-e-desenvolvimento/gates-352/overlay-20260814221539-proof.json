@@ -1,0 +1,34 @@
+{
+  "version": "20260814221539",
+  "authorization": "Pedro/Claude current session: remove exclusively ledger lines 63-66; preserve complete trigger",
+  "original_path": "ledger/20260814221539_c29025c8-49fb-4c65-a4d5-2a24dae88daa.sql",
+  "overlay_path": "overlay/20260814221539_c29025c8-49fb-4c65-a4d5-2a24dae88daa.sql",
+  "original_sha256": "a909bd3f34cd317d991f5556f23e518f185baf9cdef6ff350e5159171d998eb4",
+  "old_overlay_sha256": "6e8c5615c700034f8db71cf189eade8d422cd77704963810fd9e0cec3a65bc90",
+  "result_overlay_sha256": "28b24f34f0fa17145f9c23ed3d75209a643e81f6369fa6e591777d15a0c8aa48",
+  "result_sql_body_sha256": "701a39049a1a12a9e1576fbf21333e8eb7802bd0ad0ea57506fb4369a9fc6937",
+  "unchanged_existing_header_lines": 4,
+  "removed_original_lines": [
+    63,
+    64,
+    65,
+    66
+  ],
+  "diff_opcodes_zero_based_half_open": [
+    [
+      "delete",
+      62,
+      66,
+      62,
+      62
+    ]
+  ],
+  "removed_bytes_sha256": "f48e2202a33f0909ffe2146a288725b2f095de46c6dc1b5a23fc2121fd66024a",
+  "other_original_bytes_preserved": true,
+  "only_change_from_previous_overlay": "restore original ledger lines 61 and 62; retain existing header unchanged",
+  "trigger_original_lines": [
+    59,
+    60,
+    61
+  ]
+}
