@@ -21,7 +21,7 @@ import * as GW from "./wallet-google.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { PreSendError, sendWelcomeOnce } from "./welcome.ts";
 import { REMINDER_SUBJECT, reminderEmail } from "./reminder-email.ts";
-import { clampLimit, runReminderBatch, sendReminderOnce, type ReminderDeps } from "./reminder.ts";
+import { clampLimit, reminderLimitError, runReminderBatch, sendReminderOnce, type ReminderDeps } from "./reminder.ts";
 import { grantedOnly, NO_GRANTED_CONSENT, type EmailConsentRow } from "./reminder-consent.ts";
 // #327: leituras canónicas (nível com piso, conquistas, montra de regras) — mesma fonte para site, me, ranking e Wallet.
 import { levelFromPoints, memberLevel, referralProgress, rulesPublic, type MemberLevel, type RulesView } from "./club-canon.ts";
@@ -559,6 +559,8 @@ Deno.serve(async (req) => {
     } catch (e) { console.error("wallet", (e as Error).message); return json({ error: "wallet", detail: (e as Error).message }, 502); }
     // Lembrete de confirmação: só manual, só service_role, dry_run por defeito (dry_run:false explícito para enviar).
     if (b?.action === "club_reminder_batch" || b?.action === "club_reminder_test") {
+      // #356: limit > máximo é rejeitado antes de qualquer leitura, reserva ou envio.
+      if (b.action === "club_reminder_batch") { const tooLarge = reminderLimitError(b.limit); if (tooLarge) return json(tooLarge, 400); }
       try { return json(await notifyReminders(site, b)); }
       catch (e) { console.error("club_reminder", (e as Error).message); return json({ error: "club_reminder", detail: (e as Error).message }, 502); }
     }
