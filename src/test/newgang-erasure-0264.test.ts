@@ -42,6 +42,7 @@ beforeAll(async () => {
   INSERT INTO club_members VALUES('${M}','${CO}','${SITE}','${CT}','${E}','+351910000000','Ana',NULL,NULL,NULL,NULL,now(),NULL);
   INSERT INTO lead_capture(company_id,email,name,phone,ip_inet,user_agent,raw,source,processed) VALUES
    ('${CO}','Ana.Teste@example.pt','Ana','+351910000000','1.2.3.4','ua','{"email":"x","first_name":"Ana","city":"Lisboa","utm":"y"}','clube_newgang',true),
+   ('${CO}','outra@x.pt','Outra',NULL,NULL,NULL,'{}','portal_newsletter',true);
   INSERT INTO meta_audience_upload_members VALUES('${CO}','${E}','+351','hh');
   INSERT INTO events VALUES('e0000000-0000-0000-0000-000000000001','${CO}'),('e0000000-0000-0000-0000-000000000002','d0000000-0000-0000-0000-000000000001'); INSERT INTO vip_coupon_email_log VALUES('e0000000-0000-0000-0000-000000000001','${E}'),('e0000000-0000-0000-0000-000000000002','${E}');
   INSERT INTO suppressed_emails VALUES('sha256:${H}','bounce','00000000-0000-0000-0000-000000000009');`);
