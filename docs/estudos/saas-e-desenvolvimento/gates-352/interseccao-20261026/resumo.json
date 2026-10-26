@@ -1,0 +1,66 @@
+{
+  "status": "intermediate; manual admission blocked; full requested cycle not complete",
+  "public_sha": "e9b76a765ebd15087fa54bf6131ce24ce2b08b12",
+  "private_sha": "ffbdc0a3174016fafe78d31d60ab5959bb916cdf",
+  "run_id": 40412907080,
+  "artifact_id": 12694570807,
+  "artifact_sha256": "ed4b6115f650ea583948171943de2067e24c608dba45aaf10d6491dfc68760bf",
+  "G1": {
+    "passed": true,
+    "executed": 1527,
+    "checkpoints": [
+      47,
+      114
+    ],
+    "acl_compensation": {
+      "passed": 2,
+      "targets": 2
+    },
+    "pgmq": "1.5.1",
+    "skipped_idempotent": 2135,
+    "skipped_destructive": 156
+  },
+  "manual_probe": {
+    "passed": false,
+    "transaction_committed": false,
+    "changed_objects": 278,
+    "different_objects": 2,
+    "differences": [
+      {
+        "category": "functions",
+        "object": "public.transaction_offset_control_status()",
+        "local_sha256": "791ce28564115faca7c864940d6002866d6206e7bb450f8e7e3c42ae29478758",
+        "live_sha256": "e50897a3dedc727b897c8e571211f588130e0007f484a40536adb3b493f2dcc2"
+      },
+      {
+        "category": "acl",
+        "object": "function:public.current_company_id()",
+        "local_sha256": "e5be86068dd6cbd41c46b0a28726319ecff1e0b843f3549aef0ad0bc928372e2",
+        "live_sha256": "196f3fdea0e84e7b08f51f3ac33e7d321551c00a1f4c78460b66a08a85f89268"
+      }
+    ],
+    "scripts": 5
+  },
+  "comparison": {
+    "status": "intermediate, before admission of five manuals and dependent reconstructed functions; remaining column permutations still need attnum triage",
+    "residuals": 793,
+    "families": 11,
+    "groups": {
+      "b": 526,
+      "a": 211,
+      "c": 56
+    },
+    "unclassified": 0
+  },
+  "fingerprint": {
+    "start_utc": "2026-10-26T22:21:19.289Z",
+    "finish_utc": "2026-10-26T22:40:08.488Z",
+    "stable_categories": 25
+  },
+  "ledger_stability": {
+    "utc": "2026-10-26T22:42:11.136Z",
+    "count": 983,
+    "unchanged": true
+  },
+  "reservation": "maintained"
+}

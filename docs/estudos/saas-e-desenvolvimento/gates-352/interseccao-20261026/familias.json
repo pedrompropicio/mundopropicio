@@ -1,0 +1,285 @@
+[
+  {
+    "id": "01",
+    "family": "Encontro de contas e guardas financeiras (#335)",
+    "cause": "DDL manual confrontado com Live; scripts divergentes ou com dependências não demonstradas não admitidos.",
+    "differences": 270,
+    "objects": 270,
+    "groups": {
+      "b": 236,
+      "a": 34
+    },
+    "categories": {
+      "acl": 42,
+      "columns": 48,
+      "constraints": 30,
+      "functions": 30,
+      "indexes": 10,
+      "internal_trigger_constraints": 48,
+      "policies": 24,
+      "rewrite_rules": 1,
+      "rls": 4,
+      "role_memberships": 1,
+      "roles": 1,
+      "tables": 4,
+      "toast_parents": 3,
+      "triggers": 13,
+      "types": 10,
+      "views": 1
+    },
+    "property_patterns": {
+      "grants": 5,
+      "$presence": 257,
+      "definition_sha256": 8
+    }
+  },
+  {
+    "id": "03",
+    "family": "Carreira artística e relatórios de tráfego",
+    "cause": "Definições e propriedades restantes após aplicar integralmente o histórico Drizzle capturado.",
+    "differences": 53,
+    "objects": 53,
+    "groups": {
+      "b": 32,
+      "c": 8,
+      "a": 13
+    },
+    "categories": {
+      "acl": 15,
+      "columns": 21,
+      "constraints": 6,
+      "functions": 8,
+      "indexes": 1,
+      "views": 2
+    },
+    "property_patterns": {
+      "grants": 8,
+      "$presence": 32,
+      "ordinal_position": 8,
+      "not_null": 1,
+      "definition_sha256": 2,
+      "options_sha256": 2
+    }
+  },
+  {
+    "id": "04",
+    "family": "CRM e integrações publicitárias",
+    "cause": "Objetos ou deltas sem origem/janela suficiente e propriedades de objetos existentes; inclui as duas tabelas Meta pendentes.",
+    "differences": 109,
+    "objects": 108,
+    "groups": {
+      "b": 18,
+      "a": 88,
+      "c": 3
+    },
+    "categories": {
+      "acl": 13,
+      "columns": 46,
+      "constraints": 9,
+      "functions": 6,
+      "indexes": 9,
+      "internal_trigger_constraints": 8,
+      "policies": 6,
+      "rewrite_rules": 1,
+      "rls": 1,
+      "tables": 1,
+      "toast_parents": 1,
+      "triggers": 3,
+      "types": 4,
+      "views": 1
+    },
+    "property_patterns": {
+      "grants": 4,
+      "$presence": 96,
+      "ordinal_position": 5,
+      "definition_sha256": 3,
+      "config_sha256": 1
+    }
+  },
+  {
+    "id": "05",
+    "family": "Finanças, BP e fecho restantes",
+    "cause": "Propriedades ou objetos estruturais de finanças fora dos scripts #335 admitidos; origem indicada por diferença.",
+    "differences": 57,
+    "objects": 56,
+    "groups": {
+      "b": 50,
+      "a": 4,
+      "c": 3
+    },
+    "categories": {
+      "functions": 4,
+      "acl": 11,
+      "columns": 34,
+      "constraints": 2,
+      "indexes": 4,
+      "policies": 2
+    },
+    "property_patterns": {
+      "definition_sha256": 4,
+      "grants": 10,
+      "$presence": 8,
+      "ordinal_position": 34,
+      "predicate_sha256": 1
+    }
+  },
+  {
+    "id": "06",
+    "family": "Portal, eventos e conteúdo público",
+    "cause": "Objetos e propriedades de portal/eventos ainda não reproduzidos; sem copiar dados operacionais.",
+    "differences": 22,
+    "objects": 22,
+    "groups": {
+      "b": 19,
+      "a": 3
+    },
+    "categories": {
+      "acl": 2,
+      "columns": 17,
+      "indexes": 3
+    },
+    "property_patterns": {
+      "grants": 2,
+      "ordinal_position": 17,
+      "$presence": 3
+    }
+  },
+  {
+    "id": "07",
+    "family": "pgmq e filas de email",
+    "cause": "Objetos de aplicação mantidos por N5; DDL/runtime do produtor de filas não excluído como plataforma.",
+    "differences": 26,
+    "objects": 26,
+    "groups": {
+      "c": 24,
+      "a": 2
+    },
+    "categories": {
+      "extension_members": 24,
+      "triggers": 2
+    },
+    "property_patterns": {
+      "$presence": 26
+    }
+  },
+  {
+    "id": "08",
+    "family": "Exceções de aplicação em schemas geridos",
+    "cause": "N4 mantém os objetos ou relações-pai referenciados pela aplicação; dependências da plataforma não ocultadas por exclusão adicional.",
+    "differences": 46,
+    "objects": 46,
+    "groups": {
+      "b": 15,
+      "a": 30,
+      "c": 1
+    },
+    "categories": {
+      "acl": 2,
+      "columns": 9,
+      "constraints": 7,
+      "indexes": 7,
+      "internal_trigger_constraints": 6,
+      "policies": 12,
+      "triggers": 3
+    },
+    "property_patterns": {
+      "grants": 2,
+      "$presence": 43,
+      "valid": 1
+    }
+  },
+  {
+    "id": "09",
+    "family": "Papéis e privilégios globais",
+    "cause": "Diferenças de ACL, papéis ou herança fora das duas exclusões de papéis expressamente aprovadas.",
+    "differences": 56,
+    "objects": 56,
+    "groups": {
+      "b": 49,
+      "a": 5,
+      "c": 2
+    },
+    "categories": {
+      "acl": 52,
+      "default_acl": 1,
+      "role_memberships": 2,
+      "roles": 1
+    },
+    "property_patterns": {
+      "grants": 48,
+      "$presence": 7,
+      "config_sha256": 1
+    }
+  },
+  {
+    "id": "10",
+    "family": "Outras funções e vistas",
+    "cause": "Corpos ou propriedades distintos, presença sem origem demonstrada ou rotinas só no replay; requer parecer por objeto.",
+    "differences": 31,
+    "objects": 27,
+    "groups": {
+      "b": 27,
+      "a": 4
+    },
+    "categories": {
+      "functions": 31
+    },
+    "property_patterns": {
+      "definition_sha256": 23,
+      "$presence": 4,
+      "config_sha256": 4
+    }
+  },
+  {
+    "id": "11",
+    "family": "Estrutura e isolamento restantes",
+    "cause": "Colunas lógicas, constraints, índices, triggers, políticas ou tipos ainda distintos após N1–N7.",
+    "differences": 121,
+    "objects": 113,
+    "groups": {
+      "b": 78,
+      "a": 28,
+      "c": 15
+    },
+    "categories": {
+      "columns": 60,
+      "constraints": 10,
+      "enums": 15,
+      "extension_members": 2,
+      "indexes": 7,
+      "internal_trigger_constraints": 12,
+      "policies": 12,
+      "triggers": 2,
+      "types": 1
+    },
+    "property_patterns": {
+      "ordinal_position": 48,
+      "not_null": 1,
+      "$presence": 43,
+      "default_sha256": 1,
+      "definition_sha256": 3,
+      "on_delete": 8,
+      "sort_order": 10,
+      "label_sha256": 5,
+      "predicate_sha256": 1,
+      "enum_labels_sha256": 1
+    }
+  },
+  {
+    "id": "12",
+    "family": "restore_shadow — origem no ledger",
+    "cause": "Objeto de aplicação referido pelo ledger; diferenças encaminhadas ao grupo (b), conforme 6425793808.",
+    "differences": 2,
+    "objects": 2,
+    "groups": {
+      "b": 2
+    },
+    "categories": {
+      "acl": 1,
+      "functions": 1
+    },
+    "property_patterns": {
+      "$presence": 2
+    }
+  }
+]
