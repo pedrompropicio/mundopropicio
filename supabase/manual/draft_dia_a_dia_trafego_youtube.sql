@@ -56,7 +56,8 @@ BEGIN
    count(*) FILTER(WHERE e.event='app_open') aberturas_android,
    count(*) FILTER(WHERE e.event='choice' AND e.os='ios') toques_ios,
    count(*) FILTER(WHERE e.utm_source='meta') aberturas_meta,
-   count(*) FILTER(WHERE e.utm_source='tiktok') aberturas_tiktok
+   count(*) FILTER(WHERE e.utm_source='tiktok') aberturas_tiktok,
+   count(DISTINCT e.ip_hash) pessoas_trafego
   FROM public.song_link_events e JOIN songs s ON s.id=e.song_id
   WHERE e.company_id=v_company AND e.artist_id=p_artist_id
     AND (e.utm_medium='paid' OR e.fbclid IS NOT NULL OR e.ttclid IS NOT NULL)
@@ -95,7 +96,7 @@ BEGIN
   CASE WHEN d.metric_day>='2026-10-25'::date THEN t.aberturas_android END aberturas_android,
   t.toques_ios,
   CASE WHEN d.metric_day>='2026-10-25'::date THEN coalesce(t.aberturas_android,0)+coalesce(t.toques_ios,0) ELSE t.toques_ios END aberturas_trafego,
-  t.aberturas_meta,t.aberturas_tiktok,
+  t.aberturas_meta,t.aberturas_tiktok,t.pessoas_trafego,
   yp.youtube_views_pagas,
   CASE WHEN y.value IS NOT NULL AND y.previous_value IS NOT NULL THEN y.value-y.previous_value END youtube_views_dia,
   true youtube_views_dia_aprox,
