@@ -144,12 +144,16 @@ Deno.serve(async (req) => {
   // 2. Check suppression list (fail-closed: if we can't verify, don't send).
   // A supressão é POR EMPRESA (#211): o mesmo endereço pode estar descadastrado
   // de uma empresa e continuar a receber de outra.
-  const { data: suppressed, error: suppressionError } = await supabase
+  // Apagamento RGPD: a supressão pode existir só como 'sha256:<hex>' do email normalizado.
+  const normRecipient = effectiveRecipient.toLowerCase().trim()
+  const recipientHash = 'sha256:' + Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(normRecipient)))).map((b) => b.toString(16).padStart(2, '0')).join('')
+  const { data: suppressedRows, error: suppressionError } = await supabase
     .from('suppressed_emails')
     .select('id')
-    .eq('email', effectiveRecipient.toLowerCase())
+    .in('email', [effectiveRecipient.toLowerCase(), recipientHash])
     .eq('company_id', companyId)
-    .maybeSingle()
+    .limit(1)
+  const suppressed = suppressedRows?.[0] ?? null
 
   if (suppressionError) {
     console.error('Suppression check failed — refusing to send', {

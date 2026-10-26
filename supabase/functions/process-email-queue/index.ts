@@ -335,9 +335,12 @@ Deno.serve(async (req) => {
       const isAuthEmail = queue === 'auth_emails' || payload.purpose === 'auth'
       if (payload.to && !isAuthEmail) {
         const recipient = String(payload.to).toLowerCase().trim()
-        let q = supabase.from('suppressed_emails').select('reason').eq('email', recipient)
+        // Apagamento RGPD: a supressão pode existir só como 'sha256:<hex>' do email normalizado.
+        const recipientHash = 'sha256:' + Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(recipient)))).map((b) => b.toString(16).padStart(2, '0')).join('')
+        let q = supabase.from('suppressed_emails').select('reason').in('email', [recipient, recipientHash])
         if (payload.company_id) q = q.eq('company_id', payload.company_id)
-        const { data: suppressed, error: suppressionError } = await q.maybeSingle()
+        const { data: suppressedRows, error: suppressionError } = await q.limit(1)
+        const suppressed = suppressedRows?.[0] ?? null
 
         if (suppressionError) {
           console.error('Suppression check failed', { queue, msg_id: msg.msg_id, code: suppressionError.code, message: suppressionError.message })
