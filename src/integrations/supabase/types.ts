@@ -25945,6 +25945,10 @@ export type Database = {
           without_any_match: number
         }[]
       }
+      freeze_settlement_participant: {
+        Args: { _note?: string; _participant_id: string; _values: Json }
+        Returns: Json
+      }
       fx_convert: {
         Args: { p_amount: number; p_date: string; p_from: string; p_to: string }
         Returns: number
@@ -27409,6 +27413,10 @@ export type Database = {
           _version_id: string
         }
         Returns: undefined
+      }
+      unfreeze_settlement_participant: {
+        Args: { _participant_id: string; _reason: string }
+        Returns: Json
       }
       unique_event_slug: {
         Args: { base: string; exclude_id: string }

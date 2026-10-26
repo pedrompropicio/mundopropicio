@@ -1,0 +1,3 @@
+-- ROLLBACK 0269 (NÃO APLICADO). Descomentar só com «Sim» do Pedro.
+-- DROP FUNCTION IF EXISTS public.freeze_settlement_participant(uuid, jsonb, text);
+-- DROP FUNCTION IF EXISTS public.unfreeze_settlement_participant(uuid, text);
