@@ -111,6 +111,31 @@ ESTADO CONHECIDO (cada número com origem)
 ```
 + Bloco Comum
 
+## Molde 2b — `abertura-<evento>-<ano>`
+
+```
+ARRANQUE DO CHAT abertura-<evento>-<ano>
+Tipo: chat de evento — fase abertura. Modelo: intermédio.
+
+ÂMBITO
+<evento, formato, datas, se é master; o que se abre nesta fase e o que se decide aqui>
+Evento: <nome> · events.id <uuid> · empresa <uuid>
+
+NÃO PERTENCE AQUI
+- BP do evento → bp-<evento>-<ano> · Fecho e sócios deste evento → fecho-<evento>-<ano> · Bilheteira → 3 · Campanhas → 8 · Plataforma → 2
+Bug, regra nova ou campo em falta: Issue + frente. Este chat nunca manda mexer na plataforma. Escrever no docs/QUADRO.md não conta como mexer na plataforma.
+
+RITUAL DE ARRANQUE
+1. Ler docs/INDEX.md
+2. Ler docs/estado/estado-abertura-<evento>-<ano>.md (ou o handoff)
+3. Ler as issues abertas
+4. Consultar na hora, na base, o evento e as vendas
+
+ESTADO CONHECIDO (cada número com origem)
+- events.id: <uuid> — origem: <query>
+```
++ Bloco Comum
+
 ## Molde 3 — `fecho-<evento>-<ano>`
 
 ```
