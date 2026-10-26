@@ -1898,6 +1898,13 @@
       "when": 1793052129809,
       "tag": "0270_p1_freeze_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 271,
+      "version": "7",
+      "when": 1793055538287,
+      "tag": "0271_p3_partner_contracts_tables",
+      "breakpoints": true
     }
   ]
 }

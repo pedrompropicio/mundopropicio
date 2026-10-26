@@ -15958,6 +15958,137 @@ export type Database = {
           },
         ]
       }
+      partner_payment_contracts: {
+        Row: {
+          advances_amount: number
+          balance_tx_id: string | null
+          beneficiary_supplier_id: string
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          direction: string
+          due_date: string
+          event_id: string
+          gross: number
+          id: string
+          idempotency_key: string | null
+          label: string | null
+          participant_id: string
+          replaced_by: string | null
+          settlement_id: string
+          withholding_amount: number
+          withholding_applies: boolean
+          withholding_due_date: string | null
+          withholding_rate: number | null
+          withholding_tx_id: string | null
+        }
+        Insert: {
+          advances_amount?: number
+          balance_tx_id?: string | null
+          beneficiary_supplier_id: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          direction?: string
+          due_date: string
+          event_id: string
+          gross: number
+          id?: string
+          idempotency_key?: string | null
+          label?: string | null
+          participant_id: string
+          replaced_by?: string | null
+          settlement_id: string
+          withholding_amount?: number
+          withholding_applies: boolean
+          withholding_due_date?: string | null
+          withholding_rate?: number | null
+          withholding_tx_id?: string | null
+        }
+        Update: {
+          advances_amount?: number
+          balance_tx_id?: string | null
+          beneficiary_supplier_id?: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          direction?: string
+          due_date?: string
+          event_id?: string
+          gross?: number
+          id?: string
+          idempotency_key?: string | null
+          label?: string | null
+          participant_id?: string
+          replaced_by?: string | null
+          settlement_id?: string
+          withholding_amount?: number
+          withholding_applies?: boolean
+          withholding_due_date?: string | null
+          withholding_rate?: number | null
+          withholding_tx_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_payment_contracts_balance_tx_id_fkey"
+            columns: ["balance_tx_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_contracts_beneficiary_supplier_id_fkey"
+            columns: ["beneficiary_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_contracts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_contracts_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "event_settlement_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_contracts_replaced_by_fkey"
+            columns: ["replaced_by"]
+            isOneToOne: false
+            referencedRelation: "partner_payment_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_contracts_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "event_settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_contracts_withholding_tx_id_fkey"
+            columns: ["withholding_tx_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_list_bank_executions: {
         Row: {
           bank_statement_line_id: string
@@ -20394,6 +20525,8 @@ export type Database = {
           original_amount: number | null
           paid_amount: number
           parent_transaction_id: string | null
+          partner_contract_id: string | null
+          partner_contract_role: string | null
           paying_partner_id: string | null
           payment_date: string | null
           payment_entity: string | null
@@ -20460,6 +20593,8 @@ export type Database = {
           original_amount?: number | null
           paid_amount?: number
           parent_transaction_id?: string | null
+          partner_contract_id?: string | null
+          partner_contract_role?: string | null
           paying_partner_id?: string | null
           payment_date?: string | null
           payment_entity?: string | null
@@ -20526,6 +20661,8 @@ export type Database = {
           original_amount?: number | null
           paid_amount?: number
           parent_transaction_id?: string | null
+          partner_contract_id?: string | null
+          partner_contract_role?: string | null
           paying_partner_id?: string | null
           payment_date?: string | null
           payment_entity?: string | null
@@ -20627,6 +20764,13 @@ export type Database = {
             columns: ["parent_transaction_id"]
             isOneToOne: false
             referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_partner_contract_id_fkey"
+            columns: ["partner_contract_id"]
+            isOneToOne: false
+            referencedRelation: "partner_payment_contracts"
             referencedColumns: ["id"]
           },
           {
