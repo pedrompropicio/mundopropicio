@@ -1,0 +1,5 @@
+-- ROLLBACK 0270 (NÃO APLICADO). Descomentar só com «Sim» do Pedro.
+-- DROP TRIGGER IF EXISTS trg_guard_frozen_settlement_participant ON public.event_settlement_participants;
+-- DROP TRIGGER IF EXISTS trg_guard_frozen_partner_extras ON public.event_partner_extras;
+-- DROP FUNCTION IF EXISTS public.guard_frozen_settlement_participant();
+-- DROP FUNCTION IF EXISTS public.guard_frozen_partner_extras();
