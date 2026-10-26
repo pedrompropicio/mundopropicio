@@ -29,3 +29,9 @@ Colunas existem e todas nulas; prosecdef/proacl; md5 das funções antigas iguai
 
 ## Fica por aplicar depois
 Ecrã (P7) — sem ele não há forma de congelar pelo app; o selo da Anitta ficará bloqueado após o passo 4 até haver ecrã.
+
+## Decisões do Pedro (26/10)
+1. A — passo 4 só junto com o ecrã P7.
+2. A — extras bloqueados se o sócio estiver congelado em qualquer fechamento do evento.
+3. A — frozen_values: só valida objeto (não nulo, não array).
+Nenhum DDL até ao «Sim» ao passo 1; depois só o passo 1 + verificação Live, e parar.
