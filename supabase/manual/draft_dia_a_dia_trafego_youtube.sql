@@ -69,7 +69,7 @@ BEGIN
  yt_paid AS (SELECT s.id AS song_id,g.date_start AS metric_day,
    sum(coalesce(nullif(g.video_metrics->>'video_views','')::bigint,0)) youtube_views_pagas
   FROM crm.google_campaign_insights_daily g JOIN songs s
-    ON position(regexp_replace(lower(extensions.unaccent(regexp_replace(s.title,'\\s*[-–—]?\\s*ao vivo.*$','','i'))),'[^a-z0-9]','','g')
+    ON position(regexp_replace(lower(extensions.unaccent(regexp_replace(s.title,'\s*[-–—]?\s*ao vivo.*$','','i'))),'[^a-z0-9]','','g')
        in regexp_replace(lower(extensions.unaccent(g.campaign_name)),'[^a-z0-9]','','g'))>0
   WHERE g.company_id=v_company
     AND g.date_start BETWEEN greatest(p_from,p_to-13) AND p_to
