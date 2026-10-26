@@ -6283,3 +6283,16 @@ Com o ambiente mp-homolog (#352) verde, as demandas R1 e R2 de código passam a 
 - **Porquê:** o trabalho jurídico já acontecia disperso por chats de portal e de evento (seis documentos herdados em sete dias), sem dono nem estado.
 - **Onde está:** `docs/CHATS.md` (tipo g), `docs/prompts/juridico.md`, `docs/estado/estado-juridico.md`, secção `juridico` no `docs/QUADRO.md`.
 - **Estado:** vigente.
+
+## D-ERP312 — Regras RGPD: menores, públicos de anúncios, WhatsApp sem prova e transparência (26/10/2026)
+
+**Decisão Pedro, chat `juridico` (Claude), 26/10/2026.** Posição e graus de risco do jurídico; o Pedro decide o risco aceite. Regras sem dados identificáveis (D-ERP307); análise e números no Drive do Pedro (05 Jurídico).
+
+- **Menores de 18 anos:** nunca entram em públicos de anúncios (Meta, TikTok, Google). Ficam só para comunicações do Clube, com consentimento próprio (idade de consentimento digital em Portugal: 13 anos — Lei 58/2019, art. 16.º).
+- **Públicos de anúncios a partir de listas:** só entra quem tem prova no servidor do consentimento de marketing do banner, com texto que informe a partilha com a plataforma. A inscrição numa lista (ex.: Early Bird) consente a finalidade da lista, não anúncios. A dedução por cookies não é prova. Públicos semelhantes seguem a lista de origem: criados a partir de lista sem prova, apagam-se.
+- **WhatsApp:** só com consentimento próprio com versão gravada. Origens sem prova não são elegíveis. Re-pedido só por email, nunca pelo próprio WhatsApp.
+- **Email de abertura de lista:** o consentimento da inscrição fundamenta o aviso e as comunicações ligadas à compra dessa edição; não cobre outros eventos nem marketing geral. Interesse legítimo não se aplica a quem não é cliente (Lei 41/2004, art. 13.º-A).
+- **Textos:** "hash" nunca se descreve como encriptação. Banner e política nomeiam exatamente as plataformas que carregam com o consentimento. A data de "última atualização" da política é a verdadeira. Transferências para os EUA descritas por plataforma (DPF quando certificada, senão cláusulas contratuais-tipo).
+- **Prova:** nova redação ⇒ nova versão. Prova reconstruída do histórico de código marca-se como reconstrução, nunca como prova.
+- **Quem implementa:** 9 (ERP, públicos, elegibilidade) e os portais (banner, política, formulários) — pedidos no QUADRO de 26/10/2026.
+- **Estado:** vigente.
