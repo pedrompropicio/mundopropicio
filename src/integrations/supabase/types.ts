@@ -6033,6 +6033,7 @@ export type Database = {
           contact_id: string | null
           created_at: string
           email: string
+          erased_at: string | null
           first_name: string | null
           id: string
           instagram_handle: string | null
@@ -6057,6 +6058,7 @@ export type Database = {
           contact_id?: string | null
           created_at?: string
           email: string
+          erased_at?: string | null
           first_name?: string | null
           id?: string
           instagram_handle?: string | null
@@ -6081,6 +6083,7 @@ export type Database = {
           contact_id?: string | null
           created_at?: string
           email?: string
+          erased_at?: string | null
           first_name?: string | null
           id?: string
           instagram_handle?: string | null
@@ -6885,6 +6888,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      club_retention_log: {
+        Row: {
+          created_at: string
+          email_sha256: string
+          id: number
+          old_member_id: string
+          reason: string
+          run_id: string
+          tables_affected: Json
+        }
+        Insert: {
+          created_at?: string
+          email_sha256: string
+          id?: never
+          old_member_id: string
+          reason: string
+          run_id: string
+          tables_affected: Json
+        }
+        Update: {
+          created_at?: string
+          email_sha256?: string
+          id?: never
+          old_member_id?: string
+          reason?: string
+          run_id?: string
+          tables_affected?: Json
+        }
+        Relationships: []
       }
       club_rewards: {
         Row: {
@@ -25043,6 +25076,15 @@ export type Database = {
           p_site: string
         }
         Returns: boolean
+      }
+      club_member_erase: {
+        Args: {
+          p_dry_run?: boolean
+          p_member_id: string
+          p_reason?: string
+          p_run_id?: string
+        }
+        Returns: Json
       }
       club_member_level: {
         Args: { p_member: string }

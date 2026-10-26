@@ -54,3 +54,4 @@ Decisão do Pedro, 23/10/2026, aplicável a qualquer Issue e frente: todos os no
 - Na implementação e revisão de qualquer Issue, conferir todos os campos de data criados ou alterados contra este padrão, incluindo filtros secundários.
 - Esta regra não autoriza uma migração global dos campos existentes; corrigir os campos no âmbito autorizado da demanda.
 - Smart-link A/B variants are computed server-side in song-link-event (pure ab-variant.ts) and returned/stored only; never sent in Meta/TikTok payloads, so the test cannot alter attribution.
+- Club member erasure goes only through service-role `club_member_erase` (dry_run default, tombstone row, hash-only suppression, PII-free log); senders must check both plain and `sha256:` suppression so erased addresses stay blocked.

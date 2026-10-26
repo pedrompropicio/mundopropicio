@@ -84,7 +84,9 @@ function clientIp(req: Request): string {
 
 const Body = z.object({
   action: z.enum(["bundle", "regulation", "site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending",
-    "missions", "mission_upload_url", "submit_mission", "profile", "profile_confirm", "profile_preferences", "profile_countries", "cities", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google"]),
+    "missions", "mission_upload_url", "submit_mission", "profile", "profile_confirm", "profile_preferences", "profile_countries", "cities", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google", "erase_account"]),
+  confirm: z.literal("APAGAR").optional(),
+  dry_run: z.boolean().optional(),
   profile_payload: z.unknown().optional(),
   preferences_payload: z.unknown().optional(),
   token: z.string().min(20).max(200).optional(),
@@ -758,6 +760,15 @@ Deno.serve(async (req) => {
         if (body.action === "crew_create") return json({ id: out.id, name: out.name, code: out.code, invite_link: CREW_LINK(SITE_DOMAIN, out.code) });
         if (body.action === "crew_join") return json({ ok: true, crew: await myCrew(site.id, member.id) });
         return json({ ok: true });
+      }
+      case "erase_account": {
+        // Cancelamento pelo próprio membro (sessão válida). Simulação salvo dry_run=false + confirm="APAGAR".
+        if (!member || member.site_id !== site.id || member.company_id !== site.company_id) return json({ error: "no_session" }, 401);
+        const real = body.dry_run === false && body.confirm === "APAGAR";
+        const { data, error } = await sb.rpc("club_member_erase", { p_member_id: member.id, p_reason: "erasure_request", p_dry_run: !real });
+        if (error || !data) { console.error("erase_account", error?.code); return json({ error: "internal" }, 500); }
+        console.log(JSON.stringify({ action: "erase_account", status: (data as any).status }));
+        return json({ status: (data as any).status, dry_run: !real });
       }
       case "crew_pending": {
         // #328: member vem do token da sessão; qualquer member_id no payload é ignorado (Body não o declara).

@@ -1,0 +1,6 @@
+-- Inverso de 0263 (NÃO aplicar sem Sim; apagamentos feitos não são reversíveis).
+-- DROP FUNCTION IF EXISTS public.club_member_erase(uuid, text, boolean, uuid);
+-- DROP TABLE IF EXISTS public.club_retention_log;
+-- ALTER TABLE public.suppressed_emails DROP CONSTRAINT suppressed_emails_reason_check;
+-- ALTER TABLE public.suppressed_emails ADD CONSTRAINT suppressed_emails_reason_check CHECK (reason = ANY (ARRAY['unsubscribe','bounce','complaint','test','manual']));
+-- ALTER TABLE public.club_members DROP COLUMN erased_at;

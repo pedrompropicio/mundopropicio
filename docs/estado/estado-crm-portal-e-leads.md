@@ -92,3 +92,13 @@ Migração 0239 e `newgang-portal` já implantadas, incluindo o rodapé com Mund
 - Demanda de envio concluída; reserva removida do QUADRO. Pendências separadas: #356, reavaliação dos recentes por decisão do Pedro e recuperação dos dois IDs completos da resposta original do dry_run.
 
 Fecho apenas em `docs/` e abertura da Issue: sem deploy, DDL, DML, crons, Publish, envios ou chamadas às ações do lembrete.
+
+## 26/10/2026 — Clube Newgang: apagamento a pedido (R2 passo 4, #368): feito
+- Migração `0263_newgang_erasure_on_request.sql` (cópia em `supabase/manual/`). RPC `club_member_erase(member_id, reason='erasure_request', dry_run=true, run_id)` — só service_role, SECURITY DEFINER, idempotente por `club_members.erased_at`.
+- Apaga nome, email (passa a `erased+<id>@invalid`), telemóvel, redes sociais, sessões, passes Wallet, tokens de descadastro, perfil demográfico, provas de missões; elimina o contacto ligado (se não partilhado). Pontos e missões ficam anónimos. `email_send_log.recipient_email` passa a `sha256:<hex>`.
+- Revoga email, WhatsApp e anúncios nos históricos append-only (#332). Supressão só por hash: `suppressed_emails.email='sha256:<hex>'`, reason `erasure_request` (+ marcador). Remove a supressão em claro.
+- Prova em `club_retention_log` (run_id, old_member_id, email_sha256, reason, tables_affected com contagens), sem dados pessoais, fechada a anon/authenticated.
+- Integração: (a) cancelamento pelo membro — `newgang-portal` ação `erase_account` com sessão; real só com `dry_run:false` e `confirm:"APAGAR"` (botão no portal Newgang por fazer, no projeto do portal); (b) pedido manual da equipa — chamada service_role à RPC (sem ecrã CRM).
+- `process-email-queue` e `send-transactional-email` passam a respeitar também a supressão por hash.
+- Rotina 30/36 meses, reconfirmação e cron: adiadas para 2028 (decisão do Pedro 26/10).
+- Em aberto: `leads`/`lead_capture` com o mesmo email não são apagados; ficheiros de prova no storage e o objeto Google Wallet não são removidos; reinscrição futura do mesmo email fica suprimida pelo hash.
