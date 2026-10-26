@@ -65,8 +65,9 @@ Estrutura, prosecdef/proconfig/proacl, md5 das funções existentes, contagens d
 - Fica: P4 (10.1.06 + direction 'in'), P7 (ecrã), confirmação Anitta só depois de congelar via ecrã.
 - P7 lê: partner_contract_status, partner_payment_contracts, transactions.partner_contract_id/role, chave de parte em frozen_values (tem de a gravar no congelar).
 
-## Questões em aberto
-1. Chave da parte congelada em frozen_values (não há dados): A) fixar `frozen_values->>'share_amount'` e a RPC recusa se faltar; P7 grava-a (RECOMENDADA) B) recalcular a parte no servidor.
-2. 10.1.03 fica com transitory_reason 'aporte_socio' pelo trigger: A) aceitar agora e corrigir no P4 (RECOMENDADA) B) passo extra que dá motivo próprio a 10.1.03.
-3. Retenção: A) 2 transações (sócio + Finanças), ambas 10.1.03 (RECOMENDADA) B) retenção em 10.1.03 só no sócio, Finanças à parte.
-4. OK para o passo 1?
+## Decisões do Pedro (26/10, 22:51 UTC)
+1. A — parte = `frozen_values->>'share_amount'`; a RPC recusa se faltar. O P7 tem de a gravar no congelar. Limitação: o congelar recebe valores do cliente (como no Cachê); não há recálculo no servidor (motor em TS; get_partner_settlement_summary depende de auth.uid).
+2. B — 10.1.03 ganha motivo próprio ('distribuicao_resultado') em force_transitory_for_capital_branch antes de existir qualquer contrato (10.1.03 tem 0 transações; sem backfill). Antes do SQL: verificar CHECK/enum em transactions.transitory_reason, leitores em src/ e supabase/functions/, md5 Live (cf9e97d1).
+3. A — duas transações (sócio + Finanças), ambas 10.1.03, só com retenção = Sim. Classificação co-produção vs cachê por decidir pelo Pedro: pergunta Sim/Não sem pré-seleção, nenhuma retenção assumida.
+4. Ordem nova: 1 tabelas (0271); 2 motivo 10.1.03; 3 RPCs; 4 guardas; 5 unfreeze. SQL completo de cada passo mostrado antes de qualquer aplicação.
+Estado: passo 1 PREPARADO (supabase/manual/0271_p3_partner_contracts_tables.sql + rollback + src/test/p3-partner-contracts-tables.test.ts 9/9), NÃO aplicado.
