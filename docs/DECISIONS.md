@@ -6271,3 +6271,15 @@ Registo documental;nenhuma transferência/ligação/alteração de segredos ou e
 ### D-ERP310 — Fluxos pós-homologação e executores elegíveis (25/10/2026)
 
 Com o ambiente mp-homolog (#352) verde, as demandas R1 e R2 de código passam a correr contra homologação antes de Live. Executores elegíveis: o agente Lovable (único escritor em Live), Codex e Claude Code — ambos por CLI com as subscrições existentes, em repo/branch com PR, CI verde e revisão por leitura do outro lado. Um executor por demanda; "Executor atual" na Issue prevalece. O "Sim" do Pedro continua a anteceder qualquer tarefa R1/R2 e é sempre dele. Esta decisão não altera D-ERP291 (Publish e crons só pelo 0, em janela); a revisão de D-ERP278/D-ERP291 à luz do painel (#360) é decisão futura, só após a E2 ser aprovada.
+
+## D-ERP311 — Chat juridico: assessoria jurídica PT, ES e BR (26/10/2026)
+
+**Decisão Pedro, chat 1 · Controller (Claude), 26/10/2026.** Abre-se o chat sem número `juridico`, tipo assessoria, modelo pesado — excepção à decisão de 14/10/2026, por ser raciocínio sobre texto longo (contratos, legislação de três países) e não despacho ao agente.
+
+- **Âmbito:** contratos (ler, criticar, redigir, negociar, responder a contrapartes); RGPD e protecção de dados — o `juridico` decide a regra (fundamento de licitude, consentimento, políticas de privacidade e cookies, retenção, subcontratantes, transferências internacionais, pedidos de titulares e de autoridades) e o 9 e os portais implementam; laboral; licenciamento de espectáculos e direitos de autor; fiscal só na parte de direito (IVA operacional no 4, contabilidade na Expert Numbers). Jurisdições: Portugal, Espanha e Brasil.
+- **Classe de risco:** só R0. Não escreve código, não dispara o agente Lovable, não escreve na base, não envia nada para fora — prepara, e diz quando deve passar por advogado.
+- **Confidencialidade:** termos contratuais, valores negociados, dados pessoais e estratégia de negociação nunca entram no repositório, que é público (D-ERP307). Vivem no Projeto do Claude, no Drive com partilha restrita, ou no chat.
+- **Onde vive:** do lado do Claude, como skill `assessor-juridico` com conversa própria, fora dos Projetos — o jurídico serve a MP, a PNI e a Carreira Artística, e o conector GitHub da conta liga-o ao QUADRO e ao estado. Do lado do ChatGPT, pelo prompt `docs/prompts/juridico.md`.
+- **Porquê:** o trabalho jurídico já acontecia disperso por chats de portal e de evento (seis documentos herdados em sete dias), sem dono nem estado.
+- **Onde está:** `docs/CHATS.md` (tipo g), `docs/prompts/juridico.md`, `docs/estado/estado-juridico.md`, secção `juridico` no `docs/QUADRO.md`.
+- **Estado:** vigente.
