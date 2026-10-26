@@ -6297,6 +6297,8 @@ Com o ambiente mp-homolog (#352) verde, as demandas R1 e R2 de código passam a 
 - **Quem implementa:** 9 (ERP, públicos, elegibilidade) e os portais (banner, política, formulários) — pedidos no QUADRO de 26/10/2026.
 - **Estado:** vigente.
 
+- **Adenda 26/10/2026 (#314 Fase 4):** textos email-v4/anuncios-v2/whatsapp-v2 em vigor e política MP/pt/privacidade atualizada com P1–P8 do jurídico (P6 com «data de nascimento»), aplicada em Live a 26/10/2026 (md5 20ee1acc7e5242ccbe83b079f65ee47b). Prova em docs/testes/issue314/fase3-4.md.
+
 ## D-ERP313 — Textos de consentimento do Newgang, menores e medição de email (26/10/2026)
 
 **Decisão Pedro, chat `juridico` (Claude), 26/10/2026.** Complementa a D-ERP312. Riscos e números no Drive do Pedro (05 Jurídico).
@@ -6308,6 +6310,8 @@ Com o ambiente mp-homolog (#352) verde, as demandas R1 e R2 de código passam a 
 - **Banner do Coala:** só nomeia o que carrega; nada de terceiros carrega antes do consentimento (fontes e ícones alojados no próprio site).
 - **Estado:** vigente.
 
+- **Adenda 26/10/2026:** aprovação final do Pedro dos textos email-v4/anuncios-v2/whatsapp-v2 e da política P1–P8; publicados a 26/10/2026.
+
 ## D-ERP314 — Idade na inscrição do Clube Newgang e envio de dados à Meta (26/10/2026)
 
 **Decisão Pedro, chat `juridico` (Claude), 26/10/2026.** Complementa a D-ERP313.
@@ -6317,4 +6321,4 @@ Com o ambiente mp-homolog (#352) verde, as demandas R1 e R2 de código passam a 
 - **Sem data:** contam como menores para publicidade até indicarem o ano; pedido único do ano, sem supressão.
 - **email-v4** mantém-se.
 - **Estado:** vigente.
-
+- **Adenda 26/10/2026 (texto final aplicado na #314):** data de nascimento completa obrigatória; 18+ pela data exata; <13 bloqueia e não grava; 13–17 sem eventos de conversão nem anúncios; membros sem data tratados como menores para publicidade; Lead/CompleteRegistration/ClubeConfirmado só 18+; ViewContent/InitiateCheckout/PageView mantidos para todos com consentimento de marketing, com interruptor por evento.
