@@ -1905,6 +1905,13 @@
       "when": 1793055538287,
       "tag": "0271_p3_partner_contracts_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 272,
+      "version": "7",
+      "when": 1793057354981,
+      "tag": "0272_p3_transitory_reason_10_1_03",
+      "breakpoints": true
     }
   ]
 }
