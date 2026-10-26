@@ -11378,6 +11378,10 @@ export type Database = {
           event_id: string
           event_partner_id: string | null
           expense_includes_iva: boolean | null
+          freeze_note: string | null
+          frozen_at: string | null
+          frozen_by: string | null
+          frozen_values: Json | null
           id: string
           loss_pct: number | null
           mode: string
@@ -11398,6 +11402,10 @@ export type Database = {
           event_id: string
           event_partner_id?: string | null
           expense_includes_iva?: boolean | null
+          freeze_note?: string | null
+          frozen_at?: string | null
+          frozen_by?: string | null
+          frozen_values?: Json | null
           id?: string
           loss_pct?: number | null
           mode?: string
@@ -11418,6 +11426,10 @@ export type Database = {
           event_id?: string
           event_partner_id?: string | null
           expense_includes_iva?: boolean | null
+          freeze_note?: string | null
+          frozen_at?: string | null
+          frozen_by?: string | null
+          frozen_values?: Json | null
           id?: string
           loss_pct?: number | null
           mode?: string

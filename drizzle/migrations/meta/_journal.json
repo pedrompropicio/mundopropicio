@@ -1877,6 +1877,13 @@
       "when": 1793050316320,
       "tag": "0267_issue314_fase2b_birth_date_only",
       "breakpoints": true
+    },
+    {
+      "idx": 268,
+      "version": "7",
+      "when": 1793051465071,
+      "tag": "0268_p1_participant_freeze_columns",
+      "breakpoints": true
     }
   ]
 }
