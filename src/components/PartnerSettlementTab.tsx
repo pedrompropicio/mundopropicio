@@ -76,6 +76,9 @@ import {
   collectDisbursementAdjustments,
   collectRevenuesHeld,
   partnerAdvancedTotal,
+  partnerMpTransfersAdvanced,
+  partnerTransferIvaBase,
+  isMpTransferCategoryCode,
   partnerDisbursement,
   partnerFinancingToReturn,
   sumLineAmounts,
@@ -159,6 +162,12 @@ interface PartnerSettlement {
   transferBase: number;
   transferVat: number;
   transferTotal: number;
+  /** (IVA repasse) Transferências já feitas pela MP (contas de acerto, 10.3). */
+  mpTransfersAdvanced: number;
+  /** (IVA repasse) Base do IVA = max(0, base + transferências MP). */
+  transferVatBase: number;
+  /** (IVA repasse) Total faturado = base do IVA + IVA. */
+  invoicedTotal: number;
   /** Saldo total incluindo o resultado ainda sem liquidez imediata e as cauções pendentes.
    *  positive = empresa paga sócio, negative = sócio paga empresa */
   settlement: number;
@@ -379,7 +388,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       if (accounts.length > 0) {
         const { data: txs, error: txErr } = await fetchAllPagedQuery(supabase
           .from("transactions")
-          .select("id, description, amount, date, type, status, account_id, event_id, reversed_at")
+          .select("id, description, amount, date, type, status, account_id, event_id, reversed_at, account_categories(code)")
           .in("account_id", accounts.map((a: any) => a.id))
           .in("event_id", allEventIds)
           .eq("type", "income"));
@@ -399,6 +408,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             amount: Number(t.amount) || 0,
             date: t.date || "",
             eventId: t.event_id ?? null,
+            // (IVA repasse) Transferência interna da MP (10.3 / 10.3.*).
+            isMpTransfer: !!acc?.partner_id && isMpTransferCategoryCode(t.account_categories?.code),
           });
         }
       }
@@ -1140,6 +1151,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       totalRevenuesHeld,
     );
     const totalAdvanced = partnerAdvancedTotal(totalPartnerExtras);
+    const mpTransfersAdvanced = isHouse ? 0 : partnerMpTransfersAdvanced(heldRows, p.id);
 
     // Items transitórios:
     //  • Sócio externo → linhas vinculadas em partner_paid_expenses (despesas e devoluções diretas)
@@ -1203,6 +1215,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       transferBase: 0,      // calculado abaixo
       transferVat: 0,
       transferTotal: 0,
+      mpTransfersAdvanced,
+      transferVatBase: 0,
+      invoicedTotal: 0,
       settlement: 0,        // recalculado abaixo
     };
   });
@@ -1244,9 +1259,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     // chegou (extras/adiantamentos + entradas nas contas de acerto).
     // (g5·D) parte + desembolso ± ajustes − receitas em poder − extras/adiantamentos.
     s.transferBase = roundCents(s.partnerShare + s.financingToReturn - s.totalAdvanced);
+    // (IVA repasse) Base do IVA inclui as transferências já feitas pela MP.
+    s.transferVatBase = s.transferWithVat ? partnerTransferIvaBase(s.transferBase, s.mpTransfersAdvanced) : 0;
     s.transferVat =
-      s.transferWithVat && s.transferBase > 0 ? calcIvaAmount(s.transferBase, TRANSFER_IVA_RATE) : 0;
+      s.transferWithVat && s.transferVatBase > 0 ? calcIvaAmount(s.transferVatBase, TRANSFER_IVA_RATE) : 0;
     s.transferTotal = roundCents(s.transferBase + s.transferVat);
+    s.invoicedTotal = s.transferWithVat ? roundCents(s.transferVatBase + s.transferVat) : 0;
   });
 
   // ---- Reconciliação interna da posição real da Mundo Propício ----
@@ -1804,6 +1822,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       ),
       partnerAdvances: 0,
       transferWithVat: row.transferWithVat,
+      mpTransfersAdvanced: row.mpTransfersAdvanced,
       participants: settlements.map((s) => ({
         name: s.partnerName,
         percentage: s.effectivePercentage,
@@ -1977,6 +1996,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                         revenuesHeld: s.revenuesHeld,
                         totalRevenuesHeld: s.totalRevenuesHeld,
                         financingToReturn: s.financingToReturn,
+                        transferBase: s.transferBase,
+                        transferWithVat: s.transferWithVat,
+                        mpTransfersAdvanced: s.mpTransfersAdvanced,
+                        transferVatBase: s.transferVatBase,
+                        transferVat: s.transferVat,
+                        transferTotal: s.transferTotal,
+                        invoicedTotal: s.invoicedTotal,
                       })
                     }
                   >
@@ -2224,6 +2250,18 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               </div>
               {s.transferWithVat && (
                 <>
+                  {s.mpTransfersAdvanced !== 0 && (
+                    <>
+                      <div>
+                        <span className="text-xs text-muted-foreground">Transferências já feitas pela MP</span>
+                        <p className="font-mono font-bold">{formatCurrency(s.mpTransfersAdvanced)}</p>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground">Base do IVA</span>
+                        <p className="font-mono font-bold">{formatCurrency(s.transferVatBase)}</p>
+                      </div>
+                    </>
+                  )}
                   <div>
                     <span className="text-xs text-muted-foreground">IVA 23% sobre o repasse</span>
                     <p className="font-mono font-bold">{formatCurrency(s.transferVat)}</p>
@@ -2236,6 +2274,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                       {formatCurrency(Math.abs(s.transferTotal))}
                     </p>
                   </div>
+                  {s.mpTransfersAdvanced !== 0 && (
+                    <div>
+                      <span className="text-xs text-muted-foreground">Total faturado</span>
+                      <p className="font-mono font-bold">{formatCurrency(s.invoicedTotal)}</p>
+                    </div>
+                  )}
                 </>
               )}
               {!s.transferWithVat && (

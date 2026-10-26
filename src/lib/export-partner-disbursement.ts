@@ -30,6 +30,14 @@ export interface DisbursementExportInput {
   revenuesHeld: RevenueHeldRow[];
   totalRevenuesHeld: number;
   financingToReturn: number;
+  /** (IVA repasse) Só apresentação; omitido = secção não aparece. */
+  transferBase?: number;
+  transferWithVat?: boolean;
+  mpTransfersAdvanced?: number;
+  transferVatBase?: number;
+  transferVat?: number;
+  transferTotal?: number;
+  invoicedTotal?: number;
 }
 
 export async function buildDisbursementWorkbook(input: DisbursementExportInput) {
@@ -126,6 +134,21 @@ export async function buildDisbursementWorkbook(input: DisbursementExportInput) 
     size: 11,
     bold: true,
   };
+
+  if (input.transferWithVat) {
+    ws.addRow([]);
+    title("5. IVA 23% sobre o repasse");
+    money(ws.addRow(["Base a transferir", null, null, null, input.transferBase ?? 0]), [5]);
+    money(ws.addRow(["Transferências já feitas pela MP", null, null, null, input.mpTransfersAdvanced ?? 0]), [5]);
+    money(ws.addRow(["Base do IVA", null, null, null, input.transferVatBase ?? 0]), [5]);
+    money(ws.addRow(["IVA 23%", null, null, null, input.transferVat ?? 0]), [5]);
+    money(ws.addRow(["Total a transferir", null, null, null, input.transferTotal ?? 0]), [5]).font = {
+      name: "Arial", size: 10, bold: true,
+    };
+    money(ws.addRow(["Total faturado", null, null, null, input.invoicedTotal ?? 0]), [5]).font = {
+      name: "Arial", size: 11, bold: true,
+    };
+  }
 
   return wb;
 }
