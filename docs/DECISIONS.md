@@ -6308,3 +6308,13 @@ Com o ambiente mp-homolog (#352) verde, as demandas R1 e R2 de código passam a 
 - **Banner do Coala:** só nomeia o que carrega; nada de terceiros carrega antes do consentimento (fontes e ícones alojados no próprio site).
 - **Estado:** vigente.
 
+## D-ERP314 — Idade na inscrição do Clube Newgang e envio de dados à Meta (26/10/2026)
+
+**Decisão Pedro, chat `juridico` (Claude), 26/10/2026.** Complementa a D-ERP313.
+
+- **Ano de nascimento obrigatório na inscrição** (minimização: só o ano), para cumprir a idade mínima de 13 anos (RGPD, art. 8.º; Lei 58/2019, art. 16.º) e não usar dados de menores em publicidade. Zona cinzenta do ano tratada como a idade mais baixa possível.
+- **Meta:** sem correspondência avançada automática. Eventos de conversão e email em hash só para 18+; menores e idade desconhecida sem eventos de conversão (o cookie, o IP e o navegador também são dados pessoais).
+- **Sem data:** contam como menores para publicidade até indicarem o ano; pedido único do ano, sem supressão.
+- **email-v4** mantém-se.
+- **Estado:** vigente.
+
