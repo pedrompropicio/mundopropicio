@@ -1,10 +1,10 @@
 // @vitest-environment node
-// #314 Fase 1 — idade pela data completa e versões v4/v2, com as funções reais da migração 0265 em PGlite.
+// #314 Fase 1 — idade pela data completa e versões v4/v2, com as funções reais da migração 0266 em PGlite.
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 
-const MIG = readFileSync("supabase/manual/0265_issue314_fase1_versoes_idade.sql", "utf8");
+const MIG = readFileSync("supabase/manual/0266_issue314_fase1_versoes_idade.sql", "utf8");
 const blocks = MIG.split(/\n(?=CREATE OR REPLACE FUNCTION )/);
 const fn = (name: string) => {
   const b = blocks.find((x) => x.startsWith(`CREATE OR REPLACE FUNCTION public.${name}(`));

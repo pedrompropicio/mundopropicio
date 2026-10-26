@@ -1,4 +1,4 @@
--- Inverso de 0265 (#314 Fase 1). NÃO aplicado. Corpos originais lidos em Live a 2026-10-26 ~20:20 UTC (pg_get_functiondef).
+-- Inverso de 0266 (#314 Fase 1). NÃO aplicado. Corpos originais lidos em Live a 2026-10-26 ~20:20 UTC (pg_get_functiondef).
 -- Aplicar descomentando: repõe cada função tal como estava; ACL/SECURITY/search_path mantêm-se (CREATE OR REPLACE).
 -- DROP FUNCTION public._club314_birth_date(text);
 -- DROP FUNCTION public.club_age_class(date);  -- só depois de repor as funções que a usam
