@@ -37,7 +37,15 @@ GRANT SELECT a authenticated, ALL a service_role; RLS com SELECT igual ao Cachê
 Rollback: DROP TABLE + DROP COLUMN ×2 (ficheiro manual, não aplicado).
 Live: tabelas/colunas existem, 0 linhas, transactions mesma contagem, md5 das funções acima iguais.
 
-### 2 — 0272_p3_partner_contract_rpcs
+### 2 — 0272_p3_transitory_reason_10_1_03 (PREPARADO, NÃO aplicado)
+- Uma transação BEGIN/COMMIT: primeiro DROP/ADD do CHECK transactions_transitory_reason_domain com os oito valores Live + distribuicao_resultado; depois CREATE OR REPLACE da função Live, acrescentando apenas o ramo 10.1.03. Não tocar no CHECK required, sem backfill.
+- Rollback comentado atómico: função Live cf9e97d154a437ea66139ce0b04873ed byte a byte e CHECK original de oito valores. Se houver motivos novos, o rollback falha inteiro sem alterar dados.
+- P7: acrescentar etiqueta em src/lib/transitory-reason.ts e opção derivada no seletor TransactionEditModal; limitação visual mantida até essa fase.
+- Verificação 23:18 UTC: modal inicializa o motivo armazenado sem normalização e reenvia-o nos dois ramos de gravação. Live issue335_guard compara NEW/OLD.transitory_reason em documentos de encontros ativos: valor igual passa nessa comparação; alteração recusa com reverse_entire_group. A função derivadora só recalcula no INSERT ou na mudança de category_id; editar a mesma rubrica preserva o valor reenviado. Nenhum ecrã/guarda alterado.
+- PGlite local: 13/13, CHECK real estendido, oito motivos preservados, required intacto, edição com mesma rubrica, rollback byte-idêntico e rollback recusado atomicamente quando já existem motivos novos.
+- Aplicação do 0272 e passos 3–5 dependem de novo Sim específico.
+
+### 3 — RPCs de contratos (passo por preparar)
 - `_partner_contract_share(participant)` → parte congelada (chave da questão 1); erro se ausente.
 - `create_partner_payment_contract(_participant_id, _beneficiary, _gross, _wh_applies, _wh_rate, _wh_due, _due, _advance_ids uuid[], _label, _key)`; `update_partner_payment_contract(_contract_id, …)` = cancelar + recriar (replaced_by), como no Cachê; `cancel_partner_payment_contract(_contract_id, _reason)`; `attach_partner_advance_to_contract(_contract_id, _advance_tx_id, _confirm_beneficiary)`; `partner_contract_status(_participant_id)` (leitura para P7: parte, contratado, restante, contratos, adiantamentos livres).
 - Regras: admin/manager/manage_bp; current_company_id(); participante congelado + settles; fechamento não selado; ≤4 ativos; Σgross ≤ parte; valor da transação de saldo ≥0 e ≤ saldo do contrato; transações nascem approved, sem financial_account_id, categoria 10.1.03 da empresa, event_id do fechamento, IVA 0.
@@ -46,11 +54,11 @@ Live: tabelas/colunas existem, 0 linhas, transactions mesma contagem, md5 das fu
 - ACL: REVOKE PUBLIC, anon; GRANT EXECUTE authenticated, service_role.
 Rollback: DROP FUNCTION ×6.
 
-### 3 — 0273_p3_partner_contract_guards
+### 4 — Guardas de contratos (passo por preparar)
 Trigger BEFORE INSERT/UPDATE em partner_payment_contracts (fora das RPCs via set_config local) que revalida: congelado, settles, não selado, ≤4, Σ ≤ parte. Trigger em transactions: linha com partner_contract_id não pode mudar valor/categoria/evento fora da RPC (pagar continua livre).
 Rollback: DROP TRIGGER ×2 + DROP FUNCTION ×2.
 
-### 4 — 0274_p3_unfreeze_requires_no_contracts
+### 5 — Unfreeze sem contratos (passo por preparar)
 CREATE OR REPLACE de unfreeze_settlement_participant a partir do texto Live (md5 3e92484c confirmado antes), acrescentando só, após "não está congelado":
 `IF EXISTS (SELECT 1 FROM partner_payment_contracts WHERE participant_id=_participant_id AND cancelled_at IS NULL) THEN RAISE EXCEPTION 'Sócio com contratos de pagamento ativos: cancele-os primeiro'; END IF;`
 Rollback: texto Live atual byte a byte.
@@ -70,7 +78,7 @@ Estrutura, prosecdef/proconfig/proacl, md5 das funções existentes, contagens d
 2. B — 10.1.03 ganha motivo próprio ('distribuicao_resultado') em force_transitory_for_capital_branch antes de existir qualquer contrato (10.1.03 tem 0 transações; sem backfill). Antes do SQL: verificar CHECK/enum em transactions.transitory_reason, leitores em src/ e supabase/functions/, md5 Live (cf9e97d1).
 3. A — duas transações (sócio + Finanças), ambas 10.1.03, só com retenção = Sim. Classificação co-produção vs cachê por decidir pelo Pedro: pergunta Sim/Não sem pré-seleção, nenhuma retenção assumida.
 4. Ordem nova: 1 tabelas (0271); 2 motivo 10.1.03; 3 RPCs; 4 guardas; 5 unfreeze. SQL completo de cada passo mostrado antes de qualquer aplicação.
-Estado: passo 1 PREPARADO (supabase/manual/0271_p3_partner_contracts_tables.sql + rollback + src/test/p3-partner-contracts-tables.test.ts 9/9), NÃO aplicado.
+Estado: passo 1 aplicado e verificado pelo Pedro em Live; passo 2 preparado, NÃO aplicado; passos 3–5 por preparar/aplicar.
 
 ## Correção passo 1 (22:55 UTC)
 - 0271 faz REVOKE ALL FROM PUBLIC, anon, authenticated antes dos GRANT (Live tem default privileges arwdDxtm). ACL esperada: authenticated=r, service_role=arwdDxtm, postgres (dono), sem anon. Teste simula default privileges.
