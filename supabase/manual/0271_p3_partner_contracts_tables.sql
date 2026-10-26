@@ -34,6 +34,8 @@ CREATE UNIQUE INDEX ppc_idempotency_uq ON public.partner_payment_contracts(compa
 CREATE INDEX ppc_participant_active_idx ON public.partner_payment_contracts(participant_id) WHERE cancelled_at IS NULL;
 CREATE INDEX ppc_settlement_idx ON public.partner_payment_contracts(settlement_id);
 
+-- Live: default privileges do schema public dão tudo a anon/authenticated; retirar antes de conceder.
+REVOKE ALL ON public.partner_payment_contracts FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.partner_payment_contracts TO authenticated;
 GRANT ALL ON public.partner_payment_contracts TO service_role;
 ALTER TABLE public.partner_payment_contracts ENABLE ROW LEVEL SECURITY;

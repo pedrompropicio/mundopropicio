@@ -17,7 +17,8 @@ beforeAll(async () => {
   CREATE TABLE suppliers(id uuid PRIMARY KEY DEFAULT gen_random_uuid());
   CREATE TABLE event_settlements(id uuid PRIMARY KEY DEFAULT gen_random_uuid());
   CREATE TABLE event_settlement_participants(id uuid PRIMARY KEY DEFAULT gen_random_uuid());
-  CREATE TABLE transactions(id uuid PRIMARY KEY DEFAULT gen_random_uuid());`);
+  CREATE TABLE transactions(id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;`);
   await db.exec(SQL);
   for (const [k, t] of [["s", "event_settlements"], ["p", "event_settlement_participants"], ["e", "events"], ["sup", "suppliers"]] as const)
     ids[k] = (await db.query<any>(`INSERT INTO ${t} DEFAULT VALUES RETURNING id`)).rows[0].id;
@@ -60,6 +61,16 @@ describe("P3 passo 1 — tabelas", () => {
     expect(g.map((x) => x.privilege_type)).toEqual(["SELECT"]);
     const a = (await db.query<any>(`SELECT count(*)::int c FROM information_schema.role_table_grants WHERE table_name='partner_payment_contracts' AND grantee='anon'`)).rows[0];
     expect(a.c).toBe(0);
+    const h = (await db.query<any>(`SELECT has_table_privilege('anon','partner_payment_contracts','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') a,
+      has_table_privilege('authenticated','partner_payment_contracts','INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') w,
+      has_table_privilege('authenticated','partner_payment_contracts','SELECT') r,
+      has_table_privilege('service_role','partner_payment_contracts','SELECT,INSERT,UPDATE,DELETE,TRUNCATE') s`)).rows[0];
+    expect(h).toEqual({ a: false, w: false, r: true, s: true });
+  });
+  it("sem o REVOKE os default privileges dariam escrita (prova de que o teste simula Live)", async () => {
+    await db.exec(`CREATE TABLE ctl_default_acl(id int)`);
+    const c = (await db.query<any>(`SELECT has_table_privilege('anon','ctl_default_acl','TRUNCATE') t`)).rows[0];
+    expect(c.t).toBe(true);
   });
   it("transactions ganha colunas nulas com papéis fixos", async () => {
     await db.query(`INSERT INTO transactions DEFAULT VALUES`);

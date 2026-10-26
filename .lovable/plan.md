@@ -71,3 +71,9 @@ Estrutura, prosecdef/proconfig/proacl, md5 das funções existentes, contagens d
 3. A — duas transações (sócio + Finanças), ambas 10.1.03, só com retenção = Sim. Classificação co-produção vs cachê por decidir pelo Pedro: pergunta Sim/Não sem pré-seleção, nenhuma retenção assumida.
 4. Ordem nova: 1 tabelas (0271); 2 motivo 10.1.03; 3 RPCs; 4 guardas; 5 unfreeze. SQL completo de cada passo mostrado antes de qualquer aplicação.
 Estado: passo 1 PREPARADO (supabase/manual/0271_p3_partner_contracts_tables.sql + rollback + src/test/p3-partner-contracts-tables.test.ts 9/9), NÃO aplicado.
+
+## Correção passo 1 (22:55 UTC)
+- 0271 faz REVOKE ALL FROM PUBLIC, anon, authenticated antes dos GRANT (Live tem default privileges arwdDxtm). ACL esperada: authenticated=r, service_role=arwdDxtm, postgres (dono), sem anon. Teste simula default privileges.
+## Notas para o passo 3/4 (Pedro)
+- Cancelar (cópia de _cache_cancel_contract) limpa balance_tx_id/withholding_tx_id e transactions.partner_contract_id antes de apagar as transações.
+- Trigger do passo 4 recusa DELETE direto de transação com partner_contract_id fora da RPC; dizer como delete_transaction_cascade é tratado e confirmar que não falha pelas FK.
