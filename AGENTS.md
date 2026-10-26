@@ -36,6 +36,7 @@
 - The capture consent summary is a SELECT-only security-invoker view over lead_capture; preserve underlying RLS and distinguish historical reconstruction from contemporaneous records without changing ingestion.
 
 - Cache payments only via cache_* RPCs (mother/city children); optional line choices use local `cache.line_choices`, server-checked.
+- Partner payment contracts use five named RPCs with private shared validators; replacement delegates to cancel/create and cancellation clears reciprocal links before deleting generated payables, avoiding drift and FK failures. Prepared SQL remains manual-only until separate approval.
 - Issue #335 stays manual-only: guards require a private backend/transaction context created by the command trigger, never role/GUC alone; delegate parent locks without broad UPDATE, and verify existing-object candidate rollbacks against the full catalog before separate installation approval. Owner-created DDL triggers belong to the trusted computing base; a separate manual read-only trigger-name allowlist detects additions, never claims prevention or body-replacement detection.
 - Issue #335 role probes must set session identity for NOLOGIN roles, not merely SET ROLE from a superuser session; otherwise role-assumption tests measure the bootstrap administrator rather than the actor.
 - Issue #335 column probes require a separate faithful local catalog without the candidates; missing controls and non-mutating or invalid values fail acceptance instead of becoming skips, because target labels alone do not prove legacy parity.

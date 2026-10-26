@@ -1,0 +1,11 @@
+-- ROLLBACK MANUAL COMENTADO, NÃO APLICADO. Não elimina contratos/transações.
+-- Executar apenas após autorização, numa única transação e antes do passo 4/5.
+-- Sem CASCADE: dependências posteriores devem bloquear, nunca desaparecer silenciosamente.
+-- DROP FUNCTION public.partner_contract_status(uuid);
+-- DROP FUNCTION public.attach_partner_advance_to_contract(uuid,uuid,boolean);
+-- DROP FUNCTION public.update_partner_payment_contract(uuid,uuid,numeric,boolean,numeric,date,date,uuid[],text);
+-- DROP FUNCTION public.cancel_partner_payment_contract(uuid,text);
+-- DROP FUNCTION public.create_partner_payment_contract(uuid,uuid,numeric,boolean,numeric,date,date,uuid[],text,text);
+-- DROP FUNCTION public._partner_contract_advance(uuid,uuid,uuid,boolean);
+-- DROP FUNCTION public._partner_contract_assert_unpaid(uuid[]);
+-- DROP FUNCTION public._partner_contract_share(uuid);

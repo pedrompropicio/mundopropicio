@@ -1,6 +1,7 @@
 - [x] P3 contratos por sócio: passo 1 (0271) aplicado e verificado pelo Pedro em Live.
 - [x] P3 passo 2 (0272): aplicado; CHECK de nove valores, função e contagens verificados pelo Pedro em Live.
-- [ ] P3 passo 3 (0273): preparação autorizada, NÃO aplicação; leitura inicial concluída. Aguarda esclarecer nomes das RPCs: plano usa create/update/cancel_partner_payment_contract e attach_partner_advance_to_contract; pedido atual usa create/update/cancel_partner_contract e attach_partner_advance. Sem SQL preparado até resolver o conflito; passos 4–5 não iniciados.
+- [x] P3 passo 3 (0273): SQL manual sem BEGIN/COMMIT, rollback comentado e 45 testes locais preparados; nomes completos confirmados, sem aliases; 68/68 P3 passam.
+- [ ] P3 0273 por aplicar: exige Sim específico após revisão do SQL; passos 4–5 não iniciados. Provas concorrentes/catálogo integral não executadas nesta preparação.
 - [ ] P3 P7: etiqueta distribuicao_resultado no helper e opção derivada no seletor TransactionEditModal; limitação visual mantida até autorização da fase de ecrã.
 - [x] #359 P3: vista0261 aplicada, ACL/RLS e count/max iguais; históricos2316 + novo1; cópia/rollback/testes25PASS e QUADRO atualizados; sem B/0252/apply-coala-bp/DML/deploy/Publish.
 - [ ] #359 P3 fecho: CI verde bloqueado por 2 falhas preexistentes em memory-index; correção fora do recorte. Tipos manuais vedados pela plataforma. Comentário Issue em preparação.

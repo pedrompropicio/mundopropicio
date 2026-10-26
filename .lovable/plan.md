@@ -37,22 +37,30 @@ GRANT SELECT a authenticated, ALL a service_role; RLS com SELECT igual ao Cachê
 Rollback: DROP TABLE + DROP COLUMN ×2 (ficheiro manual, não aplicado).
 Live: tabelas/colunas existem, 0 linhas, transactions mesma contagem, md5 das funções acima iguais.
 
-### 2 — 0272_p3_transitory_reason_10_1_03 (PREPARADO, NÃO aplicado)
+### 2 — 0272_p3_transitory_reason_10_1_03 (APLICADO e verificado pelo Pedro)
 - Uma transação BEGIN/COMMIT: primeiro DROP/ADD do CHECK transactions_transitory_reason_domain com os oito valores Live + distribuicao_resultado; depois CREATE OR REPLACE da função Live, acrescentando apenas o ramo 10.1.03. Não tocar no CHECK required, sem backfill.
 - Rollback comentado atómico: função Live cf9e97d154a437ea66139ce0b04873ed byte a byte e CHECK original de oito valores. Se houver motivos novos, o rollback falha inteiro sem alterar dados.
 - P7: acrescentar etiqueta em src/lib/transitory-reason.ts e opção derivada no seletor TransactionEditModal; limitação visual mantida até essa fase.
 - Verificação 23:18 UTC: modal inicializa o motivo armazenado sem normalização e reenvia-o nos dois ramos de gravação. Live issue335_guard compara NEW/OLD.transitory_reason em documentos de encontros ativos: valor igual passa nessa comparação; alteração recusa com reverse_entire_group. A função derivadora só recalcula no INSERT ou na mudança de category_id; editar a mesma rubrica preserva o valor reenviado. Nenhum ecrã/guarda alterado.
 - PGlite local: 13/13, CHECK real estendido, oito motivos preservados, required intacto, edição com mesma rubrica, rollback byte-idêntico e rollback recusado atomicamente quando já existem motivos novos.
-- Aplicação do 0272 e passos 3–5 dependem de novo Sim específico.
+- 0272 aplicado: CHECK de nove valores e função md5 4ad969384f310b6464c010064f89d3ff; passos 3–5 dependem de novo Sim específico.
 
-### 3 — RPCs de contratos (passo por preparar)
+### 3 — RPCs de contratos (0273 PREPARADO, NÃO aplicado)
 - `_partner_contract_share(participant)` → parte congelada (chave da questão 1); erro se ausente.
 - `create_partner_payment_contract(_participant_id, _beneficiary, _gross, _wh_applies, _wh_rate, _wh_due, _due, _advance_ids uuid[], _label, _key)`; `update_partner_payment_contract(_contract_id, …)` = cancelar + recriar (replaced_by), como no Cachê; `cancel_partner_payment_contract(_contract_id, _reason)`; `attach_partner_advance_to_contract(_contract_id, _advance_tx_id, _confirm_beneficiary)`; `partner_contract_status(_participant_id)` (leitura para P7: parte, contratado, restante, contratos, adiantamentos livres).
 - Regras: admin/manager/manage_bp; current_company_id(); participante congelado + settles; fechamento não selado; ≤4 ativos; Σgross ≤ parte; valor da transação de saldo ≥0 e ≤ saldo do contrato; transações nascem approved, sem financial_account_id, categoria 10.1.03 da empresa, event_id do fechamento, IVA 0.
 - Cancelar: cópia de _cache_cancel_contract (mesma verificação de pagamento/lista aprovada, Lixo 30 dias, limpeza de dependências de delete_transaction_cascade, auditoria por transação), sem a parte de BP/cache_payments.
 - Auditoria system_audit_log: partner_contract_created / _updated / _cancelled / _advance_attached.
 - ACL: REVOKE PUBLIC, anon; GRANT EXECUTE authenticated, service_role.
-Rollback: DROP FUNCTION ×6.
+Rollback comentado: DROP FUNCTION ×8, sem CASCADE, sem eliminar dados.
+- Nomes completos confirmados pelo Pedro às 23:45; sem aliases. SQL manual sem BEGIN/COMMIT; aplicação futura numa transação gerida pela ferramenta.
+- Três helpers privados (parte/autorização/locks, recusa de pagamento/conciliação/encontro, elegibilidade de adiantamento) e cinco RPCs públicas; helpers sem EXECUTE externo.
+- Atualizar segue cancelar + recriar com os parâmetros permitidos, incluindo a lista explícita de adiantamentos; os não reescolhidos ficam livres (igual ao Cachê). Não altera identidade do sócio/empresa/evento nem o bruto anterior.
+- Soma de pago inclui pagamentos efetivos das três roles, incluindo adiantamentos pagos uma única vez; ligação por si não conta como pagamento. Adiantamentos já pagos podem ser ligados (Cachê), mas cancelamento/alteração recusam se qualquer transação do contrato tiver pagamento, inclusive adiantamento.
+- Saldo inicial zero não gera transação; attach que esgota exatamente o saldo conserva linha de saldo zero (limite >=0), sem apagar documentos fora do cancelamento. Retenção arredondada a zero não gera transação de zero, como no Cachê.
+- Idempotência compara parâmetros e lista canónica de adiantamentos; chave de contrato cancelado ou payload diferente recusa sem efeitos. Após alterar as ligações, repetir o pedido original de criação já não é idêntico.
+- Cancelamento copia Lixo 30d/auditoria/limpeza, mas não chama delete_transaction_cascade (essa RPC não aceita manage_bp sozinho e pode ampliar grupo-fatura). Limpa as duas FK e marcas antes de DELETE; dependências inesperadas em BP/bilheteira, filhos/grupo de fatura ou root de outro contrato recusam. Não apaga provas de encontros, mesmo revertidos; issue335_guard inalterado.
+- Testes locais PGlite: 45/45 no 0273; 68/68 nos passos 1–3. Harness focado com 0271/0272 reais e dependências restritivas; não é cópia integral dos triggers/RLS Live nem prova de concorrência multi-sessão. Guardas diretas/unfreeze permanecem nos passos 4/5; guarda de selo só com P7.
 
 ### 4 — Guardas de contratos (passo por preparar)
 Trigger BEFORE INSERT/UPDATE em partner_payment_contracts (fora das RPCs via set_config local) que revalida: congelado, settles, não selado, ≤4, Σ ≤ parte. Trigger em transactions: linha com partner_contract_id não pode mudar valor/categoria/evento fora da RPC (pagar continua livre).
@@ -78,7 +86,7 @@ Estrutura, prosecdef/proconfig/proacl, md5 das funções existentes, contagens d
 2. B — 10.1.03 ganha motivo próprio ('distribuicao_resultado') em force_transitory_for_capital_branch antes de existir qualquer contrato (10.1.03 tem 0 transações; sem backfill). Antes do SQL: verificar CHECK/enum em transactions.transitory_reason, leitores em src/ e supabase/functions/, md5 Live (cf9e97d1).
 3. A — duas transações (sócio + Finanças), ambas 10.1.03, só com retenção = Sim. Classificação co-produção vs cachê por decidir pelo Pedro: pergunta Sim/Não sem pré-seleção, nenhuma retenção assumida.
 4. Ordem nova: 1 tabelas (0271); 2 motivo 10.1.03; 3 RPCs; 4 guardas; 5 unfreeze. SQL completo de cada passo mostrado antes de qualquer aplicação.
-Estado: passo 1 aplicado e verificado pelo Pedro em Live; passo 2 preparado, NÃO aplicado; passos 3–5 por preparar/aplicar.
+Estado: passos 1/2 aplicados e verificados pelo Pedro em Live; passo 3 preparado, NÃO aplicado; passos 4/5 por preparar/aplicar.
 
 ## Correção passo 1 (22:55 UTC)
 - 0271 faz REVOKE ALL FROM PUBLIC, anon, authenticated antes dos GRANT (Live tem default privileges arwdDxtm). ACL esperada: authenticated=r, service_role=arwdDxtm, postgres (dono), sem anon. Teste simula default privileges.
