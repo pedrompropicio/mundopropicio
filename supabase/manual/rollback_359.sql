@@ -1,4 +1,4 @@
--- #359 ROLLBACK — NÃO APLICADO. Repõe guarda (0196) e ingestão (0169) byte-a-byte e o CHECK antigo.
+-- #359 ROLLBACK — NÃO APLICADO. Repõe guarda (0196) e ingestão (corpo da #314 Fase 1, 0266, md5 905ff064bae25cf54a45605517f108ef) byte-a-byte e o CHECK antigo.
 -- Pára se já houver contactos form_coala_* (passá-los a legado exige autorização própria).
 DO $$ BEGIN
  IF EXISTS (SELECT 1 FROM public.contacts WHERE consent_whatsapp_source LIKE 'form_coala\_%') THEN
@@ -27,14 +27,11 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public._crm_whatsapp_contact_guard() FROM PUBLIC,anon,authenticated,service_role;
 
-CREATE OR REPLACE FUNCTION public.crm_ingest_lead_captures(
-  p_batch_size integer DEFAULT 100,
-  p_only_ids uuid[] DEFAULT NULL
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public', 'pg_temp'
+CREATE OR REPLACE FUNCTION public.crm_ingest_lead_captures(p_batch_size integer DEFAULT 100, p_only_ids uuid[] DEFAULT NULL::uuid[])
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
 AS $function$
 DECLARE
   MP_CO    constant uuid := '7c858982-6ccd-47ca-bd65-e0dd3eebf01c';
@@ -90,6 +87,11 @@ BEGIN
         n_club_deferred := n_club_deferred + 1; CONTINUE;
       END IF;
       v_club_seen := v_club_seen || lower(btrim(lc.email));
+      -- #314: menor de 13 pela data completa não cria contacto, lead, membro nem consentimentos.
+      IF public.club_age_class(public._club314_birth_date(lc.raw->>'birth_date')) = 'under13' THEN
+        UPDATE public.lead_capture SET processed = true, processed_at = now(), processing_error = 'under13_blocked' WHERE id = lc.id;
+        CONTINUE;
+      END IF;
     END IF;
 
     v_email := NULLIF(lower(btrim(coalesce(lc.email, ''))), '');

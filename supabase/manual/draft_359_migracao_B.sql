@@ -1,7 +1,7 @@
 -- #359 RASCUNHO — NÃO APLICADO. Migração B: origem WhatsApp form_coala_<versão>.
--- Pré-requisito: migração A aplicada. Corpos base verificados em Live a 25/10/2026 (md5 abaixo).
+-- Pré-requisito: migração A aplicada. Corpos base verificados em Live a 25/10/2026; ingestão regenerada a 26/10/2026 sobre o corpo da #314 Fase 1 (0266), md5 abaixo.
 DO $$ BEGIN
- IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.crm_ingest_lead_captures(integer,uuid[])'::regprocedure) <> '1dbcd55e81cd63e58e3fb613d9db0283'
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.crm_ingest_lead_captures(integer,uuid[])'::regprocedure) <> '905ff064bae25cf54a45605517f108ef'
  OR (SELECT md5(prosrc) FROM pg_proc WHERE oid='public._crm_whatsapp_contact_guard()'::regprocedure) <> 'ac7469e0912c890f186d880951623c54'
  OR to_regclass('public.consent_text_versions') IS NULL
  THEN RAISE EXCEPTION 'source_drift_359'; END IF;
@@ -39,14 +39,11 @@ END $$;
 REVOKE ALL ON FUNCTION public._crm_whatsapp_contact_guard() FROM PUBLIC,anon,authenticated,service_role;
 
 -- Cópia byte-a-byte da 0169; única alteração: consent_whatsapp_at/source no INSERT de contacts.
-CREATE OR REPLACE FUNCTION public.crm_ingest_lead_captures(
-  p_batch_size integer DEFAULT 100,
-  p_only_ids uuid[] DEFAULT NULL
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public', 'pg_temp'
+CREATE OR REPLACE FUNCTION public.crm_ingest_lead_captures(p_batch_size integer DEFAULT 100, p_only_ids uuid[] DEFAULT NULL::uuid[])
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
 AS $function$
 DECLARE
   MP_CO    constant uuid := '7c858982-6ccd-47ca-bd65-e0dd3eebf01c';
@@ -102,6 +99,11 @@ BEGIN
         n_club_deferred := n_club_deferred + 1; CONTINUE;
       END IF;
       v_club_seen := v_club_seen || lower(btrim(lc.email));
+      -- #314: menor de 13 pela data completa não cria contacto, lead, membro nem consentimentos.
+      IF public.club_age_class(public._club314_birth_date(lc.raw->>'birth_date')) = 'under13' THEN
+        UPDATE public.lead_capture SET processed = true, processed_at = now(), processing_error = 'under13_blocked' WHERE id = lc.id;
+        CONTINUE;
+      END IF;
     END IF;
 
     v_email := NULLIF(lower(btrim(coalesce(lc.email, ''))), '');

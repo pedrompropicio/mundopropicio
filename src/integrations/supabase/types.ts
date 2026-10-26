@@ -23332,6 +23332,7 @@ export type Database = {
         Args: { p_exclusive: boolean; p_site: string }
         Returns: undefined
       }
+      _club314_birth_date: { Args: { p_raw: string }; Returns: string }
       _club332_ads_append: {
         Args: {
           p_decision: string
@@ -25002,6 +25003,7 @@ export type Database = {
         }[]
       }
       clear_operation_key: { Args: { _key: string }; Returns: Json }
+      club_age_class: { Args: { p_birth: string }; Returns: string }
       club_award: {
         Args: { p_member: string; p_ref: string; p_rule: string }
         Returns: number

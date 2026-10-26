@@ -6,8 +6,10 @@ import { beforeAll, afterAll, describe, expect, it } from "vitest";
 
 const C = "7d831e59-6e82-427b-95a0-64904aae5dd2";
 const read = (p: string) => readFileSync(p, "utf8");
-const m0169 = read("drizzle/migrations/0169_issue321_crm_ingest_counters_on_success.sql");
-const ingestOrig = m0169.slice(m0169.indexOf("CREATE OR REPLACE FUNCTION public.crm_ingest_lead_captures("), m0169.indexOf("$function$;", m0169.indexOf("AS $function$") + 5) + 11);
+// Base da ingestão: corpo aplicado pela #314 Fase 1 (0266); o rascunho B foi regenerado sobre ele.
+const m0266 = read("supabase/manual/0266_issue314_fase1_versoes_idade.sql");
+const ingestStart = m0266.indexOf("CREATE OR REPLACE FUNCTION public.crm_ingest_lead_captures(");
+const ingestOrig = m0266.slice(ingestStart, m0266.indexOf("$function$;", ingestStart) + 11);
 const m0196 = read("drizzle/migrations/0196_newgang_crm_members_whatsapp.sql");
 const gi = m0196.indexOf("CREATE FUNCTION public._crm_whatsapp_contact_guard()");
 const guardOrig = m0196.slice(gi, m0196.indexOf("END $$;", gi) + 8);
@@ -61,7 +63,7 @@ describe("#359 rascunhos", () => {
     await expect(db.exec(`ALTER TABLE contacts DISABLE TRIGGER crm_whatsapp_contact_guard; INSERT INTO contacts(consent_whatsapp_source) VALUES ('outra')`)).rejects.toThrow();
     await db.exec(`ALTER TABLE contacts ENABLE TRIGGER crm_whatsapp_contact_guard`);
   });
-  it("ingestão: só muda consent_whatsapp_at/source no INSERT de contacts face à 0169", () => {
+  it("ingestão: só muda consent_whatsapp_at/source no INSERT de contacts face à 0266", () => {
     const start = draftB.indexOf("CREATE OR REPLACE FUNCTION public.crm_ingest_lead_captures(");
     const ing = draftB.slice(start, draftB.indexOf("$function$;", draftB.indexOf("AS $function$", start) + 5) + 11);
     const a = ingestOrig.split("\n"), b = ing.split("\n");
@@ -77,6 +79,6 @@ describe("#359 rascunhos", () => {
     await db.exec(`DELETE FROM contacts WHERE consent_whatsapp_source LIKE 'form_coala%'`);
     await db.exec(read("supabase/manual/rollback_359.sql"));
     const md5 = await db.query<{ f: string; m: string }>(`SELECT proname f, md5(prosrc) m FROM pg_proc WHERE proname IN ('crm_ingest_lead_captures','_crm_whatsapp_contact_guard') ORDER BY 1`);
-    expect(md5.rows).toEqual([{ f: "_crm_whatsapp_contact_guard", m: "ac7469e0912c890f186d880951623c54" }, { f: "crm_ingest_lead_captures", m: "1dbcd55e81cd63e58e3fb613d9db0283" }]);
+    expect(md5.rows).toEqual([{ f: "_crm_whatsapp_contact_guard", m: "ac7469e0912c890f186d880951623c54" }, { f: "crm_ingest_lead_captures", m: "905ff064bae25cf54a45605517f108ef" }]);
   });
 });
