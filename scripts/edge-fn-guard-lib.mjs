@@ -28,6 +28,7 @@ export const POR_DESENHO = {
   "onboarding-preview": "público: lê só pelo first_access_token (uuid) e devolve email mascarado",
   "request-password-reset": "público: fluxo de reposição de palavra-passe",
   "newgang-portal": "público: API do portal newgangfestival.pt; allowlist de Origin; empresa vem de portal_sites (servidor), membro por token de sessão com hash; nunca aceita ids de empresa do cliente",
+  "newgang-email-events": "webhook do Resend: valida a assinatura Svix (RESEND_WEBHOOK_SECRET_NEWGANG) antes de qualquer escrita; empresa vem do servidor, nunca do cliente",
   "portal-track": "público: beacon do portal (#254); allowlist de Origin; só insere redirect_log/lead_capture, ip/geo lidos no servidor",
   "handle-email-unsubscribe": "público: token de cancelamento de subscrição",
   "send-transactional-email": "infra de email gerida; company_id preenchido por trigger",
