@@ -1,0 +1,302 @@
+[
+  {
+    "id": "01",
+    "family": "Encontro de contas e guardas financeiras (#335)",
+    "cause": "DDL da #335 ainda fora do plano: duas definições divergem; o lote nativo falhou com 42703 e fez rollback. Faltam tabelas, deltas, políticas e privilégios associados. Cinco definições iguais já foram admitidas.",
+    "differences": 270,
+    "objects": 270,
+    "groups": {
+      "b": 236,
+      "a": 34
+    },
+    "categories": {
+      "acl": 42,
+      "columns": 48,
+      "constraints": 30,
+      "functions": 30,
+      "indexes": 10,
+      "internal_trigger_constraints": 48,
+      "policies": 24,
+      "rewrite_rules": 1,
+      "rls": 4,
+      "role_memberships": 1,
+      "roles": 1,
+      "tables": 4,
+      "toast_parents": 3,
+      "triggers": 13,
+      "types": 10,
+      "views": 1
+    },
+    "property_patterns": {
+      "grants": 5,
+      "$presence": 257,
+      "definition_sha256": 8
+    }
+  },
+  {
+    "id": "02",
+    "family": "Consentimento, Clube e captação",
+    "cause": "A constraint consent_text_versions_channel_check continua com definição distinta, apesar de todas as 268 Drizzle estarem representadas.",
+    "differences": 1,
+    "objects": 1,
+    "groups": {
+      "b": 1
+    },
+    "categories": {
+      "constraints": 1
+    },
+    "property_patterns": {
+      "definition_sha256": 1
+    }
+  },
+  {
+    "id": "03",
+    "family": "Carreira artística e relatórios de tráfego",
+    "cause": "ACL, colunas em falta/ordem lógica e propriedades de índices/funções de carreira e tráfego ainda divergem.",
+    "differences": 53,
+    "objects": 53,
+    "groups": {
+      "b": 32,
+      "c": 8,
+      "a": 13
+    },
+    "categories": {
+      "acl": 15,
+      "columns": 21,
+      "constraints": 6,
+      "functions": 8,
+      "indexes": 1,
+      "views": 2
+    },
+    "property_patterns": {
+      "grants": 8,
+      "$presence": 32,
+      "ordinal_position": 8,
+      "not_null": 1,
+      "definition_sha256": 2,
+      "options_sha256": 2
+    }
+  },
+  {
+    "id": "04",
+    "family": "CRM e integrações publicitárias",
+    "cause": "A tabela meta_strategy_creatives continua sem janela executável por FK; persistem colunas/rotinas sem origem demonstrada e propriedades diferentes. meta_campaign_strategy_deployments já entrou e passou.",
+    "differences": 109,
+    "objects": 108,
+    "groups": {
+      "b": 18,
+      "a": 88,
+      "c": 3
+    },
+    "categories": {
+      "acl": 13,
+      "columns": 46,
+      "constraints": 9,
+      "functions": 6,
+      "indexes": 9,
+      "internal_trigger_constraints": 8,
+      "policies": 6,
+      "rewrite_rules": 1,
+      "rls": 1,
+      "tables": 1,
+      "toast_parents": 1,
+      "triggers": 3,
+      "types": 4,
+      "views": 1
+    },
+    "property_patterns": {
+      "grants": 4,
+      "$presence": 96,
+      "ordinal_position": 5,
+      "definition_sha256": 3,
+      "config_sha256": 1
+    }
+  },
+  {
+    "id": "05",
+    "family": "Finanças, BP e fecho restantes",
+    "cause": "Deltas financeiros e ACL continuam distintos; inclui mirror_partner_aporte em financial_accounts, dependência do núcleo #335. Ordens restantes são lógicas, depois de N7.",
+    "differences": 67,
+    "objects": 66,
+    "groups": {
+      "b": 52,
+      "a": 12,
+      "c": 3
+    },
+    "categories": {
+      "acl": 11,
+      "columns": 40,
+      "constraints": 3,
+      "functions": 3,
+      "indexes": 4,
+      "internal_trigger_constraints": 4,
+      "policies": 2
+    },
+    "property_patterns": {
+      "grants": 10,
+      "$presence": 16,
+      "ordinal_position": 37,
+      "definition_sha256": 3,
+      "predicate_sha256": 1
+    }
+  },
+  {
+    "id": "06",
+    "family": "Portal, eventos e conteúdo público",
+    "cause": "Ordem lógica das colunas de eventos/fornecedores e ACL ainda diferem; N7 não elimina permutações reais.",
+    "differences": 22,
+    "objects": 22,
+    "groups": {
+      "b": 19,
+      "a": 3
+    },
+    "categories": {
+      "acl": 2,
+      "columns": 17,
+      "indexes": 3
+    },
+    "property_patterns": {
+      "grants": 2,
+      "ordinal_position": 17,
+      "$presence": 3
+    }
+  },
+  {
+    "id": "07",
+    "family": "pgmq e filas de email",
+    "cause": "pgmq mantém-se aplicação por N5: objetos/registos de extensão só no replay e duas presenças só em Live; não foram excluídos como plataforma.",
+    "differences": 26,
+    "objects": 26,
+    "groups": {
+      "c": 24,
+      "a": 2
+    },
+    "categories": {
+      "extension_members": 24,
+      "triggers": 2
+    },
+    "property_patterns": {
+      "$presence": 26
+    }
+  },
+  {
+    "id": "08",
+    "family": "Exceções de aplicação em schemas geridos",
+    "cause": "Dependências de aplicação em schemas geridos mantidas pela exceção N4, incluindo propriedades/presenças em storage; não há exclusão adicional.",
+    "differences": 46,
+    "objects": 46,
+    "groups": {
+      "b": 15,
+      "a": 30,
+      "c": 1
+    },
+    "categories": {
+      "acl": 2,
+      "columns": 9,
+      "constraints": 7,
+      "indexes": 7,
+      "internal_trigger_constraints": 6,
+      "policies": 12,
+      "triggers": 3
+    },
+    "property_patterns": {
+      "grants": 2,
+      "$presence": 43,
+      "valid": 1
+    }
+  },
+  {
+    "id": "09",
+    "family": "Papéis e privilégios globais",
+    "cause": "ACL de funções/relações, papéis e configurações de papéis continuam diferentes após excluir só os dois papéis de plataforma aprovados.",
+    "differences": 59,
+    "objects": 59,
+    "groups": {
+      "b": 52,
+      "a": 5,
+      "c": 2
+    },
+    "categories": {
+      "acl": 54,
+      "default_acl": 1,
+      "role_memberships": 2,
+      "roles": 2
+    },
+    "property_patterns": {
+      "grants": 50,
+      "$presence": 7,
+      "config_sha256": 2
+    }
+  },
+  {
+    "id": "10",
+    "family": "Outras funções e vistas",
+    "cause": "Definições/configurações de funções/vistas e presenças sem prova histórica suficiente; os casos não admitidos permanecem para parecer.",
+    "differences": 31,
+    "objects": 27,
+    "groups": {
+      "b": 27,
+      "a": 4
+    },
+    "categories": {
+      "functions": 31
+    },
+    "property_patterns": {
+      "definition_sha256": 23,
+      "$presence": 4,
+      "config_sha256": 4
+    }
+  },
+  {
+    "id": "11",
+    "family": "Estrutura e isolamento restantes",
+    "cause": "Constraints, defaults, enums, tipos e ordem lógica de colunas ainda distintos; nenhuma alteração de tipo/remoção foi aplicada para os fazer coincidir.",
+    "differences": 121,
+    "objects": 113,
+    "groups": {
+      "b": 78,
+      "a": 28,
+      "c": 15
+    },
+    "categories": {
+      "columns": 60,
+      "constraints": 10,
+      "enums": 15,
+      "extension_members": 2,
+      "indexes": 7,
+      "internal_trigger_constraints": 12,
+      "policies": 12,
+      "triggers": 2,
+      "types": 1
+    },
+    "property_patterns": {
+      "ordinal_position": 48,
+      "not_null": 1,
+      "$presence": 43,
+      "default_sha256": 1,
+      "definition_sha256": 3,
+      "on_delete": 8,
+      "sort_order": 10,
+      "label_sha256": 5,
+      "predicate_sha256": 1,
+      "enum_labels_sha256": 1
+    }
+  },
+  {
+    "id": "12",
+    "family": "restore_shadow — origem no ledger",
+    "cause": "take_snapshot e a sua ACL faltam no replay; origem no ledger reconhecida. Ambos no grupo (b), sem questão aberta separada.",
+    "differences": 2,
+    "objects": 2,
+    "groups": {
+      "b": 2
+    },
+    "categories": {
+      "acl": 1,
+      "functions": 1
+    },
+    "property_patterns": {
+      "$presence": 2
+    }
+  }
+]
