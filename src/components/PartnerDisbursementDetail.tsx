@@ -38,6 +38,9 @@ export interface PartnerDisbursementDetailProps {
   transferWithVat: boolean;
   transferVat: number;
   transferTotal: number;
+  /** (IVA repasse) Transferências MP já feitas e base do IVA. */
+  mpTransfersAdvanced?: number;
+  transferVatBase?: number;
   /** Rubrica de Nível 2 a partir do id da categoria da linha de BP. */
   l2LabelOf: (categoryId?: string | null) => string;
 }
@@ -297,7 +300,8 @@ export default function PartnerDisbursementDetail(props: PartnerDisbursementDeta
               {props.transferWithVat && (
                 <>
                   {" "}
-                  + IVA 23% {formatCurrency(props.transferVat)} ={" "}
+                  + IVA 23%{props.mpTransfersAdvanced ? ` (base ${formatCurrency(props.transferVatBase ?? 0)} = transferências já feitas ${formatCurrency(props.mpTransfersAdvanced)} + saldo)` : ""}{" "}
+                  {formatCurrency(props.transferVat)} ={" "}
                   <strong>{formatCurrency(props.transferTotal)}</strong>
                 </>
               )}

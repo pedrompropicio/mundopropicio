@@ -2316,6 +2316,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 transferWithVat={s.transferWithVat}
                 transferVat={s.transferVat}
                 transferTotal={s.transferTotal}
+                mpTransfersAdvanced={s.mpTransfersAdvanced}
+                transferVatBase={s.transferVatBase}
                 l2LabelOf={categoryL2Label}
               />
             )}
