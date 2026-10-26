@@ -17,7 +17,7 @@ beforeAll(async () => {
     consent_email boolean, consent_whatsapp boolean, consent_event_id uuid, raw jsonb,
     consent_email_text_version text, consent_whatsapp_text_version text, consent_decided_at timestamptz);
   GRANT INSERT, SELECT ON public.lead_capture TO anon;
-  GRANT INSERT, SELECT, UPDATE ON public.lead_capture TO authenticated, service_role;`);
+  GRANT INSERT, SELECT, UPDATE ON public.lead_capture TO authenticated, service_role, supabase_admin;`);
 }, 60000);
 afterAll(async () => { await db?.close(); });
 
