@@ -23,3 +23,10 @@ export async function eraseExtras(d: EraseDeps): Promise<EraseExtras> {
   } catch { out.wallet = "failed"; }
   return out;
 }
+
+/** Contrato público da resposta de erase_account (#368): wallet "expired" ⇒ "ok"; simulação ⇒ none/none. */
+export type ResponseExtras = { storage: "ok" | "failed" | "none"; wallet: "ok" | "failed" | "none" };
+export function responseExtras(x: EraseExtras | null): ResponseExtras {
+  if (!x) return { storage: "none", wallet: "none" };
+  return { storage: x.storage, wallet: x.wallet === "expired" ? "ok" : x.wallet };
+}

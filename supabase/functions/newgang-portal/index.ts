@@ -7,7 +7,7 @@ import { assertNoTotals, buildLineup, displayName } from "./lineup.ts";
 import { assemblePublic, bundleFrom, lineupFrom, regulationFrom, termsMeta, type Want } from "./public.ts";
 import { clubEmail } from "./email.ts";
 import { ASSET_BUCKET, PROOF_BUCKET, PROOF_EXT, missionsFrom, normalizeHandle, normalizeProofUrl, submitErrorStatus } from "./missions.ts";
-import { eraseExtras } from "./erase-extras.ts";
+import { eraseExtras, responseExtras } from "./erase-extras.ts";
 import { buildHistory, subjectRef } from "./history.ts";
 import { profileConfirm, profileMe, profilePreferences, profileCountries, profileRuleRead } from "./profile.ts";
 import { consentMe, consentPreferences } from "./person-consent.ts";
@@ -22,6 +22,7 @@ import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { PreSendError, sendWelcomeOnce } from "./welcome.ts";
 import { REMINDER_SUBJECT, reminderEmail } from "./reminder-email.ts";
 import { clampLimit, runReminderBatch, sendReminderOnce, type ReminderDeps } from "./reminder.ts";
+import { grantedOnly, NO_GRANTED_CONSENT, type EmailConsentRow } from "./reminder-consent.ts";
 // #327: leituras canónicas (nível com piso, conquistas, montra de regras) — mesma fonte para site, me, ranking e Wallet.
 import { levelFromPoints, memberLevel, referralProgress, rulesPublic, type MemberLevel, type RulesView } from "./club-canon.ts";
 const rpc = (fn: string, a: Record<string, unknown>) => sb.rpc(fn, a) as any;
@@ -247,8 +248,17 @@ async function notifyReminders(site: { id: string; company_id: string }, b: any)
     if (error) throw new Error(`summary: ${error.message}`);
     return data;
   };
+  // #364: consentimento de email mais recente tem de ser granted; verificado no servidor antes de reservar.
+  const consentFilter = async (ids: string[]) => {
+    if (!ids.length) return { allowed: [] as string[], excluded: 0 };
+    const { data, error } = await sb.from("club_member_email_consents").select("member_id, decision, decided_at, id")
+      .eq("site_id", site.id).eq("company_id", site.company_id).in("member_id", ids);
+    if (error) throw new Error(`consents: ${error.message}`);
+    return grantedOnly(ids, (data ?? []) as EmailConsentRow[]);
+  };
   const deps = (byId: Map<string, { id: string; first_name: string | null; email: string }>): ReminderDeps => ({
     reserve: async (id, mid, test) => {
+      if (!(await consentFilter([id])).allowed.length) return NO_GRANTED_CONSENT;
       const { data, error } = await sb.rpc("club_reminder_reserve",
         { p_company_id: site.company_id, p_site_id: site.id, p_member_id: id, p_message_id: mid, p_test: test });
       if (error) throw new Error(error.message);
@@ -273,7 +283,8 @@ async function notifyReminders(site: { id: string; company_id: string }, b: any)
     if (dryRun) {
       const { data, error } = await sb.rpc("_club_reminder_reason", { p_company_id: site.company_id, p_site_id: site.id, p_member_id: id, p_test: true });
       if (error) throw new Error(error.message);
-      return { dry_run: true, test: true, reason: data };
+      const reason = data === "ok" && !(await consentFilter([id])).allowed.length ? NO_GRANTED_CONSENT : data;
+      return { dry_run: true, test: true, reason };
     }
     const r = await sendReminderOnce(deps(await load([id])), id, true);
     return { dry_run: false, test: true, ...r };
@@ -281,10 +292,11 @@ async function notifyReminders(site: { id: string; company_id: string }, b: any)
   const limit = clampLimit(b?.limit);
   const { data: cand, error } = await sb.rpc("club_reminder_candidates", { p_company_id: site.company_id, p_site_id: site.id, p_limit: limit });
   if (error) throw new Error(`candidates: ${error.message}`);
-  const ids = ((cand ?? []) as any[]).map((r) => r.member_id as string);
-  if (dryRun) return { dry_run: true, limit, would_send: ids.length, summary: await summary() };
+  const all = ((cand ?? []) as any[]).map((r) => r.member_id as string);
+  const { allowed: ids, excluded } = await consentFilter(all);
+  if (dryRun) return { dry_run: true, limit, would_send: ids.length, excluded_no_granted_consent: excluded, summary: await summary() };
   const out = await runReminderBatch(deps(await load(ids)), ids);
-  return { dry_run: false, limit, candidates: ids.length, ...out, summary: await summary() };
+  return { dry_run: false, limit, candidates: ids.length, excluded_no_granted_consent: excluded, ...out, summary: await summary() };
 }
 
 // ---------- Google Wallet ----------
@@ -783,7 +795,7 @@ Deno.serve(async (req) => {
         const { data, error } = await sb.rpc("club_member_erase", { p_member_id: member.id, p_reason: "erasure_request", p_dry_run: !real });
         if (error || !data) { console.error("erase_account", error?.code); return json({ error: "internal" }, 500); }
         console.log(JSON.stringify({ action: "erase_account", status: (data as any).status, extras }));
-        return json({ status: (data as any).status, dry_run: !real });
+        return json({ status: (data as any).status, dry_run: !real, extras: responseExtras(extras) });
       }
       case "crew_pending": {
         // #328: member vem do token da sessão; qualquer member_id no payload é ignorado (Body não o declara).
