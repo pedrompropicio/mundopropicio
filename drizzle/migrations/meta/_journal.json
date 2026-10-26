@@ -1786,6 +1786,13 @@
       "when": 1792981786916,
       "tag": "0254_dia_a_dia_trafego_youtube",
       "breakpoints": true
+    },
+    {
+      "idx": 255,
+      "version": "7",
+      "when": 1792981945997,
+      "tag": "0255_dia_a_dia_trafego_youtube_unaccent_fix",
+      "breakpoints": true
     }
   ]
 }
