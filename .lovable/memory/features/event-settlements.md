@@ -362,6 +362,16 @@ acrescenta `+ IVA 23% sobre o repasse` (só se a base for positiva) e
 (23%)"), default false. Constante `TRANSFER_IVA_RATE = 23` em
 `src/lib/partner-statement-doc.ts`.
 
+**Base do IVA do repasse (26/10/2026):** com `transfer_with_vat = true`, o IVA
+23% incide sobre `max(0, base a transferir + transferências MP já feitas)`, onde
+as transferências MP = entradas `income` nas contas de acerto do sócio
+(`financial_accounts.partner_id`) com categoria 10.3 / 10.3.*. Patrocínios,
+bengaleiro, operações de terceiros e encontros de contas não contam. A base a
+transferir e o financiamento a devolver não mudam; total a transferir = base +
+IVA; "Total faturado" = base do IVA + IVA (só apresentação, fora do Portal).
+Helpers `partnerMpTransfersAdvanced` / `partnerTransferIvaBase`. Prova EIN ·
+Anitta: base 179.892,22 · MP 905.000,00 · IVA 249.525,21 · total 429.417,43.
+
 ## (g4·2) Desembolso efectivo do sócio e contas de acerto
 
 O "+ Despesas pagas por <sócio>" da secção 5 e do Encontro de Contas soma

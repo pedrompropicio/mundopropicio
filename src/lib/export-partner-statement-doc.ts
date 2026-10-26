@@ -201,6 +201,10 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
     [3],
   );
   if (doc.transferWithVat) {
+    if (doc.mpTransfersAdvanced) {
+      moneyCells(arial(ws.addRow([t.mpTransfersLine, null, doc.mpTransfersAdvanced])), [3]);
+      moneyCells(arial(ws.addRow([t.vatBaseLine, null, doc.transferVatBase])), [3]);
+    }
     moneyCells(arial(ws.addRow([t.vatOnTransfer, null, doc.transferVat])), [3]);
     moneyCells(
       arial(
@@ -213,6 +217,9 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
       ),
       [3],
     );
+    if (doc.mpTransfersAdvanced) {
+      moneyCells(arial(ws.addRow([t.invoicedTotalLine, null, doc.invoicedTotal]), { bold: true }), [3]);
+    }
   }
 
   // ===================== Folha 2 — Detalhamento =====================
@@ -584,6 +591,12 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
       ],
       ...(doc.transferWithVat
         ? [
+            ...(doc.mpTransfersAdvanced
+              ? [
+                  [t.mpTransfersLine, "", { content: money(doc.mpTransfersAdvanced, loc), styles: { halign: "right" } }],
+                  [t.vatBaseLine, "", { content: money(doc.transferVatBase, loc), styles: { halign: "right" } }],
+                ]
+              : []),
             [t.vatOnTransfer, "", { content: money(doc.transferVat, loc), styles: { halign: "right" } }],
             [
               {
@@ -596,6 +609,13 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
               "",
               { content: money(Math.abs(doc.transferTotal), loc), styles: { fontStyle: "bold", halign: "right" } },
             ],
+            ...(doc.mpTransfersAdvanced
+              ? [[
+                  { content: t.invoicedTotalLine, styles: { fontStyle: "bold" } },
+                  "",
+                  { content: money(doc.invoicedTotal, loc), styles: { fontStyle: "bold", halign: "right" } },
+                ]]
+              : []),
           ]
         : []),
     ] as any,

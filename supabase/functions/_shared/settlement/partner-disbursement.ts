@@ -80,6 +80,17 @@ export interface RevenueHeldRow {
   amount: number;
   date: string;
   eventId: string | null;
+  /**
+   * (IVA repasse) Entrada na conta de acerto que é transferência interna da MP
+   * (categoria 10.3 ou 10.3.*). Conta para a base do IVA do repasse.
+   */
+  isMpTransfer?: boolean;
+}
+
+/** Código de categoria das transferências internas (10.3 e filhos 10.3.*). */
+export function isMpTransferCategoryCode(code: string | null | undefined): boolean {
+  const c = String(code ?? "").trim();
+  return c === "10.3" || c.startsWith("10.3.");
 }
 
 /** Compatibilidade com o nome anterior (contas de acerto). */
@@ -209,4 +220,23 @@ export function partnerFinancingToReturn(
 /** Já adiantado ao sócio = extras/adiantamentos (as receitas em poder saem em linha própria). */
 export function partnerAdvancedTotal(extras: number, settlementAccountInflows = 0): number {
   return roundCents((Number(extras) || 0) + (Number(settlementAccountInflows) || 0));
+}
+
+/**
+ * (IVA repasse) Transferências já feitas pela MP ao sócio: entradas nas contas
+ * de acerto do sócio marcadas como transferência interna (10.3). Outras
+ * entradas (patrocínio, bengaleiro), operações de terceiros e encontros de
+ * contas não contam.
+ */
+export function partnerMpTransfersAdvanced(rows: RevenueHeldRow[], partnerId: string): number {
+  return roundCents(
+    (rows || [])
+      .filter((r) => r && r.partnerId === partnerId && r.source === "settlement_account" && r.isMpTransfer === true)
+      .reduce((s, r) => s + (Number(r.amount) || 0), 0),
+  );
+}
+
+/** (IVA repasse) Base do IVA = max(0, base a transferir + transferências MP já feitas). */
+export function partnerTransferIvaBase(transferBase: number, mpTransfersAdvanced = 0): number {
+  return Math.max(0, roundCents((Number(transferBase) || 0) + (Number(mpTransfersAdvanced) || 0)));
 }
