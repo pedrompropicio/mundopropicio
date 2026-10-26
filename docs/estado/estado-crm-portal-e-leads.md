@@ -109,3 +109,9 @@ Fecho apenas em `docs/` e abertura da Issue: sem deploy, DDL, DML, crons, Publis
 - Lembrete e boas-vindas: aviso + logos mantidos, bloco legal acrescentado, cancelar mantido; List-Unsubscribe/One-Click já eram enviados pela fila (`unsubscribe_http_url` → `handle-email-unsubscribe?token=`), não duplicados.
 - Acesso (link de login, transacional): sem cancelar e sem `unsubscribe_http_url`; só identificação + política.
 - Testes: `src/test/newgang-legal-footer-367.test.ts` 5/5; Deno newgang-portal 36/36 (impressão digital das boas-vindas atualizada); tsgo limpo. Sem deploy (R2 pendente: `newgang-portal`), DDL/DML, envios ou Publish. Fila e consentimento intocados.
+
+## 26/10/2026 12:15 UTC — Clube Newgang: deploy R2 `newgang-portal` (#367 + #368)
+- HEAD `528045832bf4859f16a018e7b636028856e48159` limpo; vitest Newgang 138/138, Deno newgang-portal 36/36.
+- Deploy só de `newgang-portal`; source_sha256 `0befaa8734eee708b8fe44bad8f6da87998f0443ee6260141c14c0a4ded92d5b`. Sem Publish, crons, DDL/DML ou envios.
+- Pós-checks: POST `erase_account` sem sessão → 401 `no_session`; lembrete renderizado localmente (destinatário fictício) traz o bloco legal novo + cancelar; `process-email-queue` mantém `List-Unsubscribe` + `List-Unsubscribe-Post: List-Unsubscribe=One-Click`.
+- Decisões do Pedro: manter geral@; boas-vindas = email do Clube. Morada em `companies`: SQL em `supabase/manual/dml_367_companies_morada.sql`, por aprovar.
