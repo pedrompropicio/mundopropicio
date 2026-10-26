@@ -1,3 +1,8 @@
+---
+name: Consentimento antes de publicar qualquer site
+description: Nenhum site/portal/formulário que recolha dados ou use cookies/pixels vai para produção sem análise de consentimento aprovada pelo Pedro (#359)
+type: constraint
+---
 # Restrição — consentimento antes de publicar qualquer site
 
 **Nunca publicar (nem pedir Publish de) um site, portal, landing page ou formulário, novo ou alterado, que recolha dados pessoais ou use cookies/pixels, sem a análise de consentimento de `docs/procedimentos/PROC-consentimento-novo-site.md` feita, registada na Issue e aprovada pelo Pedro.**
