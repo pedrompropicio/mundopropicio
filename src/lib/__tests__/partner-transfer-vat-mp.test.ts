@@ -160,6 +160,7 @@ describe("(IVA repasse) Anitta / EIN", () => {
     });
     expect(b.result).toBe(a.result);
     expect(b.result).toBe(760576.69);
-    expect((b as any).recipientShare ?? b.transferBase).toBe((a as any).recipientShare ?? a.transferBase);
+    expect(b.recipientShare).toBe(418598.65);
+    expect(b.recipientShare).toBe(a.recipientShare);
   });
 });
