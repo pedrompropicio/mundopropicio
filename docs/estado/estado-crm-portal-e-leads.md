@@ -102,3 +102,10 @@ Fecho apenas em `docs/` e abertura da Issue: sem deploy, DDL, DML, crons, Publis
 - `process-email-queue` e `send-transactional-email` passam a respeitar também a supressão por hash.
 - Rotina 30/36 meses, reconfirmação e cron: adiadas para 2028 (decisão do Pedro 26/10).
 - Em aberto: `leads`/`lead_capture` com o mesmo email não são apagados; ficheiros de prova no storage e o objeto Google Wallet não são removidos; reinscrição futura do mesmo email fica suprimida pelo hash.
+
+## 26/10/2026 — Clube Newgang: rodapé legal e cancelamento (#367, R1): pronto para Publish
+- Novo `supabase/functions/newgang-portal/legal-footer.ts` (pt-PT): «Responsável pelo tratamento: Mundo Propício Unipessoal, Lda · NIPC 515274291», «Rua Prista Monteiro 13B, 1600-792 Lisboa, Portugal · geral@mundopropicio.com», «Política de Privacidade» (`https://mundopropicio.com/pt/privacidade`, static_pages `privacidade` publicada, HTTP 200; `/privacidade` dá 404) e «Cancelar a subscrição».
+- Razão social/NIPC conferidos na BD (`companies.legal_name` «Mundo Propício Unipessoal, Lda», `tax_id` 515274291). BD sem morada; `contact_email` na BD é adm@ — usado geral@ por indicação do Pedro.
+- Lembrete e boas-vindas: aviso + logos mantidos, bloco legal acrescentado, cancelar mantido; List-Unsubscribe/One-Click já eram enviados pela fila (`unsubscribe_http_url` → `handle-email-unsubscribe?token=`), não duplicados.
+- Acesso (link de login, transacional): sem cancelar e sem `unsubscribe_http_url`; só identificação + política.
+- Testes: `src/test/newgang-legal-footer-367.test.ts` 5/5; Deno newgang-portal 36/36 (impressão digital das boas-vindas atualizada); tsgo limpo. Sem deploy (R2 pendente: `newgang-portal`), DDL/DML, envios ou Publish. Fila e consentimento intocados.
