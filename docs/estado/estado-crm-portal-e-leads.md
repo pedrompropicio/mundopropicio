@@ -115,3 +115,8 @@ Fecho apenas em `docs/` e abertura da Issue: sem deploy, DDL, DML, crons, Publis
 - Deploy só de `newgang-portal`; source_sha256 `0befaa8734eee708b8fe44bad8f6da87998f0443ee6260141c14c0a4ded92d5b`. Sem Publish, crons, DDL/DML ou envios.
 - Pós-checks: POST `erase_account` sem sessão → 401 `no_session`; lembrete renderizado localmente (destinatário fictício) traz o bloco legal novo + cancelar; `process-email-queue` mantém `List-Unsubscribe` + `List-Unsubscribe-Post: List-Unsubscribe=One-Click`.
 - Decisões do Pedro: manter geral@; boas-vindas = email do Clube. Morada em `companies`: SQL em `supabase/manual/dml_367_companies_morada.sql`, por aprovar.
+
+## 26/10/2026 12:25 UTC — #368 fase 2 (plano aprovado): preparado, 0264 NÃO aplicada
+- `supabase/manual/0264_newgang_erasure_leads_resubscribe.sql` + rollback: leads de todos os módulos (lead_capture, contacts por email, leads por contact_id, coala_invites, coala_list_consents, fever_buyers, meta_audience_upload_members, vip_coupon_email_log) anonimizadas; reinscrição com email-v3/granted/signup limpa só `sha256:` reason erasure_request; log `resubscribe_clear` sem PII.
+- `newgang-portal`: `erase-extras.ts` remove provas do membro no storage e expira o objeto Google Wallet (PATCH state=EXPIRED, credenciais já existentes); falhas não bloqueiam o apagamento.
+- Testes: PGlite 0264 6/6 + 0263 8/8; Deno newgang-portal 39/39; tsgo limpo. Morada: `dml_367_companies_morada.sql` corrigido para jsonb (por aprovar).
