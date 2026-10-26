@@ -218,6 +218,8 @@ export interface PartnerStatementDocInput {
   transferBaseOverride?: number | null;
   transferVatOverride?: number | null;
   transferTotalOverride?: number | null;
+  /** (IVA repasse) Transferências já feitas pela MP ao sócio (contas de acerto, 10.3). */
+  mpTransfersAdvanced?: number;
 }
 
 export interface StatementRubrica {
@@ -302,6 +304,11 @@ export interface PartnerStatementDoc {
   transferWithVat: boolean;
   transferVat: number;
   transferTotal: number;
+  /** (IVA repasse) Base do IVA = max(0, base a transferir + transferências MP). */
+  transferVatBase: number;
+  mpTransfersAdvanced: number;
+  /** (IVA repasse) Total faturado = base do IVA + IVA. */
+  invoicedTotal: number;
 }
 
 export interface StatementTerms {
@@ -350,6 +357,9 @@ export interface StatementTerms {
   transferBaseLine: (partner: string) => string;
   receiveBaseLine: (partner: string) => string;
   vatOnTransfer: string;
+  mpTransfersLine: string;
+  vatBaseLine: string;
+  invoicedTotalLine: string;
   transferTotalLine: (partner: string) => string;
   detailCPaidBy: (partner: string) => string;
   detailDExtras: (partner: string) => string;
@@ -409,6 +419,9 @@ const TERMS: Record<DocLocale, StatementTerms> = {
     transferBaseLine: (p) => `= BASE A TRANSFERIR A ${p.toUpperCase()}`,
     receiveBaseLine: (p) => `= BASE A RECEBER DE ${p.toUpperCase()}`,
     vatOnTransfer: "+ IVA 23% sobre o repasse",
+    mpTransfersLine: "Transferências já feitas",
+    vatBaseLine: "Base do IVA = transferências já feitas + saldo",
+    invoicedTotalLine: "Total faturado",
     transferTotalLine: (p) => `= TOTAL A TRANSFERIR A ${p.toUpperCase()}`,
     receiveTotalLine: (p) => `= TOTAL A RECEBER DE ${p.toUpperCase()}`,
     detailCPaidBy: (p) => `C. Despesas do evento pagas por ${p}`,
@@ -466,6 +479,9 @@ const TERMS: Record<DocLocale, StatementTerms> = {
     transferBaseLine: (p) => `= BASE A TRANSFERIR A ${p.toUpperCase()}`,
     receiveBaseLine: (p) => `= BASE A RECEBER DE ${p.toUpperCase()}`,
     vatOnTransfer: "+ IVA 23% sobre o repasse",
+    mpTransfersLine: "Transferências já feitas",
+    vatBaseLine: "Base do IVA = transferências já feitas + saldo",
+    invoicedTotalLine: "Total faturado",
     transferTotalLine: (p) => `= TOTAL A TRANSFERIR A ${p.toUpperCase()}`,
     receiveTotalLine: (p) => `= TOTAL A RECEBER DE ${p.toUpperCase()}`,
     detailCPaidBy: (p) => `C. Despesas do evento pagas por ${p}`,
@@ -702,17 +718,23 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
       ? roundCents(input.transferBaseOverride)
       : roundCents(recipientShare + financingToReturn - partnerExtras - partnerAdvances);
   const transferWithVat = input.transferWithVat === true;
+  // (IVA repasse) A base do IVA soma as transferências já feitas pela MP.
+  const mpTransfersAdvanced = transferWithVat ? roundCents(Number(input.mpTransfersAdvanced) || 0) : 0;
+  const transferVatBase = transferWithVat
+    ? Math.max(0, roundCents(transferBase + mpTransfersAdvanced))
+    : 0;
   // O IVA do repasse só incide quando há valor a transferir ao sócio.
   const transferVat =
     input.transferVatOverride != null
       ? roundCents(input.transferVatOverride)
-      : transferWithVat && transferBase > 0
-        ? calcIvaAmount(transferBase, TRANSFER_IVA_RATE)
+      : transferWithVat && transferVatBase > 0
+        ? calcIvaAmount(transferVatBase, TRANSFER_IVA_RATE)
         : 0;
   const transferTotal =
     input.transferTotalOverride != null
       ? roundCents(input.transferTotalOverride)
       : roundCents(transferBase + transferVat);
+  const invoicedTotal = transferWithVat ? roundCents(transferVatBase + transferVat) : 0;
 
   // ---- (g20 · #345) Detalhe C/D — só apresentação; os totais mandam ----
   const paidByPartnerLines = reconcileDisplayField(
@@ -801,6 +823,9 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     transferBase,
     transferWithVat,
     transferVat,
+    transferVatBase,
+    mpTransfersAdvanced,
+    invoicedTotal,
     transferTotal,
   };
 }
