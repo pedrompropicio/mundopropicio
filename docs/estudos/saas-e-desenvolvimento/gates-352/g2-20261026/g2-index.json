@@ -1,0 +1,664 @@
+{
+  "files": [
+    {
+      "file": "g2-acl-001.json",
+      "category": "acl",
+      "differences": 100,
+      "sha256": "2ab339fb3142b33b5e942271c607dc733ffa297274ca4928e5d4c711df7dcb29"
+    },
+    {
+      "file": "g2-acl-002.json",
+      "category": "acl",
+      "differences": 100,
+      "sha256": "1262140b7492dd099c3d328eaa977b0a0703ba8297402d3a2444f52d3dbdda7f"
+    },
+    {
+      "file": "g2-acl-003.json",
+      "category": "acl",
+      "differences": 100,
+      "sha256": "d2806a7d2e9d447df039f792942e7b154d53fbc63084af93a6edbcb0b3ec075e"
+    },
+    {
+      "file": "g2-acl-004.json",
+      "category": "acl",
+      "differences": 100,
+      "sha256": "1157ed859bba51522be92b31ef4d841b19e33327876d54105063407587db7864"
+    },
+    {
+      "file": "g2-acl-005.json",
+      "category": "acl",
+      "differences": 100,
+      "sha256": "250ba20c279f00644cb3f18113bd9bf1bc9f3076b2c45088cc89f41c163790bb"
+    },
+    {
+      "file": "g2-acl-006.json",
+      "category": "acl",
+      "differences": 57,
+      "sha256": "2752b4fb4d4810299099e53fd50cc19a87d97446dfce62445e5eea142d7ebca2"
+    },
+    {
+      "file": "g2-aggregates.json",
+      "category": "aggregates",
+      "differences": 0,
+      "sha256": "6fd1143d8b0130aba507af476099aa0c41c6fe83c607e98e4cb08e1b2715c83d"
+    },
+    {
+      "file": "g2-column_acl.json",
+      "category": "column_acl",
+      "differences": 0,
+      "sha256": "228480d1aa114a7eb87c41dd3b00b6aef24f02a00432e186f8bd6d781d665035"
+    },
+    {
+      "file": "g2-columns-001.json",
+      "category": "columns",
+      "differences": 100,
+      "sha256": "ac4d9f4547334ffa87c561973cce9ddf6f76ab69603e746f8a230dde25f2c50e"
+    },
+    {
+      "file": "g2-columns-002.json",
+      "category": "columns",
+      "differences": 100,
+      "sha256": "e068477befbf7786f3b2c723937e4fdf5decee0dbbc360143abe6faba691d217"
+    },
+    {
+      "file": "g2-columns-003.json",
+      "category": "columns",
+      "differences": 100,
+      "sha256": "7ae6894809078391ed8bb9ec098e1a43fe84ad41093468587040f4bfe74dc429"
+    },
+    {
+      "file": "g2-columns-004.json",
+      "category": "columns",
+      "differences": 100,
+      "sha256": "adeadfa062ebbceba9c6c48f6f21eb0c72457768b59afe2f93ab1f81d51cd47c"
+    },
+    {
+      "file": "g2-columns-005.json",
+      "category": "columns",
+      "differences": 78,
+      "sha256": "db0de3c644f31ca7d06a94a77dc406ccd80126bde5ece27816b0d1b55afbcb86"
+    },
+    {
+      "file": "g2-constraints-001.json",
+      "category": "constraints",
+      "differences": 100,
+      "sha256": "9a88364c44d634491717fb71a29f559ff48a82269994944f42842e788cbfefad"
+    },
+    {
+      "file": "g2-constraints-002.json",
+      "category": "constraints",
+      "differences": 29,
+      "sha256": "e1cff3e5343eb95f7ff67dd056f761af501158c0886dea25b84b4714480f53cb"
+    },
+    {
+      "file": "g2-default_acl.json",
+      "category": "default_acl",
+      "differences": 11,
+      "sha256": "9344935d83bb8cfc57170abadf12d297f45ebe728b13c3a35c6316f44a968f0d"
+    },
+    {
+      "file": "g2-enums.json",
+      "category": "enums",
+      "differences": 22,
+      "sha256": "0a0530d5e52a5704e6e239f07e8f5d8241490ca2ff7a4407a592f60a618914f6"
+    },
+    {
+      "file": "g2-event_triggers.json",
+      "category": "event_triggers",
+      "differences": 2,
+      "sha256": "72c50bdc589a253154899ecdeef630f11b17e28bb97984d3206120908cede43c"
+    },
+    {
+      "file": "g2-extension_members.json",
+      "category": "extension_members",
+      "differences": 34,
+      "sha256": "db0d4182005468add8139f5f39851f742e28d0d30dd0858004f1e95d6f4926a3"
+    },
+    {
+      "file": "g2-extensions.json",
+      "category": "extensions",
+      "differences": 4,
+      "sha256": "1675bebb92bd8af2452c764eea299ec9be66e93644247e0676fad37eda2bd2fe"
+    },
+    {
+      "file": "g2-functions-001.json",
+      "category": "functions",
+      "differences": 100,
+      "sha256": "a1642de3598a956dc9bd37c89922284a70a1cef4a256829314eed69ad16d335e"
+    },
+    {
+      "file": "g2-functions-002.json",
+      "category": "functions",
+      "differences": 100,
+      "sha256": "fd923129ff30f45cd2487fc4d04118dd47af71ee448708e75938b4b4088ddbc2"
+    },
+    {
+      "file": "g2-functions-003.json",
+      "category": "functions",
+      "differences": 37,
+      "sha256": "0aaad60ea8732aaec64cf798162740b7d0a81d8c2c83b0c3e462a64d6f935445"
+    },
+    {
+      "file": "g2-indexes-001.json",
+      "category": "indexes",
+      "differences": 100,
+      "sha256": "c52df5117747bef933b57e1fe4e1512cbdd4667ce818da3e9af89f3f7775d610"
+    },
+    {
+      "file": "g2-indexes-002.json",
+      "category": "indexes",
+      "differences": 100,
+      "sha256": "2d54efff4027383face7421750e82dcfe244710c38abd1cc3bd6cbd42df8ab4e"
+    },
+    {
+      "file": "g2-indexes-003.json",
+      "category": "indexes",
+      "differences": 100,
+      "sha256": "29ff46a656c5126c8e5fd67c9140283b83f00886dba0394eeb284c49e2278540"
+    },
+    {
+      "file": "g2-indexes-004.json",
+      "category": "indexes",
+      "differences": 100,
+      "sha256": "1249396170214b9f8659af86d428187eb122a341c535103824c2537ad3790469"
+    },
+    {
+      "file": "g2-indexes-005.json",
+      "category": "indexes",
+      "differences": 100,
+      "sha256": "f9a19be47c7777a91b63b88968d36e545f2cc00fa52e289744f339db699f46fd"
+    },
+    {
+      "file": "g2-indexes-006.json",
+      "category": "indexes",
+      "differences": 100,
+      "sha256": "7d2d561dc014d27273b66c3007aa2fdd999f65b8001289e237f1ca683e0710d2"
+    },
+    {
+      "file": "g2-indexes-007.json",
+      "category": "indexes",
+      "differences": 100,
+      "sha256": "2126fb185fb29312d2542839f427638c0a95394692ca4489d544e9b2a1326b02"
+    },
+    {
+      "file": "g2-indexes-008.json",
+      "category": "indexes",
+      "differences": 100,
+      "sha256": "a38a7047e3bf3bc229877ff71ffec981b1d314e2b16c3184065b932d4807ed1e"
+    },
+    {
+      "file": "g2-indexes-009.json",
+      "category": "indexes",
+      "differences": 100,
+      "sha256": "4d13ba004745a5a02f8a9ae66b4dcc53c3c8c9b6e94ee012470debe3a47d4c24"
+    },
+    {
+      "file": "g2-indexes-010.json",
+      "category": "indexes",
+      "differences": 51,
+      "sha256": "5bb8526efbd1cbc509b98e66f06158d16053a4fb0f1540a261e0699a5f79471e"
+    },
+    {
+      "file": "g2-policies.json",
+      "category": "policies",
+      "differences": 65,
+      "sha256": "75cf0b060865732559fa5b82669508acd25d9f7b52ae677b01b70fe85dc3000f"
+    },
+    {
+      "file": "g2-rewrite_rules.json",
+      "category": "rewrite_rules",
+      "differences": 4,
+      "sha256": "0720f149025dc020bbf47f60cc43f2a21a6c5d49bd1b28452e721ce1247cc4dd"
+    },
+    {
+      "file": "g2-rls.json",
+      "category": "rls",
+      "differences": 23,
+      "sha256": "01925c7dd2c713170d1600326a124787c218b9dec050a55ffbe761f9c62dfa79"
+    },
+    {
+      "file": "g2-role_memberships.json",
+      "category": "role_memberships",
+      "differences": 3,
+      "sha256": "8612d8b51c7bff98b2b162de70b13d800c6aef8808055608f8190584c1b05294"
+    },
+    {
+      "file": "g2-roles.json",
+      "category": "roles",
+      "differences": 3,
+      "sha256": "8167bf43b44d8147e48cb7640bac904ebf8d94fb5b75e7d14a79971750b8af91"
+    },
+    {
+      "file": "g2-schemas-001.json",
+      "category": "schemas",
+      "differences": 100,
+      "sha256": "7ad94763d94e0604640394c2238eaefde897ed5f8ae92ad9b5d452bda3105496"
+    },
+    {
+      "file": "g2-schemas-002.json",
+      "category": "schemas",
+      "differences": 10,
+      "sha256": "173bc4e74869af4ae67efc53f7655e02fb8c2125ee11013806c8ea5756ef10bb"
+    },
+    {
+      "file": "g2-sequences.json",
+      "category": "sequences",
+      "differences": 3,
+      "sha256": "c70ea15fde22935ee1db1cdc9625a1ed9696ed5dbdf5bf3f573e3ab163468a5b"
+    },
+    {
+      "file": "g2-tables.json",
+      "category": "tables",
+      "differences": 29,
+      "sha256": "db7616300149e4994ec464d8cea17397c25205b4a494a05525e91555afae5d9f"
+    },
+    {
+      "file": "g2-triggers-001.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "872f75c124ccae9eb1b319f3643df320dc9c37bd6e4b654f4b5860e8cd36104c"
+    },
+    {
+      "file": "g2-triggers-002.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "4045d85e5ae2dc90b2851b151bd03a0d83f95c2d46ee0645bd53354e18d24724"
+    },
+    {
+      "file": "g2-triggers-003.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "59f2b0162aaf414f1da3f6f6fc1affd2cf7a04bea0977537c611634a7052a859"
+    },
+    {
+      "file": "g2-triggers-004.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "e554f9fc8432c42d96dc5eaebac12dd7d9ce955aca150b3d93fadcccfb86f038"
+    },
+    {
+      "file": "g2-triggers-005.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "8f79f324f8048e72cf748b6778872f3ad34d81bbc60a65f7a1634d487f5073d7"
+    },
+    {
+      "file": "g2-triggers-006.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "b40423f975512bad39d6780521c985abb8e79fab7e2deb98058c4480f7597352"
+    },
+    {
+      "file": "g2-triggers-007.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "b7bc8d587235c48b9fb369002adcf4dcc896bca39f055cc952c9db40413d1c7b"
+    },
+    {
+      "file": "g2-triggers-008.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "83c89e2f86ae4adee66d479d0ad8422aba6ce6b869ede0329bf7a1a931e31be4"
+    },
+    {
+      "file": "g2-triggers-009.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "eddf3f34eb056ec0c23f71b47f3da8064a097f1391b4dfab4334a7b86885059d"
+    },
+    {
+      "file": "g2-triggers-010.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "6a8252e63f4e54f7d5967c813883db0508409ac881128a99af79f1bb36bb1489"
+    },
+    {
+      "file": "g2-triggers-011.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "d78bf5be2b5ab2d3385c1f6f090b9bc8c4edd2fc14ad2c743f8c42b7f6c10586"
+    },
+    {
+      "file": "g2-triggers-012.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "5d6391636686c672c9df790549ddfab8733e89a6fdf0695a80a983b7b0cac8d2"
+    },
+    {
+      "file": "g2-triggers-013.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "12df34032332d1a614e687d659214973ac3c9790a28994907ff8eee53c583190"
+    },
+    {
+      "file": "g2-triggers-014.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "1ac26c903c22e4fa4a7afb009b37c2af7a98a6ed483db1fd31f73d73f8ac3255"
+    },
+    {
+      "file": "g2-triggers-015.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "f78a4c42022f575783c986c5e7f46b795725e46b8a0dfe94f012a0db13a7a959"
+    },
+    {
+      "file": "g2-triggers-016.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "152ab693805d474f885c10a024158dc7c3466c184437af399661359d02bfeb41"
+    },
+    {
+      "file": "g2-triggers-017.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "275d628a5819304b6ce8485cfbd27becf9364f306d71a6a5d5c7aff6f9f67eda"
+    },
+    {
+      "file": "g2-triggers-018.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "9bfa4526418c30ee3d07c84fcddf3b901ca46d229721769884bc42e7b7e80d43"
+    },
+    {
+      "file": "g2-triggers-019.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "4490e4d7bf0a9f1631260ff46756623263baf6038b849b65a0b2108f7f789883"
+    },
+    {
+      "file": "g2-triggers-020.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "023c9e42f91a7298ac387a1171dca32e475c6f3a6df867189456aea631c2a74f"
+    },
+    {
+      "file": "g2-triggers-021.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "9b8108d534fc459327e8a48052c60f86dd9b96946d4af65a4aa38891364c9678"
+    },
+    {
+      "file": "g2-triggers-022.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "7cdf5c232e1198efd6a0028f9e38679a1961508dca2f8285485017e482815132"
+    },
+    {
+      "file": "g2-triggers-023.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "94dbde54f240764b68e9f12074dc0084ff835d5d7c2d4204d5985875dd21555a"
+    },
+    {
+      "file": "g2-triggers-024.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "b202051ae9d871ffdda4289e8a4c3eebadbce1a9c73d276663eb5b3b1692e79c"
+    },
+    {
+      "file": "g2-triggers-025.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "6e8f4366b4c0e1c4ee945380a9ea7bcbaf551f09082815ac05e173bf3b9a3abf"
+    },
+    {
+      "file": "g2-triggers-026.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "1d5f5b21120209c0c10886060ba741c78843e3be9ff1263eec2dbedbe34bfe6b"
+    },
+    {
+      "file": "g2-triggers-027.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "cc700cc20dc4bd0f940924260fc6073878e449a34dd6a865d451461aed3e2fe1"
+    },
+    {
+      "file": "g2-triggers-028.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "e915ad6dd2540a275e603f740bbee2cd2e39e781e56488e01f71c83b68930d0c"
+    },
+    {
+      "file": "g2-triggers-029.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "c3d4d72efa6ae7dfaae05510759252398b13a6b7a5377251cdf4cd831612d431"
+    },
+    {
+      "file": "g2-triggers-030.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "5b45f1895ecbf56064ecad88f5021492e9f3906c8135489ce4900171b83110ba"
+    },
+    {
+      "file": "g2-triggers-031.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "186c17dfcce5f71f35a6287db1d7fb4fd65f35c65b914ee3bafd758949493e86"
+    },
+    {
+      "file": "g2-triggers-032.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "dcb9cf0829f62dc24c1210b0c7004ec932d59fc46356cdbb600b9190d7efb00b"
+    },
+    {
+      "file": "g2-triggers-033.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "99b51cff0284112989a0b3b4bebdeabf73e116fe7658166f5d91808e7b211208"
+    },
+    {
+      "file": "g2-triggers-034.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "6b398b6b44822f34793cfbe13424b548d82c6d0d571cdc640552f56314f7ccfe"
+    },
+    {
+      "file": "g2-triggers-035.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "24b9abaeda52a128f99c23123c15add475f7cb85129a33994525fdb4138c9025"
+    },
+    {
+      "file": "g2-triggers-036.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "b31fd76db4a3f53a59e3a1559c07dd855a9f2e9d973979b70c6f09a4a97cfa79"
+    },
+    {
+      "file": "g2-triggers-037.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "27232d4b6799aa2e0af51a9542c082827fef390ee070253621ba91774e91dbbd"
+    },
+    {
+      "file": "g2-triggers-038.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "a446aa4632c57a4b0ca664f3a13913639df5e22b4f397355f4355fe76535db7e"
+    },
+    {
+      "file": "g2-triggers-039.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "b84e696ac8c35a286b2fc43404a0c5007310e2cc7e7f0917929b620bd6af5203"
+    },
+    {
+      "file": "g2-triggers-040.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "8bc4c4428012899e13d201df1aaa4eb87fa68e20783730c689a144ecbbfec99b"
+    },
+    {
+      "file": "g2-triggers-041.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "1b8e62609cd01f954d0236e0d122eead28a06416ccbbda9f2733eacdcf8fcd59"
+    },
+    {
+      "file": "g2-triggers-042.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "2df8615503555c51304f29a270c2777af74415de6fbefeaf32bcde00a4522b19"
+    },
+    {
+      "file": "g2-triggers-043.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "0c97b1dd901713116520dff2711ea4243a4d4d85aec31481846c5aa50adc0f27"
+    },
+    {
+      "file": "g2-triggers-044.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "96d3e40d393cc5cafff99885e8f336433586fb5153d37b7ed744a6e8752b812c"
+    },
+    {
+      "file": "g2-triggers-045.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "8221fa369994f75798cecd53d2ed951685744b6d4e15c06b92aa4bc8a688f0a2"
+    },
+    {
+      "file": "g2-triggers-046.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "6fff2f20771bbf79d91ca43336618c59be2f781b97680f6005eb4f6f50f7c157"
+    },
+    {
+      "file": "g2-triggers-047.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "2f92996c776dda6e410e3a4f90e62e17710072cc0764363439e7b013cdee3189"
+    },
+    {
+      "file": "g2-triggers-048.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "ea914d2f9c309c31e617607738b905e481a659f109432807020c9b327675c71b"
+    },
+    {
+      "file": "g2-triggers-049.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "0621ba30679905d082c1e739c3855006f83e0e8cf2bf60f306ea49c85a94cb08"
+    },
+    {
+      "file": "g2-triggers-050.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "b712dd157f6c288abc4057f500330fd3b649e5975fbaa988fb4797eff363ff2d"
+    },
+    {
+      "file": "g2-triggers-051.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "0018e3971f80ff481dc5c8007de1de961465fc9df8a6ad1c06dedc7f0bd4c04b"
+    },
+    {
+      "file": "g2-triggers-052.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "80fce6a7bd3c03df874dbee6887d69c1422949b38d49304255ec6ce31a7890e6"
+    },
+    {
+      "file": "g2-triggers-053.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "c5fda724c393b9a1c2767c423fce380d0bb2dc8888ba09dc340c92ea71967b7b"
+    },
+    {
+      "file": "g2-triggers-054.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "07c8d830a557c114d999268180dee73b283426ce9761f5b11e413b3302a01969"
+    },
+    {
+      "file": "g2-triggers-055.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "84b6bf931a104b5bfc91a47a2027114a594e0482dc8de65ecf36555a13fb8b1a"
+    },
+    {
+      "file": "g2-triggers-056.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "7539fdda56351f714190244c343c2a3752a67d0631a74d06baf98899ee33621b"
+    },
+    {
+      "file": "g2-triggers-057.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "7c789f0f90ffe37142e9d362b599053940d7529cb40810005fad69608fda63d9"
+    },
+    {
+      "file": "g2-triggers-058.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "401bd1f32a8350f4dc7e0d54c79d78ef52a49de064438a88167a8ddad9586f78"
+    },
+    {
+      "file": "g2-triggers-059.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "c16b8146d387aa1d05e4e3d944bef7911445e3706dc6939d0b629aeac917feda"
+    },
+    {
+      "file": "g2-triggers-060.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "05718855372aba7dbfec5d2b17f650b6d66a6a76363da96d2641f5b32b74ec80"
+    },
+    {
+      "file": "g2-triggers-061.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "663d08495e498f655492d96cc39a2518049e607c740400ab5d9de97c60998358"
+    },
+    {
+      "file": "g2-triggers-062.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "dd0eb2c7b5a73c8f9d781a9bf0838b3c9f4f1afdd8e69826c3e120d59dfc539b"
+    },
+    {
+      "file": "g2-triggers-063.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "9baf2017b29f0d0782495154e91948770de96ecae130d80606cc14bd251bc902"
+    },
+    {
+      "file": "g2-triggers-064.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "649f1fe93812d8b6da811344a758396ae970f4e55ec7d26e1e9090271472399c"
+    },
+    {
+      "file": "g2-triggers-065.json",
+      "category": "triggers",
+      "differences": 100,
+      "sha256": "781562fcae05c3bcdda74b047ad65080464a0102288b7882c1ce1e9eca9e87c8"
+    },
+    {
+      "file": "g2-triggers-066.json",
+      "category": "triggers",
+      "differences": 20,
+      "sha256": "2b540af0b713fcd7301df99cc2b546247141c3c4b62ac217afbf35d580fbe61b"
+    },
+    {
+      "file": "g2-types.json",
+      "category": "types",
+      "differences": 83,
+      "sha256": "34db456d7fd8a9be9ee7dbc40afeca5c2e3a24f940f762f4ea9ef2572335df0d"
+    },
+    {
+      "file": "g2-views.json",
+      "category": "views",
+      "differences": 8,
+      "sha256": "e159e771983f0359f8be0978c69dc68ad68c1163de65f21add4cfed054b4f827"
+    }
+  ]
+}

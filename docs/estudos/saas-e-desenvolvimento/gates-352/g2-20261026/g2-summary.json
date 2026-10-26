@@ -1,0 +1,436 @@
+{
+  "categories": {
+    "acl": {
+      "replay": 6992,
+      "live": 7190,
+      "compared_union": 7231,
+      "different_objects": 462,
+      "differences": 557,
+      "classes": {
+        "property_mismatch": 277,
+        "only_live": 239,
+        "only_replay": 41
+      },
+      "properties": {
+        "grants": 182,
+        "$presence": 280,
+        "owner": 95
+      },
+      "object_classes": {
+        "application": 176,
+        "other_catalog_object": 273,
+        "postgres_temporary_schema": 108
+      }
+    },
+    "aggregates": {
+      "replay": 161,
+      "live": 161,
+      "compared_union": 161,
+      "different_objects": 0,
+      "differences": 0,
+      "classes": {},
+      "properties": {},
+      "object_classes": {}
+    },
+    "column_acl": {
+      "replay": 37,
+      "live": 37,
+      "compared_union": 37,
+      "different_objects": 0,
+      "differences": 0,
+      "classes": {},
+      "properties": {},
+      "object_classes": {}
+    },
+    "columns": {
+      "replay": 8547,
+      "live": 8767,
+      "compared_union": 8831,
+      "different_objects": 478,
+      "differences": 478,
+      "classes": {
+        "only_replay": 64,
+        "only_live": 284,
+        "property_mismatch": 130
+      },
+      "properties": {
+        "$presence": 348,
+        "ordinal_position": 115,
+        "not_null": 2,
+        "default_sha256": 13
+      },
+      "object_classes": {
+        "other_catalog_object": 152,
+        "application": 326
+      }
+    },
+    "constraints": {
+      "replay": 2069,
+      "live": 2159,
+      "compared_union": 2175,
+      "different_objects": 127,
+      "differences": 129,
+      "classes": {
+        "only_replay": 16,
+        "only_live": 106,
+        "property_mismatch": 7
+      },
+      "properties": {
+        "$presence": 122,
+        "definition_sha256": 5,
+        "on_delete": 2
+      },
+      "object_classes": {
+        "other_catalog_object": 45,
+        "application": 84
+      }
+    },
+    "default_acl": {
+      "replay": 33,
+      "live": 37,
+      "compared_union": 40,
+      "different_objects": 11,
+      "differences": 11,
+      "classes": {
+        "only_live": 7,
+        "property_mismatch": 1,
+        "only_replay": 3
+      },
+      "properties": {
+        "$presence": 10,
+        "grants": 1
+      },
+      "object_classes": {
+        "other_catalog_object": 11
+      }
+    },
+    "enums": {
+      "replay": 76,
+      "live": 83,
+      "compared_union": 83,
+      "different_objects": 17,
+      "differences": 22,
+      "classes": {
+        "only_live": 7,
+        "property_mismatch": 15
+      },
+      "properties": {
+        "$presence": 7,
+        "sort_order": 10,
+        "label_sha256": 5
+      },
+      "object_classes": {
+        "other_catalog_object": 7,
+        "application": 15
+      }
+    },
+    "event_triggers": {
+      "replay": 8,
+      "live": 6,
+      "compared_union": 8,
+      "different_objects": 2,
+      "differences": 2,
+      "classes": {
+        "only_replay": 2
+      },
+      "properties": {
+        "$presence": 2
+      },
+      "object_classes": {
+        "other_catalog_object": 2
+      }
+    },
+    "extension_members": {
+      "replay": 491,
+      "live": 457,
+      "compared_union": 491,
+      "different_objects": 34,
+      "differences": 34,
+      "classes": {
+        "only_replay": 34
+      },
+      "properties": {
+        "$presence": 34
+      },
+      "object_classes": {
+        "other_catalog_object": 34
+      }
+    },
+    "extensions": {
+      "replay": 12,
+      "live": 11,
+      "compared_union": 12,
+      "different_objects": 4,
+      "differences": 4,
+      "classes": {
+        "property_mismatch": 3,
+        "only_replay": 1
+      },
+      "properties": {
+        "owner": 3,
+        "$presence": 1
+      },
+      "object_classes": {
+        "other_catalog_object": 4
+      }
+    },
+    "functions": {
+      "replay": 4403,
+      "live": 4457,
+      "compared_union": 4473,
+      "different_objects": 206,
+      "differences": 237,
+      "classes": {
+        "only_live": 70,
+        "property_mismatch": 151,
+        "only_replay": 16
+      },
+      "properties": {
+        "$presence": 86,
+        "definition_sha256": 67,
+        "config_sha256": 14,
+        "owner": 60,
+        "language": 1,
+        "security_definer": 2,
+        "volatility": 4,
+        "argument_modes": 1,
+        "argument_names_sha256": 1,
+        "return_type": 1
+      },
+      "object_classes": {
+        "application": 108,
+        "other_catalog_object": 129
+      }
+    },
+    "indexes": {
+      "replay": 2042,
+      "live": 2096,
+      "compared_union": 2542,
+      "different_objects": 949,
+      "differences": 951,
+      "classes": {
+        "only_replay": 446,
+        "only_live": 500,
+        "property_mismatch": 5
+      },
+      "properties": {
+        "$presence": 946,
+        "definition_sha256": 2,
+        "predicate_sha256": 2,
+        "valid": 1
+      },
+      "object_classes": {
+        "other_catalog_object": 48,
+        "application": 47,
+        "postgres_toast": 856
+      }
+    },
+    "policies": {
+      "replay": 1258,
+      "live": 1309,
+      "compared_union": 1316,
+      "different_objects": 65,
+      "differences": 65,
+      "classes": {
+        "only_live": 58,
+        "only_replay": 7
+      },
+      "properties": {
+        "$presence": 65
+      },
+      "object_classes": {
+        "application": 52,
+        "other_catalog_object": 13
+      }
+    },
+    "rewrite_rules": {
+      "replay": 198,
+      "live": 202,
+      "compared_union": 202,
+      "different_objects": 4,
+      "differences": 4,
+      "classes": {
+        "only_live": 4
+      },
+      "properties": {
+        "$presence": 4
+      },
+      "object_classes": {
+        "application": 4
+      }
+    },
+    "rls": {
+      "replay": 523,
+      "live": 532,
+      "compared_union": 539,
+      "different_objects": 23,
+      "differences": 23,
+      "classes": {
+        "only_replay": 7,
+        "only_live": 16
+      },
+      "properties": {
+        "$presence": 23
+      },
+      "object_classes": {
+        "other_catalog_object": 13,
+        "application": 10
+      }
+    },
+    "role_memberships": {
+      "replay": 23,
+      "live": 22,
+      "compared_union": 24,
+      "different_objects": 3,
+      "differences": 3,
+      "classes": {
+        "only_live": 1,
+        "only_replay": 2
+      },
+      "properties": {
+        "$presence": 3
+      },
+      "object_classes": {
+        "other_catalog_object": 3
+      }
+    },
+    "roles": {
+      "replay": 31,
+      "live": 32,
+      "compared_union": 32,
+      "different_objects": 3,
+      "differences": 3,
+      "classes": {
+        "only_live": 1,
+        "property_mismatch": 2
+      },
+      "properties": {
+        "$presence": 1,
+        "config_sha256": 2
+      },
+      "object_classes": {
+        "other_catalog_object": 3
+      }
+    },
+    "schemas": {
+      "replay": 153,
+      "live": 259,
+      "compared_union": 261,
+      "different_objects": 110,
+      "differences": 110,
+      "classes": {
+        "only_replay": 2,
+        "only_live": 108
+      },
+      "properties": {
+        "$presence": 110
+      },
+      "object_classes": {
+        "other_catalog_object": 2,
+        "postgres_temporary_schema": 108
+      }
+    },
+    "sequences": {
+      "replay": 17,
+      "live": 16,
+      "compared_union": 18,
+      "different_objects": 3,
+      "differences": 3,
+      "classes": {
+        "only_replay": 2,
+        "only_live": 1
+      },
+      "properties": {
+        "$presence": 3
+      },
+      "object_classes": {
+        "other_catalog_object": 2,
+        "application": 1
+      }
+    },
+    "tables": {
+      "replay": 523,
+      "live": 532,
+      "compared_union": 539,
+      "different_objects": 29,
+      "differences": 29,
+      "classes": {
+        "only_replay": 7,
+        "only_live": 16,
+        "property_mismatch": 6
+      },
+      "properties": {
+        "$presence": 23,
+        "owner": 6
+      },
+      "object_classes": {
+        "other_catalog_object": 19,
+        "application": 10
+      }
+    },
+    "triggers": {
+      "replay": 3586,
+      "live": 3698,
+      "compared_union": 6902,
+      "different_objects": 6520,
+      "differences": 6520,
+      "classes": {
+        "only_replay": 3204,
+        "only_live": 3316
+      },
+      "properties": {
+        "$presence": 6520
+      },
+      "object_classes": {
+        "internal_trigger": 6492,
+        "application": 23,
+        "other_catalog_object": 5
+      }
+    },
+    "types": {
+      "replay": 1695,
+      "live": 1721,
+      "compared_union": 1735,
+      "different_objects": 82,
+      "differences": 83,
+      "classes": {
+        "only_replay": 14,
+        "only_live": 40,
+        "property_mismatch": 29
+      },
+      "properties": {
+        "$presence": 54,
+        "enum_labels_sha256": 3,
+        "owner": 26
+      },
+      "object_classes": {
+        "other_catalog_object": 54,
+        "application": 29
+      }
+    },
+    "views": {
+      "replay": 196,
+      "live": 200,
+      "compared_union": 200,
+      "different_objects": 8,
+      "differences": 8,
+      "classes": {
+        "only_live": 4,
+        "property_mismatch": 4
+      },
+      "properties": {
+        "$presence": 4,
+        "owner": 2,
+        "options_sha256": 2
+      },
+      "object_classes": {
+        "application": 6,
+        "other_catalog_object": 2
+      }
+    }
+  },
+  "difference_count": 9276,
+  "different_category_objects": 9140,
+  "unclassified": 0,
+  "all_differences_blocking": true
+}
