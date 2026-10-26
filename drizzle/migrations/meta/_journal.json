@@ -1807,6 +1807,13 @@
       "when": 1792982388169,
       "tag": "0257_dia_a_dia_traffic_platform_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 258,
+      "version": "7",
+      "when": 1792983265577,
+      "tag": "0258_artist_ads_compare_evk_performance",
+      "breakpoints": true
     }
   ]
 }
