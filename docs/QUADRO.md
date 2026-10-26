@@ -324,6 +324,12 @@ _(sem pedidos)_
 - [ ] de `newgang-portal` para `newgang-portal` (15/10/2026 23:39 Fortaleza): **Pedro alterou expressamente a regra e autorizou avançar neste chat.** Implementações no agente Lovable do próprio portal passam a ser conduzidas pelo respetivo chat do Portal, sem passagem pelo 0-Cowork, mantendo autorização expressa, executor único, reserva, verificação e fecho documental. Aplicar a regra em CHATS.md, procedimento/prompts aplicáveis e DECISIONS.md quando libertos da reserva documental #323. Executor designado desta demanda: ChatGPT · newgang-portal. Atualizações autorizadas: Gang permanece Gang; Elite → Crew; Lenda → Goat; redução adicional proposta de 15% das marcas MP, NG e Fever no rodapé, mantendo proporções desktop/mobile. Confirmar impacto CRM/API/Wallet sem alterar pontos/limites/benefícios; não presumir autorização para DML de eventos ou chamadas externas Google Wallet. **Bloqueio de coordenação:** #322 reserva o agente partilhado e prevê trabalho no portal Newgang; #323 reserva CHATS/DECISIONS/PROC-arranque. Não transferir nem sobrepor reservas; Pedro deve resolver a ordem. get_project do portal às 02:42 UTC de 16/10: agentFinished=true, mas não liberta reservas. Pedido anterior ao 0 superado pela decisão desta sessão. Sem Publish autorizado.
 
 
+## juridico
+
+Assessoria jurídica PT, ES e BR — contratos, RGPD (a regra; o 9 e os portais implementam), laboral, licenciamento e direitos de autor, fiscal só na parte de direito. Aberto a 26/10/2026. Prompt em `docs/prompts/juridico.md`; do lado do Claude corre como skill `assessor-juridico`, fora dos Projetos. O repo é público: aqui não entram termos contratuais, valores negociados nem dados pessoais (D-ERP307).
+
+_(sem pedidos)_
+
 ## gestao-de-chats
 
 - [ ] de 0 para `gestao-de-chats` (15/10/2026): arquivar `bp-deive-leonardo` e abrir `fecho-deive-leonardo-2026` com o molde 3 (evento master `e103ed22-d53c-4eb7-99e8-a6cdbf1d2dfd`, subs Braga `3def1b85…` 29/09 e Lisboa `b7e0407d…` 01/10). AGUARDA PEDRO (decisão 6 da proposta v2).
