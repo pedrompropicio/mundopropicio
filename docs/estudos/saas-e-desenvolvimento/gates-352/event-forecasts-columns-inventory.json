@@ -1,0 +1,55 @@
+{
+  "version": "reconstructed_columns_17845_partners",
+  "schema": "public",
+  "table": "event_forecasts",
+  "relation_oid_live": 17845,
+  "selected_utc": "2026-10-26 00:51:50.002089",
+  "catalog_sha256": "1aa87cdc42cb6d5af442761e21a5bbfda27aceca6ca1c31cc854578f9a9b71e3",
+  "effective_at": "2026-08-25T12:44:00Z",
+  "lower": {
+    "version": "20260825124356",
+    "utc": "2026-08-25T12:43:56Z",
+    "source_sha256": "46965b47c0dc14b94114771909e2860045c13f1c721929035014b558a5d88988",
+    "reason": "ledger sibling functionality on public.transactions; authorised lower bound"
+  },
+  "upper": {
+    "version": "20260825133647",
+    "utc": "2026-08-25T13:36:47Z",
+    "source_sha256": "cecc876039104b970c03e49a1ef3033f368b2aafbf06f8c4e6f8385164efc805",
+    "reason": "first plan reference to paying_partner_id on public.event_forecasts, L11-16"
+  },
+  "sql_sha256": "86612ad2f9cef70c9f75379200de3ced0314135ed69f2012aa90b98fcfbbf7a7",
+  "columns": [
+    {
+      "name": "ordering_partner_id",
+      "attnum": 36,
+      "type": "uuid",
+      "not_null": false,
+      "has_default": false,
+      "constraints": [
+        "event_forecasts_ordering_partner_id_fkey"
+      ],
+      "indexes": [
+        "idx_event_forecasts_ordering_partner"
+      ]
+    },
+    {
+      "name": "paying_partner_id",
+      "attnum": 37,
+      "type": "uuid",
+      "not_null": false,
+      "has_default": false,
+      "constraints": [
+        "event_forecasts_paying_partner_id_fkey"
+      ],
+      "indexes": [
+        "idx_event_forecasts_paying_partner"
+      ]
+    }
+  ],
+  "source_scan": {
+    "orphan_files": 499,
+    "seed_files": 2,
+    "references": 0
+  }
+}
