@@ -1,0 +1,8 @@
+-- Rollback 0264 (comentado; aplicar só com autorização). Repõe a função da 0263 e remove a guarda de reinscrição.
+-- DROP TRIGGER IF EXISTS club368_resubscribe_clear ON public.club_member_email_consents;
+-- DROP FUNCTION IF EXISTS public._club368_resubscribe_clear();
+-- \i supabase/manual/0263_newgang_erasure_on_request.sql   -- só o bloco CREATE OR REPLACE FUNCTION club_member_erase + REVOKE/GRANT
+-- DELETE FROM public.club_retention_log WHERE reason='resubscribe_clear';  -- só se necessário, antes de repor o CHECK
+-- ALTER TABLE public.club_retention_log DROP CONSTRAINT club_retention_log_reason_check;
+-- ALTER TABLE public.club_retention_log ADD CONSTRAINT club_retention_log_reason_check CHECK (reason IN ('erasure_request','retention_36m'));
+-- Nota: anonimizações já feitas não são reversíveis (por desenho).
