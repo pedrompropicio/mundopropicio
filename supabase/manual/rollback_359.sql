@@ -209,6 +209,9 @@ GRANT EXECUTE ON FUNCTION public.crm_ingest_lead_captures(integer, uuid[]) TO se
 -- Grants (0251) — inverso, NÃO aplicado:
 -- GRANT ALL ON public.consent_text_versions TO anon;
 -- GRANT INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.consent_text_versions TO authenticated;
+-- P3 vista de consentimento (0261) — inverso isolado, NÃO aplicado:
+-- REVOKE SELECT ON public.lead_capture_consent_resumo FROM authenticated, service_role;
+-- DROP VIEW public.lead_capture_consent_resumo;
 -- Migração C (anti-forja) — inverso, NÃO aplicado:
 -- DROP TRIGGER IF EXISTS zzz_lead_capture_consent_proof_guard ON public.lead_capture;
 -- DROP FUNCTION IF EXISTS public._lead_capture_consent_proof_guard();
