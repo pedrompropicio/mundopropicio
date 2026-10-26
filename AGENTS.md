@@ -33,6 +33,7 @@
 - Ticketline daily capture uses the side-effect-free shared mapping/core before one UPSERT; strong codes retain order/separators and omitted unidentified nonconsumers preserve their mirror, preventing partial writes and inferred false zeros.
 
 - CRM WhatsApp uses crm_whatsapp_eligible/invoker views. Ledger/member-phone triggers share a contact-locked projection; matching-fingerprint phones only fill empty contacts, avoiding leaks/overwrites.
+- The capture consent summary is a SELECT-only security-invoker view over lead_capture; preserve underlying RLS and distinguish historical reconstruction from contemporaneous records without changing ingestion.
 
 - Cache payments only via cache_* RPCs (mother/city children); optional line choices use local `cache.line_choices`, server-checked.
 - Issue #335 stays manual-only: guards require a private backend/transaction context created by the command trigger, never role/GUC alone; delegate parent locks without broad UPDATE, and verify existing-object candidate rollbacks against the full catalog before separate installation approval. Owner-created DDL triggers belong to the trusted computing base; a separate manual read-only trigger-name allowlist detects additions, never claims prevention or body-replacement detection.
