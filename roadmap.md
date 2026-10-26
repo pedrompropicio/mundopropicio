@@ -1,4 +1,5 @@
-- [ ] #359 P3: aplicar apenas vista 0261; validar ACL/RLS, históricos/novos e count/max; testar e atualizar QUADRO/Issue. B/0252/apply-coala-bp intocados; sem Publish.
+- [x] #359 P3: vista0261 aplicada, ACL/RLS e count/max iguais; históricos2316 + novo1; cópia/rollback/testes25PASS e QUADRO atualizados; sem B/0252/apply-coala-bp/DML/deploy/Publish.
+- [ ] #359 P3 fecho: CI verde bloqueado por 2 falhas preexistentes em memory-index; correção fora do recorte. Tipos manuais vedados pela plataforma. Comentário Issue em preparação.
 - [x] #344 R1: resumo de receitas por origem no gerador partilhado/PDF/Excel; 13 regressões PASS, suite 2.197→2.210 PASS, tsgo 0; relatório e reserva libertada, sem DDL/DML/deploy/Publish. CI remoto e aceitação pelo Pedro pendentes da janela do 0.
 - [x] Carreira/S4A 25/10: 1day/7day comprovados; captura 1day + testes/deploy só s4a-daily-sync; dry_run HTTP200 e escrita não disparada.
 - [x] Carreira/S4A 25/10: comparação SQL diária Spotify/UGC e custos plataforma/moeda, migração0241 + acesso canónico; RPCs HTTP200, testes PostgreSQL sintéticos.
