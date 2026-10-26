@@ -20,11 +20,8 @@ beforeAll(async () => {
   CREATE TABLE leads(id serial, contact_id uuid, ip_inet inet, user_agent text, meta jsonb, kind text);
   CREATE TABLE club_members(id uuid PRIMARY KEY, company_id uuid, site_id uuid, contact_id uuid, email text NOT NULL, phone text, first_name text, instagram_handle text, tiktok_handle text, pending_crew_code text, pending_crew_status text, updated_at timestamptz, erased_at timestamptz);
   CREATE TABLE lead_capture(id serial, company_id uuid, email text, name text, phone text, ip_inet inet, user_agent text, raw jsonb, source text, processed boolean);
-  CREATE TABLE coala_invites(company_id uuid, email text NOT NULL, confirm_url text NOT NULL);
-  CREATE TABLE coala_list_consents(company_id uuid, email text);
-  CREATE TABLE fever_buyers(company_id uuid, email text NOT NULL, first_name text, last_name text, order_ref text);
   CREATE TABLE meta_audience_upload_members(company_id uuid, email text, phone_e164 text, email_hash_sha256 text);
-  CREATE TABLE vip_coupon_email_log(email text);
+  CREATE TABLE events(id uuid PRIMARY KEY, company_id uuid); CREATE TABLE vip_coupon_email_log(event_id uuid, email text);
   CREATE TABLE club_member_sessions(member_id uuid, site_id uuid, email text);
   CREATE TABLE club_wallet_passes(member_id uuid);
   CREATE TABLE club_member_profiles(member_id uuid, birth_date date, birth_country text, residence_country text, city text, updated_at timestamptz);
@@ -45,12 +42,9 @@ beforeAll(async () => {
   INSERT INTO club_members VALUES('${M}','${CO}','${SITE}','${CT}','${E}','+351910000000','Ana',NULL,NULL,NULL,NULL,now(),NULL);
   INSERT INTO lead_capture(company_id,email,name,phone,ip_inet,user_agent,raw,source,processed) VALUES
    ('${CO}','Ana.Teste@example.pt','Ana','+351910000000','1.2.3.4','ua','{"email":"x","first_name":"Ana","city":"Lisboa","utm":"y"}','clube_newgang',true),
-   ('${CO}','outra@x.pt','Outra',NULL,NULL,NULL,'{}','coala_hero',true);
-  INSERT INTO coala_invites VALUES('${CO}','${E}','https://c/t');
-  INSERT INTO coala_list_consents VALUES('${CO}','${E}');
-  INSERT INTO fever_buyers VALUES('${CO}','${E}','Ana','T','F1');
+   ('${CO}','outra@x.pt','Outra',NULL,NULL,NULL,'{}','portal_newsletter',true);
   INSERT INTO meta_audience_upload_members VALUES('${CO}','${E}','+351','hh');
-  INSERT INTO vip_coupon_email_log VALUES('${E}');
+  INSERT INTO events VALUES('e0000000-0000-0000-0000-000000000001','${CO}'),('e0000000-0000-0000-0000-000000000002','d0000000-0000-0000-0000-000000000001'); INSERT INTO vip_coupon_email_log VALUES('e0000000-0000-0000-0000-000000000001','${E}'),('e0000000-0000-0000-0000-000000000002','${E}');
   INSERT INTO suppressed_emails VALUES('sha256:${H}','bounce','00000000-0000-0000-0000-000000000009');`);
   await db.exec(sql);
 }, 60000);
@@ -60,7 +54,7 @@ describe("0264 club_member_erase + reinscrição", () => {
   it("dry_run conta as leads e não altera nada", async () => {
     const r = (await one(`SELECT club_member_erase('${M}') r`)).r;
     expect(r.status).toBe("dry_run");
-    expect(r.tables_affected).toMatchObject({ lead_capture: 1, contacts_anonymized: 1, leads_anonymized: 2, coala_invites: 1, fever_buyers: 1, meta_audience_upload_members: 1, vip_coupon_email_log: 1 });
+    expect(r.tables_affected).toMatchObject({ lead_capture: 1, contacts_anonymized: 1, leads_anonymized: 2, meta_audience_upload_members: 1, vip_coupon_email_log: 1 });
     expect((await one(`SELECT email FROM lead_capture WHERE id=1`)).email).toBe("Ana.Teste@example.pt");
   });
   it("apagamento real: registos mantidos, PII a NULL, outros leads intocados", async () => {
@@ -70,8 +64,6 @@ describe("0264 club_member_erase + reinscrição", () => {
     expect((await one(`SELECT count(*)::int n FROM lead_capture`)).n).toBe(2);
     expect(await one(`SELECT email,phone_e164,name,is_active FROM contacts WHERE id='${CT2}'`)).toEqual({ email: null, phone_e164: null, name: null, is_active: false });
     expect(await one(`SELECT count(*)::int n, count(ip_inet)::int ip FROM leads WHERE contact_id='${CT2}'`)).toEqual({ n: 1, ip: 0 });
-    expect((await one(`SELECT email FROM fever_buyers`)).email).toBe(`erased+${M}@invalid`);
-    expect((await one(`SELECT order_ref FROM fever_buyers`)).order_ref).toBe("F1");
     expect(await one(`SELECT email, email_hash_sha256 FROM meta_audience_upload_members`)).toEqual({ email: null, email_hash_sha256: "hh" });
     expect((await one(`SELECT count(*)::int n FROM suppressed_emails WHERE email='sha256:${H}' AND reason='erasure_request'`)).n).toBe(1);
   });
@@ -94,5 +86,10 @@ describe("0264 club_member_erase + reinscrição", () => {
     expect((await one(`SELECT count(*)::int n FROM suppressed_emails WHERE email='erased+${M}@invalid'`)).n).toBe(1);
     const l = await one(`SELECT old_member_id, email_sha256 FROM club_retention_log WHERE reason='resubscribe_clear'`);
     expect(l).toEqual({ old_member_id: M2, email_sha256: H });
+  });
+});
+describe("0264 âmbito MP", () => {
+  it("vip_coupon_email_log só da empresa do membro", async () => {
+    expect((await db.query<any>(`SELECT email FROM vip_coupon_email_log ORDER BY event_id`)).rows.map((r) => r.email)).toEqual([`erased+${M}@invalid`, E]);
   });
 });

@@ -1,5 +1,5 @@
--- R2 #368 fase 2 (plano aprovado 26/10). NÃO aplicado: aguarda "Sim" do Pedro.
--- (1) Apagamento a pedido passa a anonimizar leads de todos os módulos com o mesmo email
+-- R2 #368 fase 2 (plano aprovado 26/10). Aprovado pelo Pedro 26/10 («Sim»).
+-- (1) Apagamento a pedido passa a anonimizar leads MP (só tabelas da empresa do membro; Coala/Fever fora por decisão do Pedro 26/10)
 --     (predicado: lower(btrim(email)) = email normalizado do membro, e company_id do membro).
 -- (2) Reinscrição com consentimento novo (email-v3, granted, origin signup) limpa só a supressão
 --     sha256:<hash> com reason erasure_request; regista 'resubscribe_clear' sem PII.
@@ -32,11 +32,8 @@ BEGIN
   'contacts_anonymized', (SELECT count(*) FROM public.contacts WHERE company_id=m.company_id AND lower(btrim(email))=e AND id IS DISTINCT FROM m.contact_id),
   'leads_anonymized', (SELECT count(*) FROM public.leads l JOIN public.contacts c ON c.id=l.contact_id WHERE c.company_id=m.company_id AND lower(btrim(c.email))=e),
   'lead_capture', (SELECT count(*) FROM public.lead_capture WHERE company_id=m.company_id AND lower(btrim(email))=e),
-  'coala_invites', (SELECT count(*) FROM public.coala_invites WHERE company_id=m.company_id AND lower(btrim(email))=e),
-  'coala_list_consents', (SELECT count(*) FROM public.coala_list_consents WHERE company_id=m.company_id AND lower(btrim(email))=e),
-  'fever_buyers', (SELECT count(*) FROM public.fever_buyers WHERE company_id=m.company_id AND lower(btrim(email))=e),
   'meta_audience_upload_members', (SELECT count(*) FROM public.meta_audience_upload_members WHERE company_id=m.company_id AND lower(btrim(email))=e),
-  'vip_coupon_email_log', (SELECT count(*) FROM public.vip_coupon_email_log WHERE lower(btrim(email))=e),
+  'vip_coupon_email_log', (SELECT count(*) FROM public.vip_coupon_email_log v JOIN public.events ev ON ev.id=v.event_id WHERE ev.company_id=m.company_id AND lower(btrim(v.email))=e),
   'club_member_sessions', (SELECT count(*) FROM public.club_member_sessions WHERE member_id=m.id OR (site_id=m.site_id AND lower(btrim(email))=e)),
   'club_wallet_passes', (SELECT count(*) FROM public.club_wallet_passes WHERE member_id=m.id),
   'club_member_profiles', (SELECT count(*) FROM public.club_member_profiles WHERE member_id=m.id),
@@ -66,18 +63,15 @@ BEGIN
  UPDATE public.club_points SET reason=NULL WHERE member_id=m.id AND rule_key<>'profile_complete' AND reason IS NOT NULL;
  UPDATE public.email_send_log SET recipient_email='sha256:'||h WHERE lower(btrim(recipient_email))=e;
 
- -- 3) Leads de todos os módulos: registo mantido (agregados), PII a NULL.
+ -- 3) Leads MP (empresa do membro): registo mantido (agregados), PII a NULL.
  --    lead_capture: não toca em processed nem em raw->city/residence_country (nenhum trigger de ingestão/envio dispara).
  UPDATE public.leads l SET ip_inet=NULL, user_agent=NULL, meta=NULL
    FROM public.contacts c WHERE c.id=l.contact_id AND c.company_id=m.company_id AND lower(btrim(c.email))=e;
  UPDATE public.lead_capture SET email=NULL, name=NULL, phone=NULL, ip_inet=NULL, user_agent=NULL,
    raw = CASE WHEN raw IS NULL THEN NULL ELSE raw - pii_keys END
    WHERE company_id=m.company_id AND lower(btrim(email))=e;
- UPDATE public.coala_invites SET email=ph, confirm_url='' WHERE company_id=m.company_id AND lower(btrim(email))=e;
- UPDATE public.coala_list_consents SET email=ph WHERE company_id=m.company_id AND lower(btrim(email))=e;
- UPDATE public.fever_buyers SET email=ph, first_name=NULL, last_name=NULL WHERE company_id=m.company_id AND lower(btrim(email))=e;
  UPDATE public.meta_audience_upload_members SET email=NULL, phone_e164=NULL WHERE company_id=m.company_id AND lower(btrim(email))=e;
- UPDATE public.vip_coupon_email_log SET email=ph WHERE lower(btrim(email))=e;
+ UPDATE public.vip_coupon_email_log v SET email=ph FROM public.events ev WHERE ev.id=v.event_id AND ev.company_id=m.company_id AND lower(btrim(v.email))=e;
  UPDATE public.contacts SET email=NULL, phone_e164=NULL, name=NULL,
    consent_email=false, consent_whatsapp=false, is_active=false, updated_at=now()
    WHERE company_id=m.company_id AND lower(btrim(email))=e AND id IS DISTINCT FROM m.contact_id;
