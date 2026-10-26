@@ -1,4 +1,7 @@
 -- Rollback manual NÃO aplicado. Definição Live: md5 cf9e97d154a437ea66139ce0b04873ed.
+-- Se existir distribuicao_resultado, o CHECK de oito valores recusa o rollback inteiro; não alterar dados automaticamente.
+-- BEGIN;
+-- 
 -- CREATE OR REPLACE FUNCTION public.force_transitory_for_capital_branch()
 --  RETURNS trigger
 --  LANGUAGE plpgsql
@@ -36,4 +39,12 @@
 -- 
 --   RETURN NEW;
 -- END;
--- $function$
+-- $function$;
+-- 
+-- ALTER TABLE public.transactions
+--   DROP CONSTRAINT transactions_transitory_reason_domain;
+-- ALTER TABLE public.transactions
+--   ADD CONSTRAINT transactions_transitory_reason_domain
+--   CHECK (((transitory_reason IS NULL) OR (transitory_reason = ANY (ARRAY['partner_advance'::text, 'repasse'::text, 'caucao'::text, 'emprestimo_socio'::text, 'carga_cartao'::text, 'aporte_socio'::text, 'entrada_a_repassar'::text, 'devolucao_socio'::text]))));
+-- 
+-- COMMIT;

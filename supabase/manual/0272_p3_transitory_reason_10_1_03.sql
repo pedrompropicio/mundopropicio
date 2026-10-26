@@ -1,3 +1,11 @@
+BEGIN;
+
+ALTER TABLE public.transactions
+  DROP CONSTRAINT transactions_transitory_reason_domain;
+ALTER TABLE public.transactions
+  ADD CONSTRAINT transactions_transitory_reason_domain
+  CHECK (((transitory_reason IS NULL) OR (transitory_reason = ANY (ARRAY['partner_advance'::text, 'repasse'::text, 'caucao'::text, 'emprestimo_socio'::text, 'carga_cartao'::text, 'aporte_socio'::text, 'entrada_a_repassar'::text, 'devolucao_socio'::text, 'distribuicao_resultado'::text]))));
+
 CREATE OR REPLACE FUNCTION public.force_transitory_for_capital_branch()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -36,4 +44,6 @@ BEGIN
 
   RETURN NEW;
 END;
-$function$
+$function$;
+
+COMMIT;
