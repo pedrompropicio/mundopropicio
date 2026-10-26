@@ -53,12 +53,12 @@ Deno.test("marca por resolver no resultado lança", () => {
   assert(threw);
 });
 
-Deno.test("boas-vindas inalterada (impressão digital do HTML/texto antes desta alteração)", async () => {
+Deno.test("boas-vindas: impressão digital do HTML/texto com o rodapé legal #367", async () => {
   const o = clubEmail({ greet: "Olá Ana,", lines: ["Falta só um clique para entrares no Clube Newgang. Confirma o teu email e ganha +100 pontos."],
     cta: "Confirmar e entrar no Clube", link: "https://newgangfestival.pt/clube/entrar?t=FIXO",
     note: "O link é pessoal e válido durante 30 dias.", unsubscribeUrl: "https://newgangfestival.pt/descadastrar?token=U" });
-  assertEquals(await sha(o.html), "04029002a53dbbc59c675f549bbb2bddd8f6215850195b7ef8c98bbbbec3c14b");
-  assertEquals(await sha(o.text), "fa27bb5354cbbfbe9650976da119518d0803094f4f5b8ddecf18314ef51b5076");
+  assertEquals(await sha(o.html), "a5f1ce5f20a4830085ea85560617d0a0acdfce7e27fd217968a48fcaf90acb9b");
+  assertEquals(await sha(o.text), "4841f4fc44e50fcec2c38e4863858c3999957dc73dba82a6e2c77178140ebfff");
 });
 
 function deps(reply: string | Error, send: () => Promise<void> = async () => {}) {

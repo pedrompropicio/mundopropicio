@@ -1,5 +1,7 @@
 // Lembrete de confirmação do Clube Newgang — HTML do criativo aprovado pelo Pedro (24/10/2026), marcas substituídas.
 // Ficheiro próprio: o clubEmail (boas-vindas/acesso) não muda. lang pt-PT só aqui.
+import { legalFooterHtml, legalFooterText } from "./legal-footer.ts";
+
 export const REMINDER_SUBJECT = "Falta 1 clique para entrares no Clube Newgang";
 export const REMINDER_HEADER_BASE = "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang";
 const LOGO = "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang/logo-newgang-producoes-branco.png";
@@ -18,9 +20,7 @@ function footer(unsubscribeUrl: string) {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 12px auto;max-width:100%;"><tr>` +
     `<td valign="middle" align="center" style="padding:0 14px 0 0;border-right:1px solid #1f3d2a;"><img src="${LOGO_MP}" width="84" alt="Mundo Propício" style="display:block;width:84px;max-width:100%;height:auto;border:0;"></td>` +
     `<td valign="middle" align="center" style="padding:0 0 0 14px;"><img src="${LOGO}" width="110" alt="Newgang Produções" style="display:block;width:110px;max-width:100%;height:auto;border:0;"></td>` +
-    `</tr></table>` +
-    `<p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7fa58c;">` +
-    `<a href="${esc(unsubscribeUrl)}" style="color:#9cc3aa;text-decoration:underline;">Cancelar a subscrição</a></p>`;
+    `</tr></table>` + legalFooterHtml(unsubscribeUrl);
 }
 
 export function reminderEmail(o: { firstName: string | null; link: string; unsubscribeUrl: string; headerBase?: string }): { html: string; text: string } {
@@ -39,7 +39,7 @@ export function reminderEmail(o: { firstName: string | null; link: string; unsub
     "Falta 1 clique para entrares no Clube e teres acesso aos benefícios, incluindo a compra no lote promocional exclusivo.", "",
     `Confirmar o meu e-mail: ${o.link}`, "",
     "Recebeste este e-mail porque te inscreveste no Clube Newgang. Se não foste tu, podes ignorar esta mensagem.", "",
-    `Cancelar a subscrição: ${o.unsubscribeUrl}`,
+    ...legalFooterText(o.unsubscribeUrl),
   ].join("\n");
   return { html, text };
 }
