@@ -1,4 +1,6 @@
 // Emails do Clube Newgang (visual único: cabeçalho, fundo verde escuro, botão verde, rodapé Newgang Produções).
+import { legalFooterHtml, legalFooterText } from "./legal-footer.ts";
+
 const HEADER = "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang/clube-email-header-v3.jpg";
 const LOGO = "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang/logo-newgang-producoes-branco.png";
 
@@ -7,7 +9,7 @@ function esc(s: string): string {
 }
 
 export function clubEmail(o: {
-  greet: string; lines: string[]; cta: string; link: string; note: string; unsubscribeUrl: string;
+  greet: string; lines: string[]; cta: string; link: string; note: string; unsubscribeUrl: string | null;
 }): { html: string; text: string } {
   const p = (t: string) => `<p style="margin:0 0 16px;font-size:16px;line-height:24px;color:#e8f5ec;">${esc(t)}</p>`;
   const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
@@ -24,9 +26,9 @@ ${p(o.greet)}${o.lines.map(p).join("")}
 </td></tr>
 <tr><td style="padding:24px 32px;border-top:1px solid #1d3a28;text-align:center;">
 <img src="${LOGO}" width="140" alt="Newgang Produções" style="display:inline-block;width:140px;height:auto;border:0;margin-bottom:12px;">
-<p style="margin:0;font-size:12px;line-height:18px;color:#7fa58c;">Recebeste este email porque te inscreveste no Clube Newgang.<br>
-<a href="${esc(o.unsubscribeUrl)}" style="color:#9cc3aa;text-decoration:underline;">Cancelar a subscrição</a></p>
+${o.unsubscribeUrl ? `<p style="margin:0 0 10px;font-size:12px;line-height:18px;color:#7fa58c;">Recebeste este email porque te inscreveste no Clube Newgang.</p>` : ""}
+${legalFooterHtml(o.unsubscribeUrl)}
 </td></tr></table></td></tr></table></body></html>`;
-  const text = [o.greet, "", ...o.lines, "", `${o.cta}: ${o.link}`, "", o.note, "", `Cancelar a subscrição: ${o.unsubscribeUrl}`].join("\n");
+  const text = [o.greet, "", ...o.lines, "", `${o.cta}: ${o.link}`, "", o.note, "", ...(o.unsubscribeUrl ? ["Recebeste este email porque te inscreveste no Clube Newgang."] : []), ...legalFooterText(o.unsubscribeUrl)].join("\n");
   return { html, text };
 }

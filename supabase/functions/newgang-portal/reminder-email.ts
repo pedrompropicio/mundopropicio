@@ -1,5 +1,7 @@
 // Lembrete de confirmação do Clube Newgang — HTML do criativo aprovado pelo Pedro (24/10/2026), marcas substituídas.
 // Ficheiro próprio: o clubEmail (boas-vindas/acesso) não muda. lang pt-PT só aqui.
+import { legalFooterHtml, legalFooterText } from "./legal-footer.ts";
+
 export const REMINDER_SUBJECT = "Falta 1 clique para entrares no Clube Newgang";
 export const REMINDER_HEADER_BASE = "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang";
 const LOGO = "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang/logo-newgang-producoes-branco.png";
@@ -37,7 +39,7 @@ export function reminderEmail(o: { firstName: string | null; link: string; unsub
     "Falta 1 clique para entrares no Clube e teres acesso aos benefícios, incluindo a compra no lote promocional exclusivo.", "",
     `Confirmar o meu e-mail: ${o.link}`, "",
     "Recebeste este e-mail porque te inscreveste no Clube Newgang. Se não foste tu, podes ignorar esta mensagem.", "",
-    `Cancelar a subscrição: ${o.unsubscribeUrl}`,
+    ...legalFooterText(o.unsubscribeUrl),
   ].join("\n");
   return { html, text };
 }

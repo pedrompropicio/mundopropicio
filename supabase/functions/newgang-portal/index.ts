@@ -184,7 +184,9 @@ async function sendClubLink(site: { id: string; company_id: string }, m: { id: s
       ? ["Falta só um clique para entrares no Clube Newgang. Confirma o teu email e ganha +100 pontos."]
       : ["Entra na tua área do Clube Newgang com o botão abaixo."],
     cta: welcome ? "Confirmar e entrar no Clube" : "Entrar no Clube",
-    link, note: `O link é pessoal e válido durante ${SESSION_DAYS} dias.`, unsubscribeUrl: unsub.page,
+    link, note: `O link é pessoal e válido durante ${SESSION_DAYS} dias.`,
+    // #367: acesso (link de login) é transacional — sem bloco de cancelar nem List-Unsubscribe.
+    unsubscribeUrl: welcome ? unsub.page : null,
   })); } catch { throw new PreSendError("email_render_failed"); }
   }
   const label = reminder ? "newgang_club_reminder" : welcome ? "newgang_club_welcome" : "newgang_club_access";
@@ -200,7 +202,7 @@ async function sendClubLink(site: { id: string; company_id: string }, m: { id: s
       from: `Newgang Festival <clube@${SENDER_DOMAIN}>`, sender_domain: SENDER_DOMAIN,
       subject: reminder ? REMINDER_SUBJECT : welcome ? "Confirma a tua entrada no Clube Newgang" : "O teu acesso ao Clube Newgang",
       html, text, purpose: "transactional", label, idempotency_key: messageId,
-      unsubscribe_http_url: unsub.oneClick, queued_at: new Date().toISOString(),
+      ...(kind === "access" ? {} : { unsubscribe_http_url: unsub.oneClick }), queued_at: new Date().toISOString(),
     },
   });
   if (qErr) throw new Error(`enqueue_email: ${qErr.message}`);
