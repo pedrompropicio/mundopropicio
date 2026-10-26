@@ -767,9 +767,21 @@ Deno.serve(async (req) => {
         // Cancelamento pelo próprio membro (sessão válida). Simulação salvo dry_run=false + confirm="APAGAR".
         if (!member || member.site_id !== site.id || member.company_id !== site.company_id) return json({ error: "no_session" }, 401);
         const real = body.dry_run === false && body.confirm === "APAGAR";
+        // #368 fase 2: storage e Wallet só no apagamento real, antes da RPC (que apaga os caminhos e o passe).
+        const extras = real ? await eraseExtras({
+          proofPaths: async () => ((await sb.from("club_mission_submissions").select("proof_image_path").eq("member_id", member.id).not("proof_image_path", "is", null)).data ?? []).map((r: any) => r.proof_image_path),
+          removeProofs: async (p) => !(await sb.storage.from(PROOF_BUCKET).remove(p)).error,
+          hasWalletPass: async () => ((await sb.from("club_wallet_passes").select("member_id", { count: "exact", head: true }).eq("member_id", member.id)).count ?? 0) > 0,
+          expireWallet: async () => {
+            const sa = GW.readSaKey(Deno.env.get("GOOGLE_WALLET_SA_KEY"));
+            const issuer = await walletIssuer(sa);
+            const r = await GW.walletFetch(sa, `/loyaltyObject/${encodeURIComponent(GW.objectId(issuer, member.id))}`, { method: "PATCH", body: JSON.stringify({ state: "EXPIRED" }) });
+            return r.ok || r.status === 404;
+          },
+        }) : null;
         const { data, error } = await sb.rpc("club_member_erase", { p_member_id: member.id, p_reason: "erasure_request", p_dry_run: !real });
         if (error || !data) { console.error("erase_account", error?.code); return json({ error: "internal" }, 500); }
-        console.log(JSON.stringify({ action: "erase_account", status: (data as any).status }));
+        console.log(JSON.stringify({ action: "erase_account", status: (data as any).status, extras }));
         return json({ status: (data as any).status, dry_run: !real });
       }
       case "crew_pending": {
