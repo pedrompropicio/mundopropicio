@@ -28,11 +28,12 @@ export function FinancialPositionView({ data: d }: { data: FinancialPosition }) 
   const summary = [
     { label: "Caixa e cartões", value: d.posicao.caixa_e_cartoes, icon: Wallet, balance: true },
     { label: "Retido visível", value: d.posicao.retido_visiveis, icon: Landmark, balance: true },
-    { label: "A pagar", value: d.posicao.a_pagar, icon: ArrowUpRight, balance: false },
-    { label: "A receber", value: d.posicao.a_receber, icon: ArrowDownLeft, balance: false },
+    // Top cards: stage total without transients (D-ERP322); posicao.a_pagar/a_receber stay validated but not shown.
+    { label: "A pagar", value: d.a_pagar.total, icon: ArrowUpRight, balance: false, transients: d.a_pagar.transitorias.total },
+    { label: "A receber", value: d.a_receber.total, icon: ArrowDownLeft, balance: false, transients: d.a_receber.transitorias.total },
   ];
   return <div className="space-y-7">
-    <section aria-label="Posição"><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{summary.map(item => <div key={item.label} className="min-w-0 border-l-2 border-primary px-4 py-2"><div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground"><item.icon className="h-4 w-4" />{item.label}</div><div className="text-xl font-semibold"><Money value={item.value} hidden={item.balance && !visible} /></div></div>)}</div><p className="mt-5 text-sm text-muted-foreground">Caixa e retido não somam (D-ERP27)</p></section>
+    <section aria-label="Posição"><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{summary.map(item => <div key={item.label} className="min-w-0 border-l-2 border-primary px-4 py-2"><div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground"><item.icon className="h-4 w-4" />{item.label}</div><div className="text-xl font-semibold"><Money value={item.value} hidden={item.balance && !visible} /></div>{"transients" in item && <p className="mt-1 text-xs text-muted-foreground">+ transitórias de repasse: <span className="font-mono tabular-nums">{eur(item.transients ?? null)}</span></p>}</div>)}</div><p className="mt-5 text-sm text-muted-foreground">Caixa e retido não somam (D-ERP27)</p></section>
     <Section title="Caixa e retido">
       {!visible && <p className="mb-4 text-sm text-warning">{hiddenMessage}</p>}
       <div className="grid gap-x-10 gap-y-6 lg:grid-cols-2">
