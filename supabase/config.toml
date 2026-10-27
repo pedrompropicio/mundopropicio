@@ -833,3 +833,6 @@ verify_jwt = true
 # O código mantém isServiceRoleRequest/getUser e a autorização via artist_ads_refresh_claim.
 [functions.artist-ads-refresh-today]
 verify_jwt = true
+
+[functions.financial-position]
+verify_jwt = true
