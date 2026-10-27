@@ -1,5 +1,7 @@
 # P3 — Contratos de pagamento por sócio (congelado)
 
+> Estado 27/10/2026: P3 passos 1–5 aplicados em Live (0271–0275; 0 contratos; Anitta intocado). P7a (f68d87ab) e P7b (90625e42) publicados pelo Pedro. Pendentes: ver secção «Pendentes (27/10/2026)» no fim.
+
 ## Lido
 - .lovable/memory/features/cache-payment-contracts.md, .lovable/memory/features/event-settlements.md, docs/INDEX.md
 - Live (definições e md5): create_cache_payment_contract (a515c227), update_cache_payment_contract (493e7eb7), _cache_create_contract (f818d3d3), _cache_cancel_contract (6fdeb89e), attach_cache_advance_to_contract (64cf5485), add_cache_contract_advance (e14fb6e8), cache_max_contracts, _cache_assert_actor, delete_transaction_cascade (e167a98a), force_transitory_for_capital_branch (cf9e97d1, trigger trg_force_transitory_capital em transactions), freeze_settlement_participant (24515ee8), unfreeze_settlement_participant (3e92484c)
@@ -94,13 +96,13 @@ Estado: passos 1/2 aplicados e verificados pelo Pedro em Live; passo 3 preparado
 - Cancelar (cópia de _cache_cancel_contract) limpa balance_tx_id/withholding_tx_id e transactions.partner_contract_id antes de apagar as transações.
 - Trigger do passo 4 recusa DELETE direto de transação com partner_contract_id fora da RPC; dizer como delete_transaction_cascade é tratado e confirmar que não falha pelas FK.
 
-## P7a — modal Sócios (27/10/2026, R1, implementado, não publicado)
+## P7a — modal Sócios (27/10/2026, publicado pelo Pedro, commit f68d87ab)
 - Decisões do Pedro: 1A botão «Pagamento do sócio» por linha settles na aba Sócios → diálogo padrão Cachê; 2B sem mockup (Pedro revê no preview); 3A share_amount = share do motor (2 casas) + share, share_net, effective_pct, paid_by_partner, extras, settlement_amount, uses_gross_expenses, settlement_id.
 - Código: src/lib/partner-contracts.ts (valores do motor, validação local, erros pt-PT, chamadas RPC), src/components/PartnerPaymentDialog.tsx, EventPartnersTab (botão), TransactionRow (marca «Contrato sócio», sem Eliminar), TransactionEditModal (aviso + bloqueio local de valor/rubrica/fornecedor/evento; motivo distribuicao_resultado mostrado só leitura e reenviado tal qual), transitory-reason.ts (etiqueta).
 - Limitação documentada no ecrã e no código: o servidor aceita o share_amount enviado pelo cliente.
 - Fora: P2, P4 (10.1.06), P5, guarda do selo.
 
-## P7b — origem da parte (27/10/2026, R1, pronto para Publish, não publicado)
+## P7b — origem da parte (27/10/2026, publicado pelo Pedro, commit 90625e42)
 - P7a publicado no commit f68d87ab, segundo Pedro; HEAD local confirmado f68d87abd1cf734cd06699f26232173351c5b0ed.
 - Pedido: excluir pagas/extras/acerto do congelar; mostrar e gravar origin do nó, com diferenças explícitas e compatibilidade de snapshots antigos.
 - Contrato SQL compatível: 0269 apenas exige objeto JSON não nulo; 0273/0274 exigem share_amount, não os três campos removidos. Nenhuma RPC chamada ou alterada.
@@ -109,3 +111,11 @@ Estado: passos 1/2 aplicados e verificados pelo Pedro em Live; passo 3 preparado
 - Testes focados 35/35; suite completa 2803 PASS, 6 skipped, 11 todo (288 ficheiros passaram, 2 skipped). Verificação automática de tipos/build OK; tsgo manual não executado por restrição da plataforma.
 - Não testado: revisão visual desktop/mobile, fluxos reais com RPCs, CI remoto e valores Anitta no ecrã Live. Testes existentes do motor passaram; motor/RPCs/migrações sem alterações. Sem DDL/DML/deploy/Publish/Live.
 - Reserva atualizada para pronto para Publish; questões/resposta e limites em docs/questoes-p7b-origem-da-parte.md.
+
+## Pendentes (27/10/2026) — decisões do Pedro
+- Congelar Lobo/EIN (R2, «Sim» por passo). Nenhum sócio congelado.
+- Modelo de contrato da EIN: a parte é o lucro; o dinheiro a pagar é a conta corrente do Encontro de Contas (desembolso 1.170.562,18; receitas em poder 1.257.799,87; base a transferir 179.813,81; IVA 23% do repasse 249.507,18).
+- Crédito SPA 34.304,72 €: confirmar que não conta duas vezes (ativo no resultado e ajuste ao desembolso).
+- Lobo: diferença 23.919,93 € (posição nominal 59.799,81 vs acerta 35.879,88).
+- P2, P4 (10.1.06), P5, guarda do selo (R2/DDL).
+- Confirmar CI remoto do HEAD; confirmar se o código do IVA do repasse (base estreita) entrou no Publish.

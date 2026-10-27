@@ -1,10 +1,10 @@
-- [x] P7b origem da parte (R1): opção A implementada; origem do nó/snapshot sem reembolsos, detalhes e diferenças explícitas, antigos compatíveis; focados35/35, suite2803PASS, tipos/build automático OK. Pronto para Publish (não publicado); revisão visual/CI remoto não testados; tsgo manual vedado pela plataforma; sem Live.
+- [x] P7b origem da parte (R1) — publicado (Pedro, 27/10/2026), commit 90625e42: opção A implementada; origem do nó/snapshot sem reembolsos, detalhes e diferenças explícitas, antigos compatíveis; focados35/35, suite2803PASS, tipos/build automático OK. Pronto para Publish (não publicado); revisão visual/CI remoto não testados; tsgo manual vedado pela plataforma; sem Live.
 - [x] P3 contratos por sócio: passo 1 (0271) aplicado e verificado pelo Pedro em Live.
 - [x] P3 passo 2 (0272): aplicado; CHECK de nove valores, função e contagens verificados pelo Pedro em Live.
 - [x] P3 passo 3 (0273): SQL manual sem BEGIN/COMMIT, rollback comentado e 45 testes locais preparados; nomes completos confirmados, sem aliases; 68/68 P3 passam.
-- [ ] P3 0273 por aplicar: exige Sim específico após revisão do SQL; passos 4–5 não iniciados. Provas concorrentes/catálogo integral não executadas nesta preparação.
+- [x] P3 passos 3–5 (0273, 0274, 0275): aplicados em Live; 0 contratos; Anitta intocado.
 - [x] P3 P7: etiqueta distribuicao_resultado no helper e opção derivada no seletor TransactionEditModal (P7a, 27/10).
-- [x] P7a: diálogo «Pagamento do sócio» (congelar com valores do motor, estado, contratos, adiantamentos) — pronto para Publish, aguarda revisão do Pedro no preview.
+- [x] P7a: diálogo «Pagamento do sócio» (congelar com valores do motor, estado, contratos, adiantamentos) — publicado (Pedro, 27/10/2026), commit f68d87ab.
 - [ ] P7 restante: guarda do selo; P2, P4 (10.1.06), P5 por autorizar.
 - [x] #359 P3: vista0261 aplicada, ACL/RLS e count/max iguais; históricos2316 + novo1; cópia/rollback/testes25PASS e QUADRO atualizados; sem B/0252/apply-coala-bp/DML/deploy/Publish.
 - [ ] #359 P3 fecho: CI verde bloqueado por 2 falhas preexistentes em memory-index; correção fora do recorte. Tipos manuais vedados pela plataforma. Comentário Issue em preparação.
@@ -104,3 +104,5 @@
 - [x] #333 corretivo: escolher outro email na conversa (23/10) — deploy data-entry aguarda novo Sim
 - [x] artist_ads_compare desempenho: pré-agregação evk aplicada em Live (0258), igualdade no mesmo snapshot confirmada, 7 dias RPC HTTP200 em 3,359s.
 - [x] artist_ads_compare índice normal: migração 0259 aplicada em Live, SQL em supabase/manual/song_link_events_artist_event_created_idx.sql; válido/ready. Janela observada 26/10/2026 08:05:21.464962–08:06:00.225386 UTC (38,760424s, inclui ferramenta/verificação; duração interna exacta não disponível). RPC 7d 2,938→2,754s/30d 6,634→6,454s; EXPLAIN equivalente com helpers canónicos inlined 7d 1,091→1,052s/30d 3,213→3,205s. Índice usado nos dois scans de 7d, não em 30d (Seq Scan escolhido). JSON idêntico exceto corte; corpo/assinatura/SECURITY DEFINER/search_path/ACL inalterados. Chegadas antes 27/120s, janela 11/38,760s, depois 22/120s; eventos 37/21/40. Sem interrupção observada, contagens não provam ausência de perdas. Alvo RPC30d<4s não atingido; nenhuma optimização adicional autorizada.
+
+- [ ] Fecho/sócios — pendentes por decidir pelo Pedro: congelar Lobo/EIN (R2, «Sim» por passo); modelo de contrato da EIN; crédito SPA 34.304,72 € sem dupla contagem; diferença Lobo 23.919,93 €; P2, P4 (10.1.06), P5, guarda do selo (R2/DDL); CI remoto do HEAD; confirmar se o código do IVA do repasse (base estreita) entrou no Publish.
