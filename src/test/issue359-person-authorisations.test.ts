@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
-import { beforeAll, afterAll, beforeEach, it, expect } from 'vitest';
+import { beforeAll, afterAll, beforeEach, afterEach, it, expect } from 'vitest';
 
 const C = '7d831e59-6e82-427b-95a0-64904aae5dd2';
 const MP = '7c858982-6ccd-47ca-bd65-e0dd3eebf01c';
@@ -49,7 +49,6 @@ beforeEach(async()=>{
   await db.exec(`INSERT INTO contacts(id,company_id,email,phone_e164) VALUES('${CID}','${C}','person@example.test','${PH}');
   INSERT INTO email_unsubscribe_tokens(company_id,email,token) VALUES('${C}','person@example.test','${TOKEN}');`);
 });
-import { afterEach } from 'vitest';
 afterEach(async()=>{ await db.exec('ROLLBACK'); });
 
 it('invalid null/length/unknown token returns neutral response with no effects',async()=>{
@@ -152,4 +151,35 @@ it('anon/authenticated have RPC execute but no table read/write; no PUBLIC execu
     const r=(await db.query<{read:boolean;write:boolean;state:boolean;save:boolean}>(`SELECT has_table_privilege('${role}','coala_person_consents','SELECT') read,has_table_privilege('${role}','coala_person_consents','INSERT') write,has_function_privilege('${role}','coala_autorizacoes_estado(text)','EXECUTE') state,has_function_privilege('${role}','coala_autorizacoes_gravar(text,boolean,boolean,text,text)','EXECUTE') save`)).rows[0];
     expect(r).toEqual({read:false,write:false,state:true,save:true});
   }
+});
+it('real anon/authenticated roles can call RPCs while table access is denied',async()=>{
+  await texts();
+  for(const role of ['anon','authenticated']) {
+    await db.exec(`SET LOCAL ROLE ${role}`);
+    expect(await state()).toMatchObject({status:'ok'});
+    expect(await save(false,true)).toMatchObject({status:'ok',whatsapp:true});
+    await db.exec('SAVEPOINT acl');
+    await expect(db.exec('SELECT * FROM coala_person_consents')).rejects.toThrow(/permission denied/);
+    await db.exec('ROLLBACK TO acl; RESET ROLE');
+  }
+});
+it('server ignores supplied text version/timestamp, normalizes email and denies nonCoala scope',async()=>{
+  await texts();
+  await db.exec(`INSERT INTO coala_person_consents(company_id,email,channel,decision,locale,text_version,created_at) VALUES('${C}','  PERSON@EXAMPLE.TEST ','ads','granted','pt','forged','2000-01-01')`);
+  expect((await db.query(`SELECT email,text_version,created_at>'2020-01-01'::timestamptz recent FROM coala_person_consents`)).rows[0]).toEqual({email:'person@example.test',text_version:'coala-anuncios-2026-10-v1',recent:true});
+  await expect(db.exec(`INSERT INTO coala_person_consents(company_id,email,channel,decision,locale) VALUES('${MP}','other@example.test','ads','revoked','pt')`)).rejects.toThrow(/check constraint/);
+});
+it('invalid or missing fingerprint fails closed despite matching phone',async()=>{
+  await texts(); await save(false,true);
+  await db.exec(`UPDATE contacts SET phone_e164='+351923456789'`);
+  expect(await eligible()).toBe(false);
+});
+it('catalog md5 baseline matches Live; print candidate md5 without applying it remotely',async()=>{
+  await db.exec(readFileSync('supabase/manual/0276_issue359_whatsapp_coala_legacy.sql','utf8'));
+  const baseline=(await db.query<{v:string}>(`SELECT md5(pg_get_functiondef('crm_whatsapp_eligible(uuid)'::regprocedure)) v`)).rows[0]?.v;
+  expect(baseline).toBe('dd895c8448e0b5cb0e83c2dbd9554dac');
+  await db.exec(sql('C_eligible'));
+  const candidate=(await db.query<{v:string}>(`SELECT md5(pg_get_functiondef('crm_whatsapp_eligible(uuid)'::regprocedure)) v`)).rows[0]?.v;
+  expect(candidate).not.toBe(baseline);
+  console.log(`crm_whatsapp_eligible local baseline=${baseline}; candidate=${candidate}`);
 });
