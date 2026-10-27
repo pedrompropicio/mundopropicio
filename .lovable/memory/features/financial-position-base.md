@@ -1,0 +1,14 @@
+---
+name: Posição Financeira base (P4)
+description: RPC get_financial_position_base — caixa, cartões, retido, a pagar/receber por estágio; regras de contagem do Pedro 27/10/2026
+type: feature
+---
+D-ERP320, migração 0282. Só leitura; resultado e parte da MP só no P5 (edge financial-position, motor _shared/settlement).
+- Estágio = event_stage(raiz); sub-evento herda. historico/cancelado fora de tudo.
+- BP conta só em eventos JÁ COMEÇADOS (primeira data, incl. sub-eventos e event_dates, ≤ hoje Lisboa) e em em_curso/em_fecho/fechado; futuros e planeamento: só transações lançadas por pagar.
+- Bruto = amount*(1+coalesce(iva_rate,0)/100.0) — iva_rate é integer, nunca /100.
+- A pagar linha = max(custo − pago, 0), excesso = alerta; contrato de cachê ativo substitui a linha cache_module do mesmo forecast_id.
+- Sublinhas: lancado (tx por pagar), confirmado (pending_invoice válida), por_rever (sem decisão válida, conta), ajustado (conta), partner_paid (fora do total). Decisão válida = mais recente com saldo_at_review ±0,01 do saldo s/IVA.
+- Excluir: mães de rateio (filhas ∧ installment_total nulo ∧ event_id nulo), estornos, paying_partner_id, version_id, overhead/exclude_from_result do BP. Transitórias em sublinha; 1.1.* fora do a receber.
+- Caixa+cartões = _account_true_balance_raw (bank/cash/prepaid, sem skip_balance_check); retido = ticket_office_balances, ocultas à parte. Caixa e retido nunca somam. Acerto (contas other «Acerto …»/«Conta Corrente…») e caução a recuperar fora do total.
+- Provas: docs/testes/p4-posicao-base-20261027.md; testes src/test/financial-position-base-p4.test.ts.
