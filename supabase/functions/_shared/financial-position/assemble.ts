@@ -1,5 +1,5 @@
 /**
- * (P5) Posição Financeira — montagem PURA do JSON p5-v2.
+ * (P5) Posição Financeira — montagem PURA do JSON p5-v3 (p5-v2 + cobertura_futuros, D-ERP326).
  *
  * Não calcula o motor nem regras da base: recebe o JSON da RPC
  * get_financial_position_base (p4-v1), o resumo do motor por evento
@@ -7,7 +7,7 @@
  * linhas de despesa sem evento. Só classifica, soma e rotula.
  */
 
-export const P5_VERSION = "p5-v2";
+export const P5_VERSION = "p5-v3";
 
 /** Erros do gate da RPC → HTTP (mesmos códigos da RPC). */
 export const GATE_ERRORS: Record<string, number> = { not_authenticated: 401, company_forbidden: 403, financial_position_permission_denied: 403 };
@@ -119,6 +119,8 @@ export interface AssembleInput {
   /** Pagamentos de contratos P3 por `${event_id}:${supplier_id}`. */
   paidContracts: Record<string, number>;
   generatedAt: string;
+  /** Bloco P5b já montado (assembleFutureCoverage); ausente = incompleto. */
+  futureCoverage?: any;
 }
 
 const val = (valor: number | null, origem: string) => ({ valor: valor == null ? null : r2(valor), origem });
@@ -227,6 +229,9 @@ export function assembleFinancialPosition(input: AssembleInput) {
         "Transitórias de repasse fora do Saldo Geral (só informativas).",
         "Eventos em curso: projeção fora do Saldo Geral",
         "Tudo com IVA. Caixa e retido só se somam aqui, rotulados (D-ERP27).",
+        ...(input.futureCoverage?.total?.dinheiro_de_eventos_em_conta != null
+          ? [`Destinado a eventos futuros: ${input.futureCoverage.total.dinheiro_de_eventos_em_conta.toFixed(2)} € dentro do caixa (não altera o caixa).`]
+          : []),
       ],
       informativo: {
         transitorias_pagar: val(base.a_pagar.transitorias?.total ?? 0, "rpc.a_pagar.transitorias"),
@@ -245,5 +250,6 @@ export function assembleFinancialPosition(input: AssembleInput) {
       eventos_com_erro, incompleto, saldos_visiveis: visible,
     },
     eventos, estrutura, resultado_mp_ano, socios, saldo_geral, projecao_em_curso,
+    cobertura_futuros: input.futureCoverage ?? { meta: { incompleto: true, motivo: "nao_calculado", nota_bp_provisorio: "BP provisório: o BP ainda pode ser substituído; não é o custo final.", notas: {} }, eventos: null, bilheteiras: null, total: null },
   };
 }
