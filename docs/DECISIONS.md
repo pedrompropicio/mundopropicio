@@ -6331,3 +6331,7 @@ Decisões do Pedro:
 - **(c) «Origem da parte» gravada no congelar**, sobre a base efetiva do motor: c/IVA `resultGross`; s/IVA `resultNet − vatReturnedOut`. Assim, base × % = parte, ao cêntimo. As diferenças ficam em «Outros / arredondamentos».
 - **(d) Contratos de pagamento por sócio:** regras nas migrações 0271–0275 aplicadas em Live (tabela; motivo `distribuicao_resultado`; RPCs; guardas; descongelar recusado com contratos ativos). Ver `.lovable/plan.md` (P3).
 - **Estado:** vigente. Publicado pelo Pedro a 27/10/2026 (P7a f68d87ab, P7b 90625e42).
+
+## D-ERP316 — Lobo no fecho MP + EIN (26/10/2026)
+
+Lobo: ⅓ nominal no fecho MP + EIN (tratado com a EIN); MP paga-lhe 6% por acordo próprio e a diferença de 4% é só da MP (26/10/2026). **Estado:** vigente.

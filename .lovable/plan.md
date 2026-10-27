@@ -115,7 +115,7 @@ Estado: passos 1/2 aplicados e verificados pelo Pedro em Live; passo 3 preparado
 ## Pendentes (27/10/2026) — decisões do Pedro
 - Congelar Lobo/EIN (R2, «Sim» por passo). Nenhum sócio congelado.
 - Modelo de contrato da EIN: a parte é o lucro; o dinheiro a pagar é a conta corrente do Encontro de Contas (desembolso 1.170.562,18; receitas em poder 1.257.799,87; base a transferir 179.813,81; IVA 23% do repasse 249.507,18).
-- Crédito SPA 34.304,72 €: confirmar que não conta duas vezes (ativo no resultado e ajuste ao desembolso).
-- Lobo: diferença 23.919,93 € (posição nominal 59.799,81 vs acerta 35.879,88).
 - P2, P4 (10.1.06), P5, guarda do selo (R2/DDL).
 - Confirmar CI remoto do HEAD; confirmar se o código do IVA do repasse (base estreita) entrou no Publish.
+
+- **Tratado (Pedro, 27/10/2026):** (1) acordo do ⅓ do Lobo com a EIN no Fechamento MP + EIN — «Já está tudo tratado»; (2) diferença de 23.919,93 € do Lobo (nominal 59.799,81 vs acerta 35.879,88) é margem só da MP, decidida a 26/10, sem contrato; o 35.879,88 € do diálogo está certo; (3) crédito SPA 34.304,72 € não conta duas vezes: ativo da sociedade MP + EIN no resultado (BP 5%, pago 3,5%) e ajuste ao desembolso da EIN na caixa; C2 fecha a 0,00 € (nota: depende de o contrato com a Anitta deduzir a SPA a 5%).
