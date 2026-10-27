@@ -167,8 +167,9 @@ it("cash and retained never sum; hidden ticket offices apart", async () => {
 });
 
 it("foreign company refused unless platform_admin", async () => {
+  await db.exec("SAVEPOINT s");
   await expect(call(OTHER)).rejects.toThrow("company_forbidden");
-  await db.exec("UPDATE flags SET pa=true");
+  await db.exec("ROLLBACK TO SAVEPOINT s; UPDATE flags SET pa=true");
   expect((await call(OTHER)).meta.company_id).toBe(OTHER);
 });
 
