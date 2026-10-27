@@ -15,3 +15,4 @@ reopen_event_closure exige admin, reopen_event e motivo; limpa carimbos, não st
 Histórico: mark/unmark só admin, auditados; não mudam status. Escritas RPC só authenticated, validam papel/empresa; leituras authenticated/service_role; anon sem EXECUTE, helpers privados. Flag de sessão delimitada por evento/transação, não é defesa contra SQL privilegiado.
 
 Migração0280, manual idêntica e rollback comentado. Provas (a)–(h), predicados e limites: docs/testes/p1-event-stages-20261027.md. P2 backfill é separado com autorização do Pedro. Nenhuma UI implementada por P1.
+P1b (D-ERP319, 0281): sub-evento devolve o estágio da raiz; RPCs de estágio só no master (event_stage_act_on_master); checklist do master soma blockers hard/soft dos sub-eventos. Carimbos antigos em sub-eventos ignorados, não apagados.

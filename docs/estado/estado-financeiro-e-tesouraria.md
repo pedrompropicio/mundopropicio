@@ -5,6 +5,8 @@ Atualizado: 27/10/2026 — P1 estágios aplicado e verificado; restantes frentes
 ## Em que pé está
 
 ### Posição Financeira — P1 estágios aplicado, aguarda P2
+
+- **P1b (D-ERP319, 0281, 27/10/2026):** sub-evento tem sempre o estágio do master; RPCs de estágio só no master; checklist do master agrega bloqueios dos sub-eventos. 16 sub-eventos com carimbos antigos ignorados (limpeza pendente do Pedro).
 - 0280 em Live: quatro colunas nullable sem default, dez funções novas e guard/cleanup de reabertura; nenhuma linha existente alterada. `completed` sem closed_at significa em_fecho; fechado exige completed + closed_at. Caminho legado mantém-se e limpa carimbos ao sair de completed.
 - Checklist servidor: selos/snapshot, cachê congelado, zero BP por rever e zero hard de event_close_blockers. Anitta: três selos em falta, 133 linhas por rever (1.122.040,98 €), sem cachê configurado/hard; não fechada nesta tarefa.
 - Verificação Live (a)–(h): 60eventos/0carimbos/0resíduos; MP55 eventos:13em_curso/42em_fecho; ACL conferida;862funções existentes md5 agregado igual, +10novas. Teste fictício em rollback confirma guarda e cleanup. Local13/13; suite2849PASS/6skip/11todo.
