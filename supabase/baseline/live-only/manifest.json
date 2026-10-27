@@ -865,7 +865,7 @@
       "stage": "historical",
       "version": "reconstructed_353799",
       "file": "supabase/baseline/live-only/tables__public.song_link_diag__87a94fff8d.sql",
-      "body_sha256": "a06c444af50ee262953794e0f9ca70a6893a98405a272b813485a9a9f8dad9cd",
+      "body_sha256": "fb829b3e6f4b45e956cbb7250f1ec5360ecab65500b6b4e40e1acba1c33c780e",
       "origin": {
         "oid": 353799,
         "window": {
@@ -884,7 +884,7 @@
         "live_properties_sha256": "2591a131777674445812f202925c40d3af7ee4acb7a275ea6861da27c74cdb80",
         "live_catalog_window": "frozen G2 catalogue, confirmed 6450286547; 2026-10-27T14:54:58.142159+00:00"
       },
-      "file_sha256": "8c69ac8f94688509631d00c34e5817f05e942216e7fc5c99f8ed1b9809ffa14b"
+      "file_sha256": "e8123d20d580c33b4000f47996b896949540dd08608368446607a75d41ac2f27"
     },
     {
       "id": "d81eff98b069ae70c53419f3107f53b87f8eba0b24ef8a98d74e9e57ecb198c1",
