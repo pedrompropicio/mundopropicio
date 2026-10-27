@@ -3,7 +3,7 @@ import { LockKeyhole, Wallet, Landmark, ArrowDownLeft, ArrowUpRight } from "luci
 import { stageLabel } from "@/lib/event-stage";
 import { POSITION_STAGES, formatPositionAmount as eur, formatPositionDate as date, type FinancialPosition } from "@/lib/financial-position";
 
-type BalanceRow = { account_id: string; name: string; saldo: number | null; cutoff?: string | null };
+type BalanceRow = FinancialPosition["cartoes"][number] & { cutoff?: string | null };
 const hiddenMessage = "Saldos não visíveis para o seu perfil";
 function Money({ value, hidden = false }: { value: number | null; hidden?: boolean }) {
   return <span className="font-mono tabular-nums break-words">{hidden || value === null ? hiddenMessage : eur(value)}</span>;
