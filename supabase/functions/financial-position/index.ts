@@ -10,14 +10,13 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { buildPartnerStatement, computeStatementEngine, loadStatementBundle } from "../_shared/settlement/statement-service.ts";
-import { assembleFinancialPosition, type EventInput, type StructureTxInput } from "../_shared/financial-position/assemble.ts";
+import { assembleFinancialPosition, gateStatus, type EventInput, type StructureTxInput } from "../_shared/financial-position/assemble.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CONCURRENCY = 4;
 const DEADLINE_MS = 25_000;
-const GATE_ERRORS: Record<string, number> = { not_authenticated: 401, company_forbidden: 403, financial_position_permission_denied: 403 };
 
 async function pageAll(build: (from: number, to: number) => any): Promise<any[]> {
   const out: any[] = [];
@@ -115,8 +114,8 @@ Deno.serve(async (req) => {
     // Gate: a própria RPC, com o JWT do utilizador.
     const { data: base, error: rpcErr } = await asUser.rpc("get_financial_position_base", { p_company_id: companyId, p_year: year });
     if (rpcErr) {
-      const code = Object.keys(GATE_ERRORS).find((k) => String(rpcErr.message ?? "").includes(k));
-      if (code) return json({ error: code }, GATE_ERRORS[code]);
+      const gate = gateStatus(String(rpcErr.message ?? ""));
+      if (gate) return json({ error: gate.error }, gate.status);
       console.error("financial-position rpc", rpcErr);
       return json({ error: "financial_position_unavailable" }, 500);
     }

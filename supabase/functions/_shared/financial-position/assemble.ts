@@ -9,6 +9,13 @@
 
 export const P5_VERSION = "p5-v1";
 
+/** Erros do gate da RPC → HTTP (mesmos códigos da RPC). */
+export const GATE_ERRORS: Record<string, number> = { not_authenticated: 401, company_forbidden: 403, financial_position_permission_denied: 403 };
+export function gateStatus(message: string): { error: string; status: number } | null {
+  const code = Object.keys(GATE_ERRORS).find((k) => String(message ?? "").includes(k));
+  return code ? { error: code, status: GATE_ERRORS[code] } : null;
+}
+
 const r2 = (v: number) => Math.round((Number(v) || 0) * 100) / 100;
 
 // ── Custos de estrutura (D-ERP323) ───────────────────────────────────────
