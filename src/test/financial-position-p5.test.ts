@@ -83,9 +83,50 @@ describe("P5 eventos e Saldo Geral", () => {
     expect(out.resultado_mp_ano).toEqual({ sem_estrutura: -30, com_estrutura: -30 });
   });
   it("Histórico só BP, marcado e fora dos totais", () => {
-    const out = run([ev({ estagio: "historico", engine: eng(999, 999, 0) }), ev({ event_id: E2, engine: eng(10, 10, 0) })]);
+    const out = run([ev({ estagio: "historico", engine: eng(999, 999, 0), partners: [{ supplier_id: S1, nome: "H", transferBase: -999, transferVat: 0, transferTotal: -999, transferWithVat: false }] }), ev({ event_id: E2, engine: eng(10, 10, 0) })]);
     expect(out.eventos[0]).toMatchObject({ historico: true, so_bp: true, fora_dos_totais: true });
     expect(out.resultado_mp_ano?.sem_estrutura).toBe(10);
+    expect(out.socios.a_receber_total).toBe(0);
+    expect(out.projecao_em_curso.eventos).toEqual([]);
+  });
+  it("em_curso com sócio a receber é só projeção; fixture Madrid/Ivete mantém 138.846,44 nos totais", () => {
+    const madrid = ev({ nome: "Henry & Klauss – Madrid", estagio: "em_curso", engine: eng(-116573.83, -388579.45, -272005.61),
+      partners: [{ supplier_id: S1, nome: "HENRY VARGAS", transferBase: -376816.12, transferVat: 0, transferTotal: -376816.12, transferWithVat: false }] });
+    const ivete = ev({ event_id: E2, nome: "Ivete Clareou", engine: eng(100, 200, 100),
+      partners: [{ supplier_id: S2, nome: "Sócio Ivete", transferBase: -138846.44, transferVat: 0, transferTotal: -138846.44, transferWithVat: false }] });
+    const out = run([madrid, ivete]);
+    expect(out.meta.version).toBe("p5-v2");
+    expect(out.eventos[0]).toMatchObject({ fora_dos_totais: true, motivo_fora: "em_curso_projecao", resultado_mp: -116573.83 });
+    expect(out.socios.a_receber_total).toBe(138846.44);
+    expect(out.socios.linhas.map((l) => l.event_id)).toEqual([E2]);
+    expect(out.projecao_em_curso).toMatchObject({ resultado_mp_total: -116573.83, socios_a_receber_total: 376816.12, socios_por_liquidar_total: 0 });
+    expect(out.projecao_em_curso.eventos[0]).toMatchObject({ event_id: E1, estagio: "em_curso", resultado_evento: -388579.45, partes_socios_total: -272005.61 });
+    expect(out.projecao_em_curso.socios_linhas.map((l) => l.event_id)).toEqual([E1]);
+    expect(out.resultado_mp_ano).toEqual({ sem_estrutura: 100, com_estrutura: 100 });
+    expect(out.saldo_geral.ativos.a_receber_socios.valor).toBe(138846.44);
+    expect(out.saldo_geral).toEqual(run([ivete]).saldo_geral);
+    expect(parseFinancialPositionP5(out).projecao_em_curso.socios_a_receber_total).toBe(376816.12);
+  });
+  it.each(["em_fecho", "fechado"])("%s entra no resultado e nos totais de sócios", (estagio) => {
+    const out = run([ev({ estagio, engine: eng(42, 100, 58), partners: [{ supplier_id: S1, nome: "S", transferBase: 10, transferVat: 0, transferTotal: 10, transferWithVat: false }] })]);
+    expect(out.resultado_mp_ano?.sem_estrutura).toBe(42);
+    expect(out.socios.por_liquidar_total).toBe(10);
+    expect(out.saldo_geral.passivos.socios_por_liquidar.valor).toBe(10);
+    expect(out.projecao_em_curso.eventos).toEqual([]);
+  });
+  it("planeamento também fica na projeção, incluindo sócio por liquidar", () => {
+    const out = run([ev({ estagio: "planeamento", engine: eng(42, 100, 58), partners: [{ supplier_id: S1, nome: "S", transferBase: 10, transferVat: 0, transferTotal: 10, transferWithVat: false }] })]);
+    expect(out.resultado_mp_ano?.sem_estrutura).toBe(0);
+    expect(out.socios.por_liquidar_total).toBe(0);
+    expect(out.saldo_geral.passivos.socios_por_liquidar.valor).toBe(0);
+    expect(out.projecao_em_curso.socios_por_liquidar_total).toBe(10);
+    expect(parseFinancialPositionP5(out).eventos[0].motivo_fora).toBe("em_curso_projecao");
+  });
+  it("projeção com erro não soma projeções parciais", () => {
+    const out = run([ev({ estagio: "em_curso", engine: null, error: "timeout" })]);
+    expect(out.projecao_em_curso.resultado_mp_total).toBeNull();
+    expect(out.projecao_em_curso.socios_a_receber_total).toBeNull();
+    expect(out.saldo_geral).toBeNull();
   });
   it("cidade-filha: só o master entra (uma linha por evento raiz da RPC)", () => {
     const out = run([ev({ event_id: E1 })]);
@@ -96,7 +137,8 @@ describe("P5 eventos e Saldo Geral", () => {
       { supplier_id: S1, nome: "A", transferBase: -15, transferVat: 0, transferTotal: -15, transferWithVat: false },
       { supplier_id: S2, nome: "B", transferBase: 100, transferVat: 23, transferTotal: 123, transferWithVat: true },
     ] })]);
-    const sg = out.saldo_geral!;
+    const sg = out.saldo_geral;
+    expect(sg).not.toBeNull();
     expect(sg.ativos.total).toBe(1000 + 10 + 200 + 50 + 20 + 15);
     expect(sg.passivos.total).toBe(300 + 0 + 123);
     expect(sg.passivos.a_pagar.dos_quais_bp_sem_transacao.valor).toBe(120);
@@ -108,7 +150,7 @@ describe("P5 eventos e Saldo Geral", () => {
       { code: "10.4.01", name: "O", ebitda_class: null, amount: 100, iva_rate: 0, paid_amount: 40, status: "approved" },
     ]);
     expect(out.resultado_mp_ano).toEqual({ sem_estrutura: 500, com_estrutura: 400 });
-    expect(out.saldo_geral!.passivos.estrutura_por_pagar.valor).toBe(60);
+    expect(out.saldo_geral?.passivos.estrutura_por_pagar.valor).toBe(60);
   });
   it("sem saldos visíveis → saldo_geral null", () => {
     const out = run([ev({})], { meta: { company_id: CO, year: 2026, reference_date: "2026-10-27", version: "p4-v1", balances_visible: false }, posicao: { caixa: null, cartoes: null } });
@@ -135,6 +177,13 @@ describe("P5 gate e contrato", () => {
   it("schema recusa versão errada e saldo com permissão negada", () => {
     const out: any = run([ev({})]);
     expect(() => parseFinancialPositionP5({ ...out, meta: { ...out.meta, version: "p5-v0" } })).toThrow();
+    expect(() => parseFinancialPositionP5({ ...out, meta: { ...out.meta, version: "p5-v1" } })).toThrow();
     expect(() => parseFinancialPositionP5({ ...out, meta: { ...out.meta, saldos_visiveis: false } })).toThrow();
+  });
+  it("schema recusa projeção ausente ou linhas de sócio de projeção nos totais", () => {
+    const out = run([ev({ estagio: "em_curso", partners: [{ supplier_id: S1, nome: "S", transferBase: -50, transferVat: 0, transferTotal: -50, transferWithVat: false }] })]);
+    expect(() => parseFinancialPositionP5({ ...out, projecao_em_curso: undefined })).toThrow();
+    expect(() => parseFinancialPositionP5({ ...out, socios: { ...out.socios, linhas: out.projecao_em_curso.socios_linhas } })).toThrow();
+    expect(() => parseFinancialPositionP5({ ...out, eventos: out.eventos.map((e) => ({ ...e, fora_dos_totais: false })) })).toThrow();
   });
 });
