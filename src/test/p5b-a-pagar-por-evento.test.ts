@@ -93,8 +93,8 @@ const strip = (v: any) => { const c = structuredClone(v); delete c.a_pagar.por_e
 
 it("migration and manual copy are byte-identical", () => {
   const { readdirSync } = require("node:fs");
-  const f = readdirSync("supabase/migrations").find((x: string) => x.endsWith("_0284_p5b_a_pagar_por_evento.sql"));
-  expect(readFileSync(`supabase/migrations/${f}`, "utf8")).toBe(M0284);
+  const f = readdirSync("drizzle/migrations").find((x: string) => x.endsWith("_0284_p5b_a_pagar_por_evento.sql"));
+  expect(readFileSync(`drizzle/migrations/${f}`, "utf8")).toBe(M0284);
 });
 
 it("not-started em_curso: BP out of total, in bp_total/bp_por_lancar; launched tx in a_pagar", async () => {
