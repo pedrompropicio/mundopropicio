@@ -1912,6 +1912,13 @@
       "when": 1793057354981,
       "tag": "0272_p3_transitory_reason_10_1_03",
       "breakpoints": true
+    },
+    {
+      "idx": 273,
+      "version": "7",
+      "when": 1793059431312,
+      "tag": "0273_0273_p3_partner_contract_rpcs",
+      "breakpoints": true
     }
   ]
 }

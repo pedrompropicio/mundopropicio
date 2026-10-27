@@ -23580,6 +23580,23 @@ export type Database = {
         Args: { p: Database["public"]["Tables"]["transactions"]["Row"] }
         Returns: boolean
       }
+      _partner_contract_advance: {
+        Args: {
+          _beneficiary: string
+          _confirm: boolean
+          _participant_id: string
+          _tx_id: string
+        }
+        Returns: number
+      }
+      _partner_contract_assert_unpaid: {
+        Args: { _ids: string[] }
+        Returns: undefined
+      }
+      _partner_contract_share: {
+        Args: { _participant_id: string }
+        Returns: number
+      }
       _partner_extra_assert_can_write: {
         Args: { p_event_id: string }
         Returns: undefined
@@ -24961,6 +24978,14 @@ export type Database = {
         }
         Returns: Json
       }
+      attach_partner_advance_to_contract: {
+        Args: {
+          _advance_tx_id: string
+          _confirm_beneficiary?: boolean
+          _contract_id: string
+        }
+        Returns: Json
+      }
       audit_multi_tenant_isolation: {
         Args: never
         Returns: {
@@ -25074,6 +25099,10 @@ export type Database = {
       cancel_cache_payment_breakdown: {
         Args: { p_contract_id: string; p_reason?: string }
         Returns: undefined
+      }
+      cancel_partner_payment_contract: {
+        Args: { _contract_id: string; _reason: string }
+        Returns: Json
       }
       capi_classify_pending_blocked: {
         Args: { p_limit?: number }
@@ -25615,6 +25644,21 @@ export type Database = {
           p_notes?: string
           p_session_id: string
           p_source_account_id: string
+        }
+        Returns: string
+      }
+      create_partner_payment_contract: {
+        Args: {
+          _advance_ids?: string[]
+          _beneficiary: string
+          _due: string
+          _gross: number
+          _key?: string
+          _label?: string
+          _participant_id: string
+          _wh_applies: boolean
+          _wh_due: string
+          _wh_rate: number
         }
         Returns: string
       }
@@ -26744,6 +26788,10 @@ export type Database = {
       normalize_supplier_name: { Args: { p_name: string }; Returns: string }
       normalize_supplier_nif: { Args: { p_nif: string }; Returns: string }
       normalize_zone_label: { Args: { _label: string }; Returns: string }
+      partner_contract_status: {
+        Args: { _participant_id: string }
+        Returns: Json
+      }
       partner_portal_links: {
         Args: never
         Returns: {
@@ -27593,6 +27641,20 @@ export type Database = {
           p_withholding_applies: boolean
           p_withholding_due_date: string
           p_withholding_rate: number
+        }
+        Returns: string
+      }
+      update_partner_payment_contract: {
+        Args: {
+          _advance_ids?: string[]
+          _beneficiary: string
+          _contract_id: string
+          _due: string
+          _gross: number
+          _label?: string
+          _wh_applies: boolean
+          _wh_due: string
+          _wh_rate: number
         }
         Returns: string
       }
