@@ -2647,12 +2647,21 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           </div>
           )}
 
+          {isPartnerContractTx(transaction as any) && (
+            <div className="rounded-lg border border-primary/30 bg-primary/10 p-3 text-xs text-primary">
+              📄 Contrato sócio — {PARTNER_CONTRACT_TX_HINT}
+            </div>
+          )}
+
           {/* D-ERP80 — motivo obrigatório da transitória */}
           {(canApprove || isManager) && form.is_transitory && (
             <div className="rounded-lg border border-border bg-secondary/30 p-3">
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Motivo da transitória *</label>
               <select
                 value={form.transitory_reason}
+                // P7a: 'distribuicao_resultado' é derivado da rubrica 10.1.03 pelo servidor;
+                // mostra-se só para leitura e o gravar reenvia o valor guardado tal qual.
+                disabled={form.transitory_reason === "distribuicao_resultado"}
                 onChange={(e) => setForm({ ...form, transitory_reason: e.target.value as TransitoryReason | "" })}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
@@ -2662,6 +2671,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                 ))}
                 {form.transitory_reason === "partner_advance" && (
                   <option value="partner_advance">Extra do Sócio</option>
+                )}
+                {form.transitory_reason === "distribuicao_resultado" && (
+                  <option value="distribuicao_resultado">{TRANSITORY_REASON_LABELS.distribuicao_resultado} (rubrica 10.1.03)</option>
                 )}
               </select>
               <p className="mt-1 text-[10px] text-muted-foreground">
