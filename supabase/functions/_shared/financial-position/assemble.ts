@@ -1,5 +1,5 @@
 /**
- * (P5) Posição Financeira — montagem PURA do JSON p5-v1.
+ * (P5) Posição Financeira — montagem PURA do JSON p5-v2.
  *
  * Não calcula o motor nem regras da base: recebe o JSON da RPC
  * get_financial_position_base (p4-v1), o resumo do motor por evento
@@ -7,7 +7,7 @@
  * linhas de despesa sem evento. Só classifica, soma e rotula.
  */
 
-export const P5_VERSION = "p5-v1";
+export const P5_VERSION = "p5-v2";
 
 /** Erros do gate da RPC → HTTP (mesmos códigos da RPC). */
 export const GATE_ERRORS: Record<string, number> = { not_authenticated: 401, company_forbidden: 403, financial_position_permission_denied: 403 };
@@ -130,14 +130,17 @@ export function assembleFinancialPosition(input: AssembleInput) {
 
   const alertasSocios: Array<{ event_id: string; supplier_id: string; alerta: string }> = [];
   const socioLinhas: any[] = [];
+  const projecaoSocioLinhas: any[] = [];
   const eventos = input.events.map((e) => {
     const en = e.engine;
     const historico = e.estagio === "historico";
-    if (en && !historico) {
+    const contaNosTotais = e.estagio === "em_fecho" || e.estagio === "fechado";
+    const projecao = e.estagio === "em_curso" || e.estagio === "planeamento";
+    if (en && (contaNosTotais || projecao)) {
       for (const p of e.partners) {
         const pago = input.paidContracts[`${e.event_id}:${p.supplier_id}`] ?? 0;
         const d = partnerDirection(p, pago);
-        socioLinhas.push({
+        (contaNosTotais ? socioLinhas : projecaoSocioLinhas).push({
           event_id: e.event_id, supplier_id: p.supplier_id, nome: p.nome,
           transferBase: r2(p.transferBase), transferVat: r2(p.transferVat), transferTotal: r2(p.transferTotal),
           transfer_with_vat: p.transferWithVat, pago_contratos: r2(pago), liquido: d.valor, sentido: d.sentido,
@@ -153,7 +156,8 @@ export function assembleFinancialPosition(input: AssembleInput) {
     const residual = en?.house.residual ?? 0;
     return {
       event_id: e.event_id, nome: e.nome, estagio: e.estagio, so_bp: e.so_bp || historico, historico,
-      fora_dos_totais: historico,
+      fora_dos_totais: !contaNosTotais,
+      motivo_fora: projecao ? "em_curso_projecao" : historico ? "historico_so_bp" : contaNosTotais ? null : "estagio_fora_dos_totais",
       resultado_evento: en ? r2(en.eventNetResult) : null,
       partes_socios_total: en ? r2(en.partnersPaidTotal) : null,
       creditos_mp: en ? { parte_casa: r2(declared), iva_devolvido: r2(iva), outros: r2(residual - declared - iva), total: r2(residual) } : null,
@@ -173,6 +177,17 @@ export function assembleFinancialPosition(input: AssembleInput) {
   const somaMp = counted.reduce((s, e) => s + (e.resultado_mp ?? 0), 0);
   const aReceberSocios = socioLinhas.filter((l) => l.sentido === "a_receber").reduce((s, l) => s + l.liquido, 0);
   const porLiquidar = socioLinhas.filter((l) => l.sentido === "por_liquidar").reduce((s, l) => s + l.liquido, 0);
+  const eventosProjecao = eventos.filter((e) => e.motivo_fora === "em_curso_projecao");
+  const projecaoIncompleta = input.events.some((e) => (e.estagio === "em_curso" || e.estagio === "planeamento") && (e.error || !e.engine));
+  const projecao_em_curso = {
+    eventos: eventosProjecao.map(({ event_id, nome, estagio, resultado_evento, resultado_mp, partes_socios_total }) =>
+      ({ event_id, nome, estagio, resultado_evento, resultado_mp, partes_socios_total })),
+    socios_linhas: projecaoSocioLinhas,
+    resultado_mp_total: projecaoIncompleta ? null : r2(eventosProjecao.reduce((s, e) => s + (e.resultado_mp ?? 0), 0)),
+    socios_a_receber_total: projecaoIncompleta ? null : r2(projecaoSocioLinhas.filter((l) => l.sentido === "a_receber").reduce((s, l) => s + l.liquido, 0)),
+    socios_por_liquidar_total: projecaoIncompleta ? null : r2(projecaoSocioLinhas.filter((l) => l.sentido === "por_liquidar").reduce((s, l) => s + l.liquido, 0)),
+    nota: "projeção pelo BP; não é recebível nem custo incorrido",
+  };
 
   const resultado_mp_ano = incompleto ? null : { sem_estrutura: r2(somaMp), com_estrutura: r2(somaMp - estrutura.bruto) };
   const socios = {
@@ -210,6 +225,7 @@ export function assembleFinancialPosition(input: AssembleInput) {
       notas: [
         "O retido entra por inteiro; parte pode pertencer a sócios.",
         "Transitórias de repasse fora do Saldo Geral (só informativas).",
+        "Eventos em curso: projeção fora do Saldo Geral",
         "Tudo com IVA. Caixa e retido só se somam aqui, rotulados (D-ERP27).",
       ],
       informativo: {
@@ -228,6 +244,6 @@ export function assembleFinancialPosition(input: AssembleInput) {
       eventos_processados: input.events.length - eventos_com_erro.length,
       eventos_com_erro, incompleto, saldos_visiveis: visible,
     },
-    eventos, estrutura, resultado_mp_ano, socios, saldo_geral,
+    eventos, estrutura, resultado_mp_ano, socios, saldo_geral, projecao_em_curso,
   };
 }

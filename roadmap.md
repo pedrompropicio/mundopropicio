@@ -112,3 +112,4 @@
 
 - [ ] Fecho/sócios — pendentes por decidir pelo Pedro: congelar Lobo/EIN (R2, «Sim» por passo); modelo de contrato da EIN; P2, P4 (10.1.06), P5, guarda do selo (R2/DDL); CI remoto do HEAD; confirmar se o código do IVA do repasse (base estreita) entrou no Publish.
 - [x] Fecho/sócios tratados (Pedro, 27/10): ⅓ Lobo com EIN; diferença Lobo 23.919,93 € = margem MP; SPA 34.304,72 € sem dupla contagem (C2 = 0,00 €).
+- [ ] P5-corr R1: separar projeção em_curso dos totais, p5-v2, testes e fecho R0.
