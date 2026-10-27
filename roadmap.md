@@ -1,4 +1,4 @@
-- [ ] P7b origem da parte (R1): origem do nó no diálogo e snapshot, sem reembolsos/extras/acerto; compatibilidade antiga, Vitest completo e tsgo; sem Live/Publish.
+- [ ] P7b origem da parte (R1): PARADO antes do código; decidir base s/IVA resultNet − vatReturnedOut (motor) versus resultNet (pedido). Origem/snapshot/testes aguardam resposta; sem Live/Publish.
 - [x] P3 contratos por sócio: passo 1 (0271) aplicado e verificado pelo Pedro em Live.
 - [x] P3 passo 2 (0272): aplicado; CHECK de nove valores, função e contagens verificados pelo Pedro em Live.
 - [x] P3 passo 3 (0273): SQL manual sem BEGIN/COMMIT, rollback comentado e 45 testes locais preparados; nomes completos confirmados, sem aliases; 68/68 P3 passam.
