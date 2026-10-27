@@ -11,12 +11,15 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { buildPartnerStatement, computeStatementEngine, loadStatementBundle } from "../_shared/settlement/statement-service.ts";
 import { assembleFinancialPosition, gateStatus, type EventInput, type StructureTxInput } from "../_shared/financial-position/assemble.ts";
+import { assembleFutureCoverage, futureEventSet } from "../_shared/financial-position/future-coverage.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CONCURRENCY = 4;
 const DEADLINE_MS = 25_000;
+/** P5b: deadline próprio do bloco cobertura_futuros (D-ERP326). */
+const FUTURE_DEADLINE_MS = 6_000;
 
 async function pageAll(build: (from: number, to: number) => any): Promise<any[]> {
   const out: any[] = [];
@@ -48,6 +51,69 @@ async function loadStructure(admin: any, companyId: string, year: number | null)
       return { code: c?.code ?? null, name: c?.name ?? null, ebitda_class: c?.ebitda_class ?? null,
         amount: Number(t.amount) || 0, iva_rate: t.iva_rate, paid_amount: t.paid_amount, status: t.status };
     });
+}
+
+/**
+ * P5b — leituras do bloco cobertura_futuros. RPCs de leitura com o JWT do utilizador
+ * (get_event_cash_position exige current_company_id; get_ticket_office_sales é INVOKER);
+ * tabelas pelo cliente de serviço, filtradas pela empresa já validada pelo gate.
+ */
+async function loadFutureCoverage(asUser: any, admin: any, companyId: string, base: any) {
+  const future = futureEventSet(base);
+  const evRows = await pageAll((a, b) => admin.from("events").select("id, parent_event_id").eq("company_id", companyId).order("id").range(a, b));
+  const parent = new Map<string, string | null>(evRows.map((e: any) => [e.id, e.parent_event_id]));
+  const rootOf: Record<string, string> = {};
+  for (const e of evRows) { let r = e.id, d = 0; while (parent.get(r) && d++ < 16) r = parent.get(r)!; rootOf[e.id] = r; }
+  const futureIds = new Set(future.map((e: any) => e.evento_id));
+  const treeIds = evRows.map((e: any) => e.id).filter((id: string) => futureIds.has(rootOf[id]));
+
+  const accounts = await pageAll((a, b) => admin.from("financial_accounts")
+    .select("id, name, type, skip_balance_check, initial_balance_date, is_active").eq("company_id", companyId).order("id").range(a, b));
+  const accById = new Map(accounts.map((x: any) => [x.id, x]));
+  const offices = accounts.filter((x: any) => x.type === "ticket_office" && x.is_active !== false);
+
+  const salesP = Promise.all(offices.map(async (o: any) => {
+    const { data, error } = await asUser.rpc("get_ticket_office_sales", { p_account_id: o.id });
+    if (error) throw new Error("ticket_office_sales_failed");
+    return { account_id: o.id, name: o.name, rows: (data ?? []).map((r: any) => ({ event_id: r.event_id, revenue: Number(r.revenue) || 0 })) };
+  }));
+  const cashP = (async () => {
+    const { data, error } = await asUser.rpc("get_event_cash_position", { p_company_id: companyId });
+    if (error) throw new Error("event_cash_position_failed");
+    return (data ?? []).map((r: any) => ({ event_id: r.event_id, realized: Number(r.realized) || 0 }));
+  })();
+  const txs: any[] = [];
+  for (let i = 0; i < treeIds.length; i += 100) {
+    txs.push(...await pageAll((a, b) => admin.from("transactions")
+      .select("id, event_id, type, status, paid_amount, payment_date, description, account_id, is_transitory, transitory_reason")
+      .eq("company_id", companyId).in("event_id", treeIds.slice(i, i + 100)).is("reversed_at", null).order("id").range(a, b)));
+  }
+  const preCutoff = txs.filter((t) => {
+    const acc: any = t.account_id ? accById.get(t.account_id) : null;
+    return acc && ["bank", "cash", "prepaid_card"].includes(acc.type) && acc.skip_balance_check === false
+      && acc.initial_balance_date && t.payment_date && t.paid_amount != null && String(t.payment_date) <= String(acc.initial_balance_date);
+  }).map((t) => ({ event_id: t.event_id, type: t.type, paid: Number(t.paid_amount) || 0 }));
+  const aportes = txs.filter((t) => t.type === "income" && t.status === "paid" && t.is_transitory && t.transitory_reason === "aporte_socio")
+    .map((t) => {
+      const acc: any = t.account_id ? accById.get(t.account_id) : null;
+      return { event_id: t.event_id, payment_date: t.payment_date, description: t.description, account_name: acc?.name ?? null,
+        account_type: acc?.type ?? null, skip_balance_check: acc ? acc.skip_balance_check === true : null, paid: Number(t.paid_amount) || 0 };
+    });
+  const [sales, cash] = await Promise.all([salesP, cashP]);
+  return assembleFutureCoverage({ base, rootOf, sales, cash, preCutoff, aportes });
+}
+
+async function futureCoverageSafe(asUser: any, admin: any, companyId: string, base: any) {
+  try {
+    return await Promise.race([
+      loadFutureCoverage(asUser, admin, companyId, base),
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), FUTURE_DEADLINE_MS)),
+    ]);
+  } catch (e) {
+    console.error("financial-position future-coverage", (e as Error).message);
+    return assembleFutureCoverage({ base, rootOf: {}, sales: null, cash: null, preCutoff: null, aportes: null,
+      error: (e as Error).message === "timeout" ? "timeout" : (e as Error).message || "erro" });
+  }
 }
 
 async function loadPaidContracts(admin: any, companyId: string): Promise<Record<string, number>> {
@@ -148,13 +214,14 @@ Deno.serve(async (req) => {
         }
       }
     };
-    const [structure, paidContracts] = await Promise.all([
+    const [structure, paidContracts, futureCoverage] = await Promise.all([
       loadStructure(admin, companyId, year),
       loadPaidContracts(admin, companyId),
+      futureCoverageSafe(asUser, admin, companyId, base),
       Promise.all(Array.from({ length: Math.min(CONCURRENCY, evs.length) }, worker)),
     ]);
 
-    const out = assembleFinancialPosition({ base, events: results, structure, paidContracts, generatedAt: new Date().toISOString() });
+    const out = assembleFinancialPosition({ base, events: results, structure, paidContracts, futureCoverage, generatedAt: new Date().toISOString() });
     const ms = Date.now() - started;
 
     await admin.from("system_audit_log").insert({
