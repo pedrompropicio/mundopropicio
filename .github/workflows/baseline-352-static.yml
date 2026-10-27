@@ -1,0 +1,17 @@
+name: G3 baseline static validation (not acceptance)
+on:
+  push:
+    branches: [main, 'docs/352-g3-*']
+    paths: ['supabase/baseline/**', 'tools/baseline-352/**', '.github/workflows/baseline-352-static.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  integrity-and-sanitization:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: python3 -m unittest discover -s tools/baseline-352 -p 'test_*.py'
+      - run: python3 tools/baseline-352/check_pii.py

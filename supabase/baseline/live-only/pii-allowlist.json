@@ -1,0 +1,563 @@
+{
+  "review": 6449906971,
+  "rebind_rule": "same approved literal and source bytes; exact destination file hash and line",
+  "entries": [
+    {
+      "file": "supabase/baseline/live-only/columns__public.system_reminder_settings.default_twilio_from__9685473c9c.sql",
+      "line": 6,
+      "type": "telefone",
+      "literal_sha256": "bff8fa68bb535e8de1e3b5eb86f268931b8fdc333ef26729516715ff566f787d",
+      "file_sha256": "657f996f6af5b2ae04667e31cbbe4a4ea3b85b3e0f9f762259eed6944582a9b4",
+      "provenance": [
+        {
+          "rule": "sanitized_literal_reconstruction",
+          "review": 6442428904,
+          "source_file": "supabase/baseline/live-only/004_columns_60701_3.sql",
+          "source_file_sha256": "77ce91204b7ade3918719be80f816d8103c2aad5fdd40437f282c32a4b78ced0",
+          "source_line": 1,
+          "oid": 60701
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public._revert_event_to_version_pg_catalog.uuid_pg_catalog.uuid_pg_catalog.uuid_pg_catalog.text_pg_catalog.bool__f5dc052c1a.sql",
+      "line": 74,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "fa8319a14e0f5488960130a320d5fa580fdd8723c94c77cda7561b5b40dbedb2",
+      "file_sha256": "66b5620b0805edd0d8d01297eb83305ab969abd907c5fab3245c29b7187669f2",
+      "provenance": [
+        {
+          "rule": "catalog_identifier_literal",
+          "review": 6441951637,
+          "source_file": "supabase/baseline/live-only/039_functions_53645_0.sql",
+          "source_file_sha256": "fd7b0c265f520de43f04b5989f9179bd80eb60d8a893def6e4c0fc059a3980a4",
+          "source_line": 69,
+          "oid": 53645
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public._revert_event_to_version_pg_catalog.uuid_pg_catalog.uuid_pg_catalog.uuid_pg_catalog.text_pg_catalog.bool__f5dc052c1a.sql",
+      "line": 96,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "8d0c2df56e33c49d1bd35d34c10c755974368d33c43dd4ba6b4ff4bfead17906",
+      "file_sha256": "66b5620b0805edd0d8d01297eb83305ab969abd907c5fab3245c29b7187669f2",
+      "provenance": [
+        {
+          "rule": "catalog_identifier_literal",
+          "review": 6441951637,
+          "source_file": "supabase/baseline/live-only/039_functions_53645_0.sql",
+          "source_file_sha256": "fd7b0c265f520de43f04b5989f9179bd80eb60d8a893def6e4c0fc059a3980a4",
+          "source_line": 91,
+          "oid": 53645
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public._revert_event_to_version_pg_catalog.uuid_pg_catalog.uuid_pg_catalog.uuid_pg_catalog.text_pg_catalog.bool__f5dc052c1a.sql",
+      "line": 117,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "8d4f0acb2ab59d699b23cefe96b7b75ede3331818a47d417f5053d05ad3916f4",
+      "file_sha256": "66b5620b0805edd0d8d01297eb83305ab969abd907c5fab3245c29b7187669f2",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/039_functions_53645_0.sql",
+          "source_file_sha256": "fd7b0c265f520de43f04b5989f9179bd80eb60d8a893def6e4c0fc059a3980a4",
+          "source_line": 112,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.apply_supplier_credit_pg_catalog.uuid_pg_catalog.uuid_pg_catalog._numeric_pg_catalog.uuid__e24d49d26f.sql",
+      "line": 64,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "d30fadcd911ee6d3b9d8dd324034825cce297542d7306cfd1fc7d490c9d668f6",
+      "file_sha256": "c5f99990a1032894a14c0dba6261524b6f1cd89c71831d6576af7b36a0d07352",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/042_functions_178685_0.sql",
+          "source_file_sha256": "d36f7b749e28a17332037024c9e50bf44511289d9a4d52374948e07d3f8f7f1c",
+          "source_line": 59,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.auto_create_initial_bp_version__3f529be0cb.sql",
+      "line": 39,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "7dc184603e316e8c99570e9de63270ee0556bb8738b524bef82fa105c4253171",
+      "file_sha256": "137f1e0844d957ebf3390c1d54aa36453b2686ebb4692c51fba39a753a0e648d",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/047_functions_53652_0.sql",
+          "source_file_sha256": "1897fc2d3e468bf64792063ba49a7fa2b2caf480360fd1450f3471a1445bee1f",
+          "source_line": 34,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.auto_create_retroactive_split_snapshots__053160214e.sql",
+      "line": 31,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "ad8245a3e9671711e7b3feaa1c75f055740806efa09907d1c7561990a5ee12f3",
+      "file_sha256": "5ffe8d1e22791dc20a2fe8febc7d8f2bfd0c396488af77dbc5d0d57adc002ee0",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/048_functions_53653_0.sql",
+          "source_file_sha256": "ea5194651a00556b8c67509f38bdce58f826c2f503fad51054df0dc9ddbc3201",
+          "source_line": 26,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.batch_insert_event_forecasts_pg_catalog.uuid_pg_catalog.uuid_pg_catalog.jsonb__ddbd9fec05.sql",
+      "line": 136,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "8d0c2df56e33c49d1bd35d34c10c755974368d33c43dd4ba6b4ff4bfead17906",
+      "file_sha256": "22d5454acc03e5f29712b48ef7b34e9716eb5d42bf03a5ab921037cc67a852d9",
+      "provenance": [
+        {
+          "rule": "catalog_identifier_literal",
+          "review": 6441951637,
+          "source_file": "supabase/baseline/live-only/049_functions_107162_0.sql",
+          "source_file_sha256": "e2a569ddb5ed1f476e640526e5c56cfb40bd767871d7d3efc75fad84ec3a99cc",
+          "source_line": 131,
+          "oid": 107162
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.card_load_on_out_paid__234c7adbfc.sql",
+      "line": 46,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "1b5f79d39a041008a8d515328e0bf37c119d2bd76cc939c47a90c41fbe2ecf70",
+      "file_sha256": "0aa63efdb77dae28a4290324b24150dda87f93f663822d358272ede8d2a0dbdf",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/050_functions_172792_0.sql",
+          "source_file_sha256": "ebea2f2ea7ff9cdd7f2046146330b8c87d9258601689378a8cff8e561e12e42c",
+          "source_line": 41,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.card_load_on_out_paid__234c7adbfc.sql",
+      "line": 46,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "b98bc41263b6c3ef77dd99fdecbe58d0528c470455173ee41963d92392ee9f5a",
+      "file_sha256": "0aa63efdb77dae28a4290324b24150dda87f93f663822d358272ede8d2a0dbdf",
+      "provenance": [
+        {
+          "rule": "catalog_identifier_literal",
+          "review": 6441951637,
+          "source_file": "supabase/baseline/live-only/050_functions_172792_0.sql",
+          "source_file_sha256": "ebea2f2ea7ff9cdd7f2046146330b8c87d9258601689378a8cff8e561e12e42c",
+          "source_line": 41,
+          "oid": 172792
+        },
+        {
+          "rule": "catalog_identifier_literal",
+          "review": 6441951637,
+          "source_file": "supabase/baseline/live-only/050_functions_172792_0.sql",
+          "source_file_sha256": "ebea2f2ea7ff9cdd7f2046146330b8c87d9258601689378a8cff8e561e12e42c",
+          "source_line": 41,
+          "oid": 172792
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.card_load_on_out_paid__234c7adbfc.sql",
+      "line": 46,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "b98bc41263b6c3ef77dd99fdecbe58d0528c470455173ee41963d92392ee9f5a",
+      "file_sha256": "0aa63efdb77dae28a4290324b24150dda87f93f663822d358272ede8d2a0dbdf",
+      "provenance": [
+        {
+          "rule": "catalog_identifier_literal",
+          "review": 6441951637,
+          "source_file": "supabase/baseline/live-only/050_functions_172792_0.sql",
+          "source_file_sha256": "ebea2f2ea7ff9cdd7f2046146330b8c87d9258601689378a8cff8e561e12e42c",
+          "source_line": 41,
+          "oid": 172792
+        },
+        {
+          "rule": "catalog_identifier_literal",
+          "review": 6441951637,
+          "source_file": "supabase/baseline/live-only/050_functions_172792_0.sql",
+          "source_file_sha256": "ebea2f2ea7ff9cdd7f2046146330b8c87d9258601689378a8cff8e561e12e42c",
+          "source_line": 41,
+          "oid": 172792
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.card_load_on_out_paid__234c7adbfc.sql",
+      "line": 46,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "a5c311e0c9a6f5927ebfd90f15be6850b4ff7e28c17c0f16cd4c4e42e5fe0e7f",
+      "file_sha256": "0aa63efdb77dae28a4290324b24150dda87f93f663822d358272ede8d2a0dbdf",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/050_functions_172792_0.sql",
+          "source_file_sha256": "ebea2f2ea7ff9cdd7f2046146330b8c87d9258601689378a8cff8e561e12e42c",
+          "source_line": 41,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.check_rpc_smoke__f81e53a05e.sql",
+      "line": 36,
+      "type": "IBAN",
+      "literal_sha256": "5bf170f4ee6e8c4bb56675eb95683ef38200dfdea35af7ec98637efc701a5a0e",
+      "file_sha256": "eaaad535ba8a963914fe812d1c802738da174e75838259dec20eab1afd595005",
+      "provenance": [
+        {
+          "rule": "sanitized_literal_reconstruction",
+          "review": 6442428904,
+          "source_file": "supabase/baseline/live-only/051_functions_188262_0.sql",
+          "source_file_sha256": "9df69799f6912074a9e806929e03471a733ff69a93bc6a9ceae588b2f2476fe1",
+          "source_line": 31,
+          "oid": 188262
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.create_card_session_load_pg_catalog.uuid_pg_catalog._numeric_pg_catalog.date_pg_catalog.uuid_pg_catalog.text__2748e45239.sql",
+      "line": 54,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "2180c0237e69b3d1a73a4bb139834a5a3985b30ebf987add4f6ce18958f7d56d",
+      "file_sha256": "acafd23fd61922c89c78ced7dd311b26444de2f9a1c8c55a211ebd14de064648",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/054_functions_230002_0.sql",
+          "source_file_sha256": "8d8180101ff9966ef1a0c2502d599541f86a338239dbf24419e84e65881d9a95",
+          "source_line": 49,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.create_card_session_load_pg_catalog.uuid_pg_catalog._numeric_pg_catalog.date_pg_catalog.uuid_pg_catalog.text__2748e45239.sql",
+      "line": 54,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "a5c311e0c9a6f5927ebfd90f15be6850b4ff7e28c17c0f16cd4c4e42e5fe0e7f",
+      "file_sha256": "acafd23fd61922c89c78ced7dd311b26444de2f9a1c8c55a211ebd14de064648",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/054_functions_230002_0.sql",
+          "source_file_sha256": "8d8180101ff9966ef1a0c2502d599541f86a338239dbf24419e84e65881d9a95",
+          "source_line": 49,
+          "oid": null
+        },
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/054_functions_230002_0.sql",
+          "source_file_sha256": "8d8180101ff9966ef1a0c2502d599541f86a338239dbf24419e84e65881d9a95",
+          "source_line": 49,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.create_card_session_load_pg_catalog.uuid_pg_catalog._numeric_pg_catalog.date_pg_catalog.uuid_pg_catalog.text__2748e45239.sql",
+      "line": 54,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "b98bc41263b6c3ef77dd99fdecbe58d0528c470455173ee41963d92392ee9f5a",
+      "file_sha256": "acafd23fd61922c89c78ced7dd311b26444de2f9a1c8c55a211ebd14de064648",
+      "provenance": [
+        {
+          "rule": "catalog_identifier_literal",
+          "review": 6441951637,
+          "source_file": "supabase/baseline/live-only/054_functions_230002_0.sql",
+          "source_file_sha256": "8d8180101ff9966ef1a0c2502d599541f86a338239dbf24419e84e65881d9a95",
+          "source_line": 49,
+          "oid": 230002
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.create_card_session_load_pg_catalog.uuid_pg_catalog._numeric_pg_catalog.date_pg_catalog.uuid_pg_catalog.text__2748e45239.sql",
+      "line": 54,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "a5c311e0c9a6f5927ebfd90f15be6850b4ff7e28c17c0f16cd4c4e42e5fe0e7f",
+      "file_sha256": "acafd23fd61922c89c78ced7dd311b26444de2f9a1c8c55a211ebd14de064648",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/054_functions_230002_0.sql",
+          "source_file_sha256": "8d8180101ff9966ef1a0c2502d599541f86a338239dbf24419e84e65881d9a95",
+          "source_line": 49,
+          "oid": null
+        },
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/054_functions_230002_0.sql",
+          "source_file_sha256": "8d8180101ff9966ef1a0c2502d599541f86a338239dbf24419e84e65881d9a95",
+          "source_line": 49,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.ensure_camarim_advance_account__2535235a5a.sql",
+      "line": 29,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "b32acde9697b57ca675df25fe73d005bd69277de3b8e9d17a336aeb2a89cbe83",
+      "file_sha256": "c33aaabfc8515bbd9f228dfa384b6b08108ba80070e24c7582351c85457a49c5",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/057_functions_173434_0.sql",
+          "source_file_sha256": "a5299185d23260de9e0b86b9d8e39b54119f8ddf5ebdd4ef8f5a21aa7f5bf8e2",
+          "source_line": 24,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.get_or_create_generic_camarim_supplier_pg_catalog.uuid__20a9de836d.sql",
+      "line": 34,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "b7d5dd272afcd4e584e70b66835f14212bb9699399c34cc3e55ed2ccf303c462",
+      "file_sha256": "9d1b05dc276a276eb6ba63010ee7613aa135c8be81ef72d56797fd4a5d9a824f",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/060_functions_178124_0.sql",
+          "source_file_sha256": "36abbc18ee91d814fefc5000b87c89c281d845c7232e6b2549bdd19f3f28fbac",
+          "source_line": 29,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.launch_from_bank_lines_pg_catalog.jsonb__cd8dc9c0cf.sql",
+      "line": 181,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "4c7ce25a5b5bb9f34e7aa25bfcd2ff52f36019da17f531550d35540e12aa824f",
+      "file_sha256": "fd3e76250633201b71b6378e5a73d4ebd2b9f5425341e1bf2ce25446108c8898",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/062_functions_231974_0.sql",
+          "source_file_sha256": "3f0ad4ee99eb7d9c53f1ca543daef3cf790f2ff765c242e2d1fe3fd164a50cd4",
+          "source_line": 176,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.materialize_paid_amount_payment__72c5c2b498.sql",
+      "line": 44,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "804f98d144e08266918a37f7ecc10d2dcc8a46bdda0bec3d9a0ca7f2eb646c49",
+      "file_sha256": "1cd0772efb21d9c28f93114a5f617949b679319aee7cd5e0ca4350dd74f92d7f",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/064_functions_294789_0.sql",
+          "source_file_sha256": "fadc631aefae92935c68dee08b18ed2be568a13f37d19c9528ec6ba819972c6c",
+          "source_line": 39,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.materialize_paid_amount_payment__72c5c2b498.sql",
+      "line": 45,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "e0ab3eba2dc1bdb52c4ebfb49f655fd2e4fec38875057ee0a136ab3565a5a025",
+      "file_sha256": "1cd0772efb21d9c28f93114a5f617949b679319aee7cd5e0ca4350dd74f92d7f",
+      "provenance": [
+        {
+          "rule": "catalog_identifier_literal",
+          "review": 6441951637,
+          "source_file": "supabase/baseline/live-only/064_functions_294789_0.sql",
+          "source_file_sha256": "fadc631aefae92935c68dee08b18ed2be568a13f37d19c9528ec6ba819972c6c",
+          "source_line": 40,
+          "oid": 294789
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.promote_scenario_to_active_pg_catalog.uuid_pg_catalog.text_pg_catalog.uuid_pg_catalog.text_pg_catalog.bool_pg_catalog.jsonb__b713f4df4d.sql",
+      "line": 97,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "bfa966aceb8eb778f28c84ff235bf8e572e3295edaa607e6d8c6a8be1e943099",
+      "file_sha256": "678190a02d7e82cca4245eef03d20dac65806c881f5ecfb709fa262b0727daea",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/066_functions_53667_0.sql",
+          "source_file_sha256": "8cd000272d4aaeab3e81de6488437069be8592a00280912940e3079a91869141",
+          "source_line": 92,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.promote_scenario_to_active_pg_catalog.uuid_pg_catalog.text_pg_catalog.uuid_pg_catalog.text_pg_catalog.bool_pg_catalog.jsonb__b713f4df4d.sql",
+      "line": 363,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "25bd5a15abc8e8195e7963b78ee1f31beb00147c3ca107d2d04bd8525a8175b6",
+      "file_sha256": "678190a02d7e82cca4245eef03d20dac65806c881f5ecfb709fa262b0727daea",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/066_functions_53667_0.sql",
+          "source_file_sha256": "8cd000272d4aaeab3e81de6488437069be8592a00280912940e3079a91869141",
+          "source_line": 358,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.sync_partner_aporte_mirror__18ffa17eef.sql",
+      "line": 71,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "c16fc30d76e16e4448de708254e9c93214df18a06562041e545fad9a00dc775a",
+      "file_sha256": "cc0f0f83df3b5c64656be423c487214bb360ebd3246fba9750788246704e6733",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/071_functions_208134_0.sql",
+          "source_file_sha256": "02b868f26a8146d08575eca697eb270bb4c560be1d920e7081f89a69adfbcce4",
+          "source_line": 66,
+          "oid": null
+        },
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/071_functions_208134_0.sql",
+          "source_file_sha256": "02b868f26a8146d08575eca697eb270bb4c560be1d920e7081f89a69adfbcce4",
+          "source_line": 83,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.sync_partner_aporte_mirror__18ffa17eef.sql",
+      "line": 88,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "c16fc30d76e16e4448de708254e9c93214df18a06562041e545fad9a00dc775a",
+      "file_sha256": "cc0f0f83df3b5c64656be423c487214bb360ebd3246fba9750788246704e6733",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/071_functions_208134_0.sql",
+          "source_file_sha256": "02b868f26a8146d08575eca697eb270bb4c560be1d920e7081f89a69adfbcce4",
+          "source_line": 66,
+          "oid": null
+        },
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/071_functions_208134_0.sql",
+          "source_file_sha256": "02b868f26a8146d08575eca697eb270bb4c560be1d920e7081f89a69adfbcce4",
+          "source_line": 83,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.sync_shared_cost_mirror__a044e86eea.sql",
+      "line": 64,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "bebad13fa24c92cec912429ecd45733caea4ee73b19e0c50ee91f9e84676bbf4",
+      "file_sha256": "17a0f6b1f12dc8bd8a1e674e10471b1081eff132cca1d879e21925e8b50441e3",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/072_functions_225795_0.sql",
+          "source_file_sha256": "2c2b2fce1a8918d5febba90f815161410720c19bee91d5be3a1150f5ddaa57d9",
+          "source_line": 59,
+          "oid": null
+        },
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/072_functions_225795_0.sql",
+          "source_file_sha256": "2c2b2fce1a8918d5febba90f815161410720c19bee91d5be3a1150f5ddaa57d9",
+          "source_line": 71,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/functions__public.sync_shared_cost_mirror__a044e86eea.sql",
+      "line": 76,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "bebad13fa24c92cec912429ecd45733caea4ee73b19e0c50ee91f9e84676bbf4",
+      "file_sha256": "17a0f6b1f12dc8bd8a1e674e10471b1081eff132cca1d879e21925e8b50441e3",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/072_functions_225795_0.sql",
+          "source_file_sha256": "2c2b2fce1a8918d5febba90f815161410720c19bee91d5be3a1150f5ddaa57d9",
+          "source_line": 59,
+          "oid": null
+        },
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/072_functions_225795_0.sql",
+          "source_file_sha256": "2c2b2fce1a8918d5febba90f815161410720c19bee91d5be3a1150f5ddaa57d9",
+          "source_line": 71,
+          "oid": null
+        }
+      ]
+    },
+    {
+      "file": "supabase/baseline/live-only/indexes__public.transactions_active_installment_unique_idx__27ed0ff1da.sql",
+      "line": 8,
+      "type": "nome_em_texto_livre_candidato",
+      "literal_sha256": "bb35f6cd12880f993c2016ba7e3f9c8c9f7176f8a1bb47d3e76f95db5fac17ba",
+      "file_sha256": "a5914c5b655d1a05722c592296420cb34e5f5c3228d06aa432f37b1fc9579bc4",
+      "provenance": [
+        {
+          "rule": "reviewed_literal_allowlist",
+          "review": 6449883145,
+          "source_file": "supabase/baseline/live-only/088_indexes_174106_0.sql",
+          "source_file_sha256": "fcfb0944afa6466fb5b1f46ed35d7b2e3f8e8fa26af54ff6eda706dedde5a1dd",
+          "source_line": 2,
+          "oid": null
+        }
+      ]
+    }
+  ]
+}
