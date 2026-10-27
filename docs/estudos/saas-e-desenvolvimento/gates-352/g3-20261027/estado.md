@@ -20,12 +20,20 @@ Os ficheiros usam formulações idempotentes. **A idempotência nativa e o repla
 | CI estático da branch, run [40573801776](https://github.com/pedrompropicio/mundopropicio/actions/runs/40573801776) | success |
 | CI estático do merge, run [40574419081](https://github.com/pedrompropicio/mundopropicio/actions/runs/40574419081) | success |
 | CI geral do merge, run [40574419390](https://github.com/pedrompropicio/mundopropicio/actions/runs/40574419390) | success |
+| CI estático final, run [40576481962](https://github.com/pedrompropicio/mundopropicio/actions/runs/40576481962), commit `7fc37d2` | success |
+| CI geral final, run [40576481958](https://github.com/pedrompropicio/mundopropicio/actions/runs/40576481958) | success: types, 2951 testes, build; inclui a ocorrência abaixo |
 | Protótipo local do detector: dez testes de regressão | PASS; não publicado nem ativado |
 | Reprodução offline do G2 com o artefacto nativo aprovado do run #64 | zero bloqueantes; não é um novo G1 |
 | Novo G1 público desde vazio, repetição nativa dos 307 ficheiros e G2 resultante | pendentes |
 | Detector periódico completo contra Live atual | pendente; não ativado |
 
 Mantêm-se reviewed_literal_allowlist, catalog_identifier_literal, sanitized_literal_reconstruction com telefone e IBAN sintéticos, enum_position_overlay, acl_final_from_live, live_only_tail, live_definition_prevails, live_absence_prevails, R7/R8, N1–N9, self_contained_fixture e platform_managed_privileges. As 152 políticas RLS de storage.objects continuam na comparação; nenhuma dispensa geral de privilégios ou de testes foi introduzida.
+
+## Ocorrência no CI geral existente
+
+Os pushes em main dispararam automaticamente o workflow geral preexistente. Esse workflow inclui `scripts/probe-edge-jwt-gate.mjs`, uma sonda HTTP com JWT de assinatura inválida; não é uma consulta de catálogo e não devia ter sido usada como verificação desta tarefa. O log final confirma a resposta do portão: código `UNAUTHORIZED_LEGACY_JWT`, HTTP 401, às 20:18:42 UTC. Não foi uma execução admitida da função de aplicação. Não foram lidos nem publicados valores dos secrets pelo executor.
+
+O CI estático específico da baseline não contém essa sonda. O último ajuste documental usa `[skip ci]` para não voltar a disparar o workflow geral. A ocorrência fica registada; não se afirma que todo o CI geral esteve limitado a SELECT de catálogo. Nenhuma alteração foi feita ao workflow de segurança existente.
 
 ## Live posterior ao par congelado
 

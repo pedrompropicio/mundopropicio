@@ -6,6 +6,8 @@
 
 **G3 autorizado e iniciado.** O Sim 6449906971 cobre baseline DDL pública, detector e Issues; G3 não é seeds. Reserva registada antes de agir no commit 1ce8fd8. Baseline de 307 objetos em supabase/baseline/live-only/, fora de migrations, integrada por merge normal dd5bb29. Scanner zero; quatro testes de integridade/sanitização e CI estático e geral do merge verdes. Receção pelo Lovable e protocolo #329 confirmados. Idempotência nativa ainda não executada.
 
+**Ocorrência de âmbito:** os pushes dispararam o CI geral preexistente, incluindo uma sonda HTTP com JWT inválido, respondida com 401 antes da função de aplicação. Não é SELECT de catálogo; fica explicitamente registada no relatório. O CI estático da baseline não faz essa chamada. Último ajuste documental sem novo CI geral.
+
 **Encaminhamento concluído.** Issues #375–#382 cobrem os 307 objetos das frentes 2–9; #383 classifica os 41 INSERTs em 20 ficheiros de testes com tabela, hash, linha e prova. Inclui financial_accounts e channel_check ads; #373/#374 preservadas.
 
 **G3 ainda aberto.** A revisão automática bloqueou o pacote histórico público e também uma alternativa privada só de código/metadados que reutilizava inputs existentes. Não há novo G1 nativo público nem detector periódico ativado. A captura de catálogo das 19:08 UTC contém 711 entradas Supabase e 285 Drizzle, com as duas migrações posteriores identificadas no repo, mas não constitui a aceitação G3. Após pesquisa do histórico público, restam 232 entradas do ledger e 8 fixtures antigos sem correspondência exata de bytes, a resolver na receita pública. Nenhuma regra nova de exclusão foi criada.
