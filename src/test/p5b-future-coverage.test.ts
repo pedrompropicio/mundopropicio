@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { loadIndependentFutureCoverage } from "../../supabase/functions/_shared/financial-position/future-coverage-loader";
 import { assembleFutureCoverage, type FutureCoverageInput } from "../../supabase/functions/_shared/financial-position/future-coverage";
 import { assembleFinancialPosition } from "../../supabase/functions/_shared/financial-position/assemble";
 import { parseFinancialPositionP5, futureCoverageSchema } from "@/lib/financial-position-p5";
@@ -65,6 +66,73 @@ const input = (o: Partial<FutureCoverageInput> = {}): FutureCoverageInput => ({
 const ev = (c: any, id: string) => c.eventos.find((e: any) => e.event_id === id);
 
 describe("P5b cobertura de eventos futuros", () => {
+  const requestedBase = () => {
+    const all = base();
+    return { ...all, meta: { ...all.meta, year: 2026 },
+      eventos_por_estagio: { em_curso: [{ event_id: MAD, name: "H&K Madrid" }], em_fecho: [] },
+      a_pagar: { ...all.a_pagar, por_evento: all.a_pagar.por_evento.filter((e) => e.evento_id === MAD) } };
+  };
+  const requestedOutput = (fc: any, requested = requestedBase()) => assembleFinancialPosition({ base: requested,
+    events: [{ event_id: MAD, nome: "H&K Madrid", estagio: "em_curso", so_bp: false, partners: [],
+      engine: { eventNetResult: -100, partnersPaidTotal: -70, house: { residual: -30, declared: -30, ivaDeductible: 0 }, checksOk: true, errors: [] } }],
+    structure: [], paidContracts: {}, generatedAt: "2026-10-27T21:08:00Z", futureCoverage: fc });
+
+  it("year=2026: a segunda RPC usa null e cobertura inclui Madrid 2026 e Ghanem/Newgang 2027 sem ampliar eventos do motor", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: base(), error: null });
+    const load = vi.fn(async (futureBase) => assembleFutureCoverage(input({ base: futureBase })));
+    const fc: any = await loadIndependentFutureCoverage({ rpc }, CO, load);
+    const out = requestedOutput(fc);
+    expect(rpc).toHaveBeenCalledExactlyOnceWith("get_financial_position_base", { p_company_id: CO, p_year: null });
+    expect(fc.eventos.map((e: any) => e.event_id)).toEqual([MAD, GHA, NEW, PLAN]);
+    expect(out.meta.year).toBe(2026);
+    expect(out.eventos.map((e) => e.event_id)).toEqual([MAD]);
+    expect(out.projecao_em_curso.eventos.map((e) => e.event_id)).toEqual([MAD]);
+    expect(out.resultado_mp_ano).toEqual({ sem_estrutura: 0, com_estrutura: 0 });
+    const baseline = requestedOutput(assembleFutureCoverage(input({ cash: null })));
+    expect(out.socios).toEqual(baseline.socios);
+    expect(out.saldo_geral.ativos).toEqual(baseline.saldo_geral.ativos);
+    expect(out.saldo_geral.passivos).toEqual(baseline.saldo_geral.passivos);
+    expect(out.saldo_geral.posicao_hoje).toBe(baseline.saldo_geral.posicao_hoje);
+    const allYears = requestedOutput(fc, { ...requestedBase(), meta: { ...requestedBase().meta, year: null } });
+    const note = "Destinado a eventos futuros: 92275.50 € dentro do caixa (não altera o caixa).";
+    expect(out.saldo_geral.notas).toContain(note);
+    expect(allYears.saldo_geral.notas).toContain(note);
+    expect(parseFinancialPositionP5(out).meta.version).toBe("p5-v3");
+  });
+  it("falha da segunda RPC isola cobertura incompleta, sem executar leituras nem mudar o resto", async () => {
+    const load = vi.fn();
+    const fc = await loadIndependentFutureCoverage({ rpc: vi.fn().mockResolvedValue({ data: null, error: { message: "denied" } }) }, CO, load);
+    expect(load).not.toHaveBeenCalled();
+    expect(fc).toMatchObject({ meta: { incompleto: true }, eventos: null, bilheteiras: null, total: null });
+    const { cobertura_futuros: ignored, ...rest } = requestedOutput(fc);
+    const { cobertura_futuros: baselineIgnored, ...baseline } = requestedOutput(assembleFutureCoverage(input({ cash: null })));
+    expect(rest).toEqual(baseline);
+    expect(rest.meta.incompleto).toBe(false);
+  });
+  it("deadline de 6 s inclui a segunda RPC; timeout não afeta os totais do ano", async () => {
+    vi.useFakeTimers();
+    try {
+      const load = vi.fn();
+      const pending = loadIndependentFutureCoverage({ rpc: vi.fn(() => new Promise<{ data: any; error: any }>(() => {})) }, CO, load);
+      let done = false;
+      void pending.then(() => { done = true; });
+      await vi.advanceTimersByTimeAsync(5999);
+      expect(done).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      const fc = await pending;
+      expect(fc).toMatchObject({ meta: { incompleto: true, motivo: "timeout" }, eventos: null, bilheteiras: null, total: null });
+      expect(load).not.toHaveBeenCalled();
+      expect(requestedOutput(fc).resultado_mp_ano).toEqual({ sem_estrutura: 0, com_estrutura: 0 });
+    } finally { vi.useRealTimers(); }
+  });
+  it("uma resposta de outra empresa ou ainda filtrada por ano falha fechado", async () => {
+    for (const invalid of [base({ meta: { ...base().meta, company_id: "other" } }), requestedBase()]) {
+      const load = vi.fn();
+      const fc = await loadIndependentFutureCoverage({ rpc: vi.fn().mockResolvedValue({ data: invalid, error: null }) }, CO, load);
+      expect(fc.meta.incompleto).toBe(true);
+      expect(load).not.toHaveBeenCalled();
+    }
+  });
   it("Madrid: aportes, estimativa MP, dinheiro parado em 3 parcelas e duas leituras da necessidade", () => {
     const c: any = assembleFutureCoverage(input()); const m = ev(c, MAD);
     expect(m.aporte_socios).toMatchObject({ total: 353810.51, por_transferencia_conta_liquida: 249000, pago_direto_automatico: 104810.51 });

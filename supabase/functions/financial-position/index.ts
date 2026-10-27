@@ -12,14 +12,13 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { buildPartnerStatement, computeStatementEngine, loadStatementBundle } from "../_shared/settlement/statement-service.ts";
 import { assembleFinancialPosition, gateStatus, type EventInput, type StructureTxInput } from "../_shared/financial-position/assemble.ts";
 import { assembleFutureCoverage, futureEventSet } from "../_shared/financial-position/future-coverage.ts";
+import { loadIndependentFutureCoverage } from "../_shared/financial-position/future-coverage-loader.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CONCURRENCY = 4;
 const DEADLINE_MS = 25_000;
-/** P5b: deadline próprio do bloco cobertura_futuros (D-ERP326). */
-const FUTURE_DEADLINE_MS = 6_000;
 
 async function pageAll(build: (from: number, to: number) => any): Promise<any[]> {
   const out: any[] = [];
@@ -101,19 +100,6 @@ async function loadFutureCoverage(asUser: any, admin: any, companyId: string, ba
     });
   const [sales, cash] = await Promise.all([salesP, cashP]);
   return assembleFutureCoverage({ base, rootOf, sales, cash, preCutoff, aportes });
-}
-
-async function futureCoverageSafe(asUser: any, admin: any, companyId: string, base: any) {
-  try {
-    return await Promise.race([
-      loadFutureCoverage(asUser, admin, companyId, base),
-      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), FUTURE_DEADLINE_MS)),
-    ]);
-  } catch (e) {
-    console.error("financial-position future-coverage", (e as Error).message);
-    return assembleFutureCoverage({ base, rootOf: {}, sales: null, cash: null, preCutoff: null, aportes: null,
-      error: (e as Error).message === "timeout" ? "timeout" : (e as Error).message || "erro" });
-  }
 }
 
 async function loadPaidContracts(admin: any, companyId: string): Promise<Record<string, number>> {
@@ -217,7 +203,9 @@ Deno.serve(async (req) => {
     const [structure, paidContracts, futureCoverage] = await Promise.all([
       loadStructure(admin, companyId, year),
       loadPaidContracts(admin, companyId),
-      futureCoverageSafe(asUser, admin, companyId, base),
+      // Independent all-years RPC + subsequent reads share the 6 s coverage deadline.
+      // The gate base, evs and settlement workers retain the requested year.
+      loadIndependentFutureCoverage(asUser, companyId, (futureBase) => loadFutureCoverage(asUser, admin, companyId, futureBase)),
       Promise.all(Array.from({ length: Math.min(CONCURRENCY, evs.length) }, worker)),
     ]);
 

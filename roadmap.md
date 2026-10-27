@@ -114,3 +114,9 @@
 - [x] Fecho/sócios tratados (Pedro, 27/10): ⅓ Lobo com EIN; diferença Lobo 23.919,93 € = margem MP; SPA 34.304,72 € sem dupla contagem (C2 = 0,00 €).
 - [x] P5-corr R1: projeção em_curso separada dos totais, p5-v2, P5 23/23 e suite 2951 PASS; fecho R0/reserva libertada, sem Publish.
 - [ ] P5-corr: CI do SHA final e verificação autenticada Live por confirmar; depende da sincronização/execução remota e sessão de verificação autorizada.
+
+# P5b — correção da cobertura independente do ano
+- [x] Confirmar HEAD e reservar no QUADRO.
+- [x] Segunda RPC com JWT e p_year=null só para cobertura, dentro de 6 s.
+- [x] Testes focados64/64, suíte2970PASS e validação automática de tipos/build OK.
+- [x] Fecho documental, reserva libertada e CI observado explicitamente distinguido do SHA final.
