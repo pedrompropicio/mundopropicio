@@ -16,3 +16,4 @@ Histórico: mark/unmark só admin, auditados; não mudam status. Escritas RPC s�
 
 Migração0280, manual idêntica e rollback comentado. Provas (a)–(h), predicados e limites: docs/testes/p1-event-stages-20261027.md. P2 backfill é separado com autorização do Pedro. Nenhuma UI implementada por P1.
 P1b (D-ERP319, 0281): sub-evento devolve o estágio da raiz; RPCs de estágio só no master (event_stage_act_on_master); checklist do master soma blockers hard/soft dos sub-eventos. Carimbos antigos em sub-eventos ignorados, não apagados.
+P3 (UI, R1): src/lib/event-stage.ts (puro) + useEventStages; badge na lista (event_stage_list, uma chamada; históricos ocultos por defeito) e no detalhe; painel «Estágio e fecho» só no master; «Reabrir Evento» legado substituído por aviso quando fechado/histórico. Provas: docs/testes/p3-event-stages-ui-20261027.md.

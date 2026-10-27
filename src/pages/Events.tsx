@@ -5,6 +5,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { MapPin, Ticket, ArrowRight, Plus, X, Calendar, Layers, Route, LayoutGrid, List, ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
+import { EventStageBadge } from "@/components/events/EventStageBadge";
+import { useEventStages } from "@/hooks/useEventStages";
+import { EVENT_STAGES, STAGE_LABELS, filterEventsByStage, type EventStage } from "@/lib/event-stage";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { CityVenueSelector } from "@/components/CityVenueSelector";
@@ -113,6 +116,9 @@ export default function Events() {
   const [sortField, setSortField] = useState<"date" | "location" | "status" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
+  const [stageFilter, setStageFilter] = useState<EventStage | "all">("all");
+  const [showHistorical, setShowHistorical] = useState(false);
+  const { data: stageMap = {} } = useEventStages();
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user } = useAuth();
   const { data: defaultBudgetMode } = useCompanyDefaultBudgetMode();
@@ -463,7 +469,7 @@ export default function Events() {
     return sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />;
   };
 
-  const sortedEvents = [...filterEventsByNature(events as any[], natureFilter)].sort((a: any, b: any) => {
+  const sortedEvents = [...filterEventsByStage(filterEventsByNature(events as any[], natureFilter), stageMap, { showHistorical: showHistorical || stageFilter === "historico", selected: stageFilter === "all" ? [] : [stageFilter] })].sort((a: any, b: any) => {
     if (!sortField) return 0;
     const dir = sortDir === "asc" ? 1 : -1;
       const getEffectiveDate = (e: any) => {
@@ -496,6 +502,19 @@ export default function Events() {
           <p className="text-sm text-muted-foreground">Gestão e acompanhamento financeiro por evento</p>
         </div>
         <div className="flex items-center gap-2">
+          <select
+            aria-label="Filtrar por estágio"
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value as EventStage | "all")}
+            className="h-9 rounded-lg border border-border bg-secondary/50 px-2 text-xs text-foreground"
+          >
+            <option value="all">Todos os estágios</option>
+            {EVENT_STAGES.map((st) => <option key={st} value={st}>{STAGE_LABELS[st]}</option>)}
+          </select>
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <input type="checkbox" checked={showHistorical} onChange={(e) => setShowHistorical(e.target.checked)} aria-label="Mostrar históricos" />
+            Mostrar históricos
+          </label>
           <EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
           <div className="flex items-center rounded-lg border border-border bg-secondary/50 p-0.5">
             <button
@@ -998,7 +1017,10 @@ export default function Events() {
                     <h3 className="truncate text-base font-bold group-hover:text-primary transition-colors">{event.name}</h3>
                     <p className="text-xs text-muted-foreground">{formatDate(event.date)}</p>
                   </div>
-                  <EventStatusBadge status={event.status as any} />
+                  <div className="flex flex-col items-end gap-1">
+                    <EventStatusBadge status={event.status as any} />
+                    <EventStageBadge stage={stageMap[event.id]} />
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 mb-3">
@@ -1125,6 +1147,7 @@ export default function Events() {
                       <td className="px-4 py-3 hidden sm:table-cell">
                         <div className="flex flex-wrap items-center gap-1">
                           <EventStatusBadge status={event.status as any} />
+                          <EventStageBadge stage={stageMap[event.id]} />
                           <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">{eventNatureLabel(event.event_nature)}</span>
                         </div>
                       </td>
@@ -1163,7 +1186,8 @@ export default function Events() {
                             )}
                           </td>
                           <td className="px-4 py-2.5 hidden sm:table-cell">
-                            <EventStatusBadge status={sub.status as any} />
+                            <EventStatusBadge status={sub.status as any} />{" "}
+                            <EventStageBadge stage={stageMap[sub.id] ?? stageMap[event.id]} title="Estágio do master" />
                           </td>
                           <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground" colSpan={1}>—</td>
                           <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground" colSpan={1}>—</td>

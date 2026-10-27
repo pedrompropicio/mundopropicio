@@ -1,11 +1,12 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 27/10/2026 — P1 estágios aplicado e verificado; restantes frentes preservadas.
+Atualizado: 27/10/2026 — P3 UI dos estágios implementada (R1, por publicar); P1/P1b em Live; restantes frentes preservadas.
 
 ## Em que pé está
 
-### Posição Financeira — P1 estágios aplicado, aguarda P2
+### Posição Financeira — P1/P1b em Live, P3 UI pronta, aguarda P2
 
+- **P3 UI (R1, 27/10/2026, por publicar):** lista com badge de estágio (event_stage_list, uma chamada), filtro por estágio e «Mostrar históricos» (ocultos por defeito); detalhe com badge e painel «Estágio e fecho» só no master (checklist 4 blocos, Fechar evento só com ok, Reabrir fecho com motivo e Marcar/Remover histórico só admin); sub-evento mostra estágio do master e ligação. «Reabrir Evento» legado substituído por aviso quando fechado/histórico; fluxo de status e guards intocados. Preview Anitta: Em fecho, selos 0/3, BP 133 / 1.122.040,98 €, hard 0. Provas: docs/testes/p3-event-stages-ui-20261027.md. Publish só pelo 0·Cowork com CI verde.
 - **P1b (D-ERP319, 0281, 27/10/2026):** sub-evento tem sempre o estágio do master; RPCs de estágio só no master; checklist do master agrega bloqueios dos sub-eventos. 16 sub-eventos com carimbos antigos ignorados (limpeza pendente do Pedro).
 - 0280 em Live: quatro colunas nullable sem default, dez funções novas e guard/cleanup de reabertura; nenhuma linha existente alterada. `completed` sem closed_at significa em_fecho; fechado exige completed + closed_at. Caminho legado mantém-se e limpa carimbos ao sair de completed.
 - Checklist servidor: selos/snapshot, cachê congelado, zero BP por rever e zero hard de event_close_blockers. Anitta: três selos em falta, 133 linhas por rever (1.122.040,98 €), sem cachê configurado/hard; não fechada nesta tarefa.
