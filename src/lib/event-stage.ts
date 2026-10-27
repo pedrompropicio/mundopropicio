@@ -19,9 +19,9 @@ export const STAGE_LABELS: Record<EventStage, string> = {
 
 /** Classes de tokens semânticos para o badge. */
 export const STAGE_BADGE_CLASSES: Record<EventStage, string> = {
-  planeamento: "bg-warning/15 text-warning border-warning/30",
+  planeamento: "bg-secondary text-secondary-foreground border-border",
   em_curso: "bg-primary/15 text-primary border-primary/30",
-  em_fecho: "bg-accent/15 text-accent-foreground border-accent/40",
+  em_fecho: "bg-warning/15 text-warning border-warning/30",
   fechado: "bg-success/15 text-success border-success/30",
   historico: "bg-muted text-muted-foreground border-border",
   cancelado: "bg-destructive/15 text-destructive border-destructive/30",
