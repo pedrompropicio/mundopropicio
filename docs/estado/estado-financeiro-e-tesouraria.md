@@ -1,12 +1,13 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 27/10/2026 — P5-corr (p5-v2, D-ERP324) implementado, pronto para Verificação em Live; P6a/P6a-fix não publicados; P4/P4b em Live.
+Atualizado: 27/10/2026 — P5b passo 1 (0284, D-ERP325) aplicado em Live; P5-corr (p5-v2) pronto para Verificação em Live; P6a/P6a-fix não publicados; P4/P4b em Live.
 
 ## Em que pé está
 
 ### Posição Financeira — P5 implementado, aguarda Verificação em Live (D-ERP323)
 
 - Edge function `financial-position` (p5-v2 exclusivo): gate = RPC get_financial_position_base com o JWT do utilizador (erros not_authenticated 401, company_forbidden/financial_position_permission_denied 403). Eventos = `eventos_por_estagio` da RPC (nunca event_dates); cancelado fora; Histórico só BP, marcado e fora dos totais.
+- **P5b passo 1 R2 (D-ERP325):** 0284 acrescenta a_pagar.por_evento à RPC base (só aditiva; md5 do resto igual antes/depois; +~6 ms). Madrid: a pagar 184.670,96; sem linha 162.336,96; BP 666.560,59; BP por lançar 265.640,50; pagas 378.586,08. Soma por estágio = por_estagio (fechado −0,01 de arredondamento). Issues #384/#385/#386 abertas. Passo 2 (bloco de cobertura) por autorizar.
 - **P5-corr R1 (D-ERP324):** só em_fecho/fechado entram no resultado anual e sócios dos totais/Saldo Geral. em_curso/planeamento preservados com motivo em_curso_projecao; resumo, totais e socios_linhas só no bloco informativo projecao_em_curso. Prova do Pedro: Madrid −116.573,83 € de resultado MP e 376.816,12 € recebíveis de projeção saem dos totais; sem Madrid, recebíveis de sócios 138.846,44 €. Fixture equivalente verde, sem nova medição Live. Testes P5 23/23, suite 2951 PASS; validação automática OK. CI final e Live pendentes. Deploy automático de financial-position ao commit; não significa Publish da aplicação. RPC, estrutura e partner-statement intocados.
 - Motor: `computeStatementEngine(bundle)` (extraído de buildPartnerStatement, mesma montagem) e `buildPartnerStatement` por sócio `settles`; sem segundo cálculo. Resultado MP = house.residual.
 - Sócios: transferBase < 0 → a receber |base|; transferTotal > 0 → por liquidar (c/IVA se transfer_with_vat) − contratos P3 pagos (hoje 0); alerta em fechados.
