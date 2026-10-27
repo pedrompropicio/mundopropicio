@@ -1,0 +1,6 @@
+-- ROLLBACK (comentado; não executar sem autorização):
+-- 1) Reaplicar o CREATE OR REPLACE da 0282 inteiro (supabase/manual/0282_p4_financial_position_base.sql,
+--    trocando CREATE FUNCTION por CREATE OR REPLACE FUNCTION) — repõe o gate por user_roles admin/manager.
+-- 2) DELETE FROM public.role_permissions
+--      WHERE role = 'admin'::public.app_role AND permission = 'view_financial_position';
+-- 3) Overrides em user_permissions com esta chave, se existirem, ficam inertes ou apagam-se à parte.
