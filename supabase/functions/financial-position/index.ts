@@ -56,7 +56,7 @@ async function loadPaidContracts(admin: any, companyId: string): Promise<Record<
   const ids = contracts.map((c: any) => c.balance_tx_id).filter(Boolean);
   const paid = new Map<string, number>();
   for (let i = 0; i < ids.length; i += 200) {
-    const { data, error } = await admin.from("transactions").select("id, paid_amount").in("id", ids.slice(i, i + 200)).is("reversed_at", null);
+    const { data, error } = await admin.from("transactions").select("id, paid_amount").in("id", ids.slice(i, i + 200)).is("reversed_at", null).limit(200);
     if (error) throw new Error(error.message);
     for (const t of data ?? []) paid.set(t.id, Number(t.paid_amount) || 0);
   }
