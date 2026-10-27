@@ -7420,6 +7420,51 @@ export type Database = {
           },
         ]
       }
+      coala_person_consents: {
+        Row: {
+          channel: string
+          company_id: string
+          created_at: string
+          decision: string
+          email: string
+          id: number
+          idempotency_key: string
+          locale: string
+          origin: string
+          phone: string | null
+          phone_fp: string | null
+          text_version: string | null
+        }
+        Insert: {
+          channel: string
+          company_id: string
+          created_at?: string
+          decision: string
+          email: string
+          id?: never
+          idempotency_key?: string
+          locale: string
+          origin?: string
+          phone?: string | null
+          phone_fp?: string | null
+          text_version?: string | null
+        }
+        Update: {
+          channel?: string
+          company_id?: string
+          created_at?: string
+          decision?: string
+          email?: string
+          id?: never
+          idempotency_key?: string
+          locale?: string
+          origin?: string
+          phone?: string | null
+          phone_fp?: string | null
+          text_version?: string | null
+        }
+        Relationships: []
+      }
       coala_send_runs: {
         Row: {
           company_id: string

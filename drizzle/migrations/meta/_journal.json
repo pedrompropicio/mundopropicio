@@ -1940,6 +1940,13 @@
       "when": 1793065733541,
       "tag": "0276_0276_issue359_whatsapp_coala_legacy",
       "breakpoints": true
+    },
+    {
+      "idx": 277,
+      "version": "7",
+      "when": 1793070666505,
+      "tag": "0277_0277_issue359_ponto4_ledger",
+      "breakpoints": true
     }
   ]
 }
