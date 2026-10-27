@@ -1,3 +1,4 @@
+- [ ] P1 estágios dos eventos (R2, 27/10/2026): investigar fecho/reabertura existentes e parar em colisão; DDL/verificações só após compatibilidade confirmada, sem DML/UI/deploy/Publish.
 - [x] P7b origem da parte (R1) — publicado (Pedro, 27/10/2026), commit 90625e42: opção A implementada; origem do nó/snapshot sem reembolsos, detalhes e diferenças explícitas, antigos compatíveis; focados35/35, suite2803PASS, tipos/build automático OK. Pronto para Publish (não publicado); revisão visual/CI remoto não testados; tsgo manual vedado pela plataforma; sem Live.
 - [x] P3 contratos por sócio: passo 1 (0271) aplicado e verificado pelo Pedro em Live.
 - [x] #359 ponto 4 jurídico R1: opção A autorizada e rascunhos A/B/C + seed PT comentado/cópias/rollback preparados; testes28 novos +0276 cinco PASS; suite2836PASS/6skip/11todo após repetição por timeout. Sem SQL aplicado, boolean/guardas/Clube intocados. Relatório docs/testes/issue359-ponto4-autorizacoes-rascunhos.md.
