@@ -95,7 +95,7 @@ describe("P5 eventos e Saldo Geral", () => {
     const ivete = ev({ event_id: E2, nome: "Ivete Clareou", engine: eng(100, 200, 100),
       partners: [{ supplier_id: S2, nome: "Sócio Ivete", transferBase: -138846.44, transferVat: 0, transferTotal: -138846.44, transferWithVat: false }] });
     const out = run([madrid, ivete]);
-    expect(out.meta.version).toBe("p5-v2");
+    expect(out.meta.version).toBe("p5-v3");
     expect(out.eventos[0]).toMatchObject({ fora_dos_totais: true, motivo_fora: "em_curso_projecao", resultado_mp: -116573.83 });
     expect(out.socios.a_receber_total).toBe(138846.44);
     expect(out.socios.linhas.map((l) => l.event_id)).toEqual([E2]);
@@ -177,7 +177,7 @@ describe("P5 gate e contrato", () => {
   it("schema recusa versão errada e saldo com permissão negada", () => {
     const out: any = run([ev({})]);
     expect(() => parseFinancialPositionP5({ ...out, meta: { ...out.meta, version: "p5-v0" } })).toThrow();
-    expect(() => parseFinancialPositionP5({ ...out, meta: { ...out.meta, version: "p5-v1" } })).toThrow();
+    expect(() => parseFinancialPositionP5({ ...out, meta: { ...out.meta, version: "p5-v2" } })).toThrow();
     expect(() => parseFinancialPositionP5({ ...out, meta: { ...out.meta, saldos_visiveis: false } })).toThrow();
   });
   it("schema recusa projeção ausente ou linhas de sócio de projeção nos totais", () => {
