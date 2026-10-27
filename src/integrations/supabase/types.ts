@@ -26434,6 +26434,10 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: Json
       }
+      get_financial_position_base: {
+        Args: { p_company_id: string; p_year?: number }
+        Returns: Json
+      }
       get_leads_geo_stats: { Args: { p_period?: string }; Returns: Json }
       get_or_create_generic_camarim_supplier: {
         Args: { _company_id: string }
