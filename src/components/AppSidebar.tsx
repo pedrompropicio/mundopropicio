@@ -44,6 +44,7 @@ import { useAccountantPendenciesCount } from "@/hooks/useAccountantPendenciesCou
 import { useHasFeature } from "@/hooks/useCompanyFeatures";
 import { FEATURES } from "@/lib/features";
 import { useIsFieldStaffOnly } from "@/hooks/useIsFieldStaffOnly";
+import { FINANCIAL_POSITION_PATH, FINANCIAL_POSITION_PERMISSION } from "@/lib/financial-position";
 
 export function AppSidebar({
   variant = "rail",
@@ -100,6 +101,7 @@ export function AppSidebar({
 
   const fullNavItems = [
     { to: "/erp", icon: LayoutDashboard, label: "Dashboard", show: true },
+    { to: FINANCIAL_POSITION_PATH, icon: Landmark, label: "Posição Financeira", show: hasPermission(FINANCIAL_POSITION_PERMISSION) },
     { to: "/calendario", icon: CalendarDays, label: "Calendário", show: hasPermission("manage_calendar") },
     { to: "/eventos", icon: Calendar, label: "Eventos", show: hasPermission("manage_events") || hasPermission("view_events") },
     { to: "/transacoes", icon: ArrowUpDown, label: "Transações", show: hasPermission("manage_transactions") },
@@ -150,7 +152,7 @@ export function AppSidebar({
 
       <nav className="flex w-full shrink-0 flex-col gap-1 px-2 pb-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:px-3">
         {(inOperacao ? operacaoItems : fullNavItems)
-          .filter((i: any) => i.divider || (i.show && (!fieldStaffOnly || i.to.startsWith("/operacao"))))
+          .filter((i: any) => i.divider || (i.show && (!fieldStaffOnly || i.to.startsWith("/operacao") || i.to === FINANCIAL_POSITION_PATH)))
           .map((item: any) => {
           if (item.divider) {
             return <hr key={item.key} className="my-2 border-border opacity-60" />;

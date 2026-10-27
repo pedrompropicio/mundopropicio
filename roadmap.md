@@ -1,3 +1,5 @@
+- [x] P6a: painel RPC, permissão rota/menu, projeções desligadas;33 novos/2923suite PASS; visual sintético desktop/mobile; fecho R0/reserva libertada, sem Publish.
+- [ ] P6a: controller confirmar sincronização e CI do SHA integrado (GitHub só mostra HEAD arranque); não pronto para Publish antes dessa prova.
 - [x] P1 estágios dos eventos (R2, 27/10/2026): 0280 aplicada, cópia manual idêntica; (a)–(h) verificados; 13locais/2849suite PASS; D-ERP318. Sem UI/deploy/Publish/backfill. P2 fica com Pedro e Corro? separado.
 - [x] P7b origem da parte (R1) — publicado (Pedro, 27/10/2026), commit 90625e42: opção A implementada; origem do nó/snapshot sem reembolsos, detalhes e diferenças explícitas, antigos compatíveis; focados35/35, suite2803PASS, tipos/build automático OK. Pronto para Publish (não publicado); revisão visual/CI remoto não testados; tsgo manual vedado pela plataforma; sem Live.
 - [x] P3 contratos por sócio: passo 1 (0271) aplicado e verificado pelo Pedro em Live.

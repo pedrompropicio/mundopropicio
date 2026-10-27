@@ -59,6 +59,8 @@ import { CrmLayout } from "./components/layout/CrmLayout";
 import { PartnerLayout } from "./components/PartnerLayout";
 import { accessByPermission, moduleLanding, isCamarimOnlyUser } from "@/lib/access";
 import { RequireAccess } from "@/components/guards/RequireAccess";
+import { FINANCIAL_POSITION_PATH, FINANCIAL_POSITION_PERMISSION } from "@/lib/financial-position";
+import { FinancialPositionAccess } from "@/components/financial-position/FinancialPositionAccess";
 
 // --- Lazy: ERP ---
 const Events = lazy(() => import("./pages/Events"));
@@ -72,6 +74,7 @@ const Suppliers = lazy(() => import("./pages/Suppliers"));
 const Quotations = lazy(() => import("./pages/Quotations"));
 const AccountCategories = lazy(() => import("./pages/AccountCategories"));
 const FinancialAccounts = lazy(() => import("./pages/FinancialAccounts"));
+const FinancialPosition = lazy(() => import("./pages/FinancialPosition"));
 const BankReconciliation = lazy(() => import("./pages/BankReconciliation"));
 const UserManagement = lazy(() => import("./pages/UserManagement"));
 const LegalPrivacy = lazy(() => import("./pages/legal/Privacy"));
@@ -315,6 +318,7 @@ function ProtectedLayout() {
     "manage_calendar",
     "manage_recurring",
     "view_reports",
+    FINANCIAL_POSITION_PERMISSION,
     "edit_approved_bp",
   ] as const;
   const hasAnyManagement = MANAGEMENT_PERMS.some((p) => hasPermission(p));
@@ -471,7 +475,7 @@ function ProtectedLayout() {
 
   // #311 F2b — rotas do ERP exigem module.erp ou module.operacao; quem não as
   // tem vai para o módulo que tem (sócio, contabilista, content_manager…).
-  if (!erpAllowed) {
+  if (!erpAllowed && currentPath !== FINANCIAL_POSITION_PATH) {
     const dest = moduleLanding(String(role ?? ""), permissions ?? []);
     return <Navigate to={dest && dest !== "/erp" && dest !== "/operacao/campo" ? dest : "/modulos"} replace />;
   }
@@ -523,6 +527,7 @@ function ProtectedLayout() {
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/erp" element={<Index />} />
+              <Route path="/erp/posicao-financeira" element={<FinancialPositionAccess><FinancialPosition /></FinancialPositionAccess>} />
               <Route path="/calendario" element={<EventCalendar />} />
               <Route path="/eventos" element={<Events />} />
               <Route path="/eventos/:id" element={<EventDetail />} />

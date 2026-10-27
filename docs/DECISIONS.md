@@ -6361,3 +6361,8 @@ Decisões do Pedro (Sim à implementação a 27/10/2026): `get_financial_positio
 ## D-ERP321 — Acesso configurável à Posição Financeira (P4b, 27/10/2026)
 
 Decisão do Pedro (27/10/2026): o acesso a `get_financial_position_base` deixa de ser fixo por papel (admin/manager em user_roles) e passa a depender da permissão `view_financial_position` («Ver posição financeira»), gerida por papel e por utilizador no ecrã de permissões. Por defeito só o papel admin (semente em role_permissions); platform_admin passa por is_platform_admin. Overrides em user_permissions da empresa ativa ganham (granted=false recusa até um admin). A permissão dá acesso à posição; os saldos de caixa, cartões, retido e contas de acerto continuam só para admin, platform_admin ou view_balances (com balance_visible_to_all por conta), como em D-ERP320. Managers perdem o acesso até o Pedro conceder. Migração 0283 (só o gate muda; corpo idêntico à 0282); prova docs/testes/p4b-permissao-posicao-20261027.md. **Estado:** vigente; substitui a frase de acesso de D-ERP320.
+
+
+## D-ERP322 — Dashboard sem projeções antigas; resultado MP no P6b (27/10/2026)
+
+Decisão expressa do Pedro no despacho P6a: «Eventos Ativos — Projeções» deixa de aparecer no dashboard, mantendo o componente para reversão. A Análise de Resultados por Evento existente mantém-se; trazer o resultado da MP por evento é trabalho planeado para P6b, depois do P5 com motor partilhado. P6a apresenta apenas base RPC e Resultado MP desativado «Disponível com o P5», sem números fictícios. Sem Publish.
