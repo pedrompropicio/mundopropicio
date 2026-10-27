@@ -6366,3 +6366,5 @@ Decisão do Pedro (27/10/2026): o acesso a `get_financial_position_base` deixa d
 ## D-ERP322 — Dashboard sem projeções antigas; resultado MP no P6b (27/10/2026)
 
 Decisão expressa do Pedro no despacho P6a: «Eventos Ativos — Projeções» deixa de aparecer no dashboard, mantendo o componente para reversão. A Análise de Resultados por Evento existente mantém-se; trazer o resultado da MP por evento é trabalho planeado para P6b, depois do P5 com motor partilhado. P6a apresenta apenas base RPC e Resultado MP desativado «Disponível com o P5», sem números fictícios. Sem Publish.
+
+Adenda 27/10/2026 (P6a-fix, decisão do Pedro): cartões de topo = total por estágio sem transitórias (`a_pagar.total` / `a_receber.total`), com linha «+ transitórias de repasse» à parte; `posicao.a_pagar`/`posicao.a_receber` continuam validados mas não apresentados.
