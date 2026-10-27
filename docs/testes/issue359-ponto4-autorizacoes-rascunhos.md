@@ -42,3 +42,9 @@ Não alterar apresentação nesta tarefa. Campo boolean do contacto não represe
 
 ## Provas
 Testes src/test/issue359-person-authorisations.test.ts executam os rascunhos reais em PGlite descartável; fixture sem credenciais, contactos sintéticos *.test; trigger de consentimento existente preserva no-op de atualização de telefone; testes sob anon/authenticated. Não são prova de concorrência em duas sessões reais nem de UI Live. Teste0276 adicional preservado.
+
+Resultado: 28 testes novos + 5 testes0276 =33/33 PASS. Suite inicial:2826 PASS, timeout preexistente de beforeAll em newgang-crm-profile-fields; repetição `bunx vitest run --maxWorkers=2 --hookTimeout=60000`:290 ficheiros PASS,2836 testes PASS,6 skipped,11 todo. Não executar typecheck manual (verificação automática da plataforma).
+
+MD5 pg_get_functiondef: crm_whatsapp_eligible Live antes/depois dd895c8448e0b5cb0e83c2dbd9554dac; candidato instalado SÓ PGlite 2869858c6c0599c3f1603ea20b9417a3. `_crm_whatsapp_contact_guard`08be1cbeb1d176d1b5cd27bd664605b1, `_crm_whatsapp_project`9800ce91c91f288be52fd3e5be574d5b, `_crm_whatsapp_latest`613f5f746fc534090baeb7d78aa955ca, `_club332_whatsapp_append`112d585a32e17e94db2219518925c466: todos iguais nas duas consultas Live.
+
+HEAD inicial confirmado `git log -1`:8dbc60c77d8c4f19e67f94078eb3a4a96225d39f. HEAD final deve ser confirmado no fecho, pois commits documentais são automáticos.

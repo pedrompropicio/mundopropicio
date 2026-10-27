@@ -94,8 +94,8 @@ it('empty phone filled under existing guard without changing consent boolean/sou
 it('different supplied phone persists grant and reports phone_conflict, ineligible',async()=>{
   await texts(); const other='+351923456789';
   expect(await save(false,true,other)).toMatchObject({status:'phone_conflict',whatsapp:true});
-  expect((await db.query('SELECT phone_e164 FROM contacts')).rows[0]?.phone_e164).toBe(PH);
-  expect((await db.query('SELECT phone FROM coala_person_consents')).rows[0]?.phone).toBe(other);
+  expect((await db.query<{phone_e164:string}>('SELECT phone_e164 FROM contacts')).rows[0]?.phone_e164).toBe(PH);
+  expect((await db.query<{phone:string}>('SELECT phone FROM coala_person_consents')).rows[0]?.phone).toBe(other);
   expect(await eligible()).toBe(false);
 });
 it('phone owned by another contact is conflict, not overwritten',async()=>{
