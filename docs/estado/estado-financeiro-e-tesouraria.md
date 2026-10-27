@@ -1,6 +1,6 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 27/10/2026 — P5b passo 1 (0284, D-ERP325) aplicado em Live; P5-corr (p5-v2) pronto para Verificação em Live; P6a/P6a-fix não publicados; P4/P4b em Live.
+Atualizado: 27/10/2026 — P5b p5-v3: correção da cobertura independente do ano implementada, validação em curso; P6a/P6a-fix não publicados; P4/P4b em Live.
 
 ## Em que pé está
 
@@ -8,6 +8,7 @@ Atualizado: 27/10/2026 — P5b passo 1 (0284, D-ERP325) aplicado em Live; P5-cor
 
 - Edge function `financial-position` (p5-v2 exclusivo): gate = RPC get_financial_position_base com o JWT do utilizador (erros not_authenticated 401, company_forbidden/financial_position_permission_denied 403). Eventos = `eventos_por_estagio` da RPC (nunca event_dates); cancelado fora; Histórico só BP, marcado e fora dos totais.
 - **P5b passo 2 R1 (D-ERP326):** edge financial-position p5-v3 com cobertura_futuros (só informativo; deadline 6 s; incompleto sem derrubar o resto). Fixtures: Madrid aporte sócios 353.810,51, aporte MP 24.775,57, dinheiro parado 92.275,50 (−6.724,50 + 99.000,00), necessidade 358.035,96 / 195.699,00; Ticketline mínimo 109.050,59. Por verificar em Live (p5-v3 e o p5-v2 que segue no mesmo deploy). Sem Publish.
+- **Correção P5b 21:08 UTC:** segunda RPC com p_year=null exclusivamente para cobertura_futuros, incluindo futuros 2027 mesmo com year=2026; deadline 6 s abrange essa leitura e o bloco. Resto e motor mantêm o ano pedido. Nota destinado a eventos usa cobertura independente; contrato continua p5-v3. Medição do 0 anterior à correção: year=2026 só Madrid; year=null três futuros, necessidade 1.047.936,17 / 881.399,21 e dinheiro em conta 92.275,50. São referências do dia, não nova verificação do agente. Sem DDL/DML/Publish; reconstrução automática pelo index.ts alterado, confirmação Live pelo 0.
 - **P5b passo 1 R2 (D-ERP325):** 0284 acrescenta a_pagar.por_evento à RPC base (só aditiva; md5 do resto igual antes/depois; +~6 ms). Madrid: a pagar 184.670,96; sem linha 162.336,96; BP 666.560,59; BP por lançar 265.640,50; pagas 378.586,08. Soma por estágio = por_estagio (fechado −0,01 de arredondamento). Issues #384/#385/#386 abertas. Passo 2 (bloco de cobertura) por autorizar.
 - **P5-corr R1 (D-ERP324):** só em_fecho/fechado entram no resultado anual e sócios dos totais/Saldo Geral. em_curso/planeamento preservados com motivo em_curso_projecao; resumo, totais e socios_linhas só no bloco informativo projecao_em_curso. Prova do Pedro: Madrid −116.573,83 € de resultado MP e 376.816,12 € recebíveis de projeção saem dos totais; sem Madrid, recebíveis de sócios 138.846,44 €. Fixture equivalente verde, sem nova medição Live. Testes P5 23/23, suite 2951 PASS; validação automática OK. CI final e Live pendentes. Deploy automático de financial-position ao commit; não significa Publish da aplicação. RPC, estrutura e partner-statement intocados.
 - Motor: `computeStatementEngine(bundle)` (extraído de buildPartnerStatement, mesma montagem) e `buildPartnerStatement` por sócio `settles`; sem segundo cálculo. Resultado MP = house.residual.

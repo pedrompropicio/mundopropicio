@@ -113,7 +113,7 @@ describe("P5b cobertura de eventos futuros", () => {
     vi.useFakeTimers();
     try {
       const load = vi.fn();
-      const pending = loadIndependentFutureCoverage({ rpc: vi.fn(() => new Promise(() => {})) }, CO, load);
+      const pending = loadIndependentFutureCoverage({ rpc: vi.fn(() => new Promise<{ data: any; error: any }>(() => {})) }, CO, load);
       let done = false;
       void pending.then(() => { done = true; });
       await vi.advanceTimersByTimeAsync(5999);
