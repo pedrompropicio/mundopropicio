@@ -6,7 +6,7 @@ type: feature
 
 # Estágios — D-ERP318
 
-event_stage: cancelado primeiro; histórico por historical_at; fechado somente closed_at e status completed; planning→planeamento; completed ou maior data própria/filhos diretos passada→em_fecho; restante→em_curso. Datas civis Europe/Lisbon como DECISIONS.md ~l.4174 (data de referência Europe/Lisbon). event_stage_list filtra empresa ativa.
+event_stage: cancelado primeiro; histórico por historical_at; fechado somente closed_at e status completed; planning→planeamento; completed ou maior data própria/filhos diretos passada→em_fecho; restante→em_curso. Datas civis Europe/Lisbon como DECISIONS.md l.4174 (data de referência Europe/Lisbon). event_stage_list filtra empresa ativa.
 
 close_event exige admin/manager da empresa, checklist servidor completa e carimbo vazio. Checklist usa is_sealed+snapshot não nulo; freeze city/config is_finalized; soft.bp_lines_unreviewed; todos hard de event_close_blockers. Não calcula outro motor. Ausência de selos/configurações é condição satisfeita, com totais zero explícitos.
 
