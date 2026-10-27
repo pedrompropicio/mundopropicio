@@ -34,7 +34,7 @@ export async function loadRetainedComposition(officeId: string): Promise<Retaine
   const { total, byEvent } = computeTicketOfficeBalance({
     officeId, assignedEventIds: assignments.map((a: any) => a.event_id), sales: saleRows, transactions: txns.data || [], advances: adv.data || [],
   });
-  const events = assignments.map((a: any) => ({ id: a.event_id as string, name: a.events.name as string, balance: byEvent[a.event_id] ?? 0 }));
+  const events: RetainedCompositionEvent[] = assignments.map((a: any) => ({ id: a.event_id as string, name: a.events.name as string, balance: byEvent[a.event_id] ?? 0 }));
   return {
     accountId: officeId,
     globalBalance: total,

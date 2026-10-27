@@ -33,10 +33,10 @@ export function cacheArtistLabel(contractName: string | null, supplier: string |
 }
 
 export interface RetainedRowInput {
-  account_id: string; name: string; saldo: number | null;
+  account_id?: string; name?: string; saldo?: number | null;
 }
 /** ECI, Ticketline e BOL sempre; restantes (Fever, Blueticket, …) só quando o saldo não é zero. */
 export function retainedRowsToShow<T extends RetainedRowInput>(rows: T[]): T[] {
   const main = /^(eci|el corte|ticketline|bol)\b/i;
-  return rows.filter((r) => main.test(r.name.trim()) || (r.saldo !== null && Math.abs(r.saldo) >= 0.01));
+  return rows.filter((r) => main.test((r.name ?? "").trim()) || (r.saldo != null && Math.abs(r.saldo) >= 0.01));
 }

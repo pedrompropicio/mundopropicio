@@ -156,7 +156,7 @@ export function computeTicketOfficeBalance(input: TicketOfficeBalanceInput): Tic
 // A posição apurada já está DENTRO do retido; nunca se abate dele. Nunca rateia o pool por evento.
 export interface RetainedStatementLine { id?: string; line_type?: string | null; position: number; description?: string | null; amount: number | string | null; event_id?: string | null }
 export interface RetainedStatement { id?: string; number?: string | number | null; statement_date?: string | null; document_total: number | string | null; status?: string | null; ticket_office_statement_lines?: RetainedStatementLine[] | null }
-export interface RetainedEvent { id: string; balance: number; [k: string]: unknown }
+export interface RetainedEvent { id: string; balance: number }
 export interface RetainedDecomposition<E extends RetainedEvent = RetainedEvent> {
   statement: RetainedStatement; position: number; openEvents: E[]; openTotal: number; residual: number; statementLines: RetainedStatementLine[];
 }
