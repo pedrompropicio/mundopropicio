@@ -1,0 +1,167 @@
+{
+  "review": 6449883145,
+  "source_sha": "f02c1ea826d22306eef394061c17ed178da3c804",
+  "g1_sha": "52a5a977756d512cc944bf4cb2591a17e125bc9c",
+  "plan_sha256": "09cce24a7681497ab51badb10fb4aa05ad2a92610ff41281782b512a5d7f8d4a",
+  "result": {
+    "review": 6449883145,
+    "G1": "green_run64_unchanged_not_rerun",
+    "G2": "green",
+    "G3": "not_started_requires_Pedro_Sim",
+    "blocking": 0,
+    "nonblocking_R8": 1,
+    "platform_baseline_differences": 798,
+    "fixture_occurrences": 34,
+    "fixture_files": 19,
+    "fixture_file_table_pairs": 25,
+    "application_schema_occurrences_in_reviewed_set": 0,
+    "n9_tables_eligible": 20,
+    "n9_ordinal_differences": 108,
+    "storage_objects_policies": 152,
+    "sql_files_reviewed": 2180,
+    "dynamic_blocks": 56,
+    "dynamic_distinct": 40,
+    "steps": [
+      {
+        "normalization": "N1",
+        "before": 8581,
+        "after": 1984,
+        "delta": -6597,
+        "objects_before": {
+          "replay": 33967,
+          "live": 34201
+        },
+        "objects_after": {
+          "replay": 33967,
+          "live": 34201
+        }
+      },
+      {
+        "normalization": "N2",
+        "before": 1984,
+        "after": 1130,
+        "delta": -854,
+        "objects_before": {
+          "replay": 33967,
+          "live": 34201
+        },
+        "objects_after": {
+          "replay": 33965,
+          "live": 34199
+        }
+      },
+      {
+        "normalization": "N3",
+        "before": 1130,
+        "after": 910,
+        "delta": -220,
+        "objects_before": {
+          "replay": 33965,
+          "live": 34199
+        },
+        "objects_after": {
+          "replay": 33701,
+          "live": 33719
+        }
+      },
+      {
+        "normalization": "N4",
+        "before": 910,
+        "after": 115,
+        "delta": -795,
+        "objects_before": {
+          "replay": 33701,
+          "live": 33719
+        },
+        "objects_after": {
+          "replay": 31593,
+          "live": 31594
+        }
+      },
+      {
+        "normalization": "N5",
+        "before": 115,
+        "after": 115,
+        "delta": 0,
+        "objects_before": {
+          "replay": 31593,
+          "live": 31594
+        },
+        "objects_after": {
+          "replay": 31593,
+          "live": 31594
+        }
+      },
+      {
+        "normalization": "N6",
+        "before": 115,
+        "after": 115,
+        "delta": 0,
+        "objects_before": {
+          "replay": 31593,
+          "live": 31594
+        },
+        "objects_after": {
+          "replay": 31593,
+          "live": 31594
+        }
+      },
+      {
+        "normalization": "N7",
+        "before": 115,
+        "after": 112,
+        "delta": -3,
+        "objects_before": {
+          "replay": 31593,
+          "live": 31594
+        },
+        "objects_after": {
+          "replay": 31571,
+          "live": 31571
+        }
+      },
+      {
+        "normalization": "N8",
+        "before": 112,
+        "after": 109,
+        "delta": -3,
+        "objects_before": {
+          "replay": 31571,
+          "live": 31571
+        },
+        "objects_after": {
+          "replay": 31539,
+          "live": 31539
+        }
+      },
+      {
+        "normalization": "N9",
+        "before": 109,
+        "after": 1,
+        "delta": -108,
+        "objects_before": {
+          "replay": 31539,
+          "live": 31539
+        },
+        "objects_after": {
+          "replay": 31539,
+          "live": 31539
+        }
+      }
+    ]
+  },
+  "public_files": {
+    "fixtures.json": "f9dbbb927a2217c6a35fc3bdec51e491cb2060af4ad5410544d528f8dabffb94",
+    "n9-tabelas.json": "f80ba990570e538b3573aed18926e9b055496322a2c318625aadece28916edc4",
+    "normalizacoes.json": "837ff1aaa172dd84380337507e51e06350c7c645b9dd69431b5801f728694335",
+    "r4b-prova.json": "2a4cba6eca7070bd509d01f2dc15f3b7fcf10a7a0ee1bd9b2e95c309d25e5148",
+    "r8-nao-bloqueante.json": "c39df9261b7b842f53b93d03079cc68224d7e95735e6eb0ab61385b3ad8f3c7a",
+    "relatorio.md": "78dfde0554eff7d1f41958406d7e759a77df737cd3929d1235c6670f96091fdb",
+    "residuais.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "storage-rls.json": "207d922f78ada9e9b14b304200db39b53b5622554fe947eaa576cd822c9d10f1"
+  },
+  "derived_n9_audit_sha256": "bbf64619f6436ab7b4c84aac1db2a8217a493abfbf8bf77edb11b132ea4005d7",
+  "derived_normalized_replay_sha256": "11d70399454d3e3b436e1238cd892211b9396192b050eb31ab43ad04bb15d10f",
+  "derived_normalized_live_sha256": "bd30e96501dcb8f15d9efcd0a8994ed306ef0b0acebd8dbcccad371701276e38",
+  "verification": "two offline reproductions identical; 3 focused regression tests passed; no SQL execution or new collection"
+}

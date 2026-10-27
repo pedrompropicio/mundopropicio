@@ -1,0 +1,128 @@
+[
+  {
+    "normalization": "N1",
+    "before": 8581,
+    "after": 1984,
+    "delta": -6597,
+    "objects_before": {
+      "replay": 33967,
+      "live": 34201
+    },
+    "objects_after": {
+      "replay": 33967,
+      "live": 34201
+    }
+  },
+  {
+    "normalization": "N2",
+    "before": 1984,
+    "after": 1130,
+    "delta": -854,
+    "objects_before": {
+      "replay": 33967,
+      "live": 34201
+    },
+    "objects_after": {
+      "replay": 33965,
+      "live": 34199
+    }
+  },
+  {
+    "normalization": "N3",
+    "before": 1130,
+    "after": 910,
+    "delta": -220,
+    "objects_before": {
+      "replay": 33965,
+      "live": 34199
+    },
+    "objects_after": {
+      "replay": 33701,
+      "live": 33719
+    }
+  },
+  {
+    "normalization": "N4",
+    "before": 910,
+    "after": 115,
+    "delta": -795,
+    "objects_before": {
+      "replay": 33701,
+      "live": 33719
+    },
+    "objects_after": {
+      "replay": 31593,
+      "live": 31594
+    }
+  },
+  {
+    "normalization": "N5",
+    "before": 115,
+    "after": 115,
+    "delta": 0,
+    "objects_before": {
+      "replay": 31593,
+      "live": 31594
+    },
+    "objects_after": {
+      "replay": 31593,
+      "live": 31594
+    }
+  },
+  {
+    "normalization": "N6",
+    "before": 115,
+    "after": 115,
+    "delta": 0,
+    "objects_before": {
+      "replay": 31593,
+      "live": 31594
+    },
+    "objects_after": {
+      "replay": 31593,
+      "live": 31594
+    }
+  },
+  {
+    "normalization": "N7",
+    "before": 115,
+    "after": 112,
+    "delta": -3,
+    "objects_before": {
+      "replay": 31593,
+      "live": 31594
+    },
+    "objects_after": {
+      "replay": 31571,
+      "live": 31571
+    }
+  },
+  {
+    "normalization": "N8",
+    "before": 112,
+    "after": 109,
+    "delta": -3,
+    "objects_before": {
+      "replay": 31571,
+      "live": 31571
+    },
+    "objects_after": {
+      "replay": 31539,
+      "live": 31539
+    }
+  },
+  {
+    "normalization": "N9",
+    "before": 109,
+    "after": 1,
+    "delta": -108,
+    "objects_before": {
+      "replay": 31539,
+      "live": 31539
+    },
+    "objects_after": {
+      "replay": 31539,
+      "live": 31539
+    }
+  }
+]

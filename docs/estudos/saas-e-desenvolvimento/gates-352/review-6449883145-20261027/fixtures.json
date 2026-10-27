@@ -1,0 +1,1212 @@
+[
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "profiles",
+    "file": "docs/testes/issue333/head/flows.test.tsx",
+    "line": 111,
+    "file_sha256": "2a523de4295167ef47e002772dae84970418268562eac68cba6accd0bbc66f29",
+    "fragment": "text",
+    "fragment_sha256": "2a523de4295167ef47e002772dae84970418268562eac68cba6accd0bbc66f29",
+    "decoded_line": 111,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.profiles",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.profiles",
+      "evidence": [
+        {
+          "file": "docs/testes/issue333/pg/fixture.sql",
+          "line": 13,
+          "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+          "kind": "create_table"
+        },
+        {
+          "file": "docs/testes/issue333/head/flows.test.tsx",
+          "line": 109,
+          "file_sha256": "2a523de4295167ef47e002772dae84970418268562eac68cba6accd0bbc66f29",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "docs/testes/issue333/head/flows.test.tsx",
+          "line": 107,
+          "file_sha256": "2a523de4295167ef47e002772dae84970418268562eac68cba6accd0bbc66f29",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "profiles",
+    "file": "docs/testes/issue333/pg/activation56.test.ts",
+    "line": 16,
+    "file_sha256": "1e879661f7fb63571decef2bb19ad6a699ca41c1401945b3ae038c7f08fae1fc",
+    "fragment": "text",
+    "fragment_sha256": "1e879661f7fb63571decef2bb19ad6a699ca41c1401945b3ae038c7f08fae1fc",
+    "decoded_line": 16,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.profiles",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.profiles",
+      "evidence": [
+        {
+          "file": "docs/testes/issue333/pg/fixture.sql",
+          "line": 13,
+          "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+          "kind": "create_table"
+        },
+        {
+          "file": "docs/testes/issue333/pg/activation56.test.ts",
+          "line": 21,
+          "file_sha256": "1e879661f7fb63571decef2bb19ad6a699ca41c1401945b3ae038c7f08fae1fc",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "docs/testes/issue333/pg/activation56.test.ts",
+          "line": 20,
+          "file_sha256": "1e879661f7fb63571decef2bb19ad6a699ca41c1401945b3ae038c7f08fae1fc",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "profiles",
+    "file": "docs/testes/issue333/pg/activation64.test.ts",
+    "line": 16,
+    "file_sha256": "5d25f079ad5317934bf4b192bd7c2c8f273fd1700a0c6f3be5b47831e599f29e",
+    "fragment": "text",
+    "fragment_sha256": "5d25f079ad5317934bf4b192bd7c2c8f273fd1700a0c6f3be5b47831e599f29e",
+    "decoded_line": 16,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.profiles",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.profiles",
+      "evidence": [
+        {
+          "file": "docs/testes/issue333/pg/fixture.sql",
+          "line": 13,
+          "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+          "kind": "create_table"
+        },
+        {
+          "file": "docs/testes/issue333/pg/activation64.test.ts",
+          "line": 21,
+          "file_sha256": "5d25f079ad5317934bf4b192bd7c2c8f273fd1700a0c6f3be5b47831e599f29e",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "docs/testes/issue333/pg/activation64.test.ts",
+          "line": 20,
+          "file_sha256": "5d25f079ad5317934bf4b192bd7c2c8f273fd1700a0c6f3be5b47831e599f29e",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "profiles",
+    "file": "docs/testes/issue333/pg/activation73.test.ts",
+    "line": 23,
+    "file_sha256": "6a9defb3a79d0c4a3b249f6fec38291e6a7bad6e4d07519dee13a5c07e099d57",
+    "fragment": "text",
+    "fragment_sha256": "6a9defb3a79d0c4a3b249f6fec38291e6a7bad6e4d07519dee13a5c07e099d57",
+    "decoded_line": 23,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.profiles",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.profiles",
+      "evidence": [
+        {
+          "file": "docs/testes/issue333/pg/fixture.sql",
+          "line": 13,
+          "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+          "kind": "create_table"
+        },
+        {
+          "file": "docs/testes/issue333/pg/activation73.test.ts",
+          "line": 28,
+          "file_sha256": "6a9defb3a79d0c4a3b249f6fec38291e6a7bad6e4d07519dee13a5c07e099d57",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "docs/testes/issue333/pg/activation73.test.ts",
+          "line": 27,
+          "file_sha256": "6a9defb3a79d0c4a3b249f6fec38291e6a7bad6e4d07519dee13a5c07e099d57",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "public.events",
+    "file": "docs/testes/issue333/pg/assistant-executor12e-stub.sql",
+    "line": 52,
+    "file_sha256": "4d55b2cddc6c6fd4b53f1548b455055fb83401ef5387d20247921425eed03b40",
+    "fragment": "text",
+    "fragment_sha256": "4d55b2cddc6c6fd4b53f1548b455055fb83401ef5387d20247921425eed03b40",
+    "decoded_line": 52,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.events",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.events",
+      "evidence": [
+        {
+          "file": "docs/testes/issue333/pg/assistant-executor12e-stub.sql",
+          "line": 9,
+          "file_sha256": "4d55b2cddc6c6fd4b53f1548b455055fb83401ef5387d20247921425eed03b40",
+          "kind": "create_table"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "public.financial_accounts",
+    "file": "docs/testes/issue333/pg/assistant-executor12e-stub.sql",
+    "line": 54,
+    "file_sha256": "4d55b2cddc6c6fd4b53f1548b455055fb83401ef5387d20247921425eed03b40",
+    "fragment": "text",
+    "fragment_sha256": "4d55b2cddc6c6fd4b53f1548b455055fb83401ef5387d20247921425eed03b40",
+    "decoded_line": 54,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.financial_accounts",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.financial_accounts",
+      "evidence": [
+        {
+          "file": "docs/testes/issue333/pg/assistant-executor12e-stub.sql",
+          "line": 10,
+          "file_sha256": "4d55b2cddc6c6fd4b53f1548b455055fb83401ef5387d20247921425eed03b40",
+          "kind": "create_table"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "profiles",
+    "file": "docs/testes/issue333/pg/attempts-pg.test.ts",
+    "line": 25,
+    "file_sha256": "1efa191956375f44fe0bf6dff6c3c7ee74a68ef5d6d025e3c898866d74e24922",
+    "fragment": "text",
+    "fragment_sha256": "1efa191956375f44fe0bf6dff6c3c7ee74a68ef5d6d025e3c898866d74e24922",
+    "decoded_line": 25,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.profiles",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.profiles",
+      "evidence": [
+        {
+          "file": "docs/testes/issue333/pg/fixture.sql",
+          "line": 13,
+          "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+          "kind": "create_table"
+        },
+        {
+          "file": "docs/testes/issue333/pg/attempts-pg.test.ts",
+          "line": 23,
+          "file_sha256": "1efa191956375f44fe0bf6dff6c3c7ee74a68ef5d6d025e3c898866d74e24922",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "docs/testes/issue333/pg/attempts-pg.test.ts",
+          "line": 21,
+          "file_sha256": "1efa191956375f44fe0bf6dff6c3c7ee74a68ef5d6d025e3c898866d74e24922",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "profiles",
+    "file": "docs/testes/issue333/pg/attempts-pg.test.ts",
+    "line": 143,
+    "file_sha256": "1efa191956375f44fe0bf6dff6c3c7ee74a68ef5d6d025e3c898866d74e24922",
+    "fragment": "text",
+    "fragment_sha256": "1efa191956375f44fe0bf6dff6c3c7ee74a68ef5d6d025e3c898866d74e24922",
+    "decoded_line": 143,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.profiles",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.profiles",
+      "evidence": [
+        {
+          "file": "docs/testes/issue333/pg/fixture.sql",
+          "line": 13,
+          "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+          "kind": "create_table"
+        },
+        {
+          "file": "docs/testes/issue333/pg/attempts-pg.test.ts",
+          "line": 23,
+          "file_sha256": "1efa191956375f44fe0bf6dff6c3c7ee74a68ef5d6d025e3c898866d74e24922",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "docs/testes/issue333/pg/attempts-pg.test.ts",
+          "line": 21,
+          "file_sha256": "1efa191956375f44fe0bf6dff6c3c7ee74a68ef5d6d025e3c898866d74e24922",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "profiles",
+    "file": "docs/testes/issue333/pg/data-entry-pg.test.ts",
+    "line": 80,
+    "file_sha256": "3e43803c94727af0d3fc08f4acd91844f5351ad2e659124ce72ee54b1cd3c6e6",
+    "fragment": "text",
+    "fragment_sha256": "3e43803c94727af0d3fc08f4acd91844f5351ad2e659124ce72ee54b1cd3c6e6",
+    "decoded_line": 80,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.profiles",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.profiles",
+      "evidence": [
+        {
+          "file": "docs/testes/issue333/pg/fixture.sql",
+          "line": 13,
+          "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+          "kind": "create_table"
+        },
+        {
+          "file": "docs/testes/issue333/pg/data-entry-pg.test.ts",
+          "line": 75,
+          "file_sha256": "3e43803c94727af0d3fc08f4acd91844f5351ad2e659124ce72ee54b1cd3c6e6",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "docs/testes/issue333/pg/data-entry-pg.test.ts",
+          "line": 72,
+          "file_sha256": "3e43803c94727af0d3fc08f4acd91844f5351ad2e659124ce72ee54b1cd3c6e6",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "profiles",
+    "file": "docs/testes/issue333/pg/driver58.test.ts",
+    "line": 35,
+    "file_sha256": "1a382efe228f0d758acf09a881897bd524c04c60f1a3857109cfdb9a86ad2537",
+    "fragment": "text",
+    "fragment_sha256": "1a382efe228f0d758acf09a881897bd524c04c60f1a3857109cfdb9a86ad2537",
+    "decoded_line": 35,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.profiles",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.profiles",
+      "evidence": [
+        {
+          "file": "docs/testes/issue333/pg/fixture.sql",
+          "line": 13,
+          "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+          "kind": "create_table"
+        },
+        {
+          "file": "docs/testes/issue333/pg/driver58.test.ts",
+          "line": 34,
+          "file_sha256": "1a382efe228f0d758acf09a881897bd524c04c60f1a3857109cfdb9a86ad2537",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "docs/testes/issue333/pg/driver58.test.ts",
+          "line": 33,
+          "file_sha256": "1a382efe228f0d758acf09a881897bd524c04c60f1a3857109cfdb9a86ad2537",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "profiles",
+    "file": "docs/testes/issue333/pg/fixture-preparation47.test.ts",
+    "line": 16,
+    "file_sha256": "3d9a9c06ba7c9c3283e54a36745a859dd72de9b1752b14bc02a81e25d9b9114f",
+    "fragment": "text",
+    "fragment_sha256": "3d9a9c06ba7c9c3283e54a36745a859dd72de9b1752b14bc02a81e25d9b9114f",
+    "decoded_line": 16,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.profiles",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.profiles",
+      "evidence": [
+        {
+          "file": "docs/testes/issue333/pg/fixture.sql",
+          "line": 13,
+          "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+          "kind": "create_table"
+        },
+        {
+          "file": "docs/testes/issue333/pg/fixture-preparation47.test.ts",
+          "line": 21,
+          "file_sha256": "3d9a9c06ba7c9c3283e54a36745a859dd72de9b1752b14bc02a81e25d9b9114f",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "docs/testes/issue333/pg/fixture-preparation47.test.ts",
+          "line": 20,
+          "file_sha256": "3d9a9c06ba7c9c3283e54a36745a859dd72de9b1752b14bc02a81e25d9b9114f",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "profiles",
+    "file": "docs/testes/issue333/pg/hash-check-pending.test.ts",
+    "line": 26,
+    "file_sha256": "85b303e8f327c263fddda28404ede20e8d553af17b00e7130b8dd0ad6ae77992",
+    "fragment": "text",
+    "fragment_sha256": "85b303e8f327c263fddda28404ede20e8d553af17b00e7130b8dd0ad6ae77992",
+    "decoded_line": 26,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.profiles",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.profiles",
+      "evidence": [
+        {
+          "file": "docs/testes/issue333/pg/fixture.sql",
+          "line": 13,
+          "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+          "kind": "create_table"
+        },
+        {
+          "file": "docs/testes/issue333/pg/hash-check-pending.test.ts",
+          "line": 24,
+          "file_sha256": "85b303e8f327c263fddda28404ede20e8d553af17b00e7130b8dd0ad6ae77992",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "docs/testes/issue333/pg/hash-check-pending.test.ts",
+          "line": 23,
+          "file_sha256": "85b303e8f327c263fddda28404ede20e8d553af17b00e7130b8dd0ad6ae77992",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "profiles",
+    "file": "docs/testes/issue333/pg/pilot8-browser56.test.ts",
+    "line": 34,
+    "file_sha256": "15fcb234731b463c35de6312d4c98299eabd29ec60f2826836543d63b607185d",
+    "fragment": "text",
+    "fragment_sha256": "15fcb234731b463c35de6312d4c98299eabd29ec60f2826836543d63b607185d",
+    "decoded_line": 34,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.profiles",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.profiles",
+      "evidence": [
+        {
+          "file": "docs/testes/issue333/pg/fixture.sql",
+          "line": 13,
+          "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+          "kind": "create_table"
+        },
+        {
+          "file": "docs/testes/issue333/pg/pilot8-browser56.test.ts",
+          "line": 33,
+          "file_sha256": "15fcb234731b463c35de6312d4c98299eabd29ec60f2826836543d63b607185d",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "docs/testes/issue333/pg/pilot8-browser56.test.ts",
+          "line": 32,
+          "file_sha256": "15fcb234731b463c35de6312d4c98299eabd29ec60f2826836543d63b607185d",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "profiles",
+    "file": "docs/testes/issue333/pg/pilot8-inert.test.ts",
+    "line": 30,
+    "file_sha256": "f596d67e5448748be42ed96f56fb6b23383e9818d12730236592eff4855c26d0",
+    "fragment": "text",
+    "fragment_sha256": "f596d67e5448748be42ed96f56fb6b23383e9818d12730236592eff4855c26d0",
+    "decoded_line": 30,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.profiles",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.profiles",
+      "evidence": [
+        {
+          "file": "docs/testes/issue333/pg/fixture.sql",
+          "line": 13,
+          "file_sha256": "a357d93224fb942cd3c55e3a204c51fe5d8ca63f23aa671bfb2b9b9a46c5decf",
+          "kind": "create_table"
+        },
+        {
+          "file": "docs/testes/issue333/pg/pilot8-inert.test.ts",
+          "line": 29,
+          "file_sha256": "f596d67e5448748be42ed96f56fb6b23383e9818d12730236592eff4855c26d0",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "docs/testes/issue333/pg/pilot8-inert.test.ts",
+          "line": 28,
+          "file_sha256": "f596d67e5448748be42ed96f56fb6b23383e9818d12730236592eff4855c26d0",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "song_links",
+    "file": "docs/testes/smart-link-choice-ios/validate-local.py",
+    "line": 31,
+    "file_sha256": "e722be15098c091225d3a13460d80cd02155d67feea74c67274a258d6b69746e",
+    "fragment": "text",
+    "fragment_sha256": "e722be15098c091225d3a13460d80cd02155d67feea74c67274a258d6b69746e",
+    "decoded_line": 31,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.song_links",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.song_links",
+      "evidence": [
+        {
+          "file": "docs/testes/smart-link-choice-ios/validate-local.py",
+          "line": 20,
+          "file_sha256": "e722be15098c091225d3a13460d80cd02155d67feea74c67274a258d6b69746e",
+          "kind": "create_table"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "events",
+    "file": "scripts/coala-meta-audience/schema-test.sql",
+    "line": 15,
+    "file_sha256": "8e31d53b09c068724e37fea4cf2df9aed71aad5d46bf1620e28f1ed065ed127b",
+    "fragment": "text",
+    "fragment_sha256": "8e31d53b09c068724e37fea4cf2df9aed71aad5d46bf1620e28f1ed065ed127b",
+    "decoded_line": 15,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.events",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.events",
+      "evidence": [
+        {
+          "file": "scripts/coala-meta-audience/schema-test.sql",
+          "line": 8,
+          "file_sha256": "8e31d53b09c068724e37fea4cf2df9aed71aad5d46bf1620e28f1ed065ed127b",
+          "kind": "create_table"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "events",
+    "file": "src/test/event-stages-p1.test.ts",
+    "line": 30,
+    "file_sha256": "fa04c8d48eb24b724cf7e64eada1e823b30e6cb7976e207aa7508c1dbdc77ea6",
+    "fragment": "text",
+    "fragment_sha256": "fa04c8d48eb24b724cf7e64eada1e823b30e6cb7976e207aa7508c1dbdc77ea6",
+    "decoded_line": 30,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.events",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.events",
+      "evidence": [
+        {
+          "file": "src/test/event-stages-p1.test.ts",
+          "line": 20,
+          "file_sha256": "fa04c8d48eb24b724cf7e64eada1e823b30e6cb7976e207aa7508c1dbdc77ea6",
+          "kind": "create_table"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "event_cache_configs",
+    "file": "src/test/event-stages-p1.test.ts",
+    "line": 50,
+    "file_sha256": "fa04c8d48eb24b724cf7e64eada1e823b30e6cb7976e207aa7508c1dbdc77ea6",
+    "fragment": "text",
+    "fragment_sha256": "fa04c8d48eb24b724cf7e64eada1e823b30e6cb7976e207aa7508c1dbdc77ea6",
+    "decoded_line": 50,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.event_cache_configs",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.event_cache_configs",
+      "evidence": [
+        {
+          "file": "src/test/event-stages-p1.test.ts",
+          "line": 22,
+          "file_sha256": "fa04c8d48eb24b724cf7e64eada1e823b30e6cb7976e207aa7508c1dbdc77ea6",
+          "kind": "create_table"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "events",
+    "file": "src/test/event-stages-p1b.test.ts",
+    "line": 32,
+    "file_sha256": "e62355349bb0f6142e993553afdbf7a30246371b6bb69db3f573979ab9617541",
+    "fragment": "text",
+    "fragment_sha256": "e62355349bb0f6142e993553afdbf7a30246371b6bb69db3f573979ab9617541",
+    "decoded_line": 32,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.events",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.events",
+      "evidence": [
+        {
+          "file": "src/test/event-stages-p1b.test.ts",
+          "line": 21,
+          "file_sha256": "e62355349bb0f6142e993553afdbf7a30246371b6bb69db3f573979ab9617541",
+          "kind": "create_table"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "events",
+    "file": "src/test/newgang-erasure-0264.test.ts",
+    "line": 47,
+    "file_sha256": "7ad2290482cabea175d5a87e171c1e4dedf58fbc90a0e1516a235837809d44f8",
+    "fragment": "text",
+    "fragment_sha256": "7ad2290482cabea175d5a87e171c1e4dedf58fbc90a0e1516a235837809d44f8",
+    "decoded_line": 47,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.events",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.events",
+      "evidence": [
+        {
+          "file": "src/test/newgang-erasure-0264.test.ts",
+          "line": 24,
+          "file_sha256": "7ad2290482cabea175d5a87e171c1e4dedf58fbc90a0e1516a235837809d44f8",
+          "kind": "create_table"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "public.suppliers",
+    "file": "supabase/tests/cache_contracts/scenarios.sql",
+    "line": 7,
+    "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "fragment": "text",
+    "fragment_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "decoded_line": 7,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.suppliers",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.suppliers",
+      "evidence": [
+        {
+          "file": "supabase/tests/cache_contracts/stub.sql",
+          "line": 13,
+          "file_sha256": "cd0f692a3813bbc8fce59cdf30c556e0c88506394bc3699399462fcea9349e55",
+          "kind": "create_table"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 11,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 16,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_test"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 7,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "public.events",
+    "file": "supabase/tests/cache_contracts/scenarios.sql",
+    "line": 24,
+    "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "fragment": "text",
+    "fragment_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "decoded_line": 24,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.events",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.events",
+      "evidence": [
+        {
+          "file": "supabase/tests/cache_contracts/stub.sql",
+          "line": 12,
+          "file_sha256": "cd0f692a3813bbc8fce59cdf30c556e0c88506394bc3699399462fcea9349e55",
+          "kind": "create_table"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 11,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 16,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_test"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 7,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "public.event_cache_configs",
+    "file": "supabase/tests/cache_contracts/scenarios.sql",
+    "line": 25,
+    "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "fragment": "text",
+    "fragment_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "decoded_line": 25,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.event_cache_configs",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.event_cache_configs",
+      "evidence": [
+        {
+          "file": "supabase/tests/cache_contracts/stub.sql",
+          "line": 15,
+          "file_sha256": "cd0f692a3813bbc8fce59cdf30c556e0c88506394bc3699399462fcea9349e55",
+          "kind": "create_table"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 11,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 16,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_test"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 7,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "public.event_forecasts",
+    "file": "supabase/tests/cache_contracts/scenarios.sql",
+    "line": 27,
+    "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "fragment": "text",
+    "fragment_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "decoded_line": 27,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.event_forecasts",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.event_forecasts",
+      "evidence": [
+        {
+          "file": "supabase/tests/cache_contracts/stub.sql",
+          "line": 17,
+          "file_sha256": "cd0f692a3813bbc8fce59cdf30c556e0c88506394bc3699399462fcea9349e55",
+          "kind": "create_table"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 11,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 16,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_test"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 7,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "public.events",
+    "file": "supabase/tests/cache_contracts/scenarios.sql",
+    "line": 32,
+    "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "fragment": "text",
+    "fragment_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "decoded_line": 32,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.events",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.events",
+      "evidence": [
+        {
+          "file": "supabase/tests/cache_contracts/stub.sql",
+          "line": 12,
+          "file_sha256": "cd0f692a3813bbc8fce59cdf30c556e0c88506394bc3699399462fcea9349e55",
+          "kind": "create_table"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 11,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 16,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_test"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 7,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "public.event_forecasts",
+    "file": "supabase/tests/cache_contracts/scenarios.sql",
+    "line": 33,
+    "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "fragment": "text",
+    "fragment_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "decoded_line": 33,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.event_forecasts",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.event_forecasts",
+      "evidence": [
+        {
+          "file": "supabase/tests/cache_contracts/stub.sql",
+          "line": 17,
+          "file_sha256": "cd0f692a3813bbc8fce59cdf30c556e0c88506394bc3699399462fcea9349e55",
+          "kind": "create_table"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 11,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 16,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_test"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 7,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "public.events",
+    "file": "supabase/tests/cache_contracts/scenarios.sql",
+    "line": 143,
+    "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "fragment": "text",
+    "fragment_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "decoded_line": 143,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.events",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.events",
+      "evidence": [
+        {
+          "file": "supabase/tests/cache_contracts/stub.sql",
+          "line": 12,
+          "file_sha256": "cd0f692a3813bbc8fce59cdf30c556e0c88506394bc3699399462fcea9349e55",
+          "kind": "create_table"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 11,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 16,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_test"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 7,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "public.event_forecasts",
+    "file": "supabase/tests/cache_contracts/scenarios.sql",
+    "line": 144,
+    "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "fragment": "text",
+    "fragment_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "decoded_line": 144,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.event_forecasts",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.event_forecasts",
+      "evidence": [
+        {
+          "file": "supabase/tests/cache_contracts/stub.sql",
+          "line": 17,
+          "file_sha256": "cd0f692a3813bbc8fce59cdf30c556e0c88506394bc3699399462fcea9349e55",
+          "kind": "create_table"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 11,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 16,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_test"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 7,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "public.event_forecasts",
+    "file": "supabase/tests/cache_contracts/scenarios.sql",
+    "line": 145,
+    "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "fragment": "text",
+    "fragment_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "decoded_line": 145,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.event_forecasts",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.event_forecasts",
+      "evidence": [
+        {
+          "file": "supabase/tests/cache_contracts/stub.sql",
+          "line": 17,
+          "file_sha256": "cd0f692a3813bbc8fce59cdf30c556e0c88506394bc3699399462fcea9349e55",
+          "kind": "create_table"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 11,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 16,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_test"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 7,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "public.events",
+    "file": "supabase/tests/cache_contracts/scenarios.sql",
+    "line": 151,
+    "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "fragment": "text",
+    "fragment_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "decoded_line": 151,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.events",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.events",
+      "evidence": [
+        {
+          "file": "supabase/tests/cache_contracts/stub.sql",
+          "line": 12,
+          "file_sha256": "cd0f692a3813bbc8fce59cdf30c556e0c88506394bc3699399462fcea9349e55",
+          "kind": "create_table"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 11,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 16,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_test"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 7,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "public.event_forecasts",
+    "file": "supabase/tests/cache_contracts/scenarios.sql",
+    "line": 154,
+    "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "fragment": "text",
+    "fragment_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "decoded_line": 154,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.event_forecasts",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.event_forecasts",
+      "evidence": [
+        {
+          "file": "supabase/tests/cache_contracts/stub.sql",
+          "line": 17,
+          "file_sha256": "cd0f692a3813bbc8fce59cdf30c556e0c88506394bc3699399462fcea9349e55",
+          "kind": "create_table"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 11,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 16,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_test"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 7,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "public.suppliers",
+    "file": "supabase/tests/cache_contracts/scenarios.sql",
+    "line": 199,
+    "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "fragment": "text",
+    "fragment_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827",
+    "decoded_line": 199,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.suppliers",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.suppliers",
+      "evidence": [
+        {
+          "file": "supabase/tests/cache_contracts/stub.sql",
+          "line": 13,
+          "file_sha256": "cd0f692a3813bbc8fce59cdf30c556e0c88506394bc3699399462fcea9349e55",
+          "kind": "create_table"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 11,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_fixture"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 16,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "load_test"
+        },
+        {
+          "file": "supabase/tests/cache_contracts/run.sh",
+          "line": 7,
+          "file_sha256": "794c42a88e5e78a70f0942f968238e2fa4ea426e0b618123079287f530143d35",
+          "kind": "isolated_database"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "suppliers",
+    "file": "supabase/tests/issue335/stub.sql",
+    "line": 44,
+    "file_sha256": "9afe41632efe76fbe43ebf4774d661fb6ecece12d125335d40b34dd81c2baeec",
+    "fragment": "text",
+    "fragment_sha256": "9afe41632efe76fbe43ebf4774d661fb6ecece12d125335d40b34dd81c2baeec",
+    "decoded_line": 44,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.suppliers",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.suppliers",
+      "evidence": [
+        {
+          "file": "supabase/tests/issue335/stub.sql",
+          "line": 15,
+          "file_sha256": "9afe41632efe76fbe43ebf4774d661fb6ecece12d125335d40b34dd81c2baeec",
+          "kind": "create_table"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "insert_values_without_columns",
+    "relation": "financial_accounts",
+    "file": "supabase/tests/issue335/stub.sql",
+    "line": 45,
+    "file_sha256": "9afe41632efe76fbe43ebf4774d661fb6ecece12d125335d40b34dd81c2baeec",
+    "fragment": "text",
+    "fragment_sha256": "9afe41632efe76fbe43ebf4774d661fb6ecece12d125335d40b34dd81c2baeec",
+    "decoded_line": 45,
+    "r4b_class": "positional_insert_values_without_columns",
+    "blocking": true,
+    "table": "public.financial_accounts",
+    "class": "self_contained_fixture",
+    "proof": {
+      "table": "public.financial_accounts",
+      "evidence": [
+        {
+          "file": "supabase/tests/issue335/stub.sql",
+          "line": 17,
+          "file_sha256": "9afe41632efe76fbe43ebf4774d661fb6ecece12d125335d40b34dd81c2baeec",
+          "kind": "create_table"
+        }
+      ]
+    }
+  }
+]

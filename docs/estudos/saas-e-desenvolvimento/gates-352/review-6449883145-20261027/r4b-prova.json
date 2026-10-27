@@ -1,0 +1,171 @@
+{
+  "file": "supabase/tests/issue335/live/phase2n-bloco4/live-lateral-prosrc.txt",
+  "file_sha256": "b380e3e1427768d9ac9c236c88c098d1610bdda84eb295827d5b041b6fef1fef",
+  "records": [
+    {
+      "function": "_ticket_office_balance_raw",
+      "start_line": 1,
+      "end_line": 28,
+      "characters": 990,
+      "md5_verified": true,
+      "body_sha256": "ff0060af4fe049d4a011e7685be97fbfa89b30524c3bf372f1db139f008c8cb5"
+    },
+    {
+      "function": "apply_transaction_offsets",
+      "start_line": 28,
+      "end_line": 56,
+      "characters": 999,
+      "md5_verified": true,
+      "body_sha256": "6df1e0ea4b39a2bcf5d30d725e266c1efb079d967ff771d9c8938871c0a67cd6"
+    },
+    {
+      "function": "camarim_sync_session_leg_payment",
+      "start_line": 56,
+      "end_line": 109,
+      "characters": 2495,
+      "md5_verified": true,
+      "body_sha256": "f47f5722c6bc5e0f92fb0f8d3af7e4479c717db8d883b65c5fa5bd9727adc9c2"
+    },
+    {
+      "function": "card_load_on_out_paid",
+      "start_line": 109,
+      "end_line": 156,
+      "characters": 1574,
+      "md5_verified": true,
+      "body_sha256": "f6fe5516fd3d1b6bc5feed8d82d87e33165f03d1e9329d24e983fbdafd61e02b"
+    },
+    {
+      "function": "guard_paid_amount_vs_payments",
+      "start_line": 156,
+      "end_line": 169,
+      "characters": 708,
+      "md5_verified": true,
+      "body_sha256": "29fb8bbb302dcbd481d0c389930d2823d761972671140941c438da3650ab1cb0"
+    },
+    {
+      "function": "materialize_paid_amount_payment",
+      "start_line": 169,
+      "end_line": 208,
+      "characters": 1976,
+      "md5_verified": true,
+      "body_sha256": "dc59e90b3fb6a42bd8224d0edcc969775c3c224737dba67a37343c00e81b9880"
+    },
+    {
+      "function": "reimbursement_propagate_payment",
+      "start_line": 208,
+      "end_line": 249,
+      "characters": 998,
+      "md5_verified": true,
+      "body_sha256": "8501a9b9cf0288b2c5f90ad6c1249e3297b5657605eb1adb3ccf101b8a84c527"
+    },
+    {
+      "function": "sync_paid_amount_from_payments",
+      "start_line": 249,
+      "end_line": 257,
+      "characters": 203,
+      "md5_verified": true,
+      "body_sha256": "128aaa49a63297c266fa164c122b5d146533d45861f05bb24e95cb70aa0f08f2"
+    },
+    {
+      "function": "sync_partner_aporte_mirror",
+      "start_line": 257,
+      "end_line": 352,
+      "characters": 3238,
+      "md5_verified": true,
+      "body_sha256": "55357bad5f0512e001ee7fb98b686de77d8ea98b9b53cbce7e9e8004f25841d5"
+    },
+    {
+      "function": "sync_shared_cost_mirror",
+      "start_line": 352,
+      "end_line": 434,
+      "characters": 2715,
+      "md5_verified": true,
+      "body_sha256": "e3694b244f96d2625a18e849c51fc42836f98e09ba8a220609f0ebc5771cbda5"
+    },
+    {
+      "function": "trg_camarim_session_leg_follows_bank",
+      "start_line": 434,
+      "end_line": 442,
+      "characters": 310,
+      "md5_verified": true,
+      "body_sha256": "e9d01100faf137fd8339a2940696b6f38ace87a1ad710e9ae631be8f9f6b1d73"
+    }
+  ],
+  "findings": [
+    {
+      "kind": "select_star_requires_position_review",
+      "relation": "public.card_session_loads",
+      "file": "supabase/tests/issue335/live/phase2n-bloco4/live-lateral-prosrc.txt",
+      "line": 122,
+      "file_sha256": "b380e3e1427768d9ac9c236c88c098d1610bdda84eb295827d5b041b6fef1fef",
+      "fragment": "text",
+      "fragment_sha256": "b380e3e1427768d9ac9c236c88c098d1610bdda84eb295827d5b041b6fef1fef",
+      "decoded_line": 122,
+      "r4b_class": "safe_into_same_rowtype",
+      "blocking": false,
+      "function": "card_load_on_out_paid",
+      "previous_class": "safe_into_same_rowtype",
+      "declaration_line": null
+    },
+    {
+      "kind": "select_star_requires_position_review",
+      "relation": "public.card_sessions",
+      "file": "supabase/tests/issue335/live/phase2n-bloco4/live-lateral-prosrc.txt",
+      "line": 131,
+      "file_sha256": "b380e3e1427768d9ac9c236c88c098d1610bdda84eb295827d5b041b6fef1fef",
+      "fragment": "text",
+      "fragment_sha256": "b380e3e1427768d9ac9c236c88c098d1610bdda84eb295827d5b041b6fef1fef",
+      "decoded_line": 131,
+      "r4b_class": "safe_into_same_rowtype",
+      "blocking": false,
+      "function": "card_load_on_out_paid",
+      "previous_class": "safe_into_same_rowtype",
+      "declaration_line": null
+    },
+    {
+      "kind": "select_star_requires_position_review",
+      "relation": "public.reimbursement_notes",
+      "file": "supabase/tests/issue335/live/phase2n-bloco4/live-lateral-prosrc.txt",
+      "line": 220,
+      "file_sha256": "b380e3e1427768d9ac9c236c88c098d1610bdda84eb295827d5b041b6fef1fef",
+      "fragment": "text",
+      "fragment_sha256": "b380e3e1427768d9ac9c236c88c098d1610bdda84eb295827d5b041b6fef1fef",
+      "decoded_line": 220,
+      "r4b_class": "safe_dynamic_record",
+      "blocking": false,
+      "function": "reimbursement_propagate_payment",
+      "previous_class": "safe_dynamic_record",
+      "declaration_line": null
+    },
+    {
+      "kind": "select_star_requires_position_review",
+      "relation": "financial_accounts",
+      "file": "supabase/tests/issue335/live/phase2n-bloco4/live-lateral-prosrc.txt",
+      "line": 281,
+      "file_sha256": "b380e3e1427768d9ac9c236c88c098d1610bdda84eb295827d5b041b6fef1fef",
+      "fragment": "text",
+      "fragment_sha256": "b380e3e1427768d9ac9c236c88c098d1610bdda84eb295827d5b041b6fef1fef",
+      "decoded_line": 281,
+      "r4b_class": "safe_dynamic_record",
+      "blocking": false,
+      "function": "sync_partner_aporte_mirror",
+      "previous_class": "unresolved_shadowed_declaration",
+      "declaration_line": 260
+    },
+    {
+      "kind": "select_star_requires_position_review",
+      "relation": "event_partners",
+      "file": "supabase/tests/issue335/live/phase2n-bloco4/live-lateral-prosrc.txt",
+      "line": 303,
+      "file_sha256": "b380e3e1427768d9ac9c236c88c098d1610bdda84eb295827d5b041b6fef1fef",
+      "fragment": "text",
+      "fragment_sha256": "b380e3e1427768d9ac9c236c88c098d1610bdda84eb295827d5b041b6fef1fef",
+      "decoded_line": 303,
+      "r4b_class": "safe_dynamic_record",
+      "blocking": false,
+      "function": "sync_partner_aporte_mirror",
+      "previous_class": "safe_dynamic_record",
+      "declaration_line": null
+    }
+  ]
+}
