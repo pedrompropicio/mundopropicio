@@ -69,6 +69,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TicketOfficeSettlementsOverview } from "@/components/TicketOfficeSettlementsOverview";
 import { useAuth } from "@/contexts/AuthContext";
+import { EventStageBadge } from "@/components/events/EventStageBadge";
+import { EventStagePanel } from "@/components/events/EventStagePanel";
+import { useEventStage } from "@/hooks/useEventStages";
+import { legacyReopenBlock } from "@/lib/event-stage";
 import { useEventContractResult, type ContractPerimeterInput } from "@/hooks/useEventContractResult";
 import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
 import { keepRootPerimeter, pickOutsideRootPerimeter, isOutsideRootPerimeter } from "@/lib/settlement-perimeter";
@@ -654,6 +658,7 @@ export default function EventDetail() {
   }
 
   const isCompleted = event.status === "completed";
+  const legacyReopenBlocked = legacyReopenBlock(eventStage);
   const ticketsSold = ticketSalesQty > 0 ? ticketSalesQty : Number(event.tickets_sold || 0);
 
 
@@ -890,6 +895,7 @@ export default function EventDetail() {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="min-w-0 text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2"><span className="truncate" title={event.name}>{event.name}</span> <HelpTooltip text={helpTexts.eventDetail} /></h1>
           <EventStatusBadge status={event.status as any} />
+          <EventStageBadge stage={eventStage} title={event.parent_event_id ? "Estágio do master" : "Estágio do evento"} />
           <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             {eventNatureLabel(event.event_nature)}
           </span>
@@ -933,7 +939,12 @@ export default function EventDetail() {
                 <CheckCircle2 className="h-3.5 w-3.5" /> Concluir Evento
               </button>
             )}
-            {hasPermission("reopen_event") && isCompleted && (
+            {hasPermission("reopen_event") && isCompleted && legacyReopenBlocked && (
+              <span className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-muted-foreground bg-muted" title={legacyReopenBlocked}>
+                <LockOpen className="h-3.5 w-3.5" /> {legacyReopenBlocked}
+              </span>
+            )}
+            {hasPermission("reopen_event") && isCompleted && !legacyReopenBlocked && (
               <button
                 onClick={() => setConfirmAction({
                   title: "🔓 Reabrir Evento",
@@ -982,6 +993,14 @@ export default function EventDetail() {
           );
         })()}
       </div>
+
+      <EventStagePanel
+        eventId={event.id}
+        stage={eventStage}
+        parentEventId={event.parent_event_id}
+        isAdmin={isAdmin}
+        isManager={isManager}
+      />
 
       {/* Post-event completion alert */}
       {(isAdmin || isManager) && event.status === "active" && (() => {
