@@ -1,6 +1,7 @@
 - [x] P7b origem da parte (R1) — publicado (Pedro, 27/10/2026), commit 90625e42: opção A implementada; origem do nó/snapshot sem reembolsos, detalhes e diferenças explícitas, antigos compatíveis; focados35/35, suite2803PASS, tipos/build automático OK. Pronto para Publish (não publicado); revisão visual/CI remoto não testados; tsgo manual vedado pela plataforma; sem Live.
 - [x] P3 contratos por sócio: passo 1 (0271) aplicado e verificado pelo Pedro em Live.
-- [ ] #359 ponto 4 jurídico (R1): reserva escrita; preparação suspensa ao encontrar guarda Live que transforma concessão Coala em form_legacy_sem_prova. Aguarda Pedro escolher projeção só de leitura ou autorizar proposta de alteração da guarda; sem SQL aplicado.
+- [x] #359 ponto 4 jurídico R1: opção A autorizada e rascunhos A/B/C + seed PT comentado/cópias/rollback preparados; testes28 novos +0276 cinco PASS; suite2836PASS/6skip/11todo após repetição por timeout. Sem SQL aplicado, boolean/guardas/Clube intocados. Relatório docs/testes/issue359-ponto4-autorizacoes-rascunhos.md.
+- [ ] #359 ponto4 R2: revisão/CI e Sim próprio por passo antes de aplicar; EN jurídico, página/email, CRM e guardas de envio por autorizar.
 - [x] P3 passo 2 (0272): aplicado; CHECK de nove valores, função e contagens verificados pelo Pedro em Live.
 - [x] P3 passo 3 (0273): SQL manual sem BEGIN/COMMIT, rollback comentado e 45 testes locais preparados; nomes completos confirmados, sem aliases; 68/68 P3 passam.
 - [x] P3 passos 3–5 (0273, 0274, 0275): aplicados em Live; 0 contratos; Anitta intocado.

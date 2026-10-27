@@ -33,6 +33,7 @@
 - Ticketline daily capture uses the side-effect-free shared mapping/core before one UPSERT; strong codes retain order/separators and omitted unidentified nonconsumers preserve their mirror, preventing partial writes and inferred false zeros.
 
 - CRM WhatsApp uses crm_whatsapp_eligible/invoker views. Ledger/member-phone triggers share a contact-locked projection; matching-fingerprint phones only fill empty contacts, avoiding leaks/overwrites.
+- Coala person-consent candidates read their ledger directly in eligibility; token-locked writes fill only empty contact phones and never project the contact consent boolean, keeping the Club guards and existing send paths unchanged.
 - The capture consent summary is a SELECT-only security-invoker view over lead_capture; preserve underlying RLS and distinguish historical reconstruction from contemporaneous records without changing ingestion.
 
 - Cache payments only via cache_* RPCs (mother/city children); optional line choices use local `cache.line_choices`, server-checked.

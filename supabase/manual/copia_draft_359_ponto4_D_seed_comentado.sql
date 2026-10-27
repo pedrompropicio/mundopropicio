@@ -1,0 +1,9 @@
+-- #359 ponto 4 — SEED DML RASCUNHO INTEIRAMENTE COMENTADO. NÃO EXECUTAR.
+-- Autorização futura própria. Não fabricar tradução EN. Hash calculado pelo trigger existente.
+-- INSERT INTO public.consent_text_versions(company_id,channel,locale,version,text,valid_from)
+-- VALUES
+-- ('7d831e59-6e82-427b-95a0-64904aae5dd2','ads','pt','coala-anuncios-2026-10-v1',
+-- 'Autorizo o Coala Festival Portugal a partilhar o meu email e telemóvel (em hash) com a Meta para anúncios e medição. Posso retirar quando quiser.',clock_timestamp()),
+-- ('7d831e59-6e82-427b-95a0-64904aae5dd2','whatsapp','pt','coala-whatsapp-2026-10-v1',
+-- 'Aceito receber WhatsApp do Coala Festival Portugal. Posso retirar quando quiser.',clock_timestamp());
+-- EN: aguarda texto literal aprovado pelo jurídico; nenhum INSERT EN preparado.
