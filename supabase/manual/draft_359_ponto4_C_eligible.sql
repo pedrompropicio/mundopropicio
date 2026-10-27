@@ -20,6 +20,7 @@ BEGIN
        AND latest.phone=c.phone_e164 AND latest.phone_fp=encode(sha256(convert_to(c.phone_e164,'UTF8')),'hex'),false);
    END IF;
  END IF;
+ PERFORM 1; -- restaura FOUND do contacto para o fallback0276 sem decisão Coala
  IF NOT FOUND OR NOT c.consent_whatsapp OR c.phone_e164 IS NULL OR c.phone_e164 !~ '^\+[1-9][0-9]{7,14}$' THEN RETURN false; END IF;
  SELECT * INTO latest FROM public._crm_whatsapp_latest(c.id,c.company_id);
  IF FOUND THEN RETURN coalesce(latest.decision='granted' AND latest.phone=c.phone_e164
