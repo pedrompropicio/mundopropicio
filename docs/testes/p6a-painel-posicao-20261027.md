@@ -27,3 +27,10 @@ Sem alteração RPC, migrations ou funções; nenhuma publicação.
 
 ## Questões/decisões em aberto
 Nenhuma decisão nova do Pedro. Pendências técnicas: CI próprio após sincronização e verificação autenticada pelo 0/Pedro na janela; não foram apresentadas como concluídas. Questões anteriores P4 permanecem fora desta demanda.
+## Adenda P6a-fix (27/10/2026, R1)
+
+Problema (preview Live, manager): «A pagar» 1.012.494,59 = 947.790,71 por estágio + 64.703,88 transitórias; «A receber» 27.829,08 = 22.636,89 + 5.192,19. Os cartões liam `posicao.*`, que já inclui transitórias.
+
+Correção: cartões leem `a_pagar.total` / `a_receber.total`; linha «+ transitórias de repasse: X €» com `transitorias.total` (só formatação). `posicao.a_pagar`/`posicao.a_receber` continuam validados no schema (fail-closed) mas não apresentados. Seletor de ano único: «Todos» (p_year null) + ano seguinte até 5 anos atrás; defeito ano corrente de Lisboa. `formatPositionAmount` com `useGrouping: "always"` (só este módulo): 4661,86 → «4 661,86 €».
+
+Provas (vitest, src/test/financial-position-p6a-fix.test.tsx): (a) A pagar mostra 947.790,71 e não 1.012.494,59; (b) linha transitórias 64 703,88 €; (c) A receber 22.636,89, não 27.829,08, transitórias 5 192,19 €; (d) um único combobox, sem «Selecionar ano»/«Ano selecionado», «Todos» envia null; (e) 4 661,86 € / 1 162,19 € / 1 012 494,59 €; (f) a vista não contém reduce/somas nem posicao.a_pagar/a_receber. P6a+P6a-fix+P4+P4b+P1: 74/74. Suite completa: 2909 passaram; falhas só por tempo esgotado em testes PGlite/#333 sob carga, todas repetidas isoladas e verdes (146/146), exceto 2 sem ficheiro localizado (#359 migração C, «official transport») não repetidas.

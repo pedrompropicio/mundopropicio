@@ -50,7 +50,7 @@ export function financialPositionError(error: unknown): string {
   return "Não foi possível carregar a posição financeira";
 }
 export function formatPositionAmount(value: number | null): string {
-  return value === null ? "—" : new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(value);
+  return value === null ? "—" : new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR", useGrouping: "always" } as Intl.NumberFormatOptions).format(value);
 }
 export function formatPositionDate(value: string | null): string {
   if (value === null) return "—";
@@ -59,4 +59,8 @@ export function formatPositionDate(value: string | null): string {
 }
 export function currentLisbonYear(): number {
   return Number(new Intl.DateTimeFormat("en", { timeZone: "Europe/Lisbon", year: "numeric" }).format(new Date()));
+}
+/** Year options for the single selector: next year down to five years back. */
+export function positionYearOptions(current: number): number[] {
+  return Array.from({ length: 7 }, (_, i) => current + 1 - i);
 }
