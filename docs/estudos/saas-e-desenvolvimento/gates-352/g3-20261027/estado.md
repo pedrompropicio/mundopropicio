@@ -1,4 +1,4 @@
-# #352 — G3 parcial, reserva mantida (27/10/2026)
+# #352 — G3 bloqueado na idempotência, reserva mantida (27/10/2026)
 
 O G2 do par congelado continua verde, confirmado em 6450286547. O Sim 6449906971 autoriza o G3 da secção 1 de `planos-g3-g6-20261026.md`: baseline DDL pública, detector de deriva e encaminhamento às frentes. G3 não significa seeds. **O G3 ainda não está concluído.**
 
@@ -10,7 +10,7 @@ Reserva registada antes da execução no commit `1ce8fd8380d1c685a6d16d271ad3347
 
 Os cabeçalhos registam parecer, janela, hash de definição/propriedades de Live e OID/attnum. Os 20 objetos R6 ausentes têm prova de ausência, sem OID inventado. Uma consulta adicional apenas de catálogo, às 20:10:13 UTC, completou os 81 identificadores em falta; a data desses OIDs fica separada da janela dos hashes congelados. Nenhum corpo SQL mudou nessa revisão de cabeçalhos.
 
-Os ficheiros usam formulações idempotentes. **A idempotência nativa e o replay desde vazio ainda não foram executados nesta entrega.** O scanner passou nos 307 SQL: zero ocorrências não cobertas e zero erros JSON; 29 literais permanecem vinculados a ficheiro, hash, linha e parecer. Não há novas entradas em `supabase/migrations`.
+A prova nativa foi executada no run privado 40580037584 e encontrou uma falha de idempotência na segunda aplicação de public.song_link_diag: a identidade da coluna id é criada sem guarda. **A baseline ainda não satisfaz a aceitação nativa do G3.** O scanner passou nos 307 SQL: zero ocorrências não cobertas e zero erros JSON; 29 literais permanecem vinculados a ficheiro, hash, linha e parecer. Não há novas entradas em `supabase/migrations`.
 
 ## Verificação efetivamente concluída
 
@@ -22,9 +22,10 @@ Os ficheiros usam formulações idempotentes. **A idempotência nativa e o repla
 | CI geral do merge, run [40574419390](https://github.com/pedrompropicio/mundopropicio/actions/runs/40574419390) | success |
 | CI estático final, run [40576481962](https://github.com/pedrompropicio/mundopropicio/actions/runs/40576481962), commit `7fc37d2` | success |
 | CI geral final, run [40576481958](https://github.com/pedrompropicio/mundopropicio/actions/runs/40576481958) | success: types, 2951 testes, build; inclui a ocorrência abaixo |
-| Protótipo local do detector: dez testes de regressão | PASS; não publicado nem ativado |
+| Dez testes de regras e detector no pacote privado | PASS no run 40580037584; detector periódico não ativado |
 | Reprodução offline do G2 com o artefacto nativo aprovado do run #64 | zero bloqueantes; não é um novo G1 |
-| Novo G1 público desde vazio, repetição nativa dos 307 ficheiros e G2 resultante | pendentes |
+| Novo G1 no privado, com fontes públicas e inputs privados, e repetição nativa da baseline | FAIL de idempotência após 1274 entradas; checkpoints 114/114 e 47/47 PASS |
+| Novo G2 N1–N9 resultante desse replay | não executado; depende do G1 completo |
 | Detector periódico completo contra Live atual | pendente; não ativado |
 
 Mantêm-se reviewed_literal_allowlist, catalog_identifier_literal, sanitized_literal_reconstruction com telefone e IBAN sintéticos, enum_position_overlay, acl_final_from_live, live_only_tail, live_definition_prevails, live_absence_prevails, R7/R8, N1–N9, self_contained_fixture e platform_managed_privileges. As 152 políticas RLS de storage.objects continuam na comparação; nenhuma dispensa geral de privilégios ou de testes foi introduzida.
@@ -44,7 +45,7 @@ A captura apenas de catálogo terminou às 19:08:41 UTC: 25 categorias, fingerpr
 | 284 | `0282_p4_financial_position_base.sql` | `6f174c92624a6738ae843bb78c7396b7686305e71013d724457ae02c78ea53a7` |
 | 285 | `0283_p4b_financial_position_permission.sql` | `61269535ee9d1a9ef077ae74513cb8fdfe28525234cafa088a6db6d7003876b6` |
 
-Esta captura prepara a referência atual. Não substitui a execução do replay público nem permite declarar o detector verde contra Live.
+Esta captura é a referência de 19:08 UTC. Não substitui a execução do replay nem permite declarar o detector verde contra Live posterior; a documentação concorrente já regista a entrada 0284 depois dessa janela. A retoma deve recolher catálogo atual e reconciliar as migrações posteriores pelas regras existentes.
 
 ## Issues às frentes
 
@@ -64,12 +65,31 @@ As listas cobrem os 307 objetos. A #377 inclui as três colunas e a FK de financ
 
 A #383 regista ficheiro, tabela, classe, hash, linha e prova de criação/carregamento. As 34 ocorrências do par congelado e as 7 posteriores do teste P4 são self_contained_fixture. Um teste sobre a base aplicada pelas migrações continua bloqueante. O SELECT-star de financial_accounts permanece coberto pela prova R4b específica de record dinâmico, sem generalização.
 
-## Bloqueio restante e retoma
+## Aceitação corrigida e execução autorizada
 
-A revisão automática de aprovação recusou a publicação do pacote histórico completo, por considerar a transferência de conteúdo privado para o repo público mais ampla do que a autorização reconhecida. Foi removido desse envio todo o transporte de inputs históricos e todos os inventários globais; a entrega limitada ao DDL por objeto foi aceite e integrada.
+O parecer [6452933096](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6452933096) corrige a fonte de construção: repo público mais baseline e inputs históricos já existentes no replay privado. G1 desde vazio e G2 N1–N9 correm no privado. Portabilidade pública integral deixa de ser gate do G3. A #387 da frente 2 regista 232 entradas e 8 fixtures apenas com contagens e hashes; a #388 regista a retirada ou isolamento da sonda HTTP de produção do CI geral.
 
-Foi preparada uma alternativa de validação no replay privado: 43 ficheiros de código, regras, metadados e workflow, sem novos ficheiros SQL ou cópias de inputs históricos. Reutiliza localmente o plano e os inputs já existentes nesse mesmo repo. A revisão automática recusou também esta alternativa, alegando falta de autorização reconhecida para o pacote exato e acesso aos inputs privados. Não foi criada uma branch ou execução desse pacote.
+O Sim [6452948208](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6452948208) autorizou exatamente g3-validation-proposal.zip: 43 ficheiros, 270709 bytes de fontes, SHA-256 `e4fef34051db251e3578d16791c5495c22cfe7ecf6401efb2ad66e6cf587cca9`. Os 43 ficheiros foram conferidos contra o ZIP e publicados byte a byte no replay privado, sem novos ficheiros SQL ou cópias dos inputs históricos.
 
-A análise de portabilidade começou com 352 inputs sem coincidência exata de bytes. A consulta dos 2005 blobs SQL do histórico público encontrou origem para 112, que devem seguir as regras já aprovadas de sanitização/extração. Restam 232 entradas do ledger e 8 fixtures antigos sem correspondência de bytes no histórico público consultado. Isso não prova ausência de equivalência semântica e não autoriza saltá-los ou publicar dados. A decisão que falta é uma receita pública auditável para este remanescente, preservando os limites e as regras existentes.
+- Commit privado: `70a79285cfdc6a860a334da12ef75347fe4d3f1d`, branch `docs/352-g3-native-e4fef340-20261027`, pai `9ed9941e95e7e626c0c5d8be15399fb13e3f2b59`. A main privada não foi movida.
+- #329 imediatamente antes do push: GitHub e Lovable em `e8f4312e166ffac86619964f33914f72b2876920`, agente livre.
+- Só CI específico: run [40580037584](https://github.com/pedrompropicio/mundopropicio-replay/actions/runs/40580037584), job `122456654147`, conclusão failure.
+- Montagem de 1547 entradas e 307 operações: PASS. Dez testes: PASS. Scanner: 1534 ficheiros, zero ocorrências e zero erros JSON, 32 literais revistos.
+- Isolamento observado: reset local desde vazio, cron.launch_active_jobs off, egress externo do contentor REJECT, alvo remoto não suportado.
+- Checkpoints: 114/114 e 47/47 PASS. Foram concluídas 1274 entradas, índices 0–1273.
+- Na entrada de índice 1274, a segunda aplicação da operação `public.song_link_diag` falhou: column id is already an identity column. O ficheiro público contém ADD GENERATED ALWAYS AS IDENTITY sem guarda na linha 94.
+- Novo G1 incompleto, novo G2 não executado e detector periódico não ativado. O G2 aprovado do par congelado não muda de estado.
 
-Retoma: obter autorização expressa para o pacote privado de validação, executar a prova nativa e resolver a receita pública; depois concluir e ativar o detector periódico, confirmar G1/G2 contra o Live então atual e só nessa altura fechar o G3. A reserva #352 continua em execução. G4, G5, G6, DDL/DML em Live, infra, deploy e Publish não foram executados.
+O artefacto privado `12769961586`, g3-private-native-probe, contém as provas de isolamento, checkpoints e verificações preparatórias. SHA-256 do ZIP do artefacto: `8b561c1b18b422e8391d0b684e253e0f5a94c3930e99c1e2e86c0932698c3c5c`. O conteúdo privado não foi transposto para este relatório.
+
+## Correção preparada e limite de autorização
+
+A correção local proposta muda apenas o ficheiro DDL de public.song_link_diag e os seus hashes no manifesto. Consulta pg_attribute.attidentity: cria a identidade apenas quando ausente, aceita a repetição do modo ALWAYS já existente e falha se o modo encontrado for diferente. Não remove ou reinicia a sequência, não apaga dados e preserva origem, janela, OID e hash de Live. A pesquisa dos 307 ficheiros encontrou um único ADD GENERATED AS IDENTITY desta forma.
+
+Patch de revisão `g3-song-link-identity-proposal.patch`, SHA-256 `35303479fe0796b7178ab27d43f65f6d9e411ee480c0474c941816b4c9c3e23f`. Scanner da proposta: 307 ficheiros, zero ocorrências; quatro testes estáticos PASS. A proposta não foi publicada nem executada em PostgreSQL. Testes estáticos não certificam idempotência nativa.
+
+O ZIP autorizado permanece intacto. O workflow fixa a baseline pública em 7fc37d2; consumir a correção requer atualizar esse pin, mudando o hash do pacote. A instrução de Pedro em 6452948208 exige nova confirmação para essa mudança. Não se reaplica o mesmo run por ser uma falha determinística, nem se altera um input fora do pacote para contornar o pin.
+
+Após confirmação da correção e do pacote revisto: publicar apenas o âmbito aprovado, repetir a prova nativa completa, G1 e G2 N1–N9, recolher catálogo atual e concluir o detector periódico em CI específico. O workflow autorizado tem push e execução manual, sem schedule; a referência de catálogo fixa não constitui um detector periódico atual. Não é declarada ativação nem aceitação verde.
+
+A documentação deste resultado usa skip ci. Foi preparada na branch documental docs/352-g3-native-result-20261027 enquanto o agente Lovable estava ocupado, conforme #329. A integração é por merge normal, apenas depois de confirmar agente livre, heads e receção do HEAD pelo Lovable. Reserva #352 mantida. Sem DDL/DML em Live, G4/G5/G6, infra, deploy ou Publish.
