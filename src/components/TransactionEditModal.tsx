@@ -628,6 +628,11 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
       if (form.is_transitory && !form.transitory_reason) {
         throw new Error("Escolhe o motivo da transitória.");
       }
+      // P7a: transação de contrato de sócio — valor/rubrica/fornecedor/evento só pelo contrato (guarda 0274).
+      const contractBlock = partnerContractEditBlock(transaction as any, {
+        amount: form.amount, category_id: form.category_id, supplier_id: form.supplier_id, event_id: (form as any).event_id,
+      });
+      if (contractBlock) throw new Error(contractBlock);
 
       const updates = paidLocked ? {
         supplier_id: form.supplier_id || null,
