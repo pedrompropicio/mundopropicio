@@ -872,7 +872,7 @@ export default function Dashboard() {
       </section>
 
       {/* --- RESULTS ANALYSIS --- */}
-      {(isAdmin || isManager) && <ResultsAnalysis />}
+      {(isAdmin || isManager) && <ResultsAnalysis showActiveProjections={false} />}
     </div>
   );
 }

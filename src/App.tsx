@@ -72,6 +72,7 @@ const Suppliers = lazy(() => import("./pages/Suppliers"));
 const Quotations = lazy(() => import("./pages/Quotations"));
 const AccountCategories = lazy(() => import("./pages/AccountCategories"));
 const FinancialAccounts = lazy(() => import("./pages/FinancialAccounts"));
+const FinancialPosition = lazy(() => import("./pages/FinancialPosition"));
 const BankReconciliation = lazy(() => import("./pages/BankReconciliation"));
 const UserManagement = lazy(() => import("./pages/UserManagement"));
 const LegalPrivacy = lazy(() => import("./pages/legal/Privacy"));
@@ -523,6 +524,7 @@ function ProtectedLayout() {
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/erp" element={<Index />} />
+              <Route path="/erp/posicao-financeira" element={<FinancialPosition />} />
               <Route path="/calendario" element={<EventCalendar />} />
               <Route path="/eventos" element={<Events />} />
               <Route path="/eventos/:id" element={<EventDetail />} />

@@ -44,6 +44,7 @@ import { useAccountantPendenciesCount } from "@/hooks/useAccountantPendenciesCou
 import { useHasFeature } from "@/hooks/useCompanyFeatures";
 import { FEATURES } from "@/lib/features";
 import { useIsFieldStaffOnly } from "@/hooks/useIsFieldStaffOnly";
+import { FINANCIAL_POSITION_PATH, FINANCIAL_POSITION_PERMISSION } from "@/lib/financial-position";
 
 export function AppSidebar({
   variant = "rail",
@@ -100,6 +101,7 @@ export function AppSidebar({
 
   const fullNavItems = [
     { to: "/erp", icon: LayoutDashboard, label: "Dashboard", show: true },
+    { to: FINANCIAL_POSITION_PATH, icon: Landmark, label: "Posição Financeira", show: hasPermission(FINANCIAL_POSITION_PERMISSION) },
     { to: "/calendario", icon: CalendarDays, label: "Calendário", show: hasPermission("manage_calendar") },
     { to: "/eventos", icon: Calendar, label: "Eventos", show: hasPermission("manage_events") || hasPermission("view_events") },
     { to: "/transacoes", icon: ArrowUpDown, label: "Transações", show: hasPermission("manage_transactions") },

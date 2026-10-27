@@ -83,7 +83,7 @@ function SourceBadge({ source }: { source: string }) {
   );
 }
 
-export function ResultsAnalysis() {
+export function ResultsAnalysis({ showActiveProjections = true }: { showActiveProjections?: boolean } = {}) {
   const currentYear = new Date().getFullYear();
   const [includeOverhead, setIncludeOverhead] = useState<boolean>(false);
   // Override manual do modo de cálculo de "Real Atual":
@@ -783,7 +783,7 @@ export function ResultsAnalysis() {
       )}
 
       {/* --- ACTIVE PROJECTIONS --- */}
-      {active.length > 0 && (
+      {showActiveProjections && active.length > 0 && (
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
             <Target className="h-3.5 w-3.5 text-primary" />
