@@ -426,30 +426,13 @@ const REVENUE_HELD_SOURCE_LABEL: Record<string, string> = {
   compensation: "Encontro de contas",
 };
 
-export function buildPartnerStatement(
-  bundle: StatementBundle,
-  supplierId: string,
-  opts: { logoDataUrl?: string | null } = {},
-): PartnerStatementResult | null {
-  const {
-    transactions,
-    forecasts,
-    events,
-    ticketSales,
-    basis,
-    calcBasis,
-    settlements,
-    participants,
-    paidExpenses,
-    extras,
-  } = bundle;
-
-  const me = participants.find((p) => p.supplier_id === supplierId && p.mode === "settles");
-  if (!me) return null;
-
-  const rootSettlementIds = new Set(settlements.filter((s: any) => !s.parent_id).map((s: any) => s.id as string));
-
-  // ── Motor (mesma montagem do hook do ERP) ─────────────────────────────
+/**
+ * (P5) Motor do evento a partir do bundle — ÚNICO sítio que monta o input do
+ * motor. Usado por `buildPartnerStatement` e pela Posição Financeira (P5);
+ * nunca um segundo cálculo.
+ */
+export function computeStatementEngine(bundle: StatementBundle): EngineResult {
+  const { transactions, forecasts, events, ticketSales, basis, calcBasis, settlements, participants, paidExpenses, extras } = bundle;
   const totals = computeEventSettlementTotals({
     events: events.length ? events : [{ id: bundle.eventId, parent_event_id: null }],
     transactions,
@@ -573,6 +556,34 @@ export function buildPartnerStatement(
     })),
     participations: bundle.participations as any,
   });
+  return engine;
+}
+
+export function buildPartnerStatement(
+  bundle: StatementBundle,
+  supplierId: string,
+  opts: { logoDataUrl?: string | null } = {},
+): PartnerStatementResult | null {
+  const {
+    transactions,
+    forecasts,
+    events,
+    ticketSales,
+    basis,
+    calcBasis,
+    settlements,
+    participants,
+    paidExpenses,
+    extras,
+  } = bundle;
+
+  const me = participants.find((p) => p.supplier_id === supplierId && p.mode === "settles");
+  if (!me) return null;
+
+  const rootSettlementIds = new Set(settlements.filter((s: any) => !s.parent_id).map((s: any) => s.id as string));
+
+  // ── Motor (mesma montagem do hook do ERP) — núcleo partilhado ─────────
+  const engine: EngineResult = computeStatementEngine(bundle);
 
   const nodes = engine.nodes ?? [];
   const activeNode = nodes.find((n) => n.id === me.settlement_id) ?? null;
