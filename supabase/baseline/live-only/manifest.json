@@ -5573,9 +5573,13 @@
         "source_sql_sha256": "9667d288e680f3614e07f28830d568b9158b177e6169c7e7b1cff9fa900db63f",
         "rule": "live_only_tail",
         "review": 6445145238,
-        "live_catalog_window": "frozen G2 catalogue, confirmed 6450286547; 2026-10-27T14:54:58.142159+00:00"
+        "live_catalog_window": "frozen G2 catalogue, confirmed 6450286547; 2026-10-27T14:54:58.142159+00:00",
+        "oid": 659700,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       },
-      "file_sha256": "af4db82b117cd1f8d37e87d2bf9d8960f99c6e1b52c4b7b82f85d207a784665e"
+      "file_sha256": "80ab21a3d0417f1ee0a6bb68ae5faaaa1bc3589831929a9d69839080ee750baa"
     },
     {
       "id": "2ad98cc4851886f2a992a30b78396a3e67122e142a18fb829ad1defe8a6775be",
@@ -5594,9 +5598,13 @@
         "rule": "live_definition_prevails",
         "review": 6445145238,
         "live_catalog_window": "frozen G2 catalogue, confirmed 6450286547; 2026-10-27T14:54:58.142159+00:00",
-        "live_definition_sha256": "e596c56cb087b3d6469d2e8fc0ee6cabccfb16fe02dfe949fcda73a30566929b"
+        "live_definition_sha256": "e596c56cb087b3d6469d2e8fc0ee6cabccfb16fe02dfe949fcda73a30566929b",
+        "oid": 660294,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       },
-      "file_sha256": "0dae74b1c6ac5f5d1fdd02b84787acb1933e714c6ddeee77b63b2cc6cd810975"
+      "file_sha256": "f7bfff5800078c02dbf6c1816181ec1a34904a91c28f916d8657e018b5f63a96"
     },
     {
       "id": "d00b4bee88274de87c538f0fa740336cefd34a307982fad07f23478bd61e36c2",
@@ -5614,9 +5622,13 @@
         "source_sql_sha256": "dea655277318b02bf7433df482003e85eb97bf899b954da76f0b75d37b07f596",
         "rule": "live_only_tail",
         "review": 6445145238,
-        "live_catalog_window": "frozen G2 catalogue, confirmed 6450286547; 2026-10-27T14:54:58.142159+00:00"
+        "live_catalog_window": "frozen G2 catalogue, confirmed 6450286547; 2026-10-27T14:54:58.142159+00:00",
+        "oid": 239520,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       },
-      "file_sha256": "916630afa22451faed9690da8d2a54636e01ff287507373e3dc0a797178ca8ce"
+      "file_sha256": "55cb004362f0ceb6cb86b0c2a98d04b043909e2d122fc33e6cfc26b6b1830841"
     },
     {
       "id": "a4d660fb8b6be8148a004e824af8538f14cbefae0689a8e0f5ab2e7c0d2e410f",
@@ -5626,7 +5638,7 @@
       "version": null,
       "file": "supabase/baseline/live-only/extension_members__pgmq.a_auth_emails__a4d660fb8b.sql",
       "body_sha256": "b16123873d5d49056483af8b9e62acaed29b4383254a64669456c4005e22627c",
-      "file_sha256": "90de27dbc0684949e725d92808f981f969e94d42b3ab30d24dee62fc209cede1",
+      "file_sha256": "c081def540ed1a7d4ad0d07379c4d7c81c4f26a1e46d979473858614f475ed7e",
       "origin": {
         "rule": "live_only_tail",
         "review": [
@@ -5637,7 +5649,11 @@
         "window": "after tail, before R6/R7",
         "live_extension_membership": "absent for these eight application queue tables",
         "source_sql_sha256": "212f3062e1363adcc8ccbe585d48f47476bf30f1ac0eacd0683fa05acce03f98",
-        "live_membership_catalog_sha256": "9d1aa21ac138a104253178974ed0a7c513de15e2139658dd71d809ed06b58d56"
+        "live_membership_catalog_sha256": "9d1aa21ac138a104253178974ed0a7c513de15e2139658dd71d809ed06b58d56",
+        "oid": 36857,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5648,7 +5664,7 @@
       "version": null,
       "file": "supabase/baseline/live-only/extension_members__pgmq.a_auth_emails_dlq__b9d00a7f02.sql",
       "body_sha256": "3ce068d0edaf1fd147b98a6da433ff130bcf385beae30d813379a2b82abf730f",
-      "file_sha256": "6c59b10795f2e4e2439b82e4c828154a836c25139be0038715406ba4363a3da7",
+      "file_sha256": "d375b425dc8bb1be66cae9f573161ed0cee0375f4655d366e4062b71ac143ae4",
       "origin": {
         "rule": "live_only_tail",
         "review": [
@@ -5659,7 +5675,11 @@
         "window": "after tail, before R6/R7",
         "live_extension_membership": "absent for these eight application queue tables",
         "source_sql_sha256": "212f3062e1363adcc8ccbe585d48f47476bf30f1ac0eacd0683fa05acce03f98",
-        "live_membership_catalog_sha256": "9d1aa21ac138a104253178974ed0a7c513de15e2139658dd71d809ed06b58d56"
+        "live_membership_catalog_sha256": "9d1aa21ac138a104253178974ed0a7c513de15e2139658dd71d809ed06b58d56",
+        "oid": 36977,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5670,7 +5690,7 @@
       "version": null,
       "file": "supabase/baseline/live-only/extension_members__pgmq.a_transactional_emails__6f9b583499.sql",
       "body_sha256": "4a2e69549fc1f1f923753e7ef2733abee7277779eef7b04b450cd49ac7583d72",
-      "file_sha256": "73a154b4699ab2dc38117fa0d1943204d437801d17713f588b8d61aff19cff83",
+      "file_sha256": "3ec6360cd89c7365d0dcdb7a9cd3631712ef7b40c5bc39a82f795a82449844ec",
       "origin": {
         "rule": "live_only_tail",
         "review": [
@@ -5681,7 +5701,11 @@
         "window": "after tail, before R6/R7",
         "live_extension_membership": "absent for these eight application queue tables",
         "source_sql_sha256": "212f3062e1363adcc8ccbe585d48f47476bf30f1ac0eacd0683fa05acce03f98",
-        "live_membership_catalog_sha256": "9d1aa21ac138a104253178974ed0a7c513de15e2139658dd71d809ed06b58d56"
+        "live_membership_catalog_sha256": "9d1aa21ac138a104253178974ed0a7c513de15e2139658dd71d809ed06b58d56",
+        "oid": 36955,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5692,7 +5716,7 @@
       "version": null,
       "file": "supabase/baseline/live-only/extension_members__pgmq.a_transactional_emails_dlq__b2abf9deac.sql",
       "body_sha256": "84b3186ac213686b97095fde2f6fa3c9f4ca1b8b7f1ff9dfdbe2f9cd5b252806",
-      "file_sha256": "8bc6f060937cbee3454c109f6baee9d6f8a22ad77c49a8446d2567af7e528f49",
+      "file_sha256": "37c0eb02b57218a0b051ee3ea70bc146f61140c7ddc2988cff10089a2034980f",
       "origin": {
         "rule": "live_only_tail",
         "review": [
@@ -5703,7 +5727,11 @@
         "window": "after tail, before R6/R7",
         "live_extension_membership": "absent for these eight application queue tables",
         "source_sql_sha256": "212f3062e1363adcc8ccbe585d48f47476bf30f1ac0eacd0683fa05acce03f98",
-        "live_membership_catalog_sha256": "9d1aa21ac138a104253178974ed0a7c513de15e2139658dd71d809ed06b58d56"
+        "live_membership_catalog_sha256": "9d1aa21ac138a104253178974ed0a7c513de15e2139658dd71d809ed06b58d56",
+        "oid": 179995,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5714,7 +5742,7 @@
       "version": null,
       "file": "supabase/baseline/live-only/extension_members__pgmq.q_auth_emails__cabd394a1b.sql",
       "body_sha256": "a33fe774d3cf2e452aa2e56dabc9ed07267ee7494c4ecbf2c44a4155e6de2e00",
-      "file_sha256": "7d89eb0996e72edce7de9483525ef1027393e86e55956674f3848ee0c919677c",
+      "file_sha256": "5c477692ea9f2ae19dd42dbaa0360d7f522ca4ac531ec4499825ee218e02f08d",
       "origin": {
         "rule": "live_only_tail",
         "review": [
@@ -5725,7 +5753,11 @@
         "window": "after tail, before R6/R7",
         "live_extension_membership": "absent for these eight application queue tables",
         "source_sql_sha256": "212f3062e1363adcc8ccbe585d48f47476bf30f1ac0eacd0683fa05acce03f98",
-        "live_membership_catalog_sha256": "9d1aa21ac138a104253178974ed0a7c513de15e2139658dd71d809ed06b58d56"
+        "live_membership_catalog_sha256": "9d1aa21ac138a104253178974ed0a7c513de15e2139658dd71d809ed06b58d56",
+        "oid": 36848,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5736,7 +5768,7 @@
       "version": null,
       "file": "supabase/baseline/live-only/extension_members__pgmq.q_auth_emails_dlq__cea189e0cc.sql",
       "body_sha256": "5d453f01c26da0d42338842521c3fd7ad12150984d036b29c66de5be729b870c",
-      "file_sha256": "e882a639071023ce2276d69200f82952252125f2740d87e641849405f578ee7c",
+      "file_sha256": "ca7ea6cb059e600c474892ea0c07e1bca71470461ba5acde1441ccb38f69bb84",
       "origin": {
         "rule": "live_only_tail",
         "review": [
@@ -5747,7 +5779,11 @@
         "window": "after tail, before R6/R7",
         "live_extension_membership": "absent for these eight application queue tables",
         "source_sql_sha256": "212f3062e1363adcc8ccbe585d48f47476bf30f1ac0eacd0683fa05acce03f98",
-        "live_membership_catalog_sha256": "9d1aa21ac138a104253178974ed0a7c513de15e2139658dd71d809ed06b58d56"
+        "live_membership_catalog_sha256": "9d1aa21ac138a104253178974ed0a7c513de15e2139658dd71d809ed06b58d56",
+        "oid": 36968,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5758,7 +5794,7 @@
       "version": null,
       "file": "supabase/baseline/live-only/extension_members__pgmq.q_transactional_emails__42cc6301dc.sql",
       "body_sha256": "f29997138375dbefe5c0d103dea443602d9e681d22089db147a173dcad910131",
-      "file_sha256": "7b8e1413d8c2fccce6f6fdcbb9c0466440c174ac305b598baf762aba9a58ff0a",
+      "file_sha256": "acc624214cc399761e1751f9631e8bcd707774bf68c37e2fbb6949df80f706b8",
       "origin": {
         "rule": "live_only_tail",
         "review": [
@@ -5769,7 +5805,11 @@
         "window": "after tail, before R6/R7",
         "live_extension_membership": "absent for these eight application queue tables",
         "source_sql_sha256": "212f3062e1363adcc8ccbe585d48f47476bf30f1ac0eacd0683fa05acce03f98",
-        "live_membership_catalog_sha256": "9d1aa21ac138a104253178974ed0a7c513de15e2139658dd71d809ed06b58d56"
+        "live_membership_catalog_sha256": "9d1aa21ac138a104253178974ed0a7c513de15e2139658dd71d809ed06b58d56",
+        "oid": 36946,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5780,7 +5820,7 @@
       "version": null,
       "file": "supabase/baseline/live-only/extension_members__pgmq.q_transactional_emails_dlq__c65b950457.sql",
       "body_sha256": "ee7e166753eb52e40492b9170eaec189e6e5233d42def6f0acb8b1b4e5f4eb36",
-      "file_sha256": "3d6e6868c714e97dc1c59dad0c4bb015ef4c7d3100320ae2706eabd10eb74cd8",
+      "file_sha256": "dde86fdec31c540c6ac04ebf4f1f3d486e6859b908be17d79d5a44f4363eea0e",
       "origin": {
         "rule": "live_only_tail",
         "review": [
@@ -5791,7 +5831,11 @@
         "window": "after tail, before R6/R7",
         "live_extension_membership": "absent for these eight application queue tables",
         "source_sql_sha256": "212f3062e1363adcc8ccbe585d48f47476bf30f1ac0eacd0683fa05acce03f98",
-        "live_membership_catalog_sha256": "9d1aa21ac138a104253178974ed0a7c513de15e2139658dd71d809ed06b58d56"
+        "live_membership_catalog_sha256": "9d1aa21ac138a104253178974ed0a7c513de15e2139658dd71d809ed06b58d56",
+        "oid": 179986,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5802,14 +5846,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_crm.ads_hourly_validate_connection___b7b0c7b53c.sql",
       "body_sha256": "b4fd45d59098c1f0fa12a204a6d2787c0ce537e2308c79a332774f412140c406",
-      "file_sha256": "1f0860f3da9ec2c95d2fd0cc9e261cc77ac1068aacacf6364fd2b34c755b09d1",
+      "file_sha256": "7e4e6ab634549bca0f9c37708ef79f9fa711a19b46a80385183a965e44c6c5e9",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 570448,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5820,14 +5868,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_crm.artist_ads_event_for_name_pg_catalog.uuid_pg_catalog.text___afdbdc2ce4.sql",
       "body_sha256": "d0872e5952157fc7c723d313b677c6f38f0f29d921bd3412f77586753748a79c",
-      "file_sha256": "37cd58af10cd8fee1c214bf765696559acae6af02b881786ea29de4aac22e88d",
+      "file_sha256": "b4d00ce621cc03df10053b7c09349e9141c623a6f346372e17e149903df6c29d",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "8e542fdfc523e8fab1ecff0060273744deb9385f6899df8d558a7a40e54253d6",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 347424,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5838,14 +5890,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_crm.artist_ads_event_keyword_name_pg_catalog.text___2c0fcf735f.sql",
       "body_sha256": "f923aa5e3f604cb6aa628dd7d6646b15768adb49be86ee03eedd14632c974e57",
-      "file_sha256": "6f6dfae5e09834c6121b7f1f5acafee9414151e1d54f7acbe99b7f2ba26116de",
+      "file_sha256": "900aa86606bd7a20972dca46f050f9fa7fd51ad961fc85f13ade53b44a8c7f6d",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "8e542fdfc523e8fab1ecff0060273744deb9385f6899df8d558a7a40e54253d6",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 347464,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5856,14 +5912,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_crm.artist_ads_profile_name_pg_catalog.text___1835ddb64e.sql",
       "body_sha256": "326e0d6424dbc84094a8c8d1d7d22dee8f1204514fe155139f2f3783acd45717",
-      "file_sha256": "3b67911dcbc73f59cd371864dfbeddaac26ecb414b5bea01746e3bd69b1a15dd",
+      "file_sha256": "d3db9d0b94f2a81f15f881c878392ab06188f00301920146054fcf21e2a648c5",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "8e542fdfc523e8fab1ecff0060273744deb9385f6899df8d558a7a40e54253d6",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 347423,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5874,14 +5934,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_crm.artist_ads_song_for_name_pg_catalog.uuid_pg_catalog.uuid_pg_catalog.text___9d5cecd64f.sql",
       "body_sha256": "0ab5529c1a6205db0b065b0d60b12db240283931e147c2c495c9efa5bde5545a",
-      "file_sha256": "3fbfe72b1c43f214e4b45df77193249de4b36a9625b76db8409fc0c553e052e9",
+      "file_sha256": "440cca23770a125cf15d44e056732f79e872ec0cb46aacd1b3d4142eba937b22",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "8e542fdfc523e8fab1ecff0060273744deb9385f6899df8d558a7a40e54253d6",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 347422,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5892,14 +5956,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_crm.artist_ads_tiktok_alerts_core_pg_catalog.uuid___bee832984b.sql",
       "body_sha256": "a2fa4bb750487923b456370411cb77ed159e95549b887a9b0d6d5be21c8e1582",
-      "file_sha256": "17779fcf2b8b60cf3274e9eeb893929b55d4f30edf3eabffe4b64450bbf1ff49",
+      "file_sha256": "30ac84f96d4401e91c28cfcbfd8929612fcdbc2d3a62a02faa07cdb09a38c576",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 347565,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5910,14 +5978,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_crm.audience_retrieve_pg_catalog.text_pg_catalog.text_pg_catalog.text_pg_catalog.text_pg_catalog.int4___5e8de635e8.sql",
       "body_sha256": "62821010c50b7adaa0b454edbce8f5fe8f48ac6a72c2d7bd7e4d53327c60eef3",
-      "file_sha256": "ae4296cc7e241f0f9fb5643e3fcb79d4e2edeb9e3f7049cd5fe5c5bbd8e8cf76",
+      "file_sha256": "2ce121d7b38792a11e41d23c1a91f44cbc41939da211a4b2ce8cdca2eab0250b",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "8e542fdfc523e8fab1ecff0060273744deb9385f6899df8d558a7a40e54253d6",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 163544,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5928,14 +6000,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_crm.audience_retrieve_publics_pg_catalog.text_pg_catalog.text_pg_catalog.text_pg_catalog.text___830fed0667.sql",
       "body_sha256": "948b92a11cc3e0213f09ada525e1ca23cc3f93ad9f3e188799b6e0b72f126dfd",
-      "file_sha256": "b8ec3ae62d1246166a4517d47bd0929d540b42cc095a0932557e27eb0c96e809",
+      "file_sha256": "ed3f7c8842971c8c4b52cc9d7ef5cf079d653fc2992b618c799e266469cd8917",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "8e542fdfc523e8fab1ecff0060273744deb9385f6899df8d558a7a40e54253d6",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 163582,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5946,14 +6022,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_crm.sync_publish_plan_campaign_id___e7a61fe3dc.sql",
       "body_sha256": "849074c3284919ba2471643327a258e30fea45f7fc7e54dd9424667c47cea14d",
-      "file_sha256": "8b4b1cc07eb066bf8a70be7ebab9024fe49c1db46e71619ecef186a4f8049ae7",
+      "file_sha256": "82049947720db2f31ee86ea2b464aa07643ba2142eca30000b7852de215848d2",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "8e542fdfc523e8fab1ecff0060273744deb9385f6899df8d558a7a40e54253d6",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 239752,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5964,14 +6044,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__relation_crm.ads_publish_plan__b483d08468.sql",
       "body_sha256": "4bcc48ad68ae28c0501bab474199c8b81a43d5f0629a87772412db2202076ae4",
-      "file_sha256": "db161e4709e97444aa5972c294a0abc88dbd6fd079c2d8384e0760f82036d84f",
+      "file_sha256": "b0c6f78fe86ac6df8700bac98473e0ec1c10db4a9b1de0a0985f9cb4c9bf902d",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "56f4d5267787416d9eff511c3eb5b579f66ea62776081ccaec782ae80db60fe9",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 239755,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -5982,14 +6066,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__relation_crm.meta_campaign_strategies__084134ce0e.sql",
       "body_sha256": "601374447cf8bf16296aafad1862b9298e904f774ca0bbf39ec84c7236be8dba",
-      "file_sha256": "fe76c9c96c7c481acd2bae8b7c6e969339d3332c00cc5728bca81f6c4a5d3802",
+      "file_sha256": "fd7d620934b7444154e2fccb168d829f8c9fcd29efe3a71c19a7f1f79324e8f3",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "573f199f3b1d0d9be7eddc4a0cce71687a1c8093a3d166b7dae9d85a8dfe1e0a",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 80692,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6000,14 +6088,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__relation_crm.meta_creatives__2b3588145f.sql",
       "body_sha256": "1fe9f79def87dc4dde5b00d4974b331de35246e11530fc2575a85d9af848ef14",
-      "file_sha256": "46d38a1d11350de966923160921c7e470f78ab0ac599aecd17ef1c3f1be303f4",
+      "file_sha256": "56dc0534926146882a28b9809a51114a474fdf05b3ee25cb50aec9128f5f1a54",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "573f199f3b1d0d9be7eddc4a0cce71687a1c8093a3d166b7dae9d85a8dfe1e0a",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 81469,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6018,14 +6110,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__relation_crm.meta_strategy_creatives__b6ac30d7e1.sql",
       "body_sha256": "58393614801f0efe38e4c7a355f4ba34b9cfe4d2cd7652b379c46a986ef5f4f8",
-      "file_sha256": "eb7b268bf60fc4643439730b1ffc57068e8cb30ebd00fe3e83ee538e28a99a4b",
+      "file_sha256": "371c50d345c83bb9e034489f44ae65e5122493d564596cb2f67e3c8874c9c273",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "573f199f3b1d0d9be7eddc4a0cce71687a1c8093a3d166b7dae9d85a8dfe1e0a",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 81683,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6036,14 +6132,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__relation_public.app_secrets__1ccf972c1a.sql",
       "body_sha256": "1a1c91a345bb0cab020186ba1cc2f192b3e23a00b40db91ad4b9ce596f309f14",
-      "file_sha256": "1361e180dac275ae1174be0aeb994f3b8914c72755b41a36d0718a1b520fe07f",
+      "file_sha256": "5888f8fcfb5c5f40c8d0ee58ee3ff10743949d18332de7ad498f35b1df056d60",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "293b349e7ad6dd2675e9c5375f6d7a982856bc254c2298ff2fdfc0491c7b4fbf",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 125674,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6054,14 +6154,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.delete_email_pg_catalog.text_pg_catalog.int8___d7e12f7278.sql",
       "body_sha256": "81aaad0e816beedb86249dd8ab64b182735658bedf4fe3ca19be3383fe502e1a",
-      "file_sha256": "2d5cffa1fc6c295f13d013dfa2e04c84e82d7bc6f34e314c138d08f7db7f8504",
+      "file_sha256": "0e57515a9a04223963d9d56f1f286dff44fe5bda2b435ee76dfec13f8e00b1ec",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 21433,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6072,14 +6176,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.enqueue_email_pg_catalog.text_pg_catalog.jsonb___8bf0790b61.sql",
       "body_sha256": "c972d4f9ac51fecc084df671e108cd5f1244d0fa906258bc5d0e87ad06311b3e",
-      "file_sha256": "7aa3327594a728a2f568188b44958a5c77a902d32168a48816ce7afc31a9eaa1",
+      "file_sha256": "4338a91fe4e914068f1cc5a293eed179ece27aeff884dc9b9f6346cce577ee54",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 21434,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6090,14 +6198,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.find_admin_absorbing_events_pg_catalog.date_pg_catalog.uuid___d87887888e.sql",
       "body_sha256": "4e121c52607abe0f9390f12b35b04c51dc990105991f918d54a4cc784d3cdd8d",
-      "file_sha256": "333d9ca53dd056da47b6951553c20caa5141615e968541cf2022303ffdc66510",
+      "file_sha256": "ab6f90299e617d2efe84aaa0b131b375266271119a9d4e550f9be6c2ab567693",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 61734,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6108,14 +6220,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.force_no_account_on_compensation___6b5511faa4.sql",
       "body_sha256": "0aa39a01cd3fed12650f6d38f4fc93c90e9e2f8d590dc66d3a2d7eaaf12b608a",
-      "file_sha256": "184b5b1ddc4f911eefa5ad46af29a26bdcb769493299e5157fa3625822774ce4",
+      "file_sha256": "b989427b63aebf0080e36a73fa9a9cf44fb522a219f3f6ad6dd0332d485e8bc9",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 218281,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6126,14 +6242,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.get_app_secret_pg_catalog.text___022574dcff.sql",
       "body_sha256": "cad779d9514917200e9bdf916e4026b64e3432f97ed7464be81c4d2e3241d634",
-      "file_sha256": "23b9e957cac374263dcad021abca867d84d9cfbe318b300aae391c300c7bfe7f",
+      "file_sha256": "a1813c167470ed45de7cb2e37d523f901741fb1af83cffb5a72a288816909254",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 125673,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6144,14 +6264,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.handle_new_user___495dd7d5d5.sql",
       "body_sha256": "da8a7ce8da37dcd7e20be023b86e9c03e378c50e948c93315b8ae8f49c9ecfc2",
-      "file_sha256": "1a8d9b35c4185070730f1e18da2dea1139d9a2321f78941d59b454e4f96e9aae",
+      "file_sha256": "8cfa0acfe3be7b5317e318895890ca4d816d7bc73beeac0bd5a62f856efe5668",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 17646,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6162,14 +6286,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.issue335_balance_invariant_count___340be9124d.sql",
       "body_sha256": "4a7e1eb2a10392274f531c01e6133688ad95525a8f83c66bc7538e4f6304be79",
-      "file_sha256": "0c1a068b5e5d6b8039287aaf247c5daea1199ef3efb1998d16d44b7b5d610b3f",
+      "file_sha256": "8c977a73a47ccb0bf0add741f6e65a685ef880543e85a11d5d3d1fd9504d04ee",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 593262,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6180,14 +6308,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.log_formalidade_change___8e1888933f.sql",
       "body_sha256": "c47b6e118a4d09b24137a4ae2c5f219f981260686c2872aee313949b465f65ea",
-      "file_sha256": "03dfe7a5f27528ee25c500217ff3b203203f8ea56df208230d4e798a52c5f9ca",
+      "file_sha256": "54d8d3668dde7251388a7ebb590306c5b201d2bc7046ed850b2f225e330be976",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 53664,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6198,14 +6330,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.move_to_dlq_pg_catalog.text_pg_catalog.text_pg_catalog.int8_pg_catalog.jsonb___e82eae7398.sql",
       "body_sha256": "1434a9cc6fe6cdfe0b30c7ecea6a8af2743b0df23bd3baf75f23cdb38c43fd5c",
-      "file_sha256": "aac47eef3ca80ffed87df7c90b7f7a894b245b1c1e96330b249ec968ba0e78ed",
+      "file_sha256": "142c6c93ce6639c33658852fa5c78dc3e3ec4a78b21d47091962d8819571bb37",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 21435,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6216,14 +6352,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.prevent_split_absorbs_admin___8fe7db339f.sql",
       "body_sha256": "333fd2fd79244ce7aa158281c3e9e53af85ebdb0c5761d2ed77e07144b3bd5df",
-      "file_sha256": "c36daa79ef953351e4c36bd9fc4225abe339fa095651288d97f3ba095854d84a",
+      "file_sha256": "11320a4933fdfd7bf35d2d252fd09a0fe3920eaec606c1acfaecb248ca93f6a4",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 61735,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6234,14 +6374,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.read_email_batch_pg_catalog.text_pg_catalog.int4_pg_catalog.int4___4293cda338.sql",
       "body_sha256": "6fa26eeb438225544a33868732f392afc7812e45634feb3cd453ba30c82e5726",
-      "file_sha256": "f2cc9776117a8faea63827ce0d4df3b6783e6fc9518f93f4749da4169fc26a10",
+      "file_sha256": "3b3ccf4c8582a7e1c59fb477e22c8303634a034e61a3a46d38bce6f3806f91bf",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 21436,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6252,14 +6396,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.rederive_paid_amount_on_amount_change___2aaed3f567.sql",
       "body_sha256": "19de8133721941d7b5873e818fd431218702fe48b28a2d5ad0b57cb8af1d3086",
-      "file_sha256": "905e6ea0fd591f42e0bc04cd83f84580af7b5d4a6925013a60f4ca0a8a1c4977",
+      "file_sha256": "8cff7df35beb90e4b77af0be7d0a37d1e45d59fc315705bf2da01393ad9e374d",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 361278,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6270,14 +6418,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.reimbursement_propagate_payment___a87fcb2c1e.sql",
       "body_sha256": "f41dbd10d24a62779f4d2ee009393921d3c9c64a5aacb96f4ef69e4e71056f08",
-      "file_sha256": "ca21e3644e024ee8a3e4df0cae25551ccc12e6b570dad698ecfe44d42c5aaae5",
+      "file_sha256": "d7abbfb9fc7ea054c240a7084e567abe888943ec724a8879e1a758df210c08be",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 74913,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6288,14 +6440,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.reimbursement_revert_on_tx_delete___9260fcc904.sql",
       "body_sha256": "b0d30daaecb9680c6c2ba844feba43f3fce56f75ebf5584bc2cad7d4b3c49fd5",
-      "file_sha256": "adaef9b2e8e31eab8e52f7a9424fe3655c8907e7897ee43df519eb5bf7e8c30d",
+      "file_sha256": "0ebfb1d115a95844fa1fe69b09a05b48f8a9ad4df49295c79c1a84e99432a6a3",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 74914,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6306,14 +6462,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.relink_orphan_transactions_pg_catalog.uuid_pg_catalog.jsonb_pg_catalog.uuid_pg_catalog.text___bb78c7a5fd.sql",
       "body_sha256": "7bed05a4d4704c71fe19ba8ca0e0d75d01d0d2de84c7095f00ad2bfdf68d8001",
-      "file_sha256": "5146966d032b9c5bdd9e2b19d986b08273e6782cb78ed1dfccb71084b897d445",
+      "file_sha256": "b9cdf130c25618b51b5a159d21133a2dde8f8ef5e339a317dbdfa314325998d7",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 53670,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6324,14 +6484,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.run_rls_isolation_test___a951423131.sql",
       "body_sha256": "1087d76d22e4b05da6fb2a4b34540b64af522f90126c2e19e3c95c1cce8810b7",
-      "file_sha256": "b6c307be5a1541853dd7d391d4adfc55b51e72179df11c0f392b16bf428f9ccc",
+      "file_sha256": "0f7cfb874d3a3bc99baf9fdc906b0604aab19fc80a414bb21919d0019ff79fd5",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "a32260302883194975dca646a91c9b27e010558dd55d4c1d548679e683bdb721",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 56290,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6342,14 +6506,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.run_rls_legacy_audit_cron___711103c586.sql",
       "body_sha256": "eba77ab6cdb0f23f1cc72be9c7c87f3194ccd6857015c8cac299741080a8f04d",
-      "file_sha256": "c7b3e93ffd3db4eba184158dca9eaa743d08ab6519904059a4cc8bae1e2ae51d",
+      "file_sha256": "812a8b494f74e61785a51203be4a1748b5be491a33df43340ddc43457b1f308d",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 63805,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6360,14 +6528,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.seed_operacao_frentes_default_pg_catalog.uuid___399f3b12f8.sql",
       "body_sha256": "42f59eb7f8fdbac65dbee24182cb541babf54b54355cfb01f96d95aaeb98e2cb",
-      "file_sha256": "e81afd61d31f40d9e9dfabf6f2ef20ce89f7fd1aab911887818f4713dad34801",
+      "file_sha256": "76b4321db8777800c401b77a169ff15073bf0267a83a23b8461a4b357ad4133a",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "a32260302883194975dca646a91c9b27e010558dd55d4c1d548679e683bdb721",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 100746,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6378,14 +6550,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.set_combo_pass_child_company_id___7d755f4e9e.sql",
       "body_sha256": "01abe2402b64425638b388ea7138352b7e85f6ee4da027143ecd3406b163f46f",
-      "file_sha256": "90c7579a2dac983b9ab82d8e5f0eddf73da24d57c5cb25b273eb0a9693474d58",
+      "file_sha256": "8553359ac7139e84384581a7b4d72b574605dde930506ef0657736abb1b87e41",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 69109,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6396,14 +6572,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.set_combo_pass_company_id___efd52b530b.sql",
       "body_sha256": "a6c68dccc6d7e530f0a6058bc33fe8de8668b7ad29d26055b01ba1fbf1cc6579",
-      "file_sha256": "a90734089e0e11deaccaece5d076d5fb15cdfca3d1c67798eef86635c833d16e",
+      "file_sha256": "26fcc2ea2c7a73f4142caee8206dd2a1b20f10db664f55439ec17b417d1ede13",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 69110,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6414,14 +6594,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.set_company_id_on_insert___53d39f9b28.sql",
       "body_sha256": "1bcf2de41d1bd2c5caa2b481b6f29c543180bc51170dc32c86c9419721c603c8",
-      "file_sha256": "57b8ad70b144f591f9a1f646ec770e332f954495f685811e198312b9c03f6139",
+      "file_sha256": "653fd836f3cefe811589fa339f1803fcfb78ab47710c9205e8afa4564b6c76c3",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 55508,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6432,14 +6616,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.set_event_ab_company_id___5b8d0f2ca9.sql",
       "body_sha256": "e116de826a12f1f4f45a7e03a1c516b163a1b68cb73fb18002ef3810b888cbd7",
-      "file_sha256": "9f6b1c6f4360427ef70eb04b4b0b1315372c6d8a86a257b90c4621bbb6838a7b",
+      "file_sha256": "521fc101aabba03e7bf22effe57f7613fe4bad7175383357f10ddb9491a4f717",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 68422,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6450,14 +6638,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.set_formalidade_auto_suggested_pg_catalog.bool___5edd1b7240.sql",
       "body_sha256": "2f64debdf34e546fca375dbf486b8e142605b361189a459e404ccc9b8703f60c",
-      "file_sha256": "0ea8c4f47e6830deec8e8761c501711d0bbdc95bd1bfff021d05b3c2970e92e9",
+      "file_sha256": "fdee30b0baa75cf6ebb6f53949083b90daf8f5db8825d7db28006bf219f37f37",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 53673,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6468,14 +6660,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.snapshot_bp_versions_to_trash___77cb32766d.sql",
       "body_sha256": "035a95261a8473c710a57fa2ef86992b98e0fa354ad067a257195c78faa0d59c",
-      "file_sha256": "2055acd14cef703c4a11f435e83fcd9d7688904859b198a17f751fc79e3fccd3",
+      "file_sha256": "f2f6fe1209791513053c7050430f105824c6970e71eb1a9c0516825e1cf5378f",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 53674,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6486,14 +6682,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.song_link_public_get_v2_pg_catalog.text___ddff8a4c0d.sql",
       "body_sha256": "79ec9fd07e376e5f698a7367f012eb55783e75414ce1cab5121fbc960421cedd",
-      "file_sha256": "fd74bea124db60d468dbc529ff961c0014a51bf0c7044babd32582dcde5fe7c9",
+      "file_sha256": "353ac932ef6e63490b279d7002eed762dad15e0a3ebe78c79bd8b49df31271ca",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "e2521c346695c48beb7baa5db0729155b113469a350f52b103bad2a25d0dabec",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 353889,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6504,14 +6704,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.sync_partner_aporte_mirror___c987693293.sql",
       "body_sha256": "ddf77f74fcfbee97bbb0bbd84439df2bbe115a453cd69220b5c5d1c659b765db",
-      "file_sha256": "b6afb80ef04c68bd53627d3119b0e46e4e9893df8dfb7c5635e7cd0e7a752c57",
+      "file_sha256": "0caa08d2ae9994d4dc77b3bc237161d3c2a710fe97c2a5bf4cee8f21402106ba",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "42d80ba8078e02bedb2f4473cc5a621f277b301fcfe75318c2edab50a0f005f8",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 208134,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6522,14 +6726,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.test_latest_backup___d228f1a26d.sql",
       "body_sha256": "7f124adb9b4aa6c4822fc6c0339982e1a5732c27cc40122526c47212afa0993d",
-      "file_sha256": "4d1367f632c05ea5f88597044f2594ec9a3a781b963024018fe63a394daddcbd",
+      "file_sha256": "cd5e4824355da4550b54a4f3392651dca7368a0ea6a68590ac418238a43bb9c5",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 60507,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6540,14 +6748,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.tg_sponsorship_pipeline_autolog___b9a9b77e8f.sql",
       "body_sha256": "5a4aeeceb71139f0951971ad835b73215e50d568e5aafc4fb06f0b46163aa527",
-      "file_sha256": "9206000b812cfb81056f6aa0d0ff65ec7d3a1fd1a961dafeacfece21db0c1c63",
+      "file_sha256": "27081800c0ff914c80cc9c849eabce8f533130301aac7988afef41e5a6a9e0fe",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 64797,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6558,14 +6770,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.trg_camarim_session_leg_follows_bank___80a4ca49ad.sql",
       "body_sha256": "46f9776da4d7f4159328d1d2f20b03b3cc65cd39559ddfd8963fda340c85a258",
-      "file_sha256": "7b66007541a64660dd9f9a5d19ce1987a46d12381fdc325b05ddc8822faeacb6",
+      "file_sha256": "4e330067692b53d4ffb83d2d79ac1cb03c400ef60736d78ffaa0360e9a151dbd",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 380840,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6576,14 +6792,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.user_has_event_access_pg_catalog.uuid_pg_catalog.uuid___ab2175ee03.sql",
       "body_sha256": "38a6320b02803ca5778e902ee0c9401467239cc2b91e3b7b440259cb6b39f304",
-      "file_sha256": "8133c7e6d57ade69b6d997b77225480461adef5abe753e0a47556a084c10ba2e",
+      "file_sha256": "66ad107c1d8d06fe9527de1afc0d86cde786e9e17da9f1917c38b02b253e2434",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "a32260302883194975dca646a91c9b27e010558dd55d4c1d548679e683bdb721",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 146807,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6594,14 +6814,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.user_supplier_id_pg_catalog.uuid___7fbb683082.sql",
       "body_sha256": "a05c3c1431be34c12ddb39c74da725c17926f945aba90d1bdeb53e6cc1e60f21",
-      "file_sha256": "a85b492be934c405f348d535c8f013d907a92b7fd93f994b37ad730b38f28802",
+      "file_sha256": "23670b1e8fb5a69c21960a4bd6c86030b95803d6285428f44e34851fd0ef00c5",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "a32260302883194975dca646a91c9b27e010558dd55d4c1d548679e683bdb721",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 146808,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6612,14 +6836,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.validate_category_allocate_flag___8ddd8c6ba2.sql",
       "body_sha256": "533319861cdf95e10c7a0c0d62534fc510e2446af886fee241c3ef8f9b2fa0e5",
-      "file_sha256": "ad9be0cc6f29ca782aadf18eea84e77dafb6a6a578f73a1ae1d505d8981023dc",
+      "file_sha256": "c21d5dc457bd7222229a7b414568e873e64f69f84240c36d5bf6bcc5a943bb90",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 61736,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6630,14 +6858,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.validate_event_admin_absorption___d84285c2dc.sql",
       "body_sha256": "6fe71c9c530ea39d6403038494f1516fd64cd04c5e9bddfd9321a163dcc489d8",
-      "file_sha256": "2a8030bc0ee2ae2d5f4fef7bc5a4ee10bf7bdc100b498d22b5b9d8c513d4b8db",
+      "file_sha256": "52fea0d3f07a9d03b8bf040ce1fcdb5983b655c4ea891861e41d7a8c1d57079a",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 61737,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6648,14 +6880,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.vip_coupon_functions_base_url___c1fee43502.sql",
       "body_sha256": "43d859da31ad1bafbb07995aa32e0c43b50cea9eccc09e828517f925e4fa5684",
-      "file_sha256": "8e23910a8922d55c9d0a71a6d905b4d8b477a56bb4f2066fdab2cf67325c331b",
+      "file_sha256": "cb9335d1eb1ef0b2c33b93e02477228b7b5bacfbdde047c2233fa20a0751d628",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 180440,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6666,14 +6902,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__relation_crm.ad_platform_account_links__81d11846a9.sql",
       "body_sha256": "1cb55fb89d852cea451fdf96c41b79cbeb4c9a2ab0f4163816c8bf75d9e859c2",
-      "file_sha256": "2e825b0784ae635235b35ce8cc1007d1703a34c78cceaee59c8f6d6be449ba1b",
+      "file_sha256": "7c3f9f08b7db66c1f5fcbf2badbc0a67d6093de174e24a764ce7fad7294f357d",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "573f199f3b1d0d9be7eddc4a0cce71687a1c8093a3d166b7dae9d85a8dfe1e0a",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 80302,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6684,14 +6924,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public._account_true_balance_asof_raw_pg_catalog.uuid_pg_catalog.date___cc780d727b.sql",
       "body_sha256": "3bce754413de7023da0f6f3654be6aca75695d7b301f8cbcb362af3d16e60362",
-      "file_sha256": "6cf17b01415a77350ba74f01af325b0c97da87413147775068e4c65eeef03453",
+      "file_sha256": "579b116dded385503ab03ab28bad8c9a8337da29b2ef9612e80847c0db45e969",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 215986,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6702,14 +6946,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public._account_true_balance_raw_pg_catalog.uuid___3f043e1763.sql",
       "body_sha256": "bb17b7eb8466e64bd8d0238029e8524f88261d0c2b15a4e0ee6beb693d148633",
-      "file_sha256": "48f23c513af09355d882f038aa2dbd3745e6df30f7e7403ce210b18b3a42b8ff",
+      "file_sha256": "2b47735d6191ef26f56b9453db2d1809083f8663525958f4a879dd5ecf694f0f",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 214673,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6720,14 +6968,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public._revert_event_to_version_pg_catalog.uuid_pg_catalog.uuid_pg_catalog.uuid_pg_catalog.text_pg_catalog.bool___ba82d0765a.sql",
       "body_sha256": "1a5712bf3c6a7fb05bf8258588ef32e424e3237748c81f043a9d5a26e1e24ec8",
-      "file_sha256": "da21dae0f2c5d1c04d33cac6b2f1a9d72398df48cefacf4e3589d0874b898b33",
+      "file_sha256": "4b58693afd3e6824e96e60434566ac8c94763c1f2bc06e42c8e9f5880098d46c",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 53645,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6738,14 +6990,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.apply_formalidade_suggestions_pg_catalog._uuid_public.bp_formalidade___1abefe8e7c.sql",
       "body_sha256": "0d82d1d32ebab71b2e3351b2675c9eb4af0f8644dbbb97d9600fa10a3dff5090",
-      "file_sha256": "b91ba3e8faee9c48407b7dc1fcb8bac2f856dbd4604ef3cd0d162171692f1f4c",
+      "file_sha256": "9b2c79e11baff268b5c1a9e996a9c5c51efa8ade694d3b41c54464e730d58c60",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 53649,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6756,14 +7012,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.artist_ads_creatives_pg_catalog.uuid_pg_catalog.uuid_pg_catalog.text___97eb96d2b0.sql",
       "body_sha256": "58345f4f1611fcc69c29e9bb7848bdf7a8757fae0a4fb26be81242a2e5fa2a84",
-      "file_sha256": "9179420f6bee77908696e7af0a6593971be177263e569ba0cd640f1cc67c540f",
+      "file_sha256": "7bf6436751a2b3b3900b4d7a8ee971deea92a852f177d9a74d4efb9336e78329",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "42d80ba8078e02bedb2f4473cc5a621f277b301fcfe75318c2edab50a0f005f8",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 240050,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6774,14 +7034,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.artist_ads_plan_list_pg_catalog.uuid_pg_catalog.text___1ebaa4171c.sql",
       "body_sha256": "5ef314b5d7c7683cc6a427357a7222458d92a92aca88644505c39c7d8a45442e",
-      "file_sha256": "3bf12361216f4a87f298e3912c18185371cd7a20e7a23ff18d758f5a12695099",
+      "file_sha256": "412667b986c74924919a5e4348efb90a8dac5c48372ff8e252c6ce02b0cdea24",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "42d80ba8078e02bedb2f4473cc5a621f277b301fcfe75318c2edab50a0f005f8",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 239760,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6792,14 +7056,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.artist_ads_promotable_posts_pg_catalog.uuid_pg_catalog.text___dba40debe4.sql",
       "body_sha256": "58f8be1d45659b2ba0fd5e591f36fb294ec146b5fa503fcaaf3c58f0ba202799",
-      "file_sha256": "f5aa0dd7d81ffdc085caafb62f9d3324d38be139210e9120e02bf9931b61ec0a",
+      "file_sha256": "4d2fbadccd8ae4b0571fcd726830485cdfe7c8d31ca9548e626bbfcb7277428a",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "42d80ba8078e02bedb2f4473cc5a621f277b301fcfe75318c2edab50a0f005f8",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 240012,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6810,14 +7078,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.audit_multi_tenant_isolation___e01841ddfe.sql",
       "body_sha256": "3e5d4c35694f38df678cb233d5c897a1f358fec3dad44dfe480eda7f8e4c7211",
-      "file_sha256": "db101b066bd479e1be57a6b7e6a9d1ce294fc6c8937336d85e5e2c1352f11874",
+      "file_sha256": "bdeec64ef51c9127aa4d06fd3e0f2127f9d424739dd24864f5a002d8f1356588",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 60502,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6828,14 +7100,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.auto_create_initial_bp_version___14f741014a.sql",
       "body_sha256": "3de3f74113a078a912b82e4ded95e3c06b4d7c3b11191df3ee8d75e6e35f69d0",
-      "file_sha256": "0ef727f14211216baeb0024aa00ee269fa6f7fbd3c7fddb0654b1d871673ac1e",
+      "file_sha256": "62c167f70186853bd0d50b7100fef548a49d09541ff5fd467dd86cf4d53fbff9",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 53652,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6846,14 +7122,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.auto_create_retroactive_split_snapshots___6ff9ca5687.sql",
       "body_sha256": "07b5f67daa74fa883554db6beef7063e5e5764390b859c6dc33c4ae63408bcfa",
-      "file_sha256": "716b6e8368d5c089709ecaafaab7c64109bff628dd6fce1fa173b6ebeac3302e",
+      "file_sha256": "1bdcfce575f4d0c858d2ab30321cd906e47b5592b1994aee0e96d9802643f949",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 53653,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6864,14 +7144,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.cleanup_old_backups___1074998bb4.sql",
       "body_sha256": "fcb16f4e87559883842df00257deec62c7a459ef5b3c49be9c264e40b9b0c94b",
-      "file_sha256": "e03c9107c0135513daece403de927dab6199a0cc8f765e912b37ac62ac9302ab",
+      "file_sha256": "af18124cc2bae485521077505a9e2867e68eb952b04a443c6a806cfa61cd2427",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 60503,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6882,14 +7166,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.coala_unsub_token_pg_catalog.text___407da63c6e.sql",
       "body_sha256": "b95f881d5b09b3bb6a4e400d80cb24277a1374e992e75a57809c3bb9c1525aff",
-      "file_sha256": "182fb140c23873f4edf3d336b1eb5d736b6be6be9e41560e0da3adef00793f0e",
+      "file_sha256": "3d87d8474b3a1072bbd257c00b308a4ff0aae33038ae493d970cbdd194a3d1d6",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 187655,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6900,14 +7188,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.create_registro_with_media_pg_catalog.jsonb_pg_catalog.jsonb___6b89d3f8f3.sql",
       "body_sha256": "0e9a3211b1d7ee205a24c2218574f873c7838ea3105db1abda22c1a759f1060f",
-      "file_sha256": "eeced96ee5660ed2a4620ab59cb32ae7883255f3f3fa86192db8c4eb91dfe06f",
+      "file_sha256": "9e82dd424e1fc44941a0de71ec1a2f2edcdcc0caebcc0ca241141f2bfb37eb5c",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "a32260302883194975dca646a91c9b27e010558dd55d4c1d548679e683bdb721",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 102949,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6918,14 +7210,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__function_public.current_company_id___8fc2f02223.sql",
       "body_sha256": "555a5a3b2db6eb28ec306b8316ad4dfbb6252bd465bff512d62034501d545950",
-      "file_sha256": "fc675694aacedadb008d29afc137a88eb4c7d88be3d51d8628e3cc9d9f8f0a88",
+      "file_sha256": "26c1e35527569ef844b18fb7b77d7c3f0100e18f838f2d8a952dcc95f8c2a02f",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "9e4e25d748beac6525eab96678f96969c7751943b0b1e474e3bbab5f431cfcc7",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 55400,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6936,14 +7232,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__relation_public.v_artist_content_ranking__5d4ab2a679.sql",
       "body_sha256": "96b4d11681d585c74fcc73a35d57a497ecc006d8c36a4c4093495450b68cf412",
-      "file_sha256": "55ac58121fcfc08ae1cf03e4ef7a30666302cc4ef286e9d0769edbd524da6d8c",
+      "file_sha256": "961e1258d891badb0de14651b06dc7208e3c4786cfb4016eec228e42bdbc3f02",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "b70074841f18abda6881237de50ba288f5a7f44540977aa4608cda406a205dc0",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 218973,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6954,14 +7254,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__relation_public.v_content_latest__6e68d9eb22.sql",
       "body_sha256": "1e13c3d19f414ec78e8585bbe67f4252380c440bbf9f3283c13ee660c53b84d0",
-      "file_sha256": "2e81f8603f120a6b7a7924f395deb058306220f4c81ab833acea9355a0a0481e",
+      "file_sha256": "bc9b4aeaa480064855f5f949e10b82e7697fbf5809f702c2c4040adff1f6dcdc",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "b70074841f18abda6881237de50ba288f5a7f44540977aa4608cda406a205dc0",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 218968,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6972,14 +7276,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__relation_public.v_song_benchmark_aligned__b951ae6ca3.sql",
       "body_sha256": "da1f78509eb4fa051c1cc802f50221fdf893a6dba4aa65cfac3c66bdc883baa7",
-      "file_sha256": "03b6e9e1f2152f5ab22661701074ab147dbe34e420a8f6ee4856fa70e97b7f84",
+      "file_sha256": "efd594907784e44577f51a626ad77a480274795785f4ff2bb62c6f164736dba2",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "b70074841f18abda6881237de50ba288f5a7f44540977aa4608cda406a205dc0",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 221379,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -6990,14 +7298,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__relation_public.v_song_content__c556cb3f7e.sql",
       "body_sha256": "ed7f9e9cd15eb379d53d1f79caf2edd7b47c18de71a41028d56d7910a033b0c5",
-      "file_sha256": "fc8a01ab27d0b9e0fb2d26d311d9c1f8fcb79892f9b630c16100bcd5be3ab324",
+      "file_sha256": "b3d21c52c7cbfdb0d573e27b2aaf446ca65875a6a35025acc682ae53e1daf73f",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "b70074841f18abda6881237de50ba288f5a7f44540977aa4608cda406a205dc0",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 218978,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -7008,14 +7320,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__relation_storage.buckets__74cb46aca1.sql",
       "body_sha256": "afd008bcbd6ca3f1259a6be989c9cd4a24866eb947ab89a92f1d1dbefe30b47e",
-      "file_sha256": "71fdd7d189c04a26e1aef12401f4ab70b2a819e1eb0efa1a724089905bc2b65f",
+      "file_sha256": "d1a71e15ca01e361503de767b1c5322c13e559468a3c31b8965c0d9bf0c86db3",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "78afe60836229a90cf8e443fb05f2a5205082c93b06091263e8b80a93f188fe9",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 17211,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -7026,14 +7342,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__relation_storage.objects__108dd991a9.sql",
       "body_sha256": "cce74914cf81ba13bdb9f049d8b1268625b85b7bbb8d8dca6e43a80772fc39b8",
-      "file_sha256": "011c7b0a4ec2f568c22753b75b9fd177feadc915fe0ca9ba625c5f93f7b600cd",
+      "file_sha256": "f0373fc0e997cb46a1d025773f99cf08972c7a655e2f0e35958b30525add5767",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "78afe60836229a90cf8e443fb05f2a5205082c93b06091263e8b80a93f188fe9",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 17221,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     },
     {
@@ -7044,14 +7364,18 @@
       "version": null,
       "file": "supabase/baseline/live-only/acl__schema_crm__9b5ace1734.sql",
       "body_sha256": "fa17dd7f65daa150b713a5a651ef2abf33aa3560a1981e4661a0b3778b8ef98c",
-      "file_sha256": "54b999312b69228f86b56f79d9afaa8e7d8f5aa66e728001e712bb7ea171cbc7",
+      "file_sha256": "50a3975e299397f5523a2e5be1308ec79827376351b96aa2a8a3fdb1685fc9ac",
       "origin": {
         "rule": "acl_final_from_live",
         "review": 6429178426,
         "promotion": 6449906971,
         "window": "after R6/R7, before post-freeze migrations",
         "live_acl_properties_sha256": "b52cd49bbd9c1221057a2d7e00e2dce4f6a293d70d99756ef7ba54bbb2f49f94",
-        "scope": "only the previously measured compensation commands; no global privilege inventory"
+        "scope": "only the previously measured compensation commands; no global privilege inventory",
+        "oid": 77732,
+        "oid_observed_at_utc": "2026-10-27 20:10:13.900178+00",
+        "oid_catalog_query_sha256": "f76c9fbe999494c50d25221281e0accb7508e5b83e3f2752b06fb18ba25837f0",
+        "oid_observation_scope": "catalogue identifier only; frozen definition/property hash remains separately dated"
       }
     }
   ],

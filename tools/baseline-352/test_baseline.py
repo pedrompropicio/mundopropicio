@@ -15,6 +15,7 @@ class BaselineTests(unittest.TestCase):
   for o in manifest['operations']:
    self.assertTrue(o['file'].startswith('supabase/baseline/live-only/'))
    self.assertTrue(o['origin']['review']);self.assertTrue(o['origin']['window'])
+   self.assertTrue(o['origin'].get('oid')or o['origin'].get('attnum')or o['origin'].get('live_absence'))
    self.assertTrue(any(k.startswith('live_') and (k.endswith('sha256') or k=='live_absence') for k in o['origin']))
    raw=(ROOT/o['file']).read_bytes();self.assertEqual(H(raw),o['file_sha256'])
    begin='-- BEGIN OPERATION '+o['id']+'\n';end='-- END OPERATION '+o['id']+'\n'
