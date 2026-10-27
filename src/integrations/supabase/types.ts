@@ -12903,6 +12903,8 @@ export type Database = {
           budget: number
           budget_mode: string | null
           city_id: string | null
+          closed_at: string | null
+          closed_by: string | null
           company_id: string
           cost_expense_source: string
           cost_include_overhead: boolean
@@ -12915,6 +12917,8 @@ export type Database = {
           event_type: string
           format: string | null
           hero_image_url: string | null
+          historical_at: string | null
+          historical_by: string | null
           id: string
           import_template: string | null
           last_sales_date: string | null
@@ -12969,6 +12973,8 @@ export type Database = {
           budget?: number
           budget_mode?: string | null
           city_id?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
           company_id?: string
           cost_expense_source?: string
           cost_include_overhead?: boolean
@@ -12981,6 +12987,8 @@ export type Database = {
           event_type?: string
           format?: string | null
           hero_image_url?: string | null
+          historical_at?: string | null
+          historical_by?: string | null
           id?: string
           import_template?: string | null
           last_sales_date?: string | null
@@ -13035,6 +13043,8 @@ export type Database = {
           budget?: number
           budget_mode?: string | null
           city_id?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
           company_id?: string
           cost_expense_source?: string
           cost_include_overhead?: boolean
@@ -13047,6 +13057,8 @@ export type Database = {
           event_type?: string
           format?: string | null
           hero_image_url?: string | null
+          historical_at?: string | null
+          historical_by?: string | null
           id?: string
           import_template?: string | null
           last_sales_date?: string | null
@@ -23633,6 +23645,85 @@ export type Database = {
         Args: { _company_id: string; _universe?: string[]; _user_id: string }
         Returns: Json
       }
+      _event_stage_access: {
+        Args: { p_event_id: string; p_mode?: string }
+        Returns: {
+          ab_baseline_at: string | null
+          ab_baseline_net: number | null
+          absorbs_admin_costs: boolean
+          ad_destination_url: string | null
+          admin_window_end: string | null
+          admin_window_start: string | null
+          ads_allocation_level: string
+          ads_match_aliases: string[]
+          budget: number
+          budget_mode: string | null
+          city_id: string | null
+          closed_at: string | null
+          closed_by: string | null
+          company_id: string
+          cost_expense_source: string
+          cost_include_overhead: boolean
+          created_at: string
+          date: string
+          description_en: string | null
+          description_es: string | null
+          description_pt: string | null
+          event_nature: string
+          event_type: string
+          format: string | null
+          hero_image_url: string | null
+          historical_at: string | null
+          historical_by: string | null
+          id: string
+          import_template: string | null
+          last_sales_date: string | null
+          location: string | null
+          location_en: string | null
+          location_es: string | null
+          location_pt: string | null
+          management_type: string
+          meta_audience_id: string | null
+          meta_audience_name: string | null
+          meta_pixel_id: string | null
+          name: string
+          operacao_mode: string | null
+          parent_event_id: string | null
+          partner_calc_basis: string
+          partner_name: string | null
+          pl_mode: string
+          portal_featured: boolean
+          portal_visible: boolean
+          poster_image_url: string | null
+          slug: string | null
+          sponsorship_closed_at: string | null
+          status: string
+          target_roas: number | null
+          ticketing_baseline_at: string | null
+          ticketing_baseline_net: number | null
+          ticketing_provider: string | null
+          ticketing_url: string | null
+          ticketline_event_id: string | null
+          tickets_sold: number
+          tickets_total: number
+          title_en: string | null
+          title_es: string | null
+          title_pt: string | null
+          updated_at: string
+          venue_directions_url: string | null
+          venue_id: string | null
+          venue_map_url: string | null
+          vip_coupon_code: string | null
+          vip_coupon_discount_label: string | null
+          vip_coupon_valid_until: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "events"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       _issue335_execute: {
         Args: {
           p_date: string
@@ -25260,6 +25351,10 @@ export type Database = {
         }[]
       }
       clear_operation_key: { Args: { _key: string }; Returns: Json }
+      close_event: {
+        Args: { p_event_id: string; p_reason?: string }
+        Returns: Json
+      }
       club_age_class: { Args: { p_birth: string }; Returns: string }
       club_award: {
         Args: { p_member: string; p_ref: string; p_rule: string }
@@ -26173,9 +26268,18 @@ export type Database = {
       }
       event_budget_mode: { Args: { _event_id: string }; Returns: string }
       event_close_blockers: { Args: { _event_id: string }; Returns: Json }
+      event_close_checklist: { Args: { p_event_id: string }; Returns: Json }
       event_partners_sync_from_settlements: {
         Args: { _event_id: string }
         Returns: number
+      }
+      event_stage: { Args: { p_event_id: string }; Returns: string }
+      event_stage_list: {
+        Args: never
+        Returns: {
+          event_id: string
+          stage: string
+        }[]
       }
       expire_supplier_credits: { Args: never; Returns: number }
       find_admin_absorbing_events: {
@@ -26728,6 +26832,10 @@ export type Database = {
           tx_status: string
         }[]
       }
+      mark_event_historical: {
+        Args: { p_event_id: string; p_reason?: string }
+        Returns: Json
+      }
       mark_forecasts_fechado_auto: {
         Args: { _ids: string[] }
         Returns: {
@@ -27132,6 +27240,10 @@ export type Database = {
           p_transaction_id: string
         }
         Returns: string
+      }
+      reopen_event_closure: {
+        Args: { p_event_id: string; p_reason: string }
+        Returns: Json
       }
       resolve_ads_event: {
         Args: {
@@ -27697,6 +27809,7 @@ export type Database = {
         Args: { base: string; exclude_id: string }
         Returns: string
       }
+      unmark_event_historical: { Args: { p_event_id: string }; Returns: Json }
       unpublish_event_from_portal: {
         Args: { p_event_id: string }
         Returns: {

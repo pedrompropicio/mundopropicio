@@ -6345,3 +6345,7 @@ Decisões do Pedro, executor 0 · Cowork (Claude), complementam a D-ERP312/313/3
 - **(d) WhatsApp do Coala sem prova (form_legacy_sem_prova): não se envia.** Consentimento desmarcado nos contactos do Coala e função de elegibilidade a devolver falso para essa origem no Coala. Re-pedido de consentimento só por email, nunca pelo próprio WhatsApp. A MP não foi tocada.
 - **(e) Política de privacidade do Coala PT/EN** substituída em Live a 27/10/2026, só com a Meta.
 - **Estado:** vigente.
+
+## D-ERP318 — Estágios dos eventos / Posição Financeira P1 (27/10/2026)
+
+Decisão do Pedro, R2 autorizada: Planeamento → Em curso → Em fecho → Fechado → Histórico, preservando o CHECK de status. completed significa em_fecho sem carimbo; fechado exige closed_at e status completed. Reabertura legada e reopen_event_closure permanecem separadas: novo trigger limpa closed_at/closed_by ao sair de completed, sem alterar funções/UI existentes. Nova reabertura exige admin+reopen_event e motivo, sem mudar status. Fecho exige todos os selos, cachê configurado congelado, zero linhas BP por rever e zero bloqueios hard, usando fontes servidor existentes. Histórico só admin; auditoria em system_audit_log. 0280 aplicada e verificada; zero backfill. P2 exclusivo do Pedro com bloco e Corro? próprios; sem Publish para DDL.

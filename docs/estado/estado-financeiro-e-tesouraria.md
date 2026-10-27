@@ -1,8 +1,14 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 09/10/2026 (ritual de fecho da frente; inclui o trabalho do chat financeiro-e-tesouraria de 08–09/10). Issues desta sessão: #285 resolvida; #284, #286 e #287 fechadas; #281 à espera de verificação.
+Atualizado: 27/10/2026 — P1 estágios aplicado e verificado; restantes frentes preservadas.
 
 ## Em que pé está
+
+### Posição Financeira — P1 estágios aplicado, aguarda P2
+- 0280 em Live: quatro colunas nullable sem default, dez funções novas e guard/cleanup de reabertura; nenhuma linha existente alterada. `completed` sem closed_at significa em_fecho; fechado exige completed + closed_at. Caminho legado mantém-se e limpa carimbos ao sair de completed.
+- Checklist servidor: selos/snapshot, cachê congelado, zero BP por rever e zero hard de event_close_blockers. Anitta: três selos em falta, 133 linhas por rever (1.122.040,98 €), sem cachê configurado/hard; não fechada nesta tarefa.
+- Verificação Live (a)–(h): 60eventos/0carimbos/0resíduos; MP55 eventos:13em_curso/42em_fecho; ACL conferida;862funções existentes md5 agregado igual, +10novas. Teste fictício em rollback confirma guarda e cleanup. Local13/13; suite2849PASS/6skip/11todo.
+- P2 backfill exclusivo do Pedro com bloco próprio e Corro?. Sem UI, deploy/Publish, crons ou envios. Prova autenticada real de escrita e CI remoto não verificados; nenhuma condição da checklist ficou nao_avaliado_no_servidor. Relatório `docs/testes/p1-event-stages-20261027.md`; funcionamento em `.lovable/memory/features/event-stages.md`.
 
 ### #335 — encontro de contas — FECHADA a 22/10/2026 (estado a 22/10/2026)
 - **Live (instalado passo a passo, cada um com Sim do Pedro):** storage → núcleo → approval → status → invariants → balance → cash_position → cash_position_invariant → restore → kill_switch → trigger_watch/cash_watch → `transaction_offset_control_status()`. Níveis: N0=(t,t) aberto; N1=(f,t) encontros novos bloqueados, estorno disponível; N2=(f,f).
