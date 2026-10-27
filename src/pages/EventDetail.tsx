@@ -158,6 +158,7 @@ export default function EventDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAdmin, isManager, user, hasPermission, role } = useAuth();
+  const { data: eventStage } = useEventStage(id);
   const canViewBP = isAdmin || isManager || hasPermission("view_bp");
   const canViewSponsorship = isAdmin || isManager || hasPermission("view_sponsorship");
   const canViewAB = isAdmin || isManager || hasPermission("view_ab");
