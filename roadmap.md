@@ -2,7 +2,9 @@
 - [x] P3 passo 2 (0272): aplicado; CHECK de nove valores, função e contagens verificados pelo Pedro em Live.
 - [x] P3 passo 3 (0273): SQL manual sem BEGIN/COMMIT, rollback comentado e 45 testes locais preparados; nomes completos confirmados, sem aliases; 68/68 P3 passam.
 - [ ] P3 0273 por aplicar: exige Sim específico após revisão do SQL; passos 4–5 não iniciados. Provas concorrentes/catálogo integral não executadas nesta preparação.
-- [ ] P3 P7: etiqueta distribuicao_resultado no helper e opção derivada no seletor TransactionEditModal; limitação visual mantida até autorização da fase de ecrã.
+- [x] P3 P7: etiqueta distribuicao_resultado no helper e opção derivada no seletor TransactionEditModal (P7a, 27/10).
+- [x] P7a: diálogo «Pagamento do sócio» (congelar com valores do motor, estado, contratos, adiantamentos) — pronto para Publish, aguarda revisão do Pedro no preview.
+- [ ] P7 restante: guarda do selo; P2, P4 (10.1.06), P5 por autorizar.
 - [x] #359 P3: vista0261 aplicada, ACL/RLS e count/max iguais; históricos2316 + novo1; cópia/rollback/testes25PASS e QUADRO atualizados; sem B/0252/apply-coala-bp/DML/deploy/Publish.
 - [ ] #359 P3 fecho: CI verde bloqueado por 2 falhas preexistentes em memory-index; correção fora do recorte. Tipos manuais vedados pela plataforma. Comentário Issue em preparação.
 - [x] #344 R1: resumo de receitas por origem no gerador partilhado/PDF/Excel; 13 regressões PASS, suite 2.197→2.210 PASS, tsgo 0; relatório e reserva libertada, sem DDL/DML/deploy/Publish. CI remoto e aceitação pelo Pedro pendentes da janela do 0.
