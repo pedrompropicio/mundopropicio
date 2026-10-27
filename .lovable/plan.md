@@ -100,9 +100,12 @@ Estado: passos 1/2 aplicados e verificados pelo Pedro em Live; passo 3 preparado
 - Limitação documentada no ecrã e no código: o servidor aceita o share_amount enviado pelo cliente.
 - Fora: P2, P4 (10.1.06), P5, guarda do selo.
 
-## P7b — origem da parte (27/10/2026, R1, parado antes do código)
+## P7b — origem da parte (27/10/2026, R1, pronto para Publish, não publicado)
 - P7a publicado no commit f68d87ab, segundo Pedro; HEAD local confirmado f68d87abd1cf734cd06699f26232173351c5b0ed.
 - Pedido: excluir pagas/extras/acerto do congelar; mostrar e gravar origin do nó, com diferenças explícitas e compatibilidade de snapshots antigos.
 - Contrato SQL compatível: 0269 apenas exige objeto JSON não nulo; 0273/0274 exigem share_amount, não os três campos removidos. Nenhuma RPC chamada ou alterada.
-- Conflito encontrado no motor partilhado, linhas 671–676: na base s/IVA, share usa (resultNet − vatReturnedOut) × effectivePct; o pedido nomeia resultNet. Antes de implementar, Pedro decide usar a base efetiva do motor (recomendado), com a diferença explicitada, ou esclarecer outra apresentação. Não alterar motor.
-- Reserva mantida; implementação, Vitest e tsgo ainda não executados. Questão em docs/questoes-p7b-origem-da-parte.md.
+- Opção A confirmada pelo Pedro às 01:17 UTC: result_amount = resultGross em c/IVA, resultNet − vatReturnedOut em s/IVA; despesas seguem nodeUsesGrossExpenses. Motor intocado.
+- Implementado: origem do nó que contém o participante; snapshots novos sem paid_by_partner/extras/settlement_amount; detalhes de operações sem dupla contagem; diferenças ao cêntimo explícitas. Congelados usam apenas origem gravada, sem reconstruir snapshots antigos.
+- Testes focados 35/35; suite completa 2803 PASS, 6 skipped, 11 todo (288 ficheiros passaram, 2 skipped). Verificação automática de tipos/build OK; tsgo manual não executado por restrição da plataforma.
+- Não testado: revisão visual desktop/mobile, fluxos reais com RPCs, CI remoto e valores Anitta no ecrã Live. Testes existentes do motor passaram; motor/RPCs/migrações sem alterações. Sem DDL/DML/deploy/Publish/Live.
+- Reserva atualizada para pronto para Publish; questões/resposta e limites em docs/questoes-p7b-origem-da-parte.md.

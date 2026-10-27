@@ -49,7 +49,7 @@ export interface PartnerShareOrigin {
   result_amount: number;
 }
 
-/** Projection du nó, não um segundo motor. A base s/IVA exclui o IVA entregue aos filhos. */
+/** Projeção do nó, não um segundo motor. A base s/IVA exclui o IVA entregue aos filhos. */
 export function buildShareOrigin(p: ParticipantResult, node: SettlementNodeResult): PartnerShareOrigin {
   return {
     parent_quota: r2(node.parentQuota ?? 0),
