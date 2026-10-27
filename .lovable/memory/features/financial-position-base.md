@@ -19,3 +19,6 @@ Página /erp/posicao-financeira e menu só com view_financial_position. Ano corr
 
 ## P6a-fix
 Cartões de topo A pagar/A receber = a_pagar.total/a_receber.total (sem transitórias) + linha «+ transitórias de repasse»; posicao.a_pagar/a_receber validados, não apresentados. Um único seletor de ano (Todos=null). Formatador do painel com useGrouping "always" só neste módulo.
+
+## P5 — Saldo Geral e resultado MP (D-ERP323)
+Edge `financial-position` p5-v1; gate = RPC com JWT do utilizador; eventos da RPC (nunca event_dates). Motor só via computeStatementEngine/buildPartnerStatement. Estrutura exclui 10.3, 10.5.01, imposto_rendimento, financeiro; ano coalesce(payment_date,due_date,created_at). Sócios: base<0 a receber, total>0 por liquidar menos contratos P3 pagos. BP sem transação nunca soma 2×. Transitórias fora do Saldo Geral. Evento falhado → incompleto, totais null. Provas docs/testes/p5-posicao-saldo-geral-20261027.md.

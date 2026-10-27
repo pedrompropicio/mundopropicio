@@ -1,8 +1,17 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 27/10/2026 — P6a painel implementado, não publicado; testes locais verdes, CI do novo SHA aguarda sincronização. P4/P4b em Live; restantes frentes preservadas.
+Atualizado: 27/10/2026 — P5 (Saldo Geral + resultado MP) implementado, aguarda Verificação em Live; P6a/P6a-fix não publicados; P4/P4b em Live.
 
 ## Em que pé está
+
+### Posição Financeira — P5 implementado, aguarda Verificação em Live (D-ERP323)
+
+- Edge function `financial-position` (p5-v1): gate = RPC get_financial_position_base com o JWT do utilizador (erros not_authenticated 401, company_forbidden/financial_position_permission_denied 403). Eventos = `eventos_por_estagio` da RPC (nunca event_dates); cancelado fora; Histórico só BP, marcado e fora dos totais.
+- Motor: `computeStatementEngine(bundle)` (extraído de buildPartnerStatement, mesma montagem) e `buildPartnerStatement` por sócio `settles`; sem segundo cálculo. Resultado MP = house.residual.
+- Sócios: transferBase < 0 → a receber |base|; transferTotal > 0 → por liquidar (c/IVA se transfer_with_vat) − contratos P3 pagos (hoje 0); alerta em fechados.
+- Estrutura: despesa sem evento, sem mães, não transitória, não exclude_from_result, não estornada, ano por coalesce(payment_date, due_date, created_at); exclui 10.3, 10.5.01, imposto_rendimento, financeiro/10.2.*; sem categoria e 2.x/3.x com alerta. Referência do Pedro (2026): 282 linhas / 285.791,26 €, por pagar 10 / 10.199,29 €.
+- Saldo Geral: ativos = caixa + cartões + retido visível + ocultas + a receber + a receber de sócios; passivos = a pagar (BP sem transação só como «dos quais») + estrutura por pagar + sócios por liquidar. Transitórias só informativas. null sem saldos visíveis; null e `incompleto` se algum evento falhar (concorrência 4, limite 25 s).
+- Por fazer: Verificação em Live (9 eventos vs partner-statement, diferença 0,00; tempo); depois Publish pelo 0 - Cowork. Ecrã = P6b.
 
 ### Posição Financeira — P6a implementado, aguarda CI e Publish do 0
 
