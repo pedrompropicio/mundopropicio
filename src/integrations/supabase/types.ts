@@ -25569,6 +25569,17 @@ export type Database = {
         }[]
       }
       clube_newgang_summary: { Args: never; Returns: Json }
+      coala_autorizacoes_estado: { Args: { p_token: string }; Returns: Json }
+      coala_autorizacoes_gravar: {
+        Args: {
+          p_ads: boolean
+          p_locale: string
+          p_phone: string
+          p_token: string
+          p_whatsapp: boolean
+        }
+        Returns: Json
+      }
       coala_send_early_bird_batch: {
         Args: { p_dry_run?: boolean; p_limit?: number }
         Returns: Json
