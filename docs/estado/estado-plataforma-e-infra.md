@@ -1,29 +1,18 @@
 # ESTADO — Plataforma & Infra
 
-## #352 — G1 verde; G2 autorizado e em curso (26/10/2026)
+## #352 — G1 verde; G2 com 48 bloqueios (27/10/2026)
 
-**G1 verde a 26/10/2026.** 1474/1474 entradas executadas com sucesso desde vazio; checkpoints 47/47 e 114/114 sem diferenças; compensação final de ACL aprovada. Run 40362466400 no repositório privado `mundopropicio-replay`; scanner de dados pessoais final com zero ocorrências. Relatório público com hashes e contagens: [sanitized-literal-reconstruction-g1.md](../estudos/saas-e-desenvolvimento/gates-352/sanitized-literal-reconstruction-g1.md); fecho na #352 (comentário 6422158628). G1 verde não declara paridade integral de catálogo; isso é o G2.
+Executor: Codex, chat 2 · Plataforma e Infra; revisão por leitura: Claude, 0 · Cowork. Reserva mantida; Issue aberta. Retoma autorizada por Pedro e registada no comentário 6448335376. Ciclo do parecer 6445145238 concluído, sem avançar para G3.
 
-**Regras de classe aprovadas a 26/10/2026** (nomes; texto e limites nos pareceres da #352):
-- `statement_terminator`
-- `grant_revoke_missing_object`
-- `orphan_dml_without_effect`
-- `synthetic_identity_twin`
-- `data_volume_assertion`
-- `platform_role_grant_excluded`
-- `mixed_proof_ddl_extraction`
-- `sanitized_literal_reconstruction`
-- `live_only_ddl_reconstructed` (extensões a relações sem coluna de data e a colunas)
+**G1 desde vazio confirmado:** run 40548517665 (#64), commit privado 52a5a977756d512cc944bf4cb2591a17e125bc9c; 1.547 entradas, checkpoints 114/114 e 47/47, 165 operações finais R1/R2, R6/R7 verificadas, oito retiradas de associação pgmq, enum exato, 97 compensações ACL e contrato #335 com 286 objetos/zero diferenças. 62 testes de regressão; scanner 1.520 SQL/zero ocorrências e 982 literais JSON/zero erros. #62 falhava no auditor N9 com JSON vazio; corrigido sem excluir fontes e com tratamento de JSONC.
 
-**G2 autorizado pelo Pedro** (comentário 6422225015 da #352) e em curso. Executor: Codex; revisão por leitura: Claude (0 · Cowork). Âmbito: compensação de ACL antes do G2 e comparação de catálogo entre o replay e Live, com Live só por leitura de catálogo. Exclusões fechadas: os papéis de plataforma já aprovados e as substituições de `sanitized_literal_reconstruction`, aplicadas igualmente aos dois lados. Cada diferença é um bloqueio para parecer; nada se corrige por iniciativa própria. Fora do âmbito: dados, seeds novos, crons, segredos, criar o projecto de homologação, deploy e Publish.
+**G2 vermelho:** 48 bloqueios depois de N1–N9 e da exceção exata R8: 43 diferenças de ordem em sete tabelas (event_cache_configs, event_forecasts, events, financial_accounts, profiles, song_links, suppliers), duas ACL de Storage, duas memberships envolvendo postgres e uma configuração de papel. São duas famílias; grupos (a) 0/(b) 46/(c) 2. Somente estes casos seguem para parecer. As regras de literais, enum, ACL, tail, definição e ausência de Live foram preservadas. A validade do índice inválido é não bloqueante por R8, sem fabricar estado inválido. Achados separados nas #373/#374.
 
-**Próximos passos**, cada um com "Sim" próprio do Pedro:
-1. **G2** — comparação de catálogo: diferenças classificadas na #352, relatório público só com contagens, nomes de objectos e hashes.
-2. **G3** — dados de referência e seeds, por fatias autorizadas.
-3. **G4** — crons: proposta individual por cron, nenhum activo na homologação sem aprovação.
-4. **G5** — segredos e URLs: só nomes, nunca valores; substituição dos marcadores pelo projecto de homologação.
+**Origem e limite:** comparação reproduzível com o par congelado do ciclo interrompido (fonte pública f02c1ea826d22306eef394061c17ed178da3c804, 711 versões Supabase + 283 entradas Drizzle, catálogo arquivado com 25 categorias). Não é uma nova captura da produção atual. O hash do arquivo, contagens e igualdade dos fingerprints/ledgers guardados nos extremos foram conferidos; um SELECT de catálogo nesta retoma terminou em 504 e não foi usado como prova.
 
-Reserva da #352 mantida no QUADRO; #352 aberta. Sem Live novo por esta escrita, sem DSN, deploy ou Publish.
+[Relatório e residuais](../estudos/saas-e-desenvolvimento/gates-352/review-6445145238-20261027/relatorio.md). Provas privadas e reproducer no replay, evidence/20261027-review-6445145238. Sucesso do workflow não é G2 verde.
+
+Limites mantidos: Live só SELECT de catálogo; nenhuma escrita Live, dados operacionais, novos seeds, segredos, infra, deploy ou Publish. Próximo passo: parecer por leitura sobre os dois grupos ainda sem regra suficiente. G3/G4/G5 continuam dependentes das autorizações próprias já estabelecidas.
 
 ## #353 — correção R1 de CI: relógio determinístico nos testes
 24/10/2026 11:42 UTC — base comum 3afd243a92c6462f49be483faccf954391276d3b limpa. Só src/test/capi-v2.test.ts: Date fixo em NOW no describe handler, afterEach restaura; temporizadores reais preservados. Baseline host 24/10: 11 FAIL/18 PASS; depois 33 PASS no host atual e em 01/01/2030 simulado, fronteiras antes/no/depois de 6 dias e isolamento provados. Suite integral final 2409 PASS/6 skip/11 todo, exit 0; build automático OK. Código c83ca22ec; relatório docs/testes/issue353-ci-relogio.md. Reserva #353 mantida até controller conferir tsgo e CI no SHA final; local não prova GitHub verde. Sem código de produção, rede externa/Live, DDL/DML/config/segredos/flags/deploy/Publish/reenvios; reserva #322 e restantes estados preservados. Issue não editada nem fechada.
