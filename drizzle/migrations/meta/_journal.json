@@ -1989,6 +1989,13 @@
       "when": 1793117076538,
       "tag": "0283_p4b_financial_position_permission",
       "breakpoints": true
+    },
+    {
+      "idx": 284,
+      "version": "7",
+      "when": 1793133118993,
+      "tag": "0284_0284_p5b_a_pagar_por_evento",
+      "breakpoints": true
     }
   ]
 }
