@@ -1,0 +1,57 @@
+import { z } from "zod";
+
+/** Contrato p5-v1 da edge function `financial-position` (fail-closed). */
+export const P5_VERSION = "p5-v1";
+const amount = z.number().finite();
+const count = z.number().int().nonnegative();
+const sourced = z.object({ valor: amount.nullable(), origem: z.string().min(1) });
+
+const eventSchema = z.object({
+  event_id: z.string().uuid(), nome: z.string(), estagio: z.string(), so_bp: z.boolean(), historico: z.boolean(),
+  fora_dos_totais: z.boolean(), resultado_evento: amount.nullable(), partes_socios_total: amount.nullable(),
+  creditos_mp: z.object({ parte_casa: amount, iva_devolvido: amount, outros: amount, total: amount }).nullable(),
+  resultado_mp: amount.nullable(), checks_ok: z.boolean(), alertas: z.array(z.string()), origem: z.string(),
+});
+const structureLine = z.object({ code: z.string().nullable(), nome: z.string(), bruto: amount, n: count });
+
+export const financialPositionP5Schema = z.object({
+  meta: z.object({
+    version: z.literal(P5_VERSION), base_version: z.string().min(1), company_id: z.string().uuid(),
+    year: z.number().int().nullable(), data_referencia: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), gerado_em: z.string(),
+    eventos_processados: count, eventos_com_erro: z.array(z.object({ event_id: z.string().uuid(), nome: z.string(), motivo: z.string() })),
+    incompleto: z.boolean(), saldos_visiveis: z.boolean(), duracao_ms: count.optional(),
+  }),
+  eventos: z.array(eventSchema),
+  estrutura: z.object({
+    bruto: amount, linhas: count, por_pagar: amount, por_pagar_n: count, origem: z.string(),
+    por_categoria: z.array(structureLine.extend({ ebitda_class: z.string().nullable(), alerta: z.string().nullable() })),
+    excluidas: z.array(structureLine.extend({ motivo: z.string() })),
+  }),
+  resultado_mp_ano: z.object({ sem_estrutura: amount, com_estrutura: amount }).nullable(),
+  socios: z.object({
+    linhas: z.array(z.object({
+      event_id: z.string().uuid(), supplier_id: z.string().uuid(), nome: z.string(), transferBase: amount, transferVat: amount,
+      transferTotal: amount, transfer_with_vat: z.boolean(), pago_contratos: amount, liquido: amount,
+      sentido: z.enum(["a_receber", "por_liquidar", "zero"]), origem: z.string(),
+    })),
+    a_receber_total: amount.nullable(), por_liquidar_total: amount.nullable(),
+    alertas: z.array(z.object({ event_id: z.string().uuid(), supplier_id: z.string().uuid(), alerta: z.string() })),
+  }),
+  saldo_geral: z.object({
+    ativos: z.object({ caixa: sourced, cartoes: sourced, retido_visivel: sourced, retido_ocultas: sourced, a_receber: sourced, a_receber_socios: sourced, total: amount }),
+    passivos: z.object({ a_pagar: sourced.extend({ dos_quais_bp_sem_transacao: sourced }), estrutura_por_pagar: sourced, socios_por_liquidar: sourced, total: amount }),
+    posicao_hoje: amount, notas: z.array(z.string()),
+    informativo: z.object({ transitorias_pagar: sourced, transitorias_receber: sourced, acerto: z.unknown() }),
+  }).nullable(),
+}).superRefine((v, ctx) => {
+  if (!v.meta.saldos_visiveis && v.saldo_geral !== null) ctx.addIssue({ code: "custom", message: "saldo_geral_sem_permissao" });
+  if (v.meta.incompleto && (v.resultado_mp_ano !== null || v.saldo_geral !== null)) ctx.addIssue({ code: "custom", message: "parcial_somado" });
+});
+
+export type FinancialPositionP5 = z.infer<typeof financialPositionP5Schema>;
+
+export function parseFinancialPositionP5(raw: unknown): FinancialPositionP5 {
+  const r = financialPositionP5Schema.safeParse(raw);
+  if (!r.success) throw new Error("financial_position_invalid_response");
+  return r.data;
+}
