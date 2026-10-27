@@ -1,18 +1,45 @@
 # ESTADO — Plataforma & Infra
 
-## #352 — G2 congelado verde; G3 bloqueado na idempotência (27/10/2026)
+## #352 — G3 VERDE (validação manual); G6 aprovado (27/10/2026)
 
-**G1/G2 aprovados preservados.** Run privado #64, 1547 entradas, checkpoints 114/114 e 47/47, contrato #335 com 286 objetos e zero diferenças. G2 confirmado em 6450286547 no par congelado f02c1ea: zero bloqueantes após N1–N9 e a exceção exata R8. Mantêm-se todas as regras aprovadas, R4b, self_contained_fixture, os cinco casos N4 e as 152 políticas RLS de storage.objects.
+**Resultado do G3 (6454775348, confirmado pelo revisor 0).** A execução manual autorizada terminou com sucesso a 27/10/2026, às 22:03 UTC: run 40590761911 no repositório privado `mundopropicio-replay`. Correu o pacote `g3-validation-current-catalogue.zip`, com SHA-256 `c316fc12…`: 43 ficheiros, todos conferidos contra os blobs publicados, sem SQL novo nem cópias dos inputs históricos.
+- **G1 desde vazio:** verde, com 1547 entradas concluídas.
+- **Idempotência nativa:** os 307 ficheiros da baseline foram aplicados duas vezes, sem erro.
+- **Checkpoints e testes:** 114/114 e 47/47; os 10 testes das regras passaram.
+- **Scanner:** 0 ocorrências e 0 erros JSON em 1534 ficheiros.
+- **G2 N1–N9:** verde, sem categorias bloqueantes, tanto no par congelado como no catálogo actual (inclui as migrações 0282, 0283 e 0284).
+- **R8 e storage:** só a excepção já aprovada; as 152 políticas de storage são iguais nos dois G2.
+- **Isolamento:** base descartável desde vazio, cron desligado e saída de rede bloqueada.
+- **Live:** recebeu só SELECT de catálogo.
 
-**Aceitação corrigida em 6452933096.** G1 desde vazio e G2 N1–N9 no replay privado, construídos com o repo público, baseline e inputs históricos já existentes no privado. Portabilidade pública integral deixa de ser gate do G3. As 232 entradas e 8 fixtures ficam na #387, só com contagens e hashes. A retirada da sonda HTTP de produção do CI geral fica na #388; para a #352, só CI específico e skip ci documental.
+**Critério de aceitação** (corrigido em 6452933096). A homologação constrói-se a partir do repo público (migrations, Drizzle e `supabase/baseline/live-only/`, com 307 objectos fora de migrations) e dos inputs históricos que já estão no replay privado, que continuam privados. A prova é o G1 desde vazio e o G2 com essa combinação, no replay privado. A portabilidade pública a 100% deixa de ser critério do G3 e passa a trabalho contínuo das frentes. O conteúdo histórico não se publica no repo público.
 
-**Pacote exato autorizado em 6452948208 e executado.** ZIP SHA-256 e4fef34051db251e3578d16791c5495c22cfe7ecf6401efb2ad66e6cf587cca9, 43 ficheiros e 270709 bytes de fontes. Publicação privada em 70a79285cfdc6a860a334da12ef75347fe4d3f1d, branch docs/352-g3-native-e4fef340-20261027, sobre main 9ed9941. Nenhum novo ficheiro SQL ou input histórico foi incluído. Só o workflow específico correu: [40580037584](https://github.com/pedrompropicio/mundopropicio-replay/actions/runs/40580037584).
+**Detector de deriva: agenda periódica DESLIGADA** (6454615955 e 6454775348). Correu uma única vez, por push numa branch privada de validação. A main privada não tem o workflow do G3, e não há tarefa periódica. A recolha prevista chega a Live pela ligação Lovable já autorizada, só com as consultas de catálogo revistas, sem credenciais de produção no GitHub. O CI recusa capturas incompletas, instáveis ou com mais de 18 horas. Activar a agenda exige primeiro provar que essa ligação existe no contexto periódico. Se alguma vez for precisa uma credencial de produção, a execução pára e passa a G5, com "Sim" próprio.
 
-**Resultado nativo: FAIL de idempotência.** A base local foi reposta desde vazio, cron off e egress externo REJECT. Dez testes passaram e o scanner deu zero em 1534 ficheiros. Checkpoints 114/114 e 47/47 passaram. Depois de 1274 entradas concluídas, a segunda aplicação do ficheiro de baseline public.song_link_diag tentou ADD GENERATED ALWAYS AS IDENTITY novamente e falhou. G1 incompleto; novo G2 e aceitação contra Live atual não executados; detector periódico não ativado. O pacote autorizado permanece byte-idêntico. Correção local preparada para guardar a criação da identidade e falhar perante modo divergente; atualizar a baseline consumida exige alterar o pin do pacote, sujeito a nova confirmação de Pedro.
+**Classe `baseline_idempotency_guard`** (6453496935, "Sim" do Pedro). Correcções a ficheiros de `supabase/baseline/live-only/` sem novo "Sim" por caso, desde que cumpram tudo isto:
+- acrescentam apenas uma guarda de existência ou de igualdade;
+- não mudam o efeito da primeira aplicação;
+- param se o objecto já existir com definição diferente (nunca há ALTER, DROP nem reinício de sequência);
+- ficam registadas na #352 com o ficheiro, a linha, os hashes e o novo hash do pacote, com o scanner a 0.
 
-**Baseline e encaminhamento anteriores preservados.** 307 objetos fora de migrations, scanner zero e CI estático verde no commit 7fc37d2. Issues #375–#382 cobrem os objetos; #383 classifica 41 INSERTs em 20 ficheiros de testes, com tabela, hash, linha e prova. Inclui financial_accounts e channel_check ads; #373/#374 preservadas. A captura de catálogo das 19:08 UTC continua evidência dessa janela, sem alegar que cobre mudanças posteriores.
+Fora desta classe, continua a ser preciso "Sim" próprio.
 
-Relatório e retoma: [g3-20261027/estado.md](../estudos/saas-e-desenvolvimento/gates-352/g3-20261027/estado.md). Executor Codex, frente 2; reserva #352 mantida. Sem DDL/DML em Live, G4/G5/G6, infra, deploy ou Publish.
+**G6 aprovado** (6454612060, "Sim" do Pedro):
+- **Organização Supabase nova:** "Mundo Propício — Homologação", só do Pedro.
+- **Plano:** Pro, com custo-base de US$25/mês (podendo acrescer IVA) e limite de gastos ligado.
+- **Região:** eu-west-3 (Paris). A produção mantém-se no Lovable Cloud.
+- **Quem faz:** o Pedro cria a organização, activa o MFA e aceita a facturação. Depois comunica **só o nome e o ID da organização**, que ficam registados na #352. Nenhuma credencial entra no Git, nas Issues nem nos chats.
+- **Projecto de homologação:** é um passo à parte, com "Sim" próprio.
+
+**Pendências:**
+- **G4** — crons, com "Sim" próprio.
+- **G5** — segredos e URLs, com "Sim" próprio.
+- **Projecto de homologação** — criação, com "Sim" próprio.
+- **#388** — encaminhamento aberto.
+- **Achados #370, #373 e #374** — por tratar nas Issues respectivas.
+- **Região de Live** — parece ser AWS us-east-2 (EUA), pelo endereço IP do servidor, mas não está confirmado na fonte oficial. Fica para o Assessor Jurídico avaliar o impacto RGPD (transferências internacionais). Não altera o G6.
+
+Issues #375–#383, #387 e #388 abertas. Executor Codex, frente 2; reserva do G3 libertada no QUADRO; #352 aberta. Sem DDL/DML em Live, G4/G5, criação de projecto, deploy ou Publish.
 
 ## #353 — correção R1 de CI: relógio determinístico nos testes
 24/10/2026 11:42 UTC — base comum 3afd243a92c6462f49be483faccf954391276d3b limpa. Só src/test/capi-v2.test.ts: Date fixo em NOW no describe handler, afterEach restaura; temporizadores reais preservados. Baseline host 24/10: 11 FAIL/18 PASS; depois 33 PASS no host atual e em 01/01/2030 simulado, fronteiras antes/no/depois de 6 dias e isolamento provados. Suite integral final 2409 PASS/6 skip/11 todo, exit 0; build automático OK. Código c83ca22ec; relatório docs/testes/issue353-ci-relogio.md. Reserva #353 mantida até controller conferir tsgo e CI no SHA final; local não prova GitHub verde. Sem código de produção, rede externa/Live, DDL/DML/config/segredos/flags/deploy/Publish/reenvios; reserva #322 e restantes estados preservados. Issue não editada nem fechada.
