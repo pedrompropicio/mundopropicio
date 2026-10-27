@@ -6335,3 +6335,13 @@ Decisões do Pedro:
 ## D-ERP316 — Lobo no fecho MP + EIN (26/10/2026)
 
 Lobo: ⅓ nominal no fecho MP + EIN (tratado com a EIN); MP paga-lhe 6% por acordo próprio e a diferença de 4% é só da MP (26/10/2026). **Estado:** vigente.
+
+## D-ERP317 — #359: execução das regras RGPD no Coala (27/10/2026)
+
+Decisões do Pedro, executor 0 · Cowork (Claude), complementam a D-ERP312/313/314.
+- **(a) Banner v2 do Coala:** consentimento de marketing só para a Meta; análise e funcionais saem; quem aceitou numa versão anterior é perguntado de novo. Publicado a 27/10/2026.
+- **(b) Correspondência avançada da Meta no dataset do Coala: manter ligada.** Assunto encerrado.
+- **(c) P_EB27_LISTA: eliminada** por nunca ter sido usada por nenhuma campanha (verificado na Meta por duas fontes independentes: o 0 · Cowork e o auditor de tráfego pago). A eliminação na Meta é feita pelo Pedro; o auditor verifica e regista, não elimina. Cron coala-eb27-audience-sync removido e linha do ERP desativada.
+- **(d) WhatsApp do Coala sem prova (form_legacy_sem_prova): não se envia.** Consentimento desmarcado nos contactos do Coala e função de elegibilidade a devolver falso para essa origem no Coala. Re-pedido de consentimento só por email, nunca pelo próprio WhatsApp. A MP não foi tocada.
+- **(e) Política de privacidade do Coala PT/EN** substituída em Live a 27/10/2026, só com a Meta.
+- **Estado:** vigente.
