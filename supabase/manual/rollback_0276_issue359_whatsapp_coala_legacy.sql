@@ -1,0 +1,18 @@
+-- Rollback 0276 (#359 / D-ERP312). NÃO aplicar sem «Sim». Restaura a definição Live anterior (md5 7b2ca8dd58c371ec226a1bb0f9519192).
+-- CREATE OR REPLACE FUNCTION public.crm_whatsapp_eligible(p_contact uuid)
+--  RETURNS boolean
+--  LANGUAGE plpgsql
+--  STABLE SECURITY DEFINER
+--  SET search_path TO 'public', 'pg_temp'
+-- AS $function$
+-- DECLARE c public.contacts; latest record;
+-- BEGIN
+--  SELECT * INTO c FROM public.contacts WHERE id=p_contact AND
+--  (public.row_belongs_to_current_company(company_id) OR auth.role()='service_role');
+--  IF NOT FOUND OR NOT c.consent_whatsapp OR c.phone_e164 IS NULL OR c.phone_e164 !~ '^\+[1-9][0-9]{7,14}$' THEN RETURN false; END IF;
+--  SELECT * INTO latest FROM public._crm_whatsapp_latest(c.id,c.company_id);
+--  IF FOUND THEN RETURN coalesce(latest.decision='granted' AND latest.phone=c.phone_e164
+--  AND latest.phone_fp=public._club332_whatsapp_fp(c.phone_e164),false); END IF;
+--  -- Pre-existing legacy true is preserved; explicit revocation above always prevails.
+--  RETURN coalesce(c.consent_whatsapp_source NOT IN ('club_profile_whatsapp-v1','club_profile_whatsapp-v2'),true);
+-- END $function$;

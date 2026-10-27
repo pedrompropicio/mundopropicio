@@ -1933,6 +1933,13 @@
       "when": 1793061130973,
       "tag": "0275_0275_p3_unfreeze_requires_no_contracts",
       "breakpoints": true
+    },
+    {
+      "idx": 276,
+      "version": "7",
+      "when": 1793065733541,
+      "tag": "0276_0276_issue359_whatsapp_coala_legacy",
+      "breakpoints": true
     }
   ]
 }
