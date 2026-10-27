@@ -125,6 +125,7 @@ Uma linha por tema, por frente: pergunta → ficheiros (mem://pasta/ficheiro). S
 - [Natureza económica do evento](mem://features/event-nature) — event_nature NOT NULL e obrigatório na criação, distinto de management_type; relatórios filtram por natureza sem alterar cálculos
 - [Event revenue basis (SSoT)](mem://features/event-revenue-basis) — Função única da receita do evento em 3 bases (real / previsto corrente / previsto + excedido) com decomposição por bucket
 - [Event settlements (Fechamentos)](mem://features/event-settlements) — Fundação dos Apuramentos por evento — event_settlements + event_settlement_participants, modos settles/nominal, casa implícita e espelho temporário de event_partners
+- [Estágios dos eventos](mem://features/event-stages) — P1 servidor com carimbos de fecho/histórico, checklist canónica e reabertura legada compatível
 - [Event view permissions (granular per-tab)](mem://features/event-view-permissions) — 4 permissões granulares (view_bp/view_sponsorship/view_ab/view_simulator) controlam visibilidade de abas no EventDetail; gate frontend + RLS
 - [Fecho do Evento ↔ Fecho com Parceiros (paridade de filtros)](mem://features/fecho-filter-parity) — As duas vistas de fecho usam EXATAMENTE o mesmo universo de transações para evitar divergência de números. Filtros canónicos.
 - [Financial accounts hidden flag](mem://features/financial-accounts-hidden-flag) — Flag is_hidden em financial_accounts esconde a conta dos seletores de criação (transações, camarim, reembolso, adiantamento) mas mantém-na em relatórios
