@@ -1,0 +1,155 @@
+-- P1 event stages; additive only. Pedro authorization 2026-10-27.
+ALTER TABLE public.events ADD COLUMN closed_at timestamptz, ADD COLUMN closed_by uuid, ADD COLUMN historical_at timestamptz, ADD COLUMN historical_by uuid;
+
+CREATE FUNCTION public._event_stage_guard() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+BEGIN
+  IF TG_OP='INSERT' THEN
+    IF NEW.closed_at IS NOT NULL OR NEW.closed_by IS NOT NULL OR NEW.historical_at IS NOT NULL OR NEW.historical_by IS NOT NULL THEN
+      RAISE EXCEPTION 'event_stage_direct_write_forbidden' USING ERRCODE='42501';
+    END IF;
+  ELSIF ROW(NEW.closed_at,NEW.closed_by,NEW.historical_at,NEW.historical_by) IS DISTINCT FROM ROW(OLD.closed_at,OLD.closed_by,OLD.historical_at,OLD.historical_by)
+    AND coalesce(current_setting('app.event_stage_op',true),'') <> NEW.id::text||':'||txid_current()::text THEN
+    RAISE EXCEPTION 'event_stage_direct_write_forbidden' USING ERRCODE='42501';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE FUNCTION public._event_stage_legacy_reopen() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+BEGIN
+  IF OLD.status='completed' AND NEW.status<>'completed' THEN
+    NEW.closed_at:=NULL; NEW.closed_by:=NULL;
+  END IF;
+  RETURN NEW;
+END $$;
+-- Alphabetical BEFORE order: existing permission, z_stage guard, zz_stage cleanup.
+-- Guard checks caller fields BEFORE the trusted cleanup; unchanged caller fields pass.
+CREATE TRIGGER z_stage_fields_guard BEFORE INSERT OR UPDATE ON public.events FOR EACH ROW EXECUTE FUNCTION public._event_stage_guard();
+CREATE TRIGGER zz_stage_legacy_reopen BEFORE UPDATE ON public.events FOR EACH ROW EXECUTE FUNCTION public._event_stage_legacy_reopen();
+
+CREATE FUNCTION public._event_stage_access(p_event_id uuid,p_mode text DEFAULT 'read') RETURNS public.events LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public AS $$
+DECLARE e public.events; u uuid:=auth.uid();
+BEGIN
+  SELECT * INTO e FROM public.events WHERE id=p_event_id;
+  IF e.id IS NULL THEN RAISE EXCEPTION 'event_not_found'; END IF;
+  IF NOT public.row_belongs_to_current_company(e.company_id) AND NOT (p_mode='read' AND auth.role()='service_role') THEN
+    RAISE EXCEPTION 'event_company_denied' USING ERRCODE='42501';
+  END IF;
+  IF p_mode<>'read' THEN
+    IF u IS NULL OR e.company_id IS DISTINCT FROM public.current_company_id() OR NOT (
+      public.has_role(u,'admin'::public.app_role) OR (p_mode='close' AND public.has_role(u,'manager'::public.app_role))
+    ) THEN RAISE EXCEPTION 'event_stage_permission_denied' USING ERRCODE='42501'; END IF;
+    IF p_mode='reopen' AND NOT public.has_permission_in(u,'reopen_event',e.company_id) THEN
+      RAISE EXCEPTION 'event_reopen_permission_denied' USING ERRCODE='42501';
+    END IF;
+  END IF;
+  RETURN e;
+END $$;
+
+CREATE FUNCTION public.event_stage(p_event_id uuid) RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public AS $$
+DECLARE e public.events; last_day date;
+BEGIN
+  e:=public._event_stage_access(p_event_id);
+  IF e.status='cancelled' THEN RETURN 'cancelado'; END IF;
+  IF e.historical_at IS NOT NULL THEN RETURN 'historico'; END IF;
+  IF e.closed_at IS NOT NULL AND e.status='completed' THEN RETURN 'fechado'; END IF;
+  IF e.status='planning' THEN RETURN 'planeamento'; END IF;
+  -- isEventRealized: max own/child civil date; D-ERP288 server timezone.
+  SELECT max(date) INTO last_day FROM public.events WHERE (id=e.id OR parent_event_id=e.id) AND company_id=e.company_id;
+  IF e.status='completed' OR last_day<(now() AT TIME ZONE 'Europe/Lisbon')::date THEN RETURN 'em_fecho'; END IF;
+  RETURN 'em_curso';
+END $$;
+CREATE FUNCTION public.event_stage_list() RETURNS TABLE(event_id uuid,stage text) LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$
+  SELECT e.id, public.event_stage(e.id) FROM public.events e WHERE e.company_id=public.current_company_id() AND public.row_belongs_to_current_company(e.company_id)
+$$;
+
+CREATE FUNCTION public.event_close_checklist(p_event_id uuid) RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public AS $$
+DECLARE e public.events; blockers jsonb; total_n int; unsealed_n int; cache_n int; unfrozen_n int; hard_n int; bp_n int;
+BEGIN
+  e:=public._event_stage_access(p_event_id);
+  SELECT count(*), count(*) FILTER(WHERE NOT is_sealed OR sealed_snapshot IS NULL) INTO total_n,unsealed_n FROM public.event_settlements WHERE event_id=e.id AND company_id=e.company_id;
+  -- Canonical frozen expression from _cache_resolve_lines: city overrides config.
+  -- Root config applies to each direct city, even when no cache BP line exists yet.
+  WITH scope AS (SELECT id FROM public.events WHERE (id=e.id OR parent_event_id=e.id) AND company_id=e.company_id), configured AS (
+    SELECT c.id,coalesce(s.is_finalized,c.is_finalized,false) frozen
+    FROM public.event_cache_configs c
+    JOIN public.events target ON target.id=c.event_id OR target.parent_event_id=c.event_id
+    LEFT JOIN public.event_cache_city_settlements s ON s.cache_config_id=c.id AND s.event_id=target.id
+    WHERE c.company_id=e.company_id AND target.id IN (SELECT id FROM scope)
+      AND (target.id<>c.event_id OR NOT EXISTS(SELECT 1 FROM public.events child WHERE child.parent_event_id=c.event_id))
+  ) SELECT count(*),count(*) FILTER(WHERE NOT frozen) INTO cache_n,unfrozen_n FROM configured;
+  blockers:=public.event_close_blockers(e.id);
+  IF blockers IS NULL OR jsonb_typeof(blockers->'hard')<>'object' OR blockers#>>'{soft,bp_lines_unreviewed,count}' IS NULL THEN
+    RAISE EXCEPTION 'event_checklist_source_unavailable';
+  END IF;
+  SELECT coalesce(sum(jsonb_array_length(value)),0) INTO hard_n FROM jsonb_each(blockers->'hard');
+  bp_n:=(blockers#>>'{soft,bp_lines_unreviewed,count}')::int;
+  RETURN jsonb_build_object('ok',unsealed_n=0 AND unfrozen_n=0 AND bp_n=0 AND hard_n=0,
+    'settlements',jsonb_build_object('ok',unsealed_n=0,'total',total_n,'unsealed_or_missing_snapshot',unsealed_n),
+    'cache',jsonb_build_object('ok',unfrozen_n=0,'configured_targets',cache_n,'unfrozen',unfrozen_n),
+    'bp_lines',jsonb_build_object('ok',bp_n=0,'count',bp_n,'saldo_net',blockers#>'{soft,bp_lines_unreviewed,saldo_net}'),
+    'hard_blockers',jsonb_build_object('ok',hard_n=0,'count',hard_n,'values',blockers->'hard'));
+END $$;
+
+CREATE FUNCTION public.close_event(p_event_id uuid,p_reason text DEFAULT NULL) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE e public.events; checks jsonb; previous_op text:=coalesce(current_setting('app.event_stage_op',true),'');
+BEGIN
+  PERFORM 1 FROM public.events WHERE id=p_event_id FOR UPDATE;
+  e:=public._event_stage_access(p_event_id,'close');
+  IF e.closed_at IS NOT NULL THEN RAISE EXCEPTION 'event_already_closed'; END IF;
+  IF e.status='cancelled' OR e.historical_at IS NOT NULL THEN RAISE EXCEPTION 'event_stage_close_invalid'; END IF;
+  -- Lock checklist source parents before reading; existing child guards share parent locks.
+  PERFORM 1 FROM public.event_settlements WHERE event_id=e.id ORDER BY id FOR UPDATE;
+  PERFORM 1 FROM public.event_cache_configs WHERE event_id=e.id OR event_id IN(SELECT id FROM public.events WHERE parent_event_id=e.id) ORDER BY id FOR UPDATE;
+  checks:=public.event_close_checklist(e.id);
+  IF (checks->>'ok')::boolean IS DISTINCT FROM true THEN RAISE EXCEPTION 'event_close_checklist_failed: %',checks; END IF;
+  PERFORM set_config('app.event_stage_op',e.id::text||':'||txid_current()::text,true);
+  UPDATE public.events SET closed_at=now(),closed_by=auth.uid(),status='completed' WHERE id=e.id;
+  PERFORM set_config('app.event_stage_op',previous_op,true);
+  INSERT INTO public.system_audit_log(entity_type,entity_id,action,changed_by,company_id,metadata)
+    VALUES('events',e.id::text,'event_closed',auth.uid()::text,e.company_id,jsonb_build_object('reason',p_reason,'checklist',checks));
+  RETURN jsonb_build_object('ok',true,'event_id',e.id,'checklist',checks);
+END $$;
+CREATE FUNCTION public.reopen_event_closure(p_event_id uuid,p_reason text) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE e public.events; previous_op text:=coalesce(current_setting('app.event_stage_op',true),'');
+BEGIN
+  IF nullif(btrim(p_reason),'') IS NULL THEN RAISE EXCEPTION 'event_reopen_reason_required'; END IF;
+  PERFORM 1 FROM public.events WHERE id=p_event_id FOR UPDATE;
+  e:=public._event_stage_access(p_event_id,'reopen');
+  IF e.closed_at IS NULL THEN RAISE EXCEPTION 'event_not_closed'; END IF;
+  PERFORM set_config('app.event_stage_op',e.id::text||':'||txid_current()::text,true);
+  UPDATE public.events SET closed_at=NULL,closed_by=NULL WHERE id=e.id;
+  PERFORM set_config('app.event_stage_op',previous_op,true);
+  INSERT INTO public.system_audit_log(entity_type,entity_id,action,changed_by,company_id,metadata)
+    VALUES('events',e.id::text,'event_closure_reopened',auth.uid()::text,e.company_id,jsonb_build_object('reason',p_reason));
+  RETURN jsonb_build_object('ok',true,'event_id',e.id);
+END $$;
+CREATE FUNCTION public.mark_event_historical(p_event_id uuid,p_reason text DEFAULT NULL) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE e public.events; previous_op text:=coalesce(current_setting('app.event_stage_op',true),'');
+BEGIN
+  PERFORM 1 FROM public.events WHERE id=p_event_id FOR UPDATE;
+  e:=public._event_stage_access(p_event_id,'admin');
+  IF e.historical_at IS NOT NULL THEN RAISE EXCEPTION 'event_already_historical'; END IF;
+  PERFORM set_config('app.event_stage_op',e.id::text||':'||txid_current()::text,true);
+  UPDATE public.events SET historical_at=now(),historical_by=auth.uid() WHERE id=e.id;
+  PERFORM set_config('app.event_stage_op',previous_op,true);
+  INSERT INTO public.system_audit_log(entity_type,entity_id,action,changed_by,company_id,metadata)
+    VALUES('events',e.id::text,'event_marked_historical',auth.uid()::text,e.company_id,jsonb_build_object('reason',p_reason));
+  RETURN jsonb_build_object('ok',true,'event_id',e.id);
+END $$;
+CREATE FUNCTION public.unmark_event_historical(p_event_id uuid) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE e public.events; previous_op text:=coalesce(current_setting('app.event_stage_op',true),'');
+BEGIN
+  PERFORM 1 FROM public.events WHERE id=p_event_id FOR UPDATE;
+  e:=public._event_stage_access(p_event_id,'admin');
+  IF e.historical_at IS NULL THEN RAISE EXCEPTION 'event_not_historical'; END IF;
+  PERFORM set_config('app.event_stage_op',e.id::text||':'||txid_current()::text,true);
+  UPDATE public.events SET historical_at=NULL,historical_by=NULL WHERE id=e.id;
+  PERFORM set_config('app.event_stage_op',previous_op,true);
+  INSERT INTO public.system_audit_log(entity_type,entity_id,action,changed_by,company_id)
+    VALUES('events',e.id::text,'event_unmarked_historical',auth.uid()::text,e.company_id);
+  RETURN jsonb_build_object('ok',true,'event_id',e.id);
+END $$;
+
+REVOKE EXECUTE ON FUNCTION public._event_stage_guard(),public._event_stage_legacy_reopen(),public._event_stage_access(uuid,text),public.event_stage(uuid),public.event_stage_list(),public.event_close_checklist(uuid),public.close_event(uuid,text),public.reopen_event_closure(uuid,text),public.mark_event_historical(uuid,text),public.unmark_event_historical(uuid) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public._event_stage_guard(),public._event_stage_legacy_reopen(),public._event_stage_access(uuid,text),public.event_stage(uuid),public.event_stage_list(),public.event_close_checklist(uuid),public.close_event(uuid,text),public.reopen_event_closure(uuid,text),public.mark_event_historical(uuid,text),public.unmark_event_historical(uuid) FROM anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.event_stage(uuid),public.event_stage_list(),public.event_close_checklist(uuid) TO authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.close_event(uuid,text),public.reopen_event_closure(uuid,text),public.mark_event_historical(uuid,text),public.unmark_event_historical(uuid) TO authenticated;

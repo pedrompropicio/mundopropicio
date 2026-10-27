@@ -1961,6 +1961,13 @@
       "when": 1793103115753,
       "tag": "0279_0279_issue359_ponto4_eligible",
       "breakpoints": true
+    },
+    {
+      "idx": 280,
+      "version": "7",
+      "when": 1793106482965,
+      "tag": "0280_p1_event_stages",
+      "breakpoints": true
     }
   ]
 }
