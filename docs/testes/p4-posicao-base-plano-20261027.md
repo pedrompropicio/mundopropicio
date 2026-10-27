@@ -36,3 +36,17 @@ Reconciliar a caixa por conta com computeBalance e get_event_cash_position; o re
 
 ## Paragem
 Parado pela colisão das 11 mães com evento e pela referência D-ERP288. Ver docs/questoes-p4-posicao-base-20261027.md.
+
+## Continuação 27/10/2026 15:01 UTC (HEAD fa357be0), só SELECT em Live, MP
+Q1 confirmado: 69 mães = 58 (event_id nulo, installment_total nulo, 0 filhas com installment_number) + 11 (event_id e installment_total preenchidos, filhas com installment_number). Nenhum caso misto. Predicado: mãe de rateio = tem filhas AND installment_total IS NULL AND event_id IS NULL.
+Q2: a data de referência Lisboa vem de DECISIONS.md, por volta da linha 4174 (pagamento sem data futura). Não vem de D-ERP288.
+Q3 transitórias (is_transitory, por motivo/tipo/estado):
+  em aberto: repasse despesa 4 / 63.536,42 (approved, pago 0); repasse receita 1 / 5.192,19.
+  fechadas: aporte_socio 25 / 353.810,51; repasse desp 6 / 17.906,94; carga_cartao 5+5 / 5.166,68 (sem evento); entrada_a_repassar 4 / 28.430,03; emprestimo_socio 3 / 26.216,66; caucao 1 / 34.000; partner_advance 3 / base 2.008,23, pago 2.088,73.
+  Proposta: os repasses em aberto entram no a pagar/a receber, na sublinha transitórias. aporte/emprestimo/partner_advance vão para as contas de acerto, informativo. carga_cartao fica fora.
+Inventário (parcial):
+  cache_payment_contracts: 4 ativos; liga a eventos via cache_payment_contract_cities.forecast_id (22 cidades com forecast). Serve, com um ajuste: o contrato substitui a linha cache_module desse forecast_id, sem a somar.
+  event_third_party_operations: 3 registos (gross_amount/operator_result). Serve com ajuste, só informativo na v1.
+  sponsorship_pipeline: 5 fechados/barter. Não serve na v1 (Q6); entra na v2 como informativo.
+Pago acima do BP (pernas por forecast_id, BP despesa sem sócio pagador): 427 linhas com transações. Com o fator 1,23 aproximado, 1 linha excede (+1.756,00). É provisório: falta usar o iva_rate real de cada linha.
+PENDENTE: leitura integral de INDEX.md, da migração 20260611120000, de ReportForecastPayables e do cálculo de saldos; reconciliação da caixa por conta com get_event_cash_position e do retido com ticket_office_balances.
