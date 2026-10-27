@@ -33,8 +33,8 @@ describe("P6b cachês", () => {
     expect(screen.getByText("Deive Leonardo (NON STOP PRODUCOES LTDA)")).toBeDefined();
     expect(screen.getByText("Simone Mendes (SIMONE MENDES PRODUCOES MUSICAIS LTDA)")).toBeDefined();
     expect(screen.getAllByText("Retenção IRS (não é custo do evento)")).toHaveLength(2);
-    expect(screen.getByText(eur(145420.19))).toBeDefined();
-    expect(screen.getByText(eur(22944.57))).toBeDefined();
+    expect(screen.getByText(eur(145420.19), { normalizer: t => t })).toBeDefined();
+    expect(screen.getByText(eur(22944.57), { normalizer: t => t })).toBeDefined();
   });
   it("display names from cache configs", () => {
     expect(cacheArtistDisplayName("Cachê Simone Mendes")).toBe("Simone Mendes");
@@ -87,8 +87,8 @@ describe("P6b composição do retido", () => {
 describe("P6b Resultado da MP", () => {
   it("shows with and without structure from p5-v3", () => {
     render(<ResultadoMpView data={{ resultado_mp_ano: { sem_estrutura: 1234.5, com_estrutura: -100 }, meta: { incompleto: false } } as any} />);
-    expect(screen.getByText(eur(1234.5))).toBeDefined();
-    expect(screen.getByText(eur(-100))).toBeDefined();
+    expect(screen.getByText(eur(1234.5), { normalizer: t => t })).toBeDefined();
+    expect(screen.getByText(eur(-100), { normalizer: t => t })).toBeDefined();
   });
   it("incomplete → unavailable, never zero", () => {
     render(<ResultadoMpView data={{ resultado_mp_ano: null, meta: { incompleto: true } } as any} />);
