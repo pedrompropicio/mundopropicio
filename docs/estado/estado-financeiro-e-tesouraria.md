@@ -1,12 +1,13 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 27/10/2026 — P4 base da Posição Financeira em Live (0282, só leitura); P3 UI dos estágios por publicar; P1/P1b em Live; restantes frentes preservadas.
+Atualizado: 27/10/2026 — P4 base da Posição Financeira em Live (0282, só leitura) e P4b acesso por permissão (0283); P3 UI dos estágios por publicar; P1/P1b em Live; restantes frentes preservadas.
 
 ## Em que pé está
 
 ### Posição Financeira — P4 base em Live, P1/P1b em Live, P3 UI pronta, aguarda P2 e P5
 
 - **P4 (D-ERP320, 0282, 27/10/2026):** `get_financial_position_base(empresa, ano)` devolve num jsonb caixa por conta, cartões, retido (visíveis e ocultas à parte), a pagar e a receber por estágio, transitórias, contas de acerto e caução (fora do total) e alertas. BP só conta em eventos já começados; futuros só com transações. Números de 27/10: caixa+cartões 553.528,43 (= invariante, diff 0); retido visível 295.748,25 / ocultas 215.857,41; a pagar 1.007.914,78 (em_fecho 570.307,43, fechado 184.942,40, em_curso futuro 252.664,94) + transitórias 64.703,88; a receber 22.636,89 + 5.192,19. Resultado e parte da MP ficam para o P5 (edge function com o motor partilhado). Sem UI. Provas: docs/testes/p4-posicao-base-20261027.md.
+- **P4b (D-ERP321, 0283, 27/10/2026):** acesso pela permissão «Ver posição financeira» (`view_financial_position`), configurável por papel e utilizador; por defeito só admin (platform_admin sempre). Saldos continuam só para quem vê saldos. Managers sem acesso até concessão. Provas: docs/testes/p4b-permissao-posicao-20261027.md.
 
 - **P3 UI (R1, 27/10/2026, por publicar):** lista com badge de estágio (event_stage_list, uma chamada), filtro por estágio e «Mostrar históricos» (ocultos por defeito); detalhe com badge e painel «Estágio e fecho» só no master (checklist 4 blocos, Fechar evento só com ok, Reabrir fecho com motivo e Marcar/Remover histórico só admin); sub-evento mostra estágio do master e ligação. «Reabrir Evento» legado substituído por aviso quando fechado/histórico; fluxo de status e guards intocados. Preview Anitta: Em fecho, selos 0/3, BP 133 / 1.122.040,98 €, hard 0. Provas: docs/testes/p3-event-stages-ui-20261027.md. Publish só pelo 0·Cowork com CI verde.
 - **P1b (D-ERP319, 0281, 27/10/2026):** sub-evento tem sempre o estágio do master; RPCs de estágio só no master; checklist do master agrega bloqueios dos sub-eventos. 16 sub-eventos com carimbos antigos ignorados (limpeza pendente do Pedro).
