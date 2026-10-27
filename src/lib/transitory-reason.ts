@@ -15,7 +15,9 @@ export type TransitoryReason =
   | "emprestimo_socio"
   | "carga_cartao"
   | "aporte_socio"
-  | "entrada_a_repassar";
+  | "entrada_a_repassar"
+  /** P3/P7a: derivado pelo servidor da rubrica 10.1.03 (distribuição de resultado ao sócio). */
+  | "distribuicao_resultado";
 
 export const TRANSITORY_REASON_LABELS: Record<TransitoryReason, string> = {
   partner_advance: "Extra do Sócio",
@@ -25,6 +27,7 @@ export const TRANSITORY_REASON_LABELS: Record<TransitoryReason, string> = {
   carga_cartao: "Carga de cartão",
   aporte_socio: "Aporte do sócio",
   entrada_a_repassar: "Entrada a repassar",
+  distribuicao_resultado: "Distribuição de resultado",
 };
 
 /** Motivos escolhíveis à mão nos modais (sem Extra do Sócio). */

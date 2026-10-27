@@ -93,3 +93,9 @@ Estado: passos 1/2 aplicados e verificados pelo Pedro em Live; passo 3 preparado
 ## Notas para o passo 3/4 (Pedro)
 - Cancelar (cópia de _cache_cancel_contract) limpa balance_tx_id/withholding_tx_id e transactions.partner_contract_id antes de apagar as transações.
 - Trigger do passo 4 recusa DELETE direto de transação com partner_contract_id fora da RPC; dizer como delete_transaction_cascade é tratado e confirmar que não falha pelas FK.
+
+## P7a — modal Sócios (27/10/2026, R1, implementado, não publicado)
+- Decisões do Pedro: 1A botão «Pagamento do sócio» por linha settles na aba Sócios → diálogo padrão Cachê; 2B sem mockup (Pedro revê no preview); 3A share_amount = share do motor (2 casas) + share, share_net, effective_pct, paid_by_partner, extras, settlement_amount, uses_gross_expenses, settlement_id.
+- Código: src/lib/partner-contracts.ts (valores do motor, validação local, erros pt-PT, chamadas RPC), src/components/PartnerPaymentDialog.tsx, EventPartnersTab (botão), TransactionRow (marca «Contrato sócio», sem Eliminar), TransactionEditModal (aviso + bloqueio local de valor/rubrica/fornecedor/evento; motivo distribuicao_resultado mostrado só leitura e reenviado tal qual), transitory-reason.ts (etiqueta).
+- Limitação documentada no ecrã e no código: o servidor aceita o share_amount enviado pelo cliente.
+- Fora: P2, P4 (10.1.06), P5, guarda do selo.
