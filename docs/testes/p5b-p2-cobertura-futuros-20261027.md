@@ -43,4 +43,4 @@ Testes focados: segunda RPC null inclui Madrid 2026 e Ghanem/Newgang 2027; motor
 5. Nos dois anos: dinheiro_de_eventos_em_conta e nota destinado a eventos = 92.275,50 (referência do dia); caixa não muda.
 6. Medir duracao_ms: não enviar null ao motor (15 eventos anuais em vez dos 21 medidos com Todos); leitura adicional corre em paralelo e dentro de 6 s.
 
-Live autenticado e CI final ainda não confirmados pelo agente; validação Live entregue ao 0 conforme despacho.
+Validação final: 64/64 testes focados; suíte completa 302 ficheiros PASS/2 skipped, 2970 testes PASS/6 skipped/11 todo, duração325,87s. Tipos/build automático OK a21:11:07 UTC após correção do tipo do mock de timeout; nenhuma execução manual de tsc/build. CI público consultado: último run40583998993 success no SHA95c1bd93 anterior, não prova o SHA final. Reserva libertada após validações locais verdes. Live autenticado e CI final ainda não confirmados pelo agente; validação Live entregue ao 0 conforme despacho.

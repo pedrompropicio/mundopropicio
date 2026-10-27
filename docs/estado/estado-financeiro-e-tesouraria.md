@@ -1,6 +1,6 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 27/10/2026 — P5b p5-v3: correção da cobertura independente do ano implementada, validação em curso; P6a/P6a-fix não publicados; P4/P4b em Live.
+Atualizado: 27/10/2026 — P5b p5-v3: correção da cobertura independente do ano pronta para Verificação em Live; focados64/64, suíte2970PASS e tipos/build automático OK; CI final pendente. P6a/P6a-fix não publicados; P4/P4b em Live.
 
 ## Em que pé está
 
