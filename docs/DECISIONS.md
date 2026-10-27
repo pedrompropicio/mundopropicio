@@ -6349,3 +6349,7 @@ Decisões do Pedro, executor 0 · Cowork (Claude), complementam a D-ERP312/313/3
 ## D-ERP318 — Estágios dos eventos / Posição Financeira P1 (27/10/2026)
 
 Decisão do Pedro, R2 autorizada: Planeamento → Em curso → Em fecho → Fechado → Histórico, preservando o CHECK de status. completed significa em_fecho sem carimbo; fechado exige closed_at e status completed. Reabertura legada e reopen_event_closure permanecem separadas: novo trigger limpa closed_at/closed_by ao sair de completed, sem alterar funções/UI existentes. Nova reabertura exige admin+reopen_event e motivo, sem mudar status. Fecho exige todos os selos, cachê configurado congelado, zero linhas BP por rever e zero bloqueios hard, usando fontes servidor existentes. Histórico só admin; auditoria em system_audit_log. 0280 aplicada e verificada; zero backfill. P2 exclusivo do Pedro com bloco e Corro? próprios; sem Publish para DDL.
+
+## D-ERP319 — Estágio do sub-evento = master (P1b, 27/10/2026)
+
+Sub-evento não tem estágio próprio: event_stage deriva sempre da raiz (sem propagação, vale para sub-eventos futuros). close_event/reopen_event_closure/mark/unmark_event_historical recusam sub-eventos com event_stage_act_on_master. Checklist do master agrega hard e soft de event_close_blockers dos sub-eventos. Carimbos já gravados em sub-eventos ficam e são ignorados; limpeza é decisão do Pedro. Migração 0281; prova docs/testes/p1b-substage-master-20261027.md.
