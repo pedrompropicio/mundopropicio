@@ -38,10 +38,12 @@ RETURNS trigger LANGUAGE plpgsql SET search_path TO 'public'
 AS $function$
 DECLARE p public.event_settlement_participants; sealed boolean; share numeric; n integer; used numeric;
 BEGIN
+  IF TG_OP='DELETE' THEN
+    RAISE EXCEPTION 'contrato_nao_se_apaga: cancele-o (histórico)' USING ERRCODE='42501';
+  END IF;
   IF coalesce(current_setting('app.partner_contract_op',true),'') IS DISTINCT FROM 'on' THEN
     RAISE EXCEPTION 'contrato_so_por_rpc' USING ERRCODE='42501';
   END IF;
-  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
   IF TG_OP='UPDATE' THEN
     IF OLD.cancelled_at IS NOT NULL AND NEW.cancelled_at IS NULL THEN RAISE EXCEPTION 'contrato_cancelado_nao_reativa'; END IF;
     IF (NEW.gross,NEW.participant_id,NEW.company_id,NEW.event_id,NEW.settlement_id)
