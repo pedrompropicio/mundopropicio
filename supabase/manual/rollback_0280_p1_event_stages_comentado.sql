@@ -1,0 +1,11 @@
+-- ROLLBACK SOMENTE PROPOSTO; NÃO EXECUTAR sem autorização e inventário de dependências.
+-- As colunas aditivas ficam preservadas; nenhum dado é apagado.
+-- DROP TRIGGER z_stage_fields_guard ON public.events;
+-- DROP TRIGGER zz_stage_legacy_reopen ON public.events;
+-- DROP FUNCTION public.close_event(uuid,text), public.reopen_event_closure(uuid,text), public.mark_event_historical(uuid,text), public.unmark_event_historical(uuid);
+-- DROP FUNCTION public.event_stage_list(), public.event_stage(uuid), public.event_close_checklist(uuid);
+-- DROP FUNCTION public._event_stage_access(uuid,text), public._event_stage_guard(), public._event_stage_legacy_reopen();
+-- COMMENT ON COLUMN public.events.closed_at IS 'DEPRECATED: P1 rolled back; preserved for audit';
+-- COMMENT ON COLUMN public.events.closed_by IS 'DEPRECATED: P1 rolled back; preserved for audit';
+-- COMMENT ON COLUMN public.events.historical_at IS 'DEPRECATED: P1 rolled back; preserved for audit';
+-- COMMENT ON COLUMN public.events.historical_by IS 'DEPRECATED: P1 rolled back; preserved for audit';
