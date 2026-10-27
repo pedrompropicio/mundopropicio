@@ -24,7 +24,7 @@ const stages = <T extends z.ZodTypeAny>(schema: T) => z.object({
 const event = z.object({ event_id: z.string().uuid(), name: z.string(), first_day: civilDate.nullable(), started: z.boolean(), sub_events: count });
 export const financialPositionSchema = z.object({
   meta: z.object({ company_id: z.string().uuid(), year: z.number().int().nullable(), reference_date: civilDate, timezone: z.literal("Europe/Lisbon"), version: z.string().min(1), balances_visible: z.boolean(), notes: z.string() }),
-  eventos_por_estagio: z.object({ em_curso: z.array(event).optional(), em_fecho: z.array(event).optional(), fechado: z.array(event).optional(), planeamento: z.array(event).optional() }).strict(),
+  eventos_por_estagio: z.object({ em_curso: z.array(event).optional(), em_fecho: z.array(event).optional(), fechado: z.array(event).optional(), planeamento: z.array(event).optional(), historico: z.array(event).optional(), cancelado: z.array(event).optional() }).strict().transform(({ historico: _historico, cancelado: _cancelado, ...active }) => active),
   caixa: z.array(balance.extend({ type: z.enum(["bank", "cash"]), is_hidden: z.boolean(), cutoff: civilDate.nullable() })),
   cartoes: z.array(balance),
   retido: z.object({ visivel: z.array(balance), ocultas: z.array(balance), total_visiveis: amount.nullable(), total_ocultas: amount.nullable() }),
