@@ -28,7 +28,7 @@ export function FinancialPositionView({ data: d }: { data: FinancialPosition }) 
   const summary = [
     { label: "Caixa e cartões", value: d.posicao.caixa_e_cartoes, icon: Wallet, balance: true },
     { label: "Retido visível", value: d.posicao.retido_visiveis, icon: Landmark, balance: true },
-    // Top cards: stage total without transients (D-ERP322); posicao.a_pagar/a_receber stay validated but not shown.
+    // Top cards: stage total without transients (D-ERP322); the RPC position sums stay validated in the schema but are not shown.
     { label: "A pagar", value: d.a_pagar.total, icon: ArrowUpRight, balance: false, transients: d.a_pagar.transitorias.total },
     { label: "A receber", value: d.a_receber.total, icon: ArrowDownLeft, balance: false, transients: d.a_receber.transitorias.total },
   ];

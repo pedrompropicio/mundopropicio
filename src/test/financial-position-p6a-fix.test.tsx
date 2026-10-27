@@ -28,16 +28,16 @@ describe("P6a-fix top cards", () => {
     const data = financialPositionFixture(); data.a_pagar.total = 947790.71; data.a_pagar.transitorias.total = 64703.88; data.posicao.a_pagar = 1012494.59;
     render(<MemoryRouter><FinancialPositionView data={data} /></MemoryRouter>);
     const c = within(card("A pagar"));
-    expect(c.getByText(formatPositionAmount(947790.71))).toBeDefined();
-    expect(c.queryByText(formatPositionAmount(1012494.59))).toBeNull();
+    expect(c.getByText(formatPositionAmount(947790.71), { normalizer: t => t })).toBeDefined();
+    expect(c.queryByText(formatPositionAmount(1012494.59), { normalizer: t => t })).toBeNull();
     expect(norm(c.getByText(/transitórias de repasse/).textContent ?? "")).toBe("+ transitórias de repasse: 64 703,88 €");
   });
   it("A receber shows a_receber.total, not posicao.a_receber, with transients line", () => {
     const data = financialPositionFixture(); data.a_receber.total = 22636.89; data.a_receber.transitorias.total = 5192.19; data.posicao.a_receber = 27829.08;
     render(<MemoryRouter><FinancialPositionView data={data} /></MemoryRouter>);
     const c = within(card("A receber"));
-    expect(c.getByText(formatPositionAmount(22636.89))).toBeDefined();
-    expect(c.queryByText(formatPositionAmount(27829.08))).toBeNull();
+    expect(c.getByText(formatPositionAmount(22636.89), { normalizer: t => t })).toBeDefined();
+    expect(c.queryByText(formatPositionAmount(27829.08), { normalizer: t => t })).toBeNull();
     expect(norm(c.getByText(/transitórias de repasse/).textContent ?? "")).toBe("+ transitórias de repasse: 5 192,19 €");
   });
   it("four-digit amounts always carry the thousands separator", () => {
