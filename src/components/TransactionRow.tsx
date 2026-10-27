@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { mustWrite } from "@/lib/must-write";
+import { isPartnerContractTx, PARTNER_CONTRACT_TX_HINT } from "@/lib/partner-contracts";
 import { OffsetPaidBadge } from "@/components/TransactionOffsetsBlock";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
