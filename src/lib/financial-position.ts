@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cachesSchema } from "@/lib/financial-position-p6b";
 
 export const FINANCIAL_POSITION_PATH = "/erp/posicao-financeira";
 export const FINANCIAL_POSITION_PERMISSION = "view_financial_position";
@@ -28,7 +29,7 @@ export const financialPositionSchema = z.object({
   caixa: z.array(balance.extend({ type: z.enum(["bank", "cash"]), is_hidden: z.boolean(), cutoff: civilDate.nullable() })),
   cartoes: z.array(balance),
   retido: z.object({ visivel: z.array(balance), ocultas: z.array(balance), total_visiveis: amount.nullable(), total_ocultas: amount.nullable() }),
-  a_pagar: z.object({ por_estagio: stages(payable), total: amount, transitorias: transient }),
+  a_pagar: z.object({ por_estagio: stages(payable), total: amount, transitorias: transient, caches: cachesSchema.optional() }),
   a_receber: z.object({ por_estagio: stages(counted), total: amount, transitorias: transient }),
   acerto_informativo: z.object({ fora_do_total: z.literal(true), contas: z.array(balance), a_recuperar_caucao: counted }),
   operacoes_terceiros_informativo: z.array(z.object({ event_id: z.string().uuid(), kind: z.string().nullable(), name: z.string().nullable(), gross_amount: amount.nullable(), operator_result: amount.nullable() })),
