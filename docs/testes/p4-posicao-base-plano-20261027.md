@@ -67,3 +67,59 @@ COLISÃO (regra 2, «a pagar bruto; paid_amount bruto»):
 Linhas de BP de despesa sem sócio pagador e sem versão: 232 têm pago > base×(1+iva_rate) da própria linha (excesso 178.323,53 € em bruto). Em 224 delas, a soma das bases das transações = base do BP, mas o pago também excede base×(1+iva_rate) da PRÓPRIA transação.
 Distribuição do iva_rate do BP nas linhas acima: 23% 197 / 0% 21 / 6% 11 / 21% 2 / 13% 1.
 Leitura: paid_amount não é base×(1+iva_rate) em muitas transações (IVA guardado diferente do pago, retenção, extras ou outra causa). Sem perceber isto, o «a pagar = BP bruto − pago» dá mínimos 0 em 232 linhas e esconde valores. Não é pagamento tardio nem perna duplicada, porque a junção é por forecast_id, sem categoria.
+
+## PLANO FINAL A–F — 27/10/2026 15:12+ UTC (HEAD 1da1159f) — substitui a secção «PARADO» acima
+Q10 FECHADA: era um falso positivo meu. event_forecasts.iva_rate é integer, e coalesce(iva_rate,0)/100 dava 0. A regra 2 mantém-se.
+Predicado obrigatório: bruto = amount*(1+coalesce(iva_rate,0)/100.0), em BP e TX. O teste PGlite tem de incluir o caso iva_rate=23 ⇒ bruto = base×1,23.
+Pesquisa: nem os documentos P4 nem as migrações 202610* têm iva_rate/100 inteiro. As consultas antigas deste P4 que usavam /100 ou 1,23 foram refeitas abaixo.
+
+### A) Inventário
+- get_event_cash_position (Live v2l): SERVE para a caixa por evento. Já tem corte initial_balance_date, exclusão de skip_balance_check e compensações.
+- get_event_cash_position_invariant: SERVE como verificação (compara com _account_true_balance_raw).
+- _ticket_office_balance_raw / ticket_office_balances: SERVEM para o retido. Vendas + tx approved/paid não estornadas e não ocultas − adiantamentos abertos; o resultado vem NULL para quem não pode ver saldos.
+- account-balance.ts: fórmula da app, que a RPC espelha. Referência.
+- ReportForecastPayables: NÃO SERVE. Agrega por categoria, não tem estágio, calcula no cliente e exclui transitórias.
+- cache_payment_contracts + cache_payment_contract_cities: SERVEM. As 8 cidades (4 contratos, 2 artistas) caem todas em linhas cache_module (cache_config_id preenchido). 0 contratos sem linha e 0 linhas de outro tipo. 6 linhas cache_module no total: 0 no mesmo evento sem contrato; 2 em eventos sem contrato, que entram pela própria linha. Não há dupla contagem: o contrato substitui a linha pelo forecast_id.
+- Contas de acerto (type other): Acerto EIN 955.138,82; Conta Corrente Pedro 183.098,58; Acerto PNI 162.553,14; Acerto Turnê Deive 1.162,19 (saldo bruto, sem corte). SERVEM só como linha informativa. Google Ads, TikTok Ads, Pagamento Diretoria e Mágicos Madrid ficam fora.
+- Camarim (5 contas camarim_session, ocultas e sem controlo): fora da v1.
+- event_third_party_operations (3): informativo (Q9). sponsorship_pipeline (5 fechados): v2 (Q6).
+- Receitas por receber (income pending/approved não estornadas): 3 / 22.636,88 com evento e 1 transitória / 5.192,19. Todas têm evento.
+
+### B) Contrato
+RETURNS jsonb {caixa[], cartoes[], retido{visivel[],ocultas[],total_visiveis,total_ocultas}, a_pagar{por_estagio}, a_receber{por_estagio}, transitorias{}, acerto_informativo[], eventos_por_estagio{}, alertas{}}.
+Porquê jsonb: os blocos têm formas diferentes e cabe tudo numa chamada (sem limite de 1000 linhas).
+SECURITY DEFINER, porque usa event_stage, ticket_office_balances e _account_true_balance_raw. Recusa se p_company_id ≠ current_company_id() e não for platform_admin. Na mesma migração: REVOKE PUBLIC/anon, GRANT authenticated. Verificar com has_function_privilege: anon false, authenticated true.
+p_year filtra pelo ano da data da raiz.
+
+### C) Predicados e números de referência (Live, medidos às 15:1x)
+Estágio = event_stage(raiz); sub-evento herda. Histórico e cancelado ficam fora de tudo.
+Mãe de rateio (excluída) = tem filhas ∧ installment_total IS NULL ∧ event_id IS NULL: 58 excluídas. As 11 cadeias de parcelas contam.
+1 Caixa (contas bank/cash com skip_balance_check=false, corte D-ERP289, ajustes de pagamentos liquidados): Santander 529.232,88; Caixa 0,00.
+  Exclusões: Conta Pagamento Brasil (sem controlo, −3.932,04) e Eventos Históricos (oculta, sem controlo, 177.562,83).
+2 Cartões (prepaid_card): 0663 600,89; 8363 288,66 → 889,55.
+3 Retido: visível 295.418,25 (1 conta); ocultas 215.857,42 (4 contas), em linha à parte (Q11=A). Nunca soma com a caixa (D-ERP27).
+4 A pagar = Σ_linha max(bruto_BP − Σ paid_amount das tx com forecast_id, 0) + tx sem forecast_id não pagas (bruto − pago).
+  Condições: despesa, version_id nulo, paying_partner_id nulo, sem transitórias, tx não estornadas e sem mães de rateio.
+  em_curso 2026: BP 20 linhas 295.544,51 + 2 tx sem BP 162.336,96
+  em_curso 2027: BP 128 linhas 686.438,21 + 1 tx sem BP 4.200,00
+  em_fecho 2026: BP 319 linhas 638.532,99; 18 alertas de excesso 2.827,65
+  fechado 2026: BP 183 linhas 368.238,04 + 4 tx sem BP 17,88; 4 alertas 1.834,21
+  planeamento: 0 eventos.
+5 A receber (mesma regra, income) em_curso 2027 712.050,00 / em_fecho 2026 23.083,75 / fechado 2026 360.711,50 → ver COLISÃO 2.
+6 Transitórias (sublinha): repasse despesa a pagar 63.536,42 (4); repasse receita a receber 5.192,19 (1).
+  Caução 34.000 (paga, despesa com evento): entra na caixa pelo pago; a pagar 0; proposta: aparece nas contas de acerto como «a recuperar».
+  entrada_a_repassar 28.430,03 (4, receitas pagas): entram na caixa e não há nada em aberto.
+7 Acerto informativo: os 4 saldos acima ficam FORA do total.
+Pago acima do BP (22 linhas, +4.661,86): pagamento a mais 20 / 4.494,91; mãe+filhas 2 / 166,95.
+Base TX ≠ base BP (57 linhas): tx menor 24 / −124.187,20; mãe+filhas 15 / −55.280,02; várias tx 8 / −26.085,41; outro evento 6 / −1.293,43; parcelas 3 / −158.320,03; tx maior 1 / +100,00.
+
+COLISÕES (verifiquei que não vêm de tipo nem de junção: liguei por forecast_id e também por categoria+evento):
+C1 Eventos fechados: 88 linhas de BP de despesa sem nenhuma transação (nem por forecast_id nem por categoria), 245.399,98 bruto. Maiores categorias: 2.3.01 Som/Luz 44.280; 2.6.05 Locação 43.665; 3.2.02 OOH 31.748,72; 3.2.01 Digital 21.225,49. A regra 3 conta-as como dívida; podem ser BP não revisto.
+C2 A receber: as linhas de BP 1.1.01 Bilheteira (ex.: fechado 2 / 360.711,50) entram pelo retido e pelas vendas, não por transação. Contá-las no a receber duplica com o retido.
+
+### D) Limite de 1000 linhas: tudo agregado no servidor; o cliente recebe um jsonb.
+### E) Verificação: com sessão MP (lovable auth-session), chamar get_event_cash_position(MP,null,null) e get_event_cash_position_invariant(MP).
+Esperado: Σ realized + Σ initial (contas com controlo) = Σ caixa+cartões acima (530.122,43) e diff = 0. ticket_office_balances(ids) igual ao retido visível e oculto.
+PGlite: bruto com iva 23; mãe de rateio excluída e cadeia de parcelas contada; sócio pagador fora; mínimo 0 com alerta; sub-evento herda o estágio; histórico fora; contrato substitui cache_module.
+Rollback: DROP FUNCTION, guardado na migração.
+### F) Riscos: C1, C2; contas de acerto sem corte; cache_module com valor dinâmico (a v1 usa amount guardado).
