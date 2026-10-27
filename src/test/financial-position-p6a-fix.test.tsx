@@ -9,6 +9,7 @@ import { FinancialPositionView } from "@/components/financial-position/Financial
 
 const hook = vi.hoisted(() => ({ calls: [] as Array<number | null> }));
 vi.mock("@/hooks/useFinancialPosition", () => ({ useFinancialPosition: (year: number | null) => { hook.calls.push(year); return { isLoading: false, isFetching: false, isError: false, companyLoading: false, companyMissing: false, companyError: false, data: undefined, refetch: vi.fn() }; } }));
+vi.mock("@/components/financial-position/FutureCoverageCard", () => ({ FutureCoverageCard: () => null }));
 vi.mock("@/components/financial-position/FinancialPositionAccess", () => ({ FinancialPositionAccess: ({ children }: { children: ReactNode }) => <>{children}</> }));
 // Native stand-in for the shared Select so the test can drive value changes.
 vi.mock("@/components/ui/select", () => ({
