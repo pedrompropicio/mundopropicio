@@ -1,8 +1,11 @@
 # Estado — Fecho, Fechamentos e Sócios
 
-Actualizado em 2026-10-23 (fim do dia). **Frente sem trabalho em curso.** #342, #344, #345 e #346 publicadas e fechadas. Falta a operação real da #346 no ecrã (Pedro). Pendente fora da frente: reimplantar a edge function `partner-statement` para o Portal do Sócio receber o resumo por origem (#344) e os detalhes C/D (#345) — R2, pedido ao 0 · Cowork.
+Actualizado em 2026-10-27. **Frente sem trabalho em curso.** P3 (backend) aplicado em Live; P7a e P7b publicados pelo Pedro a 27/10/2026. Nenhum sócio congelado. Decisões pendentes do Pedro abaixo.
 
 ## Em vigor
+
+- **Pagamento do sócio — congelar a parte e contratos (P3/P7a/P7b, D-ERP315).** Backend em Live: migrações 0271–0275 (tabela `partner_payment_contracts`, motivo `distribuicao_resultado`, 5 RPCs, guardas, descongelar recusado com contratos ativos); 0 contratos criados; Anitta intocado. P7a (commit f68d87ab): diálogo «Pagamento do sócio» na aba Sócios (congelar/descongelar, estado, até 4 contratos, adiantamentos), etiqueta «Distribuição de resultado», marca «Contrato sócio». P7b (commit 90625e42): o congelar guarda só a parte do motor + «Origem da parte» (quota do fechamento acima, IVA dedutível devolvido, custos devolvidos, ativos adicionais, receitas exclusivas, despesas; base efetiva: c/IVA resultGross, s/IVA resultNet − vatReturnedOut). Pagas pelo sócio, extras e acerto deixam de ser gravados. Limitação: o servidor aceita o `share_amount` do cliente.
+- **Verificação no preview (27/10, 0 · Cowork):** EIN parte 301.356,22 € = 50% de 602.712,43 € (119.599,61 + 262.469,05 + 148.393,25 + 72.250,52); Lobo parte 35.879,88 € = 20% de 179.399,42 €.
 
 - **Contratos de pagamento do cachê — ligar adiantamento livre a contrato existente (#346, D-ERP288 adenda).** Um adiantamento livre é pagamento por conta de um contrato: liga-se no lugar ("Ligar adiantamento" no cartão do contrato; RPC `attach_cache_advance_to_contract`, migração 0237), abatendo ao saldo da cidade onde foi lançado; bruto, retenção e outros contratos não mudam. Recusa com saldo negativo, abaixo do pago, saldo em lista não rejeitada, adiantamento estornado/não livre, contrato cancelado; fornecedor ≠ beneficiário exige confirmação. No "Novo contrato", aviso de teto por cidade com "Ligar a um contrato existente" / "Marcar neste contrato". Descrições dos adiantamentos sempre inteiras. Invariante nova `cache_cidade_teto_excedido`. Memória: `.lovable/memory/features/cache-payment-contracts.md`.
 - **Prestação de contas do sócio — detalhe das despesas pagas pelo sócio e dos extras (#345, g20).** No detalhamento, a seguir ao B: "C. Despesas do evento pagas por <sócio>" (Data | Descrição | Rubrica | Valor — transações pagas pelo sócio + linhas de BP pagas por ele sem transação, e no fim os ajustes ao desembolso) e "D. Extras de <sócio>" (Data | Descrição | Origem | Valor). Somas iguais ao cêntimo aos totais da secção 5 ("+ Despesas do evento pagas por…" e "- Extras"), que não mudam. Secção sem linhas não aparece. Normalizadores únicos no gerador partilhado (`paidByPartnerDocLines`, `partnerExtrasDocLines`) usados pela equipa (`buildSoloDocInput`) e pelo Portal (`statement-service.ts`), com a mesma regra de base dos totais. Export da equipa: activo desde o Publish de 23/10. Portal: só depois de reimplantar a `partner-statement`.
@@ -17,6 +20,15 @@ Actualizado em 2026-10-23 (fim do dia). **Frente sem trabalho em curso.** #342, 
 Nada.
 
 ## Pendências
+
+-1. **Decisões do Pedro (fecho/sócios, 27/10):**
+   - congelar Lobo/EIN (R2, «Sim» por passo);
+   - modelo de contrato da EIN: a parte é o lucro; o dinheiro a pagar é a conta corrente do Encontro de Contas (desembolso 1.170.562,18; receitas em poder 1.257.799,87; base a transferir 179.813,81; IVA 23% do repasse 249.507,18);
+   - confirmar que o crédito SPA de 34.304,72 € não conta duas vezes (ativo no resultado e ajuste ao desembolso);
+   - diferença de 23.919,93 € do Lobo (posição nominal 59.799,81 vs acerta 35.879,88);
+   - P2, P4 (10.1.06), P5, guarda do selo (R2/DDL);
+   - confirmar o CI remoto do HEAD;
+   - confirmar se o código do IVA do repasse (base estreita) entrou no Publish (por fazer).
 
 0. **Operação real da #346 (Pedro, no ecrã):** Turnê Simone Mendes 2026 › Pagamento do cachê › contrato 1 (SIMONE MENDES) › "Ligar adiantamento" › HENZA 10.000,00 (204d17ca) com confirmação de beneficiário; depois "Novo contrato" HENZA com o restante 70.420,19. Em Live a 23/10/2026 ainda nada feito (contrato 1 com adiantamentos 0; 204d17ca livre). Depois de feito, a frente verifica em Live: Lisboa ≤ 68.926,15, Porto ≤ 86.494,04, invariantes do cachê 0.
 1. **Reimplantar `partner-statement`** (R2, 0 · Cowork com "Sim" do Pedro) para o Portal do Sócio passar a mostrar o resumo de receitas por origem (#344) e os detalhes C/D (#345). Uma só reimplantação cobre as duas. Pedido no QUADRO, secção 0 · Cowork (Claude).

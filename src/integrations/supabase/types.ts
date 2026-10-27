@@ -3267,6 +3267,33 @@ export type Database = {
         }
         Relationships: []
       }
+      bkp_359_whatsapp_legado_coala: {
+        Row: {
+          company_id: string | null
+          consent_whatsapp: boolean | null
+          consent_whatsapp_at: string | null
+          consent_whatsapp_source: string | null
+          id: string | null
+          saved_at: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          consent_whatsapp?: boolean | null
+          consent_whatsapp_at?: string | null
+          consent_whatsapp_source?: string | null
+          id?: string | null
+          saved_at?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          consent_whatsapp?: boolean | null
+          consent_whatsapp_at?: string | null
+          consent_whatsapp_source?: string | null
+          id?: string | null
+          saved_at?: string | null
+        }
+        Relationships: []
+      }
       blog_posts: {
         Row: {
           author_id: string | null

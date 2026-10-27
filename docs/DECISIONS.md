@@ -6322,3 +6322,12 @@ Com o ambiente mp-homolog (#352) verde, as demandas R1 e R2 de código passam a 
 - **email-v4** mantém-se.
 - **Estado:** vigente.
 - **Adenda 26/10/2026 (texto final aplicado na #314):** data de nascimento completa obrigatória; 18+ pela data exata; <13 bloqueia e não grava; 13–17 sem eventos de conversão nem anúncios; membros sem data tratados como menores para publicidade; Lead/CompleteRegistration/ClubeConfirmado só 18+; ViewContent/InitiateCheckout/PageView mantidos para todos com consentimento de marketing, com interruptor por evento.
+
+## D-ERP315 — Congelar a parte do sócio e contratos de pagamento por sócio (27/10/2026, P3/P7a/P7b)
+
+Decisões do Pedro:
+- **(a) Parte congelada = `share` do motor** (`useEventSettlementEngine`, 2 casas), nunca de campo editável. Limitação conhecida: o servidor aceita o `share_amount` enviado pelo cliente.
+- **(b) Pagas pelo sócio, extras e acerto não entram no congelar**; tratam-se no Encontro de Contas.
+- **(c) «Origem da parte» gravada no congelar**, sobre a base efetiva do motor: c/IVA `resultGross`; s/IVA `resultNet − vatReturnedOut`. Assim, base × % = parte, ao cêntimo. As diferenças ficam em «Outros / arredondamentos».
+- **(d) Contratos de pagamento por sócio:** regras nas migrações 0271–0275 aplicadas em Live (tabela; motivo `distribuicao_resultado`; RPCs; guardas; descongelar recusado com contratos ativos). Ver `.lovable/plan.md` (P3).
+- **Estado:** vigente. Publicado pelo Pedro a 27/10/2026 (P7a f68d87ab, P7b 90625e42).
