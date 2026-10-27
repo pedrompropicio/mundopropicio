@@ -58,11 +58,11 @@ export function assembleStructure(rows: StructureTxInput[]) {
     const c = classifyStructure(row);
     const key = row.code ?? "-";
     if (!c.included) {
-      const e = exc.get(key) ?? { code: row.code, nome: row.name ?? "(sem)", motivo: c.motivo, bruto: 0, n: 0 };
+      const e = exc.get(key) ?? { code: row.code, nome: row.name ?? "(sem)", motivo: (c as Extract<StructureClass, { included: false }>).motivo, bruto: 0, n: 0 };
       e.bruto += g; e.n += 1; exc.set(key, e);
       continue;
     }
-    const e = inc.get(key) ?? { code: row.code, nome: row.name ?? "(sem categoria)", ebitda_class: row.ebitda_class, bruto: 0, n: 0, alerta: c.alerta };
+    const e = inc.get(key) ?? { code: row.code, nome: row.name ?? "(sem categoria)", ebitda_class: row.ebitda_class, bruto: 0, n: 0, alerta: (c as Extract<StructureClass, { included: true }>).alerta };
     e.bruto += g; e.n += 1; inc.set(key, e);
     bruto += g; n += 1;
     if (row.status === "approved" || row.status === "pending") {
