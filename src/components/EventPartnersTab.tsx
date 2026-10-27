@@ -32,6 +32,7 @@ import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { PartnerExtrasPanel } from "@/components/PartnerExtrasPanel";
 import { HOUSE_PARTNER_NAME, EVENT_SETTLEMENTS_SELECT } from "@/lib/settlement-participants";
 import { EventSettlementsManager } from "@/components/EventSettlementsManager";
+import { PartnerPaymentDialog } from "@/components/PartnerPaymentDialog";
 
 
 interface Props {
@@ -565,7 +566,15 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                             </SelectContent>
                           </Select>
                         ) : p.mode === "settles" ? (
-                          <Badge variant="secondary" className="text-[10px]">Acerta aqui</Badge>
+                          <div className="flex flex-col items-start gap-1">
+                            <Badge variant="secondary" className="text-[10px]">Acerta aqui</Badge>
+                            <Button
+                              type="button" variant="outline" size="sm" className="h-6 px-2 text-[11px]"
+                              onClick={() => setPaymentFor({ id: p.id, supplierId: p.supplier_id, name: p.suppliers?.name ?? "Sócio" })}
+                            >
+                              Pagamento do sócio
+                            </Button>
+                          </div>
                         ) : (
                           <Badge variant="outline" className="text-[10px]">Nominal</Badge>
                         )}
