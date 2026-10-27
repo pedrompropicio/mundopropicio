@@ -121,6 +121,6 @@
 - [x] Testes focados64/64, suíte2970PASS e validação automática de tipos/build OK.
 - [x] Fecho documental, reserva libertada e CI observado explicitamente distinguido do SHA final.
 
-- [ ] P6b passo 2: aplicar 0285 em Live — aguarda Sim do Pedro.
-- [ ] P6b passo 3: código cliente (decomposeTicketOfficeRetained, retido por conta, cachês, Resultado da MP).
-- [ ] P6b passos 4–5: verificação Live, fecho documental, pronto para Publish.
+- [x] P6b passo 2: aplicar 0285 em Live — aguarda Sim do Pedro.
+- [x] P6b passo 3: código cliente (decomposeTicketOfficeRetained, retido por conta, cachês, Resultado da MP).
+- [x] P6b passos 4–5: verificação Live, fecho documental, pronto para Publish.

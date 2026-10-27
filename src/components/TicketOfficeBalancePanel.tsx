@@ -13,6 +13,7 @@ import {
   isCountedTicketOfficeTxn,
   isOpenTicketOfficeAdvance,
   INTERNAL_TRANSFER_CATEGORY_ID,
+  decomposeTicketOfficeRetained,
 } from "@/lib/ticket-office-balance";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import { ticketOfficeOtherMovements } from "@/lib/ticket-office-reconciliation";
@@ -226,23 +227,12 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
 
   // #303 — retido = posição já apurada + vendas de eventos sem fecho + por conciliar (resíduo).
   // A posição apurada já está DENTRO do retido; nunca se abate dele.
-  const decomposition = (() => {
-    const statement: any = (statements as any[])[0];
-    if (!statement || statement.document_total == null) return null;
-    const inStatement = new Set<string>();
-    (statements as any[]).forEach((st: any) =>
-      (st.ticket_office_statement_lines || []).forEach((l: any) => l.event_id && inStatement.add(l.event_id)),
-    );
-    const settled = new Set(settledEventIds as string[]);
-    const openEvents = summary.events
-      .filter((e) => !settled.has(e.id) && !inStatement.has(e.id) && Math.abs(e.balance) >= 0.01)
-      .sort((a, b) => b.balance - a.balance);
-    const position = Number(statement.document_total);
-    const openTotal = Math.round(openEvents.reduce((acc, e) => acc + e.balance, 0) * 100) / 100;
-    const residual = Math.round((summary.globalBalance - position - openTotal) * 100) / 100;
-    const statementLines = [...(statement.ticket_office_statement_lines || [])].sort((a: any, b: any) => a.position - b.position);
-    return { statement, position, openEvents, openTotal, residual, statementLines };
-  })();
+  const decomposition = decomposeTicketOfficeRetained({
+    globalBalance: summary.globalBalance,
+    events: summary.events,
+    statements: statements as any[],
+    settledEventIds: settledEventIds as string[],
+  }) as any;
 
   return (
     <div className="space-y-3">

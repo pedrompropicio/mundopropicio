@@ -149,3 +149,33 @@ export function computeTicketOfficeBalance(input: TicketOfficeBalanceInput): Tic
 
   return { total, byEvent };
 }
+
+// #303 / P6b — decomposição do retido de uma bilheteira, partilhada pelo painel da bilheteira
+// e pelo ecrã Posição Financeira: posição do apuramento mais recente (qualquer estado)
+// + saldo dos eventos sem fecho e fora de apuramentos + resíduo (por conciliar).
+// A posição apurada já está DENTRO do retido; nunca se abate dele. Nunca rateia o pool por evento.
+export interface RetainedStatementLine { id?: string; line_type?: string | null; position: number; description?: string | null; amount: number | string | null; event_id?: string | null }
+export interface RetainedStatement { id?: string; number?: string | number | null; statement_date?: string | null; document_total: number | string | null; status?: string | null; ticket_office_statement_lines?: RetainedStatementLine[] | null }
+export interface RetainedEvent { id: string; balance: number }
+export interface RetainedDecomposition<E extends RetainedEvent = RetainedEvent> {
+  statement: RetainedStatement; position: number; openEvents: E[]; openTotal: number; residual: number; statementLines: RetainedStatementLine[];
+}
+const r2 = (v: number) => Math.round(v * 100) / 100;
+/** `statements` ordenados do mais recente para o mais antigo. Sem apuramento com total → null. */
+export function decomposeTicketOfficeRetained<E extends RetainedEvent>(input: {
+  globalBalance: number; events: E[]; statements: RetainedStatement[]; settledEventIds: string[];
+}): RetainedDecomposition<E> | null {
+  const statement = input.statements[0];
+  if (!statement || statement.document_total == null) return null;
+  const inStatement = new Set<string>();
+  input.statements.forEach((st) => (st.ticket_office_statement_lines || []).forEach((l) => l.event_id && inStatement.add(l.event_id)));
+  const settled = new Set(input.settledEventIds);
+  const openEvents = input.events
+    .filter((e) => !settled.has(e.id) && !inStatement.has(e.id) && Math.abs(e.balance) >= 0.01)
+    .sort((a, b) => b.balance - a.balance);
+  const position = Number(statement.document_total);
+  const openTotal = r2(openEvents.reduce((acc, e) => acc + e.balance, 0));
+  const residual = r2(input.globalBalance - position - openTotal);
+  const statementLines = [...(statement.ticket_office_statement_lines || [])].sort((a, b) => a.position - b.position);
+  return { statement, position, openEvents, openTotal, residual, statementLines };
+}
