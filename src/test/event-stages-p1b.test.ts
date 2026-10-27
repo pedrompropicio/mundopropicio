@@ -47,7 +47,7 @@ it('sub-event own stamps are ignored',async()=>{
 });
 it('stage RPCs on a sub-event are refused pointing to the master',async()=>{
  for(const q of [`close_event('${k}','t')`,`mark_event_historical('${k}','t')`,`reopen_event_closure('${k}','t')`,`unmark_event_historical('${k}')`])
-  await expect(db.exec(`SELECT ${q}`)).rejects.toThrow(`event_stage_act_on_master: ${m}`);
+  {await db.exec('SAVEPOINT s');await expect(db.exec(`SELECT ${q}`)).rejects.toThrow(`event_stage_act_on_master: ${m}`);await db.exec('ROLLBACK TO SAVEPOINT s');}
 });
 it('master checklist aggregates hard and soft blockers of sub-events',async()=>{
  await db.exec(`INSERT INTO blockers VALUES('${k}','{"hard":{"camarim_sessions":[{"id":"s1"}],"card_sessions":[],"circuit_accounts":[{"id":"a"}]},"soft":{"bp_lines_unreviewed":{"count":2,"saldo_net":10.5}}}'),
