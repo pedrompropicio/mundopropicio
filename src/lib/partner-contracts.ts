@@ -9,7 +9,7 @@
  * há recálculo no servidor. Por isso o ecrã nunca oferece campo editável.
  */
 import { supabase } from "@/integrations/supabase/client";
-import type { ParticipantResult } from "@/lib/event-settlement-engine";
+import type { ParticipantResult, SettlementNodeResult } from "@/lib/event-settlement-engine";
 
 export const MAX_PARTNER_CONTRACTS = 4;
 export const PARTNER_CONTRACT_TX_HINT =
@@ -37,18 +37,76 @@ export function partnerContractEditBlock(
   return null;
 }
 
-/** Valores a congelar — vêm do motor, arredondados a 2 casas. */
-export function buildFreezeValues(p: ParticipantResult) {
+export interface PartnerShareOrigin {
+  parent_quota: number;
+  vat_returned_in: number;
+  addback_in: number;
+  additional_actives_total: number;
+  additional_actives: Array<{ name: string; value: number }>;
+  exclusive_revenue: number;
+  expenses_in_perimeter: number;
+  result_basis_gross: boolean;
+  result_amount: number;
+}
+
+/** Projection du nó, não um segundo motor. A base s/IVA exclui o IVA entregue aos filhos. */
+export function buildShareOrigin(p: ParticipantResult, node: SettlementNodeResult): PartnerShareOrigin {
+  return {
+    parent_quota: r2(node.parentQuota ?? 0),
+    vat_returned_in: r2(node.vatReturnedIn),
+    addback_in: r2(node.addbackIn),
+    additional_actives_total: r2(node.additionalActiveTotal),
+    additional_actives: node.operations.map((op) => ({ name: op.name, value: r2(op.additionalActive) })).filter((op) => op.value !== 0),
+    exclusive_revenue: r2(node.perimeter.revenueNet),
+    expenses_in_perimeter: r2(node.nodeUsesGrossExpenses ? node.perimeter.expensesGross : node.perimeter.expensesNet),
+    result_basis_gross: p.usesGrossExpenses,
+    result_amount: r2(p.usesGrossExpenses ? node.resultGross : node.resultNet - node.vatReturnedOut),
+  };
+}
+
+/** Não inventar origem para snapshots antigos, nem usar o motor atual em vez do snapshot. */
+export function readFrozenOrigin(values: unknown): PartnerShareOrigin | null {
+  if (!values || typeof values !== "object" || !("origin" in values)) return null;
+  const o = values.origin;
+  if (!o || typeof o !== "object" || Array.isArray(o)) return null;
+  const required = ["parent_quota", "vat_returned_in", "addback_in", "additional_actives_total", "exclusive_revenue", "expenses_in_perimeter", "result_amount"] as const;
+  if (!required.every((key) => key in o && typeof (o as Record<string, unknown>)[key] === "number" && Number.isFinite((o as Record<string, unknown>)[key]))
+    || !("result_basis_gross" in o) || typeof o.result_basis_gross !== "boolean"
+    || !("additional_actives" in o) || !Array.isArray(o.additional_actives)
+    || !o.additional_actives.every((a: unknown) => !!a && typeof a === "object" && "name" in a && typeof a.name === "string" && "value" in a && typeof a.value === "number" && Number.isFinite(a.value))) return null;
+  return o as PartnerShareOrigin;
+}
+
+export function shareOriginRows(origin: PartnerShareOrigin) {
+  const rows: Array<{ key: string; label: string; value: number; detail?: boolean; note?: string }> = [
+    { key: "parent", label: "Quota do fechamento acima", value: origin.parent_quota },
+    { key: "vat", label: "IVA dedutível devolvido", value: origin.vat_returned_in },
+    { key: "addback", label: "Custos devolvidos", value: origin.addback_in },
+    { key: "actives", label: "Ativos adicionais", value: origin.additional_actives_total },
+    ...origin.additional_actives.map((a, i) => ({ key: `operation-${i}`, label: a.name, value: a.value, detail: true })),
+    { key: "revenue", label: "Receitas exclusivas do fechamento", value: origin.exclusive_revenue, note: "lançadas só neste fechamento" },
+    { key: "expenses", label: "(−) Despesas do perímetro na base do nó", value: -origin.expenses_in_perimeter },
+  ].filter((row) => row.value !== 0);
+  // Contar o total de ativos uma vez: sublinhas são detalhe, não novas parcelas.
+  const sum = rows.filter((row) => !row.detail).reduce((total, row) => total + Math.round(row.value * 100), 0);
+  const difference = (Math.round(origin.result_amount * 100) - sum) / 100;
+  if (difference !== 0) rows.push({ key: "other", label: "Outros / arredondamentos", value: difference });
+  rows.push({ key: "result", label: `= Resultado do fechamento (${origin.result_basis_gross ? "c/IVA" : "s/IVA"})`, value: origin.result_amount });
+  return rows;
+}
+
+/** Valores do motor a 2 casas; sem reembolsos/extras/acerto. 0269 aceita o objeto
+ * enviado pelo cliente sem recálculo no servidor (limitação conhecida).
+ * 0273/0274 só exigem share_amount, não os campos removidos no P7b. */
+export function buildFreezeValues(p: ParticipantResult, node: SettlementNodeResult) {
   return {
     share_amount: r2(p.share),
     share: r2(p.share),
     share_net: r2(p.shareNet),
-    effective_pct: Number(p.effectivePct) || 0,
-    paid_by_partner: r2(p.paidByPartner),
-    extras: r2(p.extras),
-    settlement_amount: r2(p.settlementAmount),
+    effective_pct: r2(p.effectivePct),
     uses_gross_expenses: !!p.usesGrossExpenses,
     settlement_id: p.settlementId,
+    origin: buildShareOrigin(p, node),
   };
 }
 
@@ -159,8 +217,8 @@ export interface PartnerContractStatus {
 }
 
 export const partnerContractsApi = {
-  freeze: (participantId: string, p: ParticipantResult, note: string) =>
-    call("freeze_settlement_participant", { _participant_id: participantId, _values: buildFreezeValues(p), _note: note.trim() || null }),
+  freeze: (participantId: string, p: ParticipantResult, node: SettlementNodeResult, note: string) =>
+    call("freeze_settlement_participant", { _participant_id: participantId, _values: buildFreezeValues(p, node), _note: note.trim() || null }),
   unfreeze: (participantId: string, reason: string) =>
     call("unfreeze_settlement_participant", { _participant_id: participantId, _reason: reason }),
   status: (participantId: string) => call<PartnerContractStatus>("partner_contract_status", { _participant_id: participantId }),
