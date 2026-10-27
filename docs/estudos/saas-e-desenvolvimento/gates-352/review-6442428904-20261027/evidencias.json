@@ -1,0 +1,38 @@
+{
+  "review": 6442428904,
+  "utc": "2026-10-27T14:16:03.466063+00:00",
+  "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+  "replay_sha": "b2de7f5361304746cb970a51bc3ecbe00c3628d1",
+  "run_id": 40515742524,
+  "artifact_id": 12738858639,
+  "artifact_sha256": "07ccd6109f3bdbb13882d7d8a90fdccd56979e56b73e01d16f4965469cbd52b8",
+  "plan_sha256": "01befc6a23539c82682c49b4cbb180725bac41215d8e0d3cd664c9866d6f76ac",
+  "g1": "green",
+  "g2": "red",
+  "historical_entries": 1547,
+  "tail_operations": 165,
+  "pgmq_memberships_removed": 8,
+  "checkpoints": [
+    47,
+    114
+  ],
+  "pii_files": 1495,
+  "pii_occurrences": 0,
+  "approved_free_text_candidates": 20,
+  "closed_substitutions": 2,
+  "residuals": 131,
+  "groups": {
+    "c": 28,
+    "a": 19,
+    "b": 84
+  },
+  "families": 8,
+  "unclassified": 0,
+  "fingerprint_categories_verified": 25,
+  "fingerprints_stable": true,
+  "ledgers_stable": true,
+  "supabase_versions": 711,
+  "drizzle_entries": 283,
+  "manual_probe_objects": 286,
+  "manual_probe_differences": 0
+}

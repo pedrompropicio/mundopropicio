@@ -1,0 +1,56 @@
+[
+  {
+    "normalization": "N1",
+    "before": 8639,
+    "after": 2043,
+    "delta": -6596
+  },
+  {
+    "normalization": "N2",
+    "before": 2043,
+    "after": 1185,
+    "delta": -858
+  },
+  {
+    "normalization": "N3",
+    "before": 1185,
+    "after": 955,
+    "delta": -230
+  },
+  {
+    "normalization": "N4",
+    "before": 955,
+    "after": 169,
+    "delta": -786
+  },
+  {
+    "normalization": "N5",
+    "before": 169,
+    "after": 169,
+    "delta": 0
+  },
+  {
+    "normalization": "N6",
+    "before": 169,
+    "after": 169,
+    "delta": 0
+  },
+  {
+    "normalization": "N7",
+    "before": 169,
+    "after": 168,
+    "delta": -1
+  },
+  {
+    "normalization": "N8",
+    "before": 168,
+    "after": 165,
+    "delta": -3
+  },
+  {
+    "normalization": "N9",
+    "before": 165,
+    "after": 131,
+    "delta": -34
+  }
+]

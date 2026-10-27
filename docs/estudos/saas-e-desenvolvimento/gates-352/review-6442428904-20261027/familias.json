@@ -1,0 +1,171 @@
+[
+  {
+    "id": "02",
+    "family": "Consentimento, Clube e captação",
+    "cause": "Padrões residuais medidos: $presence=14, definition_sha256=1. Detalhe por objecto e propriedade em residuais.json; sem exclusões adicionais.",
+    "differences": 15,
+    "objects": 15,
+    "groups": {
+      "a": 14,
+      "b": 1
+    },
+    "categories": {
+      "acl": 3,
+      "columns": 6,
+      "constraints": 1,
+      "rls": 1,
+      "tables": 1,
+      "toast_parents": 1,
+      "types": 2
+    },
+    "property_patterns": {
+      "$presence": 14,
+      "definition_sha256": 1
+    }
+  },
+  {
+    "id": "03",
+    "family": "Carreira artística e relatórios de tráfego",
+    "cause": "Padrões residuais medidos: $presence=8, not_null=1, ordinal_position=5. Detalhe por objecto e propriedade em residuais.json; sem exclusões adicionais.",
+    "differences": 14,
+    "objects": 14,
+    "groups": {
+      "c": 8,
+      "b": 6
+    },
+    "categories": {
+      "acl": 3,
+      "columns": 7,
+      "constraints": 1,
+      "functions": 3
+    },
+    "property_patterns": {
+      "$presence": 8,
+      "ordinal_position": 5,
+      "not_null": 1
+    }
+  },
+  {
+    "id": "04",
+    "family": "CRM e integrações publicitárias",
+    "cause": "Padrões residuais medidos: $presence=3, ordinal_position=5. Detalhe por objecto e propriedade em residuais.json; sem exclusões adicionais.",
+    "differences": 8,
+    "objects": 8,
+    "groups": {
+      "b": 5,
+      "c": 3
+    },
+    "categories": {
+      "columns": 5,
+      "indexes": 2,
+      "triggers": 1
+    },
+    "property_patterns": {
+      "ordinal_position": 5,
+      "$presence": 3
+    }
+  },
+  {
+    "id": "05",
+    "family": "Finanças, BP e fecho restantes",
+    "cause": "Padrões residuais medidos: $presence=3, ordinal_position=34. Detalhe por objecto e propriedade em residuais.json; sem exclusões adicionais.",
+    "differences": 37,
+    "objects": 37,
+    "groups": {
+      "b": 34,
+      "c": 3
+    },
+    "categories": {
+      "columns": 34,
+      "constraints": 1,
+      "indexes": 1,
+      "policies": 1
+    },
+    "property_patterns": {
+      "ordinal_position": 34,
+      "$presence": 3
+    }
+  },
+  {
+    "id": "06",
+    "family": "Portal, eventos e conteúdo público",
+    "cause": "Padrões residuais medidos: ordinal_position=17. Detalhe por objecto e propriedade em residuais.json; sem exclusões adicionais.",
+    "differences": 17,
+    "objects": 17,
+    "groups": {
+      "b": 17
+    },
+    "categories": {
+      "columns": 17
+    },
+    "property_patterns": {
+      "ordinal_position": 17
+    }
+  },
+  {
+    "id": "08",
+    "family": "Exceções de aplicação em schemas geridos",
+    "cause": "Padrões residuais medidos: $presence=5, grants=2, valid=1. Detalhe por objecto e propriedade em residuais.json; sem exclusões adicionais.",
+    "differences": 8,
+    "objects": 8,
+    "groups": {
+      "b": 3,
+      "c": 1,
+      "a": 4
+    },
+    "categories": {
+      "acl": 2,
+      "indexes": 2,
+      "internal_trigger_constraints": 4
+    },
+    "property_patterns": {
+      "grants": 2,
+      "$presence": 5,
+      "valid": 1
+    }
+  },
+  {
+    "id": "09",
+    "family": "Papéis e privilégios globais",
+    "cause": "Padrões residuais medidos: $presence=3, config_sha256=1. Detalhe por objecto e propriedade em residuais.json; sem exclusões adicionais.",
+    "differences": 4,
+    "objects": 4,
+    "groups": {
+      "a": 1,
+      "c": 2,
+      "b": 1
+    },
+    "categories": {
+      "default_acl": 1,
+      "role_memberships": 2,
+      "roles": 1
+    },
+    "property_patterns": {
+      "$presence": 3,
+      "config_sha256": 1
+    }
+  },
+  {
+    "id": "11",
+    "family": "Estrutura e isolamento restantes",
+    "cause": "Padrões residuais medidos: $presence=11, not_null=1, ordinal_position=16. Detalhe por objecto e propriedade em residuais.json; sem exclusões adicionais.",
+    "differences": 28,
+    "objects": 28,
+    "groups": {
+      "b": 17,
+      "c": 11
+    },
+    "categories": {
+      "columns": 17,
+      "constraints": 2,
+      "indexes": 2,
+      "policies": 6,
+      "triggers": 1
+    },
+    "property_patterns": {
+      "ordinal_position": 16,
+      "not_null": 1,
+      "$presence": 11
+    }
+  }
+]

@@ -1,0 +1,3359 @@
+[
+  {
+    "table": "crm.meta_publish_plan",
+    "eligible": false,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": [
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "crm.meta_publish_plan",
+        "file": "drizzle/migrations/0008_derp167_plan_link_so_song_links.sql",
+        "line": 108,
+        "file_sha256": "f50fa9437816b26bd5f0823d2d420625320700c94a59de073d9ff36a7dd7fdfc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "crm.meta_publish_plan",
+        "file": "supabase/manual/20261013_derp259_fns_final.sql",
+        "line": 2151,
+        "file_sha256": "098afb811e6dc3f301ed5726832b021edd4402b82ada090da709a49f9c99525e"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "crm.meta_publish_plan",
+        "file": "supabase/migrations/20260919105937_495e2856-8019-46a4-b5f7-00d44d419ccf.sql",
+        "line": 326,
+        "file_sha256": "ad804dfe2a6413b92979d8e7b4d81a110adeae614bd768f1905ec27d2e800735"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "crm.meta_publish_plan",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 4936,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "crm.meta_publish_plan",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "crm.meta_publish_plan",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 139380,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "crm.meta_publish_plan",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 139380,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      }
+    ]
+  },
+  {
+    "table": "public.artist_audience_demographics",
+    "eligible": true,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": []
+  },
+  {
+    "table": "public.camarim_items",
+    "eligible": true,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": []
+  },
+  {
+    "table": "public.camarim_sessions",
+    "eligible": false,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": [
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "camarim_sessions",
+        "file": "supabase/tests/camarim_session_leg_follows_bank.sql",
+        "line": 7,
+        "file_sha256": "68ca78737f8d6721eca937f5e446de52428c5a1d30132b1d5d30b37e675a5429"
+      }
+    ]
+  },
+  {
+    "table": "public.coala_sync_row_state",
+    "eligible": true,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": []
+  },
+  {
+    "table": "public.company_invitations",
+    "eligible": true,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": []
+  },
+  {
+    "table": "public.event_ab_config",
+    "eligible": true,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": []
+  },
+  {
+    "table": "public.event_ab_zones",
+    "eligible": true,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": []
+  },
+  {
+    "table": "public.event_cache_configs",
+    "eligible": false,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": [
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "event_cache_configs",
+        "file": "src/test/event-stages-p1.test.ts",
+        "line": 50,
+        "file_sha256": "fa04c8d48eb24b724cf7e64eada1e823b30e6cb7976e207aa7508c1dbdc77ea6"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "public.event_cache_configs",
+        "file": "supabase/tests/cache_contracts/scenarios.sql",
+        "line": 25,
+        "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827"
+      }
+    ]
+  },
+  {
+    "table": "public.event_forecasts",
+    "eligible": false,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": [
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "event_forecasts",
+        "file": "supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 18,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_forecasts",
+        "file": "supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 277,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "event_forecasts",
+        "file": "supabase/migrations/20260717161537_ce5533a8-5ee1-48ce-a4fe-1a4443515da5.sql",
+        "line": 75,
+        "file_sha256": "242ec31a90e4def3ed67108c7e8cea53618a0d5aad79c53a26b7b4add30718e4"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "event_forecasts",
+        "file": "supabase/migrations/20260717163128_f0c0129d-9de1-4d42-851f-3981b17c0669.sql",
+        "line": 75,
+        "file_sha256": "6fdb2352f04c9666307d6ac9ea001e1144b4b49e96282f84a92bf853f7c4d8c1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "event_forecasts",
+        "file": "supabase/migrations/20260717164454_b8ddaff1-95ab-4a4d-a7d4-ff715210a18a.sql",
+        "line": 77,
+        "file_sha256": "233843e4351fb9e0c6d8cac265bcc5d7b60d0f8c185fd8ed08b26e2370055a48"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "event_forecasts",
+        "file": "supabase/migrations/20260819150720_a4fb46de-74b3-4052-89c0-2cfb73a7bf8d.sql",
+        "line": 70,
+        "file_sha256": "26549c32882ca9c4bca5a48dc5b6f312dd2efcbd713e7f82182e7e9ba34ba608"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "event_forecasts",
+        "file": "supabase/migrations/20260902221646_a0cfb884-e97d-4d4a-91be-e856a7446824.sql",
+        "line": 210,
+        "file_sha256": "837a3e78b365b2a1fcb6b0bebdc9311b7b0aba6e524b2ebca657bd4f05f90e36"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_forecasts",
+        "file": "supabase/migrations/20260903080502_51e6ad00-120c-44a7-92e2-1dfa34b49ce0.sql",
+        "line": 20,
+        "file_sha256": "b5a69f4feb27b5acd8d814a5fe255e31f7235a45f78360c872aaf32ff17d0d30"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_forecasts",
+        "file": "supabase/migrations/20260903080544_f1e28b07-a65f-4add-bbdd-1baba42bc061.sql",
+        "line": 21,
+        "file_sha256": "33ef9ee5af37a05fecc50affaf94ac8adc22d823d98dda830cad0d7488ca21d3"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_forecasts",
+        "file": "supabase/migrations/20260920203006_f89d7ac4-b198-4b3f-b541-4232ec91ac3f.sql",
+        "line": 24,
+        "file_sha256": "29aa3edd4909fe835fcbce1c6e4f45fb00d09f164ecaf2cc6d0b9c3d7904b195"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_forecasts",
+        "file": "supabase/migrations/20260923143931_f16b86e3-630d-4625-805d-0696c6e202e5.sql",
+        "line": 69,
+        "file_sha256": "9a50c43f355c1a1b692771d546f27850c528d34db6208401a17b424ae7d9d009"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_forecasts",
+        "file": "supabase/migrations/20260923165107_2cf8dcd7-7fbd-4e97-ae49-f2785c03fb07.sql",
+        "line": 178,
+        "file_sha256": "6e0a73102d51755b4a0498d50ed6f86826b4b1030749fb6e1b0c8dcd0f0c8253"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "event_forecasts",
+        "file": "supabase/migrations/20260923165107_2cf8dcd7-7fbd-4e97-ae49-f2785c03fb07.sql",
+        "line": 283,
+        "file_sha256": "6e0a73102d51755b4a0498d50ed6f86826b4b1030749fb6e1b0c8dcd0f0c8253"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "event_forecasts",
+        "file": "supabase/migrations/20261010214500_0095_derp_297_bp_frozen_version_guard.sql",
+        "line": 71,
+        "file_sha256": "5757dd4eb7f63d646b7daf08fd3b5b2ff1bb0ce2c08f91becdf13dff214278f8"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "public.event_forecasts",
+        "file": "supabase/tests/cache_contracts/scenarios.sql",
+        "line": 27,
+        "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "public.event_forecasts",
+        "file": "supabase/tests/cache_contracts/scenarios.sql",
+        "line": 33,
+        "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "public.event_forecasts",
+        "file": "supabase/tests/cache_contracts/scenarios.sql",
+        "line": 144,
+        "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "public.event_forecasts",
+        "file": "supabase/tests/cache_contracts/scenarios.sql",
+        "line": 145,
+        "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "public.event_forecasts",
+        "file": "supabase/tests/cache_contracts/scenarios.sql",
+        "line": 154,
+        "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "event_forecasts",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 5326,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_forecasts",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 7888,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_forecasts",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 8038,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "event_forecasts",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_forecasts",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_forecasts",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "event_forecasts",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 136672,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_forecasts",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 138128,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_forecasts",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 138192,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "event_forecasts",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 136672,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_forecasts",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 138128,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_forecasts",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 138192,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      }
+    ]
+  },
+  {
+    "table": "public.event_simulator_cost_lines",
+    "eligible": true,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": []
+  },
+  {
+    "table": "public.event_ticket_lots",
+    "eligible": false,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": [
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "scripts/secdef-hardening/03-cat-D-guards.txt",
+        "line": 317,
+        "file_sha256": "2356b00dbc43c8f23df7b27f2ba9e23a5dafe03887df11830fdbd5e39c248ff5"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "scripts/secdef-hardening/03-cat-D-guards.txt",
+        "line": 374,
+        "file_sha256": "2356b00dbc43c8f23df7b27f2ba9e23a5dafe03887df11830fdbd5e39c248ff5"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "scripts/secdef-hardening/03-cat-D-guards.txt",
+        "line": 642,
+        "file_sha256": "2356b00dbc43c8f23df7b27f2ba9e23a5dafe03887df11830fdbd5e39c248ff5"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "scripts/secdef-hardening/03-cat-D-guards.txt",
+        "line": 769,
+        "file_sha256": "2356b00dbc43c8f23df7b27f2ba9e23a5dafe03887df11830fdbd5e39c248ff5"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260426043730_95b40112-e4a1-4b84-8fe7-1cb4b4455e7c.sql",
+        "line": 127,
+        "file_sha256": "7f9c23f978d142f530bc170a0401e99c6d6061031f0e4bf1084acb9dc79408b6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260426043730_95b40112-e4a1-4b84-8fe7-1cb4b4455e7c.sql",
+        "line": 202,
+        "file_sha256": "7f9c23f978d142f530bc170a0401e99c6d6061031f0e4bf1084acb9dc79408b6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260426043730_95b40112-e4a1-4b84-8fe7-1cb4b4455e7c.sql",
+        "line": 431,
+        "file_sha256": "7f9c23f978d142f530bc170a0401e99c6d6061031f0e4bf1084acb9dc79408b6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260426043730_95b40112-e4a1-4b84-8fe7-1cb4b4455e7c.sql",
+        "line": 635,
+        "file_sha256": "7f9c23f978d142f530bc170a0401e99c6d6061031f0e4bf1084acb9dc79408b6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260426044940_f0e2627c-48f5-4b16-89d3-218a3e986118.sql",
+        "line": 125,
+        "file_sha256": "1e56d6daf772ad95fec8fdcd43808ca77df6635dc5c342ab6e74d0421e2d3e83"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260426044940_f0e2627c-48f5-4b16-89d3-218a3e986118.sql",
+        "line": 199,
+        "file_sha256": "1e56d6daf772ad95fec8fdcd43808ca77df6635dc5c342ab6e74d0421e2d3e83"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260426044940_f0e2627c-48f5-4b16-89d3-218a3e986118.sql",
+        "line": 423,
+        "file_sha256": "1e56d6daf772ad95fec8fdcd43808ca77df6635dc5c342ab6e74d0421e2d3e83"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260426044940_f0e2627c-48f5-4b16-89d3-218a3e986118.sql",
+        "line": 623,
+        "file_sha256": "1e56d6daf772ad95fec8fdcd43808ca77df6635dc5c342ab6e74d0421e2d3e83"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260426145540_b69ca86a-b8da-439e-be5e-4b9c444b3cb0.sql",
+        "line": 206,
+        "file_sha256": "34c786721fee4a3f7e91b86a6514c7e83be794c436dd0e2534e8dc9ce90e6f3c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260426145540_b69ca86a-b8da-439e-be5e-4b9c444b3cb0.sql",
+        "line": 427,
+        "file_sha256": "34c786721fee4a3f7e91b86a6514c7e83be794c436dd0e2534e8dc9ce90e6f3c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260515115515_4b4b71b2-7a68-479b-b5c9-c6e8e965663a.sql",
+        "line": 113,
+        "file_sha256": "a2de583ad45b2fe312945c6afb1010b884f05d11b01eb1a43021d0c717a72994"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260515115515_4b4b71b2-7a68-479b-b5c9-c6e8e965663a.sql",
+        "line": 189,
+        "file_sha256": "a2de583ad45b2fe312945c6afb1010b884f05d11b01eb1a43021d0c717a72994"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260902230514_16de0ce0-dde2-46d5-9d55-8a01aea836e1.sql",
+        "line": 254,
+        "file_sha256": "bad0974b9b3483d99545353590da6dfd0e6a3b68c16639261dc5087dfe34d551"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260902230514_16de0ce0-dde2-46d5-9d55-8a01aea836e1.sql",
+        "line": 480,
+        "file_sha256": "bad0974b9b3483d99545353590da6dfd0e6a3b68c16639261dc5087dfe34d551"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260908180233_d4d39653-2df0-4ff4-8bd2-61f2e27b0bbb.sql",
+        "line": 230,
+        "file_sha256": "88d3b80a5e3ec27c4e8d0a1c0a1f77d5cb78fa40dc8b4fd7f9c0dd88ac87063f"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260908180233_d4d39653-2df0-4ff4-8bd2-61f2e27b0bbb.sql",
+        "line": 472,
+        "file_sha256": "88d3b80a5e3ec27c4e8d0a1c0a1f77d5cb78fa40dc8b4fd7f9c0dd88ac87063f"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260920202855_62cedbbe-e0ab-46e1-b652-261a8cf30d9c.sql",
+        "line": 128,
+        "file_sha256": "89b1da1275a5412c237f3fc98bb3bf18d628d87f2983349f7155d1a57420e031"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/migrations/20260920202855_62cedbbe-e0ab-46e1-b652-261a8cf30d9c.sql",
+        "line": 204,
+        "file_sha256": "89b1da1275a5412c237f3fc98bb3bf18d628d87f2983349f7155d1a57420e031"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 5968,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 5968,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 7858,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 7858,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 137088,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 137088,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 138112,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 138112,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 137088,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 137088,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 138112,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.event_ticket_lots",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 138112,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      }
+    ]
+  },
+  {
+    "table": "public.events",
+    "eligible": false,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": [
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "public.events",
+        "file": "docs/testes/issue333/pg/assistant-executor12e-stub.sql",
+        "line": 52,
+        "file_sha256": "4d55b2cddc6c6fd4b53f1548b455055fb83401ef5387d20247921425eed03b40"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.events",
+        "file": "drizzle/migrations/0280_p1_event_stages.sql",
+        "line": 31,
+        "file_sha256": "7a51c04980402f2f2347fd9b56bcca53ff3e72ed8cb711ed7eb8f61471f44696"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.events",
+        "file": "drizzle/migrations/0281_p1b_substage_follows_master.sql",
+        "line": 11,
+        "file_sha256": "382f0e874b60606deaf68019fbf83770caeb8468a1eb8796b329784e0b5acab1"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "events",
+        "file": "scripts/coala-meta-audience/schema-test.sql",
+        "line": 15,
+        "file_sha256": "8e31d53b09c068724e37fea4cf2df9aed71aad5d46bf1620e28f1ed065ed127b"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "events",
+        "file": "src/test/event-stages-p1.test.ts",
+        "line": 30,
+        "file_sha256": "fa04c8d48eb24b724cf7e64eada1e823b30e6cb7976e207aa7508c1dbdc77ea6"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "events",
+        "file": "src/test/event-stages-p1b.test.ts",
+        "line": 32,
+        "file_sha256": "e62355349bb0f6142e993553afdbf7a30246371b6bb69db3f573979ab9617541"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "events",
+        "file": "src/test/newgang-erasure-0264.test.ts",
+        "line": 47,
+        "file_sha256": "7ad2290482cabea175d5a87e171c1e4dedf58fbc90a0e1516a235837809d44f8"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.events",
+        "file": "supabase/manual/0280_p1_event_stages.sql",
+        "line": 31,
+        "file_sha256": "7a51c04980402f2f2347fd9b56bcca53ff3e72ed8cb711ed7eb8f61471f44696"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.events",
+        "file": "supabase/manual/0281_p1b_substage_follows_master.sql",
+        "line": 11,
+        "file_sha256": "382f0e874b60606deaf68019fbf83770caeb8468a1eb8796b329784e0b5acab1"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "public.events",
+        "file": "supabase/tests/cache_contracts/scenarios.sql",
+        "line": 24,
+        "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "public.events",
+        "file": "supabase/tests/cache_contracts/scenarios.sql",
+        "line": 32,
+        "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "public.events",
+        "file": "supabase/tests/cache_contracts/scenarios.sql",
+        "line": 143,
+        "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "public.events",
+        "file": "supabase/tests/cache_contracts/scenarios.sql",
+        "line": 151,
+        "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827"
+      }
+    ]
+  },
+  {
+    "table": "public.fever_sync_config",
+    "eligible": true,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": []
+  },
+  {
+    "table": "public.financial_accounts",
+    "eligible": false,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": [
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "public.financial_accounts",
+        "file": "docs/testes/issue333/pg/assistant-executor12e-stub.sql",
+        "line": 54,
+        "file_sha256": "4d55b2cddc6c6fd4b53f1548b455055fb83401ef5387d20247921425eed03b40"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 1276,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 3964,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/catalog.json",
+        "line": 676,
+        "file_sha256": "090752c7e3b24d2375348239fb91d92bcbb7d58f177159125e8cee8ffa78e8c3"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/functions.sql",
+        "line": 2258,
+        "file_sha256": "55e6b6d91a977aa97dcd8001c50dffb9df71a290b047f24e0703634686181bf1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 77690,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 77693,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 77701,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 77704,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 24485,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 24488,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 15736,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 15739,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 8764,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/phase2k/cash-consumers.json",
+        "line": 336,
+        "file_sha256": "a9dcfa24fe980dcfea8ba176f32158cc99813a0810120eed7438398da10c3356"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/phase2k/catalog-fresh.json",
+        "line": 141,
+        "file_sha256": "7a9fea7fb7b51dfbaf7b406295d0e5a73b76ac5b9b5e744cb3faf946560318ea"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/phase2k/catalog-fresh.json",
+        "line": 145,
+        "file_sha256": "7a9fea7fb7b51dfbaf7b406295d0e5a73b76ac5b9b5e744cb3faf946560318ea"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 138624,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 138624,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/live/phase2n-bloco4/live-lateral-prosrc.txt",
+        "line": 281,
+        "file_sha256": "b380e3e1427768d9ac9c236c88c098d1610bdda84eb295827d5b041b6fef1fef"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "financial_accounts",
+        "file": "supabase/tests/issue335/stub.sql",
+        "line": 45,
+        "file_sha256": "9afe41632efe76fbe43ebf4774d661fb6ecece12d125335d40b34dd81c2baeec"
+      }
+    ]
+  },
+  {
+    "table": "public.profiles",
+    "eligible": false,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": [
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "profiles",
+        "file": "docs/audits/2026-05-19-operacao/03-erros-funcionais.md",
+        "line": 210,
+        "file_sha256": "b3320417e8f27e5b263866d41b0a79803496b1e26a135563f673e2974adc756e"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "profiles",
+        "file": "docs/testes/issue333/head/flows.test.tsx",
+        "line": 111,
+        "file_sha256": "2a523de4295167ef47e002772dae84970418268562eac68cba6accd0bbc66f29"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "profiles",
+        "file": "docs/testes/issue333/pg/activation56.test.ts",
+        "line": 16,
+        "file_sha256": "1e879661f7fb63571decef2bb19ad6a699ca41c1401945b3ae038c7f08fae1fc"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "profiles",
+        "file": "docs/testes/issue333/pg/activation64.test.ts",
+        "line": 16,
+        "file_sha256": "5d25f079ad5317934bf4b192bd7c2c8f273fd1700a0c6f3be5b47831e599f29e"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "profiles",
+        "file": "docs/testes/issue333/pg/activation73.test.ts",
+        "line": 23,
+        "file_sha256": "6a9defb3a79d0c4a3b249f6fec38291e6a7bad6e4d07519dee13a5c07e099d57"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "profiles",
+        "file": "docs/testes/issue333/pg/attempts-pg.test.ts",
+        "line": 25,
+        "file_sha256": "1efa191956375f44fe0bf6dff6c3c7ee74a68ef5d6d025e3c898866d74e24922"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "profiles",
+        "file": "docs/testes/issue333/pg/attempts-pg.test.ts",
+        "line": 143,
+        "file_sha256": "1efa191956375f44fe0bf6dff6c3c7ee74a68ef5d6d025e3c898866d74e24922"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "profiles",
+        "file": "docs/testes/issue333/pg/data-entry-pg.test.ts",
+        "line": 80,
+        "file_sha256": "3e43803c94727af0d3fc08f4acd91844f5351ad2e659124ce72ee54b1cd3c6e6"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "profiles",
+        "file": "docs/testes/issue333/pg/driver58.test.ts",
+        "line": 35,
+        "file_sha256": "1a382efe228f0d758acf09a881897bd524c04c60f1a3857109cfdb9a86ad2537"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "profiles",
+        "file": "docs/testes/issue333/pg/fixture-preparation47.test.ts",
+        "line": 16,
+        "file_sha256": "3d9a9c06ba7c9c3283e54a36745a859dd72de9b1752b14bc02a81e25d9b9114f"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "profiles",
+        "file": "docs/testes/issue333/pg/hash-check-pending.test.ts",
+        "line": 26,
+        "file_sha256": "85b303e8f327c263fddda28404ede20e8d553af17b00e7130b8dd0ad6ae77992"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "profiles",
+        "file": "docs/testes/issue333/pg/pilot8-browser56.test.ts",
+        "line": 34,
+        "file_sha256": "15fcb234731b463c35de6312d4c98299eabd29ec60f2826836543d63b607185d"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "profiles",
+        "file": "docs/testes/issue333/pg/pilot8-inert.test.ts",
+        "line": 30,
+        "file_sha256": "f596d67e5448748be42ed96f56fb6b23383e9818d12730236592eff4855c26d0"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "docs/testes/issue333/pilot8-complement/activation.INERTE.sql",
+        "line": 38,
+        "file_sha256": "2ac47dc0da57c11615108dac5465e8408cad36047e2e843622a1b70d80c64f66"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "docs/testes/issue333/pilot8-preparation73/activation.INERTE.sql",
+        "line": 34,
+        "file_sha256": "53201ef719f213bafaf4b4962222056c08d48555e4e5ef8dbf3c0c3373e99b8b"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "docs/testes/issue333/pilot8/activation.INERTE.sql",
+        "line": 34,
+        "file_sha256": "97e4695c38d23cb9e85d1c710e3db7efa23c594fa995f856bcaa815c0c994e1f"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "docs/testes/issue333/pilot8/allowlist.INERTE.sql",
+        "line": 135,
+        "file_sha256": "ed445516276c1355c264e4a43e38fdde153f51602e8b767b29d6b44a37fd48c2"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "docs/testes/issue333/pilot8/allowlist.INERTE.sql",
+        "line": 147,
+        "file_sha256": "ed445516276c1355c264e4a43e38fdde153f51602e8b767b29d6b44a37fd48c2"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "docs/testes/issue333/preparation47/prepare-fixture.INERTE.sql",
+        "line": 41,
+        "file_sha256": "d9a01baee51fe0d210877a976bcc931795a33d2fbafbe220d7081a68b3fef9e5"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "docs/testes/issue333/preparation47/sources/prepare-fixture.before-correction.sql",
+        "line": 39,
+        "file_sha256": "d66b2ba808c009badb01917db8a4fe1e437b51ddf2b232288ad12bd7752b5ee3"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "drizzle/migrations/0195_issue333_pilot8_scoped_closed_structure.sql",
+        "line": 134,
+        "file_sha256": "cb2153c127cc928642472373977b96928186ef12a792083ea4d862a79bc8d7aa"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "drizzle/migrations/0195_issue333_pilot8_scoped_closed_structure.sql",
+        "line": 146,
+        "file_sha256": "cb2153c127cc928642472373977b96928186ef12a792083ea4d862a79bc8d7aa"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "supabase/manual/20261018_issue333_pilot8_allowlist.PENDENTE.sql",
+        "line": 135,
+        "file_sha256": "ed445516276c1355c264e4a43e38fdde153f51602e8b767b29d6b44a37fd48c2"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "supabase/manual/20261018_issue333_pilot8_allowlist.PENDENTE.sql",
+        "line": 147,
+        "file_sha256": "ed445516276c1355c264e4a43e38fdde153f51602e8b767b29d6b44a37fd48c2"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 6562,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 6562,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 146132,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 146132,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 146132,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.profiles",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 146132,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      }
+    ]
+  },
+  {
+    "table": "public.suppliers",
+    "eligible": false,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": [
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "public.suppliers",
+        "file": "supabase/tests/cache_contracts/scenarios.sql",
+        "line": 7,
+        "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "public.suppliers",
+        "file": "supabase/tests/cache_contracts/scenarios.sql",
+        "line": 199,
+        "file_sha256": "3321191e4dbe64ef696449aac372895c65dfded1936d10f3c83e7c1018066827"
+      },
+      {
+        "kind": "insert_values_without_columns",
+        "relation": "suppliers",
+        "file": "supabase/tests/issue335/stub.sql",
+        "line": 44,
+        "file_sha256": "9afe41632efe76fbe43ebf4774d661fb6ecece12d125335d40b34dd81c2baeec"
+      }
+    ]
+  },
+  {
+    "table": "public.ticket_office_settlements",
+    "eligible": false,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": [
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 401,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 1081,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "ticket_office_settlements",
+        "file": "docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 2093,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 3089,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 3769,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "ticket_office_settlements",
+        "file": "docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 4781,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "ticket_office_settlements",
+        "file": "drizzle/migrations/0067_derp219_delete_cascade_settlement_reverse_forecast_amount_rateio.sql",
+        "line": 125,
+        "file_sha256": "727c17f588a0f59bc4312c754736526789986412bebcd63c6eab646659ebff77"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "drizzle/migrations/0091_derp_296_save_ticket_office_settlement.sql",
+        "line": 70,
+        "file_sha256": "c4b7a01cc250a82ef70d39bfef9fc07e09cd3a4620efab451cccfed0cc6ce2ba"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "drizzle/migrations/0094_derp_296_triggers_own_invoice_paid.sql",
+        "line": 63,
+        "file_sha256": "8fe9230e2c11144a0c7e27c92db4227a984de30d705710a7c8acd41fc0c1972e"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "drizzle/migrations/0212_issue333_assistant_executor.sql",
+        "line": 252,
+        "file_sha256": "d582d55c28b41761a54937dd8fc2bcf47bb8dc482ca57f23255c695ca99c5d5a"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "drizzle/migrations/0212_issue333_assistant_executor.sql",
+        "line": 281,
+        "file_sha256": "d582d55c28b41761a54937dd8fc2bcf47bb8dc482ca57f23255c695ca99c5d5a"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "drizzle/migrations/0212_issue333_assistant_executor.sql",
+        "line": 285,
+        "file_sha256": "d582d55c28b41761a54937dd8fc2bcf47bb8dc482ca57f23255c695ca99c5d5a"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/manual/20261020_issue333_assistant_executor.INERTE.sql",
+        "line": 253,
+        "file_sha256": "93c813a2ba18f0f8a629d5625e67d5a74e9f13c4ec3245548b6dc849be028983"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/manual/20261020_issue333_assistant_executor.INERTE.sql",
+        "line": 282,
+        "file_sha256": "93c813a2ba18f0f8a629d5625e67d5a74e9f13c4ec3245548b6dc849be028983"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/manual/20261020_issue333_assistant_executor.INERTE.sql",
+        "line": 286,
+        "file_sha256": "93c813a2ba18f0f8a629d5625e67d5a74e9f13c4ec3245548b6dc849be028983"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/migrations/20260912193941_e33bfb5f-eba7-440a-a815-f8e6b4f43651.sql",
+        "line": 41,
+        "file_sha256": "55cee37f75c3bf52ae5c91a0193dfdae2375c03d138f7e69656e1a79f4bf3209"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/migrations/20261010213100_0091_derp_296_save_ticket_office_settlement.sql",
+        "line": 70,
+        "file_sha256": "c4b7a01cc250a82ef70d39bfef9fc07e09cd3a4620efab451cccfed0cc6ce2ba"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/migrations/20261010213400_0094_derp_296_triggers_own_invoice_paid.sql",
+        "line": 63,
+        "file_sha256": "8fe9230e2c11144a0c7e27c92db4227a984de30d705710a7c8acd41fc0c1972e"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 75620,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 75623,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 77320,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 77323,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 77450,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 77453,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 23594,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 23597,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 24331,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 24334,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 24375,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 24378,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 6010,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 6496,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 6496,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 6496,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 8188,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 8272,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2k/cash-consumers.json",
+        "line": 64,
+        "file_sha256": "a9dcfa24fe980dcfea8ba176f32158cc99813a0810120eed7438398da10c3356"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2k/cash-consumers.json",
+        "line": 320,
+        "file_sha256": "a9dcfa24fe980dcfea8ba176f32158cc99813a0810120eed7438398da10c3356"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2k/cash-consumers.json",
+        "line": 320,
+        "file_sha256": "a9dcfa24fe980dcfea8ba176f32158cc99813a0810120eed7438398da10c3356"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2k/cash-consumers.json",
+        "line": 320,
+        "file_sha256": "a9dcfa24fe980dcfea8ba176f32158cc99813a0810120eed7438398da10c3356"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2k/cash-consumers.json",
+        "line": 400,
+        "file_sha256": "a9dcfa24fe980dcfea8ba176f32158cc99813a0810120eed7438398da10c3356"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2k/cash-consumers.json",
+        "line": 416,
+        "file_sha256": "a9dcfa24fe980dcfea8ba176f32158cc99813a0810120eed7438398da10c3356"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 137152,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 138288,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 138352,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 140356,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 140356,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 140356,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 137152,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 138288,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 138352,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 140356,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 140356,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.ticket_office_settlements",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 140356,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      }
+    ]
+  },
+  {
+    "table": "public.transactions",
+    "eligible": false,
+    "column_sets_and_properties_equal": true,
+    "source_sha": "2f1e270ab20603dcf6732ea19a264ee2298e570f",
+    "findings": [
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 59,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 60,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 329,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 2737,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 2738,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "docs/testes/issue333/pg/canon12f-base.sql",
+        "line": 3017,
+        "file_sha256": "33a7f548f1f430e4f92dfb4094f127da865a3da0a30ed89f03388699f8edbced"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0066_derp218_silent_writes_partner_extra_reversal_link_date.sql",
+        "line": 27,
+        "file_sha256": "e21a48844089ab433d52153233fb027c9a318b11d6cabc89b150d31c2894c551"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0066_derp218_silent_writes_partner_extra_reversal_link_date.sql",
+        "line": 61,
+        "file_sha256": "e21a48844089ab433d52153233fb027c9a318b11d6cabc89b150d31c2894c551"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0066_derp218_silent_writes_partner_extra_reversal_link_date.sql",
+        "line": 89,
+        "file_sha256": "e21a48844089ab433d52153233fb027c9a318b11d6cabc89b150d31c2894c551"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0066_derp218_silent_writes_partner_extra_reversal_link_date.sql",
+        "line": 227,
+        "file_sha256": "e21a48844089ab433d52153233fb027c9a318b11d6cabc89b150d31c2894c551"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "transactions",
+        "file": "drizzle/migrations/0067_derp219_delete_cascade_settlement_reverse_forecast_amount_rateio.sql",
+        "line": 85,
+        "file_sha256": "727c17f588a0f59bc4312c754736526789986412bebcd63c6eab646659ebff77"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0070_derp221_sepa_guard_planned_installments_split_bp.sql",
+        "line": 91,
+        "file_sha256": "b6aac67a0b8feb3e098374a3eb82e6269b3ead11929f1a13cbfd684313864fb7"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0212_issue333_assistant_executor.sql",
+        "line": 96,
+        "file_sha256": "d582d55c28b41761a54937dd8fc2bcf47bb8dc482ca57f23255c695ca99c5d5a"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0212_issue333_assistant_executor.sql",
+        "line": 298,
+        "file_sha256": "d582d55c28b41761a54937dd8fc2bcf47bb8dc482ca57f23255c695ca99c5d5a"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0214_cache_payment_contracts.sql",
+        "line": 203,
+        "file_sha256": "8bd259c44d18df3c3f00bb0dc5e4ace0e5b10bd0ea121efe85c235528c8b200d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0214_cache_payment_contracts.sql",
+        "line": 349,
+        "file_sha256": "8bd259c44d18df3c3f00bb0dc5e4ace0e5b10bd0ea121efe85c235528c8b200d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0214_cache_payment_contracts.sql",
+        "line": 481,
+        "file_sha256": "8bd259c44d18df3c3f00bb0dc5e4ace0e5b10bd0ea121efe85c235528c8b200d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0217_cache_cancel_contract_canonical_deps.sql",
+        "line": 35,
+        "file_sha256": "c3bb4c05e2ce01d45d672e6d7a77887b807957203ec029bf1ab4ac43180378a8"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0217_cache_cancel_contract_canonical_deps.sql",
+        "line": 59,
+        "file_sha256": "c3bb4c05e2ce01d45d672e6d7a77887b807957203ec029bf1ab4ac43180378a8"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0237_cache_attach_advance_to_contract.sql",
+        "line": 21,
+        "file_sha256": "dc0b98ee2db9fa2d4e56220ebe84103abd3b9daa475688cc102588c504a22de4"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0237_cache_attach_advance_to_contract.sql",
+        "line": 40,
+        "file_sha256": "dc0b98ee2db9fa2d4e56220ebe84103abd3b9daa475688cc102588c504a22de4"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0237_cache_attach_advance_to_contract.sql",
+        "line": 53,
+        "file_sha256": "dc0b98ee2db9fa2d4e56220ebe84103abd3b9daa475688cc102588c504a22de4"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0237_cache_attach_advance_to_contract.sql",
+        "line": 69,
+        "file_sha256": "dc0b98ee2db9fa2d4e56220ebe84103abd3b9daa475688cc102588c504a22de4"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0237_cache_attach_advance_to_contract.sql",
+        "line": 85,
+        "file_sha256": "dc0b98ee2db9fa2d4e56220ebe84103abd3b9daa475688cc102588c504a22de4"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0273_0273_p3_partner_contract_rpcs.sql",
+        "line": 64,
+        "file_sha256": "a228b3f422ad1997d8be9c0c61b0c1e8484c8f99c4ac19dd83d90d23b9a10399"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0273_0273_p3_partner_contract_rpcs.sql",
+        "line": 186,
+        "file_sha256": "a228b3f422ad1997d8be9c0c61b0c1e8484c8f99c4ac19dd83d90d23b9a10399"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0273_0273_p3_partner_contract_rpcs.sql",
+        "line": 237,
+        "file_sha256": "a228b3f422ad1997d8be9c0c61b0c1e8484c8f99c4ac19dd83d90d23b9a10399"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "drizzle/migrations/0273_0273_p3_partner_contract_rpcs.sql",
+        "line": 241,
+        "file_sha256": "a228b3f422ad1997d8be9c0c61b0c1e8484c8f99c4ac19dd83d90d23b9a10399"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "transactions",
+        "file": "src/test/p3-partner-contract-guards.test.ts",
+        "line": 22,
+        "file_sha256": "78aceb6b89510e6425ab919c7c3bfd7bd8b81bf3ca89d083678074aa37655da6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "transactions",
+        "file": "src/test/p3-partner-contract-rpcs.test.ts",
+        "line": 21,
+        "file_sha256": "561a1492ef9c0e9492667d518d50306d74238759f6f14b998ca249805dcf5334"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/0273_p3_partner_contract_rpcs.sql",
+        "line": 64,
+        "file_sha256": "a228b3f422ad1997d8be9c0c61b0c1e8484c8f99c4ac19dd83d90d23b9a10399"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/0273_p3_partner_contract_rpcs.sql",
+        "line": 186,
+        "file_sha256": "a228b3f422ad1997d8be9c0c61b0c1e8484c8f99c4ac19dd83d90d23b9a10399"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/0273_p3_partner_contract_rpcs.sql",
+        "line": 237,
+        "file_sha256": "a228b3f422ad1997d8be9c0c61b0c1e8484c8f99c4ac19dd83d90d23b9a10399"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/0273_p3_partner_contract_rpcs.sql",
+        "line": 241,
+        "file_sha256": "a228b3f422ad1997d8be9c0c61b0c1e8484c8f99c4ac19dd83d90d23b9a10399"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/20261020_issue333_assistant_executor.INERTE.sql",
+        "line": 97,
+        "file_sha256": "93c813a2ba18f0f8a629d5625e67d5a74e9f13c4ec3245548b6dc849be028983"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/20261020_issue333_assistant_executor.INERTE.sql",
+        "line": 299,
+        "file_sha256": "93c813a2ba18f0f8a629d5625e67d5a74e9f13c4ec3245548b6dc849be028983"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 289,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 461,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 462,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 565,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 707,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/20261021_issue335_offset_core.INERTE.sql",
+        "line": 980,
+        "file_sha256": "4d0c673a2c7f89e07212786343cfb2a891218d42268acc9f7a79391d6038650c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/20261021_issue335_offset_core.ROLLBACK-INERTE.sql",
+        "line": 60,
+        "file_sha256": "8d1d3d0588a4dbb68adaea65978e357182f6ef5f6d4f47e239fce61b425b5c99"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/20261021_issue335_offset_core.ROLLBACK-INERTE.sql",
+        "line": 61,
+        "file_sha256": "8d1d3d0588a4dbb68adaea65978e357182f6ef5f6d4f47e239fce61b425b5c99"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/20261021_issue335_offset_core.ROLLBACK-INERTE.sql",
+        "line": 214,
+        "file_sha256": "8d1d3d0588a4dbb68adaea65978e357182f6ef5f6d4f47e239fce61b425b5c99"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/20261021_issue335_offset_core.ROLLBACK-INERTE.sql",
+        "line": 361,
+        "file_sha256": "8d1d3d0588a4dbb68adaea65978e357182f6ef5f6d4f47e239fce61b425b5c99"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/manual/20261021_issue335_offset_core.ROLLBACK-INERTE.sql",
+        "line": 520,
+        "file_sha256": "8d1d3d0588a4dbb68adaea65978e357182f6ef5f6d4f47e239fce61b425b5c99"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/migrations/20260709144752_c4b59592-3146-431f-a062-497a05c82fae.sql",
+        "line": 38,
+        "file_sha256": "2c6016466d0f18aa2c799c9e0fbeb4c38516de7cddd2992a33887b17984185cf"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/migrations/20260709171326_5bc3b131-7bad-4370-aa0d-5762d53c0e56.sql",
+        "line": 34,
+        "file_sha256": "d583d4fb4fc041b715621de4047861559f8660189494adf856f86dc951a16e44"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/migrations/20260811130821_3d1200d5-3022-47ed-8b13-d0d8f89c6120.sql",
+        "line": 39,
+        "file_sha256": "f62ecb24fe0249b3da1c79c462cf4dbe09f8d9cc1249941821c0090b7dda8e67"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/migrations/20260811130821_3d1200d5-3022-47ed-8b13-d0d8f89c6120.sql",
+        "line": 185,
+        "file_sha256": "f62ecb24fe0249b3da1c79c462cf4dbe09f8d9cc1249941821c0090b7dda8e67"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/migrations/20260831150444_c88835a6-3dc9-480d-8781-f8adb04d46b2.sql",
+        "line": 40,
+        "file_sha256": "d158ff52eccef2c4d059056b95f27f1bf5efa045a40711894f034b3739420bd8"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/migrations/20260831175623_0376acd1-9d2d-4e46-a9d7-637eccb2ba49.sql",
+        "line": 67,
+        "file_sha256": "7d866c5bdac9096d586b60160a59be774c4e097e7d562778838495644cafae1e"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/migrations/20260831184212_4dcc5d22-8bc7-4bb1-8561-67c60f614e4b.sql",
+        "line": 37,
+        "file_sha256": "07f19420206e22af02b4e843f0549b451e553e943d138b1b61752d697eaa556c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/migrations/20260831184500_renegotiate_block_split_parent.sql",
+        "line": 37,
+        "file_sha256": "a8b33daa2cda4f193d332fc3245eecdb5e0c430ee97579007b23733e47519e9b"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/migrations/20260912173212_851813b9-a9d0-481a-935e-be25b3f8b9ec.sql",
+        "line": 37,
+        "file_sha256": "4f6fb777161277fecd59f23157ba8d1b7822ecf8531efe38f8d777957eca89c9"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/migrations/20260922175952_c2dfd13e-4f5b-4f61-9da7-45a29d86460c.sql",
+        "line": 79,
+        "file_sha256": "bbb5db884bf11f1456dbd57dbba6d5569bc431baf0b11d9aba0a3c0d6c6c37ae"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/migrations/20260928221118_bea24c4b-e61c-4fd0-b901-59eba78bfbe1.sql",
+        "line": 116,
+        "file_sha256": "e60cacc7345c1d41d740e98a3cbdebdb1775fef425c3cbb786261226ccb7e5d9"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/migrations/20260928221118_bea24c4b-e61c-4fd0-b901-59eba78bfbe1.sql",
+        "line": 118,
+        "file_sha256": "e60cacc7345c1d41d740e98a3cbdebdb1775fef425c3cbb786261226ccb7e5d9"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/migrations/20260928221118_bea24c4b-e61c-4fd0-b901-59eba78bfbe1.sql",
+        "line": 204,
+        "file_sha256": "e60cacc7345c1d41d740e98a3cbdebdb1775fef425c3cbb786261226ccb7e5d9"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/migrations/20260928221118_bea24c4b-e61c-4fd0-b901-59eba78bfbe1.sql",
+        "line": 205,
+        "file_sha256": "e60cacc7345c1d41d740e98a3cbdebdb1775fef425c3cbb786261226ccb7e5d9"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/migrations/20260930101458_5bdbefad-7062-4d28-a0be-c956b86d8447.sql",
+        "line": 326,
+        "file_sha256": "42eba6288681cb238cec9ee473e39fb6816314efb2e2a9747a0722c3545574da"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/catalog.json",
+        "line": 436,
+        "file_sha256": "090752c7e3b24d2375348239fb91d92bcbb7d58f177159125e8cee8ffa78e8c3"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/catalog.json",
+        "line": 490,
+        "file_sha256": "090752c7e3b24d2375348239fb91d92bcbb7d58f177159125e8cee8ffa78e8c3"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/catalog.json",
+        "line": 508,
+        "file_sha256": "090752c7e3b24d2375348239fb91d92bcbb7d58f177159125e8cee8ffa78e8c3"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/catalog.json",
+        "line": 508,
+        "file_sha256": "090752c7e3b24d2375348239fb91d92bcbb7d58f177159125e8cee8ffa78e8c3"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/catalog.json",
+        "line": 592,
+        "file_sha256": "090752c7e3b24d2375348239fb91d92bcbb7d58f177159125e8cee8ffa78e8c3"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/catalog.json",
+        "line": 646,
+        "file_sha256": "090752c7e3b24d2375348239fb91d92bcbb7d58f177159125e8cee8ffa78e8c3"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/catalog.json",
+        "line": 646,
+        "file_sha256": "090752c7e3b24d2375348239fb91d92bcbb7d58f177159125e8cee8ffa78e8c3"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/catalog.json",
+        "line": 718,
+        "file_sha256": "090752c7e3b24d2375348239fb91d92bcbb7d58f177159125e8cee8ffa78e8c3"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/functions.sql",
+        "line": 258,
+        "file_sha256": "55e6b6d91a977aa97dcd8001c50dffb9df71a290b047f24e0703634686181bf1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/functions.sql",
+        "line": 734,
+        "file_sha256": "55e6b6d91a977aa97dcd8001c50dffb9df71a290b047f24e0703634686181bf1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/functions.sql",
+        "line": 980,
+        "file_sha256": "55e6b6d91a977aa97dcd8001c50dffb9df71a290b047f24e0703634686181bf1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/functions.sql",
+        "line": 981,
+        "file_sha256": "55e6b6d91a977aa97dcd8001c50dffb9df71a290b047f24e0703634686181bf1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/functions.sql",
+        "line": 1571,
+        "file_sha256": "55e6b6d91a977aa97dcd8001c50dffb9df71a290b047f24e0703634686181bf1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/functions.sql",
+        "line": 2033,
+        "file_sha256": "55e6b6d91a977aa97dcd8001c50dffb9df71a290b047f24e0703634686181bf1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/functions.sql",
+        "line": 2035,
+        "file_sha256": "55e6b6d91a977aa97dcd8001c50dffb9df71a290b047f24e0703634686181bf1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/functions.sql",
+        "line": 2658,
+        "file_sha256": "55e6b6d91a977aa97dcd8001c50dffb9df71a290b047f24e0703634686181bf1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2c-touched.json",
+        "line": 71,
+        "file_sha256": "c9f6a641341ee94f06791c0ec31db70d029e3fd2c178a583b3c2e03c052e0fa1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2c-touched.json",
+        "line": 71,
+        "file_sha256": "c9f6a641341ee94f06791c0ec31db70d029e3fd2c178a583b3c2e03c052e0fa1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2c-touched.json",
+        "line": 107,
+        "file_sha256": "c9f6a641341ee94f06791c0ec31db70d029e3fd2c178a583b3c2e03c052e0fa1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2c-touched.json",
+        "line": 119,
+        "file_sha256": "c9f6a641341ee94f06791c0ec31db70d029e3fd2c178a583b3c2e03c052e0fa1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2c-touched.json",
+        "line": 143,
+        "file_sha256": "c9f6a641341ee94f06791c0ec31db70d029e3fd2c178a583b3c2e03c052e0fa1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2e-functions.json",
+        "line": 20,
+        "file_sha256": "756c7c480a10ce6c4750e9a6f2e23a781506244e8a366bbe7a2e50342352708c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2e-functions.json",
+        "line": 20,
+        "file_sha256": "756c7c480a10ce6c4750e9a6f2e23a781506244e8a366bbe7a2e50342352708c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2e-functions.json",
+        "line": 23,
+        "file_sha256": "756c7c480a10ce6c4750e9a6f2e23a781506244e8a366bbe7a2e50342352708c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2e-functions.json",
+        "line": 23,
+        "file_sha256": "756c7c480a10ce6c4750e9a6f2e23a781506244e8a366bbe7a2e50342352708c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2e-functions.json",
+        "line": 60,
+        "file_sha256": "756c7c480a10ce6c4750e9a6f2e23a781506244e8a366bbe7a2e50342352708c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2e-functions.json",
+        "line": 63,
+        "file_sha256": "756c7c480a10ce6c4750e9a6f2e23a781506244e8a366bbe7a2e50342352708c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2e-functions.json",
+        "line": 68,
+        "file_sha256": "756c7c480a10ce6c4750e9a6f2e23a781506244e8a366bbe7a2e50342352708c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2e-functions.json",
+        "line": 71,
+        "file_sha256": "756c7c480a10ce6c4750e9a6f2e23a781506244e8a366bbe7a2e50342352708c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2e-functions.json",
+        "line": 76,
+        "file_sha256": "756c7c480a10ce6c4750e9a6f2e23a781506244e8a366bbe7a2e50342352708c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2e-functions.json",
+        "line": 79,
+        "file_sha256": "756c7c480a10ce6c4750e9a6f2e23a781506244e8a366bbe7a2e50342352708c"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 74326,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 74326,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 74329,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 74329,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 74337,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 74337,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 74340,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 74340,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 75530,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 75533,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 75541,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 75544,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 76900,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 76903,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 76911,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 76914,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 77301,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 77304,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 77361,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 77364,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 78542,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 78542,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 78545,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 78545,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 78553,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 78553,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 78556,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog-differential.json",
+        "line": 78556,
+        "file_sha256": "f62f83281e7a777c69f527d42cb5277532fbd183f5325591956105a35ce840bc"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 23014,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 23014,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 23017,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 23017,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 23561,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 23564,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 24133,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 24136,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 24793,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 24793,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 24796,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-catalog.json",
+        "line": 24796,
+        "file_sha256": "7dfcb61ba05b4166ccdfc2efc27dcfc8a0b7989a39c28a20de5e141769c1ffd6"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 15681,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 15681,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 15684,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 15684,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 15802,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 15805,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 16033,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 16036,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 16044,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 16044,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 16047,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 16047,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 16077,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 16080,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 16088,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2f-harness-catalog.json",
+        "line": 16091,
+        "file_sha256": "ec640777dc8632f47af40a3abd0bd06b59f1017751049518b8cc3218f5497bbe"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 3988,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 3988,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 4054,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 4054,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 4078,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 4294,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 4600,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 4606,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 4702,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 5572,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 5950,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 6496,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 6604,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 8020,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 8080,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 8182,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 8200,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 8206,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 8548,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 9190,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-catalog-ddl.json",
+        "line": 9190,
+        "file_sha256": "1c85fef0b728c92bf921404279d5e401e0d1172a498fb7503b068cb402709d6d"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "transactions",
+        "file": "supabase/tests/issue335/live/phase2h-live-capture.json",
+        "line": 1,
+        "file_sha256": "821ef7f8d1ce83d543578f8494ae5baddce318506f81e08d4a32b8cabddf6a45"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2k/cash-consumers.json",
+        "line": 16,
+        "file_sha256": "a9dcfa24fe980dcfea8ba176f32158cc99813a0810120eed7438398da10c3356"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2k/cash-consumers.json",
+        "line": 32,
+        "file_sha256": "a9dcfa24fe980dcfea8ba176f32158cc99813a0810120eed7438398da10c3356"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2k/cash-consumers.json",
+        "line": 80,
+        "file_sha256": "a9dcfa24fe980dcfea8ba176f32158cc99813a0810120eed7438398da10c3356"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2k/cash-consumers.json",
+        "line": 96,
+        "file_sha256": "a9dcfa24fe980dcfea8ba176f32158cc99813a0810120eed7438398da10c3356"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2k/cash-consumers.json",
+        "line": 112,
+        "file_sha256": "a9dcfa24fe980dcfea8ba176f32158cc99813a0810120eed7438398da10c3356"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2k/cash-consumers.json",
+        "line": 112,
+        "file_sha256": "a9dcfa24fe980dcfea8ba176f32158cc99813a0810120eed7438398da10c3356"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2k/cash-consumers.json",
+        "line": 128,
+        "file_sha256": "a9dcfa24fe980dcfea8ba176f32158cc99813a0810120eed7438398da10c3356"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2k/cash-consumers.json",
+        "line": 272,
+        "file_sha256": "a9dcfa24fe980dcfea8ba176f32158cc99813a0810120eed7438398da10c3356"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2k/cash-consumers.json",
+        "line": 320,
+        "file_sha256": "a9dcfa24fe980dcfea8ba176f32158cc99813a0810120eed7438398da10c3356"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "transactions",
+        "file": "supabase/tests/issue335/live/phase2k/catalog-fresh.json",
+        "line": 177,
+        "file_sha256": "7a9fea7fb7b51dfbaf7b406295d0e5a73b76ac5b9b5e744cb3faf946560318ea"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "transactions",
+        "file": "supabase/tests/issue335/live/phase2k/catalog-fresh.json",
+        "line": 181,
+        "file_sha256": "7a9fea7fb7b51dfbaf7b406295d0e5a73b76ac5b9b5e744cb3faf946560318ea"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 135952,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 135952,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 136064,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 136080,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 136176,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 137296,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 138160,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 138240,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 138272,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 138320,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 138544,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 139828,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 139908,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 140356,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 140684,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 140684,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 140748,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 143788,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 143788,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 144700,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-after.json",
+        "line": 146244,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 135952,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 135952,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 136064,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 136080,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 136176,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 137296,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 138160,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 138240,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 138272,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 138320,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 138544,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 139828,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 139908,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 140356,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 140684,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 140684,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 140748,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 143788,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 143788,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 144700,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/live/phase2m/rollback-before.json",
+        "line": 146244,
+        "file_sha256": "474947e27e3cf0c0d328ccc6e76c2fbb6d915e781ddc9ccb43de36325a2af1a1"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/local/phase2n-bloco7/legacy-functions.json",
+        "line": 24,
+        "file_sha256": "9df3bfe2e739a47091d137bda793593926e8a0d213340b5617bb3f5a3fd50cfd"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/local/phase2n-bloco7/low.json",
+        "line": 210,
+        "file_sha256": "aedde6a7f8538894a8bd199423a0cd26b087fddf05fe04cae05e965be9c70a7a"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/reconcile_bank_line.LIVE-BASELINE.sql",
+        "line": 82,
+        "file_sha256": "59ad9b2c68647da79c837cf4786d9550af7beeb3fe2bc39797404439bbd43b49"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/triggers.sql",
+        "line": 112,
+        "file_sha256": "4c4d5c91cc3502a066dc4ccbf79bf1930a6cd1dad88ac6b9e1c353e2dac0436b"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/issue335/triggers.sql",
+        "line": 113,
+        "file_sha256": "4c4d5c91cc3502a066dc4ccbf79bf1930a6cd1dad88ac6b9e1c353e2dac0436b"
+      },
+      {
+        "kind": "select_star_requires_position_review",
+        "relation": "public.transactions",
+        "file": "supabase/tests/partner_extra_atomic.sql",
+        "line": 12,
+        "file_sha256": "c4f91f60166a950ff5aecee224d7aef8ff078f5c753e34767a83c36e3f250054"
+      }
+    ]
+  }
+]
