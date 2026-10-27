@@ -459,6 +459,18 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                     </TooltipContent>
                   </Tooltip>
                 )}
+                {isPartnerContractTx(t) && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-0.5 rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary cursor-help">
+                        📄 Contrato sócio
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-xs">
+                      <p>{PARTNER_CONTRACT_TX_HINT}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 {t.is_transitory && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -743,7 +755,8 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                 {/* Secondary actions menu */}
                 {(() => {
                   // Eliminar continua a aparecer em evento concluído, mas desactivado.
-                  const showDelete = computedStatus === "pending" || (canApprove && (computedStatus === "approved" || computedStatus === "overdue" || computedStatus === "paid"));
+                  // P7a: transação de contrato de sócio nunca se apaga à mão (guarda 0274); cancela-se o contrato.
+                  const showDelete = !isPartnerContractTx(t) && (computedStatus === "pending" || (canApprove && (computedStatus === "approved" || computedStatus === "overdue" || computedStatus === "paid")));
                   const deleteBlocked = !!eventCompleted;
                   const showViewPayments = onViewPayments && (paidAmount > 0 || !!hasInstallments);
                   const showHide = canApprove && onToggleHidden;
