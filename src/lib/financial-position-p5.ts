@@ -1,18 +1,23 @@
 import { z } from "zod";
 
-/** Contrato p5-v1 da edge function `financial-position` (fail-closed). */
-export const P5_VERSION = "p5-v1";
+/** Contrato p5-v2 da edge function `financial-position` (fail-closed). */
+export const P5_VERSION = "p5-v2";
 const amount = z.number().finite();
 const count = z.number().int().nonnegative();
 const sourced = z.object({ valor: amount.nullable(), origem: z.string().min(1) });
 
 const eventSchema = z.object({
   event_id: z.string().uuid(), nome: z.string(), estagio: z.string(), so_bp: z.boolean(), historico: z.boolean(),
-  fora_dos_totais: z.boolean(), resultado_evento: amount.nullable(), partes_socios_total: amount.nullable(),
+  fora_dos_totais: z.boolean(), motivo_fora: z.enum(["em_curso_projecao", "historico_so_bp", "estagio_fora_dos_totais"]).nullable(), resultado_evento: amount.nullable(), partes_socios_total: amount.nullable(),
   creditos_mp: z.object({ parte_casa: amount, iva_devolvido: amount, outros: amount, total: amount }).nullable(),
   resultado_mp: amount.nullable(), checks_ok: z.boolean(), alertas: z.array(z.string()), origem: z.string(),
 });
 const structureLine = z.object({ code: z.string().nullable(), nome: z.string(), bruto: amount, n: count });
+const partnerLine = z.object({
+  event_id: z.string().uuid(), supplier_id: z.string().uuid(), nome: z.string(), transferBase: amount, transferVat: amount,
+  transferTotal: amount, transfer_with_vat: z.boolean(), pago_contratos: amount, liquido: amount,
+  sentido: z.enum(["a_receber", "por_liquidar", "zero"]), origem: z.string(),
+});
 
 export const financialPositionP5Schema = z.object({
   meta: z.object({
@@ -29,13 +34,14 @@ export const financialPositionP5Schema = z.object({
   }),
   resultado_mp_ano: z.object({ sem_estrutura: amount, com_estrutura: amount }).nullable(),
   socios: z.object({
-    linhas: z.array(z.object({
-      event_id: z.string().uuid(), supplier_id: z.string().uuid(), nome: z.string(), transferBase: amount, transferVat: amount,
-      transferTotal: amount, transfer_with_vat: z.boolean(), pago_contratos: amount, liquido: amount,
-      sentido: z.enum(["a_receber", "por_liquidar", "zero"]), origem: z.string(),
-    })),
+    linhas: z.array(partnerLine),
     a_receber_total: amount.nullable(), por_liquidar_total: amount.nullable(),
     alertas: z.array(z.object({ event_id: z.string().uuid(), supplier_id: z.string().uuid(), alerta: z.string() })),
+  }),
+  projecao_em_curso: z.object({
+    eventos: z.array(eventSchema.pick({ event_id: true, nome: true, estagio: true, resultado_evento: true, resultado_mp: true, partes_socios_total: true })),
+    socios_linhas: z.array(partnerLine), resultado_mp_total: amount.nullable(),
+    socios_a_receber_total: amount.nullable(), socios_por_liquidar_total: amount.nullable(), nota: z.string().min(1),
   }),
   saldo_geral: z.object({
     ativos: z.object({ caixa: sourced, cartoes: sourced, retido_visivel: sourced, retido_ocultas: sourced, a_receber: sourced, a_receber_socios: sourced, total: amount }),
@@ -46,6 +52,15 @@ export const financialPositionP5Schema = z.object({
 }).superRefine((v, ctx) => {
   if (!v.meta.saldos_visiveis && v.saldo_geral !== null) ctx.addIssue({ code: "custom", message: "saldo_geral_sem_permissao" });
   if (v.meta.incompleto && (v.resultado_mp_ano !== null || v.saldo_geral !== null)) ctx.addIssue({ code: "custom", message: "parcial_somado" });
+  const countedIds = new Set(v.eventos.filter((e) => e.estagio === "em_fecho" || e.estagio === "fechado").map((e) => e.event_id));
+  const projectionIds = new Set(v.eventos.filter((e) => e.estagio === "em_curso" || e.estagio === "planeamento").map((e) => e.event_id));
+  if (v.eventos.some((e) => e.fora_dos_totais === countedIds.has(e.event_id)
+    || (projectionIds.has(e.event_id) && e.motivo_fora !== "em_curso_projecao"))) ctx.addIssue({ code: "custom", message: "estagio_inconsistente" });
+  if (v.socios.linhas.some((l) => !countedIds.has(l.event_id))) ctx.addIssue({ code: "custom", message: "socio_projecao_nos_totais" });
+  if (v.projecao_em_curso.socios_linhas.some((l) => !projectionIds.has(l.event_id))
+    || v.projecao_em_curso.eventos.length !== projectionIds.size
+    || new Set(v.projecao_em_curso.eventos.map((e) => e.event_id)).size !== projectionIds.size
+    || v.projecao_em_curso.eventos.some((e) => !projectionIds.has(e.event_id) || !["em_curso", "planeamento"].includes(e.estagio))) ctx.addIssue({ code: "custom", message: "projecao_inconsistente" });
 });
 
 export type FinancialPositionP5 = z.infer<typeof financialPositionP5Schema>;

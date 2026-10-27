@@ -29,3 +29,23 @@ Ainda não medi nenhum número do mockup contra a função. Divergências a expl
 
 ## Rollback
 Apagar a função `financial-position` e reverter o commit. Não há estado persistente nem DDL. A extração de `computeStatementEngine` é neutra, porque o partner-statement usa o mesmo bloco.
+
+## Correção em_curso — P5-corr R1 (27/10/2026, D-ERP324)
+
+HEAD de arranque: `3246c31de4de6fc2b0c39b3338837b7c9da3660b`.
+
+Prova fornecida pelo Pedro em Live (27/10, sessão admin, MP 2026, contrato anterior): Henry & Klauss – Madrid (`bf9ce2d8`, em_curso, data 22/11) tinha resultado_evento −388.579,45 €, partes_socios −272.005,61 €, resultado_mp −116.573,83 € e HENRY VARGAS transferBase −376.816,12 € indevidamente classificado nos recebíveis dos totais. Sem Madrid, a_receber_socios = 138.846,44 € (Ivete Clareou). Estes números são prova do Pedro, não nova medição do agente.
+
+Predicado dos totais: `estagio === 'em_fecho' || estagio === 'fechado'`. Aplicado a resultado_mp_ano, socios.linhas/totais e componentes de sócios do Saldo Geral. `em_curso`/`planeamento`: evento preservado com fora_dos_totais=true e motivo_fora=em_curso_projecao; resumo e linhas de sócios em projecao_em_curso, com nota «projeção pelo BP; não é recebível nem custo incorrido». Histórico mantém so_bp e fica fora, sem linhas de sócios nem projeção. Alerta de acerto em fechado preservado. Estrutura, RPC e partner-statement intocados.
+
+Contrato exclusivo `p5-v2`: Zod exige o novo bloco e motivo_fora, rejeita p5-v1 e sócios de projeção nos totais; chave do hook inclui a versão para não reutilizar dados p5-v1. Projeção falhada devolve totais informativos null; mantém-se o comportamento incompleto sem soma parcial do P5.
+
+Provas locais:
+- `bunx vitest run src/test/financial-position-p5.test.ts`: 23/23 PASS (6 casos novos, com em_fecho/fechado parametrizados).
+- Fixture equivalente Madrid/Ivete: socios.a_receber_total=138846.44; projecao_em_curso.socios_a_receber_total=376816.12; projeção resultado_mp_total=−116573.83; resultado anual da fixture=100; Saldo Geral idêntico ao cenário só com Ivete. O 100 é sintético, não o resultado anual de Live.
+- `bunx vitest run --maxWorkers=2`: 299 ficheiros PASS, 2951 testes PASS, 6 skipped, 11 todo. Primeira execução com concorrência padrão: timeout preexistente no beforeAll PGlite de newgang-crm-profile-fields; repetição integral verde sem alterar o teste.
+- Validação automática da plataforma: build OK após alterações; não executado tsc manual (regra da plataforma). CI do SHA final e verificação autenticada Live ainda exigem confirmação.
+
+Sem DDL, DML, migração, alteração da RPC/partner-statement nem Publish. A alteração do módulo partilhado de financial-position desencadeia deploy automático no commit pela Lovable; não foi invocado deploy manual e não significa Publish da aplicação. Verificação Live pendente: confirmar meta.version=p5-v2, Madrid só em projecao_em_curso, recebíveis sem Madrid e Saldo Geral, com sessão admin. Não foi chamada a função pelo agente nesta correção (a chamada existente escreve auditoria).
+
+Rollback: reverter conjuntamente assembler, schema e hook para p5-v1 pelo fluxo de commits gerido; sem rollback de dados. Estado: pronto para Verificação em Live, não pronto para Publish; CI final por confirmar.
