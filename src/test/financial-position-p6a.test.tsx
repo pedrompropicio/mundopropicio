@@ -29,7 +29,7 @@ describe("P6a access and display", () => {
   it("shows null account balance as unavailable, not zero", () => { const data = financialPositionFixture(); data.caixa[0].saldo = null; render(<MemoryRouter><FinancialPositionView data={data} /></MemoryRouter>); expect(screen.getByText("Saldos não visíveis para o seu perfil")).toBeDefined(); });
   it("registers route and menu permission, and disables only dashboard projections", () => {
     const app = readFileSync("src/App.tsx", "utf8"), menu = readFileSync("src/components/AppSidebar.tsx", "utf8"), dashboard = readFileSync("src/pages/Index.tsx", "utf8"), analysis = readFileSync("src/components/ResultsAnalysis.tsx", "utf8");
-    expect(app).toContain('path="/erp/posicao-financeira" element={<FinancialPosition />}');
+    expect(app).toContain('path="/erp/posicao-financeira" element={<FinancialPositionAccess><FinancialPosition /></FinancialPositionAccess>}');
     expect(menu).toContain('show: hasPermission(FINANCIAL_POSITION_PERMISSION)');
     expect(dashboard).toContain('<ResultsAnalysis showActiveProjections={false} />');
     expect(analysis).toContain('showActiveProjections && active.length > 0');

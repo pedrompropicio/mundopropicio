@@ -152,7 +152,7 @@ export function AppSidebar({
 
       <nav className="flex w-full shrink-0 flex-col gap-1 px-2 pb-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:px-3">
         {(inOperacao ? operacaoItems : fullNavItems)
-          .filter((i: any) => i.divider || (i.show && (!fieldStaffOnly || i.to.startsWith("/operacao"))))
+          .filter((i: any) => i.divider || (i.show && (!fieldStaffOnly || i.to.startsWith("/operacao") || i.to === FINANCIAL_POSITION_PATH)))
           .map((item: any) => {
           if (item.divider) {
             return <hr key={item.key} className="my-2 border-border opacity-60" />;
