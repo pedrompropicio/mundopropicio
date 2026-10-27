@@ -44,6 +44,7 @@ type IvaBasis = "inherit" | "gross" | "net";
 
 export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const queryClient = useQueryClient();
+  const [paymentFor, setPaymentFor] = useState<{ id: string; supplierId: string; name: string } | null>(null);
   const { isAdmin, isManager, hasPermission } = useAuth();
   const canEdit = (isAdmin || isManager || hasPermission("manage_bp")) && eventStatus !== "completed";
 
@@ -945,6 +946,16 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
           do BP e das transações. A casa nunca desce, em nenhum fechamento.
         </p>
       </div>
+      {paymentFor && (
+        <PartnerPaymentDialog
+          open
+          onOpenChange={(v) => { if (!v) setPaymentFor(null); }}
+          eventId={eventId}
+          participantId={paymentFor.id}
+          supplierId={paymentFor.supplierId}
+          partnerName={paymentFor.name}
+        />
+      )}
     </div>
   );
 }
