@@ -91,7 +91,20 @@ GRANT TRUNCATE ON TABLE "public"."song_link_diag" TO "service_role";
 
 GRANT UPDATE ON TABLE "public"."song_link_diag" TO "service_role";
 
-ALTER TABLE "public"."song_link_diag" ALTER COLUMN "id" ADD GENERATED ALWAYS AS IDENTITY (START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE);
+DO $identity_guard$
+DECLARE identity_mode "char";
+BEGIN
+  SELECT attidentity INTO STRICT identity_mode
+  FROM pg_catalog.pg_attribute
+  WHERE attrelid = 'public.song_link_diag'::regclass
+    AND attname = 'id' AND attnum > 0 AND NOT attisdropped;
+  IF identity_mode = '' THEN
+    ALTER TABLE "public"."song_link_diag" ALTER COLUMN "id" ADD GENERATED ALWAYS AS IDENTITY (START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE);
+  ELSIF identity_mode <> 'a' THEN
+    RAISE EXCEPTION 'Unexpected identity mode for public.song_link_diag.id: %', identity_mode;
+  END IF;
+END
+$identity_guard$;
 
 DO $sequence_acl$ DECLARE r record; BEGIN FOR r IN SELECT DISTINCT a.grantee FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('S',c.relowner))) a WHERE c.oid='"public"."song_link_diag_id_seq"'::regclass LOOP EXECUTE 'REVOKE ALL ON SEQUENCE "public"."song_link_diag_id_seq" FROM ' || CASE WHEN r.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(r.grantee)) END; END LOOP; END $sequence_acl$;
 
