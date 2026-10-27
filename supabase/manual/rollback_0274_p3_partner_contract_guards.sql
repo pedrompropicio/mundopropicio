@@ -1,0 +1,5 @@
+-- ROLLBACK MANUAL 0274 (não executar sem Sim). Sem CASCADE; não toca dados.
+-- DROP TRIGGER zzz_partner_contract_guard ON public.transactions;
+-- DROP TRIGGER zzz_partner_payment_contracts_guard ON public.partner_payment_contracts;
+-- DROP FUNCTION public.guard_partner_contract_transactions();
+-- DROP FUNCTION public.guard_partner_payment_contracts();
