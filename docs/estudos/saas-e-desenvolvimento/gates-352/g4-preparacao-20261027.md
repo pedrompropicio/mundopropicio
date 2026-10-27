@@ -1,56 +1,60 @@
 # #352 — preparação do G4 no replay — 27/10/2026
 
-Estado: **validação incompleta; G4 não está verde**. O bloqueio restante é a recusa automática de publicação do corretivo local, descrita abaixo. G3 permanece fechado.
+**Preparação G4 VERDE**, concluída às 20:55:29 de Fortaleza (23:55:29 UTC), no [run privado 40604469688](https://github.com/pedrompropicio/mundopropicio-replay/actions/runs/40604469688). Commit `a3e5d9fb478a38351fe2a82a9bd26c79d50b9388`, branch `docs/352-g4-preparation-20261027`.
 
-Âmbito autorizado: [Sim 6455841324](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6455841324), classe R1, apenas replay privado e CI específico. A reserva foi registada no QUADRO antes da recolha, no commit `b5f6f512d5164ec409704ba74c20d4b008f14f33`, com skip ci.
+Âmbito: [6455841324](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6455841324) e [Sim ao corretivo 6456362091](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6456362091). Apenas replay privado, base descartável e CI específico. A reserva foi registada no QUADRO antes da publicação do corretivo, no commit `5bab0d2963570f08c5decdf92196b0346fee0179`, com skip ci.
 
-## Medições e execução
+## Provas verificadas
 
 | Verificação | Resultado |
 | --- | --- |
-| Catálogo de Live, apenas SELECT | 79 jobs; 71 ativos |
-| Conjunto aprovado presente | 12; 11 ativos e 1 inativo em Live |
-| Job removido referido no Sim | 0 ocorrências |
-| Releitura de metadados após o run | 12/12 sem alteração de id, definição, horário, papel, base ou estado |
-| Referências de produção, URLs ou segredos literais nas 12 definições | 0 |
-| Referências ao vault nas definições capturadas | 0; nenhum segredo lido ou resolvido |
-| Testes das guardas | 7 PASS |
-| Scanner do pacote | 0 ocorrências; 7 ficheiros e 12 comandos verificados |
-| Reconstrução da base descartável | PASS; 1547 entradas, 307 operações de baseline, 2 passagens de idempotência |
-| Isolamento local | cron desligado; egress externo do contentor bloqueado por REJECT |
-| Registo dos 12 jobs inativos | FALHOU na primeira chamada; transação não concluída |
-| Amostra anterior ao registo | 0 jobs, 0 ativos, 0 registos de execução |
-| Prova temporal final | Não obtida; a observação de 65 segundos não chegou a decorrer |
-| Execuções de CI deste commit | 1, apenas o workflow específico da #352 |
+| Pacote autorizado | 7 ficheiros, 27885 bytes de fontes; 7/7 blobs publicados iguais ao ZIP |
+| Testes das guardas no CI | 7 PASS |
+| Scanner G4 | 0 ocorrências em 7 ficheiros e 12 comandos |
+| Scanner da base reutilizada | 0 ocorrências e 0 erros JSON em 1534 ficheiros |
+| Reconstrução descartável | G1 verde: 1547 entradas, 307 operações de baseline, 2 passagens de idempotência |
+| Estado inicial de cron | 0 jobs, 0 ativos, 0 registos de execução |
+| Conjunto final global em cron.job | Exatamente os 12 aprovados; 0 ativos |
+| Definições nativas | 12/12 hashes iguais à fonte; horários, comandos, base e executor conferidos |
+| Executor e destino guardados | postgres; destino local verificado |
+| Comandos com referência ou host de Live | 0 |
+| Segredos literais nos comandos | 0 |
+| Execuções dos comandos dos jobs | 0 |
+| cron.job_run_details | 0 durante a instalação, nas 61 amostras e na leitura final |
+| Observação depois da instalação | 65,123 segundos; intervalo máximo entre amostras: 1,122 segundos |
+| Cron e registo de histórico | Cron desligado e logging ligado em todas as leituras |
+| Egress do contentor | REJECT comprovado antes e depois; 1 regra verificada |
+| Execuções deste commit | 1, apenas o CI específico; conclusão success |
+| Agenda periódica | Desligada |
 
-[Run privado 40602196448](https://github.com/pedrompropicio/mundopropicio-replay/actions/runs/40602196448), conclusão failure, commit `979b62b27a9fa1deb25756e6837786a4417c1cc4`, branch `docs/352-g4-preparation-20261027`. O main privado não foi alterado. O workflow específico não tem agenda periódica.
+O administrador já existente da base local registou os jobs inativos na mesma transação, com executor postgres. Papéis e privilégios não foram alterados. As consultas de prova foram administrativas, para que RLS não pudesse ocultar outros jobs ou execuções.
 
-As definições e o SQL integral ficam exclusivamente no replay privado. A captura não exigiu substituições: os hashes dos comandos sanitizados coincidem com os da fonte. As guardas rejeitam destinos de produção; o marcador permitido é `homolog-project.supabase.invalid`.
+Fonte reutilizada: captura sanitizada de 27/10/2026 às 23:19:46 UTC, com 79 jobs em Live, 71 ativos e os 12 aprovados presentes. O job removido indicado no Sim tinha 0 ocorrências. A releitura do ciclo anterior confirmou os 12 metadados e hashes iguais. Esta repetição não fez novas consultas a Live. As definições capturadas não continham URLs, segredos literais nem referências ao vault; nenhum segredo foi lido ou resolvido. O marcador permitido pelas guardas continua a ser `homolog-project.supabase.invalid`.
 
-## Causa e corretivo preparado, não publicado
+## Achado para o G4 real: executor implícito
 
-A API nativa do pg_cron exige superutilizador quando o papel executor é indicado explicitamente. O primeiro run usou o papel local postgres para o registo. O hash do stderr coincide exatamente com o erro dessa exigência, confirmada também no código-fonte primário do pg_cron.
+**A implementação nativa permite o caminho sem superutilizador quando se omite o executor**, sujeito às permissões de execução da função e de ligação à base. Esta conclusão resulta da leitura do código; esse caminho não foi ensaiado nativamente neste run.
 
-O corretivo usa o administrador já existente da base local descartável para efetuar o registo e verifica previamente que esse papel é superutilizador. Os jobs guardados continuam com executor postgres e inativos desde a criação. Não altera papéis, privilégios, definições, SQL de instalação, workflow, inputs históricos ou o pacote G3.
+Na [fonte primária do pg_cron, commit 5cedfa47](https://github.com/citusdata/pg_cron/blob/5cedfa472ccc83567aa23ec645925ed8489a7797/src/job_metadata.c), linhas 214–217, o papel inicial é o utilizador corrente. A exigência de superutilizador das linhas 281–286 só é aplicada quando se fornece explicitamente o executor. O [contrato da função](https://github.com/citusdata/pg_cron/blob/5cedfa472ccc83567aa23ec645925ed8489a7797/pg_cron--1.3--1.4.sql) dá ao executor o valor por omissão NULL e permite manter active=false explicitamente.
 
-Mudam apenas 2 dos 7 ficheiros: README e verificador. Os 7 testes e o scanner a 0 foram repetidos localmente. Falta publicar este corretivo e repetir a execução nativa.
-
-A revisão automática recusou a publicação em duas tentativas, incluindo depois de reler o Sim específico de G4 e comprovar por diff que as definições, o SQL e o workflow são iguais. Motivo devolvido: alteração do hash do pacote e uso do superutilizador local exigiriam novo Sim. O pin anterior pertence ao pacote G3; o Sim de G4 autoriza esta preparação sem indicar hash. Ainda assim, o bloqueio automático impediu a publicação, e não foi contornado. A branch privada permanece no commit do primeiro run.
+Para o G4 real, a prova própria deve usar a sessão postgres não superutilizadora, omitir o executor, manter os jobs inativos desde a criação e conferir as permissões e a versão instaladas. O run presente prova o pacote aprovado com administrador local. Conforme 6456362091, a prova no mp-homolog fica para o G4 real e não bloqueia esta preparação.
 
 ## Hashes SHA-256
 
 | Artefacto | SHA-256 |
 | --- | --- |
-| Pacote executado: 7 ficheiros, 27530 bytes de fontes | `c67617e30e44a082f52dafc740ff794a7d2f379fdc93e8da96b49e32dde8db6e` |
-| Definições, iguais no corretivo | `ffd5b6c1acbe21a7fba1821f335efa1c694039a56d9cdb83f3c4c1c8d732523b` |
-| Instalador, igual no corretivo | `4806aa058338fe76ab7a0c62dacf8dfc5d1f7e6a37da430c25c6acceaf7128e2` |
-| Artefacto privado do primeiro run | `9c9afee5541ee04e1c797e5a5e9f24814af4f71b705f08be8a2327e50d02d623` |
-| Stderr da falha | `2126705f23da209904b890d6ca900f078f5e289672984512565c50588756455a` |
-| Patch local dos 2 ficheiros | `6d200e84d3e4d842579c61ab93b1d103c82bc750981178ea1238bb53dff18a90` |
-| Pacote corretivo g4-preparation-6455841324-v2.zip: 7 ficheiros, 27885 bytes de fontes | `c123ac16ca6454b385c044640607a664dae313decb3d27014a9daa27ab2ecf27` |
-| Verificador antes | `e20738e61d6da52862e3faaae94e9b74f49278c46de3a5daa88fef1ff590dfb7` |
-| Verificador depois | `8247a2b6557c8ab9d36f64c87e245fe88888a08dd267f0c5a2019f279bc7f690` |
+| g4-preparation-6455841324-v2.zip | `c123ac16ca6454b385c044640607a664dae313decb3d27014a9daa27ab2ecf27` |
+| Definições | `ffd5b6c1acbe21a7fba1821f335efa1c694039a56d9cdb83f3c4c1c8d732523b` |
+| Instalador | `4806aa058338fe76ab7a0c62dacf8dfc5d1f7e6a37da430c25c6acceaf7128e2` |
+| ZIP privado das provas | `c8ef70de2b9c739acf2602a73b328031bf76d56d48b437a5e125dde4c4745452` |
+| Resultado nativo | `96501fce7c9034fc5b27e94ebdf23c6d20c643d0071c609cb3c210c6bb07a7bb` |
+| Amostras | `ceef34b9c7b1e21d138d29c18e97d10f2af44d3ca1f81dac4f36e58d076eeff0` |
+| Hashes das 12 definições nativas | `11cbfb4a0c9182fbf5228da441934c96d8f715f86671991d9e1c4b378f2e8d1f` |
+| Scanner G4 | `f5114b361592ae376092123ac2c2852ba42c9b753ba7becf613ce82b79a96a0b` |
+| Isolamento | `78057c33b3edd7155ae201798068573bfa585e5ece9afba2521fcf0543b74e4e` |
 
-O pacote corretivo permanece local e não foi executado no CI. Nenhum comando de job foi executado nesta preparação.
+O ZIP das provas foi conferido contra o digest do Actions. Os 12 pares de hashes de nome e comando foram comparados independentemente com o pacote; as 61 amostras e os estados inicial e final foram revistos.
 
-A correção de G6 em [6455745096](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6455745096) foi respeitada: não houve ligação ao mp-homolog. Live foi apenas consultado por SELECT de catálogo. Sem G5, ativação de jobs, deploy ou Publish. A observação de 24 horas e a instalação em homologação não fazem parte desta preparação.
+O primeiro run falhou na exigência de superutilizador e ficou documentado em [6456287920](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6456287920). O novo Sim 6456362091 permitiu publicar exatamente o corretivo proposto; o hash não mudou novamente.
+
+Comandos, SQL integral e provas completas ficam no replay privado. O main privado permaneceu em `9ed9941e95e7e626c0c5d8be15399fb13e3f2b59`. G3 permanece fechado e a agenda periódica desligada. Não houve ligação ao mp-homolog, escrita em Live, G5, ativação de jobs, deploy ou Publish. A prova de 24 horas e a instalação real em homologação ficam fora desta preparação.
