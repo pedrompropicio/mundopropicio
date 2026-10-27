@@ -1,6 +1,6 @@
 ---
 name: Posição Financeira base (P4)
-description: RPC get_financial_position_base — caixa, cartões, retido, a pagar/receber por estágio; regras de contagem do Pedro 27/10/2026
+description: RPC get_financial_position_base — caixa, cartões, retido, a pagar/receber por estágio; acesso pela permissão view_financial_position (só admin por defeito)
 type: feature
 ---
 D-ERP320, migração 0282. Só leitura; resultado e parte da MP só no P5 (edge financial-position, motor _shared/settlement).
@@ -12,3 +12,4 @@ D-ERP320, migração 0282. Só leitura; resultado e parte da MP só no P5 (edge 
 - Excluir: mães de rateio (filhas ∧ installment_total nulo ∧ event_id nulo), estornos, paying_partner_id, version_id, overhead/exclude_from_result do BP. Transitórias em sublinha; 1.1.* fora do a receber.
 - Caixa+cartões = _account_true_balance_raw (bank/cash/prepaid, sem skip_balance_check); retido = ticket_office_balances, ocultas à parte. Caixa e retido nunca somam. Acerto (contas other «Acerto …»/«Conta Corrente…») e caução a recuperar fora do total.
 - Provas: docs/testes/p4-posicao-base-20261027.md; testes src/test/financial-position-base-p4.test.ts.
+- Acesso (D-ERP321, 0283): permissão `view_financial_position` («Ver posição financeira») via has_permission; por defeito só admin; platform_admin sempre; override granted=false recusa. Saldos continuam só com admin/platform_admin/view_balances. Nunca voltar ao gate fixo por papel.
