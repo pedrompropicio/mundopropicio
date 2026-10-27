@@ -50,3 +50,20 @@ Inventário (parcial):
   sponsorship_pipeline: 5 fechados/barter. Não serve na v1 (Q6); entra na v2 como informativo.
 Pago acima do BP (pernas por forecast_id, BP despesa sem sócio pagador): 427 linhas com transações. Com o fator 1,23 aproximado, 1 linha excede (+1.756,00). É provisório: falta usar o iva_rate real de cada linha.
 PENDENTE: leitura integral de INDEX.md, da migração 20260611120000, de ReportForecastPayables e do cálculo de saldos; reconciliação da caixa por conta com get_event_cash_position e do retido com ticket_office_balances.
+
+## Fecho das leituras 27/10/2026 15:07+ UTC (HEAD 1da1159f) — PARADO por colisão
+Ficheiros lidos integralmente: docs/INDEX.md (188); supabase/migrations/20260611120000_event_cash_treasury.sql (229); src/lib/account-balance.ts (165); src/lib/ticket-office-balance.ts (151). src/components/ReportForecastPayables.tsx: lógica em 1-330; em 331-775 só renderização e exportação, verificado por pesquisa.
+Data Lisboa: DECISIONS.md l.4174. Na memória event-stages havia 1 ocorrência de D-ERP288 e foi corrigida para l.4174; nenhuma referência legítima ao cachê foi tocada.
+
+Inventário (prova = prosrc em Live):
+- get_event_cash_position: a versão Live (issue335-v2l) é mais nova do que o ficheiro de 06/11. Tem corte initial_balance_date, exclui skip_balance_check e trata compensações. SERVE para a caixa por evento.
+- get_event_cash_position_invariant: compara com _account_true_balance_raw (saldo canónico). SERVE como verificação.
+- O leitor de SQL não tem EXECUTE nas RPCs e a reconciliação foi feita por réplica. Resultado nas contas bank/cash/prepaid (fórmula da app, com corte e pagamentos liquidados): bank 702.863,67 (3 contas: 1 com corte, 2 sem controlo, 1 oculta); cash 0,00; prepaid 889,55. A fórmula do ficheiro antigo, sem corte, daria bank 931.945,55 e cash 6.120,00. A diferença é o corte D-ERP289: o ficheiro de migração está desatualizado e o Live está certo. Esta réplica ainda inclui as contas sem controlo, que ficam por isolar; a reconciliação final faz-se com sessão dentro da RPC.
+- Retido (réplica de _ticket_office_balance_raw: vendas + tx approved/paid não estornadas e não ocultas − adiantamentos abertos): 1 conta visível 295.418,25; 4 contas ocultas 215.857,42. Proposta: mostrar as ocultas em linha informativa, porque is_hidden só tira a conta dos seletores. ticket_office_balances devolve NULL a quem não tem view_balances/balance_visible_to_all, e a RPC tem de respeitar isso. SERVE.
+- ReportForecastPayables: agrega por categoria (o que causou a multiplicação de pernas), não tem estágio, lê tudo no cliente e exclui is_transitory. NÃO SERVE como fonte; serve como referência visual.
+- Cachê: cache_payment_contracts liga-se via cache_payment_contract_cities(event_id, forecast_id); 4 contratos ativos. event_forecasts não tem coluna source: cache_module = cache_config_id preenchido. A medição contrato contra cache_module fica PENDENTE (parada pela colisão).
+
+COLISÃO (regra 2, «a pagar bruto; paid_amount bruto»):
+Linhas de BP de despesa sem sócio pagador e sem versão: 232 têm pago > base×(1+iva_rate) da própria linha (excesso 178.323,53 € em bruto). Em 224 delas, a soma das bases das transações = base do BP, mas o pago também excede base×(1+iva_rate) da PRÓPRIA transação.
+Distribuição do iva_rate do BP nas linhas acima: 23% 197 / 0% 21 / 6% 11 / 21% 2 / 13% 1.
+Leitura: paid_amount não é base×(1+iva_rate) em muitas transações (IVA guardado diferente do pago, retenção, extras ou outra causa). Sem perceber isto, o «a pagar = BP bruto − pago» dá mínimos 0 em 232 linhas e esconde valores. Não é pagamento tardio nem perna duplicada, porque a junção é por forecast_id, sem categoria.
