@@ -1,0 +1,3 @@
+-- Rollback P4 (0282) — NÃO executar sem autorização do Pedro.
+-- Remove só a função de leitura criada pelo P4; nenhum dado é tocado.
+-- DROP FUNCTION IF EXISTS public.get_financial_position_base(uuid, integer);
