@@ -21,8 +21,8 @@ import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import { useEventSettlementEngine } from "@/hooks/useEventSettlementEngine";
 import {
-  MAX_PARTNER_CONTRACTS, buildFreezeValues, emptyContractForm, partnerContractsApi, validateContractForm,
-  type ContractForm, type PartnerContractStatus,
+  MAX_PARTNER_CONTRACTS, buildFreezeValues, emptyContractForm, partnerContractsApi, validateContractForm, readFrozenOrigin, shareOriginRows,
+  type ContractForm, type PartnerContractStatus, type PartnerShareOrigin,
 } from "@/lib/partner-contracts";
 
 interface Props {
@@ -34,13 +34,31 @@ interface Props {
   partnerName: string;
 }
 
+function ShareOrigin({ origin }: { origin: PartnerShareOrigin | null }) {
+  if (!origin) return null;
+  return (
+    <div className="space-y-2 border-t border-border pt-3">
+      <h5 className="text-sm font-semibold">Origem da parte</h5>
+      <dl className="space-y-2 text-sm">
+        {shareOriginRows(origin).map((row) => (
+          <div key={row.key} className={`grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 ${row.detail ? "pl-3 text-xs text-muted-foreground" : ""} ${row.key === "result" ? "border-t border-border pt-2 font-semibold" : ""}`}>
+            <dt className="break-words">{row.label}{row.note && <span className="block text-xs text-muted-foreground">{row.note}</span>}</dt>
+            <dd className="font-mono text-right whitespace-nowrap">{formatCurrency(row.value)}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
 export function PartnerPaymentDialog({ open, onOpenChange, eventId, participantId, supplierId, partnerName }: Props) {
   const qc = useQueryClient();
   const engine = useEventSettlementEngine(eventId);
-  const engineParticipant = useMemo(
-    () => engine.result?.nodes.flatMap((n) => n.participants).find((p) => p.id === participantId) ?? null,
+  const engineNode = useMemo(
+    () => engine.result?.nodes.find((n) => n.participants.some((p) => p.id === participantId)) ?? null,
     [engine.result, participantId],
   );
+  const engineParticipant = engineNode?.participants.find((p) => p.id === participantId) ?? null;
 
   const { data: row, refetch: refetchRow } = useQuery({
     queryKey: ["partner-payment-participant", participantId],
@@ -90,8 +108,8 @@ export function PartnerPaymentDialog({ open, onOpenChange, eventId, participantI
 
   const freezeMut = useMutation({
     mutationFn: () => {
-      if (!engineParticipant) throw new Error("O motor ainda não calculou a parte deste sócio.");
-      return partnerContractsApi.freeze(participantId, engineParticipant, note);
+      if (!engineParticipant || !engineNode) throw new Error("O motor ainda não calculou a parte deste sócio.");
+      return partnerContractsApi.freeze(participantId, engineParticipant, engineNode, note);
     },
     onSuccess: () => { toast({ title: "Sócio congelado" }); setConfirmFreeze(false); setNote(""); refresh(); },
     onError: onErr,
@@ -110,12 +128,18 @@ export function PartnerPaymentDialog({ open, onOpenChange, eventId, participantI
     onError: onErr,
   });
   const cancelMut = useMutation({
-    mutationFn: () => partnerContractsApi.cancel(cancelId!, cancelReason.trim()),
+    mutationFn: () => {
+      if (!cancelId) throw new Error("Selecione o contrato.");
+      return partnerContractsApi.cancel(cancelId, cancelReason.trim());
+    },
     onSuccess: () => { toast({ title: "Contrato cancelado" }); setCancelId(null); setCancelReason(""); refresh(); },
     onError: onErr,
   });
   const attachMut = useMutation({
-    mutationFn: (advanceId: string) => partnerContractsApi.attach(attachFor!, advanceId, attachConfirm),
+    mutationFn: (advanceId: string) => {
+      if (!attachFor) throw new Error("Selecione o contrato.");
+      return partnerContractsApi.attach(attachFor, advanceId, attachConfirm);
+    },
     onSuccess: () => { toast({ title: "Adiantamento ligado" }); setAttachFor(null); setAttachConfirm(false); refresh(); },
     onError: onErr,
   });
@@ -130,7 +154,7 @@ export function PartnerPaymentDialog({ open, onOpenChange, eventId, participantI
     activeCount: contracts.length, replacing: !!editingId, advancesTotal,
   }) : null;
   const supplierName = (id: string) => (suppliers as any[]).find((s) => s.id === id)?.name ?? "—";
-  const freezePreview = engineParticipant ? buildFreezeValues(engineParticipant) : null;
+  const freezePreview = engineParticipant && engineNode ? buildFreezeValues(engineParticipant, engineNode) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -150,6 +174,7 @@ export function PartnerPaymentDialog({ open, onOpenChange, eventId, participantI
               <>
                 <p className="text-sm">Parte congelada: <span className="font-mono">{formatCurrency(Number(row?.frozen_values?.share_amount ?? 0))}</span>
                   {row?.freeze_note ? <span className="text-muted-foreground"> · {row.freeze_note}</span> : null}</p>
+                <ShareOrigin origin={readFrozenOrigin(row?.frozen_values)} />
                 <div className="flex gap-2 items-end">
                   <div className="flex-1"><Label className="text-xs">Motivo para descongelar</Label>
                     <Input value={unfreezeReason} onChange={(e) => setUnfreezeReason(e.target.value)} /></div>
@@ -164,10 +189,9 @@ export function PartnerPaymentDialog({ open, onOpenChange, eventId, participantI
                 <dl className="grid grid-cols-2 gap-x-4 text-sm">
                   <dt className="text-muted-foreground">Parte (motor, {freezePreview.uses_gross_expenses ? "c/IVA" : "s/IVA"})</dt><dd className="font-mono text-right">{formatCurrency(freezePreview.share_amount)}</dd>
                   <dt className="text-muted-foreground">% aplicada</dt><dd className="font-mono text-right">{freezePreview.effective_pct}%</dd>
-                  <dt className="text-muted-foreground">Pagas pelo sócio</dt><dd className="font-mono text-right">{formatCurrency(freezePreview.paid_by_partner)}</dd>
-                  <dt className="text-muted-foreground">Extras</dt><dd className="font-mono text-right">{formatCurrency(freezePreview.extras)}</dd>
-                  <dt className="text-muted-foreground">Acerto (informativo)</dt><dd className="font-mono text-right">{formatCurrency(freezePreview.settlement_amount)}</dd>
                 </dl>
+                <ShareOrigin origin={freezePreview.origin} />
+                <p className="text-xs text-muted-foreground">A parte é a % do resultado do fechamento. Pagas pelo sócio, extras e acerto tratam-se no Encontro de Contas e não entram no congelar.</p>
                 <p className="text-[11px] text-muted-foreground">Valores calculados pelo motor do fecho, não editáveis. O servidor aceita a parte enviada por este ecrã (não a recalcula).</p>
                 <Label className="text-xs">Nota</Label>
                 <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
