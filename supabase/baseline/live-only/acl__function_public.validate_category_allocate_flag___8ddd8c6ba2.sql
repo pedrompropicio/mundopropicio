@@ -1,0 +1,9 @@
+-- #352 G3: local disposable replay only. Never apply to Live.
+-- object: acl:function:public.validate_category_allocate_flag()
+-- stage: acl
+-- provenance: {"live_acl_properties_sha256": "ae8d45b9201cc86d978602fc84094d54139bd12ffc56d9b74933d6e40513a63e", "promotion": 6449906971, "review": 6429178426, "rule": "acl_final_from_live", "scope": "only the previously measured compensation commands; no global privilege inventory", "window": "after R6/R7, before post-freeze migrations"}
+-- BEGIN OPERATION 258d48a9e01f287cd536a7362f3298c0cf258125e072598b86f39446c7008cbd
+SET LOCAL ROLE "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.validate_category_allocate_flag() FROM "authenticated";
+RESET ROLE;
+-- END OPERATION 258d48a9e01f287cd536a7362f3298c0cf258125e072598b86f39446c7008cbd

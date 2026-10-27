@@ -1,0 +1,37 @@
+-- #352 G3: local disposable replay only. Never apply to Live.
+-- object: acl:relation:crm.meta_strategy_creatives
+-- stage: acl
+-- provenance: {"live_acl_properties_sha256": "573f199f3b1d0d9be7eddc4a0cce71687a1c8093a3d166b7dae9d85a8dfe1e0a", "promotion": 6449906971, "review": 6429178426, "rule": "acl_final_from_live", "scope": "only the previously measured compensation commands; no global privilege inventory", "window": "after R6/R7, before post-freeze migrations"}
+-- BEGIN OPERATION aa45481cc00ec1ca91757cc0486689edcf4dff62c3e9e47a3484ca002306b25e
+SET LOCAL ROLE "postgres";
+GRANT DELETE ON TABLE crm.meta_strategy_creatives TO "authenticated";
+RESET ROLE;
+
+SET LOCAL ROLE "postgres";
+GRANT INSERT ON TABLE crm.meta_strategy_creatives TO "authenticated";
+RESET ROLE;
+
+SET LOCAL ROLE "postgres";
+GRANT SELECT ON TABLE crm.meta_strategy_creatives TO "authenticated";
+RESET ROLE;
+
+SET LOCAL ROLE "postgres";
+GRANT UPDATE ON TABLE crm.meta_strategy_creatives TO "authenticated";
+RESET ROLE;
+
+SET LOCAL ROLE "postgres";
+GRANT DELETE ON TABLE crm.meta_strategy_creatives TO "service_role";
+RESET ROLE;
+
+SET LOCAL ROLE "postgres";
+GRANT INSERT ON TABLE crm.meta_strategy_creatives TO "service_role";
+RESET ROLE;
+
+SET LOCAL ROLE "postgres";
+GRANT SELECT ON TABLE crm.meta_strategy_creatives TO "service_role";
+RESET ROLE;
+
+SET LOCAL ROLE "postgres";
+GRANT UPDATE ON TABLE crm.meta_strategy_creatives TO "service_role";
+RESET ROLE;
+-- END OPERATION aa45481cc00ec1ca91757cc0486689edcf4dff62c3e9e47a3484ca002306b25e
