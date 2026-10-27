@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-/** Contrato p5-v2 da edge function `financial-position` (fail-closed). */
-export const P5_VERSION = "p5-v2";
+/** Contrato p5-v3 da edge function `financial-position` (fail-closed; p5-v2 + cobertura_futuros, D-ERP326). */
+export const P5_VERSION = "p5-v3";
 const amount = z.number().finite();
 const count = z.number().int().nonnegative();
 const sourced = z.object({ valor: amount.nullable(), origem: z.string().min(1) });
@@ -17,6 +17,39 @@ const partnerLine = z.object({
   event_id: z.string().uuid(), supplier_id: z.string().uuid(), nome: z.string(), transferBase: amount, transferVat: amount,
   transferTotal: amount, transfer_with_vat: z.boolean(), pago_contratos: amount, liquido: amount,
   sentido: z.enum(["a_receber", "por_liquidar", "zero"]), origem: z.string(),
+});
+
+const pair = z.object({ com_sem_linha: amount, sem_linha_cobre_bp: amount }).strict();
+const futureEvent = z.object({
+  event_id: z.string().uuid(), nome: z.string(), estagio: z.enum(["planeamento", "em_curso"]),
+  first_day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(), started: z.boolean(), data_indeterminada: z.boolean(),
+  vendas_bruto: amount, fonte_vendas: z.enum(["unica", "indeterminado", "sem_vendas"]),
+  bp_total: amount, despesas_pagas: amount, a_pagar_lancado: amount, a_pagar_sem_linha: amount, bp_por_lancar: amount,
+  custo_total_projetado: pair, cobertura: pair,
+  aporte_socios: z.object({ total: amount, por_transferencia_conta_liquida: amount, pago_direto_automatico: amount,
+    linhas: z.array(z.object({ data: z.string().nullable(), descricao: z.string(), conta: z.string().nullable(), valor: amount }).strict()) }).strict(),
+  aporte_mp_estimativa: amount.nonnegative(),
+  dinheiro_parado_bruto: z.object({ desde_corte: amount, anterior_ao_corte: amount, total: amount }).strict(),
+  dinheiro_parado: amount.nonnegative(), caixa_mp_adiantado: amount.nonnegative(),
+  necessidade_financiamento: pair,
+}).strict();
+const futureOffice = z.object({
+  account_id: z.string().uuid(), nome: z.string(), vendas_eventos_futuros: amount, retido_conta: amount.nullable(),
+  saido_minimo: amount.nonnegative().nullable(), fonte: z.enum(["unica", "indeterminado"]),
+  eventos: z.array(z.object({ event_id: z.string().uuid(), vendas: amount }).strict()), nota: z.string().min(1),
+}).strict();
+export const futureCoverageSchema = z.object({
+  meta: z.object({ incompleto: z.boolean(), motivo: z.string().nullable(), nota_bp_provisorio: z.string().min(1), notas: z.record(z.string()) }).strict(),
+  eventos: z.array(futureEvent).nullable(),
+  bilheteiras: z.array(futureOffice).nullable(),
+  total: z.object({
+    vendas_futuras: amount, despesas_pagas_futuras: amount, a_pagar_lancado_futuros: amount, a_pagar_sem_linha_futuros: amount,
+    bp_por_lancar_futuros: amount, saido_minimo_total: amount.nullable(), aporte_socios_total: amount, aporte_mp_estimativa_total: amount,
+    dinheiro_de_eventos_em_conta: amount, caixa_mp_adiantado_total: amount, necessidade: pair,
+  }).strict().nullable(),
+}).strict().superRefine((v, ctx) => {
+  const nulls = v.eventos === null && v.bilheteiras === null && v.total === null;
+  if (v.meta.incompleto !== nulls) ctx.addIssue({ code: "custom", message: "cobertura_incompleta_inconsistente" });
 });
 
 export const financialPositionP5Schema = z.object({
@@ -49,6 +82,7 @@ export const financialPositionP5Schema = z.object({
     posicao_hoje: amount, notas: z.array(z.string()),
     informativo: z.object({ transitorias_pagar: sourced, transitorias_receber: sourced, acerto: z.unknown() }),
   }).nullable(),
+  cobertura_futuros: futureCoverageSchema,
 }).superRefine((v, ctx) => {
   if (!v.meta.saldos_visiveis && v.saldo_geral !== null) ctx.addIssue({ code: "custom", message: "saldo_geral_sem_permissao" });
   if (v.meta.incompleto && (v.resultado_mp_ano !== null || v.saldo_geral !== null)) ctx.addIssue({ code: "custom", message: "parcial_somado" });
