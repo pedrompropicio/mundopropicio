@@ -5,6 +5,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { CoverageScenarioModal } from "./CoverageScenarioModal";
+import { ExplainButton } from "./ExplainSheet";
+import { explainNeed, explainRevenue, type Breakdown } from "@/lib/financial-position-explain";
 import { revenueCoverage } from "../../../supabase/functions/_shared/ticketing/planning-forecast";
 
 type Coverage = FinancialPositionP5["cobertura_futuros"];
@@ -17,7 +19,9 @@ export function FutureCoverageView({ data }: { data: Coverage }) {
   const projected = data.receita_prevista;
   const revenue = projected ?? (t && typeof t.necessidade.com_sem_linha === "number" && typeof t.necessidade.sem_linha_cobre_bp === "number"
     ? revenueCoverage({ com_sem_linha: t.necessidade.com_sem_linha, sem_linha_cobre_bp: t.necessidade.sem_linha_cobre_bp }, t.vendas_futuras, t.saido_minimo_total) : null);
-  const row = (label: string, v: number | null) => <div className="flex justify-between gap-4"><dt className="text-muted-foreground">{label}</dt><dd className="tabular-nums">{formatPositionAmount(v)}</dd></div>;
+  const row = (label: string, v: number | null, b?: Breakdown) => <div className="flex items-center justify-between gap-4"><dt className="text-muted-foreground">{label}</dt><dd className="flex items-center gap-1 tabular-nums">{formatPositionAmount(v)}{b && <ExplainButton breakdown={b} />}</dd></div>;
+  const ex = revenue ? explainRevenue(data, revenue) : null;
+  const need = (label: string, v: number | null, b: Breakdown, big = true) => <div className={big ? "rounded-md bg-muted/30 p-3" : "p-3"}><div className="flex items-start justify-between gap-2"><p className="text-sm text-muted-foreground">{label}</p><ExplainButton breakdown={b} /></div><p className="text-xl font-semibold tabular-nums">{formatPositionAmount(v)}</p></div>;
   return <section aria-label="Cobertura de eventos futuros" className="space-y-3 rounded-md border border-border p-5">
     <h2 className="text-lg font-semibold">Cobertura de eventos futuros</h2>
     <p className="text-sm text-muted-foreground">{data.meta.nota_bp_provisorio}</p>
@@ -34,17 +38,17 @@ export function FutureCoverageView({ data }: { data: Coverage }) {
         {row("Saído mínimo das bilheteiras", t.saido_minimo_total)}
       </dl>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-md bg-muted/30 p-3"><p className="text-sm text-muted-foreground">Necessidade — com faturas sem linha</p><p className="text-xl font-semibold tabular-nums">{formatPositionAmount(t.necessidade.com_sem_linha)}</p></div>
-        <div className="rounded-md bg-muted/30 p-3"><p className="text-sm text-muted-foreground">Necessidade — faturas sem linha cobrem BP</p><p className="text-xl font-semibold tabular-nums">{formatPositionAmount(t.necessidade.sem_linha_cobre_bp)}</p></div>
+        {need("Necessidade — com faturas sem linha", t.necessidade.com_sem_linha, explainNeed(data, "com_sem_linha"))}
+        {need("Necessidade — faturas sem linha cobrem BP", t.necessidade.sem_linha_cobre_bp, explainNeed(data, "sem_linha_cobre_bp"))}
       </div>
       {revenue && <>
         <dl className="grid gap-1 text-sm sm:grid-cols-2 sm:gap-x-8">
-          {row("Receita considerada", revenue.receita_considerada_total)}
-          {row("Potencial após saído mínimo", revenue.potencial_total)}
+          {row("Receita considerada", revenue.receita_considerada_total, ex?.considered)}
+          {row("Potencial após saído mínimo", revenue.potencial_total, ex?.potential)}
         </dl>
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="p-3"><p className="text-sm text-muted-foreground">Com receita — com faturas sem linha</p><p className="text-xl font-semibold tabular-nums">{formatPositionAmount(revenue.necessidade_com_receita?.com_sem_linha ?? null)}</p></div>
-          <div className="p-3"><p className="text-sm text-muted-foreground">Com receita — faturas sem linha cobrem BP</p><p className="text-xl font-semibold tabular-nums">{formatPositionAmount(revenue.necessidade_com_receita?.sem_linha_cobre_bp ?? null)}</p></div>
+          {ex && need("Com receita — com faturas sem linha", revenue.necessidade_com_receita?.com_sem_linha ?? null, ex.withRevenue("com_sem_linha"), false)}
+          {ex && need("Com receita — faturas sem linha cobrem BP", revenue.necessidade_com_receita?.sem_linha_cobre_bp ?? null, ex.withRevenue("sem_linha_cobre_bp"), false)}
         </div>
       </>}
       <div className="divide-y divide-border border-t border-border">

@@ -12,9 +12,9 @@ const line = (label: string, value: number | null, muted = false) => (
 );
 
 /** P6b: cachês aprovados por pagar (filhas com evento). Informativo: já incluído no total a pagar. */
-export function CachesView({ caches, names }: { caches: Caches; names: Record<string, string> }) {
+export function CachesView({ caches, names, explain }: { caches: Caches; names: Record<string, string>; explain?: React.ReactNode }) {
   return <div className="mt-5 border-l-2 border-primary pl-4" aria-label="Cachês aprovados por pagar">
-    <h3 className="flex flex-wrap justify-between gap-2 font-medium"><span>Cachês aprovados por pagar · já incluídos no total</span><span className="font-mono tabular-nums">{eur(caches.total)}</span></h3>
+    <h3 className="flex flex-wrap justify-between gap-2 font-medium"><span>Cachês aprovados por pagar · já incluídos no total</span><span className="flex items-center gap-1"><span className="font-mono tabular-nums">{eur(caches.total)}</span>{explain}</span></h3>
     {caches.por_artista.length === 0 ? <p className="text-sm text-muted-foreground">Sem cachês por pagar</p> : caches.por_artista.map(a => {
       const label = cacheArtistLabel(a.artist_supplier_id ? names[a.artist_supplier_id] ?? null : null, a.artista);
       return <div key={a.artist_supplier_id ?? label} className="mt-3">

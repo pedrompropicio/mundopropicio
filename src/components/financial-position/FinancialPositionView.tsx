@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import { Wallet, Landmark, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { stageLabel } from "@/lib/event-stage";
 import { CachesView } from "@/components/financial-position/P6bSections";
+import { ExplainButton } from "@/components/financial-position/ExplainSheet";
+import { explainBpPending, explainCaches, explainCash, explainCommitment, explainPayableTotal, explainReceivable, explainRetained, explainStage, payableSplit } from "@/lib/financial-position-explain";
 import { POSITION_STAGES, formatPositionAmount as eur, formatPositionDate as date, type FinancialPosition } from "@/lib/financial-position";
 
 type BalanceRow = FinancialPosition["cartoes"][number] & { cutoff?: string | null };
@@ -27,14 +29,15 @@ function Transients({ data }: { data: FinancialPosition["a_pagar"]["transitorias
 export function FinancialPositionView({ data: d, cacheNames, retainedComposition, resultadoMp }: { data: FinancialPosition; cacheNames?: Record<string, string>; retainedComposition?: React.ReactNode; resultadoMp?: React.ReactNode }) {
   const visible = d.meta.balances_visible;
   const summary = [
-    { label: "Caixa e cartões", value: d.posicao.caixa_e_cartoes, icon: Wallet, balance: true },
-    { label: "Retido visível", value: d.posicao.retido_visiveis, icon: Landmark, balance: true },
+    { label: "Caixa e cartões", value: d.posicao.caixa_e_cartoes, icon: Wallet, balance: true, explain: explainCash(d) },
+    { label: "Retido visível", value: d.posicao.retido_visiveis, icon: Landmark, balance: true, explain: explainRetained(d) },
     // Top cards: stage total without transients (D-ERP322); the RPC position sums stay validated in the schema but are not shown.
-    { label: "A pagar", value: d.a_pagar.total, icon: ArrowUpRight, balance: false, transients: d.a_pagar.transitorias.total },
-    { label: "A receber", value: d.a_receber.total, icon: ArrowDownLeft, balance: false, transients: d.a_receber.transitorias.total },
+    { label: "A pagar", value: d.a_pagar.total, icon: ArrowUpRight, balance: false, transients: d.a_pagar.transitorias.total, explain: explainPayableTotal(d) },
+    { label: "A receber", value: d.a_receber.total, icon: ArrowDownLeft, balance: false, transients: d.a_receber.transitorias.total, explain: explainReceivable(d) },
   ];
+  const split = payableSplit(d);
   return <div className="space-y-7">
-    <section aria-label="Posição"><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{summary.map(item => <div key={item.label} className="min-w-0 border-l-2 border-primary px-4 py-2"><div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground"><item.icon className="h-4 w-4" />{item.label}</div><div className="text-xl font-semibold"><Money value={item.value} hidden={item.balance && !visible} /></div>{"transients" in item && <p className="mt-1 text-xs text-muted-foreground">+ transitórias de repasse: <span className="font-mono tabular-nums">{eur(item.transients ?? null)}</span></p>}</div>)}</div><p className="mt-5 text-sm text-muted-foreground">Caixa e retido não somam (D-ERP27)</p></section>
+    <section aria-label="Posição"><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{summary.map(item => <div key={item.label} className="min-w-0 border-l-2 border-primary px-4 py-2"><div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground"><item.icon className="h-4 w-4" /><span className="flex-1">{item.label}</span>{(!item.balance || visible) && <ExplainButton breakdown={item.explain} />}</div><div className="text-xl font-semibold"><Money value={item.value} hidden={item.balance && !visible} /></div>{"transients" in item && <p className="mt-1 text-xs text-muted-foreground">+ transitórias de repasse: <span className="font-mono tabular-nums">{eur(item.transients ?? null)}</span></p>}</div>)}</div><p className="mt-5 text-sm text-muted-foreground">Caixa e retido não somam (D-ERP27)</p></section>
     <Section title="Caixa e retido">
       {!visible && <p className="mb-4 text-sm text-warning">{hiddenMessage}</p>}
       <div className="grid gap-x-10 gap-y-6 lg:grid-cols-2">
@@ -44,11 +47,15 @@ export function FinancialPositionView({ data: d, cacheNames, retainedComposition
       {retainedComposition}
     </Section>
     <Section title="A pagar por estágio">
+      <div className="mb-6 grid gap-3 sm:grid-cols-2" aria-label="Divisão do a pagar">
+        <div className="flex items-center justify-between gap-2 rounded-md bg-muted/30 p-3"><div className="min-w-0"><p className="text-sm text-muted-foreground">Compromisso em transações</p><p className="font-mono text-lg font-semibold tabular-nums">{eur(split.compromisso)}</p></div><ExplainButton breakdown={explainCommitment(d)} /></div>
+        <div className="flex items-center justify-between gap-2 rounded-md bg-muted/30 p-3"><div className="min-w-0"><p className="text-sm text-muted-foreground">Saldo de BP por lançar</p><p className="font-mono text-lg font-semibold tabular-nums">{eur(split.bpPorLancar)}</p></div><ExplainButton breakdown={explainBpPending(d)} /></div>
+      </div>
       <div className="grid gap-x-10 gap-y-6 md:grid-cols-2">{POSITION_STAGES.map(stage => {
         const p = d.a_pagar.por_estagio[stage];
-        return <div key={stage} className="min-w-0"><h3 className="mb-3 flex flex-wrap justify-between gap-2 font-semibold"><span>{stageLabel(stage)}</span><span className="font-mono">{eur(p.total)}</span></h3><Line label={`BP · ${p.bp_linhas} linhas · ${p.linhas_contrato_cache} de contrato de cachê`} value={p.bp} /><div className="ml-3 border-l border-border pl-3"><Line label="Lançado" value={p.sublinhas.lancado} /><Line label="Confirmado" value={p.sublinhas.confirmado} /><Line label="Por rever" value={p.sublinhas.por_rever} /><Line label="Ajustado" value={p.sublinhas.ajustado} /><Line label="Pago por sócio · fora do total" value={p.sublinhas.partner_paid_fora_do_total} /></div><Line label={`Sem BP · ${p.sem_bp.n} transações`} value={p.sem_bp.total} /><Line label={`Só transações · ${p.so_transacoes.n} transações`} value={p.so_transacoes.total} /></div>;
+        return <div key={stage} className="min-w-0"><h3 className="mb-3 flex flex-wrap justify-between gap-2 font-semibold"><span>{stageLabel(stage)}</span><span className="flex items-center gap-1"><span className="font-mono">{eur(p.total)}</span><ExplainButton breakdown={explainStage(d, stage)} /></span></h3><Line label={`BP · ${p.bp_linhas} linhas · ${p.linhas_contrato_cache} de contrato de cachê`} value={p.bp} /><div className="ml-3 border-l border-border pl-3"><Line label="Lançado" value={p.sublinhas.lancado} /><Line label="Confirmado" value={p.sublinhas.confirmado} /><Line label="Por rever" value={p.sublinhas.por_rever} /><Line label="Ajustado" value={p.sublinhas.ajustado} /><Line label="Pago por sócio · fora do total" value={p.sublinhas.partner_paid_fora_do_total} /></div><Line label={`Sem BP · ${p.sem_bp.n} transações`} value={p.sem_bp.total} /><Line label={`Só transações · ${p.so_transacoes.n} transações`} value={p.so_transacoes.total} /></div>;
       })}</div><Transients data={d.a_pagar.transitorias} />
-      {d.a_pagar.caches && <CachesView caches={d.a_pagar.caches} names={cacheNames ?? {}} />}
+      {d.a_pagar.caches && <CachesView caches={d.a_pagar.caches} names={cacheNames ?? {}} explain={<ExplainButton breakdown={explainCaches(d.a_pagar.caches)} />} />}
     </Section>
     <Section title="A receber por estágio"><div className="grid gap-x-10 gap-y-3 md:grid-cols-2">{POSITION_STAGES.map(stage => <Line key={stage} label={`${stageLabel(stage)} · ${d.a_receber.por_estagio[stage].n} transações`} value={d.a_receber.por_estagio[stage].total} />)}</div><Transients data={d.a_receber.transitorias} /></Section>
     <Section title="Informativos · fora do total"><h3 className="font-medium">Contas de acerto · fora do total</h3><Accounts rows={d.acerto_informativo.contas} visible={visible} /><Line label={`Caução a recuperar · ${d.acerto_informativo.a_recuperar_caucao.n} registos · fora do total`} value={d.acerto_informativo.a_recuperar_caucao.total} /><h3 className="mb-2 mt-5 font-medium">Operações de terceiros · fora do total</h3>{d.operacoes_terceiros_informativo.length === 0 ? <p className="text-sm text-muted-foreground">Sem operações de terceiros</p> : <ul className="divide-y divide-border">{d.operacoes_terceiros_informativo.map((o, index) => <li key={`${o.event_id}-${index}`} className="py-3"><Link className="text-sm font-medium text-primary hover:underline" to={`/eventos/${o.event_id}`}>{o.name ?? "—"}</Link><p className="text-xs text-muted-foreground">{o.kind ?? "—"}</p><p className="text-sm">Bruto: {eur(o.gross_amount)} · Resultado do operador: {eur(o.operator_result)}</p></li>)}</ul>}</Section>
