@@ -2010,6 +2010,13 @@
       "when": 1793147789611,
       "tag": "0286_reembolso_pagamento_fora_resultado",
       "breakpoints": true
+    },
+    {
+      "idx": 287,
+      "version": "7",
+      "when": 1793147861203,
+      "tag": "0287_reembolso_invariante_corpo_exato_0286",
+      "breakpoints": true
     }
   ]
 }
