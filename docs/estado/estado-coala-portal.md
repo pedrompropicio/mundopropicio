@@ -28,7 +28,7 @@
 
 ## Pendentes
 
-- Ligação «Gerir as minhas autorizações» / «Manage my permissions» no email de abertura do Early Bird (`coala_send_eb_open_alert`): R2, dry run primeiro, testes só com endereços internos dados pelo Pedro. O Early Bird abre a 03/11/2026; se não ficar pronto, o email sai sem a ligação (decisão do Pedro).
+- Email de abertura do Early Bird: a ligação já está aplicada (0292). Falta o teste de envio com endereço interno dado pelo Pedro e o dry run no dia 03/11/2026 antes de qualquer envio (R2). Se não ficar pronto, o email sai sem testes adicionais (decisão do Pedro).
 - "Visitor analytics" do alojamento: decisão do Pedro (desligar → retirar a frase do alojamento da política, R2).
 - P6: formulário do Coala a enviar a versão coala-form-2026-10-v1 e consent_locale e a gravar a decisão de WhatsApp; P5 robustez do portal-track (R1). **Por confirmar** contra o código antes de abrir demanda.
 - Issue #372 (9 · CRM): marcar as inscrições do formulário do topo sem caixa feitas até 15/10/2026 para a regra dos 30 dias; prazo antes do fim da edição de 2027.
