@@ -1,6 +1,6 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 28/10/2026 — Participação Cloudscape (1.3.05) no Resultado da MP (D-ERP328, R1): pronto para Publish, não publicado; suíte 2997 PASS, tsgo limpo. P5b p5-v3 e P6b (cachês/retido/Resultado MP) prontos para Publish/Verificação em Live; P6a/P6a-fix não publicados; P4/P4b em Live.
+Atualizado: 28/10/2026 — 0286 (reembolso: pagamento fora do resultado, D-ERP329) aplicada e verificada em Live, modal atualizado, sem Publish. Participação Cloudscape (1.3.05) no Resultado da MP (D-ERP328, R1): pronto para Publish, não publicado. P5b p5-v3 e P6b (cachês/retido/Resultado MP) prontos para Publish/Verificação em Live; P6a/P6a-fix não publicados; P4/P4b em Live.
 
 ## Em que pé está
 
@@ -129,6 +129,10 @@ Atualizado: 28/10/2026 — Participação Cloudscape (1.3.05) no Resultado da MP
 - `docs/DECISIONS.md` — D-ERP198 (#285), D-ERP199, D-ERP200, D-ERP201
 - **#333 — testes autenticados Live, 17/10/2026 23:20 UTC: zero efeitos financeiros.** Matriz37/37 com contas fictícias banidas; hashes agregados de transactions, transaction_payments, event_forecasts, standalone_invoices e financial_accounts IGUAIS antes/depois; settings vazias e gates false. Sem faturas/TX/BP reais ou fictícios. Prova28 em `docs/testes/issue333/28-testes-autenticados-isolamento-live.md`.
 P6b D-ERP327 (0285): a_pagar.caches na RPC: filhas 2.1.x de contratos ativos, por artista, com a retenção IRS à parte; informativo e já dentro do a_pagar.total. O ecrã mostra a composição do retido por bilheteira (função partilhada com o painel) e o Resultado da MP com e sem estrutura (p5-v3). Prova em docs/testes/p5b-p3-caches-retido-20261027.md.
+
+### Reembolsos — pagamento fora do resultado (D-ERP329, 0286, 28/10/2026, EM LIVE)
+- Trigger em reimbursement_notes força exclude_from_result=true ao ligar payment_transaction_id; guarda em transactions recusa retirar a flag enquanto ligada; invariante reembolso_pagamento_no_resultado (referência 0, hoje conforme).
+- Modal cria o pagamento já com a flag. Sem DML histórico: os 44 pagamentos existentes já estavam conformes. Simulação BEGIN…ROLLBACK provou força e guarda, zero resíduo. Prova docs/testes/0286-reembolso-pagamento-fora-resultado-20261028.md. Sem Publish (cliente por publicar).
 
 ### Participação Cloudscape no Resultado da MP (D-ERP328, 28/10/2026, R1, pronto para Publish)
 - `resultado_mp_ano` (p5-v3) ganha `participacoes.cloudscape` {valor, linhas, origem} e `total_mp = com_estrutura + participação`; campos atuais mantidos, motor incompleto → null como antes.
