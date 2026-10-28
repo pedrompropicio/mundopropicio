@@ -1,0 +1,75 @@
+-- Rollback 0291 : définitions précédentes ; NON EXÉCUTÉ.
+-- CREATE OR REPLACE FUNCTION public.coala_autorizacoes_gravar(p_token text,p_ads boolean,p_whatsapp boolean,p_phone text,p_locale text) RETURNS jsonb
+-- LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
+-- AS $function$
+-- DECLARE tok public.email_unsubscribe_tokens; c public.contacts; a public.coala_person_consents; w public.coala_person_consents;
+--   e text; ph text; outcome text := 'ok'; blocked boolean; result jsonb; has_contact boolean;
+-- BEGIN
+--   IF p_token IS NULL OR length(p_token)<>64 OR p_token !~ '^[0-9a-f]{64}$'
+--   THEN RETURN jsonb_build_object('status','invalid'); END IF;
+--   SELECT * INTO tok FROM public.email_unsubscribe_tokens
+--     WHERE token=p_token AND company_id='7d831e59-6e82-427b-95a0-64904aae5dd2'::uuid FOR UPDATE;
+--   IF NOT FOUND THEN RETURN jsonb_build_object('status','invalid'); END IF;
+--   IF p_ads IS NULL OR p_whatsapp IS NULL THEN RAISE EXCEPTION 'consent_payload'; END IF;
+--   IF p_locale IS NULL OR p_locale NOT IN ('pt','en') THEN RAISE EXCEPTION 'consent_locale'; END IF;
+--   e:=lower(btrim(tok.email));
+--   -- Serializa decisões de tokens distintos do mesmo email/empresa; token lock coordena descadastro.
+--   PERFORM pg_advisory_xact_lock(hashtextextended(tok.company_id::text||':'||e,359));
+--   SELECT * INTO c FROM public.contacts WHERE company_id=tok.company_id AND lower(btrim(email))=e FOR UPDATE;
+--   has_contact:=FOUND;
+--   SELECT * INTO a FROM public.coala_person_consents WHERE company_id=tok.company_id AND email=e AND channel='ads' ORDER BY id DESC LIMIT 1;
+--   SELECT * INTO w FROM public.coala_person_consents WHERE company_id=tok.company_id AND email=e AND channel='whatsapp' ORDER BY id DESC LIMIT 1;
+--   blocked:=tok.used_at IS NOT NULL OR EXISTS(SELECT 1 FROM public.suppressed_emails s
+--     WHERE (s.company_id IS NULL OR s.company_id=tok.company_id)
+--       AND (lower(btrim(s.email))=e OR s.email='sha256:'||encode(sha256(convert_to(e,'UTF8')),'hex')));
+--   IF blocked AND (p_ads OR p_whatsapp) THEN RAISE EXCEPTION 'consent_grant_forbidden'; END IF;
+--   ph:=coalesce(nullif(btrim(p_phone),''),nullif(btrim(c.phone_e164),''));
+--   IF p_whatsapp THEN
+--     IF ph IS NULL OR ph !~ '^\+[1-9][0-9]{7,14}$' THEN RAISE EXCEPTION 'whatsapp_invalid_phone'; END IF;
+--     IF NOT has_contact THEN outcome:='contact_missing';
+--     ELSIF nullif(btrim(c.phone_e164),'') IS NULL THEN
+--       -- Único efeito sobre contacts: preencher vazio. Índice único resolve também corridas entre emails.
+--       BEGIN
+--         UPDATE public.contacts SET phone_e164=ph WHERE id=c.id AND company_id=tok.company_id AND nullif(btrim(phone_e164),'') IS NULL;
+--         c.phone_e164:=ph;
+--       EXCEPTION WHEN unique_violation THEN outcome:='phone_conflict';
+--       END;
+--     ELSIF c.phone_e164<>ph THEN outcome:='phone_conflict';
+--     END IF;
+--   END IF;
+--   IF p_ads IS DISTINCT FROM coalesce(a.decision='granted',false) THEN
+--     INSERT INTO public.coala_person_consents(company_id,email,channel,decision,locale,text_version)
+--     VALUES(tok.company_id,e,'ads',CASE WHEN p_ads THEN 'granted' ELSE 'revoked' END,p_locale,CASE WHEN NOT p_ads THEN a.text_version END);
+--   END IF;
+--   IF p_whatsapp IS DISTINCT FROM coalesce(w.decision='granted',false)
+--     OR (p_whatsapp AND w.phone IS DISTINCT FROM ph) THEN
+--     INSERT INTO public.coala_person_consents(company_id,email,channel,decision,locale,phone,text_version)
+--     VALUES(tok.company_id,e,'whatsapp',CASE WHEN p_whatsapp THEN 'granted' ELSE 'revoked' END,p_locale,
+--       CASE WHEN p_whatsapp THEN ph ELSE w.phone END,CASE WHEN NOT p_whatsapp THEN w.text_version END);
+--   END IF;
+--   result:=public.coala_autorizacoes_estado(p_token);
+--   RETURN result||jsonb_build_object('status',outcome);
+-- END
+-- $function$;
+-- 
+-- CREATE OR REPLACE FUNCTION public.email_unsubscribe_atomic(p_token text)
+--  RETURNS jsonb
+--  LANGUAGE plpgsql
+--  SECURITY DEFINER
+--  SET search_path TO 'public', 'pg_catalog'
+-- AS $function$
+-- DECLARE tok public.email_unsubscribe_tokens; m record;
+-- BEGIN
+--  SELECT * INTO tok FROM public.email_unsubscribe_tokens WHERE token=p_token FOR UPDATE;
+--  IF NOT FOUND THEN RETURN jsonb_build_object('error','Invalid or expired token'); END IF;
+--  IF tok.used_at IS NOT NULL THEN RETURN jsonb_build_object('valid',false,'reason','already_unsubscribed'); END IF;
+--  FOR m IN SELECT DISTINCT cm.site_id FROM public.club_members cm JOIN public.portal_sites s ON s.id=cm.site_id AND s.company_id=cm.company_id WHERE (tok.company_id IS NULL OR cm.company_id=tok.company_id) AND lower(btrim(cm.email))=lower(btrim(tok.email)) AND s.brand_key='newgang' ORDER BY cm.site_id LOOP PERFORM public._club_site_lock(m.site_id,false); END LOOP;
+--  FOR m IN SELECT cm.id,cm.site_id FROM public.club_members cm JOIN public.portal_sites s ON s.id=cm.site_id AND s.company_id=cm.company_id WHERE (tok.company_id IS NULL OR cm.company_id=tok.company_id) AND lower(btrim(cm.email))=lower(btrim(tok.email)) AND s.brand_key='newgang' ORDER BY cm.site_id,cm.id LOOP
+--  PERFORM 1 FROM public.club_members WHERE id=m.id FOR NO KEY UPDATE;
+--  PERFORM public._club332_email_append(m.id,m.site_id,'revoked',tok.id,'email_unsubscribe');
+--  PERFORM public._club332_ads_append(m.id,m.site_id,'revoked',ARRAY['meta_ads','tiktok_ads','google_ads'],tok.id,'email_unsubscribe');
+--  END LOOP;
+--  INSERT INTO public.suppressed_emails(email,reason,company_id) VALUES(lower(btrim(tok.email)),'unsubscribe',tok.company_id) ON CONFLICT(email,company_id) DO UPDATE SET reason=EXCLUDED.reason;
+--  UPDATE public.email_unsubscribe_tokens SET used_at=clock_timestamp() WHERE id=tok.id;
+--  RETURN jsonb_build_object('success',true);
+-- END $function$;
