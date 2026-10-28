@@ -68,12 +68,7 @@ async function loadParticipations(admin: any, companyId: string, year: number | 
     .eq("company_id", companyId).is("event_id", null).eq("type", "income").eq("status", "paid")
     .eq("is_transitory", false).eq("exclude_from_result", false).is("reversed_at", null)
     .in("category_id", catIds).order("id").range(a, b));
-  const rows = txs.filter((t: any) => {
-    if (year == null) return true;
-    return Number(String(t.payment_date ?? t.date ?? "").slice(0, 4)) === year;
-  });
-  const valor = rows.reduce((s: number, t: any) => s + (Number(t.paid_amount ?? t.amount) || 0), 0);
-  return { cloudscape: { valor: Math.round(valor * 100) / 100, linhas: rows.length } };
+  return { cloudscape: sumParticipationRows(txs, year) };
 }
 
 /**
