@@ -6416,3 +6416,14 @@ Decisão do Pedro (dois Sims: plano e aplicação, 28/10/2026). O custo de um re
 ## D-ERP331 — Descadastro de email independente das autorizações de WhatsApp e anúncios do Coala (28/10/2026)
 
 Decisão do Pedro, sobre o parecer do jurídico de 27/10/2026 (#359 ponto 4), com «Sim» à migração e à publicação do portal a 28/10/2026. (1) Cancelar a subscrição de email não retira WhatsApp nem anúncios: são canais independentes, cada um com o seu consentimento no ledger `coala_person_consents`. (2) Só uma supressão por pedido de apagamento (`suppressed_emails.reason='erasure_request'`) bloqueia novas concessões; retirar nunca é bloqueado, e um descadastro não substitui `erasure_request`. (3) Depois do descadastro o portal pergunta «Quer também retirar a autorização de WhatsApp ou de anúncios?» com retirada de um clique por canal, e liga a «Gerir as minhas autorizações». (4) Cada caixa mostra o texto à letra aprovado (PT e EN) e a ligação à política de privacidade na mesma língua. (5) As páginas `/autorizacoes` e `/unsubscribe` não carregam pixel nem GTM nem atribuição (`SiteLayout tracking={false}`), para o token do URL não sair do domínio. Migração 0291 (corpos de `coala_autorizacoes_gravar` e `email_unsubscribe_atomic`), seed `coala-anuncios-2026-10-v1` e `coala-whatsapp-2026-10-v1` PT/EN. Portal Coala (repo coalafestival) publicado no HEAD 3d802ff2 e provado em Live com endereço interno: conceder, retirar e descadastro com retirada, ledger append-only; token e supressão de teste apagados. O repo do portal não tem CI externo; os gates foram os locais do agente. **Estado:** vigente (aplicada e publicada).
+
+## D-ERP332 — Regras temporárias até a homologação estar pronta (28/10/2026)
+
+**Decisão do Pedro, 0 · Cowork (Claude), 28/10/2026. Referência: #352.** Até o fluxo de promoção da #352 estar fechado, valem para todos os chats, dos dois lados:
+1. **Só o necessário agora.** Correcções e o que os eventos precisam continuam. Mudanças estruturais grandes que possam esperar (tabelas novas, políticas e permissões, reestruturações financeiras) ficam para depois da homologação.
+2. **Nenhuma mudança na base de dados de Live sem ficheiro de migração versionado** em `drizzle/migrations` (ou `supabase/migrations`) no repo. Nada de DDL directo sem ficheiro.
+3. **Nenhum cron job novo nem segredo novo em Live sem avisar o 0 · Cowork**, porque o G4 e o G5 da #352 dependem do inventário actual.
+
+**Depois do fluxo de promoção:** nenhuma implementação vai directamente a Live. Tudo passa primeiro pelo mp-homolog e só depois segue para Live, pelo Publish do 0, com o "Sim" do Pedro.
+
+Registado também no topo de `docs/QUADRO.md`, antes de "Em execução agora".

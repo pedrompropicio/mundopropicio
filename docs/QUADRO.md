@@ -25,6 +25,15 @@ Só o Pedro muda esta linha, por comando expresso, e só para situações de aut
 - **QUADRO leve.** Linhas tratadas há mais de 30 dias e "Tratados" vão para `docs/arquivo/QUADRO-tratados.md`. Cada chat lê "Em execução agora" e a própria secção; o resto só quando precisa.
 - Nenhuma sessão agendada faz DDL em Live, OAuth, pagamentos, envios de email/mensagens, envios à Meta ou apaga dados — nunca, com o interruptor em qualquer posição. Publish e deploy só com o interruptor LIGADO. O resto deixa `AGUARDA PEDRO` com o passo pronto.
 
+## Regras temporárias até a homologação estar pronta (#352) — decisão do Pedro, 28/10/2026
+
+Valem para todos os chats, dos dois lados, até o fluxo de promoção da #352 estar fechado.
+1) Só o necessário agora: correcções e o que os eventos precisam continuam; mudanças estruturais grandes que possam esperar (tabelas novas, políticas e permissões, reestruturações financeiras) ficam para depois da homologação.
+2) Nenhuma mudança na base de dados de Live sem ficheiro de migração versionado em drizzle/migrations (ou supabase/migrations) no repo; nada de DDL directo sem ficheiro.
+3) Nenhum cron job novo nem segredo novo em Live sem avisar o 0 · Cowork, porque o G4 e o G5 da #352 dependem do inventário actual.
+
+Depois do fluxo de promoção: nenhuma implementação vai directamente a Live; tudo passa primeiro pelo mp-homolog e só depois segue para Live, pelo Publish do 0, com o Sim do Pedro.
+
 ## Em execução agora
 
 Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **antes** de agir, actualiza-a quando o âmbito tocado muda, e apaga-a no fim (depois do fecho documental). Outro lado que encontre aqui o componente que ia tocar: pára e regista o pedido na secção do executor. Linha sem actualização há mais de 24 h ou executor sem sessão: não se assume — volta ao Pedro.
