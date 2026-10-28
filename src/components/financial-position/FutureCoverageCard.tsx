@@ -15,7 +15,8 @@ export function FutureCoverageView({ data }: { data: Coverage }) {
   const { isAdmin, isManager } = useAuth();
   const t = data.total;
   const projected = data.receita_prevista;
-  const revenue = projected ?? (t ? revenueCoverage(t.necessidade, t.vendas_futuras, t.saido_minimo_total) : null);
+  const revenue = projected ?? (t && typeof t.necessidade.com_sem_linha === "number" && typeof t.necessidade.sem_linha_cobre_bp === "number"
+    ? revenueCoverage({ com_sem_linha: t.necessidade.com_sem_linha, sem_linha_cobre_bp: t.necessidade.sem_linha_cobre_bp }, t.vendas_futuras, t.saido_minimo_total) : null);
   const row = (label: string, v: number | null) => <div className="flex justify-between gap-4"><dt className="text-muted-foreground">{label}</dt><dd className="tabular-nums">{formatPositionAmount(v)}</dd></div>;
   return <section aria-label="Cobertura de eventos futuros" className="space-y-3 rounded-md border border-border p-5">
     <h2 className="text-lg font-semibold">Cobertura de eventos futuros</h2>
