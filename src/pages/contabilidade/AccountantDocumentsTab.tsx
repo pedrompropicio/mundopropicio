@@ -20,6 +20,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, AlertTriangle, MessageSquare, Lock, RotateCcw } from "lucide-react";
 import { fetchNonAccountingAccountIds, nonAccountingOrFilter, normalizeAccountFilter } from "@/lib/accountant-account-filter";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { matchesAllTerms, isZipBlockedBySearch } from "@/lib/accountant-search";
 
 interface Tx {
   id: string;
@@ -33,6 +35,7 @@ interface Tx {
   status: string;
   paid_amount: number;
   supplier_name: string | null;
+  supplier_trade_name: string | null;
   supplier_nif: string | null;
   doc_count: number;
 }
@@ -50,7 +53,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
   const { toast } = useToast();
   const [typeFilter, setTypeFilter] = useState<"all" | "expense" | "income">("all");
   const [accountFilter, setAccountFilter] = useState<string>("all");
-  const [supplierSearch, setSupplierSearch] = useState("");
+  const [search, setSearch] = useState("");
   const [attachmentsFilter, setAttachmentsFilter] = useState<"all" | "with" | "without">("all");
   const [sortBy, setSortBy] = useState<{ k: "payment_date" | "amount" | "supplier_name"; dir: "asc" | "desc" }>({
     k: "payment_date", dir: "desc",
@@ -70,33 +73,37 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
     },
   });
 
+  // #392: com texto na pesquisa, procura em TODO o histórico (ignora o período).
+  const searchActive = search.trim().length > 0;
+
   const { data, isLoading } = useQuery({
-    queryKey: ["accountant-documents", companyId, period.from, period.to, typeFilter, accountFilter, (nonAccountingIds ?? []).join(",")],
+    queryKey: ["accountant-documents", companyId, period.from, period.to, typeFilter, accountFilter, searchActive, (nonAccountingIds ?? []).join(",")],
     enabled: !!companyId && !!nonAccountingIds,
     queryFn: async () => {
       const managerial = nonAccountingIds ?? [];
       let q = (supabase as any)
         .from("transactions")
-        .select("id, type, payment_date, description, amount, invoice_ref, supplier_id, account_id, status, paid_amount, suppliers:supplier_id(name, nif)")
+        .select("id, type, payment_date, description, amount, invoice_ref, supplier_id, account_id, status, paid_amount, suppliers:supplier_id(name, trade_name, nif)")
         .eq("company_id", companyId)
-        .gte("payment_date", period.from)
-        .lte("payment_date", period.to)
         .or("status.eq.paid,paid_amount.gt.0")
-        .order("payment_date", { ascending: false })
-        .limit(2000);
+        .order("payment_date", { ascending: false });
+      if (!searchActive) q = q.gte("payment_date", period.from).lte("payment_date", period.to);
       if (typeFilter !== "all") q = q.eq("type", typeFilter);
       const effectiveAccount = normalizeAccountFilter(accountFilter, managerial);
       if (effectiveAccount !== "all") q = q.eq("account_id", effectiveAccount);
       const orFilter = nonAccountingOrFilter(managerial);
       if (orFilter) q = q.or(orFilter);
 
-      const { data: rows, error } = await q;
+      // Leitura SEMPRE paginada (#392): o teto de 1.000 do PostgREST é regra do
+      // INDEX e não se confirma por configuração — nunca .limit() aqui.
+      const { data: rows, error } = await fetchAllPagedQuery(q);
       if (error) throw error;
       const ids = (rows ?? []).map((r: any) => r.id);
       const counts = await fetchAccountantDocCountsBatch(ids);
       return (rows ?? []).map((r: any): Tx => ({
         ...r,
         supplier_name: r.suppliers?.name ?? null,
+        supplier_trade_name: r.suppliers?.trade_name ?? null,
         supplier_nif: r.suppliers?.nif ?? null,
         doc_count: counts[r.id] ?? 0,
       }));
@@ -192,9 +199,24 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
         return st === reviewFilter;
       });
     }
-    if (supplierSearch.trim()) {
-      const s = supplierSearch.trim().toLowerCase();
-      r = r.filter((x) => (x.supplier_name ?? "").toLowerCase().includes(s));
+    if (search.trim()) {
+      r = r.filter((x) =>
+        matchesAllTerms(
+          {
+            description: x.description,
+            invoice_ref: x.invoice_ref,
+            supplier_name: x.supplier_name,
+            supplier_trade_name: x.supplier_trade_name,
+            supplier_nif: x.supplier_nif,
+            account_name: x.account_id ? accountNameById.get(x.account_id) ?? null : null,
+            review_note: reviewMap[x.id]?.note ?? null,
+            response_note: reviewMap[x.id]?.response_note ?? null,
+            amount: x.amount,
+            paid_amount: x.paid_amount,
+          },
+          search,
+        ),
+      );
     }
     const dir = sortBy.dir === "asc" ? 1 : -1;
     r = [...r].sort((a, b) => {
@@ -204,7 +226,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
       return va > vb ? dir : -dir;
     });
     return r;
-  }, [data, attachmentsFilter, supplierSearch, sortBy, reviewFilter, reviews]);
+  }, [data, attachmentsFilter, search, sortBy, reviewFilter, reviews, accountNameById]);
 
   const reviewCounts = useMemo(() => {
     const base = data ?? [];
