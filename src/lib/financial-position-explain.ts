@@ -97,15 +97,15 @@ export function explainNeed(c: Coverage, key: NeedKey): Breakdown {
     guideAnchor: "necessidade" };
 }
 
-export interface RevenueRead { receita_considerada_total: number; potencial_total: number | null; necessidade_com_receita: Record<NeedKey, number> | null }
+export interface RevenueRead { receita_considerada_total?: number; potencial_total?: number | null; necessidade_com_receita?: Partial<Record<NeedKey, number>> | null }
 export function explainRevenue(c: Coverage, rev: RevenueRead) {
   const t = c.total;
   const considered: Breakdown = c.receita_prevista
-    ? { id: "receita-considerada", title: "Receita considerada", formula: "Σ receita considerada por evento (cenário de receita)", total: rev.receita_considerada_total, parts: c.receita_prevista.eventos.map(e => ({ label: (c.eventos ?? []).find(x => x.event_id === e.event_id)?.nome ?? "Evento", value: e.receita_considerada })), guideAnchor: "necessidade" }
-    : { id: "receita-considerada", title: "Receita considerada", formula: "Sem cenário de previsão: vendas futuras reais", total: rev.receita_considerada_total, parts: [{ label: "Vendas futuras", value: t?.vendas_futuras ?? null }], guideAnchor: "necessidade" };
-  const potential: Breakdown = { id: "potencial", title: "Potencial após saído mínimo", formula: "max(0, receita considerada − saído mínimo)", total: rev.potencial_total, clampZero: true,
-    parts: [{ label: "Receita considerada", value: rev.receita_considerada_total }, { label: "Saído mínimo das bilheteiras", value: t?.saido_minimo_total ?? null, sign: -1 }], guideAnchor: "necessidade" };
+    ? { id: "receita-considerada", title: "Receita considerada", formula: "Σ receita considerada por evento (cenário de receita)", total: rev.receita_considerada_total ?? null, parts: c.receita_prevista.eventos.map(e => ({ label: (c.eventos ?? []).find(x => x.event_id === e.event_id)?.nome ?? "Evento", value: e.receita_considerada })), guideAnchor: "necessidade" }
+    : { id: "receita-considerada", title: "Receita considerada", formula: "Sem cenário de previsão: vendas futuras reais", total: rev.receita_considerada_total ?? null, parts: [{ label: "Vendas futuras", value: t?.vendas_futuras ?? null }], guideAnchor: "necessidade" };
+  const potential: Breakdown = { id: "potencial", title: "Potencial após saído mínimo", formula: "max(0, receita considerada − saído mínimo)", total: rev.potencial_total ?? null, clampZero: true,
+    parts: [{ label: "Receita considerada", value: rev.receita_considerada_total ?? null }, { label: "Saído mínimo das bilheteiras", value: t?.saido_minimo_total ?? null, sign: -1 }], guideAnchor: "necessidade" };
   const withRevenue = (key: NeedKey): Breakdown => ({ id: `com-receita-${key}`, title: `Com receita — ${needTitle[key]}`, formula: "max(0, necessidade − potencial)", total: rev.necessidade_com_receita?.[key] ?? null, clampZero: true,
-    parts: [{ label: `Necessidade — ${needTitle[key]}`, value: t?.necessidade[key] ?? null }, { label: "Potencial", value: rev.potencial_total, sign: -1 }], guideAnchor: "necessidade" });
+    parts: [{ label: `Necessidade — ${needTitle[key]}`, value: t?.necessidade[key] ?? null }, { label: "Potencial", value: rev.potencial_total ?? null, sign: -1 }], guideAnchor: "necessidade" });
   return { considered, potential, withRevenue };
 }
