@@ -86,9 +86,18 @@ describe("P6b composição do retido", () => {
 
 describe("P6b Resultado da MP", () => {
   it("shows with and without structure from p5-v3", () => {
-    render(<ResultadoMpView data={{ resultado_mp_ano: { sem_estrutura: 1234.5, com_estrutura: -100 }, meta: { incompleto: false } } as any} />);
+    render(<ResultadoMpView data={{ resultado_mp_ano: { sem_estrutura: 1234.5, com_estrutura: -100,
+      participacoes: { cloudscape: { valor: 0, linhas: 0, origem: "transactions 1.3.05 (participação Cloudscape)" } }, total_mp: -100 }, meta: { incompleto: false } } as any} />);
     expect(screen.getByText(eur(1234.5), { normalizer: t => t })).toBeDefined();
     expect(screen.getByText(eur(-100), { normalizer: t => t })).toBeDefined();
+  });
+  it("shows Cloudscape participation line and MP total", () => {
+    render(<ResultadoMpView data={{ resultado_mp_ano: { sem_estrutura: 500, com_estrutura: 400,
+      participacoes: { cloudscape: { valor: 154130.29, linhas: 1, origem: "transactions 1.3.05 (participação Cloudscape)" } }, total_mp: 154530.29 }, meta: { incompleto: false } } as any} />);
+    expect(screen.getByText("Participação na Cloudscape (Coala)")).toBeDefined();
+    expect(screen.getByText("Resultado total da MP")).toBeDefined();
+    expect(screen.getByText(eur(154130.29), { normalizer: t => t })).toBeDefined();
+    expect(screen.getByText(eur(154530.29), { normalizer: t => t })).toBeDefined();
   });
   it("incomplete → unavailable, never zero", () => {
     render(<ResultadoMpView data={{ resultado_mp_ano: null, meta: { incompleto: true } } as any} />);

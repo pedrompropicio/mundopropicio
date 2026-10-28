@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  assembleFinancialPosition, assembleStructure, classifyStructure, gateStatus, partnerDirection, grossOf,
+  assembleFinancialPosition, assembleStructure, classifyStructure, gateStatus, partnerDirection, grossOf, sumParticipationRows,
   type EventInput,
 } from "../../supabase/functions/_shared/financial-position/assemble";
 import { parseFinancialPositionP5 } from "@/lib/financial-position-p5";
@@ -165,6 +165,38 @@ describe("P5 eventos e Saldo Geral", () => {
     expect(out.resultado_mp_ano).toBeNull();
     expect(out.saldo_geral).toBeNull();
     expect(out.socios.por_liquidar_total).toBeNull();
+  });
+});
+
+describe("P5 participação Cloudscape (1.3.05)", () => {
+  it("soma ao resultado total sem tocar em sem/com estrutura nem no Saldo Geral", () => {
+    const out = assembleFinancialPosition({ base: base(), events: [ev({ engine: eng(500, 500, 0) })], structure: [], paidContracts: {},
+      participations: { cloudscape: { valor: 154130.29, linhas: 1 } }, generatedAt: "2026-10-27T18:00:00Z" });
+    expect(out.resultado_mp_ano).toEqual({ sem_estrutura: 500, com_estrutura: 500,
+      participacoes: { cloudscape: { valor: 154130.29, linhas: 1, origem: "transactions 1.3.05 (participação Cloudscape)" } }, total_mp: 154630.29 });
+    expect(out.saldo_geral).toEqual(run([ev({ engine: eng(500, 500, 0) })]).saldo_geral);
+    expect(parseFinancialPositionP5(out).resultado_mp_ano?.total_mp).toBe(154630.29);
+  });
+  it("ano sem participação: zero explícito e total = com_estrutura", () => {
+    const out = run([ev({ engine: eng(500, 500, 0) })]);
+    expect(out.resultado_mp_ano?.participacoes.cloudscape.valor).toBe(0);
+    expect(out.resultado_mp_ano?.total_mp).toBe(500);
+  });
+  it("motor incompleto: resultado_mp_ano continua null", () => {
+    const out = assembleFinancialPosition({ base: base(), events: [ev({ engine: null, error: "timeout" })], structure: [], paidContracts: {},
+      participations: { cloudscape: { valor: 154130.29, linhas: 1 } }, generatedAt: "2026-10-27T18:00:00Z" });
+    expect(out.resultado_mp_ano).toBeNull();
+  });
+  it("sumParticipationRows filtra por ano (payment_date, fallback date) e usa paid_amount", () => {
+    const rows = [
+      { amount: 100, paid_amount: 154130.29, payment_date: "2026-08-04", date: "2026-08-04" },
+      { amount: 50, paid_amount: null, payment_date: null, date: "2025-12-31" },
+      { amount: 70, paid_amount: 70, payment_date: "2027-01-10", date: "2027-01-10" },
+    ];
+    expect(sumParticipationRows(rows, 2026)).toEqual({ valor: 154130.29, linhas: 1 });
+    expect(sumParticipationRows(rows, 2025)).toEqual({ valor: 50, linhas: 1 });
+    expect(sumParticipationRows(rows, null)).toEqual({ valor: 154250.29, linhas: 3 });
+    expect(sumParticipationRows([], 2026)).toEqual({ valor: 0, linhas: 0 });
   });
 });
 
