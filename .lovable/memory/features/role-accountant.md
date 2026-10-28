@@ -138,3 +138,11 @@ type: feature
 
 ### Invalidações
 - Ao gravar (qualquer lado): `accountant-reviews`, `accountant-reviews-map`, `accountant-review`, `accountant-pendencies`, `accountant-pendencies-count` + `invalidateTransactionQueries` no lado ERP.
+
+### Pesquisa geral (28/10/2026)
+- #392 R1 revisto: o campo "Buscar fornecedor…" foi substituído por PESQUISA GERAL única ("Pesquisar (descrição, fornecedor, NIF, nº documento, valor, conta, observação)").
+- Com texto na pesquisa, a leitura ignora o período (todo o histórico) e mostra o aviso "A pesquisar em todo o histórico (ignora o período)" + botão "Limitar ao período"; sem texto, tudo como antes. Mantêm-se empresa, status paid/paid_amount>0, filtros Tipo/Conta/Anexos/Conferência e a exclusão de contas não contabilísticas (#235).
+- Parser puro em `src/lib/accountant-search.ts` (`parseAmountTerm`, `matchesTerm`, `matchesAllTerms`, `isZipBlockedBySearch`): termos com E, NFD sem acentos, valor PT/EN ("1.234,56" / "1234.56" / "€ 1.234,56"), igualdade a amount/paid_amount (2 casas) ou parte do valor formatado ("234" casa 1.234,56). Campos: description, invoice_ref, fornecedor (name e trade_name), NIF, conta, observação da contabilista e resposta do financeiro.
+- Leitura SEMPRE paginada com `fetchAllPagedQuery` (também na vista por período — o `.limit(2000)` foi removido); o filtro de texto corre no cliente sobre o universo paginado. Medição Live 28/10: 1.545 linhas em 2 páginas (~1 s) no histórico completo.
+- **Limitação do ZIP:** com pesquisa ativa o botão "Descarregar Tudo (ZIP)" fica DESATIVADO com o aviso "Limpa a pesquisa para exportar o ZIP" — a edge generate-accountant-zip só conhece período e filtros e exportaria transações que a contabilista não vê. ZIP dos resultados da pesquisa será uma Issue R2 à parte. Sem pesquisa, o ZIP funciona exatamente como antes.
+- Sem somas na pesquisa: os contadores do cabeçalho são contagens sobre a lista carregada, no cliente.

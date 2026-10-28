@@ -20,6 +20,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, AlertTriangle, MessageSquare, Lock, RotateCcw } from "lucide-react";
 import { fetchNonAccountingAccountIds, nonAccountingOrFilter, normalizeAccountFilter } from "@/lib/accountant-account-filter";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { matchesAllTerms, isZipBlockedBySearch } from "@/lib/accountant-search";
 
 interface Tx {
   id: string;
@@ -33,6 +35,7 @@ interface Tx {
   status: string;
   paid_amount: number;
   supplier_name: string | null;
+  supplier_trade_name: string | null;
   supplier_nif: string | null;
   doc_count: number;
 }
@@ -50,7 +53,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
   const { toast } = useToast();
   const [typeFilter, setTypeFilter] = useState<"all" | "expense" | "income">("all");
   const [accountFilter, setAccountFilter] = useState<string>("all");
-  const [supplierSearch, setSupplierSearch] = useState("");
+  const [search, setSearch] = useState("");
   const [attachmentsFilter, setAttachmentsFilter] = useState<"all" | "with" | "without">("all");
   const [sortBy, setSortBy] = useState<{ k: "payment_date" | "amount" | "supplier_name"; dir: "asc" | "desc" }>({
     k: "payment_date", dir: "desc",
@@ -70,33 +73,37 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
     },
   });
 
+  // #392: com texto na pesquisa, procura em TODO o histórico (ignora o período).
+  const searchActive = search.trim().length > 0;
+
   const { data, isLoading } = useQuery({
-    queryKey: ["accountant-documents", companyId, period.from, period.to, typeFilter, accountFilter, (nonAccountingIds ?? []).join(",")],
+    queryKey: ["accountant-documents", companyId, period.from, period.to, typeFilter, accountFilter, searchActive, (nonAccountingIds ?? []).join(",")],
     enabled: !!companyId && !!nonAccountingIds,
     queryFn: async () => {
       const managerial = nonAccountingIds ?? [];
       let q = (supabase as any)
         .from("transactions")
-        .select("id, type, payment_date, description, amount, invoice_ref, supplier_id, account_id, status, paid_amount, suppliers:supplier_id(name, nif)")
+        .select("id, type, payment_date, description, amount, invoice_ref, supplier_id, account_id, status, paid_amount, suppliers:supplier_id(name, trade_name, nif)")
         .eq("company_id", companyId)
-        .gte("payment_date", period.from)
-        .lte("payment_date", period.to)
         .or("status.eq.paid,paid_amount.gt.0")
-        .order("payment_date", { ascending: false })
-        .limit(2000);
+        .order("payment_date", { ascending: false });
+      if (!searchActive) q = q.gte("payment_date", period.from).lte("payment_date", period.to);
       if (typeFilter !== "all") q = q.eq("type", typeFilter);
       const effectiveAccount = normalizeAccountFilter(accountFilter, managerial);
       if (effectiveAccount !== "all") q = q.eq("account_id", effectiveAccount);
       const orFilter = nonAccountingOrFilter(managerial);
       if (orFilter) q = q.or(orFilter);
 
-      const { data: rows, error } = await q;
+      // Leitura SEMPRE paginada (#392): o teto de 1.000 do PostgREST é regra do
+      // INDEX e não se confirma por configuração — nunca limit fixo aqui.
+      const { data: rows, error } = await fetchAllPagedQuery(q);
       if (error) throw error;
       const ids = (rows ?? []).map((r: any) => r.id);
       const counts = await fetchAccountantDocCountsBatch(ids);
       return (rows ?? []).map((r: any): Tx => ({
         ...r,
         supplier_name: r.suppliers?.name ?? null,
+        supplier_trade_name: r.suppliers?.trade_name ?? null,
         supplier_nif: r.suppliers?.nif ?? null,
         doc_count: counts[r.id] ?? 0,
       }));
@@ -192,9 +199,24 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
         return st === reviewFilter;
       });
     }
-    if (supplierSearch.trim()) {
-      const s = supplierSearch.trim().toLowerCase();
-      r = r.filter((x) => (x.supplier_name ?? "").toLowerCase().includes(s));
+    if (search.trim()) {
+      r = r.filter((x) =>
+        matchesAllTerms(
+          {
+            description: x.description,
+            invoice_ref: x.invoice_ref,
+            supplier_name: x.supplier_name,
+            supplier_trade_name: x.supplier_trade_name,
+            supplier_nif: x.supplier_nif,
+            account_name: x.account_id ? accountNameById.get(x.account_id) ?? null : null,
+            review_note: reviewMap[x.id]?.note ?? null,
+            response_note: reviewMap[x.id]?.response_note ?? null,
+            amount: x.amount,
+            paid_amount: x.paid_amount,
+          },
+          search,
+        ),
+      );
     }
     const dir = sortBy.dir === "asc" ? 1 : -1;
     r = [...r].sort((a, b) => {
@@ -204,7 +226,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
       return va > vb ? dir : -dir;
     });
     return r;
-  }, [data, attachmentsFilter, supplierSearch, sortBy, reviewFilter, reviews]);
+  }, [data, attachmentsFilter, search, sortBy, reviewFilter, reviews, accountNameById]);
 
   const reviewCounts = useMemo(() => {
     const base = data ?? [];
@@ -293,10 +315,15 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
             <span className="font-semibold text-foreground">{reviewCounts.porConferir}</span> por conferir
           </div>
         </div>
-        <Button onClick={downloadAll} disabled={zipLoading || !companyId}>
-          {zipLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
-          Descarregar Tudo (ZIP)
-        </Button>
+        <div className="flex flex-col items-end gap-1">
+          <Button onClick={downloadAll} disabled={zipLoading || !companyId || isZipBlockedBySearch(search)}>
+            {zipLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+            Descarregar Tudo (ZIP)
+          </Button>
+          {isZipBlockedBySearch(search) && (
+            <p className="text-xs text-amber-500">Limpa a pesquisa para exportar o ZIP</p>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -315,7 +342,20 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
             {(accounts ?? []).map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Input placeholder="Buscar fornecedor…" value={supplierSearch} onChange={(e) => setSupplierSearch(e.target.value)} className="w-56 h-9" />
+        <Input
+          placeholder="Pesquisar (descrição, fornecedor, NIF, nº documento, valor, conta, observação)"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-96 h-9"
+        />
+        {searchActive && (
+          <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-500">
+            A pesquisar em todo o histórico (ignora o período)
+            <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => setSearch("")}>
+              Limitar ao período
+            </Button>
+          </div>
+        )}
         <Select value={attachmentsFilter} onValueChange={(v) => setAttachmentsFilter(v as any)}>
           <SelectTrigger className="w-44 h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -357,7 +397,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
               {isLoading ? (
                 <tr><td colSpan={10} className="p-6 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />A carregar…</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">Sem transações no período.</td></tr>
+                <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">{searchActive ? "Sem resultados para a pesquisa." : "Sem transações no período."}</td></tr>
               ) : rows.map((t) => (
                 <tr key={t.id} className="border-t hover:bg-muted/30">
                   <td className="p-2 whitespace-nowrap">{t.payment_date ? format(new Date(t.payment_date), "dd/MM/yyyy") : "—"}</td>
