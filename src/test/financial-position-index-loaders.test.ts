@@ -18,8 +18,14 @@ const EXPECTED: Array<[string, string]> = [
 ];
 
 function extractPromiseAllBlock(src: string): { names: string[]; entries: string[] } {
-  const m = src.match(/const \[([^\]]+)\] = await Promise\.all\(\[([\s\S]*?)\n\s*\]\);/);
-  if (!m) throw new Error("bloco Promise.all não encontrado em index.ts");
+  const re = /const \[([^\]]+)\] = await Promise\.all\(\[([\s\S]*?)\n\s*\]\);/g;
+  let m: RegExpExecArray | null;
+  let found: RegExpExecArray | null = null;
+  while ((m = re.exec(src)) !== null) {
+    if (m[2].includes("loadStructure(")) { found = m; break; }
+  }
+  if (!found) throw new Error("bloco Promise.all dos loaders não encontrado em index.ts");
+  m = found;
   const names = m[1].split(",").map((s) => s.trim()).filter(Boolean);
   // Entradas do array: uma por linha de chamada (comentários ignorados).
   const entries = m[2]
