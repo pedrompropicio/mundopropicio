@@ -326,6 +326,8 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
       // Cria transação de pagamento APENAS aprovada (pendente de liquidação).
       // A liquidação efetiva acontece pelo fluxo normal de pagamentos da TX,
       // e o trigger reimbursement_propagate_payment marca a nota + itens como pagos.
+      // exclude_from_result: o custo do reembolso já está nos itens; o pagamento
+      // nunca entra no resultado (0286 — a trigger na nota também o garante).
       const { data: paymentTx, error: payError } = await supabase
         .from("transactions")
         .insert({
@@ -335,6 +337,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           iva_rate: 0,
           date: today,
           status: "approved",
+          exclude_from_result: true,
           supplier_id: (note as any).supplier_id ?? null,
           iban_override: (note as any).payment_iban ?? null,
         } as any)
