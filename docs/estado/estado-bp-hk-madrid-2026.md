@@ -23,12 +23,14 @@
 
 **Lista das linhas a lançar:** Projeto do Claude, `claude/bp-hk-madrid-linhas-a-lancar-2026-10-28.md`. Pedido registado no QUADRO para o chat 10.
 
-Fotografia na base em 28/10/2026, antes de qualquer lançamento (consultar de novo antes de usar):
-- BP de trabalho (`version_id IS NULL`): 20 linhas de despesa, base 650.210,44 €; nenhuma linha de receita manual; sem versões congeladas.
-- Linha "Riggers Desmontagem" (6.610,00 €) sem categoria.
-- Despesas aprovadas sem linha do BP: Digital 8.061,96 € e 2.ª metade do teatro 154.275,00 €.
-- Bilheteira (linha sintética 1.1.01): previsto original fixado em 17.105,22 € a 08/09; 39 zonas / 34.827 lugares; facturación real 301.539,25 € até 28/10.
-- Origem: `event_forecasts`, `transactions` (paid/approved, `forecast_id`), `events`, `event_ticket_zones`, `onebox_daily_sales`, 28/10/2026.
+Fotografia na base em 28/10/2026, **depois do lançamento do chat 10** (consultar de novo antes de usar):
+- BP de trabalho (`version_id IS NULL`): 41 linhas de despesa, base 1.258.265,73 €, e 2 linhas de receita, base 26.046,03 €. Sem versões congeladas.
+- As 23 linhas lançadas a 28/10 estão em D-ERP330 e no QUADRO; as 20 anteriores (650.210,44 €) não foram tocadas.
+- Três linhas são variáveis por natureza e ficaram `fixed`: Revenue Share ECI 1,5% (21.516,87 €), acréscimo do período de exclusividade (4.529,16 €, remedir no fim da exclusividade) e Variável GTS 10% (130.405,29 €). Conversão em fórmula na Issue #393 — depende de lotes de planeamento e `event_simulator_config`, que este evento não tem.
+- A linha "Riggers Desmontagem" (6.610,00 €) já tem categoria 4.2.03; com a "Riggers Montagem" somam os 11.700,00 € já contratados que justificam a verba de 12.300,00 € do técnico de luz/LED.
+- Despesas aprovadas sem linha do BP: Digital 8.061,96 € (liga à nova linha 3.2.01 "Mídia online") e 2.ª metade do teatro 154.275,00 € (liga à linha existente "Aluguel do Teatro"). Pedido ao 6 no QUADRO.
+- Bilheteira (linha sintética 1.1.01): previsto original fixado em 17.105,22 € a 08/09; 39 zonas / 34.827 lugares; vendido real 301.944,25 € bruto / 274.494,77 € líquido (5.443 bilhetes, IVA 10% do lote) a 28/10.
+- Origem: `event_forecasts`, `transactions` (paid/approved, `forecast_id`), `events`, `event_ticket_zones`, `event_ticket_lots`, `ticket_sales`, `event_simulator_config`, 28/10/2026.
 
 ## Dúvidas em aberto (do Pedro)
 
@@ -39,7 +41,7 @@ Fotografia na base em 28/10/2026, antes de qualquer lançamento (consultar de no
 
 ## Pedidos registados no QUADRO (28/10/2026)
 
-- Chat 10: lançar as linhas aprovadas.
+- Chat 10: lançar as linhas aprovadas — **feito a 28/10/2026** (D-ERP330); conversão das variáveis em fórmula na #393.
 - Chat 3: bilheteira sintética sem previsto utilizável; dependência da #348 para o revenue share por canal.
 - Chat 6: duas despesas aprovadas sem linha do BP.
 
