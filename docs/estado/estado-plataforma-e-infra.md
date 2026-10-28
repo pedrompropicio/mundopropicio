@@ -1,5 +1,18 @@
 # ESTADO — Plataforma & Infra
 
+## #352 — Sim de aplicação recebido; workflow bloqueado, aguarda revisão 0
+
+28/10/2026 10:32 Fortaleza (13:32 UTC). **R2; pausa obrigatória na etapa 3.** Sim [6469468379](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6469468379), após revisão 6469432850, incorpora integralmente a secção 6 de 6469238445. Reserva registada em `1c49b8e6`, recebida pelo Lovable; mantém-se até aceitação, revogação e fecho.
+
+Workflow/dossiê privado: [`cfbb224f475815dc0f0fe267479cfac9ed6991e5`](https://github.com/pedrompropicio/mundopropicio-replay/commit/cfbb224f475815dc0f0fe267479cfac9ed6991e5); diff exato e validação em `docs/352/homolog-application-workflow-20261028/`. Só disparo manual em branch fixada e commit revisto, allowlist a partir de `target.private.json`, rejeição explícita de Live, segredo apenas no passo de ligação, TLS verify-full, permissões contents:read, checkout/ações por SHA sem credencial persistida. Sem inputs de endpoint, upload de artefactos ou exposição do valor secreto.
+
+**Lacuna entregue ao revisor 0:** o candidato tem `ManagedTransport`, mas o executor integral `native.py` continua ligado a bootstrap/guardas administrativas descartáveis, sem entrada gerida C1–C7 completa. Não se transportaram essas operações para o destino nem se completou código de aplicação fora do hash aprovado. O workflow rejeita a ativação antes do passo secreto; contém apenas uma sonda futura READ ONLY, que nunca se declara C1 completo nem escreve SQL de aplicação. É necessário o revisor fechar o executor gerido e a vinculação ao candidato/Sim. Connect/CA ainda por confirmar privadamente; não se criam segredos neste estado.
+
+**Validação local:** 14 testes de segurança PASS; 37/37 fontes idênticas, ZIP SHA-256 `e76e661b989779e78b5d6207d7d29ab3eb4c80f155d534e1444bb0d30f806ed3`, commit candidato `fd022d8907a45ae8ff2498ce5344aeee65d57c29` e base c316 preservados. Diff privado: sete ficheiros novos, nenhum alterado do candidato. Nenhum workflow disparado; API de Actions confirma 0 runs neste commit. Zero ligações a bases, SQL, segredos lidos/criados e efeitos externos nesta entrega. A referência técnica do destino permanece só no ficheiro privado.
+
+Não se alterou a main privada nem se habilitou o workflow na default branch. A revisão deve incluir essa instalação futura, a auditoria de acesso ao segredo e o envelope Connect; não se presume um environment aprovado. Só depois do fecho e revisão o Pedro roda/cria a password diretamente nos painéis, nunca pelo chat. Execução C1 antes da escrita, aceitação e revogação/fecho ficam para as próximas etapas. Sem alteração do hash/SQL/regras/privilégios/destino/âmbito; G4/G5/jobs/agenda/deploy/Publish/Live continuam negados. #329 confirmada antes de cada push e commits com skip ci.
+
+
 ## #352 — candidato mp-homolog: PRONTO para Sim de aplicação
 
 **Preparação sob os Sims 6457767848, 6458541603, 6459990752, 6465391041 e 6466343281; reserva libertada.** Candidato privado `fd022d8907a45ae8ff2498ce5344aeee65d57c29`, pacote SHA-256 **`e76e661b989779e78b5d6207d7d29ab3eb4c80f155d534e1444bb0d30f806ed3`** (37 fontes conferidas). [Provas integrais](https://github.com/pedrompropicio/mundopropicio-replay/tree/d0474e31501de8a40b3ade778720c102dd077903/docs/352/homolog-candidate-storage-class-20261028); parecer completo, migrações/hashes, inventário Storage, matriz, reset inerte e texto final do futuro Sim na [#352](https://github.com/pedrompropicio/mundopropicio/issues/352).
