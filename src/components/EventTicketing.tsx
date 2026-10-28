@@ -1,4 +1,5 @@
 import { SalesLogPanel } from "@/components/SalesLogPanel";
+import { CoverageScenarioModal } from "@/components/financial-position/CoverageScenarioModal";
 import { EventCourtesiesEditor } from "@/components/EventCourtesiesEditor";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -81,6 +82,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   // Taxas de IVA do país da cidade do evento (PT por defeito).
   const { rates: ivaRates } = useEventIvaCountry(eventId);
   const [forecastImportOpen, setForecastImportOpen] = useState(false);
+  const [coverageScenarioOpen, setCoverageScenarioOpen] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, hasPermission } = useAuth();
@@ -848,6 +850,10 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         selectedVersionId={selectedVersionId}
         onSelectVersion={setSelectedVersionId}
       />
+      {!isScenarioMode && !isEventLocked && (isAdmin || isManager) && <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={() => setCoverageScenarioOpen(true)}><Ticket className="h-4 w-4" /> Cenário de receita</Button>
+      </div>}
+      {coverageScenarioOpen && <CoverageScenarioModal eventId={eventId} onClose={() => setCoverageScenarioOpen(false)} />}
 
       {/* Banner de sandbox — apenas em modo cenário */}
       {isScenarioMode && (
