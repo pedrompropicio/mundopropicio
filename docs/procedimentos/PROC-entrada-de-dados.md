@@ -25,6 +25,8 @@ O que decide entre Fatura Avulsa e transação é **quem pagou**, não o fornece
 - Tem de estar em nome de **Mundo Propício Unipessoal Lda, NIF PT515274291**. Sem isso não se lança: devolve-se ao Pedro para corrigir o perfil no fornecedor. Casos vivos a 21/10/2026: Anthropic (#255), browserless.io, Jon Loomer.
 - **Ter documento não é ter fatura.** Um comprovativo de pagamento não substitui a fatura (lição da #134).
 
+**Nomes de Entidades em CAIXA ALTA.** No cadastro de Entidades do ERP o nome da entidade escreve-se em caixa alta: 312 dos 320 fornecedores activos da MP seguem essa convenção (consulta de 28/10/2026). Antes de criar uma entidade nova, procurar duplicados; o nome vai em caixa alta, a morada, o NIF e as notas em escrita normal.
+
 ## Passo 3 — Duplicados, sempre antes de inserir
 
 - Procurar o mesmo documento por fornecedor + número **nos dois sítios**: `transactions.invoice_ref` e `standalone_invoices.invoice_number`. O mesmo papel pode já ter entrado pelo outro caminho.
@@ -49,3 +51,5 @@ O que decide entre Fatura Avulsa e transação é **quem pagou**, não o fornece
 
 - Conferir em Live, por query própria, o que ficou lançado — o relatório de quem executou não é prova.
 - **Os emails que serviram de fonte não se apagam.** Arquivam-se, e só depois de o anexo estar na plataforma e conferido.
+
+**As duas etiquetas do Gmail.** Os emails com fatura saem da caixa de entrada por filtro para `Faturas/A lançar` (laranja); depois de lançados no ERP passam para `Faturas/Lançadas` (verde). **Nada se apaga:** o email de origem arquiva-se, nunca vai para o lixo. Cada varredura regista a data e o que ficou por lançar em `docs/estado/estado-financeiro-e-tesouraria.md`.

@@ -16,8 +16,9 @@
 - Período da equipa (salários, alimentação, som, lavandaria) em 2,5 meses, não 2 (a equipa está em Madrid de meados de novembro a finais de janeiro).
 - Riggers/técnico de luz-LED: mantém-se a verba total da folha; a parte já contratada fica nas linhas existentes e o resto numa linha "verba por definir".
 - Montagem e desmontagem do teatro numa linha própria, até se esclarecer se é custo do teatro (#215) ou outro.
-- Revenue share da ECI: entra no BP à taxa de piso (a exclusividade não se mantém); o que for recebido acima entra pelo realizado (chão do realizado das linhas com fórmula).
-- Variável da operadora do teatro: linha de despesa com fórmula sobre a receita de bilhetes.
+- Revenue share da ECI, **revisto a 28/10 (D-ERP330)**: são 3% enquanto a ECI é exclusiva e 1,5% depois, e a fórmula não aceita duas taxas. Ficam **duas linhas** em 1.3.04: 1,5% sobre toda a temporada e, à parte, o acréscimo de 1,5% do período de exclusividade, remedido quando a exclusividade acabar. Não se usa o chão do realizado para compensar a diferença.
+- Variável da operadora do teatro: 10% da receita líquida de bilhetes, em linha própria de 4.3.01.
+- **As três linhas variáveis foram lançadas `fixed`, não em fórmula (D-ERP330):** o recálculo é automático e, sem lotes de planeamento nem `event_simulator_config`, cairia no real até à data. Conversão na Issue #393.
 - A comissão da bilheteira não é custo da MP: o recargo é pago pelo comprador (`PROC-vendas-onebox-madrid.md`: a captação grava só a Facturación).
 - Taxas e parâmetros contratuais ficam fora do repo.
 
