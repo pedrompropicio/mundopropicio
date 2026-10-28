@@ -4,6 +4,10 @@ Atualizado: 28/10/2026 — #391 (Compromisso em transações, ⓘ e guia) pronto
 
 ## Em que pé está
 
+### #392 — pesquisa geral no Portal Contabilidade (28/10/2026, bloqueada antes do código)
+- R1 autorizada; reserva libertada após preflight. Agregação PostgREST desativada (HTTP400 `Use of aggregate functions is not allowed`); não existe RPC adequada para contar/somar IDs visíveis. ZIP existente não aceita IDs, pesquisa nem conferência. Cumprir ambas as regras sem alterar o serviço exige decisão de âmbito do Pedro.
+- MP:1543 transações pagas em2026,1400 após exclusão #235;1401 elegíveis em todo o histórico. Sessão Pedro estava na Coala (361 anuais sem corte); MP inacessível nessa sessão por isolamento, pelo que o corte MP não foi confirmado pelo cliente. Sem alterar empresa/dados para testar. Suíte3035PASS/6skip/11todo; código intocado; não pronto para Publish. Prova docs/testes/392-preflight-pesquisa-contabilidade.md.
+
 ### #391 — Compromisso em transações, ⓘ e guia (28/10/2026, R1, pronto para Publish após CI, não publicado)
 - Só ecrã + testes; sem DDL/DML/RPC/edge. Compromisso = Σ estágios (lançado + sem BP + só transações); saldo de BP por lançar = Σ (confirmado + ajustado + por rever); a soma tem de dar a_pagar.total (±0,01).
 - ⓘ por toque em caixa, retido, a pagar, a receber, cada estágio, compromisso, BP por lançar, cachês, as duas necessidades, receita considerada, potencial e as duas linhas "com receita"; parcelas que não reconciliam mostram "Não reconciliado".
