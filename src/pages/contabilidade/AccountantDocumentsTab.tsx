@@ -1,3 +1,4 @@
+import { QueryErrorState } from "@/components/QueryErrorState";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,7 +77,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
   // #392: com texto na pesquisa, procura em TODO o histórico (ignora o período).
   const searchActive = search.trim().length > 0;
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error: txError, refetch: refetchTx } = useQuery({
     queryKey: ["accountant-documents", companyId, period.from, period.to, typeFilter, accountFilter, searchActive, (nonAccountingIds ?? []).join(",")],
     enabled: !!companyId && !!nonAccountingIds,
     queryFn: async () => {
@@ -394,7 +395,9 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
               </tr>
             </thead>
             <tbody>
-              {isLoading ? (
+              {txError ? (
+                <tr><td colSpan={10} className="p-2"><QueryErrorState error={txError} onRetry={() => refetchTx()} context="Contabilidade — Documentos (transações/anexos)" /></td></tr>
+              ) : isLoading ? (
                 <tr><td colSpan={10} className="p-6 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />A carregar…</td></tr>
               ) : rows.length === 0 ? (
                 <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">{searchActive ? "Sem resultados para a pesquisa." : "Sem transações no período."}</td></tr>
