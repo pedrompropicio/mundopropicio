@@ -315,10 +315,15 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
             <span className="font-semibold text-foreground">{reviewCounts.porConferir}</span> por conferir
           </div>
         </div>
-        <Button onClick={downloadAll} disabled={zipLoading || !companyId}>
-          {zipLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
-          Descarregar Tudo (ZIP)
-        </Button>
+        <div className="flex flex-col items-end gap-1">
+          <Button onClick={downloadAll} disabled={zipLoading || !companyId || isZipBlockedBySearch(search)}>
+            {zipLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+            Descarregar Tudo (ZIP)
+          </Button>
+          {isZipBlockedBySearch(search) && (
+            <p className="text-xs text-amber-500">Limpa a pesquisa para exportar o ZIP</p>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -337,7 +342,20 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
             {(accounts ?? []).map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Input placeholder="Buscar fornecedor…" value={supplierSearch} onChange={(e) => setSupplierSearch(e.target.value)} className="w-56 h-9" />
+        <Input
+          placeholder="Pesquisar (descrição, fornecedor, NIF, nº documento, valor, conta, observação)"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-96 h-9"
+        />
+        {searchActive && (
+          <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-500">
+            A pesquisar em todo o histórico (ignora o período)
+            <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => setSearch("")}>
+              Limitar ao período
+            </Button>
+          </div>
+        )}
         <Select value={attachmentsFilter} onValueChange={(v) => setAttachmentsFilter(v as any)}>
           <SelectTrigger className="w-44 h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
