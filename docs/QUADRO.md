@@ -277,7 +277,7 @@ _(sem pedidos)_
 
 ## 6 · Vínculo BP-Transações
 
-- [ ] de `bp-hk-madrid-2026` para 6 (28/10/2026): **H&K Madrid — duas despesas aprovadas sem linha do BP com `budget_mode` herdado `with_bp`:** 3.2.01 Digital 8.061,96 € e 4.3.01 Aluguer de Recinto 154.275,00 € (2.ª metade do teatro; a linha "Aluguel do Teatro" de 308.550,00 € já tem 154.275,00 € pagos ligados — ver #215). Ligar ou explicar. Origem: `transactions` paid/approved com `forecast_id IS NULL` do evento `bf9ce2d8-…`, 28/10/2026.
+- [ ] de `bp-hk-madrid-2026` para 6 (28/10/2026): **H&K Madrid — duas despesas aprovadas sem linha do BP com `budget_mode` herdado `with_bp`:** 3.2.01 Digital 8.061,96 € e 4.3.01 Aluguer de Recinto 154.275,00 € (2.ª metade do teatro; a linha "Aluguel do Teatro" de 308.550,00 € já tem 154.275,00 € pagos ligados — ver #215). Ligar ou explicar. **Espera pelo lançamento do chat 10** (pedido acima, secção 10): o Digital liga à nova linha 3.2.01 "Mídia online"; a 2.ª metade do teatro liga à linha existente "Aluguel do Teatro" — não deixar ao match por categoria, porque 4.3.01 passa a ter três linhas (aluguer, variável da operadora, sessões extra). Origem: `transactions` paid/approved com `forecast_id IS NULL` do evento `bf9ce2d8-…`, 28/10/2026.
 
 ## 7 · Fecho e Sócios
 
@@ -318,7 +318,7 @@ _(sem pedidos)_
 
   - **20/10/2026 17:15 UTC — #333 pacote A aplicado (fase12i).** Migrações 0211 review + 0212 executor FECHADO; readback OK (gates false, âmbito 0, registos 0, writers iguais). index.ts flags de esquema true; assistente/análise false. AGUARDA CI no novo SHA → deploy só data-entry (controller). Pacote B não ativado. Relatório: docs/testes/issue333/fase12i-aplicacao-pacote-A.md.
 
-- [ ] de `bp-hk-madrid-2026` para 10 (28/10/2026): **lançar no BP de H&K Madrid (`bf9ce2d8-754e-4485-8427-e2d486c39919`) as linhas aprovadas pelo Pedro a 28/10** — 1 receita com fórmula (1.3.04), 1 despesa com fórmula (4.3.01), 21 despesas fixas e 1 correcção de categoria (Riggers Desmontagem sem categoria → 4.2.03). A lista com categorias, valores e fórmulas está no Projeto do Claude, doc `claude/bp-hk-madrid-linhas-a-lancar-2026-10-28.md` (fora do repo por D-ERP307). Pelos fluxos existentes, com prévia e autorização expressa do Pedro (D-ERP285); 1.1.01 não se lança à mão (linha sintética).
+- [ ] de `bp-hk-madrid-2026` para 10 (28/10/2026): **lançar no BP de H&K Madrid (`bf9ce2d8-754e-4485-8427-e2d486c39919`) as linhas aprovadas pelo Pedro a 28/10** — 1 receita com fórmula (1.3.04), 1 despesa com fórmula (4.3.01), 20 despesas fixas e 1 correcção de categoria (Riggers Desmontagem sem categoria → 4.2.03). A lista com categorias, valores e fórmulas está no Projeto do Claude, doc `claude/bp-hk-madrid-linhas-a-lancar-2026-10-28.md` (fora do repo por D-ERP307). Pelos fluxos existentes, com prévia e autorização expressa do Pedro (D-ERP285); 1.1.01 não se lança à mão (linha sintética).
 
 ## 11 · Testes
 
