@@ -89,7 +89,7 @@ describe("P6b Resultado da MP", () => {
     render(<ResultadoMpView data={{ resultado_mp_ano: { sem_estrutura: 1234.5, com_estrutura: -100,
       participacoes: { cloudscape: { valor: 0, linhas: 0, origem: "transactions 1.3.05 (participação Cloudscape)" } }, total_mp: -100 }, meta: { incompleto: false } } as any} />);
     expect(screen.getByText(eur(1234.5), { normalizer: t => t })).toBeDefined();
-    expect(screen.getByText(eur(-100), { normalizer: t => t })).toBeDefined();
+    expect(screen.getAllByText(eur(-100), { normalizer: t => t })).toHaveLength(2);
   });
   it("shows Cloudscape participation line and MP total", () => {
     render(<ResultadoMpView data={{ resultado_mp_ano: { sem_estrutura: 500, com_estrutura: 400,
