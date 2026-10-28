@@ -2045,6 +2045,13 @@
       "when": 1793193426814,
       "tag": "0291_issue359_ponto4_descadastro_independente",
       "breakpoints": true
+    },
+    {
+      "idx": 292,
+      "version": "7",
+      "when": 1793199925111,
+      "tag": "0292_issue359_eb_open_authorisations_link",
+      "breakpoints": true
     }
   ]
 }
