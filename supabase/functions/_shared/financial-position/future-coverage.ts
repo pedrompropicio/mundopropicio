@@ -7,6 +7,8 @@
  * aportes de transações aporte_socio. Nunca se rateia a bilheteira por evento.
  */
 
+import { forecastRoot, revenueCoverage } from "../ticketing/planning-forecast.ts";
+
 const r2 = (v: number) => Math.round((Number(v) || 0) * 100) / 100;
 const nz = (v: unknown) => Number(v) || 0;
 
@@ -75,7 +77,7 @@ export function assembleFutureCoverage(input: FutureCoverageInput) {
   const single = new Map<string, boolean>();
   const bilheteiras = input.sales.map((acc) => {
     const byRoot = new Map<string, number>();
-    for (const r of acc.rows) { const k = root(r.event_id)!; byRoot.set(k, (byRoot.get(k) ?? 0) + nz(r.revenue)); }
+    for (const r of acc.rows) { const k = root(r.event_id); if (k) byRoot.set(k, (byRoot.get(k) ?? 0) + nz(r.revenue)); }
     const fut = [...byRoot].filter(([k, v]) => futureIds.has(k) && Math.abs(v) > 0.005);
     const others = [...byRoot].filter(([k, v]) => !futureIds.has(k) && Math.abs(v) > 0.005);
     single.set(acc.account_id, fut.length === 1 && others.length === 0);
@@ -84,7 +86,7 @@ export function assembleFutureCoverage(input: FutureCoverageInput) {
       accountsOfRoot.set(k, (accountsOfRoot.get(k) ?? new Set()).add(acc.account_id));
     }
     const vendas = fut.reduce((s, [, v]) => s + v, 0);
-    const ret = visible && retidoMap.has(acc.account_id) ? retidoMap.get(acc.account_id)! : null;
+    const ret = visible && retidoMap.has(acc.account_id) ? retidoMap.get(acc.account_id) ?? null : null;
     return {
       account_id: acc.account_id, nome: acc.name,
       vendas_eventos_futuros: r2(vendas),
@@ -100,11 +102,11 @@ export function assembleFutureCoverage(input: FutureCoverageInput) {
   for (const c of input.cash) { const k = root(c.event_id); if (k) realizedByRoot.set(k, (realizedByRoot.get(k) ?? 0) + nz(c.realized)); }
   const preByRoot = new Map<string, number>();
   for (const t of input.preCutoff) {
-    const k = root(t.event_id)!; const s = t.type === "income" ? nz(t.paid) : t.type === "expense" ? -nz(t.paid) : 0;
-    preByRoot.set(k, (preByRoot.get(k) ?? 0) + s);
+    const k = root(t.event_id); const s = t.type === "income" ? nz(t.paid) : t.type === "expense" ? -nz(t.paid) : 0;
+    if (k) preByRoot.set(k, (preByRoot.get(k) ?? 0) + s);
   }
   const aportesByRoot = new Map<string, AporteRowInput[]>();
-  for (const a of input.aportes) { const k = root(a.event_id)!; aportesByRoot.set(k, [...(aportesByRoot.get(k) ?? []), a]); }
+  for (const a of input.aportes) { const k = root(a.event_id); if (k) aportesByRoot.set(k, [...(aportesByRoot.get(k) ?? []), a]); }
 
   const eventos = future.map((e: any) => {
     const id = e.evento_id as string;
@@ -144,9 +146,20 @@ export function assembleFutureCoverage(input: FutureCoverageInput) {
 
   const sum = (f: (e: any) => number) => r2(eventos.reduce((s: number, e: any) => s + f(e), 0));
   const saidoNull = bilheteiras.some((b) => b.saido_minimo == null);
+  const salesByEvent: Record<string, number> = {};
+  for (const a of input.sales) for (const s of a.rows) salesByEvent[s.event_id] = (salesByEvent[s.event_id] ?? 0) + nz(s.revenue);
+  const planning = future.map((e: any) => ({ event_id: e.evento_id,
+    ...forecastRoot(e.planeamento ?? [], e.evento_id, salesByEvent, String(base.meta.reference_date), e.first_day ?? null) }));
+  const currentNeed = { com_sem_linha: sum(e => e.necessidade_financiamento.com_sem_linha), sem_linha_cobre_bp: sum(e => e.necessidade_financiamento.sem_linha_cobre_bp) };
+  const minimumOut = saidoNull ? null : r2(bilheteiras.reduce((s, b) => s + (b.saido_minimo ?? 0), 0));
+  // Without an active forecast preserve the complete legacy JSON, not just its totals.
+  const forecastBlock = planning.some(e => e.ativo) ? { receita_prevista: {
+    eventos: planning.map(p => ({ ...p, receita_considerada: Math.max(p.receita_considerada, salesByRoot.get(p.event_id) ?? 0) })),
+    ...revenueCoverage(currentNeed, planning.reduce((s, p) => s + Math.max(p.receita_considerada, salesByRoot.get(p.event_id) ?? 0), 0), minimumOut),
+  } } : {};
   return {
     meta: { incompleto: false, motivo: null, nota_bp_provisorio: FUTURE_COVERAGE_NOTES.bp_provisorio, notas: FUTURE_COVERAGE_NOTES },
-    eventos, bilheteiras,
+    eventos, bilheteiras, ...forecastBlock,
     total: {
       vendas_futuras: sum((e) => e.vendas_bruto), despesas_pagas_futuras: sum((e) => e.despesas_pagas),
       a_pagar_lancado_futuros: sum((e) => e.a_pagar_lancado), a_pagar_sem_linha_futuros: sum((e) => e.a_pagar_sem_linha),
