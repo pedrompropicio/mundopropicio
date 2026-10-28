@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { chunkIds } from "@/lib/chunk-ids";
 
 export type AccountantDocBucket =
   | "transaction-documents"
@@ -172,10 +173,31 @@ export async function fetchAccountantTxDocCount(txId: string): Promise<number> {
 /**
  * Em lote: para cada txId, devolve a contagem total incluindo talões de camarim e
  * despesas-filhas de notas de reembolso quando aplicável.
+ *
+ * #392: todos os `.in()` vão em blocos de 200 ids (chunkIds) e TODAS as leituras
+ * verificam `error` e lançam — uma falha nunca pode virar "0 anexos".
  */
 export async function fetchAccountantDocCountsBatch(txIds: string[]): Promise<Record<string, number>> {
   const counts: Record<string, number> = {};
   if (txIds.length === 0) return counts;
+
+  const sb = supabase as any;
+  const readIn = async (
+    table: string,
+    select: string,
+    column: string,
+    ids: string[],
+    paged: boolean,
+  ): Promise<any[]> => {
+    const all: any[] = [];
+    for (const slice of chunkIds(Array.from(new Set(ids)))) {
+      const q = sb.from(table).select(select).in(column, slice);
+      const { data, error } = paged ? await fetchAllPagedQuery(q) : await q;
+      if (error) throw error;
+      all.push(...(data ?? []));
+    }
+    return all;
+  };
 
   // chaves já contadas por TX, para não duplicar camarim (replicado) vs talão original
   const keys = new Map<string, Set<string>>();
@@ -188,28 +210,22 @@ export async function fetchAccountantDocCountsBatch(txIds: string[]): Promise<Re
   };
 
   // Diretos
-  const { data: ownDocs } = await fetchAllPagedQuery((supabase as any)
-    .from("transaction_documents")
-    .select("transaction_id, file_url")
-    .in("transaction_id", txIds));
-  for (const d of ownDocs ?? []) {
+  const ownDocs = await readIn("transaction_documents", "transaction_id, file_url", "transaction_id", txIds, true);
+  for (const d of ownDocs) {
     const { bucket, path } = resolveDocBucket(d.file_url);
     bump(d.transaction_id, `${bucket}:${path}`);
   }
 
   // Camarim: itens ligados a estas TXs
-  const { data: camItems } = await (supabase as any)
-    .from("camarim_items")
-    .select("id, transaction_id")
-    .in("transaction_id", txIds);
+  const camItems = await readIn("camarim_items", "id, transaction_id", "transaction_id", txIds, true);
   const camItemToTx = new Map<string, string>();
-  for (const i of camItems ?? []) if (i.transaction_id) camItemToTx.set(i.id, i.transaction_id);
+  for (const i of camItems) if (i.transaction_id) camItemToTx.set(i.id, i.transaction_id);
   if (camItemToTx.size > 0) {
-    const { data: camDocs } = await (supabase as any)
-      .from("camarim_item_documents")
-      .select("item_id, file_path, company_id")
-      .in("item_id", Array.from(camItemToTx.keys()));
-    for (const d of camDocs ?? []) {
+    const camDocs = await readIn(
+      "camarim_item_documents", "item_id, file_path, company_id", "item_id",
+      Array.from(camItemToTx.keys()), true,
+    );
+    for (const d of camDocs) {
       const tx = camItemToTx.get(d.item_id);
       if (!tx) continue;
       const path = !d.company_id || d.file_path?.startsWith(`${d.company_id}/`)
@@ -220,35 +236,29 @@ export async function fetchAccountantDocCountsBatch(txIds: string[]): Promise<Re
   }
 
   // Notas de reembolso cujo pagamento está na lista
-  const { data: notes } = await (supabase as any)
-    .from("reimbursement_notes")
-    .select("id, payment_transaction_id")
-    .in("payment_transaction_id", txIds);
-
+  const notes = await readIn("reimbursement_notes", "id, payment_transaction_id", "payment_transaction_id", txIds, true);
   const noteIdToPayTx = new Map<string, string>();
-  for (const n of notes ?? []) {
+  for (const n of notes) {
     if (n.payment_transaction_id) noteIdToPayTx.set(n.id, n.payment_transaction_id);
   }
   if (noteIdToPayTx.size === 0) return counts;
 
-  const { data: items } = await (supabase as any)
-    .from("reimbursement_note_items")
-    .select("reimbursement_note_id, transaction_id")
-    .in("reimbursement_note_id", Array.from(noteIdToPayTx.keys()));
-
+  const items = await readIn(
+    "reimbursement_note_items", "reimbursement_note_id, transaction_id", "reimbursement_note_id",
+    Array.from(noteIdToPayTx.keys()), false,
+  );
   const childTxToPayTx = new Map<string, string>();
-  for (const i of items ?? []) {
+  for (const i of items) {
     const payTx = noteIdToPayTx.get(i.reimbursement_note_id);
     if (payTx && i.transaction_id) childTxToPayTx.set(i.transaction_id, payTx);
   }
   if (childTxToPayTx.size === 0) return counts;
 
-  const { data: childDocs } = await fetchAllPagedQuery((supabase as any)
-    .from("transaction_documents")
-    .select("transaction_id, file_url")
-    .in("transaction_id", Array.from(childTxToPayTx.keys())));
-
-  for (const d of childDocs ?? []) {
+  const childDocs = await readIn(
+    "transaction_documents", "transaction_id, file_url", "transaction_id",
+    Array.from(childTxToPayTx.keys()), true,
+  );
+  for (const d of childDocs) {
     const payTx = childTxToPayTx.get(d.transaction_id);
     if (!payTx) continue;
     const { bucket, path } = resolveDocBucket(d.file_url);
