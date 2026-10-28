@@ -3267,6 +3267,36 @@ export type Database = {
         }
         Relationships: []
       }
+      bkp_359_p6_prova_reconstruida: {
+        Row: {
+          backup_at: string | null
+          consent_decided_at: string | null
+          consent_email: boolean | null
+          consent_email_text_version: string | null
+          created_at: string | null
+          email: string | null
+          id: string | null
+        }
+        Insert: {
+          backup_at?: string | null
+          consent_decided_at?: string | null
+          consent_email?: boolean | null
+          consent_email_text_version?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+        }
+        Update: {
+          backup_at?: string | null
+          consent_decided_at?: string | null
+          consent_email?: boolean | null
+          consent_email_text_version?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+        }
+        Relationships: []
+      }
       bkp_359_whatsapp_legado_coala: {
         Row: {
           company_id: string | null
