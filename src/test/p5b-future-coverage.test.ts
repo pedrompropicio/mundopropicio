@@ -87,7 +87,7 @@ describe("P5b cobertura de eventos futuros", () => {
     expect(out.meta.year).toBe(2026);
     expect(out.eventos.map((e) => e.event_id)).toEqual([MAD]);
     expect(out.projecao_em_curso.eventos.map((e) => e.event_id)).toEqual([MAD]);
-    expect(out.resultado_mp_ano).toEqual({ sem_estrutura: 0, com_estrutura: 0 });
+    expect(out.resultado_mp_ano).toEqual({ sem_estrutura: 0, com_estrutura: 0, participacoes: { cloudscape: { valor: 0, linhas: 0, origem: "transactions 1.3.05 (participação Cloudscape)" } }, total_mp: 0 });
     const baseline = requestedOutput(assembleFutureCoverage(input({ cash: null })));
     expect(out.socios).toEqual(baseline.socios);
     expect(out.saldo_geral.ativos).toEqual(baseline.saldo_geral.ativos);
@@ -122,7 +122,7 @@ describe("P5b cobertura de eventos futuros", () => {
       const fc = await pending;
       expect(fc).toMatchObject({ meta: { incompleto: true, motivo: "timeout" }, eventos: null, bilheteiras: null, total: null });
       expect(load).not.toHaveBeenCalled();
-      expect(requestedOutput(fc).resultado_mp_ano).toEqual({ sem_estrutura: 0, com_estrutura: 0 });
+      expect(requestedOutput(fc).resultado_mp_ano).toEqual({ sem_estrutura: 0, com_estrutura: 0, participacoes: { cloudscape: { valor: 0, linhas: 0, origem: "transactions 1.3.05 (participação Cloudscape)" } }, total_mp: 0 });
     } finally { vi.useRealTimers(); }
   });
   it("uma resposta de outra empresa ou ainda filtrada por ano falha fechado", async () => {
