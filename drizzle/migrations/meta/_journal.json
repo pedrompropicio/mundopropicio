@@ -2059,6 +2059,13 @@
       "when": 1793216149525,
       "tag": "0293_issue359_p6_backup_prova_reconstruida",
       "breakpoints": true
+    },
+    {
+      "idx": 294,
+      "version": "7",
+      "when": 1793218310857,
+      "tag": "0294_derp332_storage_path_belongs_to_current_company",
+      "breakpoints": true
     }
   ]
 }
