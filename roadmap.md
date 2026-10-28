@@ -126,3 +126,7 @@
 - [x] P6b passos 4–5: verificação Live, fecho documental, pronto para Publish.
 
 - [ ] Reembolsos 0286: aplicar em Live (aguarda segundo Sim do Pedro), depois modal + docs
+
+# P5c — Partes 1/2 autorizadas em 28/10/2026
+- [ ] Parte 1: corrigir bytes da RPC e validar corpo/JSON; bloqueada pela recusa EXECUTE da ferramenta de leitura na pré-medição, sem aplicação efetuada.
+- [ ] Parte 2: módulo puro, edge/ecrã e testes; depende da Parte 1 verde. Sem 0290 nem Publish.
