@@ -397,7 +397,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
               {isLoading ? (
                 <tr><td colSpan={10} className="p-6 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />A carregar…</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">Sem transações no período.</td></tr>
+                <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">{searchActive ? "Sem resultados para a pesquisa." : "Sem transações no período."}</td></tr>
               ) : rows.map((t) => (
                 <tr key={t.id} className="border-t hover:bg-muted/30">
                   <td className="p-2 whitespace-nowrap">{t.payment_date ? format(new Date(t.payment_date), "dd/MM/yyyy") : "—"}</td>
