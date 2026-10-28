@@ -95,7 +95,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
       if (orFilter) q = q.or(orFilter);
 
       // Leitura SEMPRE paginada (#392): o teto de 1.000 do PostgREST é regra do
-      // INDEX e não se confirma por configuração — nunca .limit() aqui.
+      // INDEX e não se confirma por configuração — nunca limit fixo aqui.
       const { data: rows, error } = await fetchAllPagedQuery(q);
       if (error) throw error;
       const ids = (rows ?? []).map((r: any) => r.id);
