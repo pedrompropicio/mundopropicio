@@ -219,7 +219,9 @@ Deno.serve(async (req) => {
         }
       }
     };
-    const [structure, paidContracts, futureCoverage, participations] = await Promise.all([
+    // ATENÇÃO: a ordem dos nomes tem de casar com a ordem do array (teste
+    // financial-position-index-loaders.test.ts vigia esta correspondência).
+    const [structure, paidContracts, participations, futureCoverage] = await Promise.all([
       loadStructure(admin, companyId, year),
       loadPaidContracts(admin, companyId),
       loadParticipations(admin, companyId, year),
