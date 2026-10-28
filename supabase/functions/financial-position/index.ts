@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
       Promise.all(Array.from({ length: Math.min(CONCURRENCY, evs.length) }, worker)),
     ]);
 
-    const out = assembleFinancialPosition({ base, events: results, structure, paidContracts, futureCoverage, generatedAt: new Date().toISOString() });
+    const out = assembleFinancialPosition({ base, events: results, structure, paidContracts, futureCoverage, participations, generatedAt: new Date().toISOString() });
     const ms = Date.now() - started;
 
     await admin.from("system_audit_log").insert({

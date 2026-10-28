@@ -83,10 +83,13 @@ export function RetainedCompositionSection({ data }: { data: FinancialPosition }
 export function ResultadoMpView({ data }: { data: FinancialPositionP5 | null }) {
   const r = data?.resultado_mp_ano ?? null;
   if (!data || !r) return <p className="text-sm text-muted-foreground">Indisponível neste momento{data?.meta.incompleto ? " (cálculo incompleto)" : ""}.</p>;
+  const part = r.participacoes.cloudscape;
   return <div className="grid gap-4 sm:grid-cols-2">
     <div className="rounded-md bg-muted/30 p-4"><p className="text-sm text-muted-foreground">Resultado da MP · sem estrutura</p><p className="text-xl font-semibold tabular-nums">{eur(r.sem_estrutura)}</p></div>
     <div className="rounded-md bg-muted/30 p-4"><p className="text-sm text-muted-foreground">Resultado da MP · com estrutura</p><p className="text-xl font-semibold tabular-nums">{eur(r.com_estrutura)}</p></div>
-    <p className="text-xs text-muted-foreground sm:col-span-2">Só eventos em fecho e fechados; eventos em curso ficam fora (projeção).</p>
+    <div className="rounded-md bg-muted/30 p-4"><p className="text-sm text-muted-foreground">Participação na Cloudscape (Coala)</p><p className="text-xl font-semibold tabular-nums">{eur(part.valor)}</p></div>
+    <div className="rounded-md border border-primary/40 bg-muted/30 p-4"><p className="text-sm text-muted-foreground">Resultado total da MP</p><p className="text-xl font-semibold tabular-nums">{eur(r.total_mp)}</p></div>
+    <p className="text-xs text-muted-foreground sm:col-span-2">Só eventos em fecho e fechados; eventos em curso ficam fora (projeção). A participação na Cloudscape ({part.linhas} {part.linhas === 1 ? "linha" : "linhas"}) já está dentro do caixa — soma só ao resultado, não ao Saldo Geral.</p>
   </div>;
 }
 
