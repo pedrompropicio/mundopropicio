@@ -128,5 +128,6 @@
 - [ ] Reembolsos 0286: aplicar em Live (aguarda segundo Sim do Pedro), depois modal + docs
 
 # P5c — Partes 1/2 autorizadas em 28/10/2026
-- [ ] Parte 1: corrigir bytes da RPC e validar corpo/JSON; bloqueada pela recusa EXECUTE da ferramenta de leitura na pré-medição, sem aplicação efetuada.
-- [ ] Parte 2: módulo puro, edge/ecrã e testes; depende da Parte 1 verde. Sem 0290 nem Publish.
+- [x] Parte 1: corpo RPC dbbf47c3… = manual0289 e proacl igual; correção numerada automaticamente 0290_p5c_rpc_exact_manual_bytes, não horizonte BP/#389. Pré-JSON fornecido por Pedro; pós-JSON fica com Pedro.
+- [x] Parte 2: módulo puro, edge/ecrã, 70 focados PASS, suíte3022PASS, tipos/build automático OK; browser autenticado e save/readback interceptado, cenários/logs Live0. Pronto para Publish, não publicado; sem horizonte BP/#389.
+- [ ] P5c: Pedro mede pós-JSON e necessidades por query própria; CI final/Publish ficam com 0/Pedro.

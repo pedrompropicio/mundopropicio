@@ -13,6 +13,7 @@ import { buildPartnerStatement, computeStatementEngine, loadStatementBundle } fr
 import { assembleFinancialPosition, gateStatus, sumParticipationRows, type EventInput, type StructureTxInput } from "../_shared/financial-position/assemble.ts";
 import { assembleFutureCoverage, futureEventSet } from "../_shared/financial-position/future-coverage.ts";
 import { loadIndependentFutureCoverage } from "../_shared/financial-position/future-coverage-loader.ts";
+import { loadPositionReads } from "../_shared/financial-position/position-reads.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -81,7 +82,7 @@ async function loadFutureCoverage(asUser: any, admin: any, companyId: string, ba
   const evRows = await pageAll((a, b) => admin.from("events").select("id, parent_event_id").eq("company_id", companyId).order("id").range(a, b));
   const parent = new Map<string, string | null>(evRows.map((e: any) => [e.id, e.parent_event_id]));
   const rootOf: Record<string, string> = {};
-  for (const e of evRows) { let r = e.id, d = 0; while (parent.get(r) && d++ < 16) r = parent.get(r)!; rootOf[e.id] = r; }
+  for (const e of evRows) { let r = e.id, d = 0; while (d++ < 16) { const p = parent.get(r); if (!p) break; r = p; } rootOf[e.id] = r; }
   const futureIds = new Set(future.map((e: any) => e.evento_id));
   const treeIds = evRows.map((e: any) => e.id).filter((id: string) => futureIds.has(rootOf[id]));
 
@@ -219,17 +220,16 @@ Deno.serve(async (req) => {
         }
       }
     };
-    // ATENÇÃO: a ordem dos nomes tem de casar com a ordem do array (teste
-    // financial-position-index-loaders.test.ts vigia esta correspondência).
-    const [structure, paidContracts, participations, futureCoverage] = await Promise.all([
-      loadStructure(admin, companyId, year),
-      loadPaidContracts(admin, companyId),
-      loadParticipations(admin, companyId, year),
+    // P5c: named reads + fixture integration guard the D-ERP328 regression.
+    const { structure, paidContracts, participations, futureCoverage } = await loadPositionReads({
+      structure: () => loadStructure(admin, companyId, year),
+      paidContracts: () => loadPaidContracts(admin, companyId),
+      participations: () => loadParticipations(admin, companyId, year),
       // Independent all-years RPC + subsequent reads share the 6 s coverage deadline.
       // The gate base, evs and settlement workers retain the requested year.
-      loadIndependentFutureCoverage(asUser, companyId, (futureBase) => loadFutureCoverage(asUser, admin, companyId, futureBase)),
-      Promise.all(Array.from({ length: Math.min(CONCURRENCY, evs.length) }, worker)),
-    ]);
+      futureCoverage: () => loadIndependentFutureCoverage(asUser, companyId, (futureBase) => loadFutureCoverage(asUser, admin, companyId, futureBase)),
+      workers: () => Promise.all(Array.from({ length: Math.min(CONCURRENCY, evs.length) }, worker)),
+    });
 
     const out = assembleFinancialPosition({ base, events: results, structure, paidContracts, futureCoverage, participations, generatedAt: new Date().toISOString() });
     const ms = Date.now() - started;

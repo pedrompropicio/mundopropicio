@@ -31,6 +31,8 @@ export const EVENT_FINANCIAL_KEY_PREFIXES = [
   "fecho-overhead-via-master",
   "closing-costs-all",
   "ra_closing_costs",
+  "financial-position",
+  "coverage-scenario-planning",
 ] as const;
 
 const EXCLUDED_PREFIXES = ["bp-formula-sync", "cache-sync-"];

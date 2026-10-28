@@ -4,6 +4,13 @@ Atualizado: 28/10/2026 — 0286 (reembolso: pagamento fora do resultado, D-ERP32
 
 ## Em que pé está
 
+### P5c — receita prevista na cobertura (28/10/2026, pronto para Publish, não publicado)
+- Parte 1: corpo get_financial_position_base corrigido para bytes do manual0289, md5 dbbf47c34e4b0c3896cb7a34561358e3, proacl preservado. Migração automaticamente numerada 0290_p5c_rpc_exact_manual_bytes; não é horizonte BP/#389. Pós-md5 JSON fica com Pedro.
+- Parte 2: módulo puro planning-forecast importado pela edge e diálogo de bilheteira; corte proporcional por zona, lotes > manual > sem previsão, raiz soma descendentes sem duplicar, cenário próprio ou herdado da raiz, viragem opcional vazia. Receita considerada/potencial/necessidade com receita separados dos totais antigos; Real/0% mantêm JSON byte-igual. Ecrã mostra segunda leitura via mesma função pura quando não há bloco de previsão. Nenhum segundo motor financeiro.
+- Modal na Bilheteira e Cobertura: modo, %, manual só sem lotes, dias de viragem, referência original e histórico; escrita usa RLS existente, só admin/manager (platform_admin como admin). Pool Ticketline sem rateio; Coala de outra empresa/35% MP fora. index.ts tocado para reconstrução, slots nomeados com teste de integração fixtures D-ERP328.
+- 70 focados PASS; suíte final com maxWorkers2:3022PASS/6skip/11todo; tipos/build automático OK03:34:55 (não tsc manual). Timeout Newgang sob carga passou isolado10/10 e na suíte final. Pequena correção apenas de tipagem no teste0286 (query antes unknown), sem regra/SQL de reembolso alterados.
+- Browser autenticado: desktop/mobile, sem overflow, cenário real Madrid19.185,74/reference17.105,22; guardar/reler50% com escrita interceptada apenas em fixture. Sem gravação real de cenários (catálogo final0cenários/0logs). Ecrã observado28/10: necessidade1047936.17/881399.21; receita624230.75/saído109050.59/potencial515180.16; segunda leitura532756.01/366219.05. Não substitui a medição formal por query de Pedro. CI remoto e pós-JSON pendentes. Sem Publish, horizonte BP/#389 ou outras DDL. DECISIONS intocado; relatório docs/testes/p5c-passo4-20261028.md.
+
 ### Posição Financeira — P5 implementado, aguarda Verificação em Live (D-ERP323)
 
 - Edge function `financial-position` (p5-v2 exclusivo): gate = RPC get_financial_position_base com o JWT do utilizador (erros not_authenticated 401, company_forbidden/financial_position_permission_denied 403). Eventos = `eventos_por_estagio` da RPC (nunca event_dates); cancelado fora; Histórico só BP, marcado e fora dos totais.

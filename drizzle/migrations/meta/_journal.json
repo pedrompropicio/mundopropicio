@@ -2031,6 +2031,13 @@
       "when": 1793154985095,
       "tag": "0289_0289_p5c_cenario_receita_prevista",
       "breakpoints": true
+    },
+    {
+      "idx": 290,
+      "version": "7",
+      "when": 1793157502047,
+      "tag": "0290_p5c_rpc_exact_manual_bytes",
+      "breakpoints": true
     }
   ]
 }

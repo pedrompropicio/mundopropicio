@@ -20,6 +20,12 @@ const partnerLine = z.object({
 });
 
 const pair = z.object({ com_sem_linha: amount, sem_linha_cobre_bp: amount }).strict();
+const planningScenario = z.object({ modo: z.enum(["real", "previsao"]), percentagem: amount.min(0).max(100),
+  receita_manual_bruta: amount.nonnegative().nullable(), viragem_real_dias: count.nullable() }).strict();
+const planningDetail = z.object({ event_id: z.string().uuid(), nome: z.string(), previsto_original: amount.nullable(),
+  cenario: planningScenario, herdado: z.boolean(), fonte: z.enum(["lotes", "manual", "sem_previsao"]),
+  previsao_bruta: amount.nullable(), vendas_bruto: amount, receita_considerada: amount, previsao_ativa: z.boolean(),
+  cortes: z.array(z.object({ zone_id: z.string().uuid(), fator: amount.min(0).max(1), bruto: amount, limitado: amount }).strict()) }).strict();
 const futureEvent = z.object({
   event_id: z.string().uuid(), nome: z.string(), estagio: z.enum(["planeamento", "em_curso"]),
   first_day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(), started: z.boolean(), data_indeterminada: z.boolean(),
@@ -42,6 +48,12 @@ export const futureCoverageSchema = z.object({
   meta: z.object({ incompleto: z.boolean(), motivo: z.string().nullable(), nota_bp_provisorio: z.string().min(1), notas: z.record(z.string()) }).strict(),
   eventos: z.array(futureEvent).nullable(),
   bilheteiras: z.array(futureOffice).nullable(),
+  receita_prevista: z.object({
+    eventos: z.array(z.object({ event_id: z.string().uuid(), ativo: z.boolean(), previsao_bruta: amount.nullable(),
+      receita_considerada: amount, potencial: amount.nullable(), fonte_potencial: z.string(), eventos: z.array(planningDetail) }).strict()),
+    eventos_sem_previsao: count,
+    receita_considerada_total: amount, potencial_total: amount.nonnegative().nullable(), necessidade_com_receita: pair.nullable(),
+  }).strict().optional(),
   total: z.object({
     vendas_futuras: amount, despesas_pagas_futuras: amount, a_pagar_lancado_futuros: amount, a_pagar_sem_linha_futuros: amount,
     bp_por_lancar_futuros: amount, saido_minimo_total: amount.nullable(), aporte_socios_total: amount, aporte_mp_estimativa_total: amount,
