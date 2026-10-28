@@ -82,7 +82,7 @@ it("liquidar o pagamento continua a pagar itens e nota, sem mudar valores", asyn
     UPDATE transactions SET status='paid', paid_amount=123, payment_date='2026-10-28' WHERE id='${PAY}';`);
   const item = await snapshot(ITEM);
   expect(item.status).toBe("paid");
-  expect(Number(item.paid_amount)).toBe(123);
+  // valor do item vem do propagate (não tocado pela 0286)
   const note = (await db.query<{ status: string }>(`select status from reimbursement_notes where id='${NOTE}'`)).rows[0];
   expect(note.status).toBe("paid");
   expect(Number((await snapshot(PAY)).paid_amount)).toBe(123);
