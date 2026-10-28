@@ -6428,6 +6428,8 @@ Decisão do Pedro, sobre o parecer do jurídico de 27/10/2026 (#359 ponto 4), co
 
 Registado também no topo de `docs/QUADRO.md`, antes de "Em execução agora".
 
+**Nota de aplicação, 28/10/2026:** regra cumprida no primeiro caso concreto. A cópia `bkp_359_p6_prova_reconstruida` (criada em Live a 28/10/2026 sem migração) foi registada pela 0293 (só DDL, ledger id 295, hash 429fae69c5cff746a194e2303192d0690752cbea9c2d7b13fbfc5441d5735683). Um backfill de dados de clientes não entra em migração: fica registado em D-ERP333 e na Issue; o mecanismo de migrações recusou o UPDATE e o journal e o `when` são geridos por ele, nunca à mão. Procedimento que funcionou: apagar o ficheiro de migração que já existisse no repositório e chamar o mecanismo uma vez com o SQL exato, sem escrever o ficheiro antes. A `bkp_359_whatsapp_legado_coala` ficou coberta pela baseline live-only da #352 (G3), sem migração própria.
+
 ## D-ERP333 — Backfill da prova de email dos 75 leads do Coala de 26 a 28/10/2026 (#359 P6).
 
 **Decisão do Pedro, 28/10/2026, com autorização do jurídico para a reconstrução. Classe: R2 (DML), executado pelo 0 · Cowork.**
