@@ -57,6 +57,8 @@ function emptyBlock(motivo: string) {
   return {
     meta: { incompleto: true, motivo, nota_bp_provisorio: FUTURE_COVERAGE_NOTES.bp_provisorio, notas: FUTURE_COVERAGE_NOTES },
     eventos: null, bilheteiras: null, total: null,
+    // Type-only optional field; undefined is omitted by JSON.stringify.
+    ...({} as { receita_prevista?: PlanningCoverageBlock }),
   };
 }
 
