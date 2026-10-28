@@ -8,9 +8,9 @@ const SRC = readFileSync("src/components/ReimbursementNoteDetail.tsx", "utf8");
 
 describe("0286 — modal cria pagamento fora do resultado", () => {
   it("o insert da transação de pagamento envia exclude_from_result: true", () => {
-    const i = SRC.indexOf("Reembolso ${note.code}");
+    const i = SRC.indexOf('.from("transactions")');
     expect(i).toBeGreaterThan(-1);
-    const block = SRC.slice(i, i + 700);
+    const block = SRC.slice(i, i + 800);
     expect(block).toContain(".insert(");
     expect(block).toContain('type: "expense"');
     expect(block).toContain("exclude_from_result: true");
