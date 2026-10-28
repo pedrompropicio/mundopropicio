@@ -129,4 +129,5 @@
 
 # P5c — Partes 1/2 autorizadas em 28/10/2026
 - [x] Parte 1: corpo RPC dbbf47c3… = manual0289 e proacl igual; correção numerada automaticamente 0290_p5c_rpc_exact_manual_bytes, não horizonte BP/#389. Pré-JSON fornecido por Pedro; pós-JSON fica com Pedro.
-- [ ] Parte 2: módulo puro, edge/ecrã e testes; autorizada. Sem horizonte BP/#389 nem Publish; necessidades Live ficam com Pedro.
+- [x] Parte 2: módulo puro, edge/ecrã, 70 focados PASS, suíte3022PASS, tipos/build automático OK; browser autenticado e save/readback interceptado, cenários/logs Live0. Pronto para Publish, não publicado; sem horizonte BP/#389.
+- [ ] P5c: Pedro mede pós-JSON e necessidades por query própria; CI final/Publish ficam com 0/Pedro.
