@@ -1,8 +1,14 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 28/10/2026 — 0286 (reembolso: pagamento fora do resultado, D-ERP329) aplicada e verificada em Live, modal atualizado, sem Publish. Participação Cloudscape (1.3.05) no Resultado da MP (D-ERP328, R1): pronto para Publish, não publicado. P5b p5-v3 e P6b (cachês/retido/Resultado MP) prontos para Publish/Verificação em Live; P6a/P6a-fix não publicados; P4/P4b em Live.
+Atualizado: 28/10/2026 — #391 (Compromisso em transações, ⓘ e guia) pronto para Publish após CI, não publicado. 0286 (reembolso: pagamento fora do resultado, D-ERP329) aplicada e verificada em Live, modal atualizado, sem Publish. Participação Cloudscape (1.3.05) no Resultado da MP (D-ERP328, R1): pronto para Publish, não publicado. P5b p5-v3 e P6b (cachês/retido/Resultado MP) prontos para Publish/Verificação em Live; P6a/P6a-fix não publicados; P4/P4b em Live.
 
 ## Em que pé está
+
+### #391 — Compromisso em transações, ⓘ e guia (28/10/2026, R1, pronto para Publish após CI, não publicado)
+- Só ecrã + testes; sem DDL/DML/RPC/edge. Compromisso = Σ estágios (lançado + sem BP + só transações); saldo de BP por lançar = Σ (confirmado + ajustado + por rever); a soma tem de dar a_pagar.total (±0,01).
+- ⓘ por toque em caixa, retido, a pagar, a receber, cada estágio, compromisso, BP por lançar, cachês, as duas necessidades, receita considerada, potencial e as duas linhas "com receita"; parcelas que não reconciliam mostram "Não reconciliado".
+- Guia em docs/guias/guia-posicao-financeira.md (exemplos marcados "valores de 28/10/2026"), aberto pelo "?" do cabeçalho e por "Ver guia".
+- Lógica pura em src/lib/financial-position-explain.ts; testes src/test/financial-position-explain-391.test.tsx 7/7; suíte 3029 PASS.
 
 ### P5c — receita prevista na cobertura (28/10/2026, pronto para Publish, não publicado)
 - Parte 1: corpo get_financial_position_base corrigido para bytes do manual0289, md5 dbbf47c34e4b0c3896cb7a34561358e3, proacl preservado. Migração automaticamente numerada 0290_p5c_rpc_exact_manual_bytes; não é horizonte BP/#389. Pós-md5 JSON fica com Pedro.
