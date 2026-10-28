@@ -6432,7 +6432,7 @@ Registado também no topo de `docs/QUADRO.md`, antes de "Em execução agora".
 
 **Decisão do Pedro, 28/10/2026, com autorização do jurídico para a reconstrução. Classe: R2 (DML), executado pelo 0 · Cowork.**
 
-**Contexto:** entre 26/10/2026 10:32 UTC e o Publish do P6 (28/10/2026) o formulário do Coala não enviou `consent_email_text_version`; 75 leads (70 emails distintos) com `consent_email = true` ficaram sem versão e sem `consent_decided_at`. O texto das caixas não mudou desde 21/09/2026 (último commit de `src/i18n/coala/copy.ts` no repositório do portal), logo viram o texto `coala-form-2026-10-v1`.
+**Contexto:** até ao Publish do P6 (28/10/2026) o formulário do Coala nunca enviou a versão do texto das caixas. Os leads até 26/10/2026 ~09:27 UTC já tinham sido reconstruídos por um backfill anterior (têm `consent_decided_at` exatamente igual a `created_at` e nenhum tem `raw.consent_locale`; o registo desse backfill anterior não foi localizado). Os 75 leads de 26/10 10:32 UTC a 28/10/2026 (70 emails distintos) com `consent_email = true` entraram depois desse backfill e ficaram sem `consent_email_text_version` e sem `consent_decided_at`. O texto das caixas não mudou desde 21/09/2026 (último commit de `src/i18n/coala/copy.ts` no repositório do portal), logo viram o texto `coala-form-2026-10-v1`.
 
 **Decisão:** gravar nesses 75 leads `consent_email_text_version = 'coala-form-2026-10-v1'` e `consent_decided_at = created_at`. A lista dos ids com prova reconstruída fica na tabela `public.bkp_359_p6_prova_reconstruida` (75 linhas, RLS ativa, estado anterior preservado). Fora do âmbito: WhatsApp (45 leads de 26 a 28/10 com a caixa marcada continuam sem prova; a autorização cobriu o email e o WhatsApp precisa de confirmação própria).
 
