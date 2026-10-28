@@ -65,7 +65,13 @@ export const financialPositionP5Schema = z.object({
     por_categoria: z.array(structureLine.extend({ ebitda_class: z.string().nullable(), alerta: z.string().nullable() })),
     excluidas: z.array(structureLine.extend({ motivo: z.string() })),
   }),
-  resultado_mp_ano: z.object({ sem_estrutura: amount, com_estrutura: amount }).nullable(),
+  resultado_mp_ano: z.object({
+    sem_estrutura: amount, com_estrutura: amount,
+    participacoes: z.object({
+      cloudscape: z.object({ valor: amount, linhas: count, origem: z.string().min(1) }).strict(),
+    }).strict(),
+    total_mp: amount,
+  }).strict().nullable(),
   socios: z.object({
     linhas: z.array(partnerLine),
     a_receber_total: amount.nullable(), por_liquidar_total: amount.nullable(),

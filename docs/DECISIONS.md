@@ -6394,3 +6394,7 @@ Decisão do Pedro (P6b, respostas 44–46).
 - O valor principal inclui a retenção, e a retenção aparece em linha à parte: «Retenção IRS (não é custo do evento)».
 - Cada artista aparece pelo nome do contrato, com o fornecedor entre parênteses.
 - A composição do retido é calculada no ecrã com a mesma função do painel da bilheteira. Nunca rateia o pool da Ticketline. O retido nunca soma ao caixa.
+
+## D-ERP328 — Participação na Cloudscape no Resultado da MP (28/10/2026)
+
+Decisão do Pedro (Sim 28/10/2026, R1). A receita de participação em resultados de terceiros (categoria 1.3.05 «Participação em Resultados — Cloudscape (Coala)»: income paga, sem evento, não transitória, não exclude_from_result, não estornada) entra no `resultado_mp_ano` da edge `financial-position` como `participacoes.cloudscape` (valor, linhas, origem «transactions 1.3.05 (participação Cloudscape)») e no novo `total_mp = com_estrutura + participação`. Ano = ano de payment_date (fallback date); valor = paid_amount (fallback amount). Como é dinheiro já dentro do caixa (anterior ao corte de implantação), NUNCA soma ao Saldo Geral nem ao caixa — só ao resultado. Não entra em «eventos» nem em «estrutura» (a estrutura só lê despesas). Motor incompleto → resultado_mp_ano null (comportamento mantido). Contrato p5-v3 mantido (campos aditivos; zod do cliente atualizado no mesmo commit). Ecrã: linha própria «Participação na Cloudscape (Coala)» e linha final «Resultado total da MP». Sem DDL/DML/RPC/Publish. **Estado:** implementado, pronto para Publish.

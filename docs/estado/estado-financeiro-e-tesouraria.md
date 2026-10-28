@@ -1,6 +1,6 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 27/10/2026 — P5b p5-v3: correção da cobertura independente do ano pronta para Verificação em Live; focados64/64, suíte2970PASS e tipos/build automático OK; CI final pendente. P6a/P6a-fix não publicados; P4/P4b em Live.
+Atualizado: 28/10/2026 — Participação Cloudscape (1.3.05) no Resultado da MP (D-ERP328, R1): pronto para Publish, não publicado; suíte 2997 PASS, tsgo limpo. P5b p5-v3 e P6b (cachês/retido/Resultado MP) prontos para Publish/Verificação em Live; P6a/P6a-fix não publicados; P4/P4b em Live.
 
 ## Em que pé está
 
@@ -129,3 +129,10 @@ Atualizado: 27/10/2026 — P5b p5-v3: correção da cobertura independente do an
 - `docs/DECISIONS.md` — D-ERP198 (#285), D-ERP199, D-ERP200, D-ERP201
 - **#333 — testes autenticados Live, 17/10/2026 23:20 UTC: zero efeitos financeiros.** Matriz37/37 com contas fictícias banidas; hashes agregados de transactions, transaction_payments, event_forecasts, standalone_invoices e financial_accounts IGUAIS antes/depois; settings vazias e gates false. Sem faturas/TX/BP reais ou fictícios. Prova28 em `docs/testes/issue333/28-testes-autenticados-isolamento-live.md`.
 P6b D-ERP327 (0285): a_pagar.caches na RPC: filhas 2.1.x de contratos ativos, por artista, com a retenção IRS à parte; informativo e já dentro do a_pagar.total. O ecrã mostra a composição do retido por bilheteira (função partilhada com o painel) e o Resultado da MP com e sem estrutura (p5-v3). Prova em docs/testes/p5b-p3-caches-retido-20261027.md.
+
+### Participação Cloudscape no Resultado da MP (D-ERP328, 28/10/2026, R1, pronto para Publish)
+- `resultado_mp_ano` (p5-v3) ganha `participacoes.cloudscape` {valor, linhas, origem} e `total_mp = com_estrutura + participação`; campos atuais mantidos, motor incompleto → null como antes.
+- Fonte: transações MP income/paid, sem evento, não transitórias, não exclude_from_result, não estornadas, categoria 1.3.05; ano = payment_date (fallback date); valor = paid_amount. Hoje 1 linha: 154.130,29 € (04/08/2026).
+- Dinheiro já dentro do caixa: soma só ao resultado, nunca ao Saldo Geral nem ao caixa; não entra em eventos nem em estrutura.
+- Ecrã: linha «Participação na Cloudscape (Coala)» + linha final «Resultado total da MP». Loader `loadParticipations` no index.ts (força redeploy); helper puro `sumParticipationRows` em assemble.ts.
+- Testes: focados 50/50 (4 novos assemble + 1 ecrã); suíte 2997 PASS / 6 skip / 11 todo; tsgo limpo. Sem DDL/DML/RPC/Publish. CI do SHA final por observar; verificação em Live pelo 0.

@@ -10,7 +10,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { buildPartnerStatement, computeStatementEngine, loadStatementBundle } from "../_shared/settlement/statement-service.ts";
-import { assembleFinancialPosition, gateStatus, type EventInput, type StructureTxInput } from "../_shared/financial-position/assemble.ts";
+import { assembleFinancialPosition, gateStatus, sumParticipationRows, type EventInput, type StructureTxInput } from "../_shared/financial-position/assemble.ts";
 import { assembleFutureCoverage, futureEventSet } from "../_shared/financial-position/future-coverage.ts";
 import { loadIndependentFutureCoverage } from "../_shared/financial-position/future-coverage-loader.ts";
 
@@ -50,6 +50,25 @@ async function loadStructure(admin: any, companyId: string, year: number | null)
       return { code: c?.code ?? null, name: c?.name ?? null, ebitda_class: c?.ebitda_class ?? null,
         amount: Number(t.amount) || 0, iva_rate: t.iva_rate, paid_amount: t.paid_amount, status: t.status };
     });
+}
+
+/**
+ * Participações em resultados de terceiros (receita sem evento, categoria 1.3.05
+ * "Participação em Resultados — Cloudscape (Coala)"). Dinheiro já dentro do caixa:
+ * soma só ao resultado_mp_ano, nunca ao Saldo Geral. Ano = ano de payment_date
+ * (fallback date). Irmão de loadStructure.
+ */
+async function loadParticipations(admin: any, companyId: string, year: number | null) {
+  const cats = await pageAll((a, b) => admin.from("account_categories").select("id, code")
+    .eq("company_id", companyId).eq("code", "1.3.05").order("id").range(a, b));
+  const catIds = cats.map((c: any) => c.id);
+  if (catIds.length === 0) return { cloudscape: { valor: 0, linhas: 0 } };
+  const txs = await pageAll((a, b) => admin.from("transactions")
+    .select("id, amount, paid_amount, payment_date, date")
+    .eq("company_id", companyId).is("event_id", null).eq("type", "income").eq("status", "paid")
+    .eq("is_transitory", false).eq("exclude_from_result", false).is("reversed_at", null)
+    .in("category_id", catIds).order("id").range(a, b));
+  return { cloudscape: sumParticipationRows(txs, year) };
 }
 
 /**
@@ -200,16 +219,17 @@ Deno.serve(async (req) => {
         }
       }
     };
-    const [structure, paidContracts, futureCoverage] = await Promise.all([
+    const [structure, paidContracts, futureCoverage, participations] = await Promise.all([
       loadStructure(admin, companyId, year),
       loadPaidContracts(admin, companyId),
+      loadParticipations(admin, companyId, year),
       // Independent all-years RPC + subsequent reads share the 6 s coverage deadline.
       // The gate base, evs and settlement workers retain the requested year.
       loadIndependentFutureCoverage(asUser, companyId, (futureBase) => loadFutureCoverage(asUser, admin, companyId, futureBase)),
       Promise.all(Array.from({ length: Math.min(CONCURRENCY, evs.length) }, worker)),
     ]);
 
-    const out = assembleFinancialPosition({ base, events: results, structure, paidContracts, futureCoverage, generatedAt: new Date().toISOString() });
+    const out = assembleFinancialPosition({ base, events: results, structure, paidContracts, futureCoverage, participations, generatedAt: new Date().toISOString() });
     const ms = Date.now() - started;
 
     await admin.from("system_audit_log").insert({

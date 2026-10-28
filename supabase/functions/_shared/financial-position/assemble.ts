@@ -112,6 +112,25 @@ export function partnerDirection(p: Pick<PartnerAccountInput, "transferBase" | "
   return { sentido: "zero" as const, valor: 0 };
 }
 
+/** Participações em resultados de terceiros (receita sem evento, ex.: 1.3.05 Cloudscape). Já está no caixa; soma só ao resultado. */
+export interface ParticipationsInput {
+  cloudscape: { valor: number; linhas: number };
+}
+
+export interface ParticipationRow {
+  amount: number;
+  paid_amount: number | null;
+  payment_date: string | null;
+  date: string | null;
+}
+
+/** Soma as linhas 1.3.05 do ano (payment_date, fallback date). Valor = paid_amount (fallback amount). */
+export function sumParticipationRows(rows: ParticipationRow[], year: number | null): { valor: number; linhas: number } {
+  const sel = rows.filter((t) => year == null || Number(String(t.payment_date ?? t.date ?? "").slice(0, 4)) === year);
+  const valor = sel.reduce((s, t) => s + (Number(t.paid_amount ?? t.amount) || 0), 0);
+  return { valor: r2(valor), linhas: sel.length };
+}
+
 export interface AssembleInput {
   base: any;
   events: EventInput[];
@@ -121,6 +140,8 @@ export interface AssembleInput {
   generatedAt: string;
   /** Bloco P5b já montado (assembleFutureCoverage); ausente = incompleto. */
   futureCoverage?: any;
+  /** Participações em resultados (1.3.05); ausente = zero. */
+  participations?: ParticipationsInput;
 }
 
 const val = (valor: number | null, origem: string) => ({ valor: valor == null ? null : r2(valor), origem });
@@ -191,7 +212,16 @@ export function assembleFinancialPosition(input: AssembleInput) {
     nota: "projeção pelo BP; não é recebível nem custo incorrido",
   };
 
-  const resultado_mp_ano = incompleto ? null : { sem_estrutura: r2(somaMp), com_estrutura: r2(somaMp - estrutura.bruto) };
+  const participacaoCloudscape = r2(input.participations?.cloudscape.valor ?? 0);
+  const participacaoLinhas = input.participations?.cloudscape.linhas ?? 0;
+  const resultado_mp_ano = incompleto ? null : {
+    sem_estrutura: r2(somaMp),
+    com_estrutura: r2(somaMp - estrutura.bruto),
+    participacoes: {
+      cloudscape: { valor: participacaoCloudscape, linhas: participacaoLinhas, origem: "transactions 1.3.05 (participação Cloudscape)" },
+    },
+    total_mp: r2(somaMp - estrutura.bruto + participacaoCloudscape),
+  };
   const socios = {
     linhas: socioLinhas,
     a_receber_total: incompleto ? null : r2(aReceberSocios),
