@@ -63,7 +63,8 @@ function emptyBlock(motivo: string) {
 }
 
 type PlanningCoverageBlock = {
-  eventos: Array<ReturnType<typeof forecastRoot> & { event_id: string }>;
+  eventos: Array<ReturnType<typeof forecastRoot> & { event_id: string; potencial: number | null; fonte_potencial: string }>;
+  eventos_sem_previsao: number;
 } & ReturnType<typeof revenueCoverage>;
 
 export function assembleFutureCoverage(input: FutureCoverageInput) {
@@ -160,7 +161,14 @@ export function assembleFutureCoverage(input: FutureCoverageInput) {
   const minimumOut = saidoNull ? null : r2(bilheteiras.reduce((s, b) => s + (b.saido_minimo ?? 0), 0));
   // Without an active forecast preserve the complete legacy JSON, not just its totals.
   const forecastBlock: { receita_prevista?: PlanningCoverageBlock } = planning.some(e => e.ativo) ? { receita_prevista: {
-    eventos: planning.map(p => ({ ...p, receita_considerada: Math.max(p.receita_considerada, salesByRoot.get(p.event_id) ?? 0) })),
+    eventos: planning.map(p => {
+      const considered = Math.max(p.receita_considerada, salesByRoot.get(p.event_id) ?? 0);
+      const accounts = bilheteiras.filter(b => b.eventos.some(e => e.event_id === p.event_id));
+      const unique = accounts.length > 0 && accounts.every(b => b.fonte === "unica" && b.saido_minimo != null);
+      return { ...p, receita_considerada: considered, potencial: unique ? r2(Math.max(0, considered - accounts.reduce((s, b) => s + (b.saido_minimo ?? 0), 0))) : null,
+        fonte_potencial: unique ? "unica" : accounts.length ? "indeterminado (pool)" : "sem vendas" };
+    }),
+    eventos_sem_previsao: planning.filter(p => p.previsao_bruta == null).length,
     ...revenueCoverage(currentNeed, planning.reduce((s, p) => s + Math.max(p.receita_considerada, salesByRoot.get(p.event_id) ?? 0), 0), minimumOut),
   } } : {};
   return {

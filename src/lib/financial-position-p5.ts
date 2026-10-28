@@ -50,7 +50,8 @@ export const futureCoverageSchema = z.object({
   bilheteiras: z.array(futureOffice).nullable(),
   receita_prevista: z.object({
     eventos: z.array(z.object({ event_id: z.string().uuid(), ativo: z.boolean(), previsao_bruta: amount.nullable(),
-      receita_considerada: amount, eventos: z.array(planningDetail) }).strict()),
+      receita_considerada: amount, potencial: amount.nullable(), fonte_potencial: z.string(), eventos: z.array(planningDetail) }).strict()),
+    eventos_sem_previsao: count,
     receita_considerada_total: amount, potencial_total: amount.nonnegative().nullable(), necessidade_com_receita: pair.nullable(),
   }).strict().optional(),
   total: z.object({

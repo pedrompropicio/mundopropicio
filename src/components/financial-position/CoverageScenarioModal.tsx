@@ -24,6 +24,12 @@ function ScenarioForm({ event, root, companyId, onClose }: { event: PlanningEven
   const [manual, setManual] = useState(initial.receita_manual_bruta == null ? "" : String(initial.receita_manual_bruta));
   const [days, setDays] = useState(initial.viragem_real_dias == null ? "" : String(initial.viragem_real_dias));
   const canEdit = isAdmin || isManager;
+  const history = useQuery({ queryKey: ["coverage-scenario-history", companyId, event.event_id], queryFn: async () => {
+    const { data, error } = await supabase.from("event_coverage_scenario_log").select("id,op,changed_at,new")
+      .eq("company_id", companyId).eq("event_id", event.event_id).order("changed_at", { ascending: false }).limit(20);
+    if (error) throw error;
+    return data;
+  } });
   const numericManual = manual === "" ? null : Number(manual);
   const preview = forecastEvent(event.zonas, numericManual);
   const valid = percentage.trim() !== "" && Number.isFinite(Number(percentage)) && Number(percentage) >= 0 && Number(percentage) <= 100
@@ -62,6 +68,13 @@ function ScenarioForm({ event, root, companyId, onClose }: { event: PlanningEven
       <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Previsão bruta · {preview.source === "lotes" ? "lotes" : preview.source === "manual" ? "manual" : "sem previsão"}</dt><dd className="tabular-nums">{formatPositionAmount(preview.value)}</dd></div>
       <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Previsto original (referência)</dt><dd className="tabular-nums">{formatPositionAmount(event.previsto_original)}</dd></div>
     </dl>
+    <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">Histórico de alterações</summary>
+      {history.isLoading ? <p role="status">A carregar…</p> : history.isError ? <p role="alert">Histórico indisponível.</p> : history.data?.length ? <ol className="divide-y divide-border">
+        {history.data.map(row => { const snapshot = row.new as unknown as CoverageScenario | null; return <li key={row.id} className="py-2 text-xs">
+          {new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Lisbon" }).format(new Date(row.changed_at))} · {snapshot ? `${snapshot.modo} · ${snapshot.percentagem}%` : "Herdar da raiz"}
+        </li>; })}
+      </ol> : <p className="py-2 text-xs text-muted-foreground">Sem alterações registadas.</p>}
+    </details>
     <DialogFooter className="gap-2">
       {canEdit && event.event_id !== root.event_id && event.cenario && <Button variant="outline" disabled={mutation.isPending} onClick={() => mutation.mutate(true)}>Herdar da raiz</Button>}
       <Button variant="ghost" onClick={onClose}>Cancelar</Button>
