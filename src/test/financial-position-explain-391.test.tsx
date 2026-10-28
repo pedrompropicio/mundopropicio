@@ -65,6 +65,6 @@ describe("#391 ⓘ e guia", () => {
     wrap(<GuideButton />);
     fireEvent.click(screen.getByRole("button", { name: "Guia da Posição Financeira" }));
     expect(await screen.findByText("Como ler cada número")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Necessidade de financiamento" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "As necessidades de financiamento" })).toBeInTheDocument();
   });
 });
