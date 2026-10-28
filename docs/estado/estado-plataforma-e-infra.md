@@ -1,6 +1,24 @@
 # ESTADO — Plataforma & Infra
 
-## #352 — G3 VERDE (validação manual); G6 aprovado (27/10/2026)
+## #352 — candidato mp-homolog: preparação bloqueada, reserva libertada (28/10/2026)
+
+**Parecer: não pronto para aplicação.** A repetição privada autorizada em 6457767848 e 6458541603 está fixada no commit `4a1172744bec5f97f69e646a600020c7c25a6c88`. Pacote `mp-homolog-candidate.zip`, SHA-256 `020283f38d1f5bb8e4876c5faeda7434e3f061dc8e4632b8ad63888e7a08a1d6`; 24 fontes conferidas. Resultado completo, matriz de compatibilidade, reset inerte e texto do futuro Sim de aplicação na [#352](https://github.com/pedrompropicio/mundopropicio/issues/352); [provas no replay privado](https://github.com/pedrompropicio/mundopropicio-replay/tree/411fb73ae4d1ef52700b7d57af8e9872d9893351/docs/352/homolog-candidate-repeat-20261028).
+
+- **Run 8 / 40629984607:** 1 547 entradas históricas e oito fixtures concluídos; 39/307 operações da baseline reaplicadas duas vezes. Parou no tail com SQLSTATE 42501. **G1 e idempotência incompletos; G2 N1–N9 não executado.** O verde do G3 histórico não se transfere para este candidato.
+- **Efeitos:** 1594 checks da aplicação, contador sempre 0, guardas íntegras; sete funções de trigger observadas, 687 chamadas. Prova limitada aos caminhos executados, sem alegar cobertura do tail ou suplemento ainda não alcançados. 18 checkpoints globais de cron/history/vault a zero, iguais para executor e administrador. Sessões TCP novas `postgres`, sem superutilizador nem membership em `supabase_admin`; cron desligado e egress bloqueado. O teste negativo independente da guarda tem contador sintético 1/zero linhas, separado da execução da aplicação.
+- **Verificações:** checkpoints 114/114 e 47/47; 22 testes do adaptador/reset e 10 das regras passaram; scanner histórico em 1 534 ficheiros e suplemento em cinco ficheiros, ambos 0 ocorrências. Só as duas admissões da 0286, linhas 55/56, por posição e hash (6458541603); regra inalterada. Corrigida a preservação integral dos bytes fora das instruções do adaptador, incluindo o espaço final.
+- **0289 autorizada e incluída:** Sim adicional 6459990752; SHA-256 `b489f043fa7796769f4530fd84e1dc10ef964376b9764c8f1774f7ebe35f317b`, igual ao ledger 291 de Live. Suplemento executável 0285–0289, também coberto pela auditoria de fontes N9. Não se alegou aplicação local do suplemento, pois a baseline parou antes.
+- **Catálogo atual:** 25 categorias/38 071 registos e 1 003 entradas de ledger (292 Drizzle + 711 Supabase), captura 03:28:59–03:29:54 UTC, novamente conferida às 04:02:32–04:02:53 UTC. Só SELECT de catálogo, sem dados de negócio nem invocação de RPC. Referência completa conservada; cobertura do ledger bloqueia pela 0290.
+
+**Só dois casos sem cobertura voltam ao revisor 0:**
+
+1. `storage.protect_bucket_control_columns()`, operação `45982e76…5147958`: função ausente no bootstrap nativo; schema de `supabase_admin`, `postgres` com USAGE mas sem CREATE; falha na linha 6 do ficheiro `supabase/baseline/live-only/functions__storage.protect_bucket_control_columns__965839915d.sql` (SHA-256 `5c1ea53f…2d067`). Não cabe em `baseline_idempotency_guard` (não há definição igual preexistente) nem nos cinco casos fechados de `platform_managed_privileges`. Sem GRANT, instalação administrativa, troca de papel ou omissão; fonte/linhas/hashes completos na #352.
+2. **0290 nova em Live e ainda não autorizada:** `drizzle/migrations/0290_p5c_rpc_exact_manual_bytes.sql`, SHA-256 `e6058e8aae7d38b10f66f4e99731564be7026c7d187ec68b540aebf93f6ba400`, igual ao ledger 292. Corrige os bytes da RPC financeira posterior à 0289. Continua fora do suplemento; inclusão depende de revisão e novo Sim.
+
+**Destino atual:** mp-homolog já existente, organização Mundo Propício, eu-west-1, Micro (6457347542/6457735908). Referência técnica apenas em `target.private.json` do replay; nunca no repo público. Nenhuma ligação, credencial, Connect ou segredo do destino usado/criado. A aplicação exige parecer verde, candidato fixado e Sim próprio sobre esse parecer; não se pede esse Sim agora. Sem escrita em Live, G4/G5, jobs, agenda, deploy ou Publish. #352 continua aberta; reserva desta repetição removida do QUADRO, sem abrir outra. #329 conferida antes dos pushes; fecho documental com `[skip ci]`.
+
+
+## #352 — G3 histórico VERDE (validação manual de 27/10/2026)
 
 **Resultado do G3 (6454775348, confirmado pelo revisor 0).** A execução manual autorizada terminou com sucesso a 27/10/2026, às 22:03 UTC: run 40590761911 no repositório privado `mundopropicio-replay`. Correu o pacote `g3-validation-current-catalogue.zip`, com SHA-256 `c316fc12…`: 43 ficheiros, todos conferidos contra os blobs publicados, sem SQL novo nem cópias dos inputs históricos.
 - **G1 desde vazio:** verde, com 1547 entradas concluídas.
@@ -24,17 +42,12 @@
 
 Fora desta classe, continua a ser preciso "Sim" próprio.
 
-**G6 aprovado** (6454612060, "Sim" do Pedro):
-- **Organização Supabase nova:** "Mundo Propício — Homologação", só do Pedro.
-- **Plano:** Pro, com custo-base de US$25/mês (podendo acrescer IVA) e limite de gastos ligado.
-- **Região:** eu-west-3 (Paris). A produção mantém-se no Lovable Cloud.
-- **Quem faz:** o Pedro cria a organização, activa o MFA e aceita a facturação. Depois comunica **só o nome e o ID da organização**, que ficam registados na #352. Nenhuma credencial entra no Git, nas Issues nem nos chats.
-- **Projecto de homologação:** é um passo à parte, com "Sim" próprio.
+**G6 — decisão histórica e destino atual.** O despacho inicial 6454612060 previa uma nova organização e Paris. Para esta preparação, o destino confirmado em 6457347542/6457735908 é o mp-homolog existente, organização Mundo Propício, eu-west-1, já Micro; substitui a instrução operacional de criar projeto/organização. A referência técnica continua apenas no replay privado. O Sim de preparação não autoriza ligação ou aplicação.
 
 **Pendências:**
 - **G4** — crons, com "Sim" próprio.
 - **G5** — segredos e URLs, com "Sim" próprio.
-- **Projecto de homologação** — criação, com "Sim" próprio.
+- **Aplicação no mp-homolog existente** — bloqueada pelos casos acima; só depois de novo parecer verde e Sim próprio.
 - **#388** — encaminhamento aberto.
 - **Achados #370, #373 e #374** — por tratar nas Issues respectivas.
 - **Região de Live** — parece ser AWS us-east-2 (EUA), pelo endereço IP do servidor, mas não está confirmado na fonte oficial. Fica para o Assessor Jurídico avaliar o impacto RGPD (transferências internacionais). Não altera o G6.
