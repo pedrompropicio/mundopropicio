@@ -1,6 +1,6 @@
 # ESTADO — Vínculo BP ↔ Transações
 
-Atualizado: 2026-10-10 · vínculo só no mesmo evento e âncora corrigida (D-ERP224) · janela administrativa como trava real (#264, D-ERP150) · portas ao excedido fechadas na base (#240) · isenções D1+D8 alinhadas nas três camadas
+Atualizado: 2026-10-28 · H&K Madrid sem transações válidas fora do BP · vínculo só no mesmo evento e âncora corrigida (D-ERP224) · janela administrativa como trava real (#264, D-ERP150) · portas ao excedido fechadas na base (#240) · isenções D1+D8 alinhadas nas três camadas
 
 ## Em que pé está
 O vínculo canónico é `transactions.forecast_id` (N transações : 1 linha). A 02/09 foram escritas **168 FK** em rubricas com uma linha única — onde o matching já era determinístico e a escrita não muda número nenhum.
@@ -18,6 +18,9 @@ Nada em execução pelo agente. Pendente de outros chats:
 Na fila desta frente: #114 (D2 no trigger como última linha de defesa).
 
 ## Fechado agora (D1 + D2 + D8 + D13–D19)
+
+### 28/10 — H&K Madrid: duas despesas ligadas ao BP
+Pedido do chat 10 e do bp-hk-madrid-2026 depois do lançamento do BP (D-ERP330). DML autorizado por passos: «Trafego Pago» (a28a6ee4, 3.2.01, 8.061,96 €) → linha «Mídia online» (6ed0408e); «Aluguel do Teatro (2/2)» (45f2feb0, 4.3.01, 154.275,00 €) → linha «Aluguel do Teatro» (30bad1c0), que fecha em 308.550,00 € com as duas metades. Ligação pelo id da linha, nunca pela rubrica (4.3.01 tem três linhas). Verificado: 0 de 24 válidas sem linha, sem elevação, categorias iguais, 20 linhas antigas intactas. Não resolve a #215 (documento e IVA da 2.ª metade) nem a #393 (variáveis por fórmula).
 
 ### 22/10 — #343 especificação curta nas transações de sessão
 22/10/2026 — #343 fechada (executor: este chat, por escolha do Pedro; tema da frente 4): especificação curta nas transações de Sessão de cartão/Camarim (helper _shared/session-specification.ts, sem Fornecedores/itens/Análise), SpecificationText na lista (2 linhas, expande ao clicar), 32 transações antigas encurtadas por DML autorizado (texto antigo em transaction_audit_log, changed_by 'Claude #343 (autorizado Pedro)'). Publish e teste feitos pelo Pedro.
@@ -148,6 +151,8 @@ Nenhum.
 
 **Provado em Live a 08/09 — Conferência de Mulheres Plenitude.** Cenário "v2 - Atual" promovido pela Juliana às 18:58. Audit: `relinked: 1, by_id: 0, by_description: 1, ambiguous: 0, unmatched: 0`. A transação "Campanha de Mupis" (1.777,00 €) reagarrou-se à linha nova dos Muppies. A v2 ficou activa com o `scenario_label` limpo e o nome na `description`; a v1 ficou `superseded`; 34 linhas vivas, 137.187,15 €, sem duplicação.
 
+
+**.lovable/memory/features/transactions-bp-linkage.md está desactualizado no modelo de dados.** Diz que não existe transactions.forecast_id; desde 02/09 é esse o vínculo canónico (N:1) e event_forecasts.transaction_id é só a âncora. Ler este estado antes desse ficheiro.
 
 ## Onde ler mais
 - `src/lib/bp-tx-matching.ts`, `src/lib/bp-line-required.ts`, `src/lib/bp-budget-excess.ts`, `src/components/LinkBpLineDialog.tsx`, `src/components/RaiseBudgetDialog.tsx`
