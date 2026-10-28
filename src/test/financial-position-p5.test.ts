@@ -27,6 +27,7 @@ const eng = (residual: number, net: number, partners: number) => ({
 const ev = (o: Partial<EventInput>): EventInput => ({ event_id: E1, nome: "E", estagio: "em_fecho", so_bp: false, engine: eng(60, 100, 40), partners: [], ...o });
 const run = (events: EventInput[], over: any = {}, structure: any[] = []) =>
   assembleFinancialPosition({ base: base(over), events, structure, paidContracts: {}, generatedAt: "2026-10-27T18:00:00Z" });
+const P0 = { valor: 0, linhas: 0, origem: "transactions 1.3.05 (participação Cloudscape)" };
 
 describe("P5 estrutura", () => {
   it("exclui transferências internas, IVA entregue, IRC e financeiro", () => {
@@ -80,7 +81,7 @@ describe("P5 eventos e Saldo Geral", () => {
   it("resultado negativo (loss_pct) passa sem clamp", () => {
     const out = run([ev({ engine: eng(-30, -100, -70) })]);
     expect(out.eventos[0].resultado_mp).toBe(-30);
-    expect(out.resultado_mp_ano).toEqual({ sem_estrutura: -30, com_estrutura: -30 });
+    expect(out.resultado_mp_ano).toEqual({ sem_estrutura: -30, com_estrutura: -30, participacoes: { cloudscape: P0 }, total_mp: -30 });
   });
   it("Histórico só BP, marcado e fora dos totais", () => {
     const out = run([ev({ estagio: "historico", engine: eng(999, 999, 0), partners: [{ supplier_id: S1, nome: "H", transferBase: -999, transferVat: 0, transferTotal: -999, transferWithVat: false }] }), ev({ event_id: E2, engine: eng(10, 10, 0) })]);
@@ -102,7 +103,7 @@ describe("P5 eventos e Saldo Geral", () => {
     expect(out.projecao_em_curso).toMatchObject({ resultado_mp_total: -116573.83, socios_a_receber_total: 376816.12, socios_por_liquidar_total: 0 });
     expect(out.projecao_em_curso.eventos[0]).toMatchObject({ event_id: E1, estagio: "em_curso", resultado_evento: -388579.45, partes_socios_total: -272005.61 });
     expect(out.projecao_em_curso.socios_linhas.map((l) => l.event_id)).toEqual([E1]);
-    expect(out.resultado_mp_ano).toEqual({ sem_estrutura: 100, com_estrutura: 100 });
+    expect(out.resultado_mp_ano).toEqual({ sem_estrutura: 100, com_estrutura: 100, participacoes: { cloudscape: P0 }, total_mp: 100 });
     expect(out.saldo_geral.ativos.a_receber_socios.valor).toBe(138846.44);
     expect(out.saldo_geral).toEqual(run([ivete]).saldo_geral);
     expect(parseFinancialPositionP5(out).projecao_em_curso.socios_a_receber_total).toBe(376816.12);
@@ -149,7 +150,7 @@ describe("P5 eventos e Saldo Geral", () => {
     const out = run([ev({ engine: eng(500, 500, 0) })], {}, [
       { code: "10.4.01", name: "O", ebitda_class: null, amount: 100, iva_rate: 0, paid_amount: 40, status: "approved" },
     ]);
-    expect(out.resultado_mp_ano).toEqual({ sem_estrutura: 500, com_estrutura: 400 });
+    expect(out.resultado_mp_ano).toEqual({ sem_estrutura: 500, com_estrutura: 400, participacoes: { cloudscape: P0 }, total_mp: 400 });
     expect(out.saldo_geral?.passivos.estrutura_por_pagar.valor).toBe(60);
   });
   it("sem saldos visíveis → saldo_geral null", () => {
