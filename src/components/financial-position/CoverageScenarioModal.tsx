@@ -104,7 +104,7 @@ export function CoverageScenarioModal({ eventId, onClose }: Props) {
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}><DialogContent>
     <DialogHeader><DialogTitle>Cenário de receita</DialogTitle><DialogDescription>Bilheteira · cobertura de eventos futuros</DialogDescription></DialogHeader>
     {query.isLoading ? <p role="status">A carregar cenário…</p> : query.data && companyId
-      ? <ScenarioForm event={query.data.event} root={query.data.root} companyId={companyId} onClose={onClose} />
+      ? <ScenarioForm key={`${query.data.event.event_id}:${JSON.stringify(query.data.event.cenario)}:${JSON.stringify(query.data.root.cenario)}`} event={query.data.event} root={query.data.root} companyId={companyId} onClose={onClose} />
       : <p role="alert">Não foi possível carregar o cenário deste evento.</p>}
   </DialogContent></Dialog>;
 }
