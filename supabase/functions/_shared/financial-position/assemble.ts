@@ -117,6 +117,20 @@ export interface ParticipationsInput {
   cloudscape: { valor: number; linhas: number };
 }
 
+export interface ParticipationRow {
+  amount: number;
+  paid_amount: number | null;
+  payment_date: string | null;
+  date: string | null;
+}
+
+/** Soma as linhas 1.3.05 do ano (payment_date, fallback date). Valor = paid_amount (fallback amount). */
+export function sumParticipationRows(rows: ParticipationRow[], year: number | null): { valor: number; linhas: number } {
+  const sel = rows.filter((t) => year == null || Number(String(t.payment_date ?? t.date ?? "").slice(0, 4)) === year);
+  const valor = sel.reduce((s, t) => s + (Number(t.paid_amount ?? t.amount) || 0), 0);
+  return { valor: r2(valor), linhas: sel.length };
+}
+
 export interface AssembleInput {
   base: any;
   events: EventInput[];

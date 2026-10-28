@@ -10,7 +10,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { buildPartnerStatement, computeStatementEngine, loadStatementBundle } from "../_shared/settlement/statement-service.ts";
-import { assembleFinancialPosition, gateStatus, type EventInput, type StructureTxInput } from "../_shared/financial-position/assemble.ts";
+import { assembleFinancialPosition, gateStatus, sumParticipationRows, type EventInput, type StructureTxInput } from "../_shared/financial-position/assemble.ts";
 import { assembleFutureCoverage, futureEventSet } from "../_shared/financial-position/future-coverage.ts";
 import { loadIndependentFutureCoverage } from "../_shared/financial-position/future-coverage-loader.ts";
 
