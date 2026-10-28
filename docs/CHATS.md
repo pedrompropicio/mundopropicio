@@ -98,6 +98,8 @@ Abertos a 15/10/2026: 0 (Claude), 0 (ChatGPT), 1–11, `coala-portal`, `newgang-
 
 Aberto a 26/10/2026: `juridico` (decisão do Pedro; prompt em `docs/prompts/juridico.md`).
 
+Aberto a 28/10/2026: `bp-hk-madrid-2026` (decisão do Pedro; BP da temporada Henry & Klauss em Madrid, evento `bf9ce2d8-754e-4485-8427-e2d486c39919`; estado em `estado/estado-bp-hk-madrid-2026.md`).
+
 ## Partilha Claude ↔ ChatGPT — quadros
 
 - `docs/QUADRO.md` — pedidos entre chats e secção "Em execução agora". Fonte única. O Claude Doc antigo (`66346443…`) é arquivo do histórico até 15/10/2026.
