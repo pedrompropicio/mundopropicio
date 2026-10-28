@@ -80,7 +80,8 @@ describe("P5c coverage integration fixtures", () => {
   });
   it("active forecast adds side-by-side needs without changing any legacy field", () => {
     const output = assembleFutureCoverage(input([event(ROOT, { cenario: scenario, zonas: [zone] })]));
-    const { receita_prevista, ...rest } = output;
+    const receita_prevista = "receita_prevista" in output ? output.receita_prevista : undefined;
+    const { receita_prevista: ignored, ...rest } = output as typeof output & { receita_prevista?: unknown };
     expect(rest).toEqual(assembleFutureCoverage(input()));
     expect(receita_prevista).toMatchObject({ receita_considerada_total: 1000, potencial_total: 1000,
       necessidade_com_receita: { com_sem_linha: 1500, sem_linha_cobre_bp: 1400 } });
@@ -90,7 +91,7 @@ describe("P5c coverage integration fixtures", () => {
     const output = assembleFutureCoverage({ ...input([event(ROOT, { cenario: scenario, zonas: [zone] })]),
       sales: [{ account_id: ZONE, name: "Other", rows: [{ event_id: CHILD2, revenue: 1807425 }] }] });
     expect(output.eventos?.map(e => e.event_id)).toEqual([ROOT]);
-    expect(output.receita_prevista?.receita_considerada_total).toBe(1000);
+    expect("receita_prevista" in output ? output.receita_prevista?.receita_considerada_total : undefined).toBe(1000);
     expect(output.total?.vendas_futuras).toBe(0);
   });
 });

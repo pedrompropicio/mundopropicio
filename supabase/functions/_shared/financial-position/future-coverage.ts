@@ -60,6 +60,10 @@ function emptyBlock(motivo: string) {
   };
 }
 
+type PlanningCoverageBlock = {
+  eventos: Array<ReturnType<typeof forecastRoot> & { event_id: string }>;
+} & ReturnType<typeof revenueCoverage>;
+
 export function assembleFutureCoverage(input: FutureCoverageInput) {
   if (input.error) return emptyBlock(input.error);
   if (!input.sales || !input.cash || !input.preCutoff || !input.aportes) return emptyBlock("leitura_falhou");
@@ -153,7 +157,7 @@ export function assembleFutureCoverage(input: FutureCoverageInput) {
   const currentNeed = { com_sem_linha: sum(e => e.necessidade_financiamento.com_sem_linha), sem_linha_cobre_bp: sum(e => e.necessidade_financiamento.sem_linha_cobre_bp) };
   const minimumOut = saidoNull ? null : r2(bilheteiras.reduce((s, b) => s + (b.saido_minimo ?? 0), 0));
   // Without an active forecast preserve the complete legacy JSON, not just its totals.
-  const forecastBlock = planning.some(e => e.ativo) ? { receita_prevista: {
+  const forecastBlock: { receita_prevista?: PlanningCoverageBlock } = planning.some(e => e.ativo) ? { receita_prevista: {
     eventos: planning.map(p => ({ ...p, receita_considerada: Math.max(p.receita_considerada, salesByRoot.get(p.event_id) ?? 0) })),
     ...revenueCoverage(currentNeed, planning.reduce((s, p) => s + Math.max(p.receita_considerada, salesByRoot.get(p.event_id) ?? 0), 0), minimumOut),
   } } : {};
@@ -175,4 +179,4 @@ export function assembleFutureCoverage(input: FutureCoverageInput) {
   };
 }
 
-export type FutureCoverage = ReturnType<typeof assembleFutureCoverage>;
+export type FutureCoverage = ReturnType<typeof assembleFutureCoverage> & { receita_prevista?: PlanningCoverageBlock };

@@ -20,7 +20,7 @@ const ITEM = "50000000-0000-0000-0000-000000000002";
 const flag = async (id: string) =>
   (await db.query<{ e: boolean | null }>(`select exclude_from_result e from transactions where id='${id}'`)).rows[0]?.e;
 const snapshot = async (id: string) =>
-  (await db.query(`select amount, status, paid_amount, payment_date, iva_rate from transactions where id='${id}'`)).rows[0];
+  (await db.query<{ amount: string | number; status: string; paid_amount: string | number | null; payment_date: string | null; iva_rate: number }>(`select amount, status, paid_amount, payment_date, iva_rate from transactions where id='${id}'`)).rows[0];
 
 beforeAll(async () => {
   db = new PGlite();
