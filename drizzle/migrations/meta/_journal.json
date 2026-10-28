@@ -2003,6 +2003,27 @@
       "when": 1793141320216,
       "tag": "0285_0285_p6b_a_pagar_caches",
       "breakpoints": true
+    },
+    {
+      "idx": 286,
+      "version": "7",
+      "when": 1793147789611,
+      "tag": "0286_reembolso_pagamento_fora_resultado",
+      "breakpoints": true
+    },
+    {
+      "idx": 287,
+      "version": "7",
+      "when": 1793147861203,
+      "tag": "0287_reembolso_invariante_corpo_exato_0286",
+      "breakpoints": true
+    },
+    {
+      "idx": 288,
+      "version": "7",
+      "when": 1793147917115,
+      "tag": "0288_reembolso_invariante_corpo_exato_0286_b",
+      "breakpoints": true
     }
   ]
 }
