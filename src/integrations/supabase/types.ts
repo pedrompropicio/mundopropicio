@@ -10277,6 +10277,80 @@ export type Database = {
           },
         ]
       }
+      event_coverage_scenario_log: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          company_id: string
+          event_id: string
+          id: string
+          new: Json | null
+          old: Json | null
+          op: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          company_id: string
+          event_id: string
+          id?: string
+          new?: Json | null
+          old?: Json | null
+          op: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          company_id?: string
+          event_id?: string
+          id?: string
+          new?: Json | null
+          old?: Json | null
+          op?: string
+        }
+        Relationships: []
+      }
+      event_coverage_scenarios: {
+        Row: {
+          company_id: string
+          event_id: string
+          modo: string
+          percentagem: number
+          receita_manual_bruta: number | null
+          updated_at: string
+          updated_by: string | null
+          viragem_real_dias: number | null
+        }
+        Insert: {
+          company_id: string
+          event_id: string
+          modo?: string
+          percentagem?: number
+          receita_manual_bruta?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          viragem_real_dias?: number | null
+        }
+        Update: {
+          company_id?: string
+          event_id?: string
+          modo?: string
+          percentagem?: number
+          receita_manual_bruta?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          viragem_real_dias?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_coverage_scenarios_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_dates: {
         Row: {
           company_id: string
