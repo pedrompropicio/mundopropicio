@@ -12,7 +12,7 @@ Chat criado a 26/10/2026 (D-ERP311). Primeira sessão a 26/10/2026: herdado lido
 - Implementação das regras D-ERP312 pelo 9, `coala-portal` e `newgang-portal` (pedidos no QUADRO de 26/10/2026). O jurídico revê os textos finais do banner e das políticas antes de Publish.
 - Implementação das regras D-ERP313 (textos novos do Newgang, menores, medição de email, banner do Coala) — pedidos no QUADRO.
 - Coala (D-ERP335, 28/10/2026): Cloudscape responsável, MP subcontratante; preparar acordo de subcontratação Cloudscape → MP. Segunda caixa (eventos da MP) preparada e adiada para edição futura.
-- Alojamento do ERP: base de Live nos EUA e plataforma sem acordo de subcontratação no plano atual — decisão do Pedro pendente (detalhe no Drive). A migração da #352 para a UE resolve a região.
+- Alojamento do ERP: base de Live nos EUA e plataforma sem acordo de subcontratação no plano atual. Decisão do Pedro (29/10/2026): não mudar de plano; aceitar o risco até à migração da produção para a UE pela #352 (alvo fim de 2026, limite 31/01/2027). Pareceres e risco no Drive (05 Jurídico › Base Jurídica › 06). Entretanto: minimizar o uso de dados pessoais reais pelo agente da plataforma; políticas atualizadas no dia da migração.
 - Base Jurídica criada no Drive (05 Jurídico) a 28/10/2026; plugins jurídicos (commercial, corporate, privacy) instalados; configuração do privacy-legal em curso.
 - Retenção verificada a 26/10/2026 (só leitura): nenhum registo acima do prazo de 3 anos. Ressalva: as datas são as da entrada no ERP; bases antigas importadas podem ter recolha anterior.
 
