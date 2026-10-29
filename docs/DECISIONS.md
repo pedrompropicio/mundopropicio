@@ -6459,3 +6459,20 @@ Registado também no topo de `docs/QUADRO.md`, antes de "Em execução agora".
 **Condições do jurídico para a execução (28/10/2026):** (a) no dia da execução repetir a verificação da decisão mais recente por pessoa e das retiradas (link «Gerir as minhas autorizações», supressões); quem mudar fica de fora. (b) A 0294 só aceita a prova do formulário em leads com `consent_whatsapp_text_version` gravada e marcados como reconstruídos; a origem `form_legacy_sem_prova` em geral continua não elegível (D-ERP313). (c) A cópia do estado anterior não vai para o repo público (D-ERP307): fica no Drive (05 Jurídico), nunca no repositório (confirmado pelo 0 · Cowork a 28/10/2026; substitui a indicação anterior do repo privado `mundopropicio-replay`). (d) Antes do primeiro WhatsApp a esta lista, o SAIR por WhatsApp tem de ficar registado na base e suprimir o contacto; sem isso não se envia WhatsApp (risco alto); não afeta o email de 03/11. O jurídico confirmou que a autorização se mantém com a execução diferida e que o gatilho `_crm_whatsapp_contact_guard` não altera o critério (manter até à 0294). **Fila (0 · Cowork, 28/10/2026):** nada de estrutura entra em Live até a aplicação no mp-homolog ser aceite; depois cada migração corre primeiro no mp-homolog e só então em Live. Marcar os leads como «reconstruídos» (b), se exigir coluna ou tabela nova, é DDL e entra na 0294 ou junto dela. O registo do SAIR com supressão (d) é funcionalidade nova (provavelmente DDL/função), pré-requisito do primeiro WhatsApp, e propõe-se como demanda própria quando a homologação estiver aceite.
 
 **Ligação:** Issue #359 (comentário de 28/10/2026), D-ERP333, D-ERP332 e docs/estado/estado-coala-portal.md.
+
+## D-ERP335 — Dados do Coala: Cloudscape responsável, MP subcontratante; segunda caixa (eventos da MP) preparada e adiada (28/10/2026)
+
+**Decisão do Pedro, 28/10/2026, com posição do jurídico. Classe: R0 (regra).**
+
+**Contexto:** a política de privacidade publicada do Coala identifica a Cloudscape Eventos e Produções Artísticas, Lda. como responsável pelo tratamento. A MP é sócia da Cloudscape e opera o ERP/CRM onde estão os dados do Coala. O Pedro confirmou que a MP não usa dados do Coala para fins próprios.
+
+**Decisão:**
+1. Para os dados do Coala, a Cloudscape é a responsável pelo tratamento e a MP é subcontratante (RGPD art. 28.º). Não há responsabilidade conjunta.
+2. A MP só trata dados do Coala para os serviços que presta à Cloudscape. Proibido sem novo consentimento: enviar comunicações de outros eventos da MP ao público do Coala; criar ou alimentar públicos de anúncios da MP (incluindo lookalikes) com dados do Coala; cruzar a base do Coala com a de outros eventos da MP para fins da MP.
+3. Comunicações do Coala (email, WhatsApp) identificam o Coala e a Cloudscape como remetente/responsável.
+4. Consentimento conjunto numa só caixa para Coala e MP não se usa (finalidades diferentes, RGPD art. 7.º n.º 2; EDPB 05/2020): invalidaria também o consentimento do Coala.
+5. Possibilidade futura, preparada e NÃO aplicada na edição 2027 (o registo já está captado e as vendas abrem na semana de 02/11/2026): segunda caixa opcional, desmarcada, só para inscrições novas — "Aceito receber informação de outros eventos da Mundo Propício. Posso retirar quando quiser." Pré-requisitos antes de aparecer no portal: acordo de partilha de dados Cloudscape → MP, aprovação escrita dos sócios da Cloudscape, atualização da política do Coala a nomear a MP como destinatária. A lista atual não se reaproveita.
+6. A fazer pelo jurídico: acordo de subcontratação Cloudscape → MP para assinatura das duas empresas.
+
+**Ligação:** D-ERP312, D-ERP313, docs/estado/estado-juridico.md. Análise e riscos no Drive (05 Jurídico).
+
