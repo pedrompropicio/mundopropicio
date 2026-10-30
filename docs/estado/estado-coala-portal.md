@@ -37,7 +37,8 @@
 
 ## Pendentes
 
-- Dry run de 03/11 com filtro B (corte 2026-10-30 11:56:57 UTC; ver D-ERP336 e #359).
+- Envio do aviso de abertura passa para a Fever (30/10/2026; D-ERP337): registar em suppressed_emails as saídas que a Fever enviar (R2 em lote, «Sim» do Pedro); filtro B já cumprido na lista entregue (corte 2026-10-30 11:56:57 UTC).
+- Política de privacidade PT/EN: confirmar com o jurídico se nomeia a Fever como destinatária.
 - Abertura de 03/11: apagar early_bird.signup (decisão do Pedro) e rever textos fechados.
 - Inscrições da lista fechadas desde 30/10/2026 11:56:57 UTC (early_bird.signup = "encerrada"; Coala Portal df2c0806).
 - #352 / G2: o Codex vai ensaiar as migrações 0285–0293 (regra de seguimento 6465391041) para confirmar que a G2 já não acusa a `bkp_359_p6_prova_reconstruida`; dono: 0 · Cowork e Codex. A 0293 está aplicada e conferida por leitura (ledger 295).
