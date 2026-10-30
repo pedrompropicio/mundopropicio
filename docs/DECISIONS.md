@@ -6476,3 +6476,7 @@ Registado também no topo de `docs/QUADRO.md`, antes de "Em execução agora".
 
 **Ligação:** D-ERP312, D-ERP313, docs/estado/estado-juridico.md. Análise e riscos no Drive (05 Jurídico).
 
+
+## D-ERP336 — Fecho das inscrições da lista Early Bird do Coala (30/10/2026).
+
+Decisão do Pedro: o prazo para entrar na lista terminou; só se altera dados durante a homologação (D-ERP332). Via A+B acordada com o 0 · Cowork (ChatGPT). A: chave portal_settings early_bird.signup = "encerrada" + código mínimo do site (commit df2c0806, só «encerrada» fecha, fail-open), sem DDL nem migração (DML não entra em migração, nota da D-ERP332). B: o dry run e o envio de 03/11 só usam inscrições até ao corte. Corte = 2026-10-30 11:56:57 UTC (Publish do df2c0806). Filtro B: lead_capture created_at <= corte; coala_invites confirmados com confirmed_at <= corte; supressões aplicadas; regista total da lista, total até ao corte e excluídos depois do corte, e à parte quem entrou depois do corte e recebeu o email de confirmação (decisão do Pedro com o número). Na abertura de 03/11, apagar early_bird.signup (decisão do Pedro, por tomar). Issue #359.
