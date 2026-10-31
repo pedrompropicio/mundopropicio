@@ -38,6 +38,8 @@ Depois do fluxo de promoção: nenhuma implementação vai directamente a Live; 
 
 ## Em execução agora
 
+> **Desde 31/10/2026 (D-ERP344):** o agente Lovable do ERP trabalha em `lovable/dev`; o `main` só aceita PR com CI `quality` verde. Commits directos no `main` são recusados — R0 vai por ramo + PR ou por tarefa ao agente. O 0 junta `lovable/dev` ao `main` antes de cada janela de Publish.
+
 Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **antes** de agir, actualiza-a quando o âmbito tocado muda, e apaga-a no fim (depois do fecho documental). Outro lado que encontre aqui o componente que ia tocar: pára e regista o pedido na secção do executor. Linha sem actualização há mais de 24 h ou executor sem sessão: não se assume — volta ao Pedro.
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
