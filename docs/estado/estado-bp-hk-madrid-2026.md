@@ -43,7 +43,7 @@ Fonte: relatório Controlle da Ilusion, tag iNVESTIMENTO_MADRID2027, gerado 23/1
 - Linha 4.5.02 "Transfer Material Magia Portugal x Espanha" subida de 4.100,00 para **14.226,90 €** (3.333,33 € já pagos, confirmados por transação ligada, + 10.893,57 € de Pop Cargo). `baseline_amount` mantido nos 4.100,00.
 - **8 linhas novas** com o valor realizado, 8.320,56 €: 2.2.07 fretes e carregadores no Brasil, 2.2.01 visita técnica H&K, 2.2.01 passagens Henry & Klauss, 3.1.01 audiovisual, 2.5.01 cenografia, 4.1.11 figurino, 2.3.02 backline, 2.6.05 locação de espaço para ensaios.
 
-**Lançamentos feitos:** 38 despesas, **61.816,40 €** — 36 pagas (60.867,14 €) e 2 aprovadas e por pagar (949,26 €: Viraliza 2/2 a 05/11 e hospedagem a 12/11, com taxa provisória de 30/10 a recalcular no dia do pagamento). Cada uma com `currency = BRL`, `original_amount`, `fx_rate` e linha do BP; zero sem linha. As 36 pagas com conta, uma perna de pagamento e o aporte espelhado; as 2 pendentes sem conta, sem perna e sem aporte.
+**Lançamentos feitos:** 38 despesas, **61.816,40 €** — 36 pagas (60.867,14 €) e 2 aprovadas e por pagar (949,26 €: Viraliza 2/2 a 05/11 e hospedagem a 12/11, com taxa provisória de 30/10 a recalcular no dia do pagamento — **Issue #409**). Cada uma com `currency = BRL`, `original_amount`, `fx_rate` e linha do BP; zero sem linha. As 36 pagas com conta, uma perna de pagamento e o aporte espelhado; as 2 pendentes sem conta, sem perna e sem aporte.
 
 **Conta de acerto** `Pgto Mágicos Acerto Madrid` (`251d708e-…`): 165.677,65 € de despesa contra 165.677,65 € de aporte, saldo zero. **Aportes do evento: 61, 414.677,65 €** — 59 em `partner_settlement` (165.677,65 €) e 2 em `event_cash` (249.000,00 €, não tocados). Origem: `SELECT` de 31/10/2026 19:58 UTC.
 
@@ -53,13 +53,13 @@ Fonte: relatório Controlle da Ilusion, tag iNVESTIMENTO_MADRID2027, gerado 23/1
 
 A conta `Pgto Mágicos Acerto Madrid` tem `mirror_partner_aporte = true` e `partner_id` do sócio. A função `public.sync_partner_aporte_mirror` cria sozinha o aporte, a ponte em `partner_aporte_mirror` e o movimento em `partner_capital_moves` quando a despesa fica paga. **Lança-se só a despesa.**
 
-No lançamento de 31/10 este chat criou os 36 aportes à mão sem o saber e ficou com 36 duplicados (60.867,14 €) durante cerca de sete minutos; foram apagados com as pernas e os movimentos, pelos ids devolvidos pelo próprio INSERT, e a conta ficou conferida. Mecanismo documentado em `.lovable/memory/features/partner-aporte-mirror.md`.
+No lançamento de 31/10 este chat criou os 36 aportes à mão sem o saber e ficou com 36 duplicados (60.867,14 €) durante cerca de sete minutos; foram apagados com as pernas e os movimentos, pelos ids devolvidos pelo próprio INSERT, e a conta ficou conferida. Mecanismo documentado em `.lovable/memory/features/partner-aporte-mirror.md`. Inventário dos restantes automatismos de entrada de dados: **Issue #410**.
 
 ## Desvio 0295 — descrição do aporte espelhado
 
-A 31/10 este chat substituiu em Live a função `sync_partner_aporte_mirror` para a descrição do aporte deixar de nascer com o prefixo `Aporte automatico — ` e o marcador passar para a observação. Migração `drizzle/migrations/0295_partner_aporte_mirror_descricao_sem_prefixo.sql`, commit `1456ff5f`. **Foi um desvio às regras temporárias da homologação** (#352): é cosmético e podia esperar. Decisão do 0 · Cowork de 31/10: **a 0295 fica, não se reverte**, desvio declarado na #352.
+A 31/10 este chat substituiu em Live a função `sync_partner_aporte_mirror` para a descrição do aporte deixar de nascer com o prefixo `Aporte automatico — ` e o marcador passar para a observação. Migração `drizzle/migrations/0295_partner_aporte_mirror_descricao_sem_prefixo.sql`, commit `1456ff5f`. **Foi um desvio às regras temporárias da homologação** (#352): é cosmético e podia esperar. Decisão do 0 · Cowork de 31/10: **a 0295 fica, não se reverte**, desvio declarado na #352. Registado no **D-ERP339**.
 
-**Consequência conhecida, não é defeito:** o backfill das **59** descrições antigas está parado até a homologação ser aceite (é R2 e vai pelo fluxo de promoção). Até lá a base tem dois formatos ao mesmo tempo — os aportes espelhados novos, incluindo os das duas pendentes de 05/11 e 12/11, nascem **sem** prefixo, e os 59 antigos ficam **com** prefixo. Não há diferença em valores. Contagem de 31/10 19:58 UTC: 59 com prefixo.
+**Consequência conhecida, não é defeito:** o backfill das **59** descrições antigas está parado até a homologação ser aceite (é R2 e vai pelo fluxo de promoção) — **Issue #408**. Até lá a base tem dois formatos ao mesmo tempo: os aportes espelhados novos, incluindo os das duas pendentes de 05/11 e 12/11, nascem **sem** prefixo, e os 59 antigos ficam **com** prefixo. Não há diferença em valores. Contagem de 31/10 19:58 UTC: 59 com prefixo.
 
 ## Dúvidas em aberto (do Pedro)
 
@@ -70,10 +70,11 @@ A 31/10 este chat substituiu em Live a função `sync_partner_aporte_mirror` par
 
 ## Pendente neste chat
 
-- Backfill das 59 descrições — parado até a homologação (#352) ser aceite.
-- Entrada **D-ERP339** no `docs/DECISIONS.md` — o ficheiro tem 771.125 caracteres e não se reescreve pelo conector; texto entregue ao 0 para edição cirúrgica por git.
-- Linha da reserva no `docs/QUADRO.md` — idem, entregue ao 0 para a Frente 2 editar por git. **A reserva mantém-se:** a demanda não fechou.
-- Inventário dos automatismos de entrada de dados (triggers que criam transações, pernas ou movimentos sozinhos), autorizado pelo Pedro a 31/10 — por fazer.
+- **#408** — backfill das 59 descrições. R2, parado até a homologação (#352) ser aceite.
+- **#409** — marcar pagas as duas despesas da H&K de 05/11 e 12/11, com a taxa real do dia. R2.
+- **#410** — inventário dos automatismos de entrada de dados. R0, pode correr a qualquer momento.
+- Entrada **D-ERP339** no `docs/DECISIONS.md` e linha da reserva no `docs/QUADRO.md`: os dois ficheiros são grandes demais para o conector (771.125 e 187.286 caracteres); textos entregues ao 0 a 31/10 para a Frente 2 editar por git. **A reserva mantém-se:** a demanda não fechou.
+- Por explicar: a alteração do BP entre 28/10 e 31/10 (ver "Aviso medido" acima). Sem Issue aberta.
 
 ## Pedidos registados no QUADRO
 
@@ -84,6 +85,9 @@ A 31/10 este chat substituiu em Live a função `sync_partner_aporte_mirror` par
 ## Issues ligadas
 
 - #352 (transversal) — homologação isolada; o desvio 0295 está lá declarado.
+- #408 (MP-ERP) — backfill das 59 descrições dos aportes espelhados.
+- #409 (MP-ERP) — as duas despesas pendentes da H&K, 05/11 e 12/11.
+- #410 (transversal) — inventário dos automatismos de entrada de dados.
 - #215 (MP-ERP) — aluguer do teatro, tratamentos de IVA e 2.ª metade sem documento.
 - #393 (MP-ERP) — converter em fórmula as duas linhas variáveis quando a bilheteira estiver configurada.
 - #348 (MP-ERP) — canal de venda nas importações, base do revenue share por fórmula.
