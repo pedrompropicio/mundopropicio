@@ -1,0 +1,13 @@
+-- ROLLBACK da 0296 (#404) — COMENTADO de propósito. Não aplicar sem "Sim" do Pedro.
+-- Atenção: apagar as colunas perde as marcas feitas depois da 0296 (DML das 4 linhas SM).
+-- Antes de aplicar, guardar: SELECT id FROM public.transactions WHERE excluded_from_partner_settlement;
+--                            SELECT id FROM public.event_forecasts WHERE excluded_from_partner_settlement;
+--
+-- DROP TRIGGER IF EXISTS trg_guard_excluded_from_partner_settlement ON public.transactions;
+-- DROP TRIGGER IF EXISTS trg_guard_forecast_excluded_from_partner_settlement ON public.event_forecasts;
+-- DROP FUNCTION IF EXISTS public.guard_excluded_from_partner_settlement();
+-- ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS transactions_excluded_from_partner_settlement_check;
+-- ALTER TABLE public.event_forecasts DROP CONSTRAINT IF EXISTS event_forecasts_excluded_from_partner_settlement_check;
+-- ALTER TABLE public.transactions DROP COLUMN IF EXISTS excluded_from_partner_settlement;
+-- ALTER TABLE public.event_forecasts DROP COLUMN IF EXISTS excluded_from_partner_settlement;
+-- NOTIFY pgrst, 'reload schema';
