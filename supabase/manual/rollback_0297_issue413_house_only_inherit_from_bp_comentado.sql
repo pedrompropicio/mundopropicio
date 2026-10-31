@@ -1,0 +1,8 @@
+-- ROLLBACK da 0297 (#413) — COMENTADO de propósito. Não aplicar sem "Sim" do Pedro.
+-- Retira só a herança BP → transação; a coluna e as guardas da 0296 ficam. As marcas já gravadas
+-- nas transações mantêm-se como estão (não há DML neste rollback).
+--
+-- DROP TRIGGER IF EXISTS trg_propagate_house_only_to_transactions ON public.event_forecasts;
+-- DROP TRIGGER IF EXISTS trg_inherit_house_only_from_forecast ON public.transactions;
+-- DROP FUNCTION IF EXISTS public.propagate_house_only_to_transactions();
+-- DROP FUNCTION IF EXISTS public.inherit_house_only_from_forecast();
