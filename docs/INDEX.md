@@ -23,6 +23,7 @@ Esta regra integra o Bloco Comum e todos os prompts em `docs/prompts/`; aplica-s
 | **Provas** | `docs/TESTES.md` | *Isto já foi visto a funcionar, e quando?* | Vivo |
 | **Mapa de chats** | `docs/CHATS.md` | *Onde trato este tema? Em que ferramenta?* | Vivo — tipos, numeração 0–11, tema→chat, modelo por chat, regra de partilha Claude ↔ ChatGPT |
 | **Modelos de relatório** | `docs/modelos/INDEX.md` | *Já fizemos este relatório? Como se faz?* | Vivo — regras em `docs/modelos/README.md` |
+| **Painel de comando** ("modal de desenvolvimento") | repo privado `mundopropicio/mp-painel` (org `mundopropicio`); spec na Issue #360; etapas #361–#363 | *Onde está a tela que despacha, autoriza e vigia os executores?* | Vivo — E1, E1b, E2-UI (demonstração), Frentes e Novo evento em `main`; corre com `npm run dev` |
 
 **Prioridade e trabalho em curso são coisas diferentes.** A prioridade vive na label da Issue (`P0`/`P1`/`P2`); o *estar em curso* vive na secção "A trabalhar agora" do `estado-<frente>.md`. Não existem labels de estado.
 
@@ -49,6 +50,7 @@ Numeração única 0–11, igual no Claude e no ChatGPT, mais `coala-portal`, `n
 | Arranque de chat (Bloco Comum, moldes por tipo, prompts em `docs/prompts/`) | `procedimentos/PROC-arranque-chat.md` |
 | Recuperação da plataforma num projeto Supabase novo | `procedimentos/PROC-recuperacao-plataforma.md` |
 | Entrada de dados (faturas e lançamentos) | `procedimentos/PROC-entrada-de-dados.md` |
+| Promoção de mudanças de estrutura: ficheiro → mp-homolog-3 → Live (D-ERP343) | `procedimentos/PROC-promocao.md` |
 
 ## Manual de Orientação (em construção)
 
