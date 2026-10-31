@@ -6513,3 +6513,9 @@ Origem: [resultado e contenção](https://github.com/pedrompropicio/mundopropici
 **Decisão do 0 · Cowork, delegada pelo Pedro. Classe R2.** A 0295 (função sync_partner_aporte_mirror, só texto) entrou em Live às 19:50:17Z, depois da homologação, e fica sem reverter. Reverter juntaria uma 0296 e mais uma escrita em Live. Antes da aceitação final, a 0295 é aplicada no mp-homolog-3 e verificada contra Live (função e ledger drizzle com 297). O backfill das 59 descrições só corre depois da aceitação, pelo fluxo de promoção. Até à aceitação, nenhum chat escreve em Live. Um segundo desvio obriga a recapturar e a refazer o G2.
 
 Origem: [conferência e decisão](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6548377740).
+
+## D-ERP342 — Congelamento até à aceitação: só mudanças de estrutura (31/10/2026)
+
+**Decisão do Pedro («SIM CORRIGIR CONGELAMENTO»), corrige a D-ERP341.** Até à aceitação final da #352, o congelamento de Live aplica-se só a mudanças de estrutura (migrações, funções, triggers, políticas, crons, segredos). A homologação compara estrutura, não dados. Por isso, os lançamentos e fechos feitos na app e as correções de dados por SQL seguem as regras normais (R2: bloco SQL, «Corro?» e Sim do Pedro) e não esperam pela aceitação. Isto inclui o backfill das 59 descrições da conta-espelho. Mantém-se: um segundo desvio estrutural obriga a recapturar e a refazer o G2.
+
+Origem: [este comentário na #352](https://github.com/pedrompropicio/mundopropicio/issues/352).
