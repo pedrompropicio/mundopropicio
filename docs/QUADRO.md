@@ -328,6 +328,8 @@ _(sem pedidos)_
 
 ## 10 · Entrada de Dados
 
+- [ ] de `bp-hk-madrid-2026` para 10 (31/10/2026): **H&K Madrid — despesas pagas pela H&K no Brasil ainda não lançadas** (38 lançamentos do relatório Controlle da Ilusion, tag iNVESTIMENTO_MADRID2027). Lançar cada uma como despesa paga pelo sócio H&K, ligada à linha do BP indicada, + aporte do sócio no mesmo valor (molde das passagens da equipa). Antes: recriar a linha de hospedagem da equipa H&K (apagada depois de 28/10), subir a linha de transfer de material PT×ES e criar 8 linhas novas com o valor realizado — tudo decidido pelo Pedro a 31/10. Lista, câmbios (EUR da fatura ou BCE do dia) e decisões no Projeto do Claude, `claude/hk-madrid-despesas-pagas-hk-brasil-2026-10-31.md` (fora do repo, D-ERP307). Não lançar de novo o que já está na base (secção "Já na base" do doc). Catering: não mexer até confirmação. Prévia e autorização do Pedro (D-ERP285).
+
 - Entrada de dados: a árvore de decisão (que documento → que porta), duplicados, câmbio e anexos vive em `docs/procedimentos/PROC-entrada-de-dados.md` (D-ERP290, 21/10/2026). O quadro não guarda regras — só pedidos e reservas.
 
   - **20/10/2026 17:15 UTC — #333 pacote A aplicado (fase12i).** Migrações 0211 review + 0212 executor FECHADO; readback OK (gates false, âmbito 0, registos 0, writers iguais). index.ts flags de esquema true; assistente/análise false. AGUARDA CI no novo SHA → deploy só data-entry (controller). Pacote B não ativado. Relatório: docs/testes/issue333/fase12i-aplicacao-pacote-A.md.
