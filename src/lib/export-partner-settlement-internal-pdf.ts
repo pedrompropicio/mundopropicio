@@ -182,6 +182,11 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
       fontSize: 8.6,
     });
 
+    if (ov.houseOnlyRevenue) {
+      subTitle("Receitas só da MP (fora do acerto)");
+      smallTable({ head: ["Receita", "Valor s/IVA"], body: (ov.houseOnlyLines ?? []).map(l => [l.description, money(l.net)]), foot: [["TOTAL", money(ov.houseOnlyRevenue)]], widths: [width - 45, 45] });
+    }
+
     subTitle("O que cada sócio leva de facto");
     const ovShares = reconcileDisplayValues(ov.partners.map((p) => p.realShare), ov.distributedTotal);
     smallTable({

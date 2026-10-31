@@ -255,7 +255,7 @@ export async function computeEventRevenueBasis(
     fetchAllPagedQuery(supabase
       .from("transactions")
       .select(
-        "id, event_id, type, status, amount, iva_rate, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, description, event_settlement_id, account_categories(code, name)",
+        "id, event_id, type, status, amount, iva_rate, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, description, event_settlement_id, excluded_from_partner_settlement, account_categories(code, name)",
       )
       .in("event_id", ids)
       .eq("type", "income")
@@ -280,7 +280,7 @@ export async function computeEventRevenueBasis(
 
   const { data: fcs } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
-    .select("id, event_id, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, revenue_split_mode, account_categories(code)")
+    .select("id, event_id, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, excluded_from_partner_settlement, revenue_split_mode, account_categories(code)")
     .in("event_id", ids)
     .is("version_id", null)
     .eq("type", "income"));

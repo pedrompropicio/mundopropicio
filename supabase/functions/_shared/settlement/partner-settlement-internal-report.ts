@@ -54,6 +54,8 @@ export interface InternalOverviewNominalRow {
 }
 
 export interface InternalOverview {
+  houseOnlyRevenue?: number;
+  houseOnlyLines?: Array<{ description: string; net: number }>;
   /** Âncora C1 do motor: `eventNetResult`. */
   resultReal: number;
   revenueNet: number;

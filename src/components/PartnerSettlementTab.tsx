@@ -1597,6 +1597,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     }
     const overview = engine.result
       ? {
+          houseOnlyRevenue: eventRevenue.houseOnlyRevenueNet,
+          houseOnlyLines: eventRevenue.houseOnlyLines,
           resultReal: engine.result.eventNetResult,
           revenueNet: nodes.reduce((a, n) => a + n.perimeter.revenueNet, 0) + (engine.result.house.houseOnlyRevenue ?? 0),
           expensesNet: nodes.reduce((a, n) => a + n.perimeter.expensesNet, 0),

@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";

@@ -3770,6 +3770,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
               <p className="font-medium">
                 {!hideCode && item.account_categories?.code && <span className="text-xs text-muted-foreground mr-1.5">{item.account_categories.code}</span>}
                 {item.description}
+                {item.type === "income" && item.excluded_from_partner_settlement && <Badge variant="outline" className="ml-2">Só MP</Badge>}
                 {!item._readonly && !item._prorated && !item._overhead_via_master && (
                   <span className="ml-2 align-middle">
                     <FormalidadeBadge

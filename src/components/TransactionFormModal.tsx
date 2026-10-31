@@ -1363,7 +1363,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             is_transitory: isTransitory || isPartnerExtra,
             transitory_reason: transitoryReasonValue,
             excluded_from_partner_settlement: houseOnlyValue,
-            excluded_from_partner_settlement: houseOnlyValue,
           exclude_from_result: isExcludeFromResult || !!sharedCostAccountId,
             shared_cost_account_id: sharedCostAccountId || null,
             shared_cost_counterparty_id: sharedCostAccountId ? (sharedCostCounterpartyId || null) : null,
@@ -1815,7 +1814,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 ? (isTransitory ? transitoryReason : "partner_advance")
                 : null,
               excluded_from_partner_settlement: houseOnlyValue,
-            excluded_from_partner_settlement: houseOnlyValue,
           exclude_from_result: isExcludeFromResult || !!sharedCostAccountId,
               shared_cost_account_id: sharedCostAccountId || null,
               shared_cost_counterparty_id: sharedCostAccountId ? (sharedCostCounterpartyId || null) : null,

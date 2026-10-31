@@ -24,7 +24,7 @@ export default function ReportPartnerSettlement() {
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("id, event_id, type, amount, status, is_transitory, exclude_from_result")
+        .select("id, event_id, type, amount, status, is_transitory, exclude_from_result, excluded_from_partner_settlement, iva_rate, account_categories(code)")
         .in("status", ["approved", "paid"]));
       if (error) throw error;
       return data;
@@ -68,8 +68,7 @@ export default function ReportPartnerSettlement() {
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, amount, status, is_overhead, type, formula_type, formula_params")
-        .eq("is_overhead", true)
+        .select("id, event_id, amount, status, is_overhead, type, formula_type, formula_params, excluded_from_partner_settlement, transaction_id, iva_rate, account_categories(code)")
         .eq("status", "approved").is("version_id", null));
       if (error) throw error;
       return data;
