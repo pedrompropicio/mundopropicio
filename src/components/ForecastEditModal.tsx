@@ -1,3 +1,5 @@
+import { PartnerSettlementExclusionSwitch } from "@/components/PartnerSettlementExclusionSwitch";
+import { partnerSettlementExclusionReason } from "@/lib/fecho-filters";
 import { writeForecastAmount } from "@/lib/forecast-amount";
 import { forecastEditDiff, preserveUnchangedForecastText } from "@/lib/forecast-edit-diff";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
@@ -60,6 +62,7 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
   const [vatNonRecoverable, setVatNonRecoverable] = useState<boolean>(
     !!(forecast as any).vat_non_recoverable
   );
+  const [houseOnly, setHouseOnly] = useState(forecast.excluded_from_partner_settlement === true);
   const [observation, setObservation] = useState("");
   const queryClient = useQueryClient();
   const { user, isAdmin, isManager } = useAuth();
@@ -183,6 +186,8 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
       }
 
       const newSettlementId = eventSettlementId || null;
+      const newHouseOnly = isAdmin || isManager ? houseOnly && !partnerSettlementExclusionReason({ ...forecast, is_overhead: newOverhead, event_settlement_id: newSettlementId }) : forecast.excluded_from_partner_settlement === true;
+      if (newHouseOnly !== (forecast.excluded_from_partner_settlement === true)) changes.push({ field_name: "Fora do acerto do sócio", old_value: forecast.excluded_from_partner_settlement ? "Sim" : "Não", new_value: newHouseOnly ? "Sim" : "Não" });
       if (newSettlementId !== (forecast.event_settlement_id ?? null)) {
         changes.push({
           field_name: "Fechamento",
@@ -257,6 +262,7 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         fx_rate_source: newFxRateSource,
         is_overhead: newOverhead,
         exclude_from_result: newOverhead !== !!forecast.is_overhead ? newOverhead : !!forecast.exclude_from_result,
+        excluded_from_partner_settlement: newHouseOnly,
         event_settlement_id: newSettlementId,
         addback_settlement_id: newAddbackId,
         addback_reason: newAddbackId ? newAddbackReason : null,
@@ -492,6 +498,8 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
             onChange={(m, p) => { setSplitMode(m); setSplitParams(p); }}
           />
         )}
+
+        <PartnerSettlementExclusionSwitch row={{ ...forecast, is_overhead: isOverhead, event_settlement_id: eventSettlementId }} canManage={isAdmin || isManager} checked={houseOnly} onChange={setHouseOnly} />
 
         {/* Observation */}
         <div>

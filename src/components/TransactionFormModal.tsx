@@ -1,3 +1,5 @@
+import { PartnerSettlementExclusionSwitch } from "@/components/PartnerSettlementExclusionSwitch";
+import { partnerSettlementExclusionReason } from "@/lib/fecho-filters";
 import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
 import { mustWrite } from "@/lib/must-write";
 import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
@@ -219,11 +221,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [isTransitory, setIsTransitory] = useState(false);
   // D-ERP80: a transitória diz porquê. Obrigatório quando marcada à mão.
   const [transitoryReason, setTransitoryReason] = useState<TransitoryReason | "">("");
+  const [houseOnly, setHouseOnly] = useState(false);
   const [isExcludeFromResult, setIsExcludeFromResult] = useState(false);
   // Custo partilhado com terceiros (D-ERP69). A imposição de exclude_from_result
   // é do trigger `force_exclude_from_result_for_shared_cost` — aqui só se reflecte.
   const [sharedCostAccountId, setSharedCostAccountId] = useState("");
   const [sharedCostCounterpartyId, setSharedCostCounterpartyId] = useState("");
+  const houseOnlyReason = partnerSettlementExclusionReason({ type: form.type, is_transitory: isTransitory || isPartnerExtra, exclude_from_result: isExcludeFromResult || !!sharedCostAccountId });
+  const houseOnlyValue = (authIsAdmin || authIsManager) && !houseOnlyReason && houseOnly;
   // Desdobramento da fatura (D-ERP69): parte de terceiros em % ou € sobre a BASE s/IVA.
   // Preenchido → nascem DUAS pernas no mesmo invoice_group_id (MP + terceiros).
   const [sharedCostThirdMode, setSharedCostThirdMode] = useState<ThirdPartyShareMode>("percentage");
@@ -1357,7 +1362,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             parent_transaction_id: "", // placeholder, set after parent insert
             is_transitory: isTransitory || isPartnerExtra,
             transitory_reason: transitoryReasonValue,
-            exclude_from_result: isExcludeFromResult || !!sharedCostAccountId,
+            excluded_from_partner_settlement: houseOnlyValue,
+            excluded_from_partner_settlement: houseOnlyValue,
+          exclude_from_result: isExcludeFromResult || !!sharedCostAccountId,
             shared_cost_account_id: sharedCostAccountId || null,
             shared_cost_counterparty_id: sharedCostAccountId ? (sharedCostCounterpartyId || null) : null,
             is_confidential: isConfidential,
@@ -1403,6 +1410,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
            split_mode: isAbsoluteMode ? "absolute" : "percentage",
            is_transitory: isTransitory || isPartnerExtra,
           transitory_reason: transitoryReasonValue,
+          excluded_from_partner_settlement: houseOnlyValue,
           exclude_from_result: isExcludeFromResult || !!sharedCostAccountId,
           shared_cost_account_id: sharedCostAccountId || null,
           shared_cost_counterparty_id: sharedCostAccountId ? (sharedCostCounterpartyId || null) : null,
@@ -1586,6 +1594,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             : null,
           // Com desdobramento esta é a PERNA DA MP: despesa normal, dentro do resultado,
           // a consumir verba do BP. A conta de circuito vive só na perna de terceiros.
+          excluded_from_partner_settlement: houseOnlyValue,
           exclude_from_result: lineSplitActive ? isExcludeFromResult : (isExcludeFromResult || !!sharedCostAccountId),
           shared_cost_account_id: lineSplitActive ? null : (sharedCostAccountId || null),
           shared_cost_counterparty_id: lineSplitActive ? null : (sharedCostAccountId ? (sharedCostCounterpartyId || null) : null),
@@ -1805,7 +1814,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               transitory_reason: principalIsTransitory
                 ? (isTransitory ? transitoryReason : "partner_advance")
                 : null,
-              exclude_from_result: isExcludeFromResult || !!sharedCostAccountId,
+              excluded_from_partner_settlement: houseOnlyValue,
+            excluded_from_partner_settlement: houseOnlyValue,
+          exclude_from_result: isExcludeFromResult || !!sharedCostAccountId,
               shared_cost_account_id: sharedCostAccountId || null,
               shared_cost_counterparty_id: sharedCostAccountId ? (sharedCostCounterpartyId || null) : null,
               is_confidential: isConfidential,
@@ -3847,6 +3858,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   <HelpTooltip text={helpTexts.excludeFromResultToggle} size={12} />
                 </button>
                 )}
+
+                <PartnerSettlementExclusionSwitch row={{ type: form.type, is_transitory: isTransitory || isPartnerExtra, exclude_from_result: isExcludeFromResult || !!sharedCostAccountId }} canManage={authIsAdmin || authIsManager} checked={houseOnly} onChange={setHouseOnly} />
 
                 {canSeeConfidential && (
                 <button

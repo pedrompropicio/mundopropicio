@@ -322,7 +322,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, event_settlement_id, account_categories(name, code, parent_id, ebitda_class)")
+        .select("id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, event_settlement_id, excluded_from_partner_settlement, account_categories(name, code, parent_id, ebitda_class)")
         .in("event_id", allEventIds));
       if (error) throw error;
       return withoutIncomeTax(data ?? []);
@@ -475,7 +475,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           // select de propósito — acrescentá-los mudaria o universo de despesa
           // deste ecrã (o filtro `operationalForecasts` passaria a excluí-las),
           // e o critério de despesa não é objecto desta mudança.
-          .select("id, event_id, description, type, amount, formula_type, formula_params, iva_rate, status, is_overhead, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, account_categories(name, code, ebitda_class)")
+          .select("id, event_id, description, type, amount, formula_type, formula_params, iva_rate, status, is_overhead, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, excluded_from_partner_settlement, account_categories(name, code, ebitda_class)")
         .in("event_id", allEventIds)
         .eq("status", "approved").is("version_id", null));
       if (error) throw error;
@@ -709,8 +709,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     incomeForecasts: forecasts as any[],
   });
   const revenueTxForTotals = eventRevenue.incomeTxUsed;
-  const eventRevenueNet = eventRevenue.revenueNet;
-  const eventRevenueGross = eventRevenue.revenueGross;
+  const eventRevenueNet = eventRevenue.eventRevenueNet;
+  const eventRevenueGross = eventRevenue.eventRevenueGross;
 
 
   // ---- Despesa segundo o critério selecionado no seletor ----------------
@@ -766,9 +766,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       // (g1/g2) o IVA dedutível devolvido pelo fechamento acima é receita deste
       // fechamento — sem isto o ecrã mostrava a nota mas não somava o valor.
       activeNode!.vatReturnedIn
-    : eventRevenueNet;
+    : eventRevenue.revenueNet;
   // A receita é sempre s/IVA (D24): num nó, bruto = líquido.
-  const totalRevenueGross = useNodeTotals ? totalRevenueNet : eventRevenueGross;
+  const totalRevenueGross = useNodeTotals ? totalRevenueNet : eventRevenue.revenueGross;
   const totalExpensesNet = useNodeTotals ? activeNode!.perimeter.expensesNet : eventExpensesNet;
   const totalExpensesGross = useNodeTotals ? activeNode!.perimeter.expensesGross : eventExpensesGross;
 
@@ -1271,13 +1271,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // A base de apresentação segue o contrato do evento (pode ser c/IVA quando há
   // sócios brasileiros), mas a posição real da empresa portuguesa é s/IVA. Este
   // bloco é leitura interna e não entra no PDF.
-  const resultRealNet = revenueBase - totalExpensesNet;
+  const resultRealNet = revenueBase + eventRevenue.houseOnlyRevenueNet - totalExpensesNet;
   const externalShares = settlements
     .filter((s) => !s.isHouse)
     .reduce((a, s) => a + s.partnerShare, 0);
-  const housePositionReal = resultRealNet - externalShares;
+  const housePositionReal = engine.result?.house.residual ?? (resultRealNet - externalShares);
   const houseNominalShare = settlements.find((s) => s.isHouse)?.partnerShare ?? 0;
-  const houseIvaGain = housePositionReal - houseNominalShare;
+  const houseIvaGain = engine.result?.house.ivaDeductible ?? (housePositionReal - houseNominalShare - eventRevenue.houseOnlyRevenueNet);
   // (g14) IVA pago e legalmente não dedutível: CUSTO real, informativo aqui.
   const vatNotReturnedTotal = engine.result?.house.vatNonRecoverableCost ?? 0;
   const vatNotReturnedLines = (engine.result?.nodes ?? [])
@@ -1584,6 +1584,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const branding = await fetchExportBranding();
     const engineHouse = engine.result?.house;
     const houseParts: Array<{ label: string; value: number }> = [];
+    if (engineHouse?.houseOnlyRevenue) houseParts.push({ label: "Receitas só da MP (fora do acerto)", value: engineHouse.houseOnlyRevenue });
     if (engineHouse) {
       if (Math.abs(engineHouse.declared) > 0.004)
         houseParts.push({ label: "Parte declarada nos fechamentos", value: engineHouse.declared });
@@ -1597,7 +1598,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const overview = engine.result
       ? {
           resultReal: engine.result.eventNetResult,
-          revenueNet: nodes.reduce((a, n) => a + n.perimeter.revenueNet, 0),
+          revenueNet: nodes.reduce((a, n) => a + n.perimeter.revenueNet, 0) + (engine.result.house.houseOnlyRevenue ?? 0),
           expensesNet: nodes.reduce((a, n) => a + n.perimeter.expensesNet, 0),
           vatNonRecoverableCost: engine.result.house.vatNonRecoverableCost,
           exclusiveRevenuesTotal: 0,
@@ -2084,6 +2085,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         )}
       </div>
 
+
+      {eventRevenue.houseOnlyLines.length > 0 && <section className="space-y-2 py-3">
+        <p className="text-sm font-semibold">Receitas só da MP (fora do acerto) · {formatCurrency(eventRevenue.houseOnlyRevenueNet)}</p>
+        {eventRevenue.houseOnlyLines.map((line, i) => <div key={line.id ?? i} className="flex justify-between gap-3 text-xs"><span>{line.origin} · {line.description}</span><span className="font-mono">{formatCurrency(line.net)}</span></div>)}
+      </section>}
 
       {/* City breakdown for tours */}
       {cityBreakdown.length > 0 && (

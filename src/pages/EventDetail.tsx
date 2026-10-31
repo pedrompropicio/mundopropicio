@@ -1210,6 +1210,8 @@ export default function EventDetail() {
           </button>
         )}
 
+        {eventTransactions.some((t: any) => t.type === "income" && t.excluded_from_partner_settlement) && <div className="flex items-center gap-2 text-xs"><Badge variant="outline">Só MP</Badge>{eventTransactions.filter((t: any) => t.type === "income" && t.excluded_from_partner_settlement).length} receitas fora do acerto do sócio</div>}
+
         {/* Exclusivos de fechamentos (D25 g3): linhas marcadas com um fechamento
             filho pertencem a esse fechamento e nunca entram no resultado do evento. */}
         {settlementExclusives.count > 0 && (
