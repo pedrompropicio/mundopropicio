@@ -304,7 +304,7 @@ export function buildPartnerSettlementReportData(input: {
         resultRepasseNow,
         equityContribution,
         operationalSettlement,
-        settlement: operationalSettlement + resultPendingByCash + row.transitoryCredit,
+        settlement: operationalSettlement + resultPendingByCash + row.transitoryCredit + (row.isHouse ? houseOnlyRevenue : 0),
       };
     });
   });
