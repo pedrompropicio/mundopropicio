@@ -920,9 +920,9 @@ export function buildPartnerStatement(
   const rootUsesGross = rootNode ? rootNode.nodeUsesGrossExpenses : usesGrossExpenses;
   const cards = rootNode
     ? {
-        revenueNet: roundCents(rootNode.perimeter.revenueNet),
+        revenueNet: roundCents(rootNode.perimeter.revenueNet + revenue.houseOnlyRevenueNet),
         expenses: roundCents(rootUsesGross ? rootNode.perimeter.expensesGross : rootNode.perimeter.expensesNet),
-        result: roundCents(rootUsesGross ? rootNode.resultGross : rootNode.resultNet),
+        result: roundCents((rootUsesGross ? rootNode.resultGross : rootNode.resultNet) + revenue.houseOnlyRevenueNet),
         expensesWithVat: rootUsesGross,
       }
     : {

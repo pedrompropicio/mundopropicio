@@ -797,7 +797,19 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         : undefined;
 
       let data: any = null;
-      if (changes.length > 0) {
+      const houseOnlyChange = changes.some((c: any) => c.field_name === "Fora do acerto do sócio");
+      if (houseOnlyChange && changes.length > 1) throw new Error("Guarde a marca Fora do acerto do sócio separadamente das restantes alterações.");
+      if (houseOnlyChange) {
+        if (!(isAdmin || isManager)) throw new Error("Só admin/manager podem mudar esta marca.");
+        // Existing edge allowlist cannot be changed in this scope. One authenticated
+        // statement updates the parent and its children together under RLS and guards.
+        const { error } = await supabase.from("transactions")
+          .update({ excluded_from_partner_settlement: (updates as any).excluded_from_partner_settlement })
+          .or(`id.eq.${transaction.id},parent_transaction_id.eq.${transaction.id}`);
+        if (error) throw error;
+      }
+      delete (updates as any).excluded_from_partner_settlement;
+      if (changes.length > 0 && !houseOnlyChange) {
         const res = await supabase.functions.invoke("update-transaction", {
           body: { transaction_id: transaction.id, updates, changes, child_adjustments: childUpdatesPayload },
         });

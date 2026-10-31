@@ -1707,20 +1707,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     }));
 
     // Receitas: bilheteira agregada por sessão/zona + restantes receitas linha a linha.
-    const revenues = [
-      ...(ticketBreakdown as TicketBreakdownRow[]).map((r) => ({
-        origin: t.ticketing,
-        description: [r.cityName, r.sessionLabel, r.zoneName, r.lotName].filter(Boolean).join(" · "),
-        net: r.totalNet,
-      })),
-      // (g13) Só as receitas do evento: as exclusivas da sociedade aparecem na
-      // conta do resultado, itemizadas, e nunca somadas às receitas do evento.
-      ...keepRootPerimeter(revenueTxForTotals as any[], rootSettlementIds).map((tx: any) => ({
-        origin: tx.account_categories?.name || "Outras receitas",
-        description: tx.description || "—",
-        net: Number(tx.amount) || 0,
-      })),
-    ];
+    const revenues = keepRootPerimeter(eventRevenue.lines, rootSettlementIds).map(line => ({
+      origin: line.kind === "ticket" ? t.ticketing : line.origin,
+      description: line.description,
+      net: line.net,
+    }));
 
     // (g13) CASCATA: quando o acordo do sócio apura sobre uma parte do resultado
     // do evento, a conta parte do resultado do evento e deduz, PELO NOME, as
