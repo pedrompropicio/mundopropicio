@@ -6501,3 +6501,15 @@ A migração `0295_partner_aporte_mirror_descricao_sem_prefixo` (commit `1456ff5
 O backfill das 59 descrições antigas é R2 e só corre depois de a homologação ser aceite, pelo fluxo de promoção. Até lá a base tem dois formatos em simultâneo: os aportes espelhados novos nascem sem prefixo e os 59 antigos mantêm-no. Não há diferença em valores, datas, conta, sócio, rubrica 10.1.01 nem `flow`. Contagem de 31/10/2026 19:58 UTC: 59 com prefixo, e a conta de acerto `Pgto Mágicos Acerto Madrid` equilibrada em 165.677,65 € de cada lado.
 
 Origem: [relato do chat 10 na #352](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6548352403), [decisão do 0](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6548377740) e [efeito conhecido dos dois formatos](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6548436383). Estado da frente em `docs/estado/estado-bp-hk-madrid-2026.md`, commit `21505cd8`.
+
+## D-ERP340 — #352: continuação a partir da C5 e classe platform_preexisting_at_C1 (31/10/2026)
+
+**Decisão do Pedro ("continuar pela C5 ainda hoje"; Sims 6547896292 e 6548133420 na #352). Classe R2.** Depois do bloqueio da R9 na C5, a homologação continua a partir da C5 no mesmo destino, sem reaplicar C1–C4 e sem reset. Exige igualdade com o fim da C4 nas 25 categorias. No G2 passa a ser aceite uma única classe nova, platform_preexisting_at_C1, fechada a 7 objetos nominais identificados por hash. Cada um tem de estar no C1 do mesmo run, ausente no Live, num schema de plataforma, com 0 referências no SQL efetivo. Qualquer outro objeto continua a bloquear. Resultado: run 41235196764 verde, contido.
+
+Origem: [resultado e contenção](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6548298627).
+
+## D-ERP341 — 0295 mantida em Live e congelamento até à aceitação da homologação (31/10/2026)
+
+**Decisão do 0 · Cowork, delegada pelo Pedro. Classe R2.** A 0295 (função sync_partner_aporte_mirror, só texto) entrou em Live às 19:50:17Z, depois da homologação, e fica sem reverter. Reverter juntaria uma 0296 e mais uma escrita em Live. Antes da aceitação final, a 0295 é aplicada no mp-homolog-3 e verificada contra Live (função e ledger drizzle com 297). O backfill das 59 descrições só corre depois da aceitação, pelo fluxo de promoção. Até à aceitação, nenhum chat escreve em Live. Um segundo desvio obriga a recapturar e a refazer o G2.
+
+Origem: [conferência e decisão](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6548377740).
