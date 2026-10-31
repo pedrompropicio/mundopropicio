@@ -6519,3 +6519,9 @@ Origem: [conferência e decisão](https://github.com/pedrompropicio/mundopropici
 **Decisão do Pedro («SIM CORRIGIR CONGELAMENTO»), corrige a D-ERP341.** Até à aceitação final da #352, o congelamento de Live aplica-se só a mudanças de estrutura (migrações, funções, triggers, políticas, crons, segredos). A homologação compara estrutura, não dados. Por isso, os lançamentos e fechos feitos na app e as correções de dados por SQL seguem as regras normais (R2: bloco SQL, «Corro?» e Sim do Pedro) e não esperam pela aceitação. Isto inclui o backfill das 59 descrições da conta-espelho. Mantém-se: um segundo desvio estrutural obriga a recapturar e a refazer o G2.
 
 Origem: [este comentário na #352](https://github.com/pedrompropicio/mundopropicio/issues/352).
+
+## D-ERP343 — #352 aceite: fluxo de promoção em vigor (31/10/2026)
+
+**Decisão do Pedro («SIM ACEITAÇÃO #352»).** A homologação #352 está aceite: G2 verde na R10 (run 41235196764) e delta 0295 igual no mp-homolog-3 e em Live. A partir de 31/10/2026, toda a mudança estrutural vai primeiro ao mp-homolog-3, é conferida contra Live por SELECT e só depois vai a Live, com Sim do Pedro e verificação. Os dados seguem as regras R2 normais. Termina o congelamento das D-ERP341/342. G4/G5 e a passagem para a base nova são demandas próprias.
+
+Origem: [aceitação na #352](https://github.com/pedrompropicio/mundopropicio/issues/352).
