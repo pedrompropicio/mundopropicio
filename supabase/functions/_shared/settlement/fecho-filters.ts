@@ -82,3 +82,18 @@ export function isIncomeTaxLine(l: any): boolean {
 export function withoutIncomeTax<T>(lines: T[] | null | undefined): T[] {
   return (lines ?? []).filter((l) => !isIncomeTaxLine(l));
 }
+
+/** #404: this flag never blocks the event result, only partner allocation. */
+export function isExcludedFromPartnerSettlement(t: any): boolean {
+  return t?.type === "income" && t?.excluded_from_partner_settlement === true;
+}
+
+/** Shared eligibility for the three editors; role checks remain explicit. */
+export function partnerSettlementExclusionReason(row: any): string | null {
+  if (row?.type !== "income") return "Só disponível em receitas.";
+  if (row?.is_transitory) return "Receita transitória.";
+  if (row?.exclude_from_result) return "Receita fora do resultado.";
+  if (row?.is_overhead) return "Linha de overhead.";
+  if (row?.event_settlement_id) return "Receita exclusiva de um fechamento.";
+  return null;
+}

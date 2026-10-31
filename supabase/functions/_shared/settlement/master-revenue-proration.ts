@@ -56,6 +56,7 @@ export interface MasterRevenueForecastLike {
   is_overhead?: boolean | null;
   exclude_from_result?: boolean | null;
   is_transitory?: boolean | null;
+  excluded_from_partner_settlement?: boolean;
   [key: string]: any;
 }
 
@@ -277,6 +278,7 @@ export function expandMasterRevenueToSplits<
         event_id: cityId,
         amount: amounts[i],
         account_id: null,
+        excluded_from_partner_settlement: t.excluded_from_partner_settlement === true || forecasts.find(f => f.id === t.forecast_id)?.excluded_from_partner_settlement === true,
         _revenue_via_master: true,
         _master_event_id: t.event_id,
         _master_forecast_id: t.forecast_id as string,

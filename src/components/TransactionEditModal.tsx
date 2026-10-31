@@ -1,3 +1,5 @@
+import { PartnerSettlementExclusionSwitch } from "@/components/PartnerSettlementExclusionSwitch";
+import { partnerSettlementExclusionReason } from "@/lib/fecho-filters";
 import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
 import { mustWrite } from "@/lib/must-write";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
@@ -108,6 +110,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     // D-ERP80: a transitória diz porquê.
     transitory_reason: (((transaction as any).transitory_reason ?? "") as TransitoryReason | ""),
     is_confidential: (transaction as any).is_confidential ?? false,
+    excluded_from_partner_settlement: transaction.excluded_from_partner_settlement ?? false,
     exclude_from_result: transaction.exclude_from_result ?? false,
     // Custo partilhado com terceiros (D-ERP69)
     shared_cost_account_id: ((transaction as any).shared_cost_account_id ?? "") as string,
@@ -137,7 +140,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
 
   });
   const queryClient = useQueryClient();
-  const { user, isManager, hasPermission } = useAuth();
+  const { user, isAdmin, isManager, hasPermission } = useAuth();
   const canSeeConfidential = hasPermission("view_confidential");
 
   // Multi-currency state
@@ -549,6 +552,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         account_id: "Conta", specification: "Especificação", date: "Data", due_date: "Data Vencimento", payment_date: "Data Pagamento",
         is_transitory: "Transitória",
         transitory_reason: "Motivo da transitória",
+        excluded_from_partner_settlement: "Fora do acerto do sócio",
         exclude_from_result: "Fora do Resultado",
         shared_cost_account_id: "Conta de rateio de terceiros",
         shared_cost_counterparty_id: "Terceiro (rateio)",
@@ -568,7 +572,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         held_by_supplier_id: "Recebido por",
       };
       const allowedFields = (paidLocked
-        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "shared_cost_account_id", "shared_cost_counterparty_id", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id", "event_settlement_id", "held_by_supplier_id",
+        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "excluded_from_partner_settlement", "exclude_from_result", "shared_cost_account_id", "shared_cost_counterparty_id", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id", "event_settlement_id", "held_by_supplier_id",
            ...(canReallocBpWhenPaid ? ["category_id"] : [])]
         : Object.keys(fieldLabels)
       ).filter((k) => !(isInstallmentGroup && (k === "amount" || k === "iva_rate")));
@@ -641,6 +645,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         is_transitory: form.is_transitory,
         transitory_reason: form.is_transitory ? form.transitory_reason : null,
         is_confidential: form.is_confidential,
+        ...(isAdmin || isManager ? { excluded_from_partner_settlement: !partnerSettlementExclusionReason({ ...form, type: transaction.type, exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id }) && form.excluded_from_partner_settlement } : {}),
         exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id,
         shared_cost_account_id: form.shared_cost_account_id || null,
         shared_cost_counterparty_id: form.shared_cost_account_id ? (form.shared_cost_counterparty_id || null) : null,
@@ -674,6 +679,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         is_transitory: form.is_transitory,
         transitory_reason: form.is_transitory ? form.transitory_reason : null,
         is_confidential: form.is_confidential,
+        ...(isAdmin || isManager ? { excluded_from_partner_settlement: !partnerSettlementExclusionReason({ ...form, type: transaction.type, exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id }) && form.excluded_from_partner_settlement } : {}),
         exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id,
         shared_cost_account_id: form.shared_cost_account_id || null,
         shared_cost_counterparty_id: form.shared_cost_account_id ? (form.shared_cost_counterparty_id || null) : null,
@@ -791,7 +797,19 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         : undefined;
 
       let data: any = null;
-      if (changes.length > 0) {
+      const houseOnlyChange = changes.some((c: any) => c.field_name === "Fora do acerto do sócio");
+      if (houseOnlyChange && changes.length > 1) throw new Error("Guarde a marca Fora do acerto do sócio separadamente das restantes alterações.");
+      if (houseOnlyChange) {
+        if (!(isAdmin || isManager)) throw new Error("Só admin/manager podem mudar esta marca.");
+        // Existing edge allowlist cannot be changed in this scope. One authenticated
+        // statement updates the parent and its children together under RLS and guards.
+        const { error } = await supabase.from("transactions")
+          .update({ excluded_from_partner_settlement: (updates as any).excluded_from_partner_settlement })
+          .or(`id.eq.${transaction.id},parent_transaction_id.eq.${transaction.id}`);
+        if (error) throw error;
+      }
+      delete (updates as any).excluded_from_partner_settlement;
+      if (changes.length > 0 && !houseOnlyChange) {
         const res = await supabase.functions.invoke("update-transaction", {
           body: { transaction_id: transaction.id, updates, changes, child_adjustments: childUpdatesPayload },
         });
@@ -1715,6 +1733,8 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
             )}
           </div>
           )}
+
+          <PartnerSettlementExclusionSwitch row={{ ...form, type: transaction.type, exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id }} canManage={isAdmin || isManager} checked={form.excluded_from_partner_settlement} onChange={(value) => setForm({ ...form, excluded_from_partner_settlement: value })} />
 
           {/* TX liquidada + admin/gestora: categoria L3 e realocação da linha do BP continuam editáveis. */}
           {paidLocked && canReallocBpWhenPaid && !hasChildren && (

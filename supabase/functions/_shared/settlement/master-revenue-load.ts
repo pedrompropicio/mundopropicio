@@ -48,7 +48,7 @@ export async function loadMasterRevenueSplit(
   const { data: fcs, error: fErr } = await fetchAllPagedQuery(client
     .from("event_forecasts")
     .select(
-      "id, event_id, type, amount, iva_rate, description, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, revenue_split_mode, revenue_split_params, account_categories(code, name, ebitda_class)",
+      "id, event_id, type, amount, iva_rate, description, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, excluded_from_partner_settlement, revenue_split_mode, revenue_split_params, account_categories(code, name, ebitda_class)",
     )
     .in("event_id", ids)
     .eq("type", "income")
@@ -65,7 +65,7 @@ export async function loadMasterRevenueSplit(
     fetchAllPagedQuery(client
       .from("transactions")
       .select(
-        "id, event_id, type, status, amount, iva_rate, date, category_id, forecast_id, is_transitory, exclude_from_result, reversed_at, is_hidden, description, event_settlement_id, account_categories(id, code, name, parent_id, ebitda_class)",
+        "id, event_id, type, status, amount, iva_rate, date, category_id, forecast_id, is_transitory, exclude_from_result, reversed_at, is_hidden, description, event_settlement_id, excluded_from_partner_settlement, account_categories(id, code, name, parent_id, ebitda_class)",
       )
       .in("event_id", ruledMasters)
       .eq("type", "income")

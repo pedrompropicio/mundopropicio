@@ -2073,6 +2073,13 @@
       "when": 1793476217968,
       "tag": "0295_partner_aporte_mirror_descricao_sem_prefixo",
       "breakpoints": true
+    },
+    {
+      "idx": 296,
+      "version": "7",
+      "when": 1793481915441,
+      "tag": "0296_issue404_excluded_from_partner_settlement",
+      "breakpoints": true
     }
   ]
 }

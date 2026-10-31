@@ -534,3 +534,7 @@ Os quatro consumidores (nenhum recalcula receita):
 Aceitação: FestVybbe 2026 → receita s/IVA 318.102,83 € · resultado c/IVA −40.909,02 € ·
 VYBBE 60 % −24.545,41 € · MP 40 % −16.363,61 €. Ivete Clareou 2026 e Anitta - EDA 2026 não
 mudam: os buckets com linhas de BP já têm real (patrocínio/outros).
+
+## (g21 · #404) Receita só da MP — fora do acerto, dentro do resultado
+
+Receita TX/BP com `excluded_from_partner_settlement=true` pertence integralmente à MP. Mantém o resultado do evento e sai da base de todos os fechamentos, raiz e filhos. `computeSettlementRevenue` separa `houseOnlyRevenueNet`/`houseOnlyLines`; mantém a presença do real no bucket para impedir fallback BP duplicado. O motor preserva `eventNetResult` e acrescenta o termo ao residual MP, mantendo C1/C2. Fatias do Master herdam a marca. Documento do sócio omite as linhas; resumo/PDF interno identificam-nas. Interruptor só admin/manager e income, incompatível com transitória, fora do resultado, overhead ou exclusivo de fechamento. Guarda do selo prevalece. Cards e DRE mantêm os valores do evento.

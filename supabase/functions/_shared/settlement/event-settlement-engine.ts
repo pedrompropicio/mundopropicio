@@ -171,7 +171,7 @@ export interface EngineInput {
   /** `events.partner_calc_basis` normalizado. */
   eventBasis: PartnerCalcBasis | string | null | undefined;
   /** Totais do EVENTO INTEIRO, como o Encontro de Contas os calcula hoje. */
-  eventTotals: { revenueNet: number; expensesNet: number; expensesGross: number };
+  eventTotals: { revenueNet: number; expensesNet: number; expensesGross: number; houseOnlyRevenueNet?: number };
   settlements: EngineSettlement[];
   participants: EngineParticipant[];
   markedLines?: EngineMarkedLine[];
@@ -277,6 +277,7 @@ export interface SettlementNodeResult {
 }
 
 export interface HouseResidual {
+  houseOnlyRevenue?: number;
   /** R_s do evento − Σ partes `settles` dos sócios (cada uma na base do sócio). */
   residual: number;
   /** Parte declarada da casa (participantes `house`, base s/IVA). */
@@ -355,6 +356,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
   /** (g4) Base contratual do evento — base do fechamento raiz. */
   const eventUsesGross = usesGrossExpenseAmounts(input.eventBasis as any);
   const marked = input.markedLines ?? [];
+  const houseOnlyRevenue = num(input.eventTotals.houseOnlyRevenueNet);
 
   // ── Operações de terceiros (d): valor da participação por apuramento ─
   const operations = input.operations ?? [];
@@ -466,7 +468,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
     const isRoot = !s.parent_id;
 
     // A raiz apanha o que NÃO está marcado: total do evento − linhas marcadas.
-    const revenueNet = isRoot ? input.eventTotals.revenueNet - markedIncomeNet : own.revenueNet;
+    const revenueNet = isRoot ? input.eventTotals.revenueNet - houseOnlyRevenue - markedIncomeNet : own.revenueNet;
     const expensesNet = isRoot ? input.eventTotals.expensesNet - markedExpenseNet : own.expensesNet;
     const expensesGross = isRoot
       ? input.eventTotals.expensesGross - markedExpenseGross
@@ -762,12 +764,13 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
       0,
     ) +
     additionalActivesTotal +
+    houseOnlyRevenue +
     addbacksTotal -
     // (g14) O IVA legalmente não dedutível é CUSTO REAL: abate ao resultado
     // s/IVA que serve de âncora à C1. Não é ativo retido pela casa.
     vatNonRecoverableCost;
   const residual = eventNetResult - partnersPaidTotal;
-  const rest = residual - (declared + ivaDeductible + nominalGap);
+  const rest = residual - (declared + ivaDeductible + nominalGap + houseOnlyRevenue);
 
   const c1Value = partnersPaidTotal + residual - eventNetResult;
   const c2Value = rest;
@@ -795,6 +798,7 @@ export function computeSettlementEngine(input: EngineInput): EngineResult {
     additionalActivesTotal: roundCents(additionalActivesTotal),
     addbacksTotal: roundCents(addbacksTotal),
     house: {
+      houseOnlyRevenue: roundCents(houseOnlyRevenue),
       residual: roundCents(residual),
       declared: roundCents(declared),
       ivaDeductible: roundCents(ivaDeductible),

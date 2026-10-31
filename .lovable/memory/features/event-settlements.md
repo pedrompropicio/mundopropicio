@@ -426,3 +426,5 @@ sócio (`financial_accounts.partner_id`), filtradas pelo evento. Helpers puros e
 "Apresenta DDL" = escrever o ficheiro em `supabase/migrations/` e parar. Nunca
 usar a ferramenta de migração nem correr DDL/DML sem autorização explícita nesse
 pedido; Publish é sempre decisão do Pedro.
+
+- (g21 · #404) Receita `excluded_from_partner_settlement=true` fica no resultado do evento e integralmente na MP, fora da base raiz/filhos; ver (g21) em `partner-settlement.md`.

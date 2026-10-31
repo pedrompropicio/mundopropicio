@@ -118,7 +118,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("id, type, amount, iva_rate, status, description, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, event_settlement_id, account_categories(name, code, ebitda_class)")
+        .select("id, type, amount, iva_rate, status, description, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, event_settlement_id, excluded_from_partner_settlement, account_categories(name, code, ebitda_class)")
         .in("event_id", allEventIds)
         .in("status", ["approved", "paid"]));
       if (error) throw error;
@@ -132,7 +132,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, amount, iva_rate, description, event_settlement_id, account_categories(code, name)")
+        .select("id, event_id, type, amount, iva_rate, description, event_settlement_id, excluded_from_partner_settlement, transaction_id, account_categories(code, name)")
         .in("event_id", allEventIds)
         .eq("is_overhead", true).is("version_id", null));
       if (error) throw error;
@@ -146,7 +146,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, amount, iva_rate, category_id, description, is_transitory, exclude_from_result, event_settlement_id, account_categories(ebitda_class)")
+        .select("id, event_id, type, amount, iva_rate, category_id, description, is_transitory, exclude_from_result, event_settlement_id, excluded_from_partner_settlement, transaction_id, account_categories(ebitda_class)")
         .in("event_id", allEventIds)
         .eq("type", "expense")
         .eq("status", "approved")
@@ -163,7 +163,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, amount, iva_rate, category_id, description, is_transitory, exclude_from_result, event_settlement_id, account_categories(code, name)")
+        .select("id, event_id, type, amount, iva_rate, category_id, description, is_transitory, exclude_from_result, event_settlement_id, excluded_from_partner_settlement, transaction_id, account_categories(code, name)")
         .in("event_id", allEventIds)
         .eq("type", "income")
         .eq("status", "approved")
@@ -256,8 +256,8 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
     // #339 B — fatias da receita repartida do Master (só numa cidade vista sem o Master).
     incomeForecasts: [...incomeForecasts, ...(revenueBasis?.masterRevenue?.forecastSlices ?? [])],
   });
-  const revenueNet = fechoRevenue.revenueNet;
-  const revenueGross = fechoRevenue.revenueGross;
+  const revenueNet = fechoRevenue.eventRevenueNet;
+  const revenueGross = fechoRevenue.eventRevenueGross;
 
   // Base da despesa conforme seletor: realizado (transações) ou previsto + excedido.
   const expenseSourceLines = basis.expenseSource === "committed"
@@ -275,7 +275,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
   const revenue = basis.withVat ? revenueGross : revenueNet;
   // BASE CONTRATUAL do apuramento dos sócios: segue SEMPRE `events.partner_calc_basis`.
   // O seletor é uma vista e NUNCA pode mudar o que se apura a cada sócio.
-  const revenueForSettlement = calcBasis === "gross_revenue" ? revenueGross : revenueNet;
+  const revenueForSettlement = calcBasis === "gross_revenue" ? fechoRevenue.revenueGross : fechoRevenue.revenueNet;
   const expensesOp = (useGrossExpenses ? expenseGross : expenseNet) + outsideBp;
   const resultWithoutOverhead = revenue - expensesOp;
 

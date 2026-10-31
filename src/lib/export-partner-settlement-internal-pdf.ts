@@ -182,6 +182,11 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
       fontSize: 8.6,
     });
 
+    if (ov.houseOnlyRevenue) {
+      subTitle("Receitas só da MP (fora do acerto)");
+      smallTable({ head: ["Receita", "Valor s/IVA"], body: (ov.houseOnlyLines ?? []).map(l => [l.description, money(l.net)]), foot: [["TOTAL", money(ov.houseOnlyRevenue)]], widths: [width - 45, 45] });
+    }
+
     subTitle("O que cada sócio leva de facto");
     const ovShares = reconcileDisplayValues(ov.partners.map((p) => p.realShare), ov.distributedTotal);
     smallTable({
@@ -455,6 +460,7 @@ export function exportPartnerSettlementInternalPdf(input: InternalReportInput): 
     body.push(["Posição real", money(h.positionReal)]);
     body.push(["Quota nominal", money(h.nominalShare)]);
     body.push(["IVA dedutível retido", money(h.ivaDeductibleGain)]);
+    if (input.overview?.houseOnlyRevenue) body.push(["Receitas só da MP (fora do acerto)", money(input.overview.houseOnlyRevenue)]);
     if (Math.abs(h.vatNonRecoverableCost) > 0.004) {
       body.push(["IVA não recuperável (custo, fora da devolução)", money(-Math.abs(h.vatNonRecoverableCost))]);
       for (const l of h.vatNonRecoverableLines) body.push([`      ${l.label}`, money(l.vat)]);

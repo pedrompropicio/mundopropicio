@@ -1,3 +1,4 @@
+import { computeSettlementRevenue } from "@/lib/settlement-revenue";
 import { calcTotalWithIva } from "@/lib/iva";
 import { splitPartnerExtrasByKind, type PartnerExtraItem } from "@/lib/partner-extras";
 import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
@@ -40,9 +41,14 @@ export interface SettlementReportTransaction {
   status?: string | null;
   is_transitory?: boolean | null;
   exclude_from_result?: boolean | null;
+  excluded_from_partner_settlement?: boolean;
+  account_categories?: { code?: string | null };
 }
 
 export interface SettlementReportForecast {
+  id?: string;
+  type?: string;
+  excluded_from_partner_settlement?: boolean;
   event_id: string;
   amount: number | string;
   status?: string | null;
@@ -168,7 +174,9 @@ export function buildPartnerSettlementReportData(input: {
     // (#292) Agregado de família: só as originais (as fatias são a mesma despesa).
     const totalOverhead = overheadLinesFor(overheads, "originals").reduce((sum: number, forecast: any) => sum + Number(forecast.amount || 0), 0);
 
-    const revenueBase = getPartnerRevenueBase(totalRevenueNet);
+    const markedRevenue = computeSettlementRevenue({ incomeTransactions, incomeForecasts: forecasts.filter(f => familyEventIds.has(f.event_id)), ticketSales: familyTicketSales });
+    const houseOnlyRevenue = markedRevenue.houseOnlyRevenueNet;
+    const revenueBase = getPartnerRevenueBase(houseOnlyRevenue ? markedRevenue.revenueNet : totalRevenueNet);
     const expenseBase = getPartnerExpenseBase(
       calcBasis,
       totalExpensesNet + totalOverhead,
@@ -296,7 +304,7 @@ export function buildPartnerSettlementReportData(input: {
         resultRepasseNow,
         equityContribution,
         operationalSettlement,
-        settlement: operationalSettlement + resultPendingByCash + row.transitoryCredit,
+        settlement: operationalSettlement + resultPendingByCash + row.transitoryCredit + (row.isHouse ? houseOnlyRevenue : 0),
       };
     });
   });

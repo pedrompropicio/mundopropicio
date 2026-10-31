@@ -66,3 +66,5 @@ Decisão do Pedro, 23/10/2026, aplicável a qualquer Issue e frente: todos os no
 - Ticket-office retained composition (statement position + open events + residual) lives only in decomposeTicketOfficeRetained; the office panel and the financial-position screen both call it, so the two views cannot drift.
 - P5c planning gross forecast lives only in `_shared/ticketing/planning-forecast.ts`, imported by the edge and scenario modal; legacy coverage JSON remains exact without active forecasts, preventing formula drift or default-mode financial changes.
 - Financial-position concurrent loaders use named `loadPositionReads` slots with fixture assembly regression coverage; positional loader swaps must not recur.
+
+- Partner-only revenue exclusion is partitioned by the shared settlement revenue engine, preserving real-bucket presence and the event anchor; all allocation consumers must use that partition to avoid BP refill and residual drift.

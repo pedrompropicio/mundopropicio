@@ -22,7 +22,7 @@
  * `PartnerSettlementTab`, `EventFecho`.
  */
 import { calcTotalWithIva } from "./iva.ts";
-import { isBilheteiraCategoryCode } from "./fecho-filters.ts";
+import { isBilheteiraCategoryCode, isExcludedFromPartnerSettlement } from "./fecho-filters.ts";
 import { REVENUE_SPLIT_MODE_LABEL, type RevenueSplitMode } from "./master-revenue-proration.ts";
 
 /** #339 B2b — origem da linha; fatias da receita do Master levam "via Master (% · modo)". */
@@ -53,6 +53,10 @@ export function classifyIncomeBucket(code?: string | null): RevenueBucketKey {
 }
 
 export interface SettlementRevenueLine {
+  id?: string;
+  event_id?: string | null;
+  category_id?: string | null;
+  categoryCode?: string | null;
   kind: "ticket" | "tx" | "bp";
   bucket: RevenueBucketKey;
   /** Nome da rubrica (vazio nas linhas de bilheteira — quem chama rotula). */
@@ -77,6 +81,11 @@ export interface SettlementRevenueInput {
 export interface SettlementRevenueResult {
   revenueNet: number;
   revenueGross: number;
+  /** Full event revenue, before the partner-only exclusion. */
+  eventRevenueNet: number;
+  eventRevenueGross: number;
+  houseOnlyRevenueNet: number;
+  houseOnlyLines: SettlementRevenueLine[];
   buckets: Record<RevenueBucketKey, { net: number; gross: number; source: "real" | "bp" }>;
   /** Linhas que compõem o total (documento do sócio). */
   lines: SettlementRevenueLine[];
@@ -117,6 +126,9 @@ export function computeSettlementRevenue(input: SettlementRevenueInput): Settlem
 
   const buckets = emptyBuckets();
   const lines: SettlementRevenueLine[] = [];
+  const houseOnlyLines: SettlementRevenueLine[] = [];
+  const markedTxIds = new Set(incomeTx.filter(isExcludedFromPartnerSettlement).map(t => t.id));
+  const excludedForecast = (f: any) => isExcludedFromPartnerSettlement(f) || markedTxIds.has(f.transaction_id);
 
   // ── Real ────────────────────────────────────────────────────────────────
   const excludedTicketingTx: any[] = [];
@@ -132,7 +144,7 @@ export function computeSettlementRevenue(input: SettlementRevenueInput): Settlem
       continue;
     }
     realTxByBucket[bucket].push(t);
-    incomeTxUsed.push(t);
+    if (!isExcludedFromPartnerSettlement(t)) incomeTxUsed.push(t);
   }
 
   if (hasTicketSales) {
@@ -154,10 +166,11 @@ export function computeSettlementRevenue(input: SettlementRevenueInput): Settlem
     if (!rows.length) continue;
     for (const t of rows) {
       const net = Number(t.amount || 0);
-      buckets[bucket].net += net;
-      buckets[bucket].gross += calcTotalWithIva(net, Number(t.iva_rate || 0));
+      if (!isExcludedFromPartnerSettlement(t)) buckets[bucket].net += net;
+      if (!isExcludedFromPartnerSettlement(t)) buckets[bucket].gross += calcTotalWithIva(net, Number(t.iva_rate || 0));
       buckets[bucket].source = "real";
-      lines.push({
+      (isExcludedFromPartnerSettlement(t) ? houseOnlyLines : lines).push({
+        id: t.id, event_id: t.event_id ?? null, category_id: t.category_id ?? null, categoryCode: t.account_categories?.code ?? null,
         kind: "tx",
         bucket,
         origin: revenueOrigin(t, "Outras receitas"),
@@ -183,12 +196,13 @@ export function computeSettlementRevenue(input: SettlementRevenueInput): Settlem
     const bucket = classifyIncomeBucket(f?.account_categories?.code);
     if (bucketHasReal[bucket]) continue;
     const net = Number(f.amount || 0);
-    buckets[bucket].net += net;
-    buckets[bucket].gross += calcTotalWithIva(net, Number(f.iva_rate || 0));
+    if (!excludedForecast(f)) buckets[bucket].net += net;
+    if (!excludedForecast(f)) buckets[bucket].gross += calcTotalWithIva(net, Number(f.iva_rate || 0));
     buckets[bucket].source = "bp";
     if (!bpBucketsUsed.includes(bucket)) bpBucketsUsed.push(bucket);
-    bpLinesUsed.push(f);
-    lines.push({
+    if (!excludedForecast(f)) bpLinesUsed.push(f);
+    (excludedForecast(f) ? houseOnlyLines : lines).push({
+      id: f.id, event_id: f.event_id ?? null, category_id: f.category_id ?? null, categoryCode: f.account_categories?.code ?? null,
       kind: "bp",
       bucket,
       origin: revenueOrigin(f, "Receita prevista"),
@@ -202,7 +216,12 @@ export function computeSettlementRevenue(input: SettlementRevenueInput): Settlem
   const revenueNet = REVENUE_BUCKET_KEYS.reduce((s, b) => s + buckets[b].net, 0);
   const revenueGross = REVENUE_BUCKET_KEYS.reduce((s, b) => s + buckets[b].gross, 0);
 
+  const houseOnlyRevenueNet = houseOnlyLines.reduce((sum, l) => sum + l.net, 0);
+  const houseOnlyGross = houseOnlyLines.reduce((sum, l) => sum + l.gross, 0);
   return {
+    houseOnlyRevenueNet, houseOnlyLines,
+    eventRevenueNet: revenueNet + houseOnlyRevenueNet,
+    eventRevenueGross: revenueGross + houseOnlyGross,
     revenueNet,
     revenueGross,
     buckets,

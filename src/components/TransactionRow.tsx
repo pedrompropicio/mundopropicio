@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, useRef } from "react";
 import { mustWrite } from "@/lib/must-write";
 import { isPartnerContractTx, PARTNER_CONTRACT_TX_HINT } from "@/lib/partner-contracts";
@@ -551,6 +552,7 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                     📄 {invoiceRef}
                   </span>
                 )}
+                {t.excluded_from_partner_settlement && t.type === "income" && <Badge variant="outline">Só MP</Badge>}
                 {isLocalReinforcement && <LocalReinforcementBadge />}
                 <ReimbursementNoteRefBadge transactionId={t.id} />
                 <AccountantReviewRowBadge transactionId={t.id} />
