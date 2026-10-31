@@ -1,14 +1,14 @@
 # ESTADO — Plataforma & Infra
 
-## #352 — release 9 em preparação; CI e decisão do antecedente pendentes
+## #352 — release 9: alterações autorizadas reunidas; CI final em curso
 
-31/10/2026. **R2; executor Frente 2/Codex, mesma reserva.** Sim de preparação [6542610033](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6542610033): ligação directa com IPv4 dedicado no destino atual. Código e dossier registados no replay privado; alvo e CA conferidos pela documentação oficial. SQL, D2, captura, transporte e regras preservados; sétimo consumo revogado documentado. **65 testes locais PASS; CI integral 15/100 ms em curso, não declarado verde.**
+31/10/2026. **R2; executor Frente 2/Codex, mesma reserva.** A preparação aprovada em [6542610033](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6542610033) passa a incluir as duas alterações expressamente autorizadas em [6542904396](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6542904396): limpeza apenas do whitespace final da credencial, registada só com booleano, e encerramento do antecedente verde exato dentro da sétima revogação. **Mantêm-se sete exceções; 80 testes locais PASS; CI final 15/100 ms em curso, não declarado verde.**
 
-**Bloqueios de prontidão:** o histórico ainda inclui a sonda verde da release anterior, que não está nas sete exceções revogadas. O executor preservou a recusa e preparou no dossier privado uma proposta de encerramento exato dessa cadeia; falta decisão explícita do 0/Pedro. O resumo consta em [6542656408](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6542656408). A captura atual termina a validade antes da janela prevista de execução após o CI; o 0 fará a recaptura necessária. O pacote já permite atualização só do envelope/janela com prova de igualdade integral, sem inventar medições.
+O bloqueio histórico foi resolvido pela autorização explícita e pela validação estrita da cadeia. A sonda antiga não substitui a nova: continuam obrigatórios Sim próprio para a sonda, B posterior e Sim separado da aplicação. Erro de ligação recusada é não-auth e termina sem retry; D2, SQL, transporte e captura preservados. A documentação oficial de verify-full/CA está no dossier; o certificado servido pelo alvo será verificado pela própria sonda autorizada.
 
-**Próximo passo:** rever a proposta do antecedente, concluir os dois ensaios e conferir os artefactos; materializar a recaptura autorizada, atualizar hashes e obter os novos Sims separados. A sonda anterior e a B anterior não autorizam a R9; B nova deve ser posterior à sonda nova. Minutas, valores inertes, hashes, predicados e procedimento ficam exclusivamente no dossier privado.
+**Próximo passo:** concluir os dois ensaios e conferir os artefactos; materializar a recaptura do 0 para a janela prevista, regenerar hashes se mudar o envelope e obter os novos Sims separados. Minutas, valores inertes, hashes e procedimento foram atualizados no dossier privado para o candidato final.
 
-Nenhuma ligação ao destino ou Live, leitura/escrita de variáveis/secrets reais, instalação operacional em main, dispatch, G4/G5, deploy ou Publish por esta preparação. Reserva mantida enquanto esta etapa está em curso. #329: agente livre e HEAD público recebido pelo Lovable confirmados antes desta atualização documental; skip ci. Histórico técnico das releases anteriores fica na Issue e no replay privado.
+Nenhuma ligação ao destino ou Live, leitura/escrita de variáveis/secrets reais, instalação operacional em main, dispatch, G4/G5, deploy ou Publish por esta preparação. Reserva mantida. #329: agente livre e receção do HEAD público pelo Lovable confirmados antes da atualização documental; skip ci.
 
 ## #352 — G3 histórico VERDE (validação manual de 27/10/2026)
 
