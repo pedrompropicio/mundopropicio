@@ -45,6 +45,10 @@ describe("#404 (a) SM: receita da MP fora do acerto, dentro do resultado", () =>
     expect(after.house.houseOnlyRevenue).toBe(9479.62);
     expect(after.c1.value).toBe(0);
     expect(after.c2.value).toBe(0);
+    const doc = buildPartnerStatement(sm(true), supplier);
+    if (!doc) throw new Error("Documento ausente");
+    expect(doc.cards.revenueNet).toBe(448531.51);
+    expect(doc.cards.result).toBe(-35140.29);
   });
 });
 
@@ -88,4 +92,12 @@ it("#404: BP marcada sem real mantém o resultado, não a base do sócio", () =>
   expect(revenue.revenueNet).toBe(0);
   expect(revenue.eventRevenueNet).toBe(70);
   expect(revenue.houseOnlyLines[0].id).toBe("bp");
+});
+
+it("#404: filhos não recebem quota da receita só da MP", () => {
+  const bundle = sm(true);
+  bundle.settlements.push({ id: "child", name: "Filho", parent_id: node, parent_share_pct: 20, parent_share_basis: "net_result_gross_expenses" });
+  const result = computeStatementEngine(bundle);
+  expect(result.nodes.find(n => n.id === "child")?.parentQuota).toBe(-8923.98);
+  expect(result.eventNetResult).toBe(4243.28);
 });
