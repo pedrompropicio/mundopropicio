@@ -1,14 +1,17 @@
 # ESTADO — Plataforma & Infra
 
-## #352 — release 9: alterações autorizadas reunidas; CI final em curso
+## #352 — R10: homologação gerida C5–C7 VERDE e contida (31/10/2026)
 
-31/10/2026. **R2; executor Frente 2/Codex, mesma reserva.** A preparação aprovada em [6542610033](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6542610033) passa a incluir as duas alterações expressamente autorizadas em [6542904396](https://github.com/pedrompropicio/mundopropicio/issues/352#issuecomment-6542904396): limpeza apenas do whitespace final da credencial, registada só com booleano, e encerramento do antecedente verde exato dentro da sétima revogação. **Mantêm-se sete exceções; 80 testes locais PASS; CI final 15/100 ms em curso, não declarado verde.**
+**R2.** Executor da R10: Frente 2/Codex (código) e 0 · Cowork (operação). Reserva R9/R10 libertada.
 
-O bloqueio histórico foi resolvido pela autorização explícita e pela validação estrita da cadeia. A sonda antiga não substitui a nova: continuam obrigatórios Sim próprio para a sonda, B posterior e Sim separado da aplicação. Erro de ligação recusada é não-auth e termina sem retry; D2, SQL, transporte e captura preservados. A documentação oficial de verify-full/CA está no dossier; o certificado servido pelo alvo será verificado pela própria sonda autorizada.
+- A R9 (run 41225173682) aplicou C1–C4 no mp-homolog-3 e parou na C5. Havia 7 objetos de plataforma no destino desde o C1: 4 índices auth.* e 3 memberships realtime, ausentes no Live e sem referência no SQL efetivo.
+- A R10 (e9b7737) acrescentou a classe fechada platform_preexisting_at_C1, só com esses 7 objetos por hash, e o modo continue-C5. Não reaplica C1–C4, não faz reset e exige igualdade com a C4 nas 25 categorias. CI rápido 41232222895 verde; CI pesado 41198333256 herdado.
+- Sonda 41234079326: verde (Sim 6547896292).
+- Continuação 41235196764: verde (Sim 6548133420). C5 com igualdade C4; 13 scripts C6; C7; G2 verde (0 categorias e 0 objetos bloqueantes; ledger drizzle 296 / supabase 711 coberto); 1 sessão; TLS 1.3 com verify-full; sem reconexão.
+- Contenção: READY e secret removidos; password rodada pelo Pedro; 0 clientes às 19:46:33Z; pgrst.db_schemas=public, crm. Registo: 6548298627.
+- Desvio 0295 (chat 10): a função sync_partner_aporte_mirror mudou em Live às 19:50:17Z, depois da homologação. Drizzle passou a 297. Fica mantida (6548377740). O backfill das 59 descrições fica parado.
 
-**Próximo passo:** concluir os dois ensaios e conferir os artefactos; materializar a recaptura do 0 para a janela prevista, regenerar hashes se mudar o envelope e obter os novos Sims separados. Minutas, valores inertes, hashes e procedimento foram atualizados no dossier privado para o candidato final.
-
-Nenhuma ligação ao destino ou Live, leitura/escrita de variáveis/secrets reais, instalação operacional em main, dispatch, G4/G5, deploy ou Publish por esta preparação. Reserva mantida. #329: agente livre e receção do HEAD público pelo Lovable confirmados antes da atualização documental; skip ci.
+**Falta, cada passo com Sim próprio:** aplicar a 0295 no mp-homolog-3 e verificar contra Live (função e ledger 297); aceitação final da homologação (`final_acceptance=false` até lá); depois G4/G5 e a migração para Live. Live congelado para todos os chats até à aceitação.
 
 ## #352 — G3 histórico VERDE (validação manual de 27/10/2026)
 
