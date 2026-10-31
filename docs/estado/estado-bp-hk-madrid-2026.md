@@ -10,6 +10,10 @@
 - `budget_mode` nulo no evento → herda o da empresa, `with_bp`.
 - Origem: `SELECT … FROM events WHERE id = 'bf9ce2d8-…'`, 28/10/2026.
 
+## Quem mexe neste BP
+
+A **Juliana** (`producao@mundopropicio.com`) mantém este BP directamente no ecrã. Alterações de linhas entre sessões sem rasto neste ficheiro são normalmente dela e não são defeito — confirmar com ela antes de abrir Issue ou investigar divergências (Pedro, 31/10/2026).
+
 ## Onde estamos
 
 **BP de referência decidido pelo Pedro (28/10/2026):** a versão "BP Equipe Completa" + "BP sessões extras" da folha do Pedro (Google Sheets, partilha restrita). Ajustes decididos sobre essa versão:
@@ -30,7 +34,7 @@
 - Despesas aprovadas sem linha do BP: Digital 8.061,96 € (liga à linha 3.2.01 "Mídia online") e 2.ª metade do teatro 154.275,00 € (liga à linha existente "Aluguel do Teatro"). Pedido ao 6 no QUADRO.
 - Bilheteira (linha sintética 1.1.01): previsto original fixado em 17.105,22 € a 08/09; 39 zonas / 34.827 lugares; vendido real 301.944,25 € bruto / 274.494,77 € líquido (5.443 bilhetes, IVA 10% do lote) — `SELECT` de 28/10/2026.
 
-**Aviso medido a 31/10 19:58 UTC:** entre 28/10 e 31/10 o BP perdeu a linha 2.2.02 da hospedagem da equipa H&K sem que este chat a tivesse apagado; a 28/10 eram 41 linhas / 1.258.265,73 € e a 31/10, antes do lançamento, 44 linhas / 1.248.490,16 €. A linha foi recriada (ver abaixo); a causa das restantes diferenças não foi investigada.
+**Movimento do BP entre 28/10 e 31/10:** a 28/10, depois do lançamento das 23 linhas, eram 41 linhas de despesa / 1.258.265,73 €; a 31/10, antes do lançamento das despesas da H&K, eram 44 linhas / 1.248.490,16 €, e a linha 2.2.02 da hospedagem da equipa H&K já não existia. Não foi este chat. Atribuído à Juliana, que mantém o BP (ver acima); não se investigou mais e não há Issue aberta. A linha foi recriada no lançamento de 31/10.
 
 ## Despesas pagas pela H&K no Brasil — lançado a 31/10/2026
 
@@ -74,7 +78,6 @@ A 31/10 este chat substituiu em Live a função `sync_partner_aporte_mirror` par
 - **#409** — marcar pagas as duas despesas da H&K de 05/11 e 12/11, com a taxa real do dia. R2.
 - **#410** — inventário dos automatismos de entrada de dados. R0, pode correr a qualquer momento.
 - Entrada **D-ERP339** no `docs/DECISIONS.md` e linha da reserva no `docs/QUADRO.md`: os dois ficheiros são grandes demais para o conector (771.125 e 187.286 caracteres); textos entregues ao 0 a 31/10 para a Frente 2 editar por git. **A reserva mantém-se:** a demanda não fechou.
-- Por explicar: a alteração do BP entre 28/10 e 31/10 (ver "Aviso medido" acima). Sem Issue aberta.
 
 ## Pedidos registados no QUADRO
 
