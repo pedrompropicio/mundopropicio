@@ -13,6 +13,8 @@
 
 **Falta, cada passo com Sim próprio:** aplicar a 0295 no mp-homolog-3 e verificar contra Live (função e ledger 297); aceitação final da homologação (`final_acceptance=false` até lá); depois G4/G5 e a migração para Live. Live congelado para todos os chats até à aceitação.
 
+**31/10/2026 — ACEITE (D-ERP343).** Delta 0295 aplicado no mp-homolog-3 e igual a Live. Fluxo de promoção em vigor. Seguem G4/G5 e a passagem para a base nova.
+
 ## #352 — G3 histórico VERDE (validação manual de 27/10/2026)
 
 **Resultado do G3 (6454775348, confirmado pelo revisor 0).** A execução manual autorizada terminou com sucesso a 27/10/2026, às 22:03 UTC: run 40590761911 no repositório privado `mundopropicio-replay`. Correu o pacote `g3-validation-current-catalogue.zip`, com SHA-256 `c316fc12…`: 43 ficheiros, todos conferidos contra os blobs publicados, sem SQL novo nem cópias dos inputs históricos.
