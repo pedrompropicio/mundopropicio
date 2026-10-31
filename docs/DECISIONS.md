@@ -6525,3 +6525,14 @@ Origem: [este comentário na #352](https://github.com/pedrompropicio/mundopropic
 **Decisão do Pedro («SIM ACEITAÇÃO #352»).** A homologação #352 está aceite: G2 verde na R10 (run 41235196764) e delta 0295 igual no mp-homolog-3 e em Live. A partir de 31/10/2026, toda a mudança estrutural vai primeiro ao mp-homolog-3, é conferida contra Live por SELECT e só depois vai a Live, com Sim do Pedro e verificação. Os dados seguem as regras R2 normais. Termina o congelamento das D-ERP341/342. G4/G5 e a passagem para a base nova são demandas próprias.
 
 Origem: [aceitação na #352](https://github.com/pedrompropicio/mundopropicio/issues/352).
+
+### D-ERP344 — Modelo de desenvolvimento: agente Lovable em `lovable/dev`, `main` protegido por CI (31/10/2026)
+
+**Decisão do Pedro (opção A, «SIM» a 31/10/2026).** O projeto ERP no Lovable trabalha no ramo `lovable/dev` (criado a partir de `1068ffa`). O `main` passa a estar protegido pela regra do GitHub «main protegido (D-ERP343)»: nada entra no `main` sem PR e sem o CI `quality` verde; o `main` não pode ser apagado nem reescrito à força; sem lista de exceções, nem para a conta do Pedro; 0 aprovações exigidas.
+
+- Tarefas ao agente Lovable caem em `lovable/dev`. Commits directos no `main` (incluindo R0 pelo conector GitHub) são recusados: documentação vai por ramo + PR ou por tarefa ao agente.
+- Antes de cada janela de Publish, o 0 · Cowork junta `lovable/dev` ao `main` por PR com CI verde (merge commit), muda o Lovable para `main` com o agente parado, publica, confirma em `/version.json` que o commit publicado é o HEAD do `main`, e volta a pôr o Lovable em `lovable/dev`. Que ramo o Publish usa quando o projeto está noutro ramo não está documentado pelo Lovable; confirma-se na primeira janela.
+- Estrutura da base continua só pelo PROC-promocao (D-ERP343): o ramo protege o código, não a base.
+- Prova: PR #411 (regenerar `.lovable/memory/index.md`, CI vermelho desde 1456ff5) caiu em `lovable/dev`, CI verde, merge `f6468322` no `main`.
+
+Origem: 0 · Cowork (Claude), 31/10/2026.

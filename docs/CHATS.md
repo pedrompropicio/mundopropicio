@@ -61,6 +61,8 @@ Toda a Issue nova leva `**Frente dona:**` e `**Executor atual:**` no corpo; o pa
 
 **Tarefas programadas não são chats.**
 
+- **Ramos (D-ERP344, 31/10/2026).** ERP: agente Lovable em `lovable/dev`; `main` protegido (PR + CI verde). Nenhum chat escreve directo no `main`. Quem precisar de ver no `main` o que pediu ao agente espera pelo PR que o 0 · Cowork junta antes da janela de Publish.
+
 ## Proibições
 
 - Não existem chats genéricos.

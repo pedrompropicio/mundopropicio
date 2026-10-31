@@ -1,5 +1,9 @@
 # ESTADO — Plataforma & Infra
 
+## Modelo de desenvolvimento — `lovable/dev` + `main` protegido (D-ERP344, 31/10/2026)
+
+ERP no Lovable em `lovable/dev`. Regra «main protegido (D-ERP343)» activa: PR + CI `quality` verde, sem force push nem apagar, sem exceções. Primeiro PR #411 junto (merge `f6468322`); CI do `main` verde outra vez. Publish: PR `lovable/dev`→`main`, Lovable em `main`, Publish, `/version.json`, volta a `lovable/dev` (comportamento do Publish noutro ramo por confirmar na primeira janela). Por fazer: o mesmo modelo nos projetos Portal/CRM, Newgang e Coala, se o Pedro decidir.
+
 ## #352 — R10: homologação gerida C5–C7 VERDE e contida (31/10/2026)
 
 **R2.** Executor da R10: Frente 2/Codex (código) e 0 · Cowork (operação). Reserva R9/R10 libertada.
