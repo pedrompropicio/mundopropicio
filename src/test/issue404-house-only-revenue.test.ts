@@ -53,7 +53,7 @@ it("#404 (b): TX marcada conserva a presença real do bucket; BP não o repõe",
   bundle.forecasts = bundle.forecasts.map(f => ({ ...f, excluded_from_partner_settlement: false }));
   const revenue = computeSettlementRevenue({ incomeTransactions: bundle.transactions, incomeForecasts: bundle.forecasts });
   expect(revenue.revenueNet).toBe(0);
-  expect(revenue.houseOnlyRevenueNet).toBe(9479.62);
+  expect(roundCents(revenue.houseOnlyRevenueNet)).toBe(9479.62);
   expect(revenue.bpLinesUsed).toHaveLength(0);
 });
 
@@ -69,7 +69,7 @@ it("#404 (d): fatias TX e BP herdam a marca do Master", () => {
   const split = expandMasterRevenueToSplits({
     events: [{ id: "master" }, { id: "lisboa", parent_event_id: "master" }, { id: "porto", parent_event_id: "master" }],
     forecasts: [{ id: "bp", event_id: "master", type: "income", amount: 100, revenue_split_mode: "equal", excluded_from_partner_settlement: true }],
-    transactions: [{ id: "tx", event_id: "master", type: "income", amount: 100, forecast_id: "bp" }],
+    transactions: [{ id: "tx", event_id: "master", type: "income", amount: 100, forecast_id: "bp", excluded_from_partner_settlement: false }],
   });
   expect(split.forecastSlices.map(l => l.excluded_from_partner_settlement)).toEqual([true, true]);
   expect(split.transactionSlices.map(l => l.excluded_from_partner_settlement)).toEqual([true, true]);

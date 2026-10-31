@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { masterFormulaShares } from "@/lib/master-formula";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
