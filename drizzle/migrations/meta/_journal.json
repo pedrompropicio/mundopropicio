@@ -2066,6 +2066,13 @@
       "when": 1793218310857,
       "tag": "0294_derp332_storage_path_belongs_to_current_company",
       "breakpoints": true
+    },
+    {
+      "idx": 295,
+      "version": "7",
+      "when": 1793476217968,
+      "tag": "0295_partner_aporte_mirror_descricao_sem_prefixo",
+      "breakpoints": true
     }
   ]
 }
