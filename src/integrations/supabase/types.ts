@@ -10646,6 +10646,7 @@ export type Database = {
           event_id: string
           event_settlement_id: string | null
           exclude_from_result: boolean
+          excluded_from_partner_settlement: boolean
           formalidade: Database["public"]["Enums"]["bp_formalidade"]
           formalidade_changed_at: string | null
           formalidade_changed_by: string | null
@@ -10693,6 +10694,7 @@ export type Database = {
           event_id: string
           event_settlement_id?: string | null
           exclude_from_result?: boolean
+          excluded_from_partner_settlement?: boolean
           formalidade?: Database["public"]["Enums"]["bp_formalidade"]
           formalidade_changed_at?: string | null
           formalidade_changed_by?: string | null
@@ -10740,6 +10742,7 @@ export type Database = {
           event_id?: string
           event_settlement_id?: string | null
           exclude_from_result?: boolean
+          excluded_from_partner_settlement?: boolean
           formalidade?: Database["public"]["Enums"]["bp_formalidade"]
           formalidade_changed_at?: string | null
           formalidade_changed_by?: string | null
@@ -20692,6 +20695,7 @@ export type Database = {
           event_id: string | null
           event_settlement_id: string | null
           exclude_from_result: boolean
+          excluded_from_partner_settlement: boolean
           forecast_id: string | null
           fx_rate: number | null
           fx_rate_source: string | null
@@ -20760,6 +20764,7 @@ export type Database = {
           event_id?: string | null
           event_settlement_id?: string | null
           exclude_from_result?: boolean
+          excluded_from_partner_settlement?: boolean
           forecast_id?: string | null
           fx_rate?: number | null
           fx_rate_source?: string | null
@@ -20828,6 +20833,7 @@ export type Database = {
           event_id?: string | null
           event_settlement_id?: string | null
           exclude_from_result?: boolean
+          excluded_from_partner_settlement?: boolean
           forecast_id?: string | null
           fx_rate?: number | null
           fx_rate_source?: string | null
@@ -27182,6 +27188,7 @@ export type Database = {
           event_id: string
           event_settlement_id: string | null
           exclude_from_result: boolean
+          excluded_from_partner_settlement: boolean
           formalidade: Database["public"]["Enums"]["bp_formalidade"]
           formalidade_changed_at: string | null
           formalidade_changed_by: string | null
@@ -27271,6 +27278,7 @@ export type Database = {
           event_id: string
           event_settlement_id: string | null
           exclude_from_result: boolean
+          excluded_from_partner_settlement: boolean
           formalidade: Database["public"]["Enums"]["bp_formalidade"]
           formalidade_changed_at: string | null
           formalidade_changed_by: string | null
