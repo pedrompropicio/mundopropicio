@@ -33,6 +33,12 @@ Fotografia na base em 28/10/2026, **depois do lançamento do chat 10** (consulta
 - Bilheteira (linha sintética 1.1.01): previsto original fixado em 17.105,22 € a 08/09; 39 zonas / 34.827 lugares; vendido real 301.944,25 € bruto / 274.494,77 € líquido (5.443 bilhetes, IVA 10% do lote) a 28/10.
 - Origem: `event_forecasts`, `transactions` (paid/approved, `forecast_id`), `events`, `event_ticket_zones`, `event_ticket_lots`, `ticket_sales`, `event_simulator_config`, 28/10/2026.
 
+## Despesas pagas pela H&K no Brasil (31/10/2026)
+
+- Relatório Controlle da Ilusion (tag iNVESTIMENTO_MADRID2027, 59 lançamentos, gerado a 23/10) cruzado com a base: os lançamentos de passagens da equipa, consórcio, plano de saúde, tráfego e viagens pagos por conta da MP já estão (despesa + aporte ou só aporte); 38 lançamentos de produção da H&K não estavam.
+- Decisão do Pedro (31/10): lançar todos, incluindo os que parecem pessoais — são custos do evento. Recriar a linha de hospedagem da equipa H&K (apagada depois de 28/10), subir a linha de transfer de material PT×ES e criar 8 linhas novas com o valor realizado. Pedido ao chat 10 no QUADRO; detalhe no Projeto do Claude (`claude/hk-madrid-despesas-pagas-hk-brasil-2026-10-31.md`).
+- Catering: lançado por sessão (8.850 €); a folha prevê por dia de espetáculo (31 dias → 1.550 €). Aguarda confirmação da equipa antes de corrigir.
+
 ## Dúvidas em aberto (do Pedro)
 
 1. Linha "IVA Real" da folha de referência: o que é.
