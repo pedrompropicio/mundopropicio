@@ -21,7 +21,7 @@
  */
 import { calcIvaAmount, calcTotalWithIva, roundCents } from "./iva.ts";
 import { HOUSE_PARTNER_NAME } from "./house.ts";
-import { isValidFechoTransaction, withoutIncomeTax } from "./fecho-filters.ts";
+import { isValidFechoTransaction, isExcludedFromPartnerSettlement, withoutIncomeTax } from "./fecho-filters.ts";
 import {
   getPartnerRevenueBase,
   ignoresOperationalExpenses,
@@ -142,7 +142,7 @@ export async function loadStatementBundle(
       fetchAllPagedQuery(client
         .from("transactions")
         .select(
-          "id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, event_settlement_id, held_by_supplier_id, account_id, account_categories(id, name, code, parent_id, ebitda_class)",
+          "id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, event_settlement_id, excluded_from_partner_settlement, held_by_supplier_id, account_id, account_categories(id, name, code, parent_id, ebitda_class)",
         )
         .in("event_id", allEventIds)).then((r: any) => ({ ...r, data: withoutIncomeTax(r.data) })),
     ),
@@ -150,7 +150,7 @@ export async function loadStatementBundle(
       fetchAllPagedQuery(client
         .from("event_forecasts")
         .select(
-          "id, event_id, description, type, amount, formula_type, formula_params, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, vat_non_recoverable, account_categories(name, code, ebitda_class)",
+          "id, event_id, description, type, amount, formula_type, formula_params, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, excluded_from_partner_settlement, addback_settlement_id, addback_reason, vat_non_recoverable, account_categories(name, code, ebitda_class)",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")
@@ -447,7 +447,7 @@ export function computeStatementEngine(bundle: StatementBundle): EngineResult {
   const revenueBpIds = new Set((totals.revenueBpLinesUsed ?? []).map((f: any) => f.id));
   const markedLines = [
     ...transactions
-      .filter((t: any) => t.event_settlement_id && isValidFechoTransaction(t))
+      .filter((t: any) => t.event_settlement_id && isValidFechoTransaction(t) && !isExcludedFromPartnerSettlement(t))
       .filter((t: any) => t.type === "income" || expenseKind === "tx")
       .map((t: any) => ({
         event_settlement_id: t.event_settlement_id,
@@ -536,6 +536,7 @@ export function computeStatementEngine(bundle: StatementBundle): EngineResult {
     eventBasis: calcBasis as any,
     eventTotals: {
       revenueNet: totals.revenueNet,
+      houseOnlyRevenueNet: totals.houseOnlyRevenueNet,
       expensesNet: totals.expensesNet,
       expensesGross: totals.expensesGross,
     },

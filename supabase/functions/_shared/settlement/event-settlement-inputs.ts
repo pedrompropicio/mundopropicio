@@ -36,6 +36,9 @@ export interface SettlementTotalsInput {
 export interface SettlementTotals {
   revenueNet: number;
   revenueGross: number;
+  houseOnlyRevenueNet: number;
+  houseOnlyLines: import("./settlement-revenue.ts").SettlementRevenueLine[];
+  settlementRevenueNet: number;
   expensesNet: number;
   expensesGross: number;
   hasTicketSales: boolean;
@@ -78,7 +81,7 @@ export function computeEventSettlementTotals(input: SettlementTotalsInput): Sett
     incomeForecasts: forecasts as any[],
   });
   const hasTicketSales = revenue.hasTicketSales;
-  const revenueNet = revenue.revenueNet;
+  const revenueNet = revenue.eventRevenueNet;
 
   const operationalForecasts = (forecasts as any[]).filter(
     (f: any) =>
@@ -109,7 +112,10 @@ export function computeEventSettlementTotals(input: SettlementTotalsInput): Sett
 
   return {
     revenueNet,
-    revenueGross: revenue.revenueGross,
+    revenueGross: revenue.eventRevenueGross,
+    settlementRevenueNet: revenue.revenueNet,
+    houseOnlyRevenueNet: revenue.houseOnlyRevenueNet,
+    houseOnlyLines: revenue.houseOnlyLines,
     expensesNet: sumLines(expenseSourceLines, false) + overheadNet + outsideBpNet,
     expensesGross: sumLines(expenseSourceLines, true) + overheadGross + outsideBpGross,
     hasTicketSales,
