@@ -697,7 +697,6 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     ? [
         roundCents(cascade[0].baseValue - roundCents(revenueNet - expenseForResult)),
         ...cascade.map((lv, i) => roundCents(lv.baseValue - (i === 0 ? lv.baseValue : cascade[i - 1].quota))),
-        ...cascade.map((lv) => roundCents(lv.quota - roundCents(lv.baseValue - lv.deductions.reduce((s, d) => s + d.value, 0)))),
         roundCents(result - roundCents((cascadeQuota ?? 0) + extrasTotal)),
       ]
     : [roundCents(result - roundCents(revenueNet + extrasTotal - expenseForResult))];
