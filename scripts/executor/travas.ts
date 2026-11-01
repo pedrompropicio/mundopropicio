@@ -34,7 +34,7 @@ if (modo === "avaliar") {
     new Date(),
   );
   const out = env("GITHUB_OUTPUT");
-  appendFileSync(out, `ok=${decisao.ok}\nmerge_automatico=${decisao.mergeAutomatico}\n`);
+  appendFileSync(out, `ok=${decisao.ok}\nmerge_automatico=${decisao.mergeAutomatico}\nexecutor=${decisao.executor ?? ""}\n`);
   writeFileSync("tarefa.md", decisao.tarefa);
   writeFileSync("recusa.md", decisao.ok ? "" : textoRecusa(issue, decisao.motivos, env("RUN_URL")));
   console.log(decisao.ok ? "Travas: OK" : `Travas: RECUSADO\n- ${decisao.motivos.join("\n- ")}`);
