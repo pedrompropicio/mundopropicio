@@ -6552,3 +6552,16 @@ Origem: 0 · Cowork (Claude), 31/10/2026.
 - O painel de comando (mp-painel, E2b) grava Autorização, Reserva e Despacho num só passo, apenas para Claude Code, classe R1 e ambiente homolog. Codex e R2 continuam manuais.
 - Sincronização `main` → `lovable/dev`: por PR aberto e integrado pelo 0 · Cowork em cada janela de Publish (primeiro: PR #429, 01/11/2026). Sem workflow automático enquanto a cadência não o justificar.
 - Primeiro despacho real: #402 (PR #428, 01/11/2026).
+
+
+## D-ERP347 — Decisões de triagem do Lote #435 (01/11/2026, Pedro, no 0 · Cowork Claude; Issues #365, #245, #215, #80, #386, #318, #312, #262, #257)
+
+- #365 fechada: não se mexe nas audiências de anúncios por idade; a inscrição no Clube Newgang já exige data de nascimento, o que trata o tema na origem.
+- #245 fechada: não há regra contabilística a decidir sobre o IVA nos eventos com sócios brasileiros — está fechado como regra de negócio acordada com os sócios.
+- #215 fechada: fatura corrigida da DAKIA UMUSIC já pedida ao fornecedor. #80 fechada: artes do portal H&K Madrid já carregadas.
+- #386: conta corrente entre empresas fora de evento — por par de empresas, como transação própria, fora do evento. Implementação R2 (DDL) com Issue/migração própria.
+- #318: autorizada a criação de 2 utilizadores (teste dedicado da bateria do 11 e accountant). Execução R2 em Live com «Sim» na hora; credenciais só em segredos.
+- #312: encargos bancários inerentes a pagamentos de evento (em especial transferências para o Brasil) lançam-se como linha de BP por evento na rubrica 2.6.15, no momento do pagamento; rubrica replicada nas outras empresas (DML com «Corro?»).
+- #262: proração Master→cidades por 1/N universal; sem retroactividade em fechos já apresentados. Convergência do código é R2 com Issue própria.
+- #257: IVA não recuperável de faturas estrangeiras vai ao custo, com campo próprio `vat_non_recoverable` (DDL, R2); retroactivo só para 2026.
+- #281 sai do Lote A: implementação feita desde 10/10 (migração 0075); resta ao Pedro importar os extratos de abril a agosto e rever as 24 transações.
