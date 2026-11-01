@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { avaliarDespacho, caminhosProibidos, limiteDaValidade, type Comentario } from "@/lib/executor/travas";
+import { avaliarDespacho, caminhosProibidos, limiteDaValidade, mergeAutomaticoDe, type Comentario } from "@/lib/executor/travas";
 
 const PEDRO = "pedrompropicio";
 const agora = new Date("2026-11-02T10:00:00Z");
@@ -14,6 +14,7 @@ const autorizacao = (over: Partial<Record<string, string>> = {}) =>
     `- **Capacidades libertadas:** ${over.caps ?? "`codigo+testes` = sim · `DDL` = não · `DML` = não · `edge functions` = não · `crons` = não · `envios externos` = não · `Publish` = não"}`,
     `- **Ambiente:** ${over.ambiente ?? "homolog"}`,
     `- **Validade:** ${over.validade ?? "até 2026-11-03"}`,
+    ...(over.merge !== undefined ? [`- **Merge automático:** ${over.merge}`] : []),
   ].join("\n");
 
 const reserva = (executor = "Claude Code, designado pelo Pedro; Codex revê") =>
@@ -123,5 +124,18 @@ describe("travas E2b (#417)", () => {
       ".lovable/memory/x.md",
       ".env",
     ]);
+  });
+
+  it("merge automático: sim por defeito, não só quando explícito", () => {
+    expect(avaliarDespacho(900, base(), 9, agora).mergeAutomatico).toBe(true);
+    const nao = base();
+    nao[0].corpo = autorizacao({ merge: "não" });
+    expect(avaliarDespacho(900, nao, 9, agora).mergeAutomatico).toBe(false);
+    const sim = base();
+    sim[0].corpo = autorizacao({ merge: "sim" });
+    expect(avaliarDespacho(900, sim, 9, agora).mergeAutomatico).toBe(true);
+    expect(mergeAutomaticoDe("`não` (rever antes)")).toBe(false);
+    expect(mergeAutomaticoDe("Nao")).toBe(false);
+    expect(mergeAutomaticoDe(undefined)).toBe(true);
   });
 });

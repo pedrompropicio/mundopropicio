@@ -26,6 +26,7 @@ jobs:
       issues: write
     outputs:
       ok: ${{ steps.avaliar.outputs.ok }}
+      merge_automatico: ${{ steps.avaliar.outputs.merge_automatico }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -111,10 +112,24 @@ jobs:
       - name: Recolher alterações
         run: |
           mkdir -p "${{ runner.temp }}/saida"
-          cp .executor/resumo.md "${{ runner.temp }}/saida/resumo.md" 2>/dev/null || printf '### Não feito / lacunas\n- o executor não escreveu .executor/resumo.md\n' > "${{ runner.temp }}/saida/resumo.md"
+          [ -f .executor/resumo.md ] && cp .executor/resumo.md "${{ runner.temp }}/saida/resumo.md"
           rm -rf .executor
           git add -A
           git diff --cached --name-only > "${{ runner.temp }}/saida/ficheiros.txt"
+          # Sem resumo do agente, o workflow gera um a partir dos ficheiros alterados.
+          if [ ! -s "${{ runner.temp }}/saida/resumo.md" ]; then
+            {
+              echo "### Feito"
+              if [ -s "${{ runner.temp }}/saida/ficheiros.txt" ]; then
+                sed 's/^/- ficheiro alterado: `/; s/$/`/' "${{ runner.temp }}/saida/ficheiros.txt"
+              else
+                echo "- nenhum ficheiro alterado"
+              fi
+              echo
+              echo "### Não feito / lacunas"
+              echo "- o executor não escreveu .executor/resumo.md (resumo gerado pelo workflow)"
+            } > "${{ runner.temp }}/saida/resumo.md"
+          fi
           git diff --cached --binary > "${{ runner.temp }}/saida/exec.patch"
           echo "Ficheiros alterados:"; cat "${{ runner.temp }}/saida/ficheiros.txt"
       - name: Travas de caminhos
@@ -126,7 +141,7 @@ jobs:
           retention-days: 14
 
   entregar:
-    needs: executar
+    needs: [travas, executar]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -138,6 +153,8 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       ISSUE: ${{ github.event.issue.number }}
       RAMO: exec/${{ github.event.issue.number }}-${{ github.run_id }}
+      # Decisão do Pedro (01/11/2026): merge automático por defeito; "Merge automático: não" na autorização desliga.
+      MERGE_AUTO: ${{ needs.travas.outputs.merge_automatico }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
@@ -196,6 +213,14 @@ jobs:
           # PRs criados com o GITHUB_TOKEN não disparam o CI; o workflow_dispatch dispara
           # e liga o check "quality" ao mesmo commit.
           gh workflow run ci.yml --ref "$RAMO"
+          # Merge automático: só com testes verdes no runner; o GitHub espera ainda pelo CI "quality".
+          AUTO="desligado nesta tarefa"
+          if [ "$MERGE_AUTO" = "true" ] && [ "$RESULTADO" = "success" ]; then
+            if gh pr merge "$URL" --auto --squash; then AUTO="ligado (entra quando o CI quality ficar verde)"; else AUTO="pedido falhou: ver run (repositório sem «Allow auto-merge»?)"; fi
+          elif [ "$MERGE_AUTO" = "true" ]; then
+            AUTO="não ligado: testes do runner falharam"
+          fi
+          echo "auto=$AUTO" >> "$GITHUB_OUTPUT"
       - name: Fecho na Issue
         if: always()
         run: |
@@ -207,6 +232,7 @@ jobs:
             else
               echo "- **PR:** ${{ steps.pr.outputs.url || 'não criado (ver run)' }}"
               echo "- **Testes no runner:** ${{ steps.testes.outcome }}"
+              echo "- **Merge automático:** ${{ steps.pr.outputs.auto || 'não pedido' }}"
             fi
             echo "- **Run:** $RUN_URL"
             echo
