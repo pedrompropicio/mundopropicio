@@ -30,13 +30,26 @@ function bucketPath(fileUrl: string): string | null {
   return fileUrl.replace(/^\/+/, "");
 }
 
-/** Mesma regra da política de DELETE em transaction_documents: admin/manager da empresa dona. */
-function canDeleteIn(ctx: CallerContext, companyId: string | null) {
+/**
+ * #338: mesma regra da política de DELETE em transaction_documents — permissão
+ * `delete_transaction_documents` (has_permission_in) na empresa DONA do documento,
+ * não na empresa activa. Platform admin passa sempre; isolamento por empresa mantém-se.
+ * Erro na consulta da permissão = recusa (fail closed).
+ */
+async function canDeleteIn(
+  ctx: CallerContext,
+  companyId: string | null,
+  admin: ReturnType<typeof createClient>,
+  callerId: string,
+): Promise<boolean> {
   if (!canAccessCompany(ctx, companyId)) return false;
   if (ctx.isPlatformAdmin) return true;
-  return ctx.roleRows.some(
-    (r) => (r.role === "admin" || r.role === "manager") && (r.company_id === companyId || r.company_id === null),
-  );
+  const { data: allowed, error } = await admin.rpc("has_permission_in", {
+    _user_id: callerId,
+    _permission: "delete_transaction_documents",
+    _company_id: companyId,
+  });
+  return !error && allowed === true;
 }
 
 Deno.serve(async (req) => {
@@ -77,7 +90,7 @@ Deno.serve(async (req) => {
       ownerCompanyId = tx?.company_id ?? null;
     }
     // (a)
-    if (!canDeleteIn(ctx, ownerCompanyId)) return json({ error: "Sem permissão para remover este documento." }, 403);
+    if (!(await canDeleteIn(ctx, ownerCompanyId, admin, u.user.id))) return json({ error: "Sem permissão para remover este documento." }, 403);
     fileUrl = doc.file_url;
     relatedId = doc.id;
     // (b)
@@ -96,7 +109,7 @@ Deno.serve(async (req) => {
     if (error) return json({ error: error.message }, 500);
     if (!list) return json({ error: "Lista de pagamento não encontrada." }, 404);
     ownerCompanyId = list.company_id;
-    if (!canDeleteIn(ctx, ownerCompanyId)) return json({ error: "Sem permissão para remover este comprovativo." }, 403);
+    if (!(await canDeleteIn(ctx, ownerCompanyId, admin, u.user.id))) return json({ error: "Sem permissão para remover este comprovativo." }, 403);
     const { data: delList, error: lErr } = await admin
       .from("payment_list_documents").delete()
       .eq("payment_list_id", list.id).eq("file_url", fileUrl).select("id");
