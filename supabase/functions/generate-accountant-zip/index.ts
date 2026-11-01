@@ -115,10 +115,11 @@ Deno.serve(async (req) => {
     const nonAccountingIds = await fetchNonAccountingAccountIds(admin, company_id);
 
     // Query transactions
-    const baseQuery = () => admin
+    const baseQuery = (limit = MAX_TX + 1) => admin
       .from("transactions")
       .select("id, company_id, type, description, amount, payment_date, invoice_ref, supplier_id, account_id, status, paid_amount, suppliers:supplier_id(name,nif)")
-      .eq("company_id", company_id);
+      .eq("company_id", company_id)
+      .limit(limit);
     let txs: any[] = [];
     let ignoredCount = 0;
     if (requestedIds !== undefined) {
@@ -126,7 +127,8 @@ Deno.serve(async (req) => {
       const candidates: any[] = [];
       // Bound .in() URLs; absent/foreign/non-accounting IDs are never downloaded.
       for (let offset = 0; offset < ids.length; offset += 200) {
-        const { data, error } = await baseQuery().in("id", ids.slice(offset, offset + 200));
+        const lote = ids.slice(offset, offset + 200);
+        const { data, error } = await baseQuery(lote.length).in("id", lote);
         if (error) throw error;
         candidates.push(...(data ?? []));
       }
