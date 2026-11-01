@@ -28,20 +28,29 @@ export function reconcile(b: Pick<Breakdown, "total" | "parts" | "clampZero">): 
 }
 
 type Payable = FinancialPosition["a_pagar"]["por_estagio"]["em_curso"];
+const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+/** Estágio normalizado: estágio, sublinhas ou totais em falta valem 0 (nunca rebenta). */
+export function safeStage(d: FinancialPosition, s: typeof POSITION_STAGES[number]): Payable {
+  const p = d.a_pagar?.por_estagio?.[s] as Partial<Payable> | undefined;
+  const sub = (p?.sublinhas ?? {}) as Partial<Payable["sublinhas"]>;
+  return { total: num(p?.total), bp: num(p?.bp), bp_linhas: num(p?.bp_linhas), linhas_contrato_cache: num(p?.linhas_contrato_cache),
+    sublinhas: { lancado: num(sub.lancado), confirmado: num(sub.confirmado), por_rever: num(sub.por_rever), ajustado: num(sub.ajustado), partner_paid_fora_do_total: num(sub.partner_paid_fora_do_total) },
+    sem_bp: { total: num(p?.sem_bp?.total), n: num(p?.sem_bp?.n) }, so_transacoes: { total: num(p?.so_transacoes?.total), n: num(p?.so_transacoes?.n) } };
+}
 export const stageCommitment = (p: Payable) => r2(p.sublinhas.lancado + p.sem_bp.total + p.so_transacoes.total);
 export const stageBpPending = (p: Payable) => r2(p.sublinhas.confirmado + p.sublinhas.ajustado + p.sublinhas.por_rever);
 
 /** Compromisso em transações = Σ estágios (lançado + sem BP + só transações); saldo de BP por lançar = Σ (confirmado + ajustado + por rever). */
 export function payableSplit(d: FinancialPosition) {
   let compromisso = 0, bpPorLancar = 0;
-  for (const s of POSITION_STAGES) { const p = d.a_pagar.por_estagio[s]; compromisso += stageCommitment(p); bpPorLancar += stageBpPending(p); }
+  for (const s of POSITION_STAGES) { const p = safeStage(d, s); compromisso += stageCommitment(p); bpPorLancar += stageBpPending(p); }
   return { compromisso: r2(compromisso), bpPorLancar: r2(bpPorLancar) };
 }
 
 export function explainCommitment(d: FinancialPosition): Breakdown {
   const parts: Part[] = [];
   for (const s of POSITION_STAGES) {
-    const p = d.a_pagar.por_estagio[s];
+    const p = safeStage(d, s);
     parts.push({ label: `${stageLabel(s)} · lançado`, value: p.sublinhas.lancado }, { label: `${stageLabel(s)} · sem BP`, value: p.sem_bp.total }, { label: `${stageLabel(s)} · só transações`, value: p.so_transacoes.total });
   }
   return { id: "compromisso", title: "Compromisso em transações", formula: "Σ estágios: lançado + sem BP + só transações", total: payableSplit(d).compromisso, parts: parts.filter(p => p.value !== 0), guideAnchor: "a-pagar" };
@@ -49,7 +58,7 @@ export function explainCommitment(d: FinancialPosition): Breakdown {
 export function explainBpPending(d: FinancialPosition): Breakdown {
   const parts: Part[] = [];
   for (const s of POSITION_STAGES) {
-    const p = d.a_pagar.por_estagio[s];
+    const p = safeStage(d, s);
     parts.push({ label: `${stageLabel(s)} · confirmado`, value: p.sublinhas.confirmado }, { label: `${stageLabel(s)} · ajustado`, value: p.sublinhas.ajustado }, { label: `${stageLabel(s)} · por rever`, value: p.sublinhas.por_rever });
   }
   return { id: "bp-por-lancar", title: "Saldo de BP por lançar", formula: "Σ estágios: confirmado + ajustado + por rever", total: payableSplit(d).bpPorLancar, parts: parts.filter(p => p.value !== 0), guideAnchor: "a-pagar" };
@@ -58,15 +67,15 @@ export function explainPayableTotal(d: FinancialPosition): Breakdown {
   const s = payableSplit(d);
   return { id: "a-pagar", title: "A pagar", formula: "Compromisso em transações + saldo de BP por lançar (sem transitórias)", total: d.a_pagar.total,
     parts: [{ label: "Compromisso em transações", value: s.compromisso }, { label: "Saldo de BP por lançar", value: s.bpPorLancar }],
-    groups: POSITION_STAGES.map(st => ({ label: stageLabel(st), rows: [{ label: "Total do estágio", value: d.a_pagar.por_estagio[st].total }] })), guideAnchor: "a-pagar" };
+    groups: POSITION_STAGES.map(st => ({ label: stageLabel(st), rows: [{ label: "Total do estágio", value: safeStage(d, st).total }] })), guideAnchor: "a-pagar" };
 }
 export function explainStage(d: FinancialPosition, stage: typeof POSITION_STAGES[number]): Breakdown {
-  const p = d.a_pagar.por_estagio[stage];
+  const p = safeStage(d, stage);
   return { id: `a-pagar-${stage}`, title: `A pagar · ${stageLabel(stage)}`, formula: "Lançado + confirmado + ajustado + por rever + sem BP + só transações", total: p.total,
     parts: [{ label: "Lançado", value: p.sublinhas.lancado }, { label: "Confirmado", value: p.sublinhas.confirmado }, { label: "Ajustado", value: p.sublinhas.ajustado }, { label: "Por rever", value: p.sublinhas.por_rever }, { label: "Sem BP", value: p.sem_bp.total }, { label: "Só transações", value: p.so_transacoes.total }], guideAnchor: "a-pagar" };
 }
 export function explainReceivable(d: FinancialPosition): Breakdown {
-  return { id: "a-receber", title: "A receber", formula: "Σ estágios (sem transitórias)", total: d.a_receber.total, parts: POSITION_STAGES.map(s => ({ label: stageLabel(s), value: d.a_receber.por_estagio[s].total })), guideAnchor: "regras" };
+  return { id: "a-receber", title: "A receber", formula: "Σ estágios (sem transitórias)", total: d.a_receber.total, parts: POSITION_STAGES.map(s => ({ label: stageLabel(s), value: num(d.a_receber?.por_estagio?.[s]?.total) })), guideAnchor: "regras" };
 }
 export function explainCash(d: FinancialPosition): Breakdown {
   return { id: "caixa", title: "Caixa e cartões", formula: "Σ saldos das contas de caixa + Σ cartões (nunca soma com o retido)", total: d.posicao.caixa_e_cartoes,
