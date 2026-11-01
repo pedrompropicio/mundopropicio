@@ -36,7 +36,8 @@ const fromYmd = (s: string) => {
  * A identificação é ESTRUTURAL. A descrição (sufixo "(n/N)") é cosmética e
  * NUNCA é lida para decidir se algo é parcelamento.
  *
- * NÃO confundir com o Modelo B legado (cronograma em `transaction_payments`).
+ * É o único modelo de parcelamento (o modelo antigo, de linhas planeadas em
+ * `transaction_payments`, foi aposentado, #298).
  */
 
 type GroupRow = {
