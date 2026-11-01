@@ -14,6 +14,7 @@ export interface Comentario {
 export interface Decisao {
   ok: boolean;
   motivos: string[];
+  executor: Executor | null;
   /** Texto da tarefa (corpo do despacho sem o cabeçalho). */
   tarefa: string;
   /** Merge automático do PR quando o CI fica verde. Por defeito sim; só "não" explícito na autorização desliga. */
@@ -22,8 +23,9 @@ export interface Decisao {
 
 /** Únicos autores aceites para Despacho, Autorização e Reserva (o Pedro; conectores escrevem como ele). */
 export const AUTORES = ["pedrompropicio"];
-/** Executor que a E2b lança. */
-export const EXECUTOR = "claude code";
+/** Motores suportados; a Autorização designa qual a E2b lança. */
+export const EXECUTORES = { "claude-code": ["claude code"], codex: ["codex", "chatgpt/codex", "chatgpt codex", "openai codex"] } as const;
+export type Executor = keyof typeof EXECUTORES;
 /** Capacidades do molde; na E2b só `codigo+testes` pode estar a "sim". */
 const CAPACIDADES = ["codigo+testes", "DDL", "DML", "edge functions", "crons", "envios externos", "Publish"];
 
@@ -41,6 +43,14 @@ const BULLET = /^[ \t]*[-*][ \t]+\*\*(.+?):?\*\*:?[ \t]*(.*)$/;
 
 function norm(s: string): string {
   return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
+}
+
+export function executorDe(texto: string): Executor | null {
+  const normalizado = norm(texto);
+  for (const executor of Object.keys(EXECUTORES) as Executor[]) {
+    if (EXECUTORES[executor].some((prefixo) => normalizado.startsWith(prefixo))) return executor;
+  }
+  return null;
 }
 
 function campos(corpo: string): Map<string, string> {
@@ -82,10 +92,11 @@ export function limiteDaValidade(validade: string | undefined): Date | null {
 export function avaliarDespacho(issue: number, comentarios: Comentario[], despachoId: number, agora: Date): Decisao {
   const motivos: string[] = [];
   let mergeAutomatico = true;
+  let executor: Executor | null = null;
   const ordem = [...comentarios].sort((a, b) => a.criadoEm.localeCompare(b.criadoEm));
   const despacho = ordem.find((c) => c.id === despachoId);
   if (!despacho || !isDespacho(despacho.corpo)) {
-    return { ok: false, motivos: ["comentário de despacho não encontrado"], tarefa: "", mergeAutomatico: false };
+    return { ok: false, motivos: ["comentário de despacho não encontrado"], tarefa: "", mergeAutomatico: false, executor: null };
   }
   if (!AUTORES.includes(despacho.autor)) motivos.push(`autor do despacho não autorizado (${despacho.autor})`);
   const cab = despacho.corpo.trimStart().split(/\r?\n/)[0];
@@ -100,8 +111,8 @@ export function avaliarDespacho(issue: number, comentarios: Comentario[], despac
   if (!aut) motivos.push("não há «## Autorização» do Pedro nesta Issue");
   else {
     const f = campos(aut.corpo);
-    const executor = norm(f.get("executor atual") ?? f.get("executor") ?? "");
-    if (!executor.startsWith(EXECUTOR)) motivos.push(`a autorização não designa o Claude Code como executor (${executor || "vazio"})`);
+    executor = executorDe(f.get("executor atual") ?? f.get("executor") ?? "");
+    if (!executor) motivos.push("a autorização não designa um executor suportado (Claude Code ou Codex)");
     const classe = (f.get("classe") ?? "").match(/\bR[0-2]\b/)?.[0];
     if (classe !== "R1") motivos.push(`a E2b só corre R1 (classe da autorização: ${classe ?? "ausente"})`);
     const caps = capacidadesDe(f.get("capacidades libertadas") ?? f.get("capacidades") ?? "");
@@ -125,11 +136,11 @@ export function avaliarDespacho(issue: number, comentarios: Comentario[], despac
   if (ativas.length === 0) motivos.push("não há «## Reserva» activa nesta Issue");
   else if (ativas.length > 1) motivos.push(`há ${ativas.length} reservas activas nesta Issue`);
   else {
-    const exec = norm(campos(ativas[0].corpo).get("executor") ?? "");
-    if (!exec.startsWith(EXECUTOR)) motivos.push(`a reserva activa não é do Claude Code (${exec || "vazio"})`);
+    const exec = executorDe(campos(ativas[0].corpo).get("executor") ?? "");
+    if (executor && exec !== executor) motivos.push(`a reserva activa não é do executor designado (${executor})`);
   }
 
-  return { ok: motivos.length === 0, motivos, tarefa, mergeAutomatico };
+  return { ok: motivos.length === 0, motivos, tarefa, mergeAutomatico, executor };
 }
 
 /** Verifica a lista de ficheiros alterados pelo executor. */

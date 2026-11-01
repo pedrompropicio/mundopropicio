@@ -1,5 +1,6 @@
 # E2b (#417): um comentário "## Despacho — #N" do Pedro numa Issue aberta lança o
-# executor (Claude Code, subscrição) num runner. Só R1: código e testes.
+# executor designado na Autorização (Codex por defeito; Claude Code por designação)
+# num runner. Só R1: código e testes. D-ERP348.
 # Travas determinísticas antes de qualquer IA; o agente não tem credenciais de push
 # nem segredos de base de dados; a entrega é um PR para main, nunca lovable/dev.
 name: Executor (E2b)
@@ -27,6 +28,7 @@ jobs:
     outputs:
       ok: ${{ steps.avaliar.outputs.ok }}
       merge_automatico: ${{ steps.avaliar.outputs.merge_automatico }}
+      executor: ${{ steps.avaliar.outputs.executor }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -110,6 +112,7 @@ jobs:
             echo 'FIM_PROMPT_E2B'
           } >> "$GITHUB_OUTPUT"
       - uses: anthropics/claude-code-action@v1
+        if: needs.travas.outputs.executor == 'claude-code'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -117,6 +120,14 @@ jobs:
           claude_args: >-
             --max-turns 60
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(bunx vitest:*),Bash(bunx -p @typescript/native-preview tsgo:*),Bash(bun run test:*),Bash(git diff:*),Bash(git status:*),Bash(ls:*),Bash(mkdir -p .executor)"
+      - name: Codex
+        if: needs.travas.outputs.executor == 'codex'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PROMPT: ${{ steps.prompt.outputs.texto }}
+        run: |
+          npm install -g @openai/codex
+          codex exec --sandbox workspace-write --skip-git-repo-check -C "$GITHUB_WORKSPACE" --output-last-message "$RUNNER_TEMP/e2b/codex-ultima.md" "$PROMPT"
       - name: Recolher alterações
         run: |
           mkdir -p "${{ runner.temp }}/saida"
@@ -164,6 +175,7 @@ jobs:
       RAMO: exec/${{ github.event.issue.number }}-${{ github.run_id }}
       # Decisão do Pedro (01/11/2026): merge automático por defeito; "Merge automático: não" na autorização desliga.
       MERGE_AUTO: ${{ needs.travas.outputs.merge_automatico }}
+      EXECUTOR: ${{ needs.travas.outputs.executor }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
@@ -204,10 +216,15 @@ jobs:
         id: pr
         if: steps.vazio.outputs.sim == 'false'
         run: |
+          case "$EXECUTOR" in
+            claude-code) MOTOR="Claude Code" ;;
+            codex) MOTOR="Codex" ;;
+            *) echo "Executor não suportado: $EXECUTOR" >&2; exit 1 ;;
+          esac
           git config user.name "executor-e2b[bot]"
           git config user.email "executor-e2b@users.noreply.github.com"
           git checkout -b "$RAMO"
-          git commit -m "E2b #$ISSUE: entrega do executor (Claude Code)" -m "Run: $RUN_URL"
+          git commit -m "E2b #$ISSUE: entrega do executor ($MOTOR)" -m "Run: $RUN_URL"
           git push origin "$RAMO"
           RESULTADO="${{ steps.testes.outcome }}"
           DRAFT=""; [ "$RESULTADO" = "success" ] || DRAFT="--draft"
@@ -220,7 +237,7 @@ jobs:
             echo
             echo "Revisão e merge seguem o fluxo normal. Não fecha a Issue nem liberta a reserva."
           } > corpo-pr.md
-          URL=$(gh pr create --base main --head "$RAMO" --title "E2b #$ISSUE — entrega do executor" --body-file corpo-pr.md $DRAFT)
+          URL=$(gh pr create --base main --head "$RAMO" --title "E2b #$ISSUE: entrega do executor ($MOTOR)" --body-file corpo-pr.md $DRAFT)
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           # PRs criados com o GITHUB_TOKEN não disparam o CI; o workflow_dispatch dispara
           # e liga o check "quality" ao mesmo commit.
@@ -240,8 +257,13 @@ jobs:
           # O Fecho continua a ser do bot, não do Pedro.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          case "$EXECUTOR" in
+            claude-code) MOTOR="Claude Code" ;;
+            codex) MOTOR="Codex" ;;
+            *) echo "Executor não suportado: $EXECUTOR" >&2; exit 1 ;;
+          esac
           {
-            echo "## Fecho — #$ISSUE (executor E2b, Claude Code)"
+            echo "## Fecho — #$ISSUE (executor E2b, $MOTOR)"
             echo
             if [ "${{ steps.vazio.outputs.sim }}" = "true" ]; then
               echo "Sem alterações de código."

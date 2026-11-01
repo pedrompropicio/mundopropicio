@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { avaliarDespacho, caminhosProibidos, limiteDaValidade, mergeAutomaticoDe, type Comentario } from "@/lib/executor/travas";
+import { avaliarDespacho, caminhosProibidos, executorDe, limiteDaValidade, mergeAutomaticoDe, type Comentario } from "@/lib/executor/travas";
 
 const PEDRO = "pedrompropicio";
 const agora = new Date("2026-11-02T10:00:00Z");
@@ -36,6 +36,7 @@ describe("travas E2b (#417)", () => {
     const d = avaliarDespacho(900, base(), 9, agora);
     expect(d.motivos).toEqual([]);
     expect(d.ok).toBe(true);
+    expect(d.executor).toBe("claude-code");
     expect(d.tarefa).toContain("Acrescentar um teste");
   });
 
@@ -73,7 +74,7 @@ describe("travas E2b (#417)", () => {
     expect(avaliarDespacho(900, libertada, 9, agora).motivos.join()).toMatch(/Reserva/);
     const outra = base();
     outra[1].corpo = reserva("Codex");
-    expect(avaliarDespacho(900, outra, 9, agora).motivos.join()).toMatch(/não é do Claude Code/);
+    expect(avaliarDespacho(900, outra, 9, agora).motivos).toContain("a reserva activa não é do executor designado (claude-code)");
     const dupla = base([{ id: 4, autor: PEDRO, criadoEm: "2026-11-02T09:06:00Z", corpo: reserva() }]);
     expect(avaliarDespacho(900, dupla, 9, agora).motivos.join()).toMatch(/2 reservas/);
   });
