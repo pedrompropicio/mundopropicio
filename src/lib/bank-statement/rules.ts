@@ -84,9 +84,17 @@ export function findMatchingRule(
  */
 export function suggestPattern(description: string): string {
   let s = normalizeForMatch(description);
-  // Código de referência do banco / número de operação no fim da descrição.
-  s = s.replace(/[-\s]*[a-z]?\d{4,}[a-z0-9]*\s*$/i, "");
-  s = s.replace(/[-\s]*[a-z0-9]*\d{4,}[a-z0-9]*\s*$/i, "");
+  // Número de identidade: campo separado "<texto> -NNNN" (espaço antes do "-"),
+  // p.ex. o n.º da apólice em "AEGON SANTANDER -115278470". Mantém-se.
+  const isIdentityField = /\s-\s*\d{4,}\s*$/.test(s);
+  if (!isIdentityField) {
+    // Código de referência do banco / número de operação no fim da descrição
+    // (cobre "-NNNN" colado à palavra anterior).
+    s = s.replace(/[-\s]*[a-z]?\d{4,}[a-z0-9]*\s*$/i, "");
+    s = s.replace(/[-\s]*[a-z0-9]*\d{4,}[a-z0-9]*\s*$/i, "");
+    // Sufixo curto (1–3 dígitos) depois de "/", espaço ou ".": contador variável.
+    s = s.replace(/(?<=[/\s.])\d{1,3}\s*$/, "");
+  }
   s = s.replace(/[\s\-.+]+$/g, "").trim();
   return s.length >= 4 ? s : normalizeForMatch(description);
 }
