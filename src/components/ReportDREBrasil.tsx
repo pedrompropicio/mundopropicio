@@ -1,7 +1,7 @@
 import { masterFormulaAmountForCity } from "@/lib/master-formula";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import { fetchPartnerExtras, partnerExtraValue } from "@/lib/partner-extras";
-import { findTicketCategoryId } from "@/lib/ticket-category";
+import { findTicketCategoryId, ticketDreDisplayLabel } from "@/lib/ticket-category";
 import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
 import { EventNatureFilter } from "@/components/EventNatureFilter";
 import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
@@ -31,6 +31,7 @@ type TicketRevenueSource = "transactions" | "ticket_sales";
 
 interface DRELine {
   label: string;
+  code?: string;
   amountExIva: number;
   ivaAmount: number;
   amountIncIva: number;
@@ -143,9 +144,9 @@ function buildDREBrasil(
   incGroups.forEach((group) => {
     if (group.details.length > 1 || group.details[0]?.name !== group.groupName) {
       lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, isGroupHeader: true });
-      group.details.forEach((d) => lines.push({ label: d.name, amountExIva: d.base, ivaAmount: d.iva, amountIncIva: d.base + d.iva, indent: true }));
+      group.details.forEach((d) => lines.push({ label: d.name, code: d.code, amountExIva: d.base, ivaAmount: d.iva, amountIncIva: d.base + d.iva, indent: true }));
     } else {
-      lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true });
+      lines.push({ label: group.groupName, code: group.details[0]?.code, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true });
     }
   });
 
@@ -153,9 +154,9 @@ function buildDREBrasil(
   expGroups.forEach((group) => {
     if (group.details.length > 1 || group.details[0]?.name !== group.groupName) {
       lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, isGroupHeader: true, isExpenseSide: true });
-      group.details.forEach((d) => lines.push({ label: d.name, amountExIva: d.base, ivaAmount: d.iva, amountIncIva: d.base + d.iva, indent: true, isExpenseSide: true }));
+      group.details.forEach((d) => lines.push({ label: d.name, code: d.code, amountExIva: d.base, ivaAmount: d.iva, amountIncIva: d.base + d.iva, indent: true, isExpenseSide: true }));
     } else {
-      lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true, isExpenseSide: true });
+      lines.push({ label: group.groupName, code: group.details[0]?.code, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true, isExpenseSide: true });
     }
   });
 
@@ -798,9 +799,7 @@ export default function ReportDREBrasil() {
                           const displayVal = line.isExpenseSide ? line.amountIncIva
                             : line.isDistribution || line.isRetained || line.isGrandTotal || line.isPartnerExtra || line.isPartnerNet ? line.amountExIva
                             : line.amountExIva;
-                          const isBilheteira = !line.isTotal && !line.isGrandTotal && !line.isDistribution && !line.isRetained && !line.isExpenseSide && !line.isPartnerExtra && !line.isPartnerNet &&
-                            (line.label.toLowerCase().includes("bilhete") || line.label.toLowerCase().includes("bilheteira"));
-                          const displayLabel = isBilheteira ? `${line.label} (-6% IVA)` : line.label;
+                          const displayLabel = ticketDreDisplayLabel(line);
                           const formattedVal = displayVal < 0 ? `-${formatCurrency(Math.abs(displayVal))}` : formatCurrency(displayVal);
                           const valClass = `text-right font-mono ${line.isRetained ? `text-base font-bold ${displayVal >= 0 ? "text-success" : "text-destructive"}` : line.isPartnerNet ? `text-xs font-semibold ${displayVal >= 0 ? "text-success" : "text-destructive"}` : line.isPartnerExtra ? "text-xs text-destructive/70" : line.isDistribution ? "text-sm text-amber-500" : line.isGrandTotal ? `text-base font-bold ${displayVal >= 0 ? "text-success" : "text-destructive"}` : line.isTotal ? "font-semibold" : line.isGroupHeader ? "font-semibold text-sm" : "text-muted-foreground"}`;
 
