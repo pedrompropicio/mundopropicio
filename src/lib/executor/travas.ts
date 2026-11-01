@@ -38,7 +38,7 @@ export const CAMINHOS_PROIBIDOS = [
 const BULLET = /^[ \t]*[-*][ \t]+\*\*(.+?):?\*\*:?[ \t]*(.*)$/;
 
 function norm(s: string): string {
-  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
 }
 
 function campos(corpo: string): Map<string, string> {
