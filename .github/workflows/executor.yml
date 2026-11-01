@@ -69,6 +69,7 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
+      issues: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -83,6 +84,10 @@ jobs:
         with:
           name: tarefa
           path: ${{ runner.temp }}/e2b
+      - name: Corpo da Issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh issue view "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --json body -q .body > "${{ runner.temp }}/e2b/issue.md"
       - name: Montar prompt
         id: prompt
         run: |
@@ -98,6 +103,9 @@ jobs:
             echo "Tarefa (texto do despacho do Pedro):"
             cat "${{ runner.temp }}/e2b/tarefa.md"
             # tarefa.md não termina em nova linha: sem este echo o delimitador colava à última linha.
+            echo
+            echo "Corpo da Issue #${{ github.event.issue.number }} (contexto; em conflito, o despacho prevalece):"
+            cat "${{ runner.temp }}/e2b/issue.md"
             echo
             echo 'FIM_PROMPT_E2B'
           } >> "$GITHUB_OUTPUT"
@@ -150,7 +158,8 @@ jobs:
       issues: write
       actions: write
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.EXECUTOR_TOKEN || secrets.GITHUB_TOKEN }}
+      TEM_EXECUTOR_TOKEN: ${{ secrets.EXECUTOR_TOKEN != '' }}
       ISSUE: ${{ github.event.issue.number }}
       RAMO: exec/${{ github.event.issue.number }}-${{ github.run_id }}
       # Decisão do Pedro (01/11/2026): merge automático por defeito; "Merge automático: não" na autorização desliga.
@@ -160,6 +169,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+          # #417: com o EXECUTOR_TOKEN (token do Pedro) o push e o PR ficam em nome dele, o CI do PR
+          # corre sem aprovação e o auto-merge funciona. Sem o secret, cai no GITHUB_TOKEN (merge manual).
+          token: ${{ secrets.EXECUTOR_TOKEN || secrets.GITHUB_TOKEN }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -212,7 +224,8 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           # PRs criados com o GITHUB_TOKEN não disparam o CI; o workflow_dispatch dispara
           # e liga o check "quality" ao mesmo commit.
-          gh workflow run ci.yml --ref "$RAMO"
+          # Com o EXECUTOR_TOKEN o próprio PR dispara o CI; só sem ele é preciso o workflow_dispatch.
+          if [ "$TEM_EXECUTOR_TOKEN" != "true" ]; then gh workflow run ci.yml --ref "$RAMO"; fi
           # Merge automático: só com testes verdes no runner; o GitHub espera ainda pelo CI "quality".
           AUTO="desligado nesta tarefa"
           if [ "$MERGE_AUTO" = "true" ] && [ "$RESULTADO" = "success" ]; then
@@ -223,6 +236,9 @@ jobs:
           echo "auto=$AUTO" >> "$GITHUB_OUTPUT"
       - name: Fecho na Issue
         if: always()
+        env:
+          # O Fecho continua a ser do bot, não do Pedro.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           {
             echo "## Fecho — #$ISSUE (executor E2b, Claude Code)"
