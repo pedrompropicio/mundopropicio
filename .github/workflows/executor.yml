@@ -127,6 +127,8 @@ jobs:
           PROMPT: ${{ steps.prompt.outputs.texto }}
         run: |
           npm install -g @openai/codex
+          test -n "$OPENAI_API_KEY" && echo "OPENAI_API_KEY presente (${#OPENAI_API_KEY} caracteres)" || { echo "OPENAI_API_KEY ausente" >&2; exit 1; }
+          printf '%s' "$OPENAI_API_KEY" | codex login --with-api-key
           codex exec --sandbox workspace-write --skip-git-repo-check -C "$GITHUB_WORKSPACE" --output-last-message "$RUNNER_TEMP/e2b/codex-ultima.md" "$PROMPT"
       - name: Recolher alterações
         run: |
