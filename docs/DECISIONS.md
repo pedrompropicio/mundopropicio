@@ -6565,3 +6565,9 @@ Origem: 0 · Cowork (Claude), 31/10/2026.
 - #262: proração Master→cidades por 1/N universal; sem retroactividade em fechos já apresentados. Convergência do código é R2 com Issue própria.
 - #257: IVA não recuperável de faturas estrangeiras vai ao custo, com campo próprio `vat_non_recoverable` (DDL, R2); retroactivo só para 2026.
 - #281 sai do Lote A: implementação feita desde 10/10 (migração 0075); resta ao Pedro importar os extratos de abril a agosto e rever as 24 transações.
+
+## D-ERP348 — Executor E2b com dois motores: Codex por defeito, Claude Code por designação (01/11/2026, Pedro, no 0 · Cowork Claude; Issue #417)
+
+- A Autorização escolhe o motor pelo campo "Executor atual": Codex (OpenAI, chave `OPENAI_API_KEY` nos segredos do repo, faturação na organização de API ligada ao workspace Business) ou Claude Code (token de subscrição). Travas, caminhos proibidos, testes no runner, PR para main, auto-merge e Fecho são os mesmos para os dois.
+- Codex é o executor por defeito para R1 a partir de 01/11/2026, para não consumir o limite da subscrição Claude; o Claude Code fica para tarefas que o Pedro designar.
+- A Reserva activa tem de ser do mesmo motor que a Autorização.

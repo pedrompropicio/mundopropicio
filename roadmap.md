@@ -1,3 +1,4 @@
+- [ ] #417 E2b dois motores: Autorização/Reserva, output e workflow Codex/Claude Code, D-ERP348 e testes; sem base/edge/Publish.
 - [x] #395 preparação: ZIP dos IDs visíveis, validação por empresa/#235 e limites; 29 testes PASS, tipos automáticos OK; pesquisa autenticada 271 IDs/271 linhas, ZIP interceptado sem escrita; sem deploy/DDL/DML/Publish.
 - [x] P6a: painel RPC, permissão rota/menu, projeções desligadas;33 novos/2923suite PASS; visual sintético desktop/mobile; fecho R0/reserva libertada, sem Publish.
 - [ ] P6a: controller confirmar sincronização e CI do SHA integrado (GitHub só mostra HEAD arranque); não pronto para Publish antes dessa prova.

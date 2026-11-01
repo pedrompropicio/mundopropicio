@@ -32,6 +32,50 @@ function base(extra: Comentario[] = []): Comentario[] {
 }
 
 describe("travas E2b (#417)", () => {
+  it.each([
+    ["Claude Code · revisor: Codex", "claude-code"],
+    ["  CLÁUDE CODE, designado pelo Pedro", "claude-code"],
+    ["Codex, designado pelo Pedro", "codex"],
+    ["ChatGPT/Codex · revisor: Claude Code", "codex"],
+    ["chatgpt codex", "codex"],
+    ["OPENAI CODEX", "codex"],
+    ["outro motor · revisor: Codex", null],
+    ["", null],
+  ])("executorDe reconhece %s pelo início", (texto, esperado) => {
+    expect(executorDe(texto)).toBe(esperado);
+  });
+
+  it("aceita autorização Codex com reserva Codex designada pelo Pedro", () => {
+    const cs = base();
+    cs[0].corpo = autorizacao({ executor: "Codex" });
+    cs[1].corpo = reserva("Codex, designado pelo Pedro; Claude Code revê");
+    const d = avaliarDespacho(900, cs, 9, agora);
+    expect(d.ok).toBe(true);
+    expect(d.motivos).toEqual([]);
+    expect(d.executor).toBe("codex");
+  });
+
+  it("recusa motor desconhecido sem escolher o revisor ou um motor por omissão", () => {
+    const cs = base();
+    cs[0].corpo = autorizacao({ executor: "Gemini" });
+    const d = avaliarDespacho(900, cs, 9, agora);
+    expect(d.ok).toBe(false);
+    expect(d.executor).toBeNull();
+    expect(d.motivos).toContain("a autorização não designa um executor suportado (Claude Code ou Codex)");
+  });
+
+  it("aceita o campo Executor alternativo e recusa reserva de outro motor", () => {
+    const cs = base();
+    cs[0].corpo = autorizacao({ executor: "OpenAI Codex" }).replace("Executor atual", "Executor");
+    cs[1].corpo = reserva("ChatGPT/Codex");
+    expect(avaliarDespacho(900, cs, 9, agora).executor).toBe("codex");
+    expect(avaliarDespacho(900, cs, 9, agora).ok).toBe(true);
+    cs[1].corpo = reserva();
+    const d = avaliarDespacho(900, cs, 9, agora);
+    expect(d.ok).toBe(false);
+    expect(d.motivos).toContain("a reserva activa não é do executor designado (codex)");
+  });
+
   it("aceita autorização R1 + reserva activa do Claude Code", () => {
     const d = avaliarDespacho(900, base(), 9, agora);
     expect(d.motivos).toEqual([]);
