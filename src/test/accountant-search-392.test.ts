@@ -113,11 +113,6 @@ describe("travões estruturais contra regressão (#392)", () => {
     expect(src).toContain("if (!searchActive) q = q.gte(\"payment_date\", period.from).lte(\"payment_date\", period.to);");
   });
 
-  it("o ZIP fica bloqueado pela pesquisa com aviso visível", () => {
-    expect(src).toContain("isZipBlockedBySearch(search)");
-    expect(src).toContain("Limpa a pesquisa para exportar o ZIP");
-  });
-
   it("campo único de pesquisa geral com o placeholder decidido", () => {
     expect(src).toContain("Pesquisar (descrição, fornecedor, NIF, nº documento, valor, conta, observação)");
     expect(src).not.toContain("Buscar fornecedor");

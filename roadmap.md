@@ -1,3 +1,4 @@
+- [ ] #395 preparação: ZIP dos IDs visíveis, validação por empresa/#235 e limites; testes locais, sem deploy/DDL/DML/Publish.
 - [x] P6a: painel RPC, permissão rota/menu, projeções desligadas;33 novos/2923suite PASS; visual sintético desktop/mobile; fecho R0/reserva libertada, sem Publish.
 - [ ] P6a: controller confirmar sincronização e CI do SHA integrado (GitHub só mostra HEAD arranque); não pronto para Publish antes dessa prova.
 - [x] P1 estágios dos eventos (R2, 27/10/2026): 0280 aplicada, cópia manual idêntica; (a)–(h) verificados; 13locais/2849suite PASS; D-ERP318. Sem UI/deploy/Publish/backfill. P2 fica com Pedro e Corro? separado.

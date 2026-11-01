@@ -23,7 +23,7 @@ import { CheckCircle2, AlertTriangle, MessageSquare, Lock, RotateCcw } from "luc
 import { fetchNonAccountingAccountIds, nonAccountingOrFilter, normalizeAccountFilter } from "@/lib/accountant-account-filter";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { computeReviewCounts } from "@/lib/accountant-review-counts";
-import { matchesAllTerms, isZipBlockedBySearch } from "@/lib/accountant-search";
+import { matchesAllTerms } from "@/lib/accountant-search";
 
 interface Tx {
   id: string;
@@ -268,6 +268,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
       const { data, error } = await supabase.functions.invoke("generate-accountant-zip", {
         body: {
           company_id: companyId,
+          ...(searchActive ? { transaction_ids: rows.map((row) => row.id) } : {}),
           period,
           filters: {
             type: typeFilter,
@@ -307,13 +308,10 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Button onClick={downloadAll} disabled={zipLoading || !companyId || isZipBlockedBySearch(search)}>
+          <Button onClick={downloadAll} disabled={zipLoading || !companyId || (searchActive && (isLoading || !!txError))}>
             {zipLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
             Descarregar Tudo (ZIP)
           </Button>
-          {isZipBlockedBySearch(search) && (
-            <p className="text-xs text-amber-500">Limpa a pesquisa para exportar o ZIP</p>
-          )}
         </div>
       </div>
 

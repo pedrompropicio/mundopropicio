@@ -149,12 +149,14 @@ Deno.serve(async (req) => {
     const naOr = nonAccountingOrFilter(nonAccountingIds);
     if (naOr) q = q.or(naOr);
 
-    const { data: txs, error: txErr } = await q;
+    const { data: periodTxs, error: txErr } = await q;
     if (txErr) throw txErr;
-    if ((txs?.length ?? 0) > MAX_TX) {
-      return new Response(JSON.stringify({ error: `Mais de ${MAX_TX} transações no período. Reduza o período.` }), {
+    if ((periodTxs?.length ?? 0) > MAX_TX) {
+      return new Response(JSON.stringify({ error: TX_LIMIT_ERROR }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+    txs = periodTxs ?? [];
     }
 
     const txIds = (txs ?? []).map((t: any) => t.id);
@@ -175,10 +177,10 @@ Deno.serve(async (req) => {
     const addDoc = (txId: string, d: ZDoc) => {
       if (!seenByTx.has(txId)) seenByTx.set(txId, new Set());
       const key = `${d.bucket}:${d.path}`;
-      if (seenByTx.get(txId)!.has(key)) return;
-      seenByTx.get(txId)!.add(key);
+      if (seenByTx.get(txId)?.has(key)) return;
+      seenByTx.get(txId)?.add(key);
       if (!docsByTx.has(txId)) docsByTx.set(txId, []);
-      docsByTx.get(txId)!.push(d);
+      docsByTx.get(txId)?.push(d);
     };
 
     if (txIds.length) {
@@ -260,9 +262,9 @@ Deno.serve(async (req) => {
     }
 
     let txList = txs ?? [];
-    if (filters.has_attachments === "with") {
+    if (requestedIds === undefined && filters.has_attachments === "with") {
       txList = txList.filter((t: any) => (docsByTx.get(t.id)?.length ?? 0) > 0);
-    } else if (filters.has_attachments === "without") {
+    } else if (requestedIds === undefined && filters.has_attachments === "without") {
       txList = txList.filter((t: any) => (docsByTx.get(t.id)?.length ?? 0) === 0);
     }
 
@@ -293,8 +295,10 @@ Deno.serve(async (req) => {
         }
         const bytes = new Uint8Array(await blob.arrayBuffer());
         totalBytes += bytes.byteLength;
-        if (totalBytes > MAX_BYTES) {
-          return new Response(JSON.stringify({ error: "ZIP excederia 200MB. Reduza o período." }), {
+        try {
+          assertZipSize(totalBytes);
+        } catch (error) {
+          return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "ZIP excederia 200MB. Reduza o período." }), {
             status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
@@ -309,9 +313,17 @@ Deno.serve(async (req) => {
     zip.file("index.csv", csvRows.join("\n"));
 
     const zipBytes = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 6 } });
+    try {
+      assertZipSize(zipBytes.byteLength);
+    } catch (error) {
+      return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "ZIP excederia 200MB. Reduza o período." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    const objectPath = `${company_id}/${caller.id}/${ts}_${from}_to_${to}.zip`;
+    const exportScope = requestedIds === undefined ? `${from}_to_${to}` : "pesquisa";
+    const objectPath = `${company_id}/${caller.id}/${ts}_${exportScope}.zip`;
     const { error: upErr } = await admin.storage
       .from("accountant-exports")
       .upload(objectPath, zipBytes, { contentType: "application/zip", upsert: true });
@@ -330,13 +342,15 @@ Deno.serve(async (req) => {
       p_file_name: objectPath.split("/").pop(),
       p_period_from: from,
       p_period_to: to,
-      p_extra: { transaction_count: txList.length, document_count: docCount, size_bytes: zipBytes.byteLength, filters } as any,
+      p_extra: { transaction_count: txList.length, document_count: docCount, size_bytes: zipBytes.byteLength, filters,
+        selection_mode: requestedIds === undefined ? "period" : "transaction_ids", ignored_count: ignoredCount } as any,
     } as any);
 
     return new Response(JSON.stringify({
       url: signed.signedUrl,
       expires_in_seconds: 60 * 30,
       transaction_count: txList.length,
+      ignored_count: ignoredCount,
       document_count: docCount,
       total_size_mb: +(zipBytes.byteLength / 1024 / 1024).toFixed(2),
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
