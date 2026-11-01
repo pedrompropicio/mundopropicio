@@ -69,6 +69,7 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
+      issues: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -83,6 +84,10 @@ jobs:
         with:
           name: tarefa
           path: ${{ runner.temp }}/e2b
+      - name: Corpo da Issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh issue view "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --json body -q .body > "${{ runner.temp }}/e2b/issue.md"
       - name: Montar prompt
         id: prompt
         run: |
@@ -98,6 +103,9 @@ jobs:
             echo "Tarefa (texto do despacho do Pedro):"
             cat "${{ runner.temp }}/e2b/tarefa.md"
             # tarefa.md não termina em nova linha: sem este echo o delimitador colava à última linha.
+            echo
+            echo "Corpo da Issue #${{ github.event.issue.number }} (contexto; em conflito, o despacho prevalece):"
+            cat "${{ runner.temp }}/e2b/issue.md"
             echo
             echo 'FIM_PROMPT_E2B'
           } >> "$GITHUB_OUTPUT"
