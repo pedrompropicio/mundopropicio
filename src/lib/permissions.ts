@@ -72,6 +72,37 @@ export function pickTopRole(roles: string[]): string {
   return [...roles].sort((a, b) => (ROLE_PRIORITY[a] ?? 99) - (ROLE_PRIORITY[b] ?? 99) || a.localeCompare(b))[0] ?? "user";
 }
 
+/**
+ * TRANSITÓRIO (#338, Lote A #435 a2): permissões cujos defaults ainda não
+ * existem em `role_permissions` em Live (migração por aplicar). Remover esta
+ * lista, `applyMissingPermissionFallback` e a sua chamada quando a migração dos
+ * defaults de `delete_transaction_documents` estiver em Live.
+ */
+export const MISSING_PERMISSION_FALLBACKS: Record<string, readonly string[]> = {
+  delete_transaction_documents: ["admin", "manager"],
+};
+
+/**
+ * Função pura. Para cada chave com fallback: se NENHUM papel a tem no conjunto
+ * carregado de `role_permissions`, concede-a a quem tenha um dos papéis do
+ * fallback. Se existir para pelo menos um papel, não acrescenta nada.
+ * Aplicar ANTES dos overrides de `user_permissions` (o override prevalece).
+ * Transitório — ver #338.
+ */
+export function applyMissingPermissionFallback(
+  base: Set<string>,
+  roles: string[],
+  rolePermissions: Record<string, string[]>,
+  fallbacks: Record<string, readonly string[]> = MISSING_PERMISSION_FALLBACKS,
+): Set<string> {
+  const all = Object.values(rolePermissions).flat();
+  for (const [perm, fbRoles] of Object.entries(fallbacks)) {
+    if (all.includes(perm)) continue;
+    if (roles.some((r) => fbRoles.includes(r))) base.add(perm);
+  }
+  return base;
+}
+
 /** Réplica de `_effective_permissions_for`. */
 export function resolveForCompany(input: {
   companyId: string;
@@ -89,6 +120,7 @@ export function resolveForCompany(input: {
   const base = new Set<string>(full ? universe : []);
   if (isPa) Object.values(rolePermissions).flat().forEach((p) => base.add(p));
   for (const r of roles) (rolePermissions[r] ?? []).forEach((p) => base.add(p));
+  applyMissingPermissionFallback(base, roles, rolePermissions);
   for (const o of overrides.filter((x) => x.company_id === companyId)) {
     if (o.granted) base.add(o.permission); else base.delete(o.permission);
   }
