@@ -16,13 +16,12 @@ import {
   Check,
   X as XIcon, Repeat } from "lucide-react";
 import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
-import { MarkInstallmentPaidModal } from "@/components/MarkInstallmentPaidModal";
 import { methodLabels } from "@/lib/payment-methods";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Clock, Ban } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,7 +69,6 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
     account_id: "",
   });
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [markInstallment, setMarkInstallment] = useState<any | null>(null);
   const [reverseOpen, setReverseOpen] = useState(false);
   const [reverseRelease, setReverseRelease] = useState(false);
   const [reverseReason, setReverseReason] = useState("");
@@ -87,9 +85,8 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
       ] = await Promise.all([
         fetchAllPagedQuery(supabase
           .from("transaction_payments" as any)
-          .select("id, amount, payment_date, scheduled_date, status, payment_method, account_id, invoice_ref, reversal_kind, credit_amount, currency, original_amount, fx_rate, financial_accounts:account_id(name)")
+          .select("id, amount, payment_date, status, payment_method, account_id, invoice_ref, reversal_kind, credit_amount, currency, original_amount, fx_rate, financial_accounts:account_id(name)")
           .eq("transaction_id", txId)
-          .order("scheduled_date", { ascending: true, nullsFirst: false })
           .order("payment_date", { ascending: true })),
         supabase
           .from("payment_list_items")
@@ -273,44 +270,6 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
     onError: (e: any) => toast({ title: "Erro ao estornar parcela", description: e.message, variant: "destructive" }),
   });
 
-  // #39 — editar valor/vencimento das parcelas planeadas (Modelo B), atómico via RPC.
-  const [scheduleDraft, setScheduleDraft] = useState<Record<string, { amount: string; scheduled_date: string }> | null>(null);
-  const saveScheduleMutation = useMutation({
-    mutationFn: async (rows: { id: string; amount: number; scheduled_date: string }[]) => {
-      const { data: u } = await supabase.auth.getUser();
-      const { data, error } = await supabase.rpc("update_planned_installments" as any, {
-        p_transaction_id: txId,
-        p_rows: rows,
-        p_changed_by: u?.user?.user_metadata?.full_name ?? u?.user?.email ?? "sistema",
-      } as any);
-      if (error) throw new Error(error.message);
-      return Number(data ?? 0);
-    },
-    onSuccess: (n) => {
-      setScheduleDraft(null);
-      queryClient.invalidateQueries({ queryKey: ["payment-timeline", txId] });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      toast({ title: n > 0 ? `${n} parcela(s) atualizada(s)` : "Sem alterações" });
-    },
-    onError: (e: any) => toast({ title: "Erro ao gravar o cronograma", description: e.message, variant: "destructive" }),
-  });
-
-  const cancelInstallmentMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("transaction_payments" as any)
-        .update({ status: "cancelled" } as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["payment-timeline", txId] });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      toast({ title: "Parcela cancelada" });
-    },
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
-  });
-
   // Admin: estornar transação (com opção de libertar para nova liquidação)
   const reverseTxMutation = useMutation({
     mutationFn: async ({ release, reason }: { release: boolean; reason: string }) => {
@@ -371,10 +330,6 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
 
   const allPayments = data?.payments ?? [];
   const paidPayments = allPayments.filter((p: any) => p.status === "paid" || !p.status);
-  const plannedPayments = allPayments.filter((p: any) => p.status === "planned");
-  const cancelledPayments = allPayments.filter((p: any) => p.status === "cancelled");
-  const hasSchedule = plannedPayments.length > 0 || cancelledPayments.length > 0 ||
-    allPayments.some((p: any) => p.scheduled_date);
   const payments = paidPayments;
   const paymentListItems = data?.paymentListItems ?? [];
   const reimbursementItems = data?.reimbursementItems ?? [];
@@ -384,7 +339,6 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
   const totalPaid = payments.reduce((s, p) => s + Number(p.amount), 0);
   const totalCredit = creditUsages.reduce((s, c) => s + Number(c.amount), 0);
   const openBalance = Math.max(0, totalWithIva - totalPaid - totalCredit);
-  const totalPlanned = plannedPayments.reduce((s, p) => s + Number(p.amount), 0);
 
   const hasAny =
     allPayments.length > 0 ||
@@ -528,123 +482,6 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
         </section>
       )}
 
-
-      {/* Cronograma de parcelas (planned + cancelled) */}
-      {hasSchedule && (
-        <Section
-          icon={<Clock className="h-3.5 w-3.5" />}
-          title={`Cronograma de parcelas (${plannedPayments.length} agendada${plannedPayments.length === 1 ? "" : "s"}${cancelledPayments.length > 0 ? ` · ${cancelledPayments.length} cancelada${cancelledPayments.length === 1 ? "" : "s"}` : ""})`}
-        >
-          {scheduleDraft && (() => {
-            const draftSum = plannedPayments.reduce((acc: number, p: any) => acc + (Number(scheduleDraft[p.id]?.amount) || 0), 0);
-            const diff = +(totalPlanned - draftSum).toFixed(2);
-            const invalid = plannedPayments.some((p: any) => !(Number(scheduleDraft[p.id]?.amount) > 0) || !scheduleDraft[p.id]?.scheduled_date);
-            return (
-              <div className="mb-2 space-y-1.5 rounded-md border border-primary/30 bg-primary/5 p-2">
-                {plannedPayments.map((p: any, i: number) => (
-                  <div key={p.id} className="flex items-center gap-2 text-xs">
-                    <span className="w-6 text-muted-foreground">#{i + 1}</span>
-                    <input
-                      type="date"
-                      value={scheduleDraft[p.id]?.scheduled_date ?? ""}
-                      onChange={(e) => setScheduleDraft({ ...scheduleDraft, [p.id]: { ...scheduleDraft[p.id], scheduled_date: e.target.value } })}
-                      className="rounded border border-border bg-background px-1.5 py-0.5"
-                    />
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={scheduleDraft[p.id]?.amount ?? ""}
-                      onChange={(e) => setScheduleDraft({ ...scheduleDraft, [p.id]: { ...scheduleDraft[p.id], amount: e.target.value } })}
-                      className="w-28 rounded border border-border bg-background px-1.5 py-0.5 text-right font-mono"
-                    />
-                  </div>
-                ))}
-                <p className={`text-[11px] ${Math.abs(diff) > 0.01 ? "text-destructive" : "text-muted-foreground"}`}>
-                  Soma: {formatCurrency(draftSum)} de {formatCurrency(totalPlanned)}
-                  {Math.abs(diff) > 0.01 && ` — faltam ${formatCurrency(diff)} para bater com o total`}
-                  . Parcelas pagas ficam travadas (corrigem-se em "Parcelas pagas → Editar", só admin).
-                </p>
-                <div className="flex justify-end gap-2">
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setScheduleDraft(null)}>Cancelar</Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={invalid || Math.abs(diff) > 0.01 || saveScheduleMutation.isPending}
-                    onClick={() => saveScheduleMutation.mutate(plannedPayments.map((p: any) => ({
-                      id: p.id,
-                      amount: +Number(scheduleDraft[p.id].amount).toFixed(2),
-                      scheduled_date: scheduleDraft[p.id].scheduled_date,
-                    })))}
-                  >
-                    Gravar cronograma
-                  </Button>
-                </div>
-              </div>
-            );
-          })()}
-          {canApprove && plannedPayments.length > 0 && !scheduleDraft && (
-            <div className="mb-1 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setScheduleDraft(Object.fromEntries(plannedPayments.map((p: any) => [p.id, { amount: String(Number(p.amount).toFixed(2)), scheduled_date: p.scheduled_date ?? "" }])))}
-                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-primary hover:bg-primary/10"
-              >
-                <Pencil className="h-3 w-3" /> Editar valores e vencimentos
-              </button>
-            </div>
-          )}
-          <ul className="divide-y divide-border/40">
-            {[...plannedPayments, ...cancelledPayments].map((p: any, i: number) => {
-              const isPlanned = p.status === "planned";
-              const isCancelled = p.status === "cancelled";
-              return (
-                <li key={p.id} className="flex items-center justify-between py-1.5 text-xs gap-2">
-                  <div className={`flex items-center gap-2 min-w-0 ${isCancelled ? "line-through opacity-60" : ""}`}>
-                    <span className="font-medium text-muted-foreground">#{i + 1}</span>
-                    <span>{p.scheduled_date ? formatDatePT(p.scheduled_date) : "—"}</span>
-                    {isPlanned && (
-                      <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] text-warning">⏳ Planeada</span>
-                    )}
-                    {isCancelled && (
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">❌ Cancelada</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="font-mono font-semibold">{formatCurrency(Number(p.amount))}</span>
-                    {canApprove && isPlanned && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setMarkInstallment(p)}
-                          className="rounded px-1.5 py-0.5 text-[10px] text-success hover:bg-success/10"
-                          title="Marcar como paga"
-                        >
-                          ✅ Pagar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (confirm("Cancelar esta parcela?")) cancelInstallmentMutation.mutate(p.id);
-                          }}
-                          className="rounded px-1.5 py-0.5 text-[10px] text-destructive hover:bg-destructive/10"
-                          title="Cancelar parcela"
-                        >
-                          <Ban className="h-3 w-3 inline" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-          {plannedPayments.length > 0 && (
-            <div className="mt-1 border-t border-border/40 pt-1 text-[10px] text-muted-foreground text-right">
-              Soma planeada: <span className="font-mono font-semibold">{formatCurrency(totalPlanned)}</span>
-            </div>
-          )}
-        </Section>
-      )}
 
       {/* Parcelas */}
       {payments.length > 0 && (
@@ -974,13 +811,6 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
           onClose={() => setShowPaymentsModal(false)}
         />
       )}
-
-      <MarkInstallmentPaidModal
-        open={!!markInstallment}
-        onOpenChange={(v) => { if (!v) setMarkInstallment(null); }}
-        installment={markInstallment}
-        transactionId={txId}
-      />
     </div>
   );
 }

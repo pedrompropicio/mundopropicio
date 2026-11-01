@@ -2121,7 +2121,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       const grossTotal = calcTotalWithIva(parseFloat(form.amount || "0"), Number(form.iva_rate || 0));
       const err = validateInstallments(installmentRows, grossTotal);
       if (err) {
-        toast({ title: "Cronograma inválido", description: err, variant: "destructive" });
+        toast({ title: "Parcelas inválidas", description: err, variant: "destructive" });
         return;
       }
       // Bloqueio de segunda geração — sem opção de forçar.

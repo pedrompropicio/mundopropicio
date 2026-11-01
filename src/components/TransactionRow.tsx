@@ -404,8 +404,8 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-xs">
-                      <p>Pagamento dividido em parcelas planeadas.</p>
-                      <p className="mt-1 text-muted-foreground">Abre o menu "Mais ações" → "Ver parcelas planeadas".</p>
+                      <p>Pagamento dividido em várias liquidações.</p>
+                      <p className="mt-1 text-muted-foreground">Abre o menu "Mais ações" → "Ver pagamentos".</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -781,7 +781,7 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                         </DropdownMenuItem>
                         {showViewPayments && (
                           <DropdownMenuItem onClick={() => onViewPayments!(t.id)}>
-                            <CreditCard className="h-3.5 w-3.5 mr-2" /> {paidAmount > 0 ? "Ver pagamentos" : "Ver parcelas planeadas"}
+                            <CreditCard className="h-3.5 w-3.5 mr-2" /> Ver pagamentos
                           </DropdownMenuItem>
                         )}
                         {showHide && (
