@@ -4,6 +4,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # E2b (#417): o executor dispara o CI no ramo exec/* (PR criado pelo GITHUB_TOKEN não dispara).
+  workflow_dispatch:
   # Diário (07:10 UTC, como run_invariant_checks): o invariante
   # edge_fn_sem_guarda_empresa vive no vitest porque o código das edge
   # functions não está na base.
