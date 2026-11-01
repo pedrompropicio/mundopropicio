@@ -1,0 +1,243 @@
+# E2b (#417): um comentário "## Despacho — #N" do Pedro numa Issue aberta lança o
+# executor (Claude Code, subscrição) num runner. Só R1: código e testes.
+# Travas determinísticas antes de qualquer IA; o agente não tem credenciais de push
+# nem segredos de base de dados; a entrega é um PR para main, nunca lovable/dev.
+name: Executor (E2b)
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  travas:
+    if: >-
+      github.event.issue.pull_request == null &&
+      github.event.issue.state == 'open' &&
+      github.event.comment.user.login == 'pedrompropicio' &&
+      startsWith(github.event.comment.body, '## Despacho') &&
+      !startsWith(github.event.comment.body, '## Despacho recusado')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    outputs:
+      ok: ${{ steps.avaliar.outputs.ok }}
+      merge_automatico: ${{ steps.avaliar.outputs.merge_automatico }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Avaliar despacho
+        id: avaliar
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bun scripts/executor/travas.ts avaliar
+      - name: Comentar recusa
+        if: steps.avaliar.outputs.ok != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body-file recusa.md
+          exit 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tarefa
+          path: tarefa.md
+          retention-days: 7
+
+  executar:
+    needs: travas
+    # Um despacho de cada vez no repositório (escritor único, #329). Fica ao nível do job
+    # para que comentários comuns (runs ignorados) não entrem na fila.
+    concurrency:
+      group: executor-mundopropicio
+      cancel-in-progress: false
+    if: needs.travas.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install
+        run: bun install --frozen-lockfile || bun install
+      - uses: actions/download-artifact@v4
+        with:
+          name: tarefa
+          path: ${{ runner.temp }}/e2b
+      - name: Montar prompt
+        id: prompt
+        run: |
+          {
+            echo 'texto<<FIM_PROMPT_E2B'
+            echo "És o executor da E2b na Issue #${{ github.event.issue.number }} do repositório ${{ github.repository }}. Classe R1: só código e testes."
+            echo "Lê primeiro docs/INDEX.md e o que ele indicar para o tema; procura em .lovable/memory/features/ e docs/ antes de propor."
+            echo "Regras: não toques em .github/, supabase/, drizzle/, .lovable/ nem ficheiros .env (o PR é recusado). Sem rede para serviços da MP, sem Live, sem DDL/DML, sem commits nem push: só editas a cópia local."
+            echo "Antes de terminar corre: bunx -p @typescript/native-preview tsgo -p tsconfig.app.json --noEmit e bunx vitest run, e corrige o que falhar."
+            echo "No fim escreve .executor/resumo.md com as secções '### Feito' e '### Não feito / lacunas' (itens '- ' de topo, um predicado verificável por linha)."
+            echo "Se não puderes fazer exactamente a tarefa, pára, não inventes, e explica em '### Não feito / lacunas'."
+            echo ""
+            echo "Tarefa (texto do despacho do Pedro):"
+            cat "${{ runner.temp }}/e2b/tarefa.md"
+            # tarefa.md não termina em nova linha: sem este echo o delimitador colava à última linha.
+            echo
+            echo 'FIM_PROMPT_E2B'
+          } >> "$GITHUB_OUTPUT"
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: ${{ steps.prompt.outputs.texto }}
+          claude_args: >-
+            --max-turns 60
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(bunx vitest:*),Bash(bunx -p @typescript/native-preview tsgo:*),Bash(bun run test:*),Bash(git diff:*),Bash(git status:*),Bash(ls:*),Bash(mkdir -p .executor)"
+      - name: Recolher alterações
+        run: |
+          mkdir -p "${{ runner.temp }}/saida"
+          [ -f .executor/resumo.md ] && cp .executor/resumo.md "${{ runner.temp }}/saida/resumo.md"
+          rm -rf .executor
+          git add -A
+          git diff --cached --name-only > "${{ runner.temp }}/saida/ficheiros.txt"
+          # Sem resumo do agente, o workflow gera um a partir dos ficheiros alterados.
+          if [ ! -s "${{ runner.temp }}/saida/resumo.md" ]; then
+            {
+              echo "### Feito"
+              if [ -s "${{ runner.temp }}/saida/ficheiros.txt" ]; then
+                sed 's/^/- ficheiro alterado: `/; s/$/`/' "${{ runner.temp }}/saida/ficheiros.txt"
+              else
+                echo "- nenhum ficheiro alterado"
+              fi
+              echo
+              echo "### Não feito / lacunas"
+              echo "- o executor não escreveu .executor/resumo.md (resumo gerado pelo workflow)"
+            } > "${{ runner.temp }}/saida/resumo.md"
+          fi
+          git diff --cached --binary > "${{ runner.temp }}/saida/exec.patch"
+          echo "Ficheiros alterados:"; cat "${{ runner.temp }}/saida/ficheiros.txt"
+      - name: Travas de caminhos
+        run: bun scripts/executor/travas.ts caminhos "${{ runner.temp }}/saida/ficheiros.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: saida
+          path: ${{ runner.temp }}/saida
+          retention-days: 14
+
+  entregar:
+    needs: [travas, executar]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ISSUE: ${{ github.event.issue.number }}
+      RAMO: exec/${{ github.event.issue.number }}-${{ github.run_id }}
+      # Decisão do Pedro (01/11/2026): merge automático por defeito; "Merge automático: não" na autorização desliga.
+      MERGE_AUTO: ${{ needs.travas.outputs.merge_automatico }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/download-artifact@v4
+        with:
+          name: saida
+          path: ${{ runner.temp }}/saida
+      - name: Sem alterações?
+        id: vazio
+        run: |
+          if [ ! -s "${{ runner.temp }}/saida/exec.patch" ]; then echo "sim=true" >> "$GITHUB_OUTPUT"; else echo "sim=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Aplicar e voltar a conferir caminhos
+        if: steps.vazio.outputs.sim == 'false'
+        run: |
+          git apply --index "${{ runner.temp }}/saida/exec.patch"
+          git diff --cached --name-only > ficheiros.txt
+          bun scripts/executor/travas.ts caminhos ficheiros.txt
+      - name: Install
+        if: steps.vazio.outputs.sim == 'false'
+        run: bun install --frozen-lockfile || bun install
+      - name: Testes (determinístico, fora da IA)
+        id: testes
+        if: steps.vazio.outputs.sim == 'false'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          bunx -p @typescript/native-preview tsgo -p tsconfig.app.json --noEmit
+          bunx vitest run 2>&1 | tee vitest.log
+      - name: Commit, PR e CI
+        id: pr
+        if: steps.vazio.outputs.sim == 'false'
+        run: |
+          git config user.name "executor-e2b[bot]"
+          git config user.email "executor-e2b@users.noreply.github.com"
+          git checkout -b "$RAMO"
+          git commit -m "E2b #$ISSUE: entrega do executor (Claude Code)" -m "Run: $RUN_URL"
+          git push origin "$RAMO"
+          RESULTADO="${{ steps.testes.outcome }}"
+          DRAFT=""; [ "$RESULTADO" = "success" ] || DRAFT="--draft"
+          {
+            echo "Entrega do executor E2b para #$ISSUE. Run: $RUN_URL"
+            echo
+            echo "Testes no runner (tsgo + vitest): **$RESULTADO**."
+            echo
+            cat "${{ runner.temp }}/saida/resumo.md"
+            echo
+            echo "Revisão e merge seguem o fluxo normal. Não fecha a Issue nem liberta a reserva."
+          } > corpo-pr.md
+          URL=$(gh pr create --base main --head "$RAMO" --title "E2b #$ISSUE — entrega do executor" --body-file corpo-pr.md $DRAFT)
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          # PRs criados com o GITHUB_TOKEN não disparam o CI; o workflow_dispatch dispara
+          # e liga o check "quality" ao mesmo commit.
+          gh workflow run ci.yml --ref "$RAMO"
+          # Merge automático: só com testes verdes no runner; o GitHub espera ainda pelo CI "quality".
+          AUTO="desligado nesta tarefa"
+          if [ "$MERGE_AUTO" = "true" ] && [ "$RESULTADO" = "success" ]; then
+            if gh pr merge "$URL" --auto --squash; then AUTO="ligado (entra quando o CI quality ficar verde)"; else AUTO="pedido falhou: ver run (repositório sem «Allow auto-merge»?)"; fi
+          elif [ "$MERGE_AUTO" = "true" ]; then
+            AUTO="não ligado: testes do runner falharam"
+          fi
+          echo "auto=$AUTO" >> "$GITHUB_OUTPUT"
+      - name: Fecho na Issue
+        if: always()
+        run: |
+          {
+            echo "## Fecho — #$ISSUE (executor E2b, Claude Code)"
+            echo
+            if [ "${{ steps.vazio.outputs.sim }}" = "true" ]; then
+              echo "Sem alterações de código."
+            else
+              echo "- **PR:** ${{ steps.pr.outputs.url || 'não criado (ver run)' }}"
+              echo "- **Testes no runner:** ${{ steps.testes.outcome }}"
+              echo "- **Merge automático:** ${{ steps.pr.outputs.auto || 'não pedido' }}"
+            fi
+            echo "- **Run:** $RUN_URL"
+            echo
+            cat "${{ runner.temp }}/saida/resumo.md" 2>/dev/null || printf '### Não feito / lacunas\n- resumo do executor indisponível\n'
+            echo
+            echo "Pronto para revisão por leitura. A reserva continua activa até ser libertada."
+          } > fecho.md
+          gh issue comment "$ISSUE" --repo "${{ github.repository }}" --body-file fecho.md
