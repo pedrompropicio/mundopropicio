@@ -16,6 +16,8 @@ export interface Decisao {
   motivos: string[];
   /** Texto da tarefa (corpo do despacho sem o cabeçalho). */
   tarefa: string;
+  /** Merge automático do PR quando o CI fica verde. Por defeito sim; só "não" explícito na autorização desliga. */
+  mergeAutomatico: boolean;
 }
 
 /** Únicos autores aceites para Despacho, Autorização e Reserva (o Pedro; conectores escrevem como ele). */
@@ -63,6 +65,11 @@ export function capacidadesDe(texto: string): Record<string, boolean> {
   return caps;
 }
 
+/** Decisão do Pedro (01/11/2026): merge automático por defeito; só "não" explícito o desliga. */
+export function mergeAutomaticoDe(valor: string | undefined): boolean {
+  return !/^(nao|no)\b/.test(norm(valor ?? "").replace(/[`*]/g, ""));
+}
+
 /** Primeira data ISO (AAAA-MM-DD, com hora opcional) do texto de validade; sem hora = fim desse dia UTC. */
 export function limiteDaValidade(validade: string | undefined): Date | null {
   if (!validade) return null;
@@ -74,10 +81,11 @@ export function limiteDaValidade(validade: string | undefined): Date | null {
 
 export function avaliarDespacho(issue: number, comentarios: Comentario[], despachoId: number, agora: Date): Decisao {
   const motivos: string[] = [];
+  let mergeAutomatico = true;
   const ordem = [...comentarios].sort((a, b) => a.criadoEm.localeCompare(b.criadoEm));
   const despacho = ordem.find((c) => c.id === despachoId);
   if (!despacho || !isDespacho(despacho.corpo)) {
-    return { ok: false, motivos: ["comentário de despacho não encontrado"], tarefa: "" };
+    return { ok: false, motivos: ["comentário de despacho não encontrado"], tarefa: "", mergeAutomatico: false };
   }
   if (!AUTORES.includes(despacho.autor)) motivos.push(`autor do despacho não autorizado (${despacho.autor})`);
   const cab = despacho.corpo.trimStart().split(/\r?\n/)[0];
@@ -104,6 +112,7 @@ export function avaliarDespacho(issue: number, comentarios: Comentario[], despac
     if (desconhecidas.some((k) => caps[k])) motivos.push(`capacidade desconhecida a sim: ${desconhecidas.join(", ")}`);
     const ambiente = norm(f.get("ambiente") ?? "");
     if (ambiente.includes("live")) motivos.push("a autorização refere o ambiente Live");
+    mergeAutomatico = mergeAutomaticoDe(f.get("merge automatico"));
     const limite = limiteDaValidade(f.get("validade"));
     if (!limite) motivos.push("a autorização não tem validade com data (AAAA-MM-DD)");
     else if (agora > limite) motivos.push(`autorização expirada (${limite.toISOString()})`);
@@ -120,7 +129,7 @@ export function avaliarDespacho(issue: number, comentarios: Comentario[], despac
     if (!exec.startsWith(EXECUTOR)) motivos.push(`a reserva activa não é do Claude Code (${exec || "vazio"})`);
   }
 
-  return { ok: motivos.length === 0, motivos, tarefa };
+  return { ok: motivos.length === 0, motivos, tarefa, mergeAutomatico };
 }
 
 /** Verifica a lista de ficheiros alterados pelo executor. */
