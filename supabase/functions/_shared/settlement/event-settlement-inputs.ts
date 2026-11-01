@@ -129,6 +129,8 @@ export interface SettlementExpenseDocLine {
   description: string;
   base: number;
   ivaRate: number;
+  /** Excedido bruto independente do líquido; não é uma taxa de IVA. */
+  gross?: number;
   event_settlement_id?: string | null;
 }
 
@@ -189,12 +191,12 @@ export function collectSettlementExpenseDocLines(input: SettlementTotalsInput): 
 
   if (basis.expenseSource === "committed") {
     for (const x of computeOutsideBpExcessLines(operationalForecasts, expenseTransactions)) {
-      const ivaRate = x.net > 0 ? ((x.gross / x.net) - 1) * 100 : 0;
       lines.push({
         categoryId: x.categoryId,
         description: "Excedido ao Business Plan",
         base: x.net,
-        ivaRate,
+        ivaRate: 0,
+        gross: x.gross,
       });
     }
   }
