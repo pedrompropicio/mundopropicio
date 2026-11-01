@@ -20,6 +20,7 @@ import { deleteTransactionDocument } from "@/lib/transaction-document-storage";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { canShowDeleteDocumentButton } from "@/lib/transaction-document-permissions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/mock-data";
@@ -37,10 +38,14 @@ export default function PaymentListReceipts({ listId, listTitle, activeTransacti
   const queryClient = useQueryClient();
   // Anexar comprovativo do lote está aberto a admin/manager/editor (as policies de
   // INSERT em payment_list_documents/transaction_documents já o permitem) — quem
-  // liquida os lotes SEPA no dia-a-dia pode ser editor. A REMOÇÃO fica reservada a
-  // admin/manager, alinhada com a policy de DELETE de payment_list_documents.
-  const { user, isAdmin, isManager } = useAuth();
-  const canDeleteReceipts = isAdmin || isManager;
+  // liquida os lotes SEPA no dia-a-dia pode ser editor. A REMOÇÃO passa a seguir a
+  // permissão `delete_transaction_documents` (#338: a edge usa o mesmo gate para
+  // o scope payment_list).
+  const { user, permissions, role } = useAuth();
+  const canDeleteReceipts = canShowDeleteDocumentButton({
+    permissions,
+    isPlatformAdmin: role === ("platform_admin" as any),
+  });
   const [uploading, setUploading] = useState(false);
   const [selectedExportId, setSelectedExportId] = useState<string>("");
   const [confirmDelete, setConfirmDelete] = useState<any | null>(null);

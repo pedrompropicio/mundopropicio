@@ -12,6 +12,8 @@ import { toast } from "@/hooks/use-toast";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/hooks/useCompany";
+import { canShowDeleteDocumentButton } from "@/lib/transaction-document-permissions";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import { formatDatePT } from "@/lib/utils";
 import ExternalLinkAttachment from "@/components/ExternalLinkAttachment";
@@ -88,7 +90,17 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
   const [isAccounting, setIsAccounting] = useState(true);
   const [revalidation, setRevalidation] = useState<InvoiceGroupRevalidation | null>(null);
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, permissions, role } = useAuth();
+  const { companyId: activeCompanyId } = useCompany();
+  // Botão de apagar só com `delete_transaction_documents` na empresa dona do
+  // documento (o servidor decide; aqui evita-se o 403 só depois do clique).
+  const canDeleteDoc = (doc: any) =>
+    canShowDeleteDocumentButton({
+      permissions,
+      isPlatformAdmin: role === ("platform_admin" as any),
+      ownerCompanyId: doc?.transactions?.company_id ?? null,
+      activeCompanyId,
+    });
 
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ["transaction_documents", transactionId],
@@ -557,7 +569,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
                 doc={doc}
                 uploadedAtFormatted={formatDatePT(doc.uploaded_at)}
                 onToggleAccounting={() => toggleAccounting(doc)}
-                onDelete={() => requestDelete(doc)}
+                onDelete={canDeleteDoc(doc) ? () => requestDelete(doc) : undefined}
               />
             ))}
 
@@ -598,13 +610,15 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                   </button>
-                  <button
-                    onClick={() => requestDelete(doc)}
-                    className="rounded-lg p-1.5 text-destructive hover:bg-destructive/15 transition-colors"
-                    title="Remover"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  {canDeleteDoc(doc) && (
+                    <button
+                      onClick={() => requestDelete(doc)}
+                      className="rounded-lg p-1.5 text-destructive hover:bg-destructive/15 transition-colors"
+                      title="Remover"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
