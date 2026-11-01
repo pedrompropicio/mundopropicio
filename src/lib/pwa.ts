@@ -6,6 +6,7 @@ type ControllerChangeListener = () => void;
 
 const controllerChangeListeners = new Set<ControllerChangeListener>();
 let hasPendingControllerChange = false;
+let updateSWRef: ((reloadPage?: boolean) => Promise<void>) | null = null;
 
 export function subscribeToPWAControllerChange(listener: ControllerChangeListener) {
   controllerChangeListeners.add(listener);
@@ -22,6 +23,15 @@ export function subscribeToPWAControllerChange(listener: ControllerChangeListene
 function notifyControllerChange() {
   hasPendingControllerChange = true;
   controllerChangeListeners.forEach((listener) => listener());
+}
+
+/** Activa o SW em espera (skipWaiting) SEM recarregar a página. */
+export async function activatePWAUpdate() {
+  try {
+    await updateSWRef?.(false);
+  } catch {
+    // ignora
+  }
 }
 
 export function registerPWA() {
@@ -60,12 +70,15 @@ export function registerPWA() {
     return;
   }
 
+  // Primeira instalação (sem controller) não é «versão nova».
+  const hadController = Boolean(navigator.serviceWorker.controller);
+
   const updateSW = registerSW({
     immediate: true,
     onNeedRefresh() {
-      // Activate the new worker immediately. The controllerchange listener
-      // delegates the reload decision to React so active work is not lost.
-      void updateSW(true);
+      // Há um SW novo em espera: só sinaliza. A activação (skipWaiting) e a
+      // navegação acontecem quando o utilizador clica «Atualizar».
+      notifyControllerChange();
     },
     onRegisteredSW(_swUrl, registration) {
       if (!registration) {
@@ -91,5 +104,9 @@ export function registerPWA() {
     },
   });
 
-  navigator.serviceWorker.addEventListener("controllerchange", notifyControllerChange);
+  updateSWRef = updateSW;
+
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (hadController) notifyControllerChange();
+  });
 }
