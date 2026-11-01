@@ -6543,3 +6543,12 @@ Origem: 0 · Cowork (Claude), 31/10/2026.
 - Fica activa até haver, na mesma Issue, um comentário posterior "## Reserva libertada — #N". Libertar continua a ser do executor ou do Pedro; não há transferência automática (D-ERP291).
 - O painel de comando (mp-painel, E2a #416) grava estes comentários e o «Sim» ("## Autorização — #N") com confirmação do Pedro, e mostra-os em "Em execução agora" junto das linhas do QUADRO. O painel nunca escreve no QUADRO, porque com a D-ERP344 os docs entram pelo lovable/dev.
 - As linhas do QUADRO continuam válidas. Uma demanda não deve ter reserva nas duas formas ao mesmo tempo.
+
+
+## D-ERP346 — E2b: despacho pelo painel lança o Claude Code; merge automático por defeito; sincronização main → lovable/dev por PR (01/11/2026, Pedro, «Sim» no 0 · Cowork Claude; Issue #417)
+
+- Um comentário "## Despacho — #N" do Pedro numa Issue aberta lança o workflow `.github/workflows/executor.yml` (Claude Code em GitHub Actions). Travas determinísticas (`src/lib/executor/travas.ts`) antes de qualquer IA: «## Autorização» R1 que designa o Claude Code, anterior ao despacho; só `codigo+testes` a sim; ambiente diferente de Live; validade com data; uma única «## Reserva» activa do Claude Code (D-ERP345). Caminhos proibidos no PR: `.github/`, `supabase/`, `drizzle/`, `.lovable/`, `.env`, `scripts/*-live.txt`.
+- A entrega é um PR para `main`, nunca para `lovable/dev`. Merge automático por defeito quando os testes do runner e o CI `quality` ficam verdes; a linha "- **Merge automático:** não" na Autorização desliga-o só nessa tarefa. Nada disto publica: `main` não chega ao Live sozinho (Publish continua a ser do 0 com «Sim»).
+- O painel de comando (mp-painel, E2b) grava Autorização, Reserva e Despacho num só passo, apenas para Claude Code, classe R1 e ambiente homolog. Codex e R2 continuam manuais.
+- Sincronização `main` → `lovable/dev`: por PR aberto e integrado pelo 0 · Cowork em cada janela de Publish (primeiro: PR #429, 01/11/2026). Sem workflow automático enquanto a cadência não o justificar.
+- Primeiro despacho real: #402 (PR #428, 01/11/2026).
