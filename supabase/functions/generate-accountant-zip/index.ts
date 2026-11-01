@@ -6,15 +6,23 @@ import { fetchNonAccountingAccountIds, nonAccountingOrFilter, accountingOnlyIds 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import JSZip from "npm:jszip@3.10.1";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { z } from "npm:zod@3";
+import {
+  MAX_TX, TX_LIMIT_ERROR, assertZipSize, canExportCompany, parseTransactionIds,
+  queryableTransactionIds, selectRequestedTransactions,
+} from "./selection.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-const MAX_TX = 500;
-const MAX_BYTES = 200 * 1024 * 1024;
+const DateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}, "Data inválida.");
+const FiltersSchema = z.object({
+  type: z.enum(["all", "expense", "income"]).optional(),
+  account_ids: z.array(z.string().uuid()).optional(),
+  supplier_ids: z.array(z.string().uuid()).optional(),
+  has_attachments: z.enum(["all", "with", "without"]).optional(),
+});
 
 function slug(s: string | null | undefined): string {
   return (s ?? "sem-fornecedor")
@@ -46,9 +54,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    if (!supabaseUrl || !serviceRoleKey || !anonKey) throw new Error("Configuração indisponível.");
 
     const callerClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -63,26 +72,37 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    const body = await req.json();
-    const company_id: string | undefined = body?.company_id;
-    const from: string | undefined = body?.period?.from;
-    const to: string | undefined = body?.period?.to;
-    const filters = body?.filters ?? {};
-    if (!company_id || !from || !to) {
-      return new Response(JSON.stringify({ error: "company_id, period.from, period.to obrigatórios" }), {
+    const body = await req.json().catch(() => null);
+    const companyParsed = z.string().uuid().safeParse(body?.company_id);
+    let requestedIds: string[] | undefined;
+    try {
+      requestedIds = parseTransactionIds(body?.transaction_ids);
+    } catch (error) {
+      return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Seleção inválida." }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    // Exact-ID exports ignore period and every filter, including attachments.
+    const periodParsed = z.object({ from: DateSchema, to: DateSchema })
+      .refine((p) => p.from <= p.to, "Período inválido.").safeParse(body?.period);
+    const filtersParsed = FiltersSchema.safeParse(body?.filters ?? {});
+    if (!companyParsed.success || (requestedIds === undefined && (!periodParsed.success || !filtersParsed.success))) {
+      return new Response(JSON.stringify({ error: "Empresa, período ou filtros inválidos." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const company_id = companyParsed.data;
+    const from = requestedIds === undefined && periodParsed.success ? periodParsed.data.from : null;
+    const to = requestedIds === undefined && periodParsed.success ? periodParsed.data.to : null;
+    const filters = requestedIds === undefined && filtersParsed.success ? filtersParsed.data : {};
 
     // Authorization: role accountant/manager/admin + membership in the requested company
-    const { data: roles } = await admin
+    const { data: roles, error: rolesError } = await admin
       .from("user_roles")
       .select("role, company_id")
       .eq("user_id", caller.id);
-    const allowed = (roles ?? []).some((r: any) =>
-      ["platform_admin", "admin"].includes(r.role) ||
-      (["manager", "accountant"].includes(r.role) && r.company_id === company_id)
-    );
+    if (rolesError) throw rolesError;
+    const allowed = canExportCompany(roles ?? [], company_id);
     if (!allowed) {
       return new Response(JSON.stringify({ error: "Sem permissão para esta empresa" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -95,10 +115,26 @@ Deno.serve(async (req) => {
     const nonAccountingIds = await fetchNonAccountingAccountIds(admin, company_id);
 
     // Query transactions
-    let q = admin
+    const baseQuery = () => admin
       .from("transactions")
-      .select("id, type, description, amount, payment_date, invoice_ref, supplier_id, account_id, status, paid_amount, suppliers:supplier_id(name,nif)")
-      .eq("company_id", company_id)
+      .select("id, company_id, type, description, amount, payment_date, invoice_ref, supplier_id, account_id, status, paid_amount, suppliers:supplier_id(name,nif)")
+      .eq("company_id", company_id);
+    let txs: any[] = [];
+    let ignoredCount = 0;
+    if (requestedIds !== undefined) {
+      const ids = queryableTransactionIds(requestedIds);
+      const candidates: any[] = [];
+      // Bound .in() URLs; absent/foreign/non-accounting IDs are never downloaded.
+      for (let offset = 0; offset < ids.length; offset += 200) {
+        const { data, error } = await baseQuery().in("id", ids.slice(offset, offset + 200));
+        if (error) throw error;
+        candidates.push(...(data ?? []));
+      }
+      const selected = selectRequestedTransactions(requestedIds, candidates, company_id, nonAccountingIds);
+      txs = selected.transactions;
+      ignoredCount = selected.ignored_count;
+    } else {
+      let q = baseQuery()
       .gte("payment_date", from)
       .lte("payment_date", to)
       .or("status.eq.paid,paid_amount.gt.0")
