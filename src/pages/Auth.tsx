@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { logAudit } from "@/lib/audit";
@@ -7,6 +7,13 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { MfaVerify } from "@/components/MfaVerify";
 import { PasswordStrengthIndicator, validatePassword } from "@/components/PasswordStrengthIndicator";
 import { isCurrentDeviceTrusted } from "@/lib/mfa-trusted-device";
+import {
+  decideInitialAuthMode,
+  isRecoveryInProgress,
+  mapUpdateUserError,
+  missingPasswordRules,
+  RECOVERY_FLAG_KEY,
+} from "@/lib/passwordRecovery";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATIONS = [30, 60, 120, 300]; // seconds – escalating
@@ -20,7 +27,37 @@ export default function Auth() {
   const [otpCode, setOtpCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  
+  // Com recuperação em curso, aguarda a verificação da sessão antes de mostrar o ecrã.
+  const [checkingRecovery, setCheckingRecovery] = useState(() => isRecoveryInProgress());
+
+  // Após reload a meio da recuperação: sessão activa → new-password; flag órfão → limpa.
+  useEffect(() => {
+    if (!isRecoveryInProgress()) return;
+    let cancelled = false;
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const decision = decideInitialAuthMode({ recoveryInProgress: true, hasSession: !!data.session });
+        if (decision.clearFlag) sessionStorage.removeItem(RECOVERY_FLAG_KEY);
+        setMode(decision.mode);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        sessionStorage.removeItem(RECOVERY_FLAG_KEY);
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingRecovery(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const missingRules = missingPasswordRules(newPassword);
+  const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
+  const canSubmitNewPassword = missingRules.length === 0 && passwordsMatch;
+
   // Brute-force protection
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
@@ -228,7 +265,7 @@ export default function Auth() {
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({ title: "Erro", description: mapUpdateUserError(error), variant: "destructive" });
     } else {
       toast({ title: "Senha atualizada!", description: "Pode agora entrar com a nova senha." });
       sessionStorage.removeItem("recovery_in_progress");
@@ -248,6 +285,8 @@ export default function Auth() {
     setNewPassword("");
     setConfirmPassword("");
   };
+
+  if (checkingRecovery) return null;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -409,6 +448,16 @@ export default function Auth() {
                 placeholder="••••••••"
               />
               <PasswordStrengthIndicator password={newPassword} />
+              {newPassword.length === 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  A senha deve ter: {missingRules.join(", ").toLowerCase()}.
+                </p>
+              )}
+              {newPassword.length > 0 && missingRules.length > 0 && (
+                <p className="mt-1 text-xs text-destructive">
+                  Falta: {missingRules.join(", ").toLowerCase()}.
+                </p>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Confirmar senha</label>
@@ -421,10 +470,13 @@ export default function Auth() {
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 placeholder="••••••••"
               />
+              {confirmPassword.length > 0 && !passwordsMatch && (
+                <p className="mt-1 text-xs text-destructive">As senhas não coincidem.</p>
+              )}
             </div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !canSubmitNewPassword}
               className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50 glow-primary"
             >
               {loading ? "A processar…" : "Definir senha"}

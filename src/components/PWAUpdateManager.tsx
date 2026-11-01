@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react";
 import { useIsMutating } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { subscribeToPWAControllerChange } from "@/lib/pwa";
+import { canAutoReload, isRecoveryInProgress } from "@/lib/passwordRecovery";
 import { applyUpdate, claimReloadGuard, subscribeToNewVersion } from "@/lib/versionCheck";
 
 const UPDATE_TOAST_ID = "pwa-update-available";
@@ -18,7 +19,7 @@ export function PWAUpdateManager() {
   // Ponto ÚNICO de decisão: recarrega agora, ou oferece o toast.
   const requestReload = useCallback(
     (reload: () => void) => {
-      if (!isBusy) {
+      if (canAutoReload({ isBusy, recoveryInProgress: isRecoveryInProgress() })) {
         reload();
         return;
       }
