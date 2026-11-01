@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 // #298 (decisão B): o Modelo B (cronograma de parcelas `planned` em
@@ -26,9 +26,8 @@ const files = walk(SRC)
 const read = (rel: string) => readFileSync(join(SRC, rel), "utf8");
 
 describe("Modelo B de parcelamento aposentado (#298)", () => {
-  it("nenhum ficheiro importa o modal de marcar parcela planeada como paga", () => {
-    const offenders = files.filter((f) => /from\s+["']@\/components\/MarkInstallmentPaidModal["']/.test(f.text));
-    expect(offenders.map((f) => f.rel)).toEqual([]);
+  it("o ficheiro do modal de marcar parcela planeada como paga não existe", () => {
+    expect(existsSync(join(SRC, "components/MarkInstallmentPaidModal.tsx"))).toBe(false);
   });
 
   it("nenhuma referência à RPC update_planned_installments nem ao 'Cronograma de parcelas'", () => {
