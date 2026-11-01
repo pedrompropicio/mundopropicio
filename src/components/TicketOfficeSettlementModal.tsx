@@ -30,6 +30,16 @@ import HelpTooltip from "@/components/HelpTooltip";
 import { SETTLEMENT_FORM_LABELS, type SettlementForm } from "@/lib/ticket-office-settlement-form";
 import { isSettlementEligibleTxn } from "@/lib/ticket-office-settlement-eligible";
 import { invalidateEventFinancials } from "@/lib/invalidate-event-financials";
+import { fetchDocumentUrlsByTransaction } from "@/lib/invoice-group";
+import {
+  buildDeductionDocumentRows,
+  groupTransactionsByFile,
+  listDeductionsWithoutDocument,
+} from "@/lib/settlement-deduction-documents";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 
 interface Props {
@@ -65,6 +75,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const [existingDocUrl, setExistingDocUrl] = useState<string | null>(null);
   const [existingDocName, setExistingDocName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // #397: fatura do fornecedor escolhida por dedução (transaction_id → ficheiro).
+  const [deductionFiles, setDeductionFiles] = useState<Map<string, File>>(new Map());
+  const [missingDocsPrompt, setMissingDocsPrompt] = useState<{ id: string; label: string; gross: number }[] | null>(null);
   const [grossOverride, setGrossOverride] = useState<string>("");
   const [grossAdjustmentNotes, setGrossAdjustmentNotes] = useState<string>("");
   // D-ERP232: forma de liquidação declarada à mão (vazio = vale a derivada).
@@ -404,6 +417,36 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   // dedução (é este valor que vai a paid_amount na confirmação) e o total.
   const txnGross = (t: any) => roundCents(Number(t.amount || 0) * (1 + Number(t.iva_rate || 0) / 100));
 
+  // #397: deduções que já têm linha em transaction_documents (não se duplicam).
+  const eligibleIdsKey = eligibleTxns.map((t: any) => t.id).sort().join(",");
+  const { data: documentedIds = new Set<string>() } = useQuery({
+    queryKey: ["settlement_deduction_docs", eligibleIdsKey],
+    enabled: eligibleTxns.length > 0,
+    queryFn: async () => {
+      const docs = await fetchDocumentUrlsByTransaction(eligibleTxns.map((t: any) => t.id));
+      return new Set(Object.keys(docs).filter((id) => docs[id].length > 0));
+    },
+  });
+
+  const setDeductionFile = (txId: string, f: File | null) =>
+    setDeductionFiles((prev) => {
+      const next = new Map(prev);
+      if (f) next.set(txId, f);
+      else next.delete(txId);
+      return next;
+    });
+
+  const deductionLines = useMemo(
+    () =>
+      eligibleTxns.map((t: any) => ({
+        id: t.id as string,
+        description: t.description as string | null,
+        supplierName: (t.suppliers?.name ?? null) as string | null,
+        gross: txnGross(t),
+      })),
+    [eligibleTxns],
+  );
+
   const totalDeductions = useMemo(() => {
     return roundCents(
       eligibleTxns
@@ -461,7 +504,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     });
   };
 
-  const handleSubmit = async (confirm: boolean) => {
+  const handleSubmit = async (confirm: boolean, skipDocWarning = false) => {
     if (!eventId) return toast.error("Selecione o evento");
     if (confirm && transferAlreadyDone) return toast.error("Fecho com transferência lançada — estornar primeiro para alterar");
     if (!hasSalesLog) {
@@ -491,8 +534,67 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       });
     }
 
+    // #397: AVISAR (não bloquear) deduções sem fatura; confirmação explícita.
+    if (confirm && !skipDocWarning) {
+      const missing = listDeductionsWithoutDocument(
+        deductionLines,
+        selectedTxnIds,
+        documentedIds,
+        new Set(deductionFiles.keys()),
+      );
+      if (missing.length > 0) {
+        setMissingDocsPrompt(
+          missing.map((m) => ({
+            id: m.id,
+            label: `${m.description ?? "—"}${m.supplierName ? ` · ${m.supplierName}` : ""}`,
+            gross: m.gross,
+          })),
+        );
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
+      // #397: anexar faturas às deduções ANTES de gravar o fecho. Erros propagam
+      // (catch abaixo) e o fecho não é gravado. Linhas já anexadas não se repetem
+      // (re-leitura fresca à BD) e um ficheiro = 1 objecto + N registos.
+      if (deductionFiles.size > 0) {
+        const chosen = new Map([...deductionFiles].filter(([id]) => selectedTxnIds.has(id)));
+        const fresh = await fetchDocumentUrlsByTransaction([...chosen.keys()]);
+        const already = new Set(Object.keys(fresh).filter((id) => fresh[id].length > 0));
+        for (const { file: f, transactionIds } of groupTransactionsByFile(chosen, already)) {
+          const ext = f.name.split(".").pop()?.toLowerCase() || "pdf";
+          const { error: dUpErr, path: dPath } = await uploadToCompanyBucket(
+            "transaction-documents",
+            `${transactionIds[0]}/${Date.now()}.${ext}`,
+            f,
+          );
+          if (dUpErr) throw new Error(`Upload da fatura "${f.name}" falhou (fecho não gravado): ${dUpErr.message}`);
+          const rows = buildDeductionDocumentRows({
+            filePath: dPath,
+            fileName: f.name,
+            uploadedBy: user?.email ?? "sistema",
+            transactionIds,
+            alreadyDocumented: already,
+          });
+          if (rows.length === 0) continue;
+          const { data: ins, error: dbErr } = await supabase
+            .from("transaction_documents")
+            .insert(rows as any)
+            .select("id");
+          if (dbErr) {
+            throw new Error(`Fatura "${f.name}" não anexada às deduções (fecho não gravado): ${dbErr.message}`);
+          }
+          if ((ins ?? []).length !== rows.length) {
+            throw new Error(`Fatura "${f.name}": só ${(ins ?? []).length} de ${rows.length} anexos gravados (fecho não gravado).`);
+          }
+        }
+        queryClient.invalidateQueries({ queryKey: ["settlement_deduction_docs"] });
+        queryClient.invalidateQueries({ queryKey: ["transaction_documents"] });
+        setDeductionFiles(new Map());
+      }
+
       // Upload file if provided
       let docUrl = existingDocUrl;
       let docName = existingDocName;
@@ -795,6 +897,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                           : candidates;
                         const renderRow = (t: any) => {
                           const checked = selectedTxnIds.has(t.id);
+                          const hasDoc = documentedIds.has(t.id);
+                          const pendingFile = deductionFiles.get(t.id);
                           return (
                             <li
                               key={t.id}
@@ -822,6 +926,54 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                                   </p>
                                 )}
                               </div>
+                              {checked && (
+                                <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                  {hasDoc ? (
+                                    <Badge variant="secondary" className="text-[10px]">Com documento</Badge>
+                                  ) : pendingFile ? (
+                                    <Badge variant="secondary" className="text-[10px] max-w-[140px] truncate" title={pendingFile.name}>
+                                      <Paperclip className="h-3 w-3 mr-1" />{pendingFile.name}
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[10px] text-amber-500 border-amber-500/40">Sem documento</Badge>
+                                  )}
+                                  {canEdit && !hasDoc && (
+                                    <>
+                                      <label className="cursor-pointer text-[11px] underline text-muted-foreground hover:text-foreground">
+                                        {pendingFile ? "trocar" : "anexar fatura"}
+                                        <input
+                                          type="file"
+                                          className="hidden"
+                                          accept=".pdf,.jpg,.jpeg,.png"
+                                          onChange={(e) => {
+                                            const f = e.target.files?.[0] ?? null;
+                                            e.target.value = "";
+                                            if (f) setDeductionFile(t.id, f);
+                                          }}
+                                        />
+                                      </label>
+                                      {pendingFile && (
+                                        <button
+                                          type="button"
+                                          title="Usar este ficheiro nas outras deduções marcadas sem documento (mesma fatura)"
+                                          className="text-[11px] underline text-muted-foreground hover:text-foreground"
+                                          onClick={() =>
+                                            setDeductionFiles((prev) => {
+                                              const next = new Map(prev);
+                                              for (const o of eligibleTxns as any[]) {
+                                                if (selectedTxnIds.has(o.id) && !documentedIds.has(o.id) && !next.has(o.id)) next.set(o.id, pendingFile);
+                                              }
+                                              return next;
+                                            })
+                                          }
+                                        >
+                                          aplicar às restantes
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              )}
                               <span className="font-mono text-sm font-semibold whitespace-nowrap">
                                 {formatCurrency(txnGross(t))}
                               </span>
@@ -1308,6 +1460,37 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         }}
       />
     )}
+
+    <AlertDialog open={!!missingDocsPrompt} onOpenChange={(o) => !o && setMissingDocsPrompt(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Deduções sem fatura anexada</AlertDialogTitle>
+          <AlertDialogDescription>
+            {missingDocsPrompt?.length ?? 0} despesa(s) listada(s) como dedução não têm documento. Podes confirmar o fecho
+            na mesma, mas a contabilidade vai marcar "Falta fatura".
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <ul className="max-h-48 overflow-y-auto text-xs space-y-1">
+          {(missingDocsPrompt ?? []).map((m) => (
+            <li key={m.id} className="flex justify-between gap-3">
+              <span className="truncate">{m.label}</span>
+              <span className="font-mono whitespace-nowrap">{formatCurrency(m.gross)}</span>
+            </li>
+          ))}
+        </ul>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Voltar e anexar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              setMissingDocsPrompt(null);
+              void handleSubmit(true, true);
+            }}
+          >
+            Confirmar mesmo assim
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
 
     {showNewAdvance && eventId && (
       <QuickAdvanceModal
