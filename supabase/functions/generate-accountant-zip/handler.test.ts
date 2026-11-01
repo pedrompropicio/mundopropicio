@@ -106,6 +106,20 @@ describe("#395 — handler local sem rede nem escrita real", () => {
     expect((await response.json()).transaction_count).toBe(0);
     expect(state.calls.some((c) => c.table === "transactions")).toBe(false);
   });
+  it("401 IDs mantêm a seleção exacta em lotes limitados a 200, 200 e 1", async () => {
+    const ids = Array.from({ length: 401 }, (_, i) =>
+      `00000000-0000-0000-0000-${(i + 2).toString(16).padStart(12, "0")}`);
+    const response = await handler(request({ company_id: state.company, transaction_ids: ids }));
+    expect(response.status).toBe(200);
+    const result = await response.json();
+    expect(result.transaction_count).toBe(1);
+    expect(result.ignored_count).toBe(400);
+    const txCalls = state.calls.filter((c) => c.table === "transactions");
+    expect(txCalls.filter((c) => c.method === "limit").map((c) => c.args)).toEqual([[200], [200], [1]]);
+    expect(txCalls.filter((c) => c.method === "in").map((c) => c.args)).toEqual([
+      ["id", ids.slice(0, 200)], ["id", ids.slice(200, 400)], ["id", ids.slice(400)],
+    ]);
+  });
   it("501 IDs devolvem 400 e não consultam transações nem geram ZIP", async () => {
     const response = await handler(request({ company_id: state.company, transaction_ids: Array(501).fill(state.id) }));
     expect(response.status).toBe(400);
