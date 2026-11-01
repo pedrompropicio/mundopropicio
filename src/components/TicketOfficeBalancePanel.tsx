@@ -2,11 +2,12 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
-import { AlertCircle, CheckCircle2, Store, TrendingUp, TrendingDown, ArrowRight, Receipt, Plus } from "lucide-react";
+import { AlertCircle, CheckCircle2, Store, TrendingUp, TrendingDown, ArrowRight, Receipt, Plus, Clock, FileCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import HelpTooltip from "@/components/HelpTooltip";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { settlementIconState } from "@/lib/ticket-office-settlement-icon";
 import { TicketOfficeSettlementModal } from "@/components/TicketOfficeSettlementModal";
 import {
   computeTicketOfficeBalance,
@@ -30,7 +31,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
   const navigate = useNavigate();
   const canManage = isAdmin || hasPermission("manage_accounts");
   const [openPart, setOpenPart] = useState<"pos" | "open" | "res" | null>(null);
-  const [settlementModal, setSettlementModal] = useState<{ open: boolean; eventId?: string }>({ open: false });
+  const [settlementModal, setSettlementModal] = useState<{ open: boolean; eventId?: string; settlement?: any | null }>({ open: false });
 
   // Get all assignments for this office (financial_account_id)
   const { data: assignments = [] } = useQuery({
@@ -94,17 +95,24 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
   });
 
   // #303 — decomposição do retido: fechos (qualquer estado) e apuramentos desta bilheteira.
-  const { data: settledEventIds = [] } = useQuery({
-    queryKey: ["ticket_office_settled_event_ids", officeId],
+  // #313: fechos completos (mesma forma que TicketOfficeSettlementsPanel passa ao modal) —
+  // servem a decomposição (ids de eventos) e o estado/abertura do ícone «Fechar evento».
+  // A chave começa por "ticket_office_settlements" para ser invalidada com os restantes fechos.
+  const { data: settlementRows = [] } = useQuery({
+    queryKey: ["ticket_office_settlements", officeId, "balance_panel"],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("ticket_office_settlements")
-        .select("event_id")
+        .select("*, events(id, name, date)")
         .eq("financial_account_id", officeId);
       if (error) throw error;
-      return (data || []).map((r: any) => r.event_id).filter(Boolean) as string[];
+      return (data || []) as any[];
     },
   });
+  const settledEventIds = useMemo(
+    () => settlementRows.map((r: any) => r.event_id).filter(Boolean) as string[],
+    [settlementRows],
+  );
 
   const { data: statements = [] } = useQuery({
     queryKey: ["ticket_office_statements_for_balance", officeId],
@@ -353,7 +361,9 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
             )}
           </div>
           <div className="space-y-1">
-            {summary.events.map((ev) => (
+            {summary.events.map((ev) => {
+              const icon = settlementIconState(settlementRows, ev.id, officeId);
+              return (
               <div
                 key={ev.id}
                 className="flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-muted/30 transition-colors group"
@@ -368,11 +378,20 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
                   </span>
                   {canManage && Math.abs(ev.balance) > 0.01 && (
                     <button
-                      onClick={() => setSettlementModal({ open: true, eventId: ev.id })}
-                      className="rounded-md p-1 text-muted-foreground hover:bg-primary/15 hover:text-primary transition-colors"
-                      title="Fechar evento nesta bilheteira"
+                      onClick={() => setSettlementModal({ open: true, eventId: ev.id, settlement: icon.settlement })}
+                      className={`rounded-md p-1 transition-colors ${
+                        icon.estado === "rascunho"
+                          ? "text-amber-500 hover:bg-amber-500/15"
+                          : icon.estado === "sem_fecho"
+                            ? "text-muted-foreground hover:bg-primary/15 hover:text-primary"
+                            : "text-sky-400 hover:bg-sky-500/15"
+                      }`}
+                      title={icon.titulo}
+                      aria-label={icon.titulo}
                     >
-                      <Receipt className="h-3.5 w-3.5" />
+                      {icon.estado === "rascunho" ? <Clock className="h-3.5 w-3.5" />
+                        : icon.estado === "sem_fecho" ? <Receipt className="h-3.5 w-3.5" />
+                        : <FileCheck className="h-3.5 w-3.5" />}
                     </button>
                   )}
                   <Link to={`/eventos/${ev.id}`}>
@@ -380,7 +399,8 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
                   </Link>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -392,6 +412,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
           officeId={officeId}
           officeName={officeName}
           defaultEventId={settlementModal.eventId}
+          existingSettlement={settlementModal.settlement ?? undefined}
         />
       )}
     </div>
