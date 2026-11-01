@@ -15,7 +15,7 @@ const bundle: StatementBundle = {
   calcBasis: "net_result_gross_expenses", basis: { withVat: true, includeOverhead: true, expenseSource: "committed" },
   events: [{ id: root, parent_event_id: null }],
   forecasts: [
-    { id: "baseline", type: "expense", event_id: root, category_id: "baseline", amount: 442300.01, iva_rate: (39383.57 / 442300.01) * 100, status: "approved" },
+    { id: "baseline", type: "expense", event_id: root, category_id: "baseline", amount: 442300.01, iva_rate: (38926.28 / 442300.01) * 100, status: "approved" },
     ...excess.map(([code, amount]) => ({ id: `bp-${code}`, type: "expense", event_id: root, category_id: code, amount, iva_rate: 0, status: "approved" })),
   ],
   transactions: excess.map(([code, amount]) => ({ id: `tx-${code}`, type: "expense", event_id: root, category_id: code, amount, iva_rate: 23, status: "paid" })),
