@@ -36,6 +36,8 @@ Depois do fluxo de promoção: nenhuma implementação vai directamente a Live; 
 
 **Encerradas a 31/10/2026 (D-ERP343): homologação aceite; vale o fluxo de promoção.**
 
+- **Reserva por comentário (D-ERP345).** Um comentário "## Reserva — #N" na Issue equivale a uma linha desta tabela; liberta-se com "## Reserva libertada — #N". O painel mostra as duas fontes juntas.
+
 ## Em execução agora
 
 > **Desde 31/10/2026 (D-ERP344):** o agente Lovable do ERP trabalha em `lovable/dev`; o `main` só aceita PR com CI `quality` verde. Commits directos no `main` são recusados — R0 vai por ramo + PR ou por tarefa ao agente. O 0 junta `lovable/dev` ao `main` antes de cada janela de Publish.
