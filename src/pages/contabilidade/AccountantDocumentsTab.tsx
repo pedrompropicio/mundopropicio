@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, AlertTriangle, MessageSquare, Lock, RotateCcw } from "lucide-react";
 import { fetchNonAccountingAccountIds, nonAccountingOrFilter, normalizeAccountFilter } from "@/lib/accountant-account-filter";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { computeReviewCounts } from "@/lib/accountant-review-counts";
 import { matchesAllTerms, isZipBlockedBySearch } from "@/lib/accountant-search";
 
 interface Tx {
@@ -229,18 +230,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
     return r;
   }, [data, attachmentsFilter, search, sortBy, reviewFilter, reviews, accountNameById]);
 
-  const reviewCounts = useMemo(() => {
-    const base = data ?? [];
-    let conferidas = 0, pendentes = 0, encerradas = 0, porConferir = 0;
-    for (const t of base) {
-      const st = reviewMap[t.id]?.status;
-      if (st === "conferido") conferidas++;
-      else if (st === "pendente") pendentes++;
-      else if (st === "encerrada") encerradas++;
-      else porConferir++;
-    }
-    return { conferidas, pendentes, encerradas, porConferir };
-  }, [data, reviews]);
+  const reviewCounts = useMemo(() => computeReviewCounts(rows, reviewMap), [rows, reviews]);
 
   const totals = useMemo(() => ({
     tx: rows.length,
