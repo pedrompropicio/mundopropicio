@@ -6536,3 +6536,10 @@ Origem: [aceitação na #352](https://github.com/pedrompropicio/mundopropicio/is
 - Prova: PR #411 (regenerar `.lovable/memory/index.md`, CI vermelho desde 1456ff5) caiu em `lovable/dev`, CI verde, merge `f6468322` no `main`.
 
 Origem: 0 · Cowork (Claude), 31/10/2026.
+
+## D-ERP345 — Reserva por comentário na Issue (01/11/2026, Pedro, «Sim» no 0 · Cowork Claude; Issue #416)
+
+- Uma reserva pode ser feita com um comentário na própria Issue que começa por "## Reserva — #N". Equivale à linha em docs/QUADRO.md › "Em execução agora".
+- Fica activa até haver, na mesma Issue, um comentário posterior "## Reserva libertada — #N". Libertar continua a ser do executor ou do Pedro; não há transferência automática (D-ERP291).
+- O painel de comando (mp-painel, E2a #416) grava estes comentários e o «Sim» ("## Autorização — #N") com confirmação do Pedro, e mostra-os em "Em execução agora" junto das linhas do QUADRO. O painel nunca escreve no QUADRO, porque com a D-ERP344 os docs entram pelo lovable/dev.
+- As linhas do QUADRO continuam válidas. Uma demanda não deve ter reserva nas duas formas ao mesmo tempo.
