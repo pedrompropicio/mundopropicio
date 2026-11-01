@@ -14,6 +14,7 @@ RITUAL DE ARRANQUE
 3. Ler docs/estado/estado-financeiro-e-tesouraria.md (frente-mãe)
 4. Ler as issues abertas
 5. Ler .lovable/memory/features/ sobre conciliação bancária, invoice-groups, transaction-documents, standalone-invoices
+- **Antes de lançar qualquer dado, ler `.lovable/memory/features/data-entry-automatisms.md`** (#410): o que a base cria, altera ou apaga sozinha e as guardas que recusam. Lançar à mão a "outra metade" de um automatismo gera duplicados.
 
 FORMA DE TRABALHAR
 - Observação dos registos operacionais: "Feito por LLM com autorização de Pedro Neto em DD/MM/AAAA." Não incluir número de Issue na observação do lançamento.

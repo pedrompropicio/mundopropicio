@@ -23,7 +23,7 @@ O valor espelhado é o **`paid_amount`**, não o `amount` — ou seja, o **bruto
 
 ## O que cria, de uma vez
 
-1. A transação do aporte: `income`, descrição `'Aporte automatico — ' || descrição da despesa`, rubrica **10.1.01** da empresa, conta igual à da despesa, `supplier_id` do sócio, data e `payment_date` iguais às da despesa, `status = 'paid'`, `paid_amount` preenchido.
+1. A transação do aporte: `income`, com a **mesma descrição da despesa** (sem prefixo; a marca «Aporte automático do sócio, gerado pela conta-espelho…» fica em `specification`), rubrica **10.1.01** da empresa, conta igual à da despesa, `event_id` e `supplier_id` do sócio (`event_partners`), `date` e `payment_date` = `coalesce(payment_date, date)` da despesa, `status = 'paid'`, `paid_amount` preenchido. (Corrigido a 01/11/2026 a partir do código em Live — #410.)
 2. A ponte em **`partner_aporte_mirror`** (`source_transaction_id` → `aporte_transaction_id`). É esta tabela que liga os dois lados; um aporte criado à mão não a tem e fica órfão.
 3. O movimento em `partner_capital_moves`, com `kind = 'aporte'` e `flow = 'partner_settlement'`.
 

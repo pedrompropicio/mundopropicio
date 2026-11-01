@@ -4,6 +4,8 @@ Chat dono: **10 · Entrada de Dados** (D-ERP285). Lê-se no arranque, antes de l
 
 ## Regra zero
 
+- **Antes de lançar qualquer dado, ler `.lovable/memory/features/data-entry-automatisms.md`** (#410): o que a base cria, altera ou apaga sozinha e as guardas que recusam. Lançar à mão a "outra metade" de um automatismo gera duplicados.
+
 Antes de lançar qualquer documento, ler o ficheiro de `.lovable/memory/features/` do fluxo em causa e **nomeá-lo na resposta**. A hipótese por defeito é que o fluxo já existe.
 
 Caso real, 21/10/2026: três faturas do TikTok foram lançadas à mão como transações porque ninguém leu `features/ads-invoices.md`, que tem fluxo próprio para elas desde 11/10 (D-ERP248). Foram removidas pelo `delete_transaction_cascade` e refeitas pelo ecrã certo.
