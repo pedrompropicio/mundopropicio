@@ -15,7 +15,8 @@ interface Props {
   doc: ExternalDocLike;
   uploadedAtFormatted: string;
   onToggleAccounting: () => void;
-  onDelete: () => void;
+  /** Sem `onDelete` o botão de remover não aparece (sem permissão). */
+  onDelete?: () => void;
 }
 
 type Provider = {
@@ -105,14 +106,16 @@ export default function ExternalLinkAttachment({ doc, uploadedAtFormatted, onTog
         >
           <ExternalLink className="h-3.5 w-3.5" />
         </a>
-        <button
-          onClick={onDelete}
-          className="rounded-lg p-1.5 text-destructive hover:bg-destructive/15 transition-colors"
-          title="Remover"
-          type="button"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            className="rounded-lg p-1.5 text-destructive hover:bg-destructive/15 transition-colors"
+            title="Remover"
+            type="button"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
     </div>
   );

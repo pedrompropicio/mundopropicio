@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { deleteTransactionDocument } from "@/lib/transaction-document-storage";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { useAuth } from "@/contexts/AuthContext";
+import { canShowDeleteDocumentButton } from "@/lib/transaction-document-permissions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,7 +58,11 @@ function isDrive(url: string): boolean {
 }
 
 export default function BPAttachmentModal({ open, onOpenChange, forecast }: Props) {
-  const { user } = useAuth();
+  const { user, permissions, role } = useAuth();
+  const canDeleteNative = canShowDeleteDocumentButton({
+    permissions,
+    isPlatformAdmin: role === ("platform_admin" as any),
+  });
   const qc = useQueryClient();
   const [newLink, setNewLink] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -350,14 +355,16 @@ export default function BPAttachmentModal({ open, onOpenChange, forecast }: Prop
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
                         </button>
-                        <button
-                          onClick={() => removeNativeMutation.mutate({ id: d.id, file_url: d.file_url })}
-                          disabled={removeNativeMutation.isPending}
-                          className="rounded p-1 text-destructive hover:bg-destructive/10"
-                          title="Remover"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        {canDeleteNative && (
+                          <button
+                            onClick={() => removeNativeMutation.mutate({ id: d.id, file_url: d.file_url })}
+                            disabled={removeNativeMutation.isPending}
+                            className="rounded p-1 text-destructive hover:bg-destructive/10"
+                            title="Remover"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </li>
                     ))}
                   </ul>

@@ -82,6 +82,7 @@ export const ALL_PERMISSIONS = [
   { key: "manage_transactions", label: "Gerir Transações", group: "Operacional" },
   { key: "approve_transactions", label: "Aprovar transações", group: "Operacional" },
   { key: "raise_budget", label: "Elevar verba do BP", group: "Operacional" },
+  { key: "delete_transaction_documents", label: "Apagar anexos de transações", group: "Operacional" },
   { key: "admin_cost_override", label: "Excepção à janela administrativa", group: "Operacional" },
   { key: "manage_recurring", label: "Gerir Recorrentes", group: "Operacional" },
   { key: "manage_suppliers", label: "Gerir Entidades / Beneficiários", group: "Operacional" },
