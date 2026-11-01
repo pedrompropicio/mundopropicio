@@ -6543,3 +6543,31 @@ Origem: 0 · Cowork (Claude), 31/10/2026.
 - Fica activa até haver, na mesma Issue, um comentário posterior "## Reserva libertada — #N". Libertar continua a ser do executor ou do Pedro; não há transferência automática (D-ERP291).
 - O painel de comando (mp-painel, E2a #416) grava estes comentários e o «Sim» ("## Autorização — #N") com confirmação do Pedro, e mostra-os em "Em execução agora" junto das linhas do QUADRO. O painel nunca escreve no QUADRO, porque com a D-ERP344 os docs entram pelo lovable/dev.
 - As linhas do QUADRO continuam válidas. Uma demanda não deve ter reserva nas duas formas ao mesmo tempo.
+
+
+## D-ERP346 — E2b: despacho pelo painel lança o Claude Code; merge automático por defeito; sincronização main → lovable/dev por PR (01/11/2026, Pedro, «Sim» no 0 · Cowork Claude; Issue #417)
+
+- Um comentário "## Despacho — #N" do Pedro numa Issue aberta lança o workflow `.github/workflows/executor.yml` (Claude Code em GitHub Actions). Travas determinísticas (`src/lib/executor/travas.ts`) antes de qualquer IA: «## Autorização» R1 que designa o Claude Code, anterior ao despacho; só `codigo+testes` a sim; ambiente diferente de Live; validade com data; uma única «## Reserva» activa do Claude Code (D-ERP345). Caminhos proibidos no PR: `.github/`, `supabase/`, `drizzle/`, `.lovable/`, `.env`, `scripts/*-live.txt`.
+- A entrega é um PR para `main`, nunca para `lovable/dev`. Merge automático por defeito quando os testes do runner e o CI `quality` ficam verdes; a linha "- **Merge automático:** não" na Autorização desliga-o só nessa tarefa. Nada disto publica: `main` não chega ao Live sozinho (Publish continua a ser do 0 com «Sim»).
+- O painel de comando (mp-painel, E2b) grava Autorização, Reserva e Despacho num só passo, apenas para Claude Code, classe R1 e ambiente homolog. Codex e R2 continuam manuais.
+- Sincronização `main` → `lovable/dev`: por PR aberto e integrado pelo 0 · Cowork em cada janela de Publish (primeiro: PR #429, 01/11/2026). Sem workflow automático enquanto a cadência não o justificar.
+- Primeiro despacho real: #402 (PR #428, 01/11/2026).
+
+
+## D-ERP347 — Decisões de triagem do Lote #435 (01/11/2026, Pedro, no 0 · Cowork Claude; Issues #365, #245, #215, #80, #386, #318, #312, #262, #257)
+
+- #365 fechada: não se mexe nas audiências de anúncios por idade; a inscrição no Clube Newgang já exige data de nascimento, o que trata o tema na origem.
+- #245 fechada: não há regra contabilística a decidir sobre o IVA nos eventos com sócios brasileiros — está fechado como regra de negócio acordada com os sócios.
+- #215 fechada: fatura corrigida da DAKIA UMUSIC já pedida ao fornecedor. #80 fechada: artes do portal H&K Madrid já carregadas.
+- #386: conta corrente entre empresas fora de evento — por par de empresas, como transação própria, fora do evento. Implementação R2 (DDL) com Issue/migração própria.
+- #318: autorizada a criação de 2 utilizadores (teste dedicado da bateria do 11 e accountant). Execução R2 em Live com «Sim» na hora; credenciais só em segredos.
+- #312: encargos bancários inerentes a pagamentos de evento (em especial transferências para o Brasil) lançam-se como linha de BP por evento na rubrica 2.6.15, no momento do pagamento; rubrica replicada nas outras empresas (DML com «Corro?»).
+- #262: proração Master→cidades por 1/N universal; sem retroactividade em fechos já apresentados. Convergência do código é R2 com Issue própria.
+- #257: IVA não recuperável de faturas estrangeiras vai ao custo, com campo próprio `vat_non_recoverable` (DDL, R2); retroactivo só para 2026.
+- #281 sai do Lote A: implementação feita desde 10/10 (migração 0075); resta ao Pedro importar os extratos de abril a agosto e rever as 24 transações.
+
+## D-ERP348 — Executor E2b com dois motores: Codex por defeito, Claude Code por designação (01/11/2026, Pedro, no 0 · Cowork Claude; Issue #417)
+
+- A Autorização escolhe o motor pelo campo "Executor atual": Codex (OpenAI, chave `OPENAI_API_KEY` nos segredos do repo, faturação na organização de API ligada ao workspace Business) ou Claude Code (token de subscrição). Travas, caminhos proibidos, testes no runner, PR para main, auto-merge e Fecho são os mesmos para os dois.
+- Codex é o executor por defeito para R1 a partir de 01/11/2026, para não consumir o limite da subscrição Claude; o Claude Code fica para tarefas que o Pedro designar.
+- A Reserva activa tem de ser do mesmo motor que a Autorização.

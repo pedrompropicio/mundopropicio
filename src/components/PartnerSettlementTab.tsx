@@ -1573,7 +1573,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           iva: 0,
           total: 0,
         };
-      const total = calcTotalWithIva(l.base, l.ivaRate);
+      const total = l.gross ?? calcTotalWithIva(l.base, l.ivaRate);
       row.base += l.base;
       row.iva += total - l.base;
       row.total += total;
@@ -1704,6 +1704,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       description: l.description,
       base: l.base,
       ivaRate: l.ivaRate,
+      gross: l.gross,
     }));
 
     // Receitas: bilheteira agregada por sessão/zona + restantes receitas linha a linha.
@@ -1718,6 +1719,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     // partes dos sócios de cada acordo acima. Os sócios do mesmo acordo e os
     // acordos ao lado ou abaixo continuam invisíveis.
     const nodes = engine.result?.nodes ?? [];
+    const docRootNode = nodes.find((n) => !n.parentId);
     const chain: typeof nodes = [];
     for (let cur = activeNode; cur?.parentId; cur = nodes.find((n) => n.id === cur!.parentId) ?? null) {
       chain.unshift(cur);
@@ -1826,6 +1828,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       usesGrossExpenses: activeNode?.nodeUsesGrossExpenses ?? row.usesGrossExpenses,
       returnsDeductibleVat: activeNode?.returnsParentDeductibleVat ?? false,
       expenseLines,
+      expenseTotals: docRootNode ? { net: docRootNode.perimeter.expensesNet, gross: docRootNode.perimeter.expensesGross } : { net: eventExpensesNet, gross: eventExpensesGross },
       revenues,
       extras,
       cascade,
