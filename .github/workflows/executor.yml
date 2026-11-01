@@ -96,6 +96,8 @@ jobs:
             echo ""
             echo "Tarefa (texto do despacho do Pedro):"
             cat "${{ runner.temp }}/e2b/tarefa.md"
+            # tarefa.md não termina em nova linha: sem este echo o delimitador colava à última linha.
+            echo
             echo 'FIM_PROMPT_E2B'
           } >> "$GITHUB_OUTPUT"
       - uses: anthropics/claude-code-action@v1
