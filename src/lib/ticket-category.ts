@@ -24,3 +24,32 @@ export function findTicketCategoryId(
   if (!categories?.length) return null;
   return categories.find((c) => (c?.code ?? "").trim() === TICKET_CATEGORY_CODE)?.id ?? null;
 }
+
+/**
+ * Apresentação (rótulo) da rubrica de bilheteira nos DRE da vista Brasil.
+ * Reconhece a linha SÓ pelo código exato `TICKET_CATEGORY_CODE`, nunca pelo texto
+ * do nome (2.6.07 e 2.6.13 têm "bilheteira" no nome e são despesa). Não entra no cálculo.
+ */
+export interface TicketLabelLine {
+  label: string;
+  code?: string | null;
+  isTotal?: boolean;
+  isGrandTotal?: boolean;
+  isDistribution?: boolean;
+  isRetained?: boolean;
+  isExpenseSide?: boolean;
+  isPartnerExtra?: boolean;
+  isPartnerNet?: boolean;
+}
+
+export function isTicketDreLine(line: TicketLabelLine): boolean {
+  if (
+    line.isTotal || line.isGrandTotal || line.isDistribution || line.isRetained ||
+    line.isExpenseSide || line.isPartnerExtra || line.isPartnerNet
+  ) return false;
+  return (line.code ?? "").trim() === TICKET_CATEGORY_CODE;
+}
+
+export function ticketDreDisplayLabel(line: TicketLabelLine): string {
+  return isTicketDreLine(line) ? `${line.label} (-6% IVA)` : line.label;
+}

@@ -6,12 +6,14 @@ import { formatCurrency } from "@/lib/mock-data";
 import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hierarchy";
 import { applyPTNumberFormat } from "@/lib/excel-format";
 import { calcIvaAmount } from "@/lib/iva";
+import { ticketDreDisplayLabel } from "@/lib/ticket-category";
 import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
 interface DRELine {
   label: string;
+  code?: string;
   amountExIva: number;
   ivaAmount: number;
   amountIncIva: number;
@@ -117,9 +119,9 @@ export function buildDREForExport(
   incGroups.forEach((group) => {
     if (group.details.length > 1 || group.details[0]?.name !== group.groupName) {
       lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, isGroupHeader: true });
-      group.details.forEach((d) => lines.push({ label: d.name, amountExIva: d.base, ivaAmount: d.iva, amountIncIva: d.base + d.iva, indent: true }));
+      group.details.forEach((d) => lines.push({ label: d.name, code: d.code, amountExIva: d.base, ivaAmount: d.iva, amountIncIva: d.base + d.iva, indent: true }));
     } else {
-      lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true });
+      lines.push({ label: group.groupName, code: group.details[0]?.code, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true });
     }
   });
 
@@ -127,9 +129,9 @@ export function buildDREForExport(
   expGroups.forEach((group) => {
     if (group.details.length > 1 || group.details[0]?.name !== group.groupName) {
       lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, isGroupHeader: true, isExpenseSide: true });
-      group.details.forEach((d) => lines.push({ label: d.name, amountExIva: d.base, ivaAmount: d.iva, amountIncIva: d.base + d.iva, indent: true, isExpenseSide: true }));
+      group.details.forEach((d) => lines.push({ label: d.name, code: d.code, amountExIva: d.base, ivaAmount: d.iva, amountIncIva: d.base + d.iva, indent: true, isExpenseSide: true }));
     } else {
-      lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true, isExpenseSide: true });
+      lines.push({ label: group.groupName, code: group.details[0]?.code, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true, isExpenseSide: true });
     }
   });
 
@@ -328,9 +330,7 @@ export function exportDREToExcel(
       rows.push(["Rubrica", "Valor (€)"]);
       dre.forEach((line) => {
         const prefix = line.indent ? `    ` : line.isGroupHeader ? `  ` : '';
-        const isBilheteira = !line.isTotal && !line.isGrandTotal && !line.isDistribution && !line.isRetained && !line.isExpenseSide &&
-          (line.label.toLowerCase().includes("bilhete") || line.label.toLowerCase().includes("bilheteira"));
-        const displayLabel = isBilheteira ? `${line.label} (-6% IVA)` : line.label;
+        const displayLabel = ticketDreDisplayLabel(line);
         const val = line.isExpenseSide ? line.amountIncIva
           : line.isDistribution || line.isRetained || line.isGrandTotal ? line.amountExIva
           : line.amountExIva;
@@ -502,10 +502,8 @@ export function exportDREToPDF(
       }
 
       if (brasilMode) {
-        const isBilheteira = !line.isTotal && !line.isGrandTotal && !line.isDistribution && !line.isRetained && !line.isExpenseSide &&
-          (line.label.toLowerCase().includes("bilhete") || line.label.toLowerCase().includes("bilheteira"));
-        const displayLabel = isBilheteira ? `${line.label} (-6% IVA)` : line.label;
-        const label = line.indent ? `        ${displayLabel}` : line.isGroupHeader ? `  ${displayLabel}` : displayLabel;
+        const displayLabel = ticketDreDisplayLabel(line);
+        const label =line.indent ? `        ${displayLabel}` : line.isGroupHeader ? `  ${displayLabel}` : displayLabel;
         doc.text(label, colX[0] + 2, y + 4);
 
         const val = line.isExpenseSide ? line.amountIncIva
