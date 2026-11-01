@@ -758,6 +758,7 @@ export function buildPartnerStatement(
     description: l.description,
     base: l.base,
     ivaRate: l.ivaRate,
+    gross: l.gross,
   }));
 
   // (#226) As mesmas linhas que compõem a receita do fecho (bilheteira por lote,
@@ -863,6 +864,10 @@ export function buildPartnerStatement(
     usesGrossExpenses: activeNode.nodeUsesGrossExpenses ?? usesGrossExpenses,
     returnsDeductibleVat: activeNode.returnsParentDeductibleVat ?? false,
     expenseLines,
+    expenseTotals: (() => {
+      const root = nodes.find((n) => !n.parentId);
+      return root ? { net: root.perimeter.expensesNet, gross: root.perimeter.expensesGross } : { net: eventExpensesNet, gross: eventExpensesGross };
+    })(),
     revenues,
     extras: docExtras,
     cascade,

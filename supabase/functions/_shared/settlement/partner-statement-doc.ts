@@ -44,6 +44,8 @@ export interface StatementExpenseLine {
   description: string;
   base: number;
   ivaRate: number;
+  /** Total já calculado pelo motor (excedido líquido e bruto independentes). */
+  gross?: number;
   attachments?: number;
 }
 
@@ -146,6 +148,8 @@ export interface PartnerStatementDocInput {
   participants: StatementParticipantInput[];
   revenues: StatementRevenueLine[];
   expenseLines: StatementExpenseLine[];
+  /** (g15-b) Totais do perímetro raiz; as linhas apenas reconciliam a apresentação. */
+  expenseTotals?: { net: number; gross: number };
   categories: any[];
   /** Base do FECHAMENTO: true = despesas c/IVA. */
   usesGrossExpenses: boolean;
@@ -546,7 +550,7 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
   for (const line of input.expenseLines) {
     const base = Number(line.base) || 0;
     const rate = Number(line.ivaRate) || 0;
-    const iva = calcIvaAmount(base, rate);
+    const iva = line.gross != null ? roundCents(line.gross - base) : calcIvaAmount(base, rate);
     expenseBase = roundCents(expenseBase + base);
     expenseIva = roundCents(expenseIva + iva);
 
@@ -594,7 +598,29 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     }))
     .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
 
-  const expenseTotal = roundCents(expenseBase + expenseIva);
+  // (g15-b) O motor manda nos totais. Reconciliar em linhas antes de agrupar
+  // evita um segundo total a partir de valores já arredondados.
+  const expenseTotal = roundCents(input.expenseTotals?.gross ?? (expenseBase + expenseIva));
+  expenseBase = roundCents(input.expenseTotals?.net ?? expenseBase);
+  expenseIva = roundCents(expenseTotal - expenseBase);
+  const detailLines = families.flatMap((f) => f.rubricas.flatMap((r) => r.lines));
+  const displayedBases = reconcileDisplayField(detailLines, "base", expenseBase);
+  const displayedTotals = reconcileDisplayField(detailLines, "total", expenseTotal);
+  detailLines.forEach((line, i) => {
+    line.base = displayedBases[i].base;
+    line.total = displayedTotals[i].total;
+    line.iva = roundCents(line.total - line.base);
+  });
+  for (const family of families) {
+    for (const rubrica of family.rubricas) {
+      rubrica.base = roundCents(rubrica.lines.reduce((s, l) => s + l.base, 0));
+      rubrica.total = roundCents(rubrica.lines.reduce((s, l) => s + l.total, 0));
+      rubrica.iva = roundCents(rubrica.total - rubrica.base);
+    }
+    family.base = roundCents(family.rubricas.reduce((s, r) => s + r.base, 0));
+    family.total = roundCents(family.rubricas.reduce((s, r) => s + r.total, 0));
+    family.iva = roundCents(family.total - family.base);
+  }
   const hasCascade = !!input.cascade && input.cascade.levels.length > 0;
   // (g10) Base EFETIVA: quando o fechamento devolve o IVA dedutível do
   // fechamento acima, o documento apura sobre despesas s/IVA.
@@ -665,8 +691,16 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
       : cascadeQuota != null
         ? roundCents(cascadeQuota + extrasTotal)
         : roundCents(revenueNet + extrasTotal - expenseForResult);
-  const cascadeMismatch =
-    cascadeQuota == null ? 0 : roundCents(result - roundCents(cascadeQuota + extrasTotal));
+  // Conferir também a origem da cascata (secções 2/3), inclusive na raiz.
+  // Diferenças de passos distintos nunca se anulam entre si.
+  const mismatches = cascade
+    ? [
+        roundCents(cascade[0].baseValue - roundCents(revenueNet - expenseForResult)),
+        ...cascade.map((lv, i) => roundCents(lv.baseValue - (i === 0 ? lv.baseValue : cascade[i - 1].quota))),
+        roundCents(result - roundCents((cascadeQuota ?? 0) + extrasTotal)),
+      ]
+    : [roundCents(result - roundCents(revenueNet + extrasTotal - expenseForResult))];
+  const cascadeMismatch = mismatches.reduce((worst, value) => Math.abs(value) > Math.abs(worst) ? value : worst, 0);
 
   // ---- Acordo: destinatário nomeado + colapso de todos os outros ----
   const recipient =
