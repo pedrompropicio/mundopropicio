@@ -13,6 +13,7 @@ import { logAudit, getAuditUser } from "@/lib/audit";
 import { cn } from "@/lib/utils";
 import { IbanWarning } from "@/components/IbanWarning";
 import { normalizeIban, validateIban, ibanWarningMessage } from "@/lib/iban";
+import { classifyBankAccountValue, blocksSubmit, bankAccountValueToStore } from "@/lib/bank-account-value";
 import { SupplierPortalUserLink } from "@/components/SupplierPortalUserLink";
 import { reactivateSupplier } from "@/lib/supplier-lifecycle";
 import { SimilarSuppliersNotice, type SimilarSupplier } from "@/components/SimilarSuppliersNotice";
@@ -220,11 +221,11 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       email: (fd.get("email") as string) || null,
       phone: (fd.get("phone") as string) || null,
       address: (fd.get("address") as string) || null,
-      iban: normalizeIban(fd.get("iban") as string) || null,
+      iban: bankAccountValueToStore(fd.get("iban") as string, normalizeIban),
       swift_bic: (fd.get("swift_bic") as string) || null,
-      iban_2: normalizeIban(fd.get("iban_2") as string) || null,
+      iban_2: bankAccountValueToStore(fd.get("iban_2") as string, normalizeIban),
       swift_bic_2: (fd.get("swift_bic_2") as string) || null,
-      iban_3: normalizeIban(fd.get("iban_3") as string) || null,
+      iban_3: bankAccountValueToStore(fd.get("iban_3") as string, normalizeIban),
       swift_bic_3: (fd.get("swift_bic_3") as string) || null,
       payment_terms: (fd.get("payment_terms") as string) || null,
       category: (fd.get("category") as string) || null,
@@ -248,12 +249,10 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       { key: "iban_3", label: "IBAN 3", value: raw.iban_3 },
     ];
 
-    // Import uma única vez, fora do ciclo
-    const { isValidIBAN } = await import("ibantools");
-
     for (const f of ibanFields) {
       if (!f.value) continue;
-      if (!isValidIBAN(f.value)) {
+      // MOD-97 só para valores com forma de IBAN; não-IBAN (ABA, BR, …) passa sem bloqueio
+      if (blocksSubmit(classifyBankAccountValue(f.value))) {
         // Motivo concreto (comprimento/dígitos de controlo/país); se os dois motores
         // discordarem (ibanWarningMessage devolve null), fica o texto genérico
         const reason = ibanWarningMessage(validateIban(f.value));
@@ -446,7 +445,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
               <div className="grid gap-2">
                 <Label htmlFor="sup-iban">IBAN 1</Label>
                 <Input id="sup-iban" name="iban" autoComplete="off" value={iban1} onChange={(e) => setIban1(e.target.value)} />
-                <IbanWarning value={iban1} />
+                <IbanWarning value={iban1} allowNonIban />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="sup-swift">SWIFT/BIC 1</Label>
@@ -457,7 +456,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
               <div className="grid gap-2">
                 <Label htmlFor="sup-iban-2">IBAN 2</Label>
                 <Input id="sup-iban-2" name="iban_2" autoComplete="off" value={iban2} onChange={(e) => setIban2(e.target.value)} />
-                <IbanWarning value={iban2} />
+                <IbanWarning value={iban2} allowNonIban />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="sup-swift-2">SWIFT/BIC 2</Label>
@@ -468,7 +467,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
               <div className="grid gap-2">
                 <Label htmlFor="sup-iban-3">IBAN 3</Label>
                 <Input id="sup-iban-3" name="iban_3" autoComplete="off" value={iban3} onChange={(e) => setIban3(e.target.value)} />
-                <IbanWarning value={iban3} />
+                <IbanWarning value={iban3} allowNonIban />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="sup-swift-3">SWIFT/BIC 3</Label>
