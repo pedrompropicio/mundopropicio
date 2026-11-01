@@ -58,7 +58,7 @@
 -- 
 --   RETURN NEW;
 -- END;
--- $function$
+-- $function$;
 
 -- ALTERAÇÃO PREPARADA — não aplicada.
 CREATE OR REPLACE FUNCTION public.card_load_on_out_paid()
