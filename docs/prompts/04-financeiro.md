@@ -13,6 +13,7 @@ RITUAL DE ARRANQUE
 2. Ler docs/estado/estado-financeiro-e-tesouraria.md
 3. Ler as issues abertas
 4. Ler .lovable/memory/features/ de invoice-groups, conciliacao-bancaria, payment-account-ownership, account-balance-cutoff-date, compensacao-ligada
+- **Antes de lançar qualquer dado, ler `.lovable/memory/features/data-entry-automatisms.md`** (#410): o que a base cria, altera ou apaga sozinha e as guardas que recusam. Lançar à mão a "outra metade" de um automatismo gera duplicados.
 
 REGRAS VIGENTES
 - Grupo-fatura: só supplier_id, date e due_date se propagam; agrupar é explícito; invoice_ref compara-se por igualdade exata.
