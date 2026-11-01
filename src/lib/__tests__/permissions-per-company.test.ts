@@ -64,3 +64,34 @@ describe("#311 F2a — permissões pela empresa activa", () => {
     expect(parseEffectivePermissions(null)).toEqual({ role: "user", permissions: [] });
   });
 });
+
+describe("#338 a2 — fallback transitório de delete_transaction_documents", () => {
+  const P = "delete_transaction_documents";
+  const withEditor: Record<string, string[]> = { ...RP, editor: [...RP.editor, P] };
+  const run = (role: string, rp: Record<string, string[]>, granted?: boolean) =>
+    resolveForCompany({
+      companyId: MP,
+      memberships: [{ role, company_id: MP }],
+      rolePermissions: rp,
+      universe: ["module.erp"],
+      overrides: granted === undefined ? [] : [{ company_id: MP, permission: P, granted }],
+    }).permissions;
+
+  it("(i) base sem a permissão: admin e manager têm; editor e viewer não", () => {
+    expect(run("admin", RP)).toContain(P);
+    expect(run("manager", RP)).toContain(P);
+    expect(run("editor", RP)).not.toContain(P);
+    expect(run("viewer", RP)).not.toContain(P);
+  });
+
+  it("(ii) base com a permissão para editor: editor tem, viewer não, sem fallback", () => {
+    expect(run("editor", withEditor)).toContain(P);
+    expect(run("viewer", withEditor)).not.toContain(P);
+    expect(run("manager", withEditor)).not.toContain(P);
+  });
+
+  it("(iii) override negativo prevalece nos dois casos", () => {
+    expect(run("manager", RP, false)).not.toContain(P);
+    expect(run("editor", withEditor, false)).not.toContain(P);
+  });
+});

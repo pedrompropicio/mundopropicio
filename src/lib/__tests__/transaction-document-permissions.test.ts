@@ -69,6 +69,16 @@ describe("canShowDeleteDocumentButton", () => {
       }),
     ).toBe(false);
   });
+  it("(iv) manager com base sem a permissão (fallback #338) vê o botão", () => {
+    const { permissions } = resolveForCompany({
+      companyId: "A",
+      memberships: [{ role: "manager", company_id: "A" }],
+      overrides: [],
+      rolePermissions: { editor: [] },
+      universe: [],
+    });
+    expect(canShowDeleteDocumentButton({ permissions, isPlatformAdmin: false })).toBe(true);
+  });
   it("empresa dona = activa: segue a permissão", () => {
     expect(
       canShowDeleteDocumentButton({
