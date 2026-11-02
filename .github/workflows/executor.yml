@@ -100,7 +100,7 @@ jobs:
         run: |
           {
             echo 'texto<<FIM_PROMPT_E2B'
-            echo "És o executor da E2b na Issue #${{ github.event.issue.number }} do repositório ${{ github.repository }}. A classe e os limites são os do modo autorizado abaixo."
+            echo "És o executor da E2b na Issue #${{ github.event.issue.number }} do repositório ${{ github.repository }}. Classe R1: só código e testes."
             echo "Lê primeiro docs/INDEX.md e o que ele indicar para o tema; procura em .lovable/memory/features/ e docs/ antes de propor."
             if [ "$PREPARACAO_R2" = "true" ]; then
               echo "Regras: modo preparação R2 — podes escrever ficheiros em drizzle/migrations/NNNN_*.sql (com cópia em supabase/manual/ e rollback comentado) e em supabase/functions/; nunca executes SQL nem deploys; não toques em .github/, .lovable/, drizzle/migrations/meta/ nem ficheiros .env."
@@ -109,7 +109,8 @@ jobs:
             fi
             echo "Antes de terminar corre: bunx -p @typescript/native-preview tsgo -p tsconfig.app.json --noEmit e bunx vitest run, e corrige o que falhar."
             echo "No fim escreve .executor/resumo.md com as secções '### Feito' e '### Não feito / lacunas' (itens '- ' de topo, um predicado verificável por linha)."
-            echo "Respeita os caminhos e limites autorizados. Se houver impedimento concreto, identifica-o com evidência. Quando o despacho admitir entrega parcial, preserva o trabalho seguro e verificável e enumera os critérios pendentes; não declares conclusão. Não ultrapasses permissões para continuar."
+            echo "Se não puderes fazer exactamente a tarefa, pára, não inventes, e explica em '### Não feito / lacunas'."
+            echo "Dificuldade, volume ou tempo não são motivo para parar: entrega o que ficar a compilar e com testes verdes e lista o resto em '### Não feito / lacunas'. A regra «pára e reporta» do AGENTS.md aplica-se só a caminhos fora da lista autorizada ou a instruções impossíveis."
             echo ""
             echo "Tarefa (texto do despacho do Pedro):"
             cat "${{ runner.temp }}/e2b/tarefa.md"
@@ -138,26 +139,19 @@ jobs:
           npm install -g @openai/codex
           test -n "$OPENAI_API_KEY" && echo "OPENAI_API_KEY presente (${#OPENAI_API_KEY} caracteres)" || { echo "OPENAI_API_KEY ausente" >&2; exit 1; }
           printf '%s' "$OPENAI_API_KEY" | codex login --with-api-key
-          CODEX_STARTED_AT=$(date -u +%FT%TZ)
-          CODEX_STARTED_SECONDS=$SECONDS
-          record_codex_timing() {
-            CODEX_EXIT_CODE=$?
-            printf 'inicio_utc=%s\nfim_utc=%s\nduracao_segundos=%s\nexit_code=%s\n' \
-              "$CODEX_STARTED_AT" "$(date -u +%FT%TZ)" "$((SECONDS-CODEX_STARTED_SECONDS))" "$CODEX_EXIT_CODE" \
-              > "$RUNNER_TEMP/e2b/codex-tempo.txt"
-            exit "$CODEX_EXIT_CODE"
-          }
-          trap record_codex_timing EXIT
-          codex exec --sandbox workspace-write --skip-git-repo-check -C "$GITHUB_WORKSPACE" -c 'model_reasoning_effort="high"' --output-last-message "$RUNNER_TEMP/e2b/codex-ultima.md" "$PROMPT"
+          echo "codex_inicio=$(date -u +%FT%TZ)" >> "$GITHUB_ENV"
+          codex exec --sandbox workspace-write --skip-git-repo-check -C "$GITHUB_WORKSPACE" -c model_reasoning_effort="high" --output-last-message "$RUNNER_TEMP/e2b/codex-ultima.md" "$PROMPT"
+          echo "codex_fim=$(date -u +%FT%TZ)" >> "$GITHUB_ENV"
       - name: Recolher alterações
         run: |
           mkdir -p "${{ runner.temp }}/saida"
           [ -f .executor/resumo.md ] && cp .executor/resumo.md "${{ runner.temp }}/saida/resumo.md"
-          for CODEX_DIAGNOSTIC in codex-ultima.md codex-tempo.txt; do
-            if [ -f "$RUNNER_TEMP/e2b/$CODEX_DIAGNOSTIC" ]; then
-              cp "$RUNNER_TEMP/e2b/$CODEX_DIAGNOSTIC" "${{ runner.temp }}/saida/$CODEX_DIAGNOSTIC"
-            fi
-          done
+          [ -f "$RUNNER_TEMP/e2b/codex-ultima.md" ] && cp "$RUNNER_TEMP/e2b/codex-ultima.md" "${{ runner.temp }}/saida/ultima-mensagem.md"
+          if [ "${{ needs.travas.outputs.executor }}" = "codex" ]; then
+            echo "Codex: ${codex_inicio:-?} → ${codex_fim:-?}"
+          else
+            echo "n/d"
+          fi > "${{ runner.temp }}/saida/duracao.txt"
           rm -rf .executor
           git add -A
           git diff --cached --name-only > "${{ runner.temp }}/saida/ficheiros.txt"
@@ -298,14 +292,12 @@ jobs:
           esac
           {
             if [ "${{ steps.vazio.outputs.sim }}" = "true" ]; then
-              echo "## Fecho — #$ISSUE (SEM ENTREGA, executor E2b, $MOTOR)"
+              echo "## Fecho — #$ISSUE (SEM ENTREGA — executor E2b, $MOTOR)"
+              echo
+              echo "Sem alterações de código: o executor terminou sem diff. Ver «Última mensagem do executor» abaixo."
             else
               echo "## Fecho — #$ISSUE (executor E2b, $MOTOR)"
-            fi
-            echo
-            if [ "${{ steps.vazio.outputs.sim }}" = "true" ]; then
-              echo "Sem alterações de código."
-            else
+              echo
               echo "- **PR:** ${{ steps.pr.outputs.url || 'não criado (ver run)' }}"
               echo "- **Testes no runner:** ${{ steps.testes.outcome }}"
               echo "- **Merge automático:** ${{ steps.pr.outputs.auto || 'não pedido' }}"
@@ -314,26 +306,19 @@ jobs:
             echo
             cat "${{ runner.temp }}/saida/resumo.md" 2>/dev/null || printf '### Não feito / lacunas\n- resumo do executor indisponível\n'
             echo
-            if [ -f "${{ runner.temp }}/saida/codex-tempo.txt" ]; then
-              echo "### Duração do Codex"
-              cat "${{ runner.temp }}/saida/codex-tempo.txt"
-              echo
-            fi
-            if [ -f "${{ runner.temp }}/saida/codex-ultima.md" ]; then
-              echo "### Última mensagem do executor"
-              head -c 12000 "${{ runner.temp }}/saida/codex-ultima.md"
-              echo
-              echo "Mensagem integral no artefacto saida; excerto limitado a 12000 bytes."
+            echo "### Duração"
+            if [ -f "${{ runner.temp }}/saida/duracao.txt" ]; then
+              cat "${{ runner.temp }}/saida/duracao.txt"
             fi
             echo
-            if [ "${{ steps.vazio.outputs.sim }}" = "true" ]; then
-              echo "SEM ENTREGA: nenhum diff de produto. A reserva continua activa."
-            else
-              echo "Pronto para revisão por leitura. A reserva continua activa até ser libertada."
+            echo "### Última mensagem do executor"
+            if [ -f "${{ runner.temp }}/saida/ultima-mensagem.md" ]; then
+              tail -n 60 "${{ runner.temp }}/saida/ultima-mensagem.md"
             fi
+            echo
+            echo "Pronto para revisão por leitura. A reserva continua activa até ser libertada."
           } > fecho.md
           gh issue comment "$ISSUE" --repo "${{ github.repository }}" --body-file fecho.md
           if [ "${{ steps.vazio.outputs.sim }}" = "true" ]; then
-            echo "::error::SEM ENTREGA: o executor terminou sem alterações de produto."
             exit 1
           fi
