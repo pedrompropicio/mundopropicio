@@ -36,7 +36,7 @@ Esta regra integra o Bloco Comum e todos os prompts em `docs/prompts/`; aplica-s
 
 ## Os chats
 
-Numeração única 0–11, igual no Claude e no ChatGPT, mais `coala-portal`, `newgang-portal`, `gestao-de-chats` e os chats de evento. Tabela completa, modelos e ficheiros de estado em `docs/CHATS.md`. O 8 (Tráfego Pago) lê `estado-audience-meta.md` e `estado-audience-google.md` até os consolidar em `estado-trafego-pago.md`.
+Numeração única 0–11, igual no Claude e no ChatGPT, mais `coala-portal`, `newgang-portal`, `gestao-de-chats` e os chats de evento. Tabela completa, modelos e ficheiros de estado em `docs/CHATS.md`. O 8 (Tráfego Pago) lê [estado/estado-trafego-pago.md](estado/estado-trafego-pago.md); os antigos estados Meta e Google são ponteiros para esse estado único.
 
 **Um chat por frente. O número e o nome do chat são os de `CHATS.md`.** Se um tema muda de frente a meio, muda-se de chat.
 
