@@ -39,12 +39,12 @@ describe("#465 BR1b — leitura de snapshots, sem alegar freeze/restore", () => 
     expect(result.groups[0].rows[0].hasDifferences).toBe(true);
   });
 
-  it("LACUNA: alteração só no original/FX é invisível na comparação real", () => {
+  it("CORRIGIDO #467: alteração só no original/FX é visível na comparação real", () => {
     const before = { ...row, amount: 20, currency: "BRL", original_amount: 110, fx_rate: 0.181818, fx_rate_source: "fixture-a" };
     const after = { ...before, original_amount: 120, fx_rate: 0.166667, fx_rate_source: "fixture-b" };
     const result = buildMultiDiff({ versions, snapshotsByVersion: { before: [before], after: [after] }, lookup: {} });
     expect(result.groups[0].rows[0].cells.map(c => c.amount)).toEqual([20, 20]);
-    expect(result.groups[0].rows[0].hasDifferences).toBe(false);
+    expect(result.groups[0].rows[0].hasDifferences).toBe(true);
     // Prova somente da projeção do comparador, não de perda no JSON persistido.
   });
 });

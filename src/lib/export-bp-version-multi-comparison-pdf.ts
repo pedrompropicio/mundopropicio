@@ -1,3 +1,4 @@
+import { originDisplayLines } from "./bp-version-origin";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatCurrency } from "@/lib/mock-data";
@@ -77,7 +78,7 @@ export function exportBPMultiVersionComparisonPDF(input: ExportInput): void {
       body.push([
         r.type === "income" ? "Rec." : "Desp.",
         r.description,
-        ...r.cells.map((c) => (c.amount == null ? "—" : formatCurrency(c.amount))),
+        ...r.cells.map((c) => (c.amount == null ? "— (Linha ausente)" : [formatCurrency(c.amount), ...originDisplayLines(c.origin, r.changedOriginFields)].join("\n"))),
       ]);
     }
     // Sub-total row per group
