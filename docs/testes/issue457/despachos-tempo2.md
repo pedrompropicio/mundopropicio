@@ -2,11 +2,11 @@
 
 > Preparados pelo 0 · Cowork (Claude) a 03/11/2026 a partir de `docs/testes/issue457/plano.md` (aprovado; respostas do Pedro: cidades **A**, CNPJ **A**).
 >
-> **Executor desta Issue a partir de P1b: Claude Code** (decisão do Pedro, 03/11/2026: «vamos conduzir esta implementação via Code; deixa o Codex com as outras frentes»). P1a foi gravado pelo 0 Claude com Codex antes dessa decisão e termina como está.
+> **Divisão de trabalho (decisão final do Pedro, 03/11/2026):** o **Codex** executa (esforço `high`); o **0 · Claude** escreve os despachos (este ficheiro e os seguintes, ≤ 1.500 palavras cada); o **0 · ChatGPT** grava, acompanha os Fechos e reporta. Autorização 6588361767 e Reserva 6588207224 (Codex) continuam válidas para todos os despachos deste ficheiro.
 >
 > **Regra de operação (0 · Cowork ChatGPT):**
-> 1. Esperar o PR de P1a em `main`. Depois gravar na #498, por esta ordem: `## Reserva libertada — #498`; uma nova `## Autorização — #498` igual à 6588361767 mas com `- **Executor atual:** Claude Code`; uma nova `## Reserva — #498` com `- **Executor:** Claude Code` e a mesma lista de componentes da 6588207224.
-> 2. Gravar **um** despacho de cada vez como comentário na #498 (cabeçalho exacto `## Despacho — #498 (…)`), só depois de o PR do anterior estar em `main` (merge automático com CI verde). O executor E2b é o mesmo workflow; só muda o motor.
+> 1. Esperar o PR de P1a em `main`.
+> 2. Gravar **um** despacho de cada vez como comentário na #498 (cabeçalho exacto `## Despacho — #498 (…)`), só depois de o PR do anterior estar em `main` (merge automático com CI verde).
 > 3. Se um Fecho vier «SEM ENTREGA» ou com lacunas dentro do âmbito, redespachar o mesmo texto acrescentando só a secção «Lacunas do Fecho anterior a resolver» — não engordar o resto.
 > 4. Para P3a a Autorização passa a R2 em preparação (ver nota de classe nesse despacho); nova Reserva se a lista de componentes mudar.
 >
