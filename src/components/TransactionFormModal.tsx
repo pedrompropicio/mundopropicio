@@ -30,6 +30,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
+import { installmentOriginals } from "@/lib/installment-original";
 import { computeInstallmentNets } from "@/lib/installment-nets";
 import { splitLegNeedsOverride, splitLegExceedsBudget } from "@/lib/rateio-children";
 import { TransactionSplitConfig, type SplitEntry, type SplitBPInfo, type SplitInputMode } from "@/components/TransactionSplitConfig";
@@ -54,7 +55,7 @@ import {
 import { MirrorAporteNotice } from "@/components/MirrorAporteNotice";
 import { partnerLabel, upsertPartnerCapitalMove } from "@/lib/partner-capital";
 
-import { TransactionInstallmentsEditor, type PlannedInstallment } from "@/components/TransactionInstallmentsEditor";
+import { TransactionInstallmentsEditor, validateInstallments, type PlannedInstallment } from "@/components/TransactionInstallmentsEditor";
 import { findExistingInstallments, existingInstallmentsMessage, type ExistingInstallment } from "@/lib/installment-guard";
 import { fetchSupplierBankMap, mergeSupplierBank } from "@/lib/supplier-bank";
 import InvoiceGroupSuggestDialog, { type InvoiceGroupSuggestion } from "@/components/InvoiceGroupSuggestDialog";
@@ -1292,6 +1293,24 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
+      // Validate the complete monetary plan before the first write, including callers
+      // which invoke the mutation directly (rather than proceedWithCreate).
+      if (useInstallments && (data.type !== "expense" || isSplit || isPartnerExtra || isPaidByPartner || effectiveAutoMarkPaid || data.is_reimbursement || sharedCostSplitActive || (pendingIvaSplit?.length ?? 0) >= 2)) {
+        throw new Error("Parcelamento não é compatível com rateio, desdobramento multi-IVA/terceiros ou este fluxo de liquidação/sócio/reembolso.");
+      }
+      const installmentNets = useInstallments
+        ? computeInstallmentNets(installmentRows.map((r) => Number(r.amount)), Number(data.amount), 1 + Number(data.iva_rate || 0) / 100)
+        : [];
+      if (useInstallments && currency !== "EUR" && (
+        !data.amount.trim() || !Number.isFinite(Number(data.amount)) || Number(data.amount) < 0 ||
+        !Number.isFinite(Number(data.iva_rate)) ||
+        installmentRows.some((r) => !Number.isFinite(Number(r.amount)) || Number(r.amount) < 0 || !r.scheduled_date)
+      )) throw new Error("Plano de parcelas inválido.");
+      if (useInstallments) {
+        const planError = validateInstallments(installmentRows, calcTotalWithIva(Number(data.amount), Number(data.iva_rate || 0)));
+        if (planError) throw new Error(planError);
+      }
+      const parcelOriginals = useInstallments ? installmentOriginals(currency, originalAmount, fxRate, installmentNets) : [];
       // Guardrails de liquidação na criação:
       //  * papéis abaixo de manager NUNCA criam transação já paga (liquidação
       //    faz-se no modal de pagamento / listas / fluxos próprios);
@@ -1548,13 +1567,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const totalSuffix = useInstallments ? ` (1/${installmentRows.length})` : "";
         // Bases das parcelas a 4 casas decimais: soma == base da factura e
         // c/IVA de cada parcela reproduz exactamente a divisão do wizard.
-        const installmentNets = useInstallments
-          ? computeInstallmentNets(
-              installmentRows.map((r) => Number(r.amount) || 0),
-              parseFloat(data.amount),
-              ivaMultiplier,
-            )
-          : [];
         const firstParcelNet = useInstallments
           ? installmentNets[0] ?? 0
           : principalNetAmount;
@@ -1608,11 +1620,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           ordering_partner_id: data.type === "expense" ? (data.ordering_partner_id || null) : null,
           paying_partner_id: data.type === "expense" ? (data.paying_partner_id || null) : null,
           currency,
-          original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
+          original_amount: useInstallments ? parcelOriginals[0] : (currency === "EUR" ? null : (parseFloat(originalAmount) || null)),
           fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
           fx_rate_source: currency === "EUR" ? null : fxRateSource,
         } as any).select("id").single();
         if (error) throw error;
+        if (useInstallments && !insertedTx?.id) throw new Error("A primeira parcela não devolveu confirmação de criação.");
         createdTxId = insertedTx?.id ?? null;
 
         // ===== Perna de terceiros do custo partilhado (D-ERP69) =====
@@ -1823,7 +1836,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
               payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
               currency,
-              original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
+              original_amount: parcelOriginals[i],
               fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
               fx_rate_source: currency === "EUR" ? null : fxRateSource,
               parent_transaction_id: insertedTx.id,
@@ -1835,6 +1848,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
             } as any).select("id").single();
             if (sErr) throw sErr;
+            if (!siblingTx?.id) throw new Error(`A parcela ${i + 1} não devolveu confirmação de criação.`);
             if (siblingTx?.id) {
               await supabase.from("transaction_audit_log").insert({
                 transaction_id: siblingTx.id,
@@ -2027,7 +2041,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     },
     onError: (err: any) => {
       // CHECK transactions_service_payment_requires_mb → mensagem do domínio.
-      toast({ title: "Erro ao criar transação", description: friendlyPaymentError(err), variant: "destructive" });
+      toast({ title: "Erro ao criar transação", description: useInstallments ? `${friendlyPaymentError(err)} Verifique o grupo antes de tentar novamente: a criação pode ter ficado parcial.` : friendlyPaymentError(err), variant: "destructive" });
     },
   });
 
@@ -2086,23 +2100,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   const proceedWithCreate = async () => {
     setShowProrationConfirm(false);
-    if (!budgetPreflightDoneRef.current && form.type === "expense" && selectedForecastId && form.event_id
-        && !isSplit && !isTransitory && !sharedCostAccountId) {
-      try {
-        const excess = await computeBudgetExcess([{
-          forecast_id: selectedForecastId,
-          amount: parseFloat(form.amount) || 0,
-          iva_rate: Number(form.iva_rate) || 0,
-        }]);
-        if (excess.length > 0) {
-          setBudgetRaisePrompt({ lines: excess, mustRaise: effectiveAutoMarkPaid });
-          return;
-        }
-      } catch (e) {
-        console.error("budget preflight", e);
-      }
-    }
-    budgetPreflightDoneRef.current = false;
     // Validação de parcelamento (Fase 1.5)
     if (useInstallments) {
       if (form.type === "income") {
@@ -2122,6 +2119,18 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       const err = validateInstallments(installmentRows, grossTotal);
       if (err) {
         toast({ title: "Parcelas inválidas", description: err, variant: "destructive" });
+        return;
+      }
+      // This must also precede the budget dialog, whose confirmation can write.
+      try {
+        if (currency !== "EUR" && (!form.amount.trim() || !Number.isFinite(Number(form.amount)) || !Number.isFinite(Number(form.iva_rate)) || installmentRows.some((r) => !Number.isFinite(Number(r.amount))))) {
+          throw new Error("Plano de parcelas inválido.");
+        }
+        installmentOriginals(currency, originalAmount, fxRate, computeInstallmentNets(
+          installmentRows.map((r) => Number(r.amount)), Number(form.amount), 1 + Number(form.iva_rate || 0) / 100,
+        ));
+      } catch (e: any) {
+        toast({ title: "Parcelas inválidas", description: e.message, variant: "destructive" });
         return;
       }
       // Bloqueio de segunda geração — sem opção de forçar.
@@ -2149,6 +2158,29 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         return;
       }
     }
+
+    if (useInstallments && ((pendingIvaSplit?.length ?? 0) >= 2 || sharedCostSplitActive)) {
+      toast({ title: "Parcelamento indisponível", description: "Parcelamento não é compatível com desdobramento multi-IVA ou de terceiros.", variant: "destructive" });
+      return;
+    }
+
+    if (!budgetPreflightDoneRef.current && form.type === "expense" && selectedForecastId && form.event_id
+        && !isSplit && !isTransitory && !sharedCostAccountId) {
+      try {
+        const excess = await computeBudgetExcess([{
+          forecast_id: selectedForecastId,
+          amount: parseFloat(form.amount) || 0,
+          iva_rate: Number(form.iva_rate) || 0,
+        }]);
+        if (excess.length > 0) {
+          setBudgetRaisePrompt({ lines: excess, mustRaise: effectiveAutoMarkPaid });
+          return;
+        }
+      } catch (e) {
+        console.error("budget preflight", e);
+      }
+    }
+    budgetPreflightDoneRef.current = false;
 
     // Multi-IVA split path: create N sibling transactions sharing invoice_ref + invoice_group_id.
     if (pendingIvaSplit && pendingIvaSplit.length >= 2 && !isSplit) {
