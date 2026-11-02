@@ -34,7 +34,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { compareHierarchicalCodes, calcWithIva, formatDatePT } from "@/lib/utils";
-import { formatCurrencyDecimal } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import {
   findMatchingTransactionsForForecast,
   findCategoryOrphanTransactions,
@@ -89,11 +90,11 @@ const labelToEnum = (l: string | null | undefined) => {
   return FORMALIDADE_OPTIONS.find((o) => o.label === raw || o.value === raw)?.value ?? null;
 };
 
-/** Input PT: "1.064,42 €" → 1064.42 (copiado do Univer). */
+/** Input decimal PT/BR; the underlying value remains numeric. */
 const parseAmountPT = (v: unknown): number | null => {
   if (v === null || v === undefined || v === "") return null;
   if (typeof v === "number") return Number.isFinite(v) ? v : null;
-  const s = String(v).trim().replace(/[\s€%]/g, "");
+  const s = String(v).trim().replace(/R\$/g, "").replace(/[\s\u20ac%]/g, "");
   if (!s) return null;
   const normalized = s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : s;
   const n = Number(normalized);
@@ -202,7 +203,10 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   // Mesma regra da antiga Planilha (Univer): quem pode editar o BP pode usar a Planilha.
   const allowed = canEdit;
 
-  const { rates: validIva, defaultRate } = useEventIvaCountry(eventId || null);
+  const { rates: validIva, defaultRate, ivaPolicy } = useEventIvaCountry(eventId || null);
+  const noIva = ivaPolicy === "none";
+  const locale = useCompanyLocale();
+  const formatCurrencyDecimal = useCallback((value: number) => locale.status === "available" ? formatMoney(value, locale) : "—", [locale.status, locale.status === "available" ? locale.locale : null, locale.status === "available" ? locale.currency : null]);
   /** Rótulo da empresa configurada no evento (ordenador vazio). */
   const ORDERING_HOUSE_LABEL = useEventHouseLabel(eventId);
 
@@ -558,7 +562,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
               row.entry.description ?? "",
               row.entry.specification ?? "",
               Number(row.entry.amount ?? 0),
-              Number(row.entry.iva_rate ?? 0),
+              noIva ? 0 : Number(row.entry.iva_rate ?? 0),
               "",
               enumToLabel(row.entry.formalidade),
               row.entry.ordering_partner_id
@@ -611,6 +615,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
     catById,
     catLabel,
     defaultRate,
+    noIva,
     dataVersion,
     orderingFilter,
     payingFilter,
@@ -649,7 +654,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       const description = txt(hot.getDataAtCell(r, COL.DESCRIPTION));
       const specification = txt(hot.getDataAtCell(r, COL.SPEC));
       const amount = round2(parseAmountPT(hot.getDataAtCell(r, COL.AMOUNT)) ?? 0);
-      const iva_rate = parseAmountPT(hot.getDataAtCell(r, COL.IVA)) ?? 0;
+      const iva_rate = noIva ? 0 : parseAmountPT(hot.getDataAtCell(r, COL.IVA)) ?? 0;
       const formalidade = labelToEnum(hot.getDataAtCell(r, COL.FORMALIDADE)) ?? "estimado";
       const ordering_partner_id = labelToPartnerId(hot.getDataAtCell(r, COL.ORDERER), "orderer");
       const paying_partner_id = labelToPartnerId(hot.getDataAtCell(r, COL.PAYER), "payer");
@@ -684,7 +689,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       if (!sameTxt(orig.description, description)) fields.description = description || null;
       if (!sameTxt(orig.specification, specification)) fields.specification = specification || null;
       if (round2(Number(orig.amount ?? 0)) !== amount) fields.amount = amount;
-      if (Number(orig.iva_rate ?? 0) !== iva_rate) fields.iva_rate = iva_rate;
+      if (!noIva && Number(orig.iva_rate ?? 0) !== iva_rate) fields.iva_rate = iva_rate;
       if ((orig.formalidade ?? "estimado") !== formalidade) fields.formalidade = formalidade;
       if ((orig.ordering_partner_id ?? null) !== ordering_partner_id) fields.ordering_partner_id = ordering_partner_id;
       if ((orig.paying_partner_id ?? null) !== paying_partner_id) fields.paying_partner_id = paying_partner_id;
@@ -694,7 +699,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       }
     });
     return res;
-  }, [pendingDeletes, labelToPartnerId]);
+  }, [pendingDeletes, labelToPartnerId, noIva]);
 
   const recount = useCallback(() => {
     const d = buildDiff();
@@ -875,6 +880,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       toast.error("Linhas novas precisam de rubrica (descrição) e categoria.");
       return;
     }
+    if (locale.status !== "available") { toast.error(locale.message); return; }
     const invalidIva = [...diff.edits.map((e) => e.fields.iva_rate), ...diff.inserts.map((i) => i.iva_rate)]
       .filter((v) => v !== undefined)
       .find((v) => !(validIva as number[]).includes(Number(v)));
@@ -960,7 +966,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       td.textContent = formatCurrencyDecimal(n);
       td.style.color = n < 0 ? "hsl(var(--destructive))" : "";
     },
-    [],
+    [formatCurrencyDecimal],
   );
 
   const ivaRenderer = useCallback(
@@ -1231,14 +1237,15 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
               "Categoria",
               "Descrição",
               "Especificação",
-              "Valor s/IVA",
+              noIva && locale.status === "available" ? `Valor (${locale.symbol})` : "Valor s/IVA",
               "Taxa IVA",
-              "Total c/IVA",
+              noIva && locale.status === "available" ? `Total (${locale.symbol})` : "Total c/IVA",
               "Formalidade",
               "Ordenador",
               "Pagador",
               ...(isScenarioMode ? [] : ["Anexos"]),
             ]}
+            hiddenColumns={noIva ? { columns: [COL.IVA], indicators: false } : undefined}
             rowHeaders
             height={fullscreen ? "calc(100vh - 100px)" : 620}
             width="100%"

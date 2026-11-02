@@ -33,7 +33,10 @@ export interface CompanyLocaleUnavailable {
 }
 
 export type CompanyLocaleResult = CompanyLocale | CompanyLocaleUnavailable;
-export type CompanyFormatOptions = Omit<MoneyFormatOptions, "locale">;
+export type CompanyFormatOptions = Omit<MoneyFormatOptions, "locale"> & {
+  /** Existing numeric editors may retain Intl's locale-specific grouping. */
+  grouping?: "locale";
+};
 
 /**
  * Country selects presentation/policy; currency comes only from companies.currency.
@@ -73,13 +76,17 @@ export function resolveCompanyLocale(company: CompanyLocaleInput): CompanyLocale
   };
 }
 
-/** Explicit company context; PT delegates byte-for-byte to the legacy formatter. */
+/** Explicit company context; PT/EUR preserves the BP's legacy decimal format. */
 export function formatMoney(
   amount: number | null | undefined,
   ctx: CompanyLocale,
   options: CompanyFormatOptions = {},
 ): string {
   if (ctx.status !== "available") throw new Error("configuração da empresa incompleta");
+  if (ctx.locale === "pt-PT" && ctx.currency === "EUR" && options.grouping !== "locale") {
+    const number = formatNumber(amount, ctx, options);
+    return number === "—" ? number : `${number}\u00a0${ctx.symbol}`;
+  }
   return formatCurrencyMoney(amount, ctx.currency, { ...options, locale: ctx.locale });
 }
 
@@ -92,8 +99,14 @@ export function formatNumber(
   if (ctx.status !== "available") throw new Error("configuração da empresa incompleta");
   if (amount === null || amount === undefined || Number.isNaN(amount)) return "—";
   const maximumFractionDigits = options.maximumFractionDigits ?? 2;
-  return new Intl.NumberFormat(ctx.locale, {
+  const value = options.fromCents ? amount / 100 : amount;
+  const legacyBP = ctx.locale === "pt-PT" && ctx.currency === "EUR" && options.grouping !== "locale";
+  if (legacyBP && maximumFractionDigits === 2) {
+    const [integer, decimal] = Math.abs(value).toFixed(2).split(".");
+    return `${value < 0 ? "-" : ""}${integer.replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${decimal}`;
+  }
+  return new Intl.NumberFormat(legacyBP ? "pt-BR" : ctx.locale, {
     minimumFractionDigits: Math.min(2, maximumFractionDigits),
     maximumFractionDigits,
-  }).format(options.fromCents ? amount / 100 : amount);
+  }).format(value);
 }

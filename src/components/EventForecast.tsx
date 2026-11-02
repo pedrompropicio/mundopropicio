@@ -38,7 +38,9 @@ import { useEventScenario } from "@/contexts/EventScenarioContext";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { format } from "date-fns";
-import { formatCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
+import { MoneyInput, parseMoneyInput } from "@/components/ui/money-input";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -103,6 +105,16 @@ import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 import { useForecastAttachmentCounts } from "@/hooks/useForecastAttachmentCounts";
 import { mustWrite } from "@/lib/must-write";
+
+function useBPMoney() {
+  const locale = useCompanyLocale();
+  return {
+    locale,
+    noIva: locale.status === "available" && locale.ivaPolicy === "none",
+    symbol: locale.status === "available" ? locale.symbol : "—",
+    formatCurrency: (value: number) => locale.status === "available" ? formatMoney(value, locale) : "—",
+  };
+}
 
 // #269 — defaults estáveis: `= []` cria um array novo a cada desenho e reabre useMemo/efeitos.
 const EMPTY_ARR_STABLE: any[] = [];
@@ -180,7 +192,7 @@ interface InlineForm {
   is_overhead: boolean;
 }
 
-const emptyInline: InlineForm = {
+const baseInline: InlineForm = {
   type: "expense",
   description: "",
   amount: "",
@@ -272,7 +284,11 @@ function NonCanonicalBadge({ tx }: { tx: any }) {
 
 export function EventForecast({ eventId, eventDate, eventName, childEventIds, expenseOnly, parentEventId, eventStatus, forceReadOnly }: Props) {
   // Taxas de IVA do país da cidade do evento (PT por defeito).
-  const { rates: ivaRates } = useEventIvaCountry(eventId);
+  const { rates: ivaRates, ivaPolicy } = useEventIvaCountry(eventId);
+  const defaultRate = ivaPolicy === "none" ? 0 : Number(baseInline.iva_rate);
+  const { locale, symbol, formatCurrency } = useBPMoney();
+  const noIva = ivaPolicy === "none";
+  const emptyInline = { ...baseInline, iva_rate: String(defaultRate) };
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [addingType, setAddingType] = useState<"income" | "expense" | null>(null);
@@ -838,7 +854,7 @@ const descRef = useRef<HTMLInputElement>(null);
       const original = Number(f.amount) || 0;
       const formula = masterFormulaShares(f, siblingEvents.map((e: any) => e.id), original);
       const baseShare = roundCents(original / siblingCount);
-      // Último irmão recebe o que falta para fechar o total (pode ser ±0,01€).
+      // Último irmão recebe o que falta para fechar o total (pode ser um cêntimo).
       const share = isLastSibling
         ? roundCents(original - baseShare * (siblingCount - 1))
         : baseShare;
@@ -973,6 +989,7 @@ const descRef = useRef<HTMLInputElement>(null);
 
   const saveMutation = useMutation({
     mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
+      if (locale.status !== "available") throw new Error(locale.message);
       const previous = id ? (forecasts as any[]).find((row) => row.id === id) : null;
       if (id && !previous) throw new Error("Linha de BP não encontrada.");
       const isCompletedEvent = eventStatus === "completed";
@@ -987,7 +1004,7 @@ const descRef = useRef<HTMLInputElement>(null);
         if (error) throw error;
         return { snapshot: Object.fromEntries(Object.keys(partialPayload).map((key) => [key, previous[key] ?? null])) };
       }
-      const parsedAmount = parseFloat(form.amount);
+      const parsedAmount = noIva ? parseMoneyInput(form.amount, "pt-BR") : parseFloat(form.amount);
       if (!Number.isFinite(parsedAmount)) {
         throw new Error("Valor inválido. Introduza um número.");
       }
@@ -996,7 +1013,7 @@ const descRef = useRef<HTMLInputElement>(null);
         type: form.type,
         description: form.description,
         amount: parsedAmount,
-        iva_rate: form.iva_rate !== "" ? parseInt(form.iva_rate) : 23,
+        iva_rate: noIva ? 0 : form.iva_rate !== "" ? parseInt(form.iva_rate) : defaultRate,
         category_id: form.category_id || null,
         notes: form.notes || null,
         specification: form.type === "expense" ? (form.specification || null) : null,
@@ -1292,7 +1309,7 @@ const descRef = useRef<HTMLInputElement>(null);
               changed_by: callerName,
               field_name: "Criação",
               old_value: null,
-              new_value: `Gerado do BP — ${f.description} — ${Number(f.amount).toFixed(2)} €`,
+              new_value: `Gerado do BP — ${f.description} — ${f.audit_amount_label ?? Number(f.amount).toFixed(2)}`,
             }), "transaction_audit_log");
             if (isBPApproved) {
               await mustWrite(supabase.from("transaction_audit_log").insert({
@@ -1388,7 +1405,7 @@ const descRef = useRef<HTMLInputElement>(null);
   // Each installment becomes a transaction with its own date and amount.
   const [scheduleTarget, setScheduleTarget] = useState<any | null>(null);
   const scheduleInstallmentsMutation = useMutation({
-    mutationFn: async ({ forecast, installments }: { forecast: any; installments: Installment[] }) => {
+    mutationFn: async ({ forecast, installments, auditAmountLabels }: { forecast: any; installments: Installment[]; auditAmountLabels?: string[] }) => {
       const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
       const isBPApproved = forecast.status === "approved";
       const txStatus = isBPApproved ? "approved" : "pending";
@@ -1470,7 +1487,7 @@ const descRef = useRef<HTMLInputElement>(null);
             changed_by: callerName,
             field_name: "Criação",
             old_value: null,
-              new_value: `Programação de parcelas — ${i + 1}/${preparedInstallments.length} de "${forecast.description}" — ${Number(inst.amount).toFixed(2)} €`,
+            new_value: `Programação de parcelas — ${i + 1}/${preparedInstallments.length} de "${forecast.description}" — ${auditAmountLabels?.[i] ?? Number(inst.amount).toFixed(2)}`,
           }), "transaction_audit_log");
           if (isBPApproved) {
             await mustWrite(supabase.from("transaction_audit_log").insert({
@@ -1563,7 +1580,7 @@ const descRef = useRef<HTMLInputElement>(null);
       });
       return;
     }
-    bulkCreateTxMutation.mutate(items);
+    bulkCreateTxMutation.mutate(items.map((item) => ({ ...item, audit_amount_label: formatCurrency(Number(item.amount)) })));
     if (skipped > 0) {
       toast({
         title: `${skipped} linha(s) ignorada(s)`,
@@ -1682,7 +1699,8 @@ const descRef = useRef<HTMLInputElement>(null);
       const targetEventIds = childEventIds && childEventIds.length > 0
         ? [eventId, ...childEventIds]
         : [eventId];
-      const result = await attachLinksFromXlsx(buffer, targetEventIds, user?.email || "system", parentEventId);
+      if (locale.status !== "available") throw new Error(locale.message);
+      const result = await attachLinksFromXlsx(buffer, targetEventIds, user?.email || "system", parentEventId, locale);
 
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary"] });
@@ -1761,7 +1779,7 @@ const descRef = useRef<HTMLInputElement>(null);
       toast({ title: "Preencha a descrição e valor", variant: "destructive" });
       return;
     }
-    const parsedAmount = parseFloat(inlineForm.amount);
+    const parsedAmount = noIva ? parseMoneyInput(inlineForm.amount, "pt-BR") : parseFloat(inlineForm.amount);
     if (!Number.isFinite(parsedAmount)) {
       toast({ title: "Valor inválido", description: "Introduza um valor numérico válido.", variant: "destructive" });
       return;
@@ -1809,7 +1827,7 @@ const descRef = useRef<HTMLInputElement>(null);
       type: f.type,
       description: f.description,
       amount: String(f.amount),
-      iva_rate: String(f.iva_rate),
+      iva_rate: noIva ? "0" : String(f.iva_rate),
       category_id: f.category_id || "",
       notes: f.notes || "",
       specification: f.specification || "",
@@ -2072,7 +2090,7 @@ const descRef = useRef<HTMLInputElement>(null);
 
   // IVA somado SEMPRE linha-a-linha com arredondamento ao cêntimo (CIVA Art.º 18)
   const proratedExpenseBase = filteredProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount), 0);
-  const proratedExpenseIva = filteredProratedParentExpenses.reduce((s: number, f: any) => s + calcIvaAmount(Number(f.amount), Number(f.iva_rate)), 0);
+  const proratedExpenseIva = filteredProratedParentExpenses.reduce((s: number, f: any) => s + calcIvaAmount(Number(f.amount), noIva ? 0 : Number(f.iva_rate)), 0);
 
   // Comparison view (Previsão vs Real) — regras estritas:
   // 1) Previsto: apenas linhas BP `approved` (rascunhos/rejeitadas não contam).
@@ -2081,7 +2099,7 @@ const descRef = useRef<HTMLInputElement>(null);
   //    - Toggle OFF (default): overhead fica fora (Vista Empresa). exclude_from_result filtra.
   //    - Toggle ON (Vista Sócio/com overhead): inclui linhas `is_overhead=true` do próprio evento
   //      e a fatia virtual `_overhead_via_master` no split. Como overhead não gera TX, a coluna
-  //      Real desses lançamentos fica €0 — útil para auditar planeado vs cumprido do overhead.
+  //      Real desses lançamentos fica zero — útil para auditar planeado vs cumprido do overhead.
   // 4) Perímetro Real: ignora TX de sub-eventos quando se vê o Master sem o toggle Master+Subs.
   // 5) **Simetria por categoria**: o Real só soma TX cuja categoria existe no BP approved
   //    do próprio evento sendo visto (Master compara só contas do BP Master; Sub só do BP local).
@@ -2172,14 +2190,14 @@ const descRef = useRef<HTMLInputElement>(null);
     .reduce((s, f) => s + Number(f.amount), 0);
   const totalForecastIncomeIva = comparisonForecasts
     .filter((f) => f.type === "income")
-    .reduce((s, f) => s + calcIvaAmount(Number(f.amount), Number(f.iva_rate)), 0);
+    .reduce((s, f) => s + calcIvaAmount(Number(f.amount), noIva ? 0 : Number(f.iva_rate)), 0);
   const totalForecastIncomeStrict = totalForecastIncomeBase + totalForecastIncomeIva;
   const totalForecastExpenseBase = comparisonForecasts
     .filter((f) => f.type === "expense")
     .reduce((s, f) => s + Number(f.amount), 0);
   const totalForecastExpenseIva = comparisonForecasts
     .filter((f) => f.type === "expense")
-    .reduce((s, f) => s + calcIvaAmount(Number(f.amount), Number(f.iva_rate)), 0);
+    .reduce((s, f) => s + calcIvaAmount(Number(f.amount), noIva ? 0 : Number(f.iva_rate)), 0);
   const totalForecastExpense = totalForecastExpenseBase;
   // D21: sem fallback. Receita prevista = linhas reais + linhas sintéticas dos módulos.
   const incomeBaselineTotal =
@@ -2254,7 +2272,8 @@ const descRef = useRef<HTMLInputElement>(null);
             className={inputClass}
           />
         </td>
-        <td className="py-1.5 pr-2">
+        {!noIva && (
+          <td className="py-1.5 pr-2">
           <select
             value={inlineForm.iva_rate}
             onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })}
@@ -2263,9 +2282,10 @@ const descRef = useRef<HTMLInputElement>(null);
             {ivaRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
           </select>
         </td>
+        )}
         {!isExpenseType && <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">—</td>}
         <td className="py-1.5 pr-2">
-          <input
+          {noIva && locale.status === "available" ? <MoneyInput companyLocale={locale} value={Number(inlineForm.amount) || 0} onChange={(value) => setInlineForm({ ...inlineForm, amount: String(value) })} className={`${inputClass} w-28 text-right font-mono`} /> : (<input
             type="number"
             step="0.01"
             min="0"
@@ -2273,16 +2293,16 @@ const descRef = useRef<HTMLInputElement>(null);
             onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })}
             className={`${inputClass} w-28 text-right font-mono`}
             placeholder="0,00"
-          />
+          />)}
         </td>
-        {isExpenseType && (
+        {isExpenseType && !noIva && (
           <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
-            {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
+            {formatCurrency((parseFloat(inlineForm.amount) || 0) * (noIva ? 0 : parseInt(inlineForm.iva_rate) || 0) / 100)}
           </td>
         )}
         {isExpenseType && (
           <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
-            {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
+            {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (noIva ? 0 : parseInt(inlineForm.iva_rate) || 0) / 100))}
           </td>
         )}
         {!isExpenseType && <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">—</td>}
@@ -2773,17 +2793,17 @@ const descRef = useRef<HTMLInputElement>(null);
                       <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                         <th className="pb-2 text-left font-medium">Descrição</th>
                         <th className="hidden pb-2 text-left font-medium sm:table-cell">Categoria</th>
-                        <th className="pb-2 text-right font-medium">IVA %</th>
-                        <th className="pb-2 text-right font-medium">Previsto original (s/IVA)</th>
-                        <th className="pb-2 text-right font-medium">Previsto corrente (s/IVA)</th>
-                        <th className="pb-2 text-right font-medium">Real (s/IVA)</th>
+                        {!noIva && <th className="pb-2 text-right font-medium">IVA %</th>}
+                        <th className="pb-2 text-right font-medium">{noIva ? `Previsto original (${symbol})` : "Previsto original (s/IVA)"}</th>
+                        <th className="pb-2 text-right font-medium">{noIva ? `Previsto corrente (${symbol})` : "Previsto corrente (s/IVA)"}</th>
+                        <th className="pb-2 text-right font-medium">{noIva ? `Real (${symbol})` : "Real (s/IVA)"}</th>
                         <th className="pb-2 text-right font-medium w-28">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/30">
                       {incomeGroups.map((group) => {
                         const groupBase = group.items.reduce((s, f) => s + Number(f.amount), 0);
-                        const groupIva = group.items.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+                        const groupIva = group.items.reduce((s, f) => s + Number(f.amount) * (noIva ? 0 : Number(f.iva_rate)) / 100, 0);
                         const showGroupHeader = incomeGroups.length > 1 || group.groupName !== (group.items[0]?.account_categories?.name);
                         const bands = buildCategoryBands(group.items);
 
@@ -2791,9 +2811,9 @@ const descRef = useRef<HTMLInputElement>(null);
                           <React.Fragment key={group.groupName}>
                             {showGroupHeader && (
                               <tr className="bg-secondary/10 border-t border-border/30">
-                                <td colSpan={3} className="py-2 pl-2 text-xs font-semibold text-foreground"><span className="text-muted-foreground mr-1">{group.groupCode}</span>{group.groupName}</td>
+                                <td colSpan={noIva ? 2 : 3} className="py-2 pl-2 text-xs font-semibold text-foreground"><span className="text-muted-foreground mr-1">{group.groupCode}</span>{group.groupName}</td>
                                 <td />
-                                <td className="py-2 text-right font-mono text-xs font-semibold" title={`IVA ${formatCurrency(groupIva)} · Total c/IVA ${formatCurrency(groupBase + groupIva)}`}>{formatCurrency(groupBase)}</td>
+                                <td className="py-2 text-right font-mono text-xs font-semibold" title={noIva ? undefined : `IVA ${formatCurrency(groupIva)} · Total c/IVA ${formatCurrency(groupBase + groupIva)}`}>{formatCurrency(groupBase)}</td>
                                 <td />
                                 <td />
                               </tr>
@@ -2821,16 +2841,18 @@ const descRef = useRef<HTMLInputElement>(null);
                                       className={inputClass}
                                     />
                                   </td>
-                                   <td className="py-1.5 pr-2">
+                                   {!noIva && (
+          <td className="py-1.5 pr-2">
                                     <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`} disabled={canEditBPPartial && !canEditBP}>
                                       {ivaRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
                                     </select>
                                    </td>
+        )}
                                    <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
                                      {f.baseline_amount != null ? formatCurrency(Number(f.baseline_amount)) : "—"}
                                    </td>
                                     <td className="py-1.5 pr-2">
-                                     <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} disabled={(canEditBPPartial && !canEditBP) || isFormulaType(forecasts.find((x: any) => x.id === editingId)?.formula_type)} title={isFormulaType(forecasts.find((x: any) => x.id === editingId)?.formula_type) ? "Valor calculado pela fórmula" : undefined} />
+                                     {noIva && locale.status === "available" ? <MoneyInput companyLocale={locale} value={Number(inlineForm.amount) || 0} onChange={(value) => setInlineForm({ ...inlineForm, amount: String(value) })} className={`${inputClass} w-28 text-right font-mono`} disabled={(canEditBPPartial && !canEditBP) || isFormulaType(forecasts.find((x: any) => x.id === editingId)?.formula_type)} /> : (<input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} disabled={(canEditBPPartial && !canEditBP) || isFormulaType(forecasts.find((x: any) => x.id === editingId)?.formula_type)} title={isFormulaType(forecasts.find((x: any) => x.id === editingId)?.formula_type) ? "Valor calculado pela fórmula" : undefined} />)}
                                    </td>
                                    <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">—</td>
                                    <td className="py-1.5 text-right">
@@ -2845,7 +2867,7 @@ const descRef = useRef<HTMLInputElement>(null);
                               ));
                               return (
                                 <React.Fragment key={`inc-band-${f.id}`}>
-                                  {band && <CategoryBandRow band={band} colCount={7} />}
+                                  {band && <CategoryBandRow band={band} colCount={noIva ? 6 : 7} />}
                                   {row}
                                 </React.Fragment>
                               );
@@ -2876,7 +2898,7 @@ const descRef = useRef<HTMLInputElement>(null);
                           <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{l.baselineNet != null ? formatCurrency(l.baselineNet) : "—"}</td>
                           <td
                             className="py-2.5 text-right font-mono font-semibold text-success"
-                            title={l.currentNet != null ? `IVA ${formatCurrency(l.currentIva)} · Total c/IVA ${formatCurrency(l.currentNet + l.currentIva)}` : undefined}
+                            title={!noIva && l.currentNet != null ? `IVA ${formatCurrency(l.currentIva)} · Total c/IVA ${formatCurrency(l.currentNet + l.currentIva)}` : undefined}
                           >
                             {l.currentNet != null ? formatCurrency(l.currentNet) : "—"}
                           </td>
@@ -2902,9 +2924,9 @@ const descRef = useRef<HTMLInputElement>(null);
                     {(incomeForecasts.length > 0 || addingType === "income" || syntheticIncome.lines.length > 0) && (
                       <tfoot>
                         <tr className="border-t border-border/50">
-                          <td colSpan={3} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
+                          <td colSpan={noIva ? 2 : 3} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
                           <td className="py-2.5 text-right font-mono font-bold text-muted-foreground">{formatCurrency(incomeBaselineTotal)}</td>
-                          <td className="py-2.5 text-right font-mono font-bold text-success" title={`IVA ${formatCurrency(incomeCurrentIvaTotal)} · Total c/IVA ${formatCurrency(incomeCurrentTotal + incomeCurrentIvaTotal)}`}>{formatCurrency(incomeCurrentTotal)}</td>
+                          <td className="py-2.5 text-right font-mono font-bold text-success" title={noIva ? undefined : `IVA ${formatCurrency(incomeCurrentIvaTotal)} · Total c/IVA ${formatCurrency(incomeCurrentTotal + incomeCurrentIvaTotal)}`}>{formatCurrency(incomeCurrentTotal)}</td>
                           <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(incomeRealTotal)}</td>
                           <td />
                         </tr>
@@ -3062,30 +3084,30 @@ const descRef = useRef<HTMLInputElement>(null);
                         <th className="pb-2 text-left font-medium">Descrição</th>
                         <th className="pb-2 text-left font-medium">Especificação</th>
                         <th className="hidden pb-2 text-left font-medium sm:table-cell">Categoria</th>
-                        <th className="pb-2 text-right font-medium">IVA %</th>
-                        <th className="pb-2 text-right font-medium">Valor s/ IVA</th>
-                        <th className="pb-2 text-right font-medium">IVA (€)</th>
-                        <th className="pb-2 text-right font-medium">Total (€)</th>
+                        {!noIva && <th className="pb-2 text-right font-medium">IVA %</th>}
+                        <th className="pb-2 text-right font-medium">{noIva ? `Valor (${symbol})` : "Valor s/ IVA"}</th>
+                        {!noIva && <th className="pb-2 text-right font-medium">{`IVA (${symbol})`}</th>}
+                        <th className="pb-2 text-right font-medium">{`Total (${symbol})`}</th>
                         <th className="pb-2 text-right font-medium w-28">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/30">
                       {expenseGroups.map((group) => {
                         const groupBase = group.items.reduce((s, f) => s + Number(f.amount), 0);
-                        const groupIva = group.items.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+                        const groupIva = group.items.reduce((s, f) => s + Number(f.amount) * (noIva ? 0 : Number(f.iva_rate)) / 100, 0);
                         const showGroupHeader = expenseGroups.length > 1 || group.groupName !== (group.items[0]?.account_categories?.name);
                         const bands = buildCategoryBands(group.items);
                         return (
                           <React.Fragment key={group.groupName}>
                             {showGroupHeader && (
                               <tr className="bg-secondary/10 border-t border-border/30">
-                                <td colSpan={4} className="py-2 pl-2 text-xs font-semibold text-foreground">
+                                <td colSpan={noIva ? 3 : 4} className="py-2 pl-2 text-xs font-semibold text-foreground">
                                   <span className="text-muted-foreground mr-1">{group.groupCode}</span>{group.groupName}
                                 </td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold">
                                   {formatCurrency(groupBase)}
                                 </td>
-                                <td className="py-2 text-right font-mono text-xs font-semibold text-muted-foreground">{formatCurrency(groupIva)}</td>
+                                {!noIva && <td className="py-2 text-right font-mono text-xs font-semibold text-muted-foreground">{formatCurrency(groupIva)}</td>}
                                 <td className="py-2 text-right font-mono text-xs font-semibold">
                                   {formatCurrency(groupBase + groupIva)}
                                 </td>
@@ -3122,19 +3144,21 @@ const descRef = useRef<HTMLInputElement>(null);
                                        className={inputClass}
                                      />
                                   </td>
-                                  <td className="py-1.5 pr-2">
+                                  {!noIva && (
+          <td className="py-1.5 pr-2">
                                     <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`} disabled={canEditBPPartial && !canEditBP}>
                                       {ivaRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
                                     </select>
                                   </td>
+        )}
                                     <td className="py-1.5 pr-2">
-                                     <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} disabled={(canEditBPPartial && !canEditBP) || isFormulaType(forecasts.find((x: any) => x.id === editingId)?.formula_type)} title={isFormulaType(forecasts.find((x: any) => x.id === editingId)?.formula_type) ? "Valor calculado pela fórmula" : undefined} />
+                                     {noIva && locale.status === "available" ? <MoneyInput companyLocale={locale} value={Number(inlineForm.amount) || 0} onChange={(value) => setInlineForm({ ...inlineForm, amount: String(value) })} className={`${inputClass} w-28 text-right font-mono`} disabled={(canEditBPPartial && !canEditBP) || isFormulaType(forecasts.find((x: any) => x.id === editingId)?.formula_type)} /> : (<input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} disabled={(canEditBPPartial && !canEditBP) || isFormulaType(forecasts.find((x: any) => x.id === editingId)?.formula_type)} title={isFormulaType(forecasts.find((x: any) => x.id === editingId)?.formula_type) ? "Valor calculado pela fórmula" : undefined} />)}
                                    </td>
-                                  <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
-                                    {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
-                                  </td>
+                                  {!noIva && <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
+                                    {formatCurrency((parseFloat(inlineForm.amount) || 0) * (noIva ? 0 : parseInt(inlineForm.iva_rate) || 0) / 100)}
+                                  </td>}
                                   <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
-                                    {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
+                                    {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (noIva ? 0 : parseInt(inlineForm.iva_rate) || 0) / 100))}
                                   </td>
                                   <td className="py-1.5 text-right">
                                     <div className="flex justify-end gap-1">
@@ -3191,7 +3215,7 @@ const descRef = useRef<HTMLInputElement>(null);
                               ));
                               return (
                                 <React.Fragment key={`exp-band-${f.id}`}>
-                                  {band && <CategoryBandRow band={band} colCount={8} />}
+                                  {band && <CategoryBandRow band={band} colCount={noIva ? 6 : 8} />}
                                   {row}
                                 </React.Fragment>
                               );
@@ -3205,9 +3229,9 @@ const descRef = useRef<HTMLInputElement>(null);
                     {(expenseForecasts.length > 0 || addingType === "expense" || filteredProratedParentExpenses.length > 0) && (
                       <tfoot>
                         <tr className="border-t border-border/50">
-                          <td colSpan={4} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
+                          <td colSpan={noIva ? 3 : 4} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
                           <td className="py-2.5 text-right font-mono font-bold text-warning">{formatCurrency(totalForecastExpenseBase)}</td>
-                          <td className="py-2.5 text-right font-mono font-bold text-warning/70">{formatCurrency(totalForecastExpenseIva)}</td>
+                          {!noIva && <td className="py-2.5 text-right font-mono font-bold text-warning/70">{formatCurrency(totalForecastExpenseIva)}</td>}
                           <td className="py-2.5 text-right font-mono font-bold text-warning">{formatCurrency(totalForecastExpenseBase + totalForecastExpenseIva)}</td>
                           <td />
                         </tr>
@@ -3431,7 +3455,7 @@ const descRef = useRef<HTMLInputElement>(null);
         isSubmitting={scheduleInstallmentsMutation.isPending}
         onConfirm={(installments) => {
           if (!scheduleTarget) return;
-          scheduleInstallmentsMutation.mutate({ forecast: scheduleTarget, installments });
+          scheduleInstallmentsMutation.mutate({ forecast: scheduleTarget, installments, auditAmountLabels: installments.map((inst) => formatCurrency(Number(inst.amount))) });
         }}
       />
 
@@ -3459,7 +3483,7 @@ const descRef = useRef<HTMLInputElement>(null);
                 type: "expense" as const,
                 description: cand.description,
                 amount: cand.amount,
-                iva_rate: cand.ivaRate,
+                iva_rate: noIva ? 0 : cand.ivaRate,
                 category_id: cand.categoryId,
                 status: "draft",
               } as any);
@@ -3510,6 +3534,7 @@ function CategoryBandRow({
   band: { code: string; name: string; previsto: number; realizado: number; count: number };
   colCount: number;
 }) {
+  const { formatCurrency } = useBPMoney();
   return (
     <tr className="bg-secondary/5 border-t border-border/20">
       <td colSpan={colCount} className="py-1.5 pl-3 pr-2">
@@ -3560,6 +3585,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   adoptedChildren?: any[];
   onScheduleInstallments?: (item: any) => void;
 }) {
+  const { formatCurrency, noIva } = useBPMoney();
   const ordererOptions = useMemo(() => eventPartners.filter((p) => !!p.can_order), [eventPartners]);
   const payerOptions = useMemo(() => eventPartners.filter((p) => !!p.can_pay), [eventPartners]);
   const { isAdmin: isAdminAuth, isManager: isManagerAuth } = useAuth();
@@ -3672,7 +3698,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     enabled: showAuditLog,
   });
 
-  const colCount = isExpense ? 8 : 7;
+  const colCount = isExpense ? (noIva ? 6 : 8) : (noIva ? 6 : 7);
 
   // ── Sync attachments from BP line → linked transactions
   // Copies external links (attachment_refs) from this BP row into transaction_documents
@@ -3840,7 +3866,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                     Devolvida a {addbackSettlementName}
                   </span>
                 )}
-                {item.vat_non_recoverable && (
+                {!noIva && item.vat_non_recoverable && (
                   <span
                     className="ml-2 inline-flex items-center rounded-full bg-muted text-muted-foreground px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider align-middle"
                     title="O IVA desta linha não é recuperado pela sociedade: não entra no IVA dedutível devolvido."
@@ -3939,7 +3965,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
         <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell text-xs">
           {item.account_categories ? `${item.account_categories.code} ${item.account_categories.name}` : "—"}
         </td>
-        <td className="py-2.5 text-right text-muted-foreground text-xs">{item.iva_rate}%</td>
+        {!noIva && <td className="py-2.5 text-right text-muted-foreground text-xs">{item.iva_rate}%</td>}
         {showIncomeCols && (
           <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">
             {item.baseline_amount != null ? formatCurrency(Number(item.baseline_amount)) : formatCurrency(Number(item.amount))}
@@ -3947,21 +3973,21 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
         )}
         <td
           className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}
-          title={showIncomeCols ? `IVA ${formatCurrency(Number(item.amount) * Number(item.iva_rate) / 100)} · Total c/IVA ${formatCurrency(Number(item.amount) * (1 + Number(item.iva_rate) / 100))}` : undefined}
+          title={showIncomeCols && !noIva ? `IVA ${formatCurrency(Number(item.amount) * (noIva ? 0 : Number(item.iva_rate)) / 100)} · Total c/IVA ${formatCurrency(Number(item.amount) * (1 + (noIva ? 0 : Number(item.iva_rate)) / 100))}` : undefined}
         >
           <span className="inline-flex items-center justify-end gap-1.5">
             {formatCurrency(Number(item.amount))}
-            <CurrencyBadge currency={item.currency} originalAmount={item.original_amount} fxRate={item.fx_rate} />
+            <CurrencyBadge currency={noIva ? undefined : item.currency} originalAmount={item.original_amount} fxRate={item.fx_rate} />
           </span>
         </td>
-        {!showIncomeCols && (
+        {!showIncomeCols && !noIva && (
           <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">
-            {formatCurrency(Number(item.amount) * Number(item.iva_rate) / 100)}
+            {formatCurrency(Number(item.amount) * (noIva ? 0 : Number(item.iva_rate)) / 100)}
           </td>
         )}
         {!showIncomeCols && (
           <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
-            {formatCurrency(Number(item.amount) * (1 + Number(item.iva_rate) / 100))}
+            {formatCurrency(Number(item.amount) * (1 + (noIva ? 0 : Number(item.iva_rate)) / 100))}
           </td>
         )}
         {showIncomeCols && (
@@ -4312,6 +4338,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
 function SummaryCard({ label, helpText, forecast, actual, icon, isProfit }: {
   label: string; helpText?: string; forecast: number | null; actual: number | null; icon: React.ReactNode; isProfit?: boolean;
 }) {
+  const { formatCurrency } = useBPMoney();
   const hasForecast = forecast !== null;
   const hasActual = actual !== null;
   const showVariance = hasForecast && hasActual && (forecast as number) > 0;
@@ -4356,11 +4383,12 @@ function OrphanBucketRow({ item, isExpense, indented, isAdmin, queryClient, even
   queryClient?: any;
   eventId?: string;
 }) {
+  const { formatCurrency, noIva } = useBPMoney();
   const [open, setOpen] = useState(false);
   const [viewingTransaction, setViewingTransaction] = useState<any>(null);
   const [documentsTransaction, setDocumentsTransaction] = useState<any>(null);
   const txs: any[] = item._orphanTx ?? [];
-  const colCount = isExpense ? 8 : 7;
+  const colCount = isExpense ? (noIva ? 6 : 8) : (noIva ? 6 : 7);
   const pending = orphanBucketIsPending(item.type);
   const orphanTxWithIva = (t: any) => Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100);
   // Realizado do balde: só o universo canónico (ver isCanonicalRealTx).
@@ -4531,6 +4559,7 @@ function buildComparison(forecasts: any[], transactions: any[], categories: any[
 }
 
 function ComparisonTable({ data, onOpenTransactionDocuments }: { data: ComparisonRow[]; onOpenTransactionDocuments?: (tx: any) => void }) {
+  const { formatCurrency } = useBPMoney();
   const incomeRows = data.filter((r) => r.type === "income");
   const expenseRows = data.filter((r) => r.type === "expense");
   const totalFI = incomeRows.reduce((s, r) => s + r.forecast, 0);
@@ -4708,6 +4737,7 @@ function ComparisonTable({ data, onOpenTransactionDocuments }: { data: Compariso
 }
 
 function ComparisonRowItem({ row, isIncome, indented, expanded, canExpand, onToggle }: { row: ComparisonRow; isIncome?: boolean; indented?: boolean; expanded?: boolean; canExpand?: boolean; onToggle?: () => void }) {
+  const { formatCurrency } = useBPMoney();
   const variancePct = row.forecast > 0 ? (row.variance / row.forecast) * 100 : 0;
   const isPositive = isIncome ? row.variance >= 0 : row.variance <= 0;
   return (
@@ -4739,6 +4769,7 @@ function DeleteForecastDialog({ item, onDelete, hasPaidTx, unpaidTransactions, p
   paidTransactions: any[];
   title: string;
 }) {
+  const { formatCurrency } = useBPMoney();
   const [open, setOpen] = useState(false);
   const hasUnpaidTx = unpaidTransactions.length > 0;
 

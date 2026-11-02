@@ -1,4 +1,6 @@
 import * as XLSX from "xlsx";
+import { resolveCompanyLocale, type CompanyLocale } from "@/lib/company-locale";
+import { parseMoneyInput } from "@/components/ui/money-input";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes } from "@/lib/utils";
@@ -217,7 +219,12 @@ function extractHyperlinksByRow(ws: XLSX.WorkSheet): Map<number, string[]> {
  * `allowedIvaRates` — taxas do país do evento de DESTINO do import
  * (ES 21/10/4/0). Sem parâmetro, comporta-se como antes (PT).
  */
-export function parseXlsxPL(buffer: ArrayBuffer, allowedIvaRates: readonly number[] = STANDARD_IVA_RATES): ParsedSheet[] {
+export function parseXlsxPL(buffer: ArrayBuffer, allowedIvaRates: readonly number[] = STANDARD_IVA_RATES, companyLocale?: CompanyLocale): ParsedSheet[] {
+  // P2a callers already pass [0] for the company's no-IVA policy.
+  const noIva = companyLocale ? companyLocale.ivaPolicy === "none" : allowedIvaRates.length === 1 && allowedIvaRates[0] === 0;
+  const locale = companyLocale ?? resolveCompanyLocale({ country: "PT", currency: "EUR" });
+  const symbol = locale.status === "available" ? locale.symbol : "";
+  const parseValue = (value: unknown) => noIva && typeof value === "string" ? parseMoneyInput(value, "pt-BR") : parseNum(value);
   const wb = XLSX.read(buffer, { type: "array", cellHTML: false });
   const sheets: ParsedSheet[] = [];
 
@@ -272,9 +279,9 @@ export function parseXlsxPL(buffer: ArrayBuffer, allowedIvaRates: readonly numbe
       if (isSkippableLine(desc, costRaw, totalRaw)) continue;
 
       const rowHasFormulaError = hasFormulaError(costRaw) || hasFormulaError(totalRaw);
-      const cost = parseNum(costRaw);
-      const iva = ivaIdx >= 0 ? parseNum(row[ivaIdx]) : 0;
-      const total = parseNum(totalRaw);
+      const cost = parseValue(costRaw);
+      const iva = noIva ? 0 : ivaIdx >= 0 ? parseValue(row[ivaIdx]) : 0;
+      const total = parseValue(totalRaw);
 
       let finalBase: number;
       let finalIva: number;
@@ -288,17 +295,22 @@ export function parseXlsxPL(buffer: ArrayBuffer, allowedIvaRates: readonly numbe
         if (finalBase <= 0 && total > 0) { finalBase = total; finalIva = 0; }
       }
 
-      const calculatedRate = finalBase > 0 ? (finalIva / finalBase) * 100 : 0;
-      const ivaRate = snapIvaRate(calculatedRate, allowedIvaRates);
+      if (noIva) {
+        finalBase = cost || total;
+        finalIva = 0;
+      }
 
-      // Validação CIVA: o IVA do ficheiro deve bater com base × taxa (±0,01€).
+      const calculatedRate = finalBase > 0 ? (finalIva / finalBase) * 100 : 0;
+      const ivaRate = noIva ? 0 : snapIvaRate(calculatedRate, allowedIvaRates);
+
+      // Validação CIVA: o IVA do ficheiro deve bater com base × taxa (um cêntimo).
       // Se divergir, registamos warning e usamos o valor matematicamente correto.
       if (finalBase > 0 && ivaRate > 0) {
         const expectedIva = Math.round(finalBase * (ivaRate / 100) * 100) / 100;
         const ivaDiff = Math.round((finalIva - expectedIva) * 100) / 100;
         if (Math.abs(ivaDiff) > 0.01) {
           warnings.push(
-            `Linha ${i + 1} ("${desc}"): IVA do ficheiro (${finalIva.toFixed(2)}€) difere do cálculo correto (${expectedIva.toFixed(2)}€ a ${ivaRate}%). Usando valor calculado.`,
+            `Linha ${i + 1} ("${desc}"): IVA do ficheiro (${finalIva.toFixed(2)}${symbol}) difere do cálculo correto (${expectedIva.toFixed(2)}${symbol} a ${ivaRate}%). Usando valor calculado.`,
           );
           finalIva = expectedIva;
         }
@@ -346,7 +358,7 @@ export function parseXlsxPL(buffer: ArrayBuffer, allowedIvaRates: readonly numbe
         specification,
         baseAmount: roundMoney(Math.abs(finalBase)),
         ivaAmount: roundMoney(Math.abs(finalIva)),
-        total: roundMoney(Math.abs(total || finalBase + finalIva)),
+        total: roundMoney(Math.abs(noIva ? finalBase : total || finalBase + finalIva)),
         ivaRate,
         attachments,
         status,
@@ -431,6 +443,7 @@ export async function importPLToEvent(
   userEmail: string,
   parentEventId?: string,
   userInstructions?: string,
+  companyLocale?: CompanyLocale,
 ): Promise<ImportResult> {
   let created = 0;
   const errors: string[] = [];
@@ -547,7 +560,7 @@ export async function importPLToEvent(
         description: row.description,
         specification: row.specification,
         amount: roundMoney(row.baseAmount),
-        iva_rate: row.ivaRate,
+        iva_rate: companyLocale?.ivaPolicy === "none" ? 0 : row.ivaRate,
         category_id: categoryId,
         status: "draft",
         attachment_refs: attachmentRefs as any,
@@ -637,9 +650,9 @@ export function findForecastMatch(
   aggregatedAmountForDesc?: number,
 ): { forecast: ForecastLike; fromMaster: boolean } | null {
   const descKey = norm(rowDescription);
-  // Tolerância: maior entre 1€ absoluto e 0,5% do valor.
+  // Tolerância: maior entre uma unidade monetária absoluta e 0,5% do valor.
   // Apanha arredondamentos típicos de cachês/grandes valores
-  // (ex.: 67 917,85€ no XLSX vs 67 918,00€ no BP).
+  // (ex.: 67 917,85 no XLSX vs 67 918,00 no BP).
   const tolFor = (target: number) => Math.max(1, Math.abs(target) * 0.005);
   const matchesAmount = (f: ForecastLike, target: number): boolean => {
     const net = Number(f.amount) || 0;
@@ -673,7 +686,7 @@ export function findForecastMatch(
   // 4) Primary pool — value match + partial description similarity
   //    Catches sub-event rows where the XLSX description differs from the BP
   //    description but the amount and at least one significant token match.
-  //    Example: "Hotel porto palacio(artista)" 1067€ <-> BP "Hotel - Artistas" 1067€
+  //    Example: "Hotel porto palacio(artista)" 1067 <-> BP "Hotel - Artistas" 1067
   //    Restricted to primary pool to avoid Master rateio ambiguity. Requires a
   //    UNIQUE candidate (>1 match aborts) to prevent false positives.
   const xlsxTokens = new Set(
@@ -782,6 +795,7 @@ export async function attachLinksFromXlsx(
   uploadedBy: string,
   /** Optional Master event id used as fallback when sub-event BP has no match */
   parentEventId?: string,
+  companyLocale?: CompanyLocale,
 ): Promise<AttachLinksResult> {
   const result: AttachLinksResult = {
     attached: 0,
@@ -793,7 +807,7 @@ export async function attachLinksFromXlsx(
     orphans: [],
   };
 
-  const sheets = parseXlsxPL(buffer);
+  const sheets = parseXlsxPL(buffer, companyLocale?.ivaPolicy === "none" ? [0] : STANDARD_IVA_RATES, companyLocale);
   // Preserve the originating sheet name for each row so we can group orphans.
   type RowWithSheet = ParsedRow & { _sheet: string };
   const allRows: RowWithSheet[] = sheets.flatMap((s) =>
