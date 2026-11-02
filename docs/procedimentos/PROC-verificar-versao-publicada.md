@@ -1,0 +1,13 @@
+# Verificar a versão publicada — #347
+
+Executar apenas na janela de Publish autorizada; esta preparação R1 não faz chamadas a produção.
+
+1. Registar previamente a origem de publicação, ramo e HEAD completo esperado, com fonte confiável da revisão aprovada. Não obter um HEAD remoto para o inserir artificialmente no build.
+2. Após Publish, recolher `/version.json` da origem esperada com cache-buster e `cache: no-store`, preservando JSON, instante e origem da leitura. Conferir `buildId`, `builtAt` e `commit`; `builtAt` descreve o build, que precede a publicação, e não tem de ser posterior ao deploy.
+3. Com SHA completo conhecido, comparar com o HEAD esperado e conferir a origem do metadado (`commitSource`, quando disponível): `git`, `VITE_COMMIT_SHA`, `COMMIT_REF` ou `GIT_COMMIT`. O nome de uma variável indica a fonte validada sintaticamente, não prova que o builder a preencheu corretamente. Divergência exige investigação; igualdade só sustenta a correspondência declarada quando a fonte está comprovada.
+4. Com `commit:null`, classificar a comprovação do commit como **INCONCLUSIVA**. `commitSource:unknown` significa que nenhuma fonte suportada deu SHA válido; não distingue fonte ausente de inválida. `buildId`/`builtAt` alterados identificam um build diferente e um marcador funcional prova apenas esse conteúdo específico, nunca equivalência de todo o código. Um hash de artefacto só prova identidade contra uma referência esperada previamente capturada e confiável; essa cadeia não está estabelecida aqui.
+5. Se os campos não mudarem ou faltarem, investigar cache, origem e build não identificado antes de concluir falha do Publish. O script existente `scripts/check-deploy.mjs` recusa SHA ausente/diferente; o seu exit 1 com `null` não prova falha de publicação.
+
+Na próxima janela autorizada falta observar o builder Lovable real: confirmar se tem repositório git e qual o HEAD de entrada, ou quais das três variáveis suportadas são disponibilizadas e como se ligam ao HEAD aprovado; recolher apenas presença/fonte e SHA validado, sem valores arbitrários de ambiente ou segredos. Correlacionar o artefacto dessa execução com o JSON servido após Publish. Não presumir variáveis proprietárias Lovable nem disponibilidade por existirem no runner. Sem fonte confiável, manter a aceitação operacional pendente; não resolver com timestamp ou marcador isolado.
+
+A memória `build-code-splitting.md` e o procedimento anterior `PROC-verificar-publish.md` conservam texto histórico; para o critério de prova da #347 aplica-se a regra corrigida do INDEX e este procedimento. Nenhum desses ficheiros históricos foi alterado neste lote.

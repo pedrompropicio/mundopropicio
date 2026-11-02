@@ -163,7 +163,7 @@ O fecho documental é R0 (D-ERP291): o executor escreve-o sem nova autorização
 
 **Uma tarefa do agente só está feita depois de verificada por leitura do código e consulta a Live — o relatório do agente não é prova.**
 
-**Depois de cada Publish, confirmar `/version.json` em produção: `buildId`/`builtAt` posteriores ao deploy e `commit` igual ao HEAD publicado. Se não mudar, o build morreu e o Publish não chegou a produção.** Regras de code-splitting, chunks e limites do service worker: `.lovable/memory/features/build-code-splitting.md`.
+**Depois de cada Publish, confirmar `/version.json` na origem esperada e comparar o SHA completo de `commit` com o HEAD esperado, conferindo a proveniência da fonte. Com `commit:null`, a comprovação do commit é INCONCLUSIVA. `builtAt`/`buildId` alterados e um marcador funcional só provam build/conteúdo específico, nunca equivalência do código todo; o build precede a publicação. Metadados ausentes ou inalterados exigem investigar cache/build não identificado, sem concluir por si só que o Publish falhou.** Procedimento e prova pendente do builder real: [verificar versão publicada](procedimentos/PROC-verificar-versao-publicada.md). Regras de code-splitting, chunks e limites do service worker: `.lovable/memory/features/build-code-splitting.md`.
 
 **Toda a função `SECURITY DEFINER` nova no schema `public` leva, na mesma migração que a cria:**
 
