@@ -24,7 +24,7 @@ A operação corre em paralelo no Claude e no ChatGPT, com a mesma numeração e
 | 5 | BP, Verbas e Rateio | frente | intermédio | `estado/estado-bp-verbas-e-rateio.md` |
 | 6 | Vínculo BP-Transações | frente | intermédio | `estado/estado-vinculo-bp-transacoes.md` |
 | 7 | Fecho e Sócios | frente | intermédio | `estado/estado-fecho-e-socios.md` |
-| 8 | Tráfego Pago | frente | intermédio | `estado/estado-audience-meta.md` + `estado-audience-google.md` (a consolidar em `estado-trafego-pago.md`) |
+| 8 | Tráfego Pago | frente | intermédio | [estado/estado-trafego-pago.md](estado/estado-trafego-pago.md) |
 | 9 | CRM, Portal e Leads | frente | intermédio | `estado/estado-crm-portal-e-leads.md` |
 | 10 | Entrada de Dados | operação | intermédio | sem estado próprio — usa o do 4 |
 | 11 | Testes | verificação | leve | `TESTES.md` |
@@ -39,7 +39,7 @@ A operação corre em paralelo no Claude e no ChatGPT, com a mesma numeração e
 
 A frente 2 pode executar demandas de infra quando designada na Issue (D-ERP287).
 
-Mensagens de arranque: `procedimentos/PROC-arranque-chat.md` e `docs/prompts/`. O 8 funde os antigos `audience-meta` e `audience-google` e inclui o TikTok; os dois ficheiros de estado continuam separados até ao primeiro fecho autorizado do 8.
+Mensagens de arranque: `procedimentos/PROC-arranque-chat.md` e `docs/prompts/`. O 8 funde os antigos `audience-meta` e `audience-google` e inclui o TikTok; o estado único está em [estado/estado-trafego-pago.md](estado/estado-trafego-pago.md), e os dois ficheiros antigos são ponteiros.
 
 ## Tipos e regras
 
