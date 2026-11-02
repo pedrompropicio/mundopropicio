@@ -69,3 +69,7 @@ Decisão do Pedro, 23/10/2026, aplicável a qualquer Issue e frente: todos os no
 - Financial-position concurrent loaders use named `loadPositionReads` slots with fixture assembly regression coverage; positional loader swaps must not recur.
 
 - Partner-only revenue exclusion is partitioned by the shared settlement revenue engine, preserving real-bucket presence and the event anchor; all allocation consumers must use that partition to avoid BP refill and residual drift.
+
+## Escopo obrigatório do despacho — lista fechada de caminhos
+
+- **Escopo fechado do despacho (#357).** No arranque, conferir a lista fechada de caminhos autorizados; não alterar nenhum caminho fora dela. Se a tarefa for recusada ou não puder ser feita exatamente, parar e reportar: «Se não puderes fazer exactamente isto, pára e reporta; não faças mais nada». Preview, `build-errors.log`, lint, dependências ou o próprio `AGENTS.md` não são tarefas substitutas nem efeitos colaterais autorizados. Uma mudança fora da lista deve ser proposta antes da execução; só uma instrução/autorização aplicável permite a exceção, sem pedir confirmação redundante quando já existe.
