@@ -7194,6 +7194,24 @@ export type Database = {
         }
         Relationships: []
       }
+      clube_newgang_summary_cache: {
+        Row: {
+          company_id: string
+          computed_at: string
+          payload: Json
+        }
+        Insert: {
+          company_id: string
+          computed_at?: string
+          payload: Json
+        }
+        Update: {
+          company_id?: string
+          computed_at?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
       coala_ai_classification_suggestions: {
         Row: {
           ai_response_raw: Json
@@ -25774,6 +25792,11 @@ export type Database = {
         }[]
       }
       clube_newgang_summary: { Args: never; Returns: Json }
+      clube_newgang_summary_compute: {
+        Args: { p_company_id: string }
+        Returns: Json
+      }
+      clube_newgang_summary_refresh: { Args: never; Returns: undefined }
       coala_autorizacoes_estado: { Args: { p_token: string }; Returns: Json }
       coala_autorizacoes_gravar: {
         Args: {
