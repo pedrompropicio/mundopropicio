@@ -1,0 +1,13 @@
+# Ensaio de rollback — preparado, não executado
+
+A autorização desta entrega não permite executar este ensaio. Exige catálogo PostgreSQL fiel, base descartável sintética sem egress/crons/dados operacionais e autorização própria. Não usar replay/bindings privados #352 nem substituir helpers por stubs.
+
+1. Guardar pré-catálogo: corpos/assinaturas/defaults/owner/language/security/volatility/config/ACL/grant option das três funções substituídas, atributos/defaults/constraints/índices/policies/RLS/triggers e dependências. Guardar digests financeiros e saídas de pre-verificacoes. Falta de controlo é falha do ensaio.
+2. Instalar os bytes exatos de 0305 na futura etapa autorizada; conferir SHA256, identities e pos-verificacoes, enabled=false, zero dados v1 e digests legados iguais. A pré-imagem e o manifesto capturados não são dados operacionais.
+3. Rever consumidores externos/D2/D3, funções de outros schemas, SQL dinâmico e serviços; provar ausência/drenagem de consumidores antes de remover os comentários do rollback. `pg_depend`/procura literal não prova ausência de nomes compostos. Sem esta prova, não autorizar rollback.
+4. Executar então o rollback comentado com ON_ERROR_STOP, em transação única. Comparar exatamente os três corpos e ACL com a pré-imagem e todos os objetos/digests legados. Não contar apenas triggers nem comparar só prosrc. Conservar stdout, PIDs, versões e resultado antes de destruir o contentor.
+5. Reinstalar em cópias independentes; semear um plano, uma atestação, uma operação financial_committed, uma complete e uma reverted em variantes distintas usando os comandos reais/fixture. Cada variante deve recusar rollback antes de qualquer DROP e conservar o catálogo/digests. Não apagar histórico para o teste passar.
+6. Noutras cópias, alterar owner, ACL/grant option, body, proconfig, constraint, trigger, policy e dependência externa (view/trigger/função em outro schema), separadamente. O manifesto/identidades ou RESTRICT devem abortar tudo, sem remoção parcial. Uma dependência textual dinâmica exige revisão manual e não pode ser certificada pelo script.
+7. Após cada falha, comparar integralmente o catálogo; repetir sucesso sem dados numa cópia intacta. Novos objetos removem-se em ordem inversa; originais repõem-se pelos bytes capturados; sem DROP CASCADE. Contexto/controlo/manifestos só saem quando não há atividade nem dados v1.
+
+Resultado desta entrega: não executado; nenhum rollback aprovado. Com dados v1, recuperação exige correção para a frente ou plano operacional separado. O manifesto instalado é parte da base de confiança do owner; não deteta adulteração coordenada feita pelo próprio owner.
