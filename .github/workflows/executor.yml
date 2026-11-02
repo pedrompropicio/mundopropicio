@@ -110,6 +110,7 @@ jobs:
             echo "Antes de terminar corre: bunx -p @typescript/native-preview tsgo -p tsconfig.app.json --noEmit e bunx vitest run, e corrige o que falhar."
             echo "No fim escreve .executor/resumo.md com as secções '### Feito' e '### Não feito / lacunas' (itens '- ' de topo, um predicado verificável por linha)."
             echo "Se não puderes fazer exactamente a tarefa, pára, não inventes, e explica em '### Não feito / lacunas'."
+            echo "Dificuldade, volume ou tempo não são motivo para parar: entrega o que ficar a compilar e com testes verdes e lista o resto em '### Não feito / lacunas'. A regra «pára e reporta» do AGENTS.md aplica-se só a caminhos fora da lista autorizada ou a instruções impossíveis."
             echo ""
             echo "Tarefa (texto do despacho do Pedro):"
             cat "${{ runner.temp }}/e2b/tarefa.md"
@@ -138,11 +139,19 @@ jobs:
           npm install -g @openai/codex
           test -n "$OPENAI_API_KEY" && echo "OPENAI_API_KEY presente (${#OPENAI_API_KEY} caracteres)" || { echo "OPENAI_API_KEY ausente" >&2; exit 1; }
           printf '%s' "$OPENAI_API_KEY" | codex login --with-api-key
-          codex exec --sandbox workspace-write --skip-git-repo-check -C "$GITHUB_WORKSPACE" --output-last-message "$RUNNER_TEMP/e2b/codex-ultima.md" "$PROMPT"
+          echo "codex_inicio=$(date -u +%FT%TZ)" >> "$GITHUB_ENV"
+          codex exec --sandbox workspace-write --skip-git-repo-check -C "$GITHUB_WORKSPACE" -c model_reasoning_effort="high" --output-last-message "$RUNNER_TEMP/e2b/codex-ultima.md" "$PROMPT"
+          echo "codex_fim=$(date -u +%FT%TZ)" >> "$GITHUB_ENV"
       - name: Recolher alterações
         run: |
           mkdir -p "${{ runner.temp }}/saida"
           [ -f .executor/resumo.md ] && cp .executor/resumo.md "${{ runner.temp }}/saida/resumo.md"
+          [ -f "$RUNNER_TEMP/e2b/codex-ultima.md" ] && cp "$RUNNER_TEMP/e2b/codex-ultima.md" "${{ runner.temp }}/saida/ultima-mensagem.md"
+          if [ "${{ needs.travas.outputs.executor }}" = "codex" ]; then
+            echo "Codex: ${codex_inicio:-?} → ${codex_fim:-?}"
+          else
+            echo "n/d"
+          fi > "${{ runner.temp }}/saida/duracao.txt"
           rm -rf .executor
           git add -A
           git diff --cached --name-only > "${{ runner.temp }}/saida/ficheiros.txt"
@@ -282,11 +291,13 @@ jobs:
             *) echo "Executor não suportado: $EXECUTOR" >&2; exit 1 ;;
           esac
           {
-            echo "## Fecho — #$ISSUE (executor E2b, $MOTOR)"
-            echo
             if [ "${{ steps.vazio.outputs.sim }}" = "true" ]; then
-              echo "Sem alterações de código."
+              echo "## Fecho — #$ISSUE (SEM ENTREGA — executor E2b, $MOTOR)"
+              echo
+              echo "Sem alterações de código: o executor terminou sem diff. Ver «Última mensagem do executor» abaixo."
             else
+              echo "## Fecho — #$ISSUE (executor E2b, $MOTOR)"
+              echo
               echo "- **PR:** ${{ steps.pr.outputs.url || 'não criado (ver run)' }}"
               echo "- **Testes no runner:** ${{ steps.testes.outcome }}"
               echo "- **Merge automático:** ${{ steps.pr.outputs.auto || 'não pedido' }}"
@@ -295,6 +306,19 @@ jobs:
             echo
             cat "${{ runner.temp }}/saida/resumo.md" 2>/dev/null || printf '### Não feito / lacunas\n- resumo do executor indisponível\n'
             echo
+            echo "### Duração"
+            if [ -f "${{ runner.temp }}/saida/duracao.txt" ]; then
+              cat "${{ runner.temp }}/saida/duracao.txt"
+            fi
+            echo
+            echo "### Última mensagem do executor"
+            if [ -f "${{ runner.temp }}/saida/ultima-mensagem.md" ]; then
+              tail -n 60 "${{ runner.temp }}/saida/ultima-mensagem.md"
+            fi
+            echo
             echo "Pronto para revisão por leitura. A reserva continua activa até ser libertada."
           } > fecho.md
           gh issue comment "$ISSUE" --repo "${{ github.repository }}" --body-file fecho.md
+          if [ "${{ steps.vazio.outputs.sim }}" = "true" ]; then
+            exit 1
+          fi
