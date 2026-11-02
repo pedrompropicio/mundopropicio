@@ -9,7 +9,9 @@ import {
   allowedModes,
 } from "@/lib/event-financial-card";
 
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEventCostBasis } from "@/hooks/useEventCostBasis";
 import type { EbitdaParcels } from "@/lib/ebitda";
@@ -74,6 +76,14 @@ const FORM_COLORS = {
 };
 
 export function EventFinancialCard(props: Props) {
+  const companyLocale = useCompanyLocale();
+  // Preserve the legacy PT grouping and rounding byte for byte (#498 P1b).
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+
   const { eventId, kind, isMasterView } = props;
   const { user } = useAuth();
   const userId = user?.id ?? "anon";
@@ -323,7 +333,7 @@ export function EventFinancialCard(props: Props) {
       <div className="mt-3 min-h-[28px] space-y-1.5">
         {data.formalidadeBreakdown ? (
           <>
-            <FormalidadeBar bd={data.formalidadeBreakdown} />
+            <FormalidadeBar bd={data.formalidadeBreakdown} formatCurrency={formatCurrency} />
             {extras.length > 0 && (
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
                 {extras.map((e, i) => (
@@ -353,7 +363,7 @@ export function EventFinancialCard(props: Props) {
   );
 }
 
-function FormalidadeBar({ bd }: { bd: { estimado: number; negociacao: number; fechado: number; pago: number } }) {
+function FormalidadeBar({ bd, formatCurrency }: { bd: { estimado: number; negociacao: number; fechado: number; pago: number }; formatCurrency: (value: number) => string }) {
   const total = bd.estimado + bd.negociacao + bd.fechado + bd.pago;
   if (total <= 0) {
     return <p className="text-[11px] text-muted-foreground">Sem linhas aprovadas no BP.</p>;

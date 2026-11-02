@@ -14,8 +14,9 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Wallet, Ticket, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useCompany } from "@/hooks/useCompany";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import {
   useAccountBalanceCards,
   CASH_ACCOUNT_TYPES,
@@ -26,7 +27,15 @@ const HIDE_AMOUNTS_KEY = "mp:dashboard:hide-amounts";
 const MASKED_VALUE = "••••••••";
 
 export function DashboardBalanceCards() {
-  const { companyId } = useCompany();
+  const companyLocale = useCompanyLocale();
+  // Preserve the legacy PT grouping and rounding byte for byte (#498 P1b).
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+
+  const { companyId } = companyLocale;
   const [openCard, setOpenCard] = useState<null | "cash" | "office">(null);
   const [hideAmounts, setHideAmounts] = useState(false);
 
