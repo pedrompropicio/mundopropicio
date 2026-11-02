@@ -192,6 +192,7 @@ jobs:
       # Decisão do Pedro (01/11/2026): merge automático por defeito; "Merge automático: não" na autorização desliga.
       MERGE_AUTO: ${{ needs.travas.outputs.merge_automatico }}
       EXECUTOR: ${{ needs.travas.outputs.executor }}
+      PREPARACAO_R2: ${{ needs.travas.outputs.preparacao_r2 }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
@@ -216,7 +217,9 @@ jobs:
         run: |
           git apply --index "${{ runner.temp }}/saida/exec.patch"
           git diff --cached --name-only > ficheiros.txt
-          bun scripts/executor/travas.ts caminhos ficheiros.txt
+          EXTRA=""
+          [ "$PREPARACAO_R2" = "true" ] && EXTRA="--preparacao-r2"
+          bun scripts/executor/travas.ts caminhos ficheiros.txt $EXTRA
       - name: Install
         if: steps.vazio.outputs.sim == 'false'
         run: bun install --frozen-lockfile || bun install
