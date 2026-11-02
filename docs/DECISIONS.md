@@ -6571,4 +6571,3 @@ Origem: 0 · Cowork (Claude), 31/10/2026.
 - A Autorização escolhe o motor pelo campo "Executor atual": Codex (OpenAI, chave `OPENAI_API_KEY` nos segredos do repo, faturação na organização de API ligada ao workspace Business) ou Claude Code (token de subscrição). Travas, caminhos proibidos, testes no runner, PR para main, auto-merge e Fecho são os mesmos para os dois.
 - Codex é o executor por defeito para R1 a partir de 01/11/2026, para não consumir o limite da subscrição Claude; o Claude Code fica para tarefas que o Pedro designar.
 - A Reserva activa tem de ser do mesmo motor que a Autorização.
-
