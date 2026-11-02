@@ -110,6 +110,7 @@ P1–P4 monolíticos excedem 60 minutos; dividir em PRs abaixo, sequenciais nas 
 | P2e / 55 | Pagamentos: C/{TransactionPaymentModal,TransactionPaymentsListModal,PaymentTimeline,PaymentListsTab}.tsx. |
 | P2f / 55 | Parcelas, após contrato servidor: L/installment-original.ts, C/{TransactionInstallmentsEditor,ScheduleInstallmentsModal,TransactionInstallmentGroupEditor,TransactionRenegotiateInstallmentsModal}.tsx, L/__tests__/issue471-installment-flows.test.ts. |
 | P2g / 55 | Entradas secundárias: C/{EventTicketing,EventClosingCosts}.tsx, P/{RecurringTransactions,Quotations}.tsx, C/cards/NewCardExpenseModal.tsx, C/camarim/CamarimItemModal.tsx, C/implementation/ImplBPTab.tsx. |
+| P2h / 55 | Meios de pagamento por país (acrescentado 03/11/2026, «Sim» do Pedro): L/payment-methods.ts, L/company-locale.ts, C/{TransactionFormModal,TransactionEditModal,TransactionPaymentModal,BatchPaymentModal,SupplierFormModal,SupplierBankDetails}.tsx, P/FinancialAccounts.tsx, **+**L/__tests__/issue498-payment-methods.test.ts. R2 separado prepara **+**`drizzle/migrations/0303_issue498_payment_methods_br.sql`, sem aplicar. |
 | P3a / 45 | Cidades: C/CityVenueSelector.tsx, L/country.ts, **+**L/__tests__/issue498-cities.test.tsx; R2 separado prepara seed/conferência, sem aplicar. |
 | P3b / 55 | Reutilização #403: C/{SupplierFormModal,SupplierBankDetails,IbanWarning}.tsx, P/FinancialAccounts.tsx, L/{bank-account-value,supplier-bank,validations}.ts; campos novos dependem da instalação #403b confirmada. |
 | P3c / 45 | Elegibilidade/capability SEPA e labels: L/payment-iban.ts, C/{SepaExportModal,PaymentListsTab}.tsx, L/company-locale.ts; não gerar formato bancário BR. |
@@ -121,6 +122,14 @@ P1–P4 monolíticos excedem 60 minutos; dividir em PRs abaixo, sequenciais nas 
 P1a precede consumidores; P2a precede defaults; P4a precede P4b–d. P2c/e/f dependem da auditoria R2 dos CHECKs/RPCs: PR R2-prep de até 60 min prepara **+**`supabase/manual/issue498-native-currency.INERTE.sql` e **+**`supabase/manual/issue498-native-currency.ROLLBACK.sql`, sem aplicação. Conferir catálogo fiel e promover separadamente. P4 acrescenta verificação Deno e contratos aos checks frontend. Não declarar BR operacional antes dessas dependências.
 
 Esta lista cobre os percursos prioritários, não todos os 9.750 resultados: faltam triagem linha-a-linha dos consumidores secundários, imports/exports restantes, contabilidade, procura integral de consolidados e matriz SQL/RPC/defaults actuais. Cada lote residual precisa de lista fechada própria após triagem; não cabe num PR final genérico de 60 minutos.
+
+### 4.1 P2h — meios de pagamento e contas bancárias BR (03/11/2026)
+
+Medido em Live em 02/11/2026 (0 · Cowork Claude): `payment_method` em `transactions` e `transaction_payments` está limitado por CHECK a `transfer, service_payment, direct_debit, state_payment, compensation`, com espelho em `src/lib/payment-methods.ts` e em `supabase/functions/update-transaction`; `transactions_service_payment_requires_mb` (NOT VALID) exige entidade 5 dígitos + referência 9 dígitos. O plano não tratava este domínio nem a conta bancária da própria empresa (`financial_accounts.iban`, texto livre).
+
+Regra: a lista de meios vem da `companyLocale`. PT mantém a lista e os rótulos actuais byte-idênticos. BR oferece `pix`, `boleto`, `transfer` (rótulo «Transferência (TED)»), `direct_debit` («Débito automático») e `compensation` onde já é oferecida; `service_payment` e `state_payment` não aparecem em BR. Boleto exige linha digitável (47 ou 48 dígitos) em `payment_reference`; Pix usa chave Pix. Chave Pix e conta BR (banco, agência, conta, dígito, tipo corrente/poupança) vivem no slot `br_banco_agencia_conta` de `foreign_bank_accounts` (#403b) no fornecedor e num campo estruturado equivalente em `financial_accounts`. `compensation` continua a ser a única grafia que desarma `trg_force_no_account_on_compensation`.
+
+R2 (0303, preparada pelo executor, aplicada na janela Claude com «Sim»): alargar os dois CHECKs com `pix` e `boleto`; CHECK `transactions_boleto_requires_linha` NOT VALID; coluna estruturada para a conta BR em `financial_accounts`. Aditiva; não altera dados PT. Depende de P2a (política BR) e de P3b (#403b instalada) para os campos de fornecedor; a lista de meios e a validação do boleto não dependem.
 
 ## 5. Perguntas fechadas ao Pedro
 
