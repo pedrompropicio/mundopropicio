@@ -1,3 +1,4 @@
+import { bpTxCurrencyMetadata } from "@/lib/bp-tx-currency";
 import { Badge } from "@/components/ui/badge";
 import { masterFormulaShares } from "@/lib/master-formula";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
@@ -1250,94 +1251,105 @@ const descRef = useRef<HTMLInputElement>(null);
   // Regra: linha do BP aprovada → transação nasce já aprovada (BP é a aprovação).
   const bulkCreateTxMutation = useMutation({
     mutationFn: async (forecastItems: any[]) => {
+      // Validate the entire selection in memory before the first INSERT.
+      const currencyMetadata = forecastItems.map(bpTxCurrencyMetadata);
       let created = 0;
+      let inserted = 0;
       let autoApproved = 0;
       let propagatedAttachments = 0;
-      for (const f of forecastItems) {
-        const isBPApproved = f.status === "approved";
-        const txStatus = isBPApproved ? "approved" : "pending";
+      try {
+        for (const [index, f] of forecastItems.entries()) {
+          const isBPApproved = f.status === "approved";
+          const txStatus = isBPApproved ? "approved" : "pending";
 
-        const { data: insertedTx, error } = await supabase.from("transactions").insert({
-          event_id: eventId,
-          // D-ERP1: vínculo canónico N:1 BP↔TX. A âncora legada
-          // event_forecasts.transaction_id continua a ser escrita abaixo.
-          forecast_id: f.id,
-          type: f.type,
-          description: f.description,
-          specification: f.specification || null,
-          amount: Number(f.amount),
-          iva_rate: Number(f.iva_rate),
-          category_id: f.category_id || null,
-          date: eventDate,
-          due_date: eventDate,
-          status: txStatus,
-          // Herança preenchida no vínculo: TX gerada do BP nasce com o ordenador da linha.
-          ordering_partner_id: f.type === "expense" ? (f.ordering_partner_id || null) : null,
-        } as any).select("id").single();
-        if (error) throw error;
+          const { data: insertedTx, error } = await supabase.from("transactions").insert({
+            event_id: eventId,
+            // D-ERP1: vínculo canónico N:1 BP↔TX. A âncora legada
+            // event_forecasts.transaction_id continua a ser escrita abaixo.
+            forecast_id: f.id,
+            ...currencyMetadata[index],
+            type: f.type,
+            description: f.description,
+            specification: f.specification || null,
+            amount: Number(f.amount),
+            iva_rate: Number(f.iva_rate),
+            category_id: f.category_id || null,
+            date: eventDate,
+            due_date: eventDate,
+            status: txStatus,
+            // Herança preenchida no vínculo: TX gerada do BP nasce com o ordenador da linha.
+            ordering_partner_id: f.type === "expense" ? (f.ordering_partner_id || null) : null,
+          } as any).select("id").single();
+          if (error) throw error;
+          if (!insertedTx?.id) throw new Error("INSERT de transação sem ID devolvido; verifique o resultado antes de repetir.");
+          inserted++;
 
-        // Audit: log creation from BP (and auto-approval if applicable)
-        if (insertedTx?.id) {
-          const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
-          await mustWrite(supabase.from("transaction_audit_log").insert({
-            transaction_id: insertedTx.id,
-            changed_by: callerName,
-            field_name: "Criação",
-            old_value: null,
-            new_value: `Gerado do BP — ${f.description} — ${Number(f.amount).toFixed(2)} €`,
-          }), "transaction_audit_log");
-          if (isBPApproved) {
+          // Audit: log creation from BP (and auto-approval if applicable)
+          if (insertedTx?.id) {
+            const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
             await mustWrite(supabase.from("transaction_audit_log").insert({
               transaction_id: insertedTx.id,
               changed_by: callerName,
-              field_name: "status",
-              old_value: "pending",
-              new_value: "approved",
-              observation: "Aprovação automática — linha do BP já aprovada",
-            } as any), "transaction_audit_log");
-            autoApproved++;
-          }
-
-          // Propagate BP attachment links (Drive/Dropbox/etc.) from the forecast
-          // to the newly-created transaction as ref:// documents.
-          const refUrls: string[] = Array.isArray(f.attachment_refs)
-            ? (f.attachment_refs as any[])
-                .map((r) => (r && typeof r.url === "string" ? r.url.trim() : ""))
-                .filter((u) => /^https?:\/\//i.test(u))
-            : [];
-
-          if (refUrls.length > 0) {
-            const docs = refUrls.map((link) => {
-              let fileName = link.slice(0, 80);
-              try {
-                const u = new URL(link);
-                fileName = decodeURIComponent(
-                  u.pathname.split("/").filter(Boolean).pop() || u.hostname,
-                ).slice(0, 120);
-              } catch { /* keep fallback */ }
-              return {
+              field_name: "Criação",
+              old_value: null,
+              new_value: `Gerado do BP — ${f.description} — ${Number(f.amount).toFixed(2)} €`,
+            }), "transaction_audit_log");
+            if (isBPApproved) {
+              await mustWrite(supabase.from("transaction_audit_log").insert({
                 transaction_id: insertedTx.id,
-                name: fileName,
-                file_url: `ref://${link}`,
-                doc_type: "outro",
-                uploaded_by: user?.email ?? "system",
-                is_accounting: true,
-              };
-            });
-            await mustWrite(supabase.from("transaction_documents").insert(docs as any), "transaction_documents");
-            propagatedAttachments += refUrls.length;
-          }
+                changed_by: callerName,
+                field_name: "status",
+                old_value: "pending",
+                new_value: "approved",
+                observation: "Aprovação automática — linha do BP já aprovada",
+              } as any), "transaction_audit_log");
+              autoApproved++;
+            }
 
-          // Back-link the forecast to the new transaction so future BP edits
-          // continue to propagate automatically.
-          if (!f.transaction_id) {
-            await mustWrite(supabase
-              .from("event_forecasts")
-              .update({ transaction_id: insertedTx.id } as any)
-              .eq("id", f.id).select("id"), "event_forecasts", { expectRows: true });
+            // Propagate BP attachment links (Drive/Dropbox/etc.) from the forecast
+            // to the newly-created transaction as ref:// documents.
+            const refUrls: string[] = Array.isArray(f.attachment_refs)
+              ? (f.attachment_refs as any[])
+                  .map((r) => (r && typeof r.url === "string" ? r.url.trim() : ""))
+                  .filter((u) => /^https?:\/\//i.test(u))
+              : [];
+
+            if (refUrls.length > 0) {
+              const docs = refUrls.map((link) => {
+                let fileName = link.slice(0, 80);
+                try {
+                  const u = new URL(link);
+                  fileName = decodeURIComponent(
+                    u.pathname.split("/").filter(Boolean).pop() || u.hostname,
+                  ).slice(0, 120);
+                } catch { /* keep fallback */ }
+                return {
+                  transaction_id: insertedTx.id,
+                  name: fileName,
+                  file_url: `ref://${link}`,
+                  doc_type: "outro",
+                  uploaded_by: user?.email ?? "system",
+                  is_accounting: true,
+                };
+              });
+              await mustWrite(supabase.from("transaction_documents").insert(docs as any), "transaction_documents");
+              propagatedAttachments += refUrls.length;
+            }
+
+            // Back-link the forecast to the new transaction so future BP edits
+            // continue to propagate automatically.
+            if (!f.transaction_id) {
+              await mustWrite(supabase
+                .from("event_forecasts")
+                .update({ transaction_id: insertedTx.id } as any)
+                .eq("id", f.id).select("id"), "event_forecasts", { expectRows: true });
+            }
           }
+          created++;
         }
-        created++;
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : (error as { message?: string })?.message ?? String(error);
+        throw new Error(`${detail} — ${inserted} transação(ões) com criação confirmada; ${created} linha(s) concluída(s) de ${forecastItems.length}. O lote não foi concluído. Verifique transações, auditoria, anexos e vínculos antes de repetir.`);
       }
       return { created, autoApproved, propagatedAttachments };
     },
@@ -1364,6 +1376,10 @@ const descRef = useRef<HTMLInputElement>(null);
       }
     },
     onError: (err: any) => {
+      // A failure may follow successful writes; refresh duplicate-prevention data.
+      queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       toast({ title: "Erro ao criar transações", description: err.message, variant: "destructive" });
     },
   });
