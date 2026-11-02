@@ -47,7 +47,7 @@ Ordem: Autorização → Reserva → Despacho. Autor: `pedrompropicio` (conector
 - **Classe:** R1
 - **Executor atual:** Codex
 - **Capacidades libertadas:** `codigo+testes` = sim
-- **Ambiente:** homolog/local (sem Live)
+- **Ambiente:** homolog/local
 - **Merge automático:** sim
 - **Validade:** 2026-11-09
 ```
@@ -58,7 +58,7 @@ Variante R2 em preparação (ficheiros só, nada aplicado):
 - **Capacidades libertadas:** `codigo+testes` = sim, `ficheiros de migração` = sim
 ```
 
-Travas: Classe R1, ou R2 só com `ficheiros de migração` = sim; `codigo+testes` = sim obrigatório; nenhuma outra capacidade a sim (DDL, DML, edge functions, crons, envios externos, Publish recusam); a palavra «Live» em **Ambiente** recusa; **Validade** com data AAAA-MM-DD obrigatória; expirada recusa. «Claude Code» em vez de «Codex» só por designação do Pedro.
+Travas: Classe R1, ou R2 só com `ficheiros de migração` = sim; `codigo+testes` = sim obrigatório; nenhuma outra capacidade a sim (DDL, DML, edge functions, crons, envios externos, Publish recusam); a palavra «Live» em **Ambiente** recusa (mesmo negada — «sem Live» recusa, caso #498); **Validade** com data AAAA-MM-DD obrigatória; expirada recusa. «Claude Code» em vez de «Codex» só por designação do Pedro.
 
 ### 3.2 Reserva
 
