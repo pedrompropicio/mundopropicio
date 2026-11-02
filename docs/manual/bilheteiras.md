@@ -168,4 +168,4 @@ O fecho de bilheteira não sela o resultado nem conclui o evento. O direito em b
 
 Consulte a [ordem do fecho do evento](/ajuda?artigo=fecho-do-evento#fecho.ordem), o [Encontro de Contas](/ajuda?artigo=fecho-do-evento#fecho.encontro-de-contas), o [selo do fechamento](/ajuda?artigo=fecho-do-evento#fecho.selar) e a [conclusão do evento](/ajuda?artigo=fecho-do-evento#fecho.concluir). São referências a secções existentes do capítulo Fecho; a disponibilidade na plataforma depende da sua publicação e sincronização.
 
-⚠️ **Divergência documental a rever:** a secção existente **Bilheteira e dinheiro retido** do capítulo Fecho ainda descreve abater adiantamentos no fecho de bilheteira. A fórmula atual em `computeSettlement` ignora adiantamentos, conforme a memória de apuramentos. Para este procedimento vale a implementação descrita acima. A revisão desse capítulo e da ajuda antiga permanece separada desta entrega.
+Consulte também [Bilheteira e dinheiro retido](/ajuda?artigo=fecho-do-evento#fecho.bilheteira) no capítulo Fecho para distinguir o direito do evento, o saldo retido e a eventual transferência.
