@@ -2,7 +2,7 @@
 capitulo: fecho-do-evento
 titulo: Fecho do evento
 modulo: erp
-atualizado: 2026-10-10
+atualizado: 2026-11-02
 perfis: [manager, admin, editor, partner]
 rotas: [/eventos/:id, /bilheteiras, /cartoes, /camarim, /contas, /relatorios/extrato]
 fontes: [D-ERP10, D-ERP13, D-ERP14, D-ERP15, D-ERP20, D-ERP22, D-ERP23, D-ERP26, D-ERP69, D-ERP113, D-ERP114, D-ERP211, D-ERP212, D-ERP222, D-ERP232, D-ERP237, PROC-fecho-evento, event-settlements, partner-settlement, settlement-transfer-pair, fecho-filter-parity, event-cost-basis, event-revenue-basis, ticket-office-reconciliation, card-sessions, camarim-integration-lock, custo-partilhado-terceiros, partner-advance-expenses]
@@ -65,10 +65,10 @@ Ao carregar em **Concluir evento** abre o diálogo **Concluir evento**, que veri
 
 ```ajuda
 id: fecho.bilheteira
-tooltip: "O fecho de bilheteira liga as despesas pagas pelo recinto, apura o líquido e registra a transferência para a conta da empresa. O retido só deixa de ser retido quando a transferência existe."
+tooltip: "O fecho de bilheteira apura o direito do evento sem descontar novamente adiantamentos ou repasses. A transferência é eventual; confirmar o fecho não comprova crédito bancário."
 ecras: [bilheteiras.fecho, bilheteiras.saldo, evento.bilheteira]
 perfis: [manager, admin]
-fontes: [D-ERP15, D-ERP20, settlement-transfer-pair, ticket-office-reconciliation]
+fontes: [D-ERP15, D-ERP20, D-ERP232, settlement-transfer-pair, ticket-office-reconciliation, ticket-office-statements]
 termos: [fecho de bilheteira, bilheteira, recinto, retido, base a transferir, transferência do fecho, líquido da bilheteira, adiantamento de bilheteira, estorno do fecho]
 ```
 
@@ -76,7 +76,17 @@ termos: [fecho de bilheteira, bilheteira, recinto, retido, base a transferir, tr
 
 > vendas − despesas − transferências − adiantamentos ± outros movimentos = **retido**
 
-No fecho de bilheteira do evento: ligam-se as despesas que o recinto pagou, apura-se o **líquido** (ajustável, com justificação), abatem-se os **adiantamentos** já recebidos e registra-se a **transferência** do líquido para a conta da empresa. A transferência é um par de movimentos na rubrica **10.3 Transferências Internas** — sai de uma conta e entra na outra, e não toca no resultado do evento. Só um administrador estorna um fecho.
+Na fórmula do retido, só se subtraem separadamente os **adiantamentos elegíveis**: sem ligação a transação nem a fecho. Os já representados por esses registos não se descontam novamente.
+
+No fecho de bilheteira do evento, conferem-se as deduções e apura-se o **direito do evento** (ajustável, com justificação):
+
+> direito = bruto − deduções − retido pela sala − saldo de fatura pago pela bilheteira, quando aplicável
+
+O saldo de fatura é o que resta em aberto depois de abater o retido pela sala; só entra se houver fatura escolhida e a opção de liquidar o saldo restante pela bilheteira estiver ativa. **Adiantamentos e repasses permanecem no apuramento da bilheteira e não são descontados novamente no cálculo do direito.** Não se atribuem repasses genéricos a um evento para fazer o fecho dar zero.
+
+A **transferência é eventual**: pode ficar para depois, e um direito liquidado pelo apuramento não exige uma segunda transferência própria do fecho. Quando existe, a transferência é um par de movimentos na rubrica **10.3 Transferências Internas** — sai de uma conta e entra na outra, e não toca no resultado do evento. **Confirmar o fecho não comprova crédito bancário**; confira a situação do crédito e só declare recebido o que efetivamente entrou. Só um administrador estorna um fecho.
+
+Consulte o [fecho da bilheteira por evento](/ajuda?artigo=bilheteiras#bilheteiras.fecho) para os passos e as opções de liquidação.
 
 **O já adiantado está dentro do saldo retido.** Os cartões da bilheteira mostram *valor por apurar*, *já adiantado* e *saldo retido*; o saldo retido é a posição actual e **nunca** se lhe abate outra vez o já adiantado. Só aparece a observação da diferença de calendário quando ela é de pelo menos 0,01 €.
 

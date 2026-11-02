@@ -84,6 +84,7 @@ describe("capítulo real Bilheteiras (#194, preparação R1)", () => {
       "/ajuda?artigo=fecho-do-evento#fecho.encontro-de-contas",
       "/ajuda?artigo=fecho-do-evento#fecho.selar",
       "/ajuda?artigo=fecho-do-evento#fecho.concluir",
+      "/ajuda?artigo=fecho-do-evento#fecho.bilheteira",
     ]);
     // A rota e os anchors são um contrato local; não se consulta a plataforma.
     expect(readFileSync("src/pages/HelpCenter.tsx", "utf8")).toContain('id={s.anchor_id}');
