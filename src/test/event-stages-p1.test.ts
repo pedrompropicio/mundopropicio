@@ -14,7 +14,7 @@ beforeAll(async()=>{
  CREATE TYPE app_role AS ENUM ('admin','manager');
  CREATE FUNCTION current_company_id() RETURNS uuid LANGUAGE sql AS $$SELECT '${c}'::uuid$$;
  CREATE FUNCTION row_belongs_to_current_company(uuid) RETURNS boolean LANGUAGE sql AS $$SELECT $1=current_company_id()$$;
- CREATE TABLE actor(role text,permission boolean); INSERT INTO actor VALUES('admin',true);
+ CREATE TABLE actor(role text,permission boolean); INSERT INTO actor(role,permission) VALUES('admin',true);
  CREATE FUNCTION has_role(uuid,app_role) RETURNS boolean LANGUAGE sql AS $$SELECT role=$2::text FROM actor$$;
  CREATE FUNCTION has_permission_in(uuid,text,uuid) RETURNS boolean LANGUAGE sql AS $$SELECT permission FROM actor$$;
  CREATE TABLE events(id uuid PRIMARY KEY,name text,date date,status text,company_id uuid,parent_event_id uuid);
@@ -22,12 +22,12 @@ beforeAll(async()=>{
  CREATE TABLE event_cache_configs(id uuid,event_id uuid,company_id uuid,is_finalized boolean);
  CREATE TABLE event_cache_city_settlements(cache_config_id uuid,event_id uuid,is_finalized boolean);
  CREATE TABLE system_audit_log(entity_type text,entity_id text,action text,changed_by text,company_id uuid,metadata jsonb);
- CREATE TABLE blockers(v jsonb); INSERT INTO blockers VALUES('{"hard":{"camarim_sessions":[],"card_sessions":[],"circuit_accounts":[]},"soft":{"bp_lines_unreviewed":{"count":0,"saldo_net":0}}}');
+ CREATE TABLE blockers(v jsonb); INSERT INTO blockers(v) VALUES('{"hard":{"camarim_sessions":[],"card_sessions":[],"circuit_accounts":[]},"soft":{"bp_lines_unreviewed":{"count":0,"saldo_net":0}}}');
  CREATE FUNCTION event_close_blockers(uuid) RETURNS jsonb LANGUAGE sql STABLE AS $$SELECT v FROM blockers$$;`);
  await db.exec(readFileSync('supabase/manual/0280_p1_event_stages.sql','utf8'));
 },30000);
 afterAll(async()=>{await db?.close()});
-beforeEach(async()=>{await db.exec(`BEGIN;INSERT INTO events VALUES('${id}','test','2099-01-01','active','${c}',null,null,null,null,null);`)});
+beforeEach(async()=>{await db.exec(`BEGIN;INSERT INTO events(id,name,date,status,company_id,parent_event_id,closed_at,closed_by,historical_at,historical_by) VALUES('${id}','test','2099-01-01','active','${c}',null,null,null,null,null);`)});
 afterEach(async()=>{await db.exec('ROLLBACK')});
 it('planning, active future, completed and cancelled are exact stages',async()=>{
  expect(await stage()).toBe('em_curso');
@@ -42,13 +42,13 @@ it('direct updates and inserted stamps are refused',async()=>{
 });
 it('empty checklist has concrete zero values',async()=>{expect(await checks()).toMatchObject({ok:true,settlements:{total:0},cache:{configured_targets:0},bp_lines:{count:0},hard_blockers:{count:0}})});
 it('unsealed settlement or missing snapshot prevents closure',async()=>{
- await db.exec(`INSERT INTO event_settlements VALUES('${child}','${id}','${c}',false,null)`);expect((await checks()).ok).toBe(false);
+ await db.exec(`INSERT INTO event_settlements(id,event_id,company_id,is_sealed,sealed_snapshot) VALUES('${child}','${id}','${c}',false,null)`);expect((await checks()).ok).toBe(false);
  await db.exec(`UPDATE event_settlements SET is_sealed=true`);expect((await checks()).ok).toBe(false);
  await db.exec(`UPDATE event_settlements SET sealed_snapshot='{}'`);expect((await checks()).ok).toBe(true);
 });
 it('configured cache requires freeze and city override wins',async()=>{
- await db.exec(`INSERT INTO event_cache_configs VALUES('${child}','${id}','${c}',false)`);expect((await checks()).cache.unfrozen).toBe(1);
- await db.exec(`INSERT INTO event_cache_city_settlements VALUES('${child}','${id}',true)`);expect((await checks()).cache.unfrozen).toBe(0);
+ await db.exec(`INSERT INTO event_cache_configs(id,event_id,company_id,is_finalized) VALUES('${child}','${id}','${c}',false)`);expect((await checks()).cache.unfrozen).toBe(1);
+ await db.exec(`INSERT INTO event_cache_city_settlements(cache_config_id,event_id,is_finalized) VALUES('${child}','${id}',true)`);expect((await checks()).cache.unfrozen).toBe(0);
 });
 it('BP review and every hard blocker prohibit closure',async()=>{
  await db.exec(`UPDATE blockers SET v=jsonb_set(v,'{soft,bp_lines_unreviewed,count}','1')`);expect((await checks()).ok).toBe(false);
