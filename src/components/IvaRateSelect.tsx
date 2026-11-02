@@ -2,7 +2,7 @@ import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { IVA_RATE_LABELS } from "@/lib/iva";
 
 interface IvaRateSelectProps {
-  /** Evento a que a linha/transação está ligada. Sem evento → taxas PT. */
+  /** Evento da linha/transação. Sem evento → política da empresa, taxas PT se aplicável. */
   eventId?: string | null;
   value: number;
   onChange: (rate: number) => void;
@@ -13,7 +13,7 @@ interface IvaRateSelectProps {
 }
 
 /**
- * Seletor de taxa de IVA que respeita o país da cidade do evento
+ * Seletor de IVA oculto com política 'none'; nas restantes empresas respeita a cidade
  * (PT 23/13/6/0 · ES 21/10/4/0). Ver .lovable/memory/features/iva-espanha.md.
  */
 export default function IvaRateSelect({
@@ -24,7 +24,9 @@ export default function IvaRateSelect({
   className,
   showCountryHint = true,
 }: IvaRateSelectProps) {
-  const { rates, country, isForeign } = useEventIvaCountry(eventId);
+  const { rates, country, isForeign, ivaPolicy } = useEventIvaCountry(eventId);
+  // Defaults/reset/import devem usar a mesma política; ocultar não regrava histórico.
+  if (ivaPolicy === "none") return null;
   // Se a taxa atual não pertence ao conjunto do país (ex.: transação antiga),
   // mostramo-la ainda assim para não perder o valor guardado.
   const options = rates.includes(value as any) ? rates : [...rates, value as any].sort((a, b) => b - a);
