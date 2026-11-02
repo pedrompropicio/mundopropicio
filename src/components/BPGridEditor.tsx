@@ -23,6 +23,9 @@
  *
  * Not in scope: editing overhead/master-adopted rows (use the dedicated modal).
  */
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
+import { parseMoneyInput } from "@/components/ui/money-input";
 import { prepareBatchEditsForReductions } from "@/lib/forecast-amount";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -42,16 +45,8 @@ import { compareHierarchicalCodes } from "@/lib/utils";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
-const EUR_FMT = new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
 function parseAmountInput(raw: string): number {
-  const cleaned = raw
-    .replace(/[€\s]/g, "")
-    .replace(/[^\d,.\-]/g, "")
-    .replace(/\.(?=\d{3}(\D|$))/g, "")
-    .replace(",", ".");
-  const n = parseFloat(cleaned);
-  return Number.isFinite(n) ? n : 0;
+  return parseMoneyInput(raw);
 }
 
 interface AmountCellProps {
@@ -67,7 +62,8 @@ function AmountCell({ value, onCommit, onPaste, disabled, hasError, title }: Amo
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useState("");
   const num = Number(value) || 0;
-  const display = focused ? draft : EUR_FMT.format(num);
+  const locale = useCompanyLocale();
+  const display = focused ? draft : locale.status === "available" ? formatMoney(num, locale, { grouping: "locale" }) : "—";
   return (
     <input
       type="text"
@@ -196,7 +192,10 @@ export default function BPGridEditor({
   const { user } = useAuth();
 
   // Taxas de IVA do país da cidade do evento (PT por defeito).
-  const { rates: ivaOptions, defaultRate: defaultIvaRate } = useEventIvaCountry(eventId);
+  const { rates: ivaOptions, defaultRate: defaultIvaRate, ivaPolicy } = useEventIvaCountry(eventId);
+
+  const noIva = ivaPolicy === "none";
+  const locale = useCompanyLocale();
 
   const editableRows = useMemo(
     () =>
@@ -320,7 +319,7 @@ export default function BPGridEditor({
     const p = newPending(type, defaultIvaRate);
     setPendingInserts((prev) => [p, ...prev]);
     setFocusTempId(p.tempId);
-  }, []);
+  }, [defaultIvaRate]);
 
   const removePending = useCallback((tempId: string) => {
     setPendingInserts((prev) => prev.filter((r) => r.tempId !== tempId));
@@ -364,7 +363,7 @@ export default function BPGridEditor({
       description: ("description" in d ? d.description : row.description) ?? "",
       category_id: ("category_id" in d ? d.category_id : row.category_id) ?? null,
       amount: Number("amount" in d ? d.amount : row.amount ?? 0),
-      iva_rate: Number("iva_rate" in d ? d.iva_rate : row.iva_rate ?? 23),
+      iva_rate: noIva ? 0 : Number("iva_rate" in d ? d.iva_rate : row.iva_rate ?? (noIva ? 0 : 23)),
     };
   };
 
@@ -377,7 +376,7 @@ export default function BPGridEditor({
       if (Object.keys(errs).length > 0) m.set(id, errs);
     }
     return m;
-  }, [dirty, editableRows, l3Set, categoryTypeById]);
+  }, [dirty, editableRows, l3Set, categoryTypeById, ivaOptions, defaultIvaRate, noIva]);
 
   // Errors shown in the UI / counted in the badge — pristine new rows are
   // considered "work in progress" and don't count until the user types something.
@@ -386,7 +385,7 @@ export default function BPGridEditor({
     for (const p of pendingInserts) {
       if (isPendingPristine(p)) continue;
       const errs = validateRow(
-        { type: p.type, description: p.description, category_id: p.category_id, amount: p.amount, iva_rate: p.iva_rate },
+        { type: p.type, description: p.description, category_id: p.category_id, amount: p.amount, iva_rate: noIva ? 0 : p.iva_rate },
         l3Set,
         categoryTypeById,
         ivaOptions,
@@ -394,7 +393,7 @@ export default function BPGridEditor({
       if (Object.keys(errs).length > 0) m.set(p.tempId, errs);
     }
     return m;
-  }, [pendingInserts, l3Set, categoryTypeById, ivaOptions]);
+  }, [pendingInserts, l3Set, categoryTypeById, ivaOptions, noIva]);
 
   // Save-blocking errors: validate ALL pending rows (including pristine empty ones),
   // so saving with a brand-new empty row is still blocked.
@@ -402,7 +401,7 @@ export default function BPGridEditor({
     let count = 0;
     for (const p of pendingInserts) {
       const errs = validateRow(
-        { type: p.type, description: p.description, category_id: p.category_id, amount: p.amount, iva_rate: p.iva_rate },
+        { type: p.type, description: p.description, category_id: p.category_id, amount: p.amount, iva_rate: noIva ? 0 : p.iva_rate },
         l3Set,
         categoryTypeById,
         ivaOptions,
@@ -410,7 +409,7 @@ export default function BPGridEditor({
       if (Object.keys(errs).length > 0) count++;
     }
     return count;
-  }, [pendingInserts, l3Set, categoryTypeById, ivaOptions]);
+  }, [pendingInserts, l3Set, categoryTypeById, ivaOptions, noIva]);
 
   const totalErrors = rowErrors.size + pendingErrors.size;
   const saveBlockingErrors = rowErrors.size + pendingSaveErrorsCount;
@@ -418,6 +417,7 @@ export default function BPGridEditor({
   // --- SAVE (snapshot + inserts + updates in one transaction, #247) ---
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (locale.status !== "available") throw new Error(locale.message);
       if (saveBlockingErrors > 0) {
         // Surface pristine rows so the user sees the error before submitting
         setPendingInserts((prev) => prev.map((r) => ({ ...r, touched: true })));
@@ -428,7 +428,7 @@ export default function BPGridEditor({
       // Capture "before" snapshots of edited fields for post-save undo
       const editedFieldsByRow = new Map<string, EditableField[]>();
       for (const [id, fields] of Object.entries(dirty)) {
-        editedFieldsByRow.set(id, Object.keys(fields) as EditableField[]);
+        editedFieldsByRow.set(id, [...Object.keys(fields), ...(noIva ? ["iva_rate"] : [])] as EditableField[]);
       }
       const undoSnapshots: Array<{ id: string; before: Record<string, any> }> = [];
       for (const row of editableRows) {
@@ -440,14 +440,14 @@ export default function BPGridEditor({
       }
 
       // Collect #240 observations before the transaction creates any snapshot.
-      const editsArr = await prepareBatchEditsForReductions(Object.entries(dirty).map(([id, fields]) => ({ id, ...(fields as any) })));
+      const editsArr = await prepareBatchEditsForReductions(Object.entries(dirty).map(([id, fields]) => ({ id, ...(fields as any), ...(noIva ? { iva_rate: 0 } : {}) })));
       const payload = pendingInserts.map((p) => ({
           type: p.type,
           description: p.description.trim(),
           specification: p.specification?.trim() || null,
           category_id: p.category_id || null,
           amount: p.amount,
-          iva_rate: p.iva_rate,
+          iva_rate: noIva ? 0 : p.iva_rate,
           formalidade: p.formalidade,
           notes: p.notes || null,
         }));
@@ -652,7 +652,7 @@ export default function BPGridEditor({
         const raw = (cols[0] ?? "").trim();
         let value: any = raw;
         if (field === "amount" || field === "iva_rate") {
-          const n = parseFloat(raw.replace(",", "."));
+          const n = noIva ? parseMoneyInput(raw, "pt-BR") : parseFloat(raw.replace(",", "."));
           if (!Number.isFinite(n)) {
             i++;
             continue;
@@ -681,7 +681,7 @@ export default function BPGridEditor({
         description: `${dirtyUpdates.length} célula(s) preenchida(s) na coluna.`,
       });
     },
-    [sortedEditableRows, canEditBP],
+    [sortedEditableRows, canEditBP, noIva],
   );
 
   // Virtualization (variable size: 32px for L1/L2 headers, 56px for editable rows)
@@ -736,7 +736,7 @@ export default function BPGridEditor({
       />
 
       {/* Header (sem coluna Tipo: inferida pela categoria) */}
-      <div className="grid w-full grid-cols-[20px_16px_minmax(280px,2.4fr)_minmax(180px,1.5fr)_minmax(150px,1.2fr)_104px_64px_120px_28px_28px] gap-1.5 rounded-md bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className={`grid w-full ${noIva ? "grid-cols-[20px_16px_minmax(280px,2.4fr)_minmax(180px,1.5fr)_minmax(150px,1.2fr)_104px_120px_28px_28px]" : "grid-cols-[20px_16px_minmax(280px,2.4fr)_minmax(180px,1.5fr)_minmax(150px,1.2fr)_104px_64px_120px_28px_28px]"} gap-1.5 rounded-md bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground`}>
         <div>
           <input
             type="checkbox"
@@ -755,8 +755,8 @@ export default function BPGridEditor({
         <div>Categoria (L3)</div>
         <div>Descrição</div>
         <div>Especificação</div>
-        <div className="text-right">Valor</div>
-        <div className="text-right">IVA %</div>
+        <div className="text-right">{noIva && locale.status === "available" ? `Valor (${locale.symbol})` : "Valor"}</div>
+        {!noIva && <div className="text-right">IVA %</div>}
         <div>Formalidade</div>
         <div className="text-center" title="Notas">N</div>
         <div />
@@ -776,7 +776,7 @@ export default function BPGridEditor({
               <div
                 key={p.tempId}
                 data-pending-temp-id={p.tempId}
-                className="grid w-full grid-cols-[20px_16px_minmax(280px,2.4fr)_minmax(180px,1.5fr)_minmax(150px,1.2fr)_104px_64px_120px_28px_28px] items-center gap-1.5 px-3 py-1.5 text-xs"
+                className={`grid w-full ${noIva ? "grid-cols-[20px_16px_minmax(280px,2.4fr)_minmax(180px,1.5fr)_minmax(150px,1.2fr)_104px_120px_28px_28px]" : "grid-cols-[20px_16px_minmax(280px,2.4fr)_minmax(180px,1.5fr)_minmax(150px,1.2fr)_104px_64px_120px_28px_28px]"} items-center gap-1.5 px-3 py-1.5 text-xs`}
               >
                 <div />
                 <div />
@@ -820,7 +820,7 @@ export default function BPGridEditor({
                     hasError={!!errs.amount}
                   />
                 </div>
-                <div>
+                {!noIva && <div>
                   <select
                     value={p.iva_rate}
                     onChange={(e) => updatePending(p.tempId, "iva_rate", parseInt(e.target.value))}
@@ -832,7 +832,7 @@ export default function BPGridEditor({
                       </option>
                     ))}
                   </select>
-                </div>
+                </div>}
                 <div>
                   <select
                     value={p.formalidade}
@@ -955,7 +955,7 @@ export default function BPGridEditor({
                   width: "100%",
                   transform: `translateY(${virtual.start}px)`,
                 }}
-                className={`grid w-full grid-cols-[20px_16px_minmax(280px,2.4fr)_minmax(180px,1.5fr)_minmax(150px,1.2fr)_104px_64px_120px_28px_28px] items-center gap-1.5 border-b border-border/40 px-3 py-2 text-xs ${
+                className={`grid w-full ${noIva ? "grid-cols-[20px_16px_minmax(280px,2.4fr)_minmax(180px,1.5fr)_minmax(150px,1.2fr)_104px_120px_28px_28px]" : "grid-cols-[20px_16px_minmax(280px,2.4fr)_minmax(180px,1.5fr)_minmax(150px,1.2fr)_104px_64px_120px_28px_28px]"} items-center gap-1.5 border-b border-border/40 px-3 py-2 text-xs ${
                   Object.keys(rowDirty).length > 0 ? "bg-primary/5" : ""
                 } ${isSelected ? "bg-destructive/5" : ""}`}
               >
@@ -1023,10 +1023,10 @@ export default function BPGridEditor({
                     title={errs.amount ?? ""}
                   />
                 </div>
-                <div>
+                {!noIva && <div>
                   <select
                     disabled={lock.locked}
-                    value={currentVal("iva_rate", row.iva_rate ?? 23)}
+                    value={currentVal("iva_rate", row.iva_rate ?? (noIva ? 0 : 23))}
                     onChange={(e) => updateField(row.id, "iva_rate", parseInt(e.target.value), row.iva_rate)}
                     className={`w-full rounded-md border bg-background px-1.5 py-1 text-right text-xs disabled:cursor-not-allowed disabled:opacity-60 ${
                       errs.iva_rate ? "border-destructive" : "border-border/60"
@@ -1038,7 +1038,7 @@ export default function BPGridEditor({
                       </option>
                     ))}
                   </select>
-                </div>
+                </div>}
                 <div>
                   <select
                     disabled={lock.locked}

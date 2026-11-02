@@ -1,15 +1,27 @@
 import { useState } from "react";
+import { formatMoney, type CompanyLocale } from "@/lib/company-locale";
 import { Input } from "@/components/ui/input";
 
 interface MoneyInputProps {
   value: number;
   onChange: (v: number) => void;
   currency?: string;
+  companyLocale?: CompanyLocale;
   disabled?: boolean;
   className?: string;
   placeholder?: string;
   /** Quando true, formata como percentagem (suffix " %") em vez de moeda */
   percent?: boolean;
+}
+
+/** PT keeps its existing parsing; BR also accepts pasted currency and grouped values. */
+export function parseMoneyInput(raw: string, locale: "pt-PT" | "pt-BR" = "pt-PT"): number {
+  let cleaned = raw.replace(/[^\d,.\-]/g, "");
+  cleaned = locale === "pt-BR" && cleaned.includes(",")
+    ? cleaned.replace(/\./g, "").replace(",", ".")
+    : cleaned.replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : 0;
 }
 
 /**
@@ -21,6 +33,7 @@ export function MoneyInput({
   value,
   onChange,
   currency = "EUR",
+  companyLocale,
   disabled,
   className,
   placeholder,
@@ -37,21 +50,13 @@ export function MoneyInput({
         maximumFractionDigits: 2,
       }).format(n) + " %";
     }
+    if (companyLocale) return formatMoney(n, companyLocale);
     return new Intl.NumberFormat("pt-PT", {
       style: "currency",
       currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(n);
-  };
-
-  const parseDraft = (s: string): number => {
-    const cleaned = s
-      .replace(/[^\d,.\-]/g, "")
-      .replace(/\.(?=\d{3}(\D|$))/g, "")
-      .replace(",", ".");
-    const n = parseFloat(cleaned);
-    return Number.isFinite(n) ? n : 0;
   };
 
   const display = focused ? draft : formatDisplay(Number(value) || 0);
@@ -71,7 +76,7 @@ export function MoneyInput({
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
         setFocused(false);
-        const parsed = parseDraft(draft);
+        const parsed = parseMoneyInput(draft, companyLocale?.locale);
         if (parsed !== value) onChange(parsed);
       }}
     />

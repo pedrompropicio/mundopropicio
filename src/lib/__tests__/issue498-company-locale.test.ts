@@ -8,6 +8,7 @@ import {
   type CompanyLocaleInput,
 } from "../company-locale";
 import { formatInCurrency, formatMoney as legacyMoney } from "../currency";
+import { formatCurrency as legacyBP } from "../mock-data";
 import { calcTotalWithIva, getDefaultIvaRateForCountry } from "../iva";
 import { useCompany, type Company } from "@/hooks/useCompany";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
@@ -87,13 +88,24 @@ describe("#498 — contexto puro da empresa", () => {
 });
 
 describe("#498 — formatação explícita, sem conversão", () => {
-  it.each(fixture.money)("PT igual byte a byte ao formatter legado em $amount", (row) => {
-    expect(formatMoney(row.amount, pt)).toBe(legacyMoney(row.amount, "EUR"));
-    expect(formatMoney(row.amount, pt)).toBe(row.expected);
-    expect(formatMoney(row.amount, pt, { maximumFractionDigits: 4 })).toBe(row.fourDecimals);
-    expect(formatMoney(row.amount, pt, { fromCents: true })).toBe(row.fromCents);
-    expect(formatNumber(row.amount, pt)).toBe(row.expected.slice(0, -2));
-    expect(formatNumber(row.amount, pt, { maximumFractionDigits: 4 })).toBe(row.fourDecimals.slice(0, -2));
+  it.each(fixture.money)("PT igual byte a byte ao BP legado em $amount", (row) => {
+    expect(formatMoney(row.amount, pt)).toBe(legacyBP(row.amount));
+    expect(formatMoney(row.amount, pt, { fromCents: true })).toBe(legacyBP(row.amount / 100));
+    expect(formatNumber(row.amount, pt)).toBe(legacyBP(row.amount).slice(0, -2));
+    const precise = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(row.amount);
+    expect(formatMoney(row.amount, pt, { maximumFractionDigits: 4 })).toBe(`${precise}\u00a0${pt.symbol}`);
+    expect(formatNumber(row.amount, pt, { maximumFractionDigits: 4 })).toBe(precise);
+  });
+
+  it.each([
+    [1230, "1.230,00"], [0, "0,00"], [-1234567.5, "-1.234.567,50"],
+  ])("PT agrupa milhares como o BP em %s", (amount, expected) => {
+    expect(formatMoney(Number(amount), pt)).toBe(`${expected}\u00a0${pt.symbol}`);
+    expect(formatNumber(Number(amount), pt)).toBe(expected);
+  });
+
+  it("BR mantém o Intl pt-BR em 1.230", () => {
+    expect(formatMoney(1230, br)).toBe("R$\u00a01.230,00");
   });
 
   it("BR: 1.000 BRL e taxa zero mantêm total = base", () => {
@@ -108,7 +120,7 @@ describe("#498 — formatação explícita, sem conversão", () => {
 
   it("PT: base 1.000 com 23% produz 1.230 e preserva os bytes actuais", () => {
     expect(calcTotalWithIva(1000, 23)).toBe(1230);
-    expect(formatMoney(calcTotalWithIva(1000, 23), pt)).toBe("1230,00\u00a0€");
+    expect(formatMoney(calcTotalWithIva(1000, 23), pt)).toBe("1.230,00\u00a0€");
   });
 
   it.each([null, undefined, NaN])("preserva o marcador de valor ausente: %s", (amount) => {
@@ -116,11 +128,16 @@ describe("#498 — formatação explícita, sem conversão", () => {
     expect(formatNumber(amount, br)).toBe("—");
   });
 
-  it("preserva zero negativo e permite precisão explícita sem símbolo", () => {
-    expect(formatMoney(-0, pt)).toBe(legacyMoney(-0, "EUR"));
-    expect(formatNumber(-0, pt)).toBe("-0,00");
+  it("preserva o zero do BP e permite precisão explícita sem símbolo", () => {
+    expect(formatMoney(-0, pt)).toBe(legacyBP(-0));
+    expect(formatNumber(-0, pt)).toBe("0,00");
     expect(formatNumber(123456, br, { fromCents: true })).toBe("1.234,56");
     expect(formatNumber(1000, br, { maximumFractionDigits: 0 })).toBe("1.000");
+  });
+
+  it("permite conservar o agrupamento Intl nos editores PT existentes", () => {
+    expect(formatMoney(1230, pt, { grouping: "locale" })).toBe(legacyMoney(1230, "EUR"));
+    expect(formatNumber(1230, pt, { grouping: "locale" })).toBe("1230,00");
   });
 
   it("permite locale explícito no helper legado e mantém os defaults", () => {

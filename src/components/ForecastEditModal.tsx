@@ -9,7 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
+import { MoneyInput } from "@/components/ui/money-input";
 import { format } from "date-fns";
 import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
@@ -29,19 +31,23 @@ interface Props {
 
 export function ForecastEditModal({ forecast, categories: externalCategories, onClose }: Props) {
   // Taxas de IVA do país da cidade do evento (PT por defeito).
-  const { rates: ivaRates } = useEventIvaCountry(forecast?.event_id ?? null);
+  const { rates: ivaRates, ivaPolicy } = useEventIvaCountry(forecast?.event_id ?? null);
+  const locale = useCompanyLocale();
+  const noIva = ivaPolicy === "none";
+  const nativeCompany = locale.status === "available" && locale.currency !== "EUR";
+  const formatCurrency = (amount: number) => locale.status === "available" ? formatMoney(amount, locale) : "—";
   const [description, setDescription] = useState(forecast.description || "");
   const [specification, setSpecification] = useState(forecast.specification || "");
   const [categoryId, setCategoryId] = useState(forecast.category_id || "");
-  const initialCurrency: CurrencyCode = isSupportedCurrency(forecast.currency) ? forecast.currency : "EUR";
+  const initialCurrency: CurrencyCode = nativeCompany ? locale.currency : isSupportedCurrency(forecast.currency) ? forecast.currency : "EUR";
   const [currency, setCurrency] = useState<CurrencyCode>(initialCurrency);
   const [originalAmount, setOriginalAmount] = useState(
-    initialCurrency === "EUR"
+    nativeCompany || initialCurrency === "EUR"
       ? String(forecast.amount)
       : String(forecast.original_amount ?? eurToOriginal(Number(forecast.amount), Number(forecast.fx_rate) || 1))
   );
   const [fxRate, setFxRate] = useState(
-    initialCurrency === "EUR" ? "" : String(forecast.fx_rate ?? "")
+    nativeCompany || initialCurrency === "EUR" ? "" : String(forecast.fx_rate ?? "")
   );
   const [fxRateSource, setFxRateSource] = useState<"manual" | "suggested">(
     forecast.fx_rate_source === "suggested" ? "suggested" : "manual"
@@ -128,18 +134,19 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
 
   const editMutation = useMutation({
     mutationFn: async () => {
+      if (locale.status !== "available") throw new Error(locale.message);
       const newAmount = Math.round(eurAmount * 100) / 100;
-      const newIvaRate = parseInt(ivaRate) || 0;
+      const newIvaRate = noIva ? 0 : parseInt(ivaRate) || 0;
       const newDescription = preserveUnchangedForecastText(description, forecast.description);
       const newSpecification = preserveUnchangedForecastText(specification, forecast.specification);
       const newCategoryId = categoryId || null;
       const newCurrency = currency;
-      const newOriginal = newCurrency === "EUR" ? null : (parseFloat(originalAmount) || 0);
-      const newFxRate = newCurrency === "EUR" ? null : (parseFloat(fxRate) || 0);
-      const newFxRateSource = newCurrency === "EUR" ? null : fxRateSource;
+      const newOriginal = (nativeCompany || newCurrency === "EUR") ? null : (parseFloat(originalAmount) || 0);
+      const newFxRate = (nativeCompany || newCurrency === "EUR") ? null : (parseFloat(fxRate) || 0);
+      const newFxRateSource = (nativeCompany || newCurrency === "EUR") ? null : fxRateSource;
 
       if (!newDescription?.trim()) throw new Error("A descrição é obrigatória.");
-      if (newCurrency !== "EUR" && (!newFxRate || newFxRate <= 0)) {
+      if (!nativeCompany && newCurrency !== "EUR" && (!newFxRate || newFxRate <= 0)) {
         throw new Error("Define o câmbio para a moeda selecionada.");
       }
 
@@ -161,13 +168,13 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         });
       }
       if (newAmount !== Number(forecast.amount)) {
-        changes.push({ field_name: "Valor (EUR)", old_value: String(forecast.amount), new_value: String(newAmount) });
+        changes.push({ field_name: `Valor (${locale.currency})`, old_value: String(forecast.amount), new_value: String(newAmount) });
       }
-      const oldCurrency = forecast.currency || "EUR";
+      const oldCurrency = forecast.currency || locale.currency;
       if (newCurrency !== oldCurrency) {
         changes.push({ field_name: "Moeda", old_value: oldCurrency, new_value: newCurrency });
       }
-      if (newCurrency !== "EUR") {
+      if (!nativeCompany && newCurrency !== "EUR") {
         const oldOrig = forecast.original_amount != null ? String(forecast.original_amount) : "—";
         const oldRate = forecast.fx_rate != null ? String(forecast.fx_rate) : "—";
         if (String(newOriginal) !== oldOrig) {
@@ -425,7 +432,7 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         ) : null}
 
         {/* (g14) IVA não recuperável pela sociedade — só despesas com IVA. */}
-        {isExpenseType && canSeeOverhead && Number(ivaRate) > 0 && (
+        {!noIva && isExpenseType && canSeeOverhead && Number(ivaRate) > 0 && (
           <label className="flex items-start gap-2 cursor-pointer rounded-lg border border-border/60 bg-muted/20 p-3">
             <input
               type="checkbox"
@@ -445,24 +452,33 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
 
         {/* Amount (multi-currency) + IVA */}
         <div className="space-y-3">
-          <CurrencyAmountInput
-            currency={currency}
-            onCurrencyChange={setCurrency}
-            originalAmount={originalAmount}
-            onOriginalAmountChange={setOriginalAmount}
-            fxRate={fxRate}
-            onFxRateChange={setFxRate}
-            onFxRateSourceChange={setFxRateSource}
-            onEurAmountChange={setEurAmount}
-            label="Valor s/ IVA"
-          />
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
-            <select value={ivaRate} onChange={(e) => setIvaRate(e.target.value)} className={inputClass}>
-              {ivaRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
-            </select>
-          </div>
-          {currency !== "EUR" && (
+          {locale.status !== "available" ? <p className="text-sm text-muted-foreground">{locale.message}</p> : nativeCompany ? (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">{`Valor (${locale.symbol})`}</label>
+              <MoneyInput companyLocale={locale} value={eurAmount} onChange={setEurAmount} className={inputClass} />
+            </div>
+          ) : (
+            <CurrencyAmountInput
+              currency={currency}
+              onCurrencyChange={setCurrency}
+              originalAmount={originalAmount}
+              onOriginalAmountChange={setOriginalAmount}
+              fxRate={fxRate}
+              onFxRateChange={setFxRate}
+              onFxRateSourceChange={setFxRateSource}
+              onEurAmountChange={setEurAmount}
+              label="Valor s/ IVA"
+            />
+          )}
+          {locale.status === "available" && !noIva && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
+              <select value={ivaRate} onChange={(e) => setIvaRate(e.target.value)} className={inputClass}>
+                {ivaRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
+              </select>
+            </div>
+          )}
+          {locale.status === "available" && !nativeCompany && currency !== "EUR" && (
             <p className="text-xs text-muted-foreground">
               Será gravado em EUR: <span className="font-semibold text-foreground">{formatCurrency(eurAmount)}</span>
               <CurrencyBadge currency={currency} originalAmount={parseFloat(originalAmount) || 0} fxRate={parseFloat(fxRate) || 0} className="ml-2" />
