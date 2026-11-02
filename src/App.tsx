@@ -1,5 +1,5 @@
 import { ReductionObservationHost } from "@/components/bp/ReductionObservationHost";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { MutationCache, QueryClient, QueryClientProvider, useIsMutating, useQueryClient } from "@tanstack/react-query";
 import { scheduleEventFinancialsInvalidation } from "@/lib/invalidate-event-financials";
 import { supabase as supabaseClient } from "@/integrations/supabase/client";
@@ -27,6 +27,7 @@ import { RequireFeature } from "@/components/RequireFeature";
 import { FEATURES } from "@/lib/features";
 import { ConfirmMetaActionProvider } from "@/components/crm/ConfirmMetaActionDialog";
 import { useCompany } from "@/hooks/useCompany";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { BrandedLogo } from "@/components/BrandedLogo";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
 import { ModuleSwitcherButton } from "@/components/ModuleSwitcherButton";
@@ -248,6 +249,20 @@ function RouteFallback() {
 }
 
 const FULL_WIDTH_ROUTES = ["/transacoes"];
+
+/** A ausência transitória de contexto preserva o acesso fiscal legado. */
+function RequireIvaCapability({ children }: { children: ReactNode }) {
+  const locale = useCompanyLocale();
+  if (locale.status === "available" && !locale.capabilities.iva) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-16 text-center">
+        <h2 className="text-lg font-semibold text-foreground">Indisponível para esta empresa</h2>
+        <p className="text-sm text-muted-foreground">A gestão de IVA não está disponível para a empresa selecionada.</p>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
 
 // D-ERP266: qualquer mutação bem-sucedida agenda (debounce 1 s) a invalidação
 // central dos números do evento. Só queries ativas voltam a ler.
@@ -545,7 +560,7 @@ function ProtectedLayout() {
               <Route path="/vendas" element={<SalesBI />} />
               <Route path="/vendas/:groupId" element={<SalesBIDetail />} />
               <Route path="/vendas/:groupId/:eventId" element={<SalesBIEvent />} />
-              <Route path="/iva" element={<IvaManagement />} />
+              <Route path="/iva" element={<RequireIvaCapability><IvaManagement /></RequireIvaCapability>} />
               <Route path="/recorrentes" element={<RecurringTransactions />} />
               <Route path="/reembolsos" element={<Reimbursements />} />
               <Route path="/scanner-faturas" element={<StandaloneInvoiceScanner />} />
@@ -613,7 +628,7 @@ function ProtectedLayout() {
                 <Route path="mix-receitas" element={<ReportRevenueMixPage />} />
                 <Route path="acerto-socios" element={<ReportPartnerSettlementPage />} />
                 <Route path="indice-pendencias" element={<ReportPendencyIndexPage />} />
-                <Route path="auditoria-iva" element={<ReportIvaAuditPage />} />
+                <Route path="auditoria-iva" element={<RequireIvaCapability><ReportIvaAuditPage /></RequireIvaCapability>} />
               </Route>
               
               <Route path="/admin" element={<RequireAccess area="settings.admin"><AdminPanel /></RequireAccess>} />

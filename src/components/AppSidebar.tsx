@@ -42,6 +42,7 @@ import { PushNotificationToggle } from "@/components/PushNotificationToggle";
 import { useCoalaSyncBadge } from "@/hooks/useCoalaSyncBadge";
 import { useAccountantPendenciesCount } from "@/hooks/useAccountantPendenciesCount";
 import { useHasFeature } from "@/hooks/useCompanyFeatures";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { FEATURES } from "@/lib/features";
 import { useIsFieldStaffOnly } from "@/hooks/useIsFieldStaffOnly";
 import { FINANCIAL_POSITION_PATH, FINANCIAL_POSITION_PERMISSION } from "@/lib/financial-position";
@@ -60,6 +61,8 @@ export function AppSidebar({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isAdmin, isManager, role, user, signOut, hasPermission } = useAuth();
+  const locale = useCompanyLocale();
+  const hasIva = locale.status !== "available" || locale.capabilities.iva;
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const activeOpEventId = searchParams.get("event");
@@ -112,7 +115,7 @@ export function AppSidebar({
     { to: "/conciliacao-bancaria", icon: Landmark, label: "Conciliação", show: hasPermission("manage_bank_reconciliation") },
     { to: "/fornecedores", icon: Users, label: "Entidades", show: hasPermission("manage_suppliers") },
     { to: "/cotacoes", icon: FileCheck, label: "Cotações", show: hasPermission("manage_quotations") },
-    { to: "/iva", icon: Receipt, label: "Gestão IVA", show: hasPermission("manage_iva") },
+    { to: "/iva", icon: Receipt, label: "Gestão IVA", show: hasIva && hasPermission("manage_iva") },
     { to: "/recorrentes", icon: RefreshCw, label: "Recorrentes", show: hasPermission("manage_recurring") || hasPermission("manage_transactions") },
     { to: "/reembolsos", icon: ReceiptText, label: "Reembolsos", show: hasPermission("manage_transactions") },
     { to: "/scanner-faturas", icon: ScanLine, label: "Scanner Faturas", show: isAdmin || isManager || role === "editor" },

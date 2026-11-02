@@ -1,6 +1,7 @@
 /**
  * Taxas de IVA por evento, lidas da base (event_ticket_lots.iva_rate ligado ao
- * evento por zone_id -> event_ticket_zones.event_id). Nunca inferidas do país.
+ * evento por zone_id -> event_ticket_zones.event_id). A política 'none' da
+ * empresa prevalece sobre a bilheteira; as restantes taxas nunca são inferidas.
  *
  * Devolve também a taxa por grupo (tour): quando todos os eventos do grupo têm
  * a mesma taxa, é essa; quando há taxas diferentes, devolve null — nesse caso
@@ -9,6 +10,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 
 export const DEFAULT_IVA_RATE = 6;
 
@@ -23,8 +25,11 @@ interface EventRow {
 }
 
 export function useEventIvaRates() {
+  const locale = useCompanyLocale();
+  const noIva = locale.status === "available" && locale.ivaPolicy === "none";
   const lotsQ = useQuery({
     queryKey: ["event-iva-rates"],
+    enabled: !noIva,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -37,6 +42,7 @@ export function useEventIvaRates() {
 
   const eventsQ = useQuery({
     queryKey: ["event-iva-parents"],
+    enabled: !noIva,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await supabase.from("events").select("id, parent_event_id");
@@ -50,8 +56,9 @@ export function useEventIvaRates() {
     for (const l of lotsQ.data ?? []) {
       const eid = l.event_ticket_zones?.event_id;
       if (!eid || l.iva_rate == null) continue;
-      if (!rates.has(eid)) rates.set(eid, Number(l.iva_rate));
+      if (!rates.has(eid)) rates.set(eid, noIva ? 0 : Number(l.iva_rate));
     }
+    if (noIva) for (const e of eventsQ.data ?? []) rates.set(e.id, 0);
 
     // taxa por grupo (tour): só quando é uniforme entre os eventos do grupo
     const perGroup = new Map<string, Set<number>>();
@@ -68,10 +75,11 @@ export function useEventIvaRates() {
 
     /** Taxa do evento; assume o defeito quando o evento não tem lotes. */
     const rateOf = (eventId?: string | null) =>
-      (eventId ? rates.get(eventId) : undefined) ?? DEFAULT_IVA_RATE;
+      noIva ? 0 : (eventId ? rates.get(eventId) : undefined) ?? DEFAULT_IVA_RATE;
 
     /** Taxa do grupo: null quando o tour mistura taxas. */
     const groupRateOf = (groupId?: string | null) => {
+      if (noIva) return 0;
       if (!groupId) return DEFAULT_IVA_RATE;
       if (groupRates.has(groupId)) return groupRates.get(groupId) ?? null;
       return rates.get(groupId) ?? DEFAULT_IVA_RATE;
@@ -82,9 +90,9 @@ export function useEventIvaRates() {
       groupRates,
       rateOf,
       groupRateOf,
-      isLoading: lotsQ.isLoading || eventsQ.isLoading,
+      isLoading: !noIva && (lotsQ.isLoading || eventsQ.isLoading),
     };
-  }, [lotsQ.data, eventsQ.data, lotsQ.isLoading, eventsQ.isLoading]);
+  }, [noIva, lotsQ.data, eventsQ.data, lotsQ.isLoading, eventsQ.isLoading]);
 }
 
 /** Converte um valor BRUTO (com IVA dentro) para líquido de IVA. */
