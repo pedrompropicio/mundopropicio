@@ -17,6 +17,17 @@ Separa só por três motivos: (a) classe diferente (R1 código vs. R2 preparaç�
 
 Tamanho de referência: um despacho cabe numa run de 60 minutos. Se a Issue tem mais do que isso, divide por **entregáveis completos** (ecrã A inteiro; ecrã B inteiro), nunca por tipo de ficheiro.
 
+### 1.1 Tecto de tamanho e divisão de trabalho (decisão do Pedro, 02/11/2026)
+
+- **Tecto: 1.500 palavras (≈ 10 k caracteres) por despacho.** Acima disso o despacho está a desenhar a solução em vez de a pedir. O executor lê o código melhor do que o chat o descreve: o despacho dá objectivo, regras de negócio, critérios de aceitação, proibições e os números/definições medidos; o desenho técnico (tabelas, assinaturas, ordem de locks, códigos de erro) é trabalho do executor e revê-se no PR.
+- **Nunca «engordar» um despacho depois de uma run vazia.** Uma run sem diff é sinal de volume ou de regra de paragem, não de falta de detalhe (caso #486: 13 → 40 KB em quatro revisões, zero código). A resposta é dividir ou passar ao modo em dois tempos.
+- **Despacho em dois tempos (temas grandes ou com desenho em aberto):**
+  1. `## Despacho — #N` **«plano»**: o executor lê o código e escreve só `docs/testes/issueN/plano.md` — ficheiros a tocar, contratos propostos (tabelas/RPC/tipos), ordem de implementação, riscos e perguntas fechadas. Sem código. Lista fechada de caminhos = esse ficheiro + `.executor/resumo.md`. Custa minutos.
+  2. O 0 revê o plano por leitura (e o Pedro decide as perguntas fechadas, se as houver).
+  3. `## Despacho — #N` **«implementa o plano»**: «Implementar `docs/testes/issueN/plano.md` tal como aprovado» + critérios de aceitação + lista fechada de caminhos. Se o plano previr mais do que uma run, um despacho por parte, pela ordem do plano.
+  Autorização e Reserva servem para os dois tempos (mesmo executor, caminhos da implementação já na Reserva).
+- **Entrega parcial é aceite** desde que o que foi entregue compile e os testes passem; o que faltar vai em «Não feito / lacunas» com o critério numerado. Escrever isto no despacho — sobrepõe-se à regra «pára e reporta» do `AGENTS.md`, que só vale para caminhos fora da lista ou instruções impossíveis; dificuldade, volume ou tempo não são motivo de paragem.
+
 ## 2. Lista de completude — antes de escrever
 
 1. Ler a Issue inteira (corpo + comentários) e `.lovable/memory/features/<tema>.md`.
@@ -127,3 +138,5 @@ Issue P0 com a classe. Se R1: Autorização + Reserva + Despacho imediatos — o
 - Pedir ao executor que toque em `.lovable/`, `.github/`, `drizzle/meta` ou que aplique SQL.
 - Critérios de aceitação vagos («melhorar», «rever») em vez de predicados verificáveis.
 - Despachar sem ter lido `.lovable/memory/features/<tema>.md` (trava anti-reinvestigação).
+- Despacho acima de 1.500 palavras, ou que desenha o esquema/RPC/locks em vez de pedir o resultado (§1.1).
+- Reenviar o mesmo despacho «com mais texto» depois de uma run sem diff, em vez de dividir ou passar ao modo em dois tempos.
