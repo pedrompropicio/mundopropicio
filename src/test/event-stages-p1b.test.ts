@@ -18,7 +18,8 @@ beforeAll(async()=>{
  CREATE FUNCTION row_belongs_to_current_company(uuid) RETURNS boolean LANGUAGE sql AS $$SELECT $1=current_company_id()$$;
  CREATE FUNCTION has_role(uuid,app_role) RETURNS boolean LANGUAGE sql AS $$SELECT true$$;
  CREATE FUNCTION has_permission_in(uuid,text,uuid) RETURNS boolean LANGUAGE sql AS $$SELECT true$$;
- CREATE TABLE events(id uuid PRIMARY KEY,name text,date date,status text,company_id uuid,parent_event_id uuid);
+ -- Deliberately permuted: fixture INSERTs must address columns by name.
+ CREATE TABLE events(company_id uuid,status text,id uuid PRIMARY KEY,parent_event_id uuid,date date,name text);
  CREATE TABLE event_settlements(id uuid,event_id uuid,company_id uuid,is_sealed boolean,sealed_snapshot jsonb);
  CREATE TABLE event_cache_configs(id uuid,event_id uuid,company_id uuid,is_finalized boolean);
  CREATE TABLE event_cache_city_settlements(cache_config_id uuid,event_id uuid,is_finalized boolean);
@@ -29,7 +30,7 @@ beforeAll(async()=>{
  await db.exec(readFileSync('supabase/manual/0281_p1b_substage_follows_master.sql','utf8'));
 },30000);
 afterAll(async()=>{await db?.close()});
-beforeEach(async()=>{await db.exec(`BEGIN;INSERT INTO events VALUES('${m}','master','2000-01-01','completed','${c}',null,null,null,null,null),('${k}','sub','2099-01-01','active','${c}','${m}',null,null,null,null);`)});
+beforeEach(async()=>{await db.exec(`BEGIN;INSERT INTO events(id,name,date,status,company_id,parent_event_id,closed_at,closed_by,historical_at,historical_by) VALUES('${m}','master','2000-01-01','completed','${c}',null,null,null,null,null),('${k}','sub','2099-01-01','active','${c}','${m}',null,null,null,null);`)});
 afterEach(async()=>{await db.exec('ROLLBACK')});
 it('sub-event stage equals the master stage, ignoring its own status',async()=>{
  expect(await stage(m)).toBe('em_fecho'); expect(await stage(k)).toBe('em_fecho');
@@ -50,7 +51,7 @@ it('stage RPCs on a sub-event are refused pointing to the master',async()=>{
   {await db.exec('SAVEPOINT s');await expect(db.exec(`SELECT ${q}`)).rejects.toThrow(`event_stage_act_on_master: ${m}`);await db.exec('ROLLBACK TO SAVEPOINT s');}
 });
 it('master checklist aggregates hard and soft blockers of sub-events',async()=>{
- await db.exec(`INSERT INTO blockers VALUES('${k}','{"hard":{"camarim_sessions":[{"id":"s1"}],"card_sessions":[],"circuit_accounts":[{"id":"a"}]},"soft":{"bp_lines_unreviewed":{"count":2,"saldo_net":10.5}}}'),
+ await db.exec(`INSERT INTO blockers(event_id,v) VALUES('${k}','{"hard":{"camarim_sessions":[{"id":"s1"}],"card_sessions":[],"circuit_accounts":[{"id":"a"}]},"soft":{"bp_lines_unreviewed":{"count":2,"saldo_net":10.5}}}'),
   ('${m}','{"hard":{"camarim_sessions":[],"card_sessions":[],"circuit_accounts":[{"id":"a"}]},"soft":{"bp_lines_unreviewed":{"count":1,"saldo_net":1}}}')`);
  const v=await one(`select event_close_checklist('${m}') v`);
  expect(v.ok).toBe(false); expect(v.hard_blockers.count).toBe(2); expect(v.bp_lines).toMatchObject({count:3,saldo_net:11.5});
