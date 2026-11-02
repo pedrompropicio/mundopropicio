@@ -1,0 +1,17 @@
+signature	body_md5	security_definer	config
+public._ads486_operation_tenant()	1e0a5ce024aa5ecd6b1a62ae1306d149	True	search_path=pg_catalog, public
+public._ads486_access(uuid)	b1a4448e29fc96446202e32f915ab28a	True	search_path=pg_catalog, public
+public._ads486_money(jsonb)	dfa8b1e290461e852bcae22d79cf8d34	False	search_path=pg_catalog
+public._ads486_decimal(numeric)	131fe9587065cdab7b8b877a96c9a728	False	search_path=pg_catalog
+public._ads486_uuid(jsonb)	d190b67276a1b9f7281b5fd1cb1b0619	False	search_path=pg_catalog
+public._ads486_keys(jsonb,text[],text[])	10ba464f855e19e1907bf3dd61f25a17	False	search_path=pg_catalog
+public._ads486_plan(uuid,jsonb)	5f3de71a29e12de0b3f21f7b7c6d5a22	True	search_path=pg_catalog, public
+public._ads486_preview(uuid)	65bdb74f3e7a1ef7cc0173df0a943886	True	search_path=pg_catalog, public
+public.ads_invoice_generation_v1(uuid,text,jsonb)	695e861e08684c34855551a5b17da2c1	True	search_path=pg_catalog, public
+public.ads_invoice_reopen_v1(uuid,bigint)	16075dda3e78ef0880a95b37a0d567dd	True	search_path=pg_catalog, public
+public._ads486_line_identity(jsonb)	1b1f494d4d56dbf05cceaf6fe6e4adc0	False	search_path=pg_catalog
+public.ads_invoice_import_v1(jsonb,jsonb)	07cea135f41d8ad048a095ce7b967cee	True	search_path=pg_catalog, public
+public._ads486_documents(uuid,uuid,jsonb)	9cd0b51695bf9b7d8040b869860af8da	False	search_path=pg_catalog, public
+public.ads_invoice_document_complete_v1(uuid,text,jsonb)	97bd1a9e8c62e86cf9f894b077dd10b1	True	search_path=pg_catalog, public
+public.ads_invoice_line_is_pending(public.ads_invoice_line)	be4273290e0afc349dc1711a89d3ee5a	False	search_path=pg_catalog, public
+public.ads_invoice_pending_counts(uuid[])	0252bc2d35269880d6b3e73a8adc9fd3	False	search_path=pg_catalog, public

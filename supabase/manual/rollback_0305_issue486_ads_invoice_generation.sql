@@ -1,0 +1,128 @@
+-- #486 D1 — ROLLBACK PREPARADO E INTEIRAMENTE COMENTADO. NÃO EXECUTADO.
+-- Só remover comentários após autorização própria e rever dependências.
+-- Recusa qualquer operação (incluindo reverted), plano/revisão/ciclo v1,
+-- proprietário/identidade divergentes ou dependência nova (DROP RESTRICT).
+-- BEGIN;
+-- LOCK TABLE public.ads_invoice IN ACCESS EXCLUSIVE MODE;
+-- LOCK TABLE public.ads_invoice_generation_operation IN ACCESS EXCLUSIVE MODE;
+-- DO $guard$
+-- DECLARE r record; actual_oid oid;
+-- BEGIN
+--   IF current_user <> 'postgres' OR
+--      (SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid = 'public.ads_invoice_generation_operation'::regclass) <> current_user THEN
+--     RAISE EXCEPTION 'rollback_identity_owner';
+--   END IF;
+--   IF EXISTS (SELECT 1 FROM public.ads_invoice_generation_operation) OR
+--      EXISTS (SELECT 1 FROM public.ads_invoice WHERE generation_plan IS NOT NULL OR generation_contract_version IS NOT NULL
+--              OR generation_revision <> 0 OR generation_cycle <> 0) THEN
+--     RAISE EXCEPTION 'rollback_has_v1_data';
+--   END IF;
+--   FOR r IN SELECT * FROM (VALUES
+--       ('public._ads486_operation_tenant()','1e0a5ce024aa5ecd6b1a62ae1306d149',true,'search_path=pg_catalog, public'),
+--       ('public._ads486_access(uuid)','b1a4448e29fc96446202e32f915ab28a',true,'search_path=pg_catalog, public'),
+--       ('public._ads486_money(jsonb)','dfa8b1e290461e852bcae22d79cf8d34',false,'search_path=pg_catalog'),
+--       ('public._ads486_decimal(numeric)','131fe9587065cdab7b8b877a96c9a728',false,'search_path=pg_catalog'),
+--       ('public._ads486_uuid(jsonb)','d190b67276a1b9f7281b5fd1cb1b0619',false,'search_path=pg_catalog'),
+--       ('public._ads486_keys(jsonb,text[],text[])','10ba464f855e19e1907bf3dd61f25a17',false,'search_path=pg_catalog'),
+--       ('public._ads486_plan(uuid,jsonb)','5f3de71a29e12de0b3f21f7b7c6d5a22',true,'search_path=pg_catalog, public'),
+--       ('public._ads486_preview(uuid)','65bdb74f3e7a1ef7cc0173df0a943886',true,'search_path=pg_catalog, public'),
+--       ('public.ads_invoice_generation_v1(uuid,text,jsonb)','695e861e08684c34855551a5b17da2c1',true,'search_path=pg_catalog, public'),
+--       ('public.ads_invoice_reopen_v1(uuid,bigint)','16075dda3e78ef0880a95b37a0d567dd',true,'search_path=pg_catalog, public'),
+--       ('public._ads486_line_identity(jsonb)','1b1f494d4d56dbf05cceaf6fe6e4adc0',false,'search_path=pg_catalog'),
+--       ('public.ads_invoice_import_v1(jsonb,jsonb)','07cea135f41d8ad048a095ce7b967cee',true,'search_path=pg_catalog, public'),
+--       ('public._ads486_documents(uuid,uuid,jsonb)','9cd0b51695bf9b7d8040b869860af8da',false,'search_path=pg_catalog, public'),
+--       ('public.ads_invoice_document_complete_v1(uuid,text,jsonb)','97bd1a9e8c62e86cf9f894b077dd10b1',true,'search_path=pg_catalog, public'),
+--       ('public.ads_invoice_line_is_pending(public.ads_invoice_line)','be4273290e0afc349dc1711a89d3ee5a',false,'search_path=pg_catalog, public'),
+--       ('public.ads_invoice_pending_counts(uuid[])','0252bc2d35269880d6b3e73a8adc9fd3',false,'search_path=pg_catalog, public')
+--   ) v(signature,source_md5,secdef,config) LOOP
+--     actual_oid := to_regprocedure(r.signature);
+--     IF actual_oid IS NULL OR NOT EXISTS (SELECT 1 FROM pg_proc WHERE oid = actual_oid
+--         AND md5(prosrc) = r.source_md5 AND prosecdef = r.secdef
+--         AND pg_get_userbyid(proowner) = current_user AND proconfig = ARRAY[r.config]::text[]) THEN
+--       RAISE EXCEPTION 'rollback_function_identity: %',r.signature;
+--     END IF;
+--     IF has_function_privilege('anon',actual_oid,'EXECUTE') OR
+--        has_function_privilege('authenticated',actual_oid,'EXECUTE') IS DISTINCT FROM
+--          (r.signature LIKE '%ads_invoice_generation_v1(%' OR r.signature LIKE '%ads_invoice_reopen_v1(%' OR
+--           r.signature LIKE '%ads_invoice_import_v1(%' OR r.signature LIKE '%ads_invoice_line_is_pending(%' OR
+--           r.signature LIKE '%ads_invoice_pending_counts(%') OR
+--        has_function_privilege('service_role',actual_oid,'EXECUTE') IS DISTINCT FROM
+--          (r.signature LIKE '%ads_invoice_document_complete_v1(%' OR r.signature LIKE '%ads_invoice_line_is_pending(%' OR
+--           r.signature LIKE '%ads_invoice_pending_counts(%') OR EXISTS (
+--           SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+--           WHERE p.oid = actual_oid AND (a.grantee = 0 OR pg_get_userbyid(a.grantee) NOT IN ('postgres','authenticated','service_role')
+--             OR a.is_grantable)
+--        ) THEN RAISE EXCEPTION 'rollback_function_acl: %',r.signature; END IF;
+--   END LOOP;
+--   IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+--       WHERE n.nspname IN ('public','crm')
+--         AND p.proname NOT IN ('ads_invoice_line_is_pending','ads_invoice_pending_counts',
+--           'ads_invoice_generation_v1','ads_invoice_reopen_v1','ads_invoice_import_v1','ads_invoice_document_complete_v1')
+--         AND left(p.proname,8) <> '_ads486_'
+--         AND p.prosrc ~ 'ads_invoice_generation_operation|generation_revision|generation_cycle|generation_contract_version|generation_plan|_ads486_|ads_invoice_generation_v1|ads_invoice_import_v1|ads_invoice_reopen_v1|ads_invoice_document_complete_v1') THEN
+--     RAISE EXCEPTION 'rollback_literal_dependency_requires_review';
+--   END IF;
+--   IF (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.ads_invoice_generation_operation'::regclass AND NOT tgisinternal) <> 1 OR
+--      (SELECT count(*) FROM pg_constraint WHERE conrelid = 'public.ads_invoice_generation_operation'::regclass) <> 14 OR
+--      (SELECT array_agg(attname::text ORDER BY attnum) FROM pg_attribute
+--        WHERE attrelid = 'public.ads_invoice_generation_operation'::regclass AND attnum > 0 AND NOT attisdropped)
+--        IS DISTINCT FROM ARRAY['id','invoice_id','company_id','generation_cycle','request_key','preview_hash','request_hash',
+--          'plan_snapshot','result_snapshot','documents','state','created_by','created_at','updated_at']::text[] THEN
+--     RAISE EXCEPTION 'rollback_table_shape_changed';
+--   END IF;
+--   IF (SELECT count(*) FROM pg_attribute WHERE attrelid = 'public.ads_invoice_generation_operation'::regclass
+--       AND attnum > 0 AND NOT attisdropped) <> 14 OR NOT EXISTS (
+--     SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.ads_invoice_generation_operation'::regclass
+--       AND tgname = 'ads486_operation_tenant' AND NOT tgisinternal
+--       AND tgfoid = 'public._ads486_operation_tenant()'::regprocedure
+--   ) THEN RAISE EXCEPTION 'rollback_table_identity'; END IF;
+-- END $guard$;
+-- -- Repor as duas funções existentes ANTES de remover as colunas que consultam.
+-- CREATE OR REPLACE FUNCTION public.ads_invoice_line_is_pending(l ads_invoice_line)
+--  RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path TO 'public'
+-- AS $function$
+--   SELECT NOT COALESCE(l.is_adjustment, false)
+--      AND COALESCE(l.match_source, '') NOT IN ('fora_sistema','carreira')
+--      AND (l.event_id IS NULL OR l.match_source = 'none')
+-- $function$;
+-- CREATE OR REPLACE FUNCTION public.ads_invoice_pending_counts(p_invoice_ids uuid[])
+-- RETURNS TABLE (invoice_id uuid, total_lines int, pending_lines int)
+-- LANGUAGE sql
+-- STABLE
+-- SET search_path = public
+-- AS $$
+--   SELECT l.invoice_id,
+--          COUNT(*)::int,
+--          COUNT(*) FILTER (WHERE public.ads_invoice_line_is_pending(l))::int
+--   FROM public.ads_invoice_line l
+--   WHERE l.invoice_id = ANY(COALESCE(p_invoice_ids, '{}'::uuid[]))
+--   GROUP BY l.invoice_id
+-- $$;
+--
+-- REVOKE ALL ON FUNCTION public.ads_invoice_line_is_pending(public.ads_invoice_line) FROM PUBLIC, anon;
+-- REVOKE ALL ON FUNCTION public.ads_invoice_pending_counts(uuid[]) FROM PUBLIC, anon;
+-- GRANT EXECUTE ON FUNCTION public.ads_invoice_line_is_pending(public.ads_invoice_line) TO authenticated, service_role;
+-- GRANT EXECUTE ON FUNCTION public.ads_invoice_pending_counts(uuid[]) TO authenticated, service_role;
+-- DROP FUNCTION public.ads_invoice_document_complete_v1(uuid,text,jsonb) RESTRICT;
+-- DROP FUNCTION public.ads_invoice_import_v1(jsonb,jsonb) RESTRICT;
+-- DROP FUNCTION public._ads486_line_identity(jsonb) RESTRICT;
+-- DROP FUNCTION public.ads_invoice_reopen_v1(uuid,bigint) RESTRICT;
+-- DROP FUNCTION public.ads_invoice_generation_v1(uuid,text,jsonb) RESTRICT;
+-- DROP FUNCTION public._ads486_preview(uuid) RESTRICT;
+-- DROP FUNCTION public._ads486_plan(uuid,jsonb) RESTRICT;
+-- DROP TABLE public.ads_invoice_generation_operation RESTRICT;
+-- DROP FUNCTION public._ads486_documents(uuid,uuid,jsonb) RESTRICT;
+-- DROP FUNCTION public._ads486_keys(jsonb,text[],text[]) RESTRICT;
+-- DROP FUNCTION public._ads486_uuid(jsonb) RESTRICT;
+-- DROP FUNCTION public._ads486_decimal(numeric) RESTRICT;
+-- DROP FUNCTION public._ads486_money(jsonb) RESTRICT;
+-- DROP FUNCTION public._ads486_access(uuid) RESTRICT;
+-- DROP FUNCTION public._ads486_operation_tenant() RESTRICT;
+-- ALTER TABLE public.ads_invoice
+--   DROP CONSTRAINT ads_invoice_generation_v1_shape RESTRICT,
+--   DROP CONSTRAINT ads486_invoice_id_company RESTRICT,
+--   DROP COLUMN generation_plan RESTRICT,
+--   DROP COLUMN generation_contract_version RESTRICT,
+--   DROP COLUMN generation_revision RESTRICT,
+--   DROP COLUMN generation_cycle RESTRICT;
+-- COMMIT;

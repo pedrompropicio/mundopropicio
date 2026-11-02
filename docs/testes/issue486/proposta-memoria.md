@@ -1,0 +1,7 @@
+# Proposta de memória #486 — não aplicada a .lovable
+
+Texto para a revisão posterior, sem alterar a memória funcional actual:
+
+> #486 D1 prepara um contrato v1 SQL, ainda parcial e não instalado. Plano persistido com CAS, prévia canónica e reimportação por identidade de conteúdo são candidatos; gerar continua indisponível até existir commit financeiro revisto. Custos empresariais distinguem-se de fora do sistema; ajustes explícitos são integrais, e anónimos usam mídia event/company/carreira com resíduo determinístico. Compromisso inclui pendentes e filhas, usa FK antes da âncora e bloqueia fallback/grupo ambíguo. Nenhum aumento/criação é aceite implicitamente e a baseline nunca é escrita pelo candidato. Reimportação idêntica conserva IDs/escolhas/splits/plano; alterações invalidam a prévia e deixam novas identidades por resolver, recusando a perda de histórico fora_sistema/outside. O SQL só prepara metadados/tarefas documentais; Storage/PDF e integração são D3. Operações não são apagadas por reversão; a reversão e idempotência financeira ainda não estão implementadas nesta parcela.
+
+Não substituir a memória ads-invoices como se o comportamento v1 estivesse disponível. Actualizar apenas após revisão D1, integração D2/D3, aplicação e prova autorizadas. O dossier funcional completo continua em D3. A concorrência é delimitada a writers Ads participantes; não anunciar cobertura universal.
