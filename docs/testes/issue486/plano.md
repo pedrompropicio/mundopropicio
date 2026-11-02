@@ -1,6 +1,8 @@
-# #486 — D1-P: plano de conclusão D1 → D2 → D3
+# #486 — plano revisto D1 → D2 → D3 e candidato D1-I
 
-Preparação documental em 02/11/2026, conforme PROC-despacho-executor §1.1. Este PR entrega apenas este plano e `.executor/resumo.md`. Todos os contratos, caminhos de implementação e provas abaixo são propostas para revisão; nenhum SQL novo foi executado, nenhum consumidor foi alterado e nenhuma implementação é promovida por este documento.
+Preparação R2 em 02/11/2026. O plano documental original permanece como referência de requisitos §§1–8; esta execução D1-I recuperou os 17 blobs verificados da #492 e preparou o candidato SQL/contrato/provas nos caminhos fechados do despacho. O estado implementado e as lacunas estão em [contrato-d1.md](contrato-d1.md), [verificacao-local.md](verificacao-local.md) e `.executor/resumo.md`. Nenhum SQL novo foi executado; enabled=false, sem instalação, consumidores alterados ou ativação. Em conflito com a descrição histórica da entrega D1-P, prevalece o despacho D1-I e esta atualização.
+
+Base local D1-I: `b8d76d17ae1cafcff40820cc8b79eeced862de87`, checkout inicialmente limpo e 0305 livre. SHA256 do pacote e dos 17 blobs conferidos antes da recuperação; #492 não foi integrada. A pré-condição operacional de #496/HEAD aprovado, quality/autorização/fila é responsabilidade do coordenador e não foi atestada por rede nesta execução.
 
 ## 1. Base, reutilização e limites da entrega — aceitação 1 e 3
 
@@ -162,7 +164,7 @@ Cada PR corre os comandos normais tsgo/Vitest, sem mudar expectativas/skips para
 
 ## 8. L6 — preflight, rollback e promoção — aceitação 5
 
-**Preparação D1:** conservar hashes dos bytes SQL e cópia byte-idêntica; gerar function-identities.tsv final e pre/post para assinaturas completas, owner, language, SECURITY DEFINER, search_path/proconfig, proacl/grant option e privilégios efetivos anon/authenticated/service_role (incluindo PUBLIC). Catalogar schema/tabelas/contexto privado, constraints, índices, triggers específicos/ordem, RLS/policies, dependências e objetos já existentes substituídos. Guardar pré-imagem exata das funções de pendência e do setter de split, se substituído, com ACL. Não inferir paridade de contagem de triggers ou de md5 de prosrc apenas.
+**Preparação D1:** conservar hashes dos bytes SQL e cópia byte-idêntica; gerar function-identities.tsv final e pre/post para assinaturas completas, owner, language, SECURITY DEFINER, search_path/proconfig, proacl/grant option e privilégios efetivos anon/authenticated/service_role (incluindo PUBLIC). Catalogar schema/tabelas/contexto privado, constraints, índices, triggers específicos/ordem, RLS/policies, dependências e objetos já existentes substituídos. Guardar pré-imagem exata das duas funções de pendência e do setter de split substituído, com ACL. Não inferir paridade de contagem de triggers ou de md5 de prosrc apenas.
 
 Preflight futuro aborta por colisão de número/nome/assinatura, tipos/defaults/FKs divergentes, owner/ACL inesperados, dependência canónica ausente ou alteração concorrente da pré-imagem. Registar catálogo de triggers financeiros e identidades #413/#404 para comparação de preservação; não os editar. Bloquear objetos/faturas na janela apropriada e provar ausência de backfill/escrita v1 na instalação, enabled=false e digests de dados legados iguais. Incluir tabelas de impedimentos na conferência de dependências; falha de consulta não é ausência de impedimento.
 
@@ -186,13 +188,31 @@ Não há pergunta a Pedro necessária para escrever este plano. As regras de des
 | SQL não impede sozinho HTTP/Storage de versão legada já iniciada; capacidade de drenagem não demonstrada offline. | Unlock/upload tardio poderia afetar estado novo. | Guardas DB + corte fechado/drenagem comprovada; alternativa é janela de indisponibilidade com terminação confirmada, mantendo enabled=false até prova. Não substituir por espera cronometrada. |
 | Cerco de tabelas bloqueia escritores alheios durante transação curta; custo real não medido. | Contensão/timeout pode tornar o fluxo impraticável. | Medir em catálogo sintético fiel e abortar sem escrita por timeout; alternativa exige protocolo cooperativo de todos os writers relevantes em despacho próprio, sem alteração de triggers globais nesta #486. Não anunciar cobertura que não se provou. |
 
-Esses limites não exigem alargar os dois caminhos desta entrega. Se Pedro quiser geração não EUR já nesta versão ou proibir o cerco conservador, essa é decisão efetiva de âmbito/desenho que exige rever conjuntamente D1/D2/D3; não há implementação parcial ativável apresentada como equivalente.
+Esses limites não autorizam alargar a lista fechada D1-I desta entrega. Se Pedro quiser geração não EUR já nesta versão ou proibir o cerco conservador, essa é decisão efetiva de âmbito/desenho que exige rever conjuntamente D1/D2/D3; não há implementação parcial ativável apresentada como equivalente.
 
-## 10. Critérios numerados de fecho desta entrega — aceitação 6
+## 10. Critérios da entrega documental original D1-P — histórico
 
 1. Plano referencia a base #492 validada, HEAD efetivo e L1–L6 com contratos, caminhos e predicados (§1–§8).
 2. Desenho distingue propostas, contradições e provas pendentes, sem repetir saneamento nem pressupor decisão/garantia (§2–§5, §9).
 3. D1/D2/D3 têm escopo futuro explícito, dependências, código/tipos/testes/textos juntos e gate de compatibilidade (§6).
 4. P1–P9 cobrem dinheiro, permissões, falhas, documentos, retoma/reversão e sessões independentes; prova SQL permanece pendente (§7).
 5. Preflight/rollback cobrem identidades/ACL/dependências, ausência de dados v1, RESTRICT e promoção separada (§8).
-6. Diff desta execução contém apenas plano e resumo; checks existentes e limites são registados em `.executor/resumo.md`. CI do PR será produzida pelo runner, sem commit/push/merge/fecho feitos pelo executor.
+6. O diff D1-P original continha apenas plano e resumo; checks existentes e limites são registados em `.executor/resumo.md`. CI do PR será produzida pelo runner, sem commit/push/merge/fecho feitos pelo executor.
+
+
+## 11. Estado D1-I preparado — 02/11/2026
+
+| Camada | Artefactos presentes | Limite de aceitação |
+|---|---|---|
+| L1 | generate/confirm/operation, hash/retry, BP/mãe/filhas/vínculos/ledger/tarefas no mesmo comando; sem stub contract_unavailable | Candidato não compilado/executado em PostgreSQL. |
+| L2 | create via batch_save/draft/aprovação explícita, raise via RPC/auditoria única, deny prevalecente e recusa não EUR | Matriz Master/cidades e metadados cambiais ainda carece de cobertura completa. |
+| L3 | revert com impedimentos canónicos, retenção de BP/histórico, novo ciclo com BP criado selecionado; source_attest e callback documental com digest | Consumidor/ack de manutenção e provas completas de todos os impedimentos ainda pendentes. |
+| L4 | controlo privado enabled=false; guardas locais invoice/lines/transactions/âncora; setter legado delega v1 | Catálogo transitivo de triggers, pagamentos canónicos e drenagem D3 continuam gates. |
+| L5 | Roteiros sintéticos de destinos/importação/financeiro/reversão/documentos/writers e três pares de sessões independentes | Não cobrem integralmente P1–P9; lacunas explícitas no dossier local, sem skip/sucesso presumido. |
+| L6 | 0305+cópia idêntica, 33 identidades/ACL, pre/post, captura de três pré-imagens e manifesto, rollback integralmente comentado RESTRICT | Ensaio de instalação/rollback e dependências dinâmicas não executado. |
+
+O callback documental passa explicitamente a transportar sha256 em complete. O comando set_split usa strings decimais e o setter legado converte apenas valores exatos; o plano perde só as allocations da linha alterada. Reversão substitui chaves de criação por IDs dos BPs já criados para evitar recriação no ciclo seguinte. Confirmação pode ser revista quando uma fonte financeira muda, mantendo revisão de conteúdo e vinculando a nova prévia. Estes pontos fazem parte do contrato D1-I e devem ser revistos com D2/D3, sem alteração silenciosa dos consumidores atuais.
+
+Os nomes exatos dos fornecedores têm de corresponder a entidades já cadastradas; ausência/ambiguidade bloqueia. A verificação de Fatura Avulsa usa o número conservadoramente porque a tabela não tem supplier_id. A prova TikTok exige empresa/ligação ativa/conta/código/música inequívocos; o candidato não inventa conta do PDF. Esses limites são candidatos de contrato para revisão, não factos operacionais comprovados.
+
+D1-I é entrega parcial útil para revisão, sem declaração de D1/#486 concluídas. Os checks TS/Vitest integrais e os hashes finais ficam no dossier; não comprovam SQL novo. O runner recolhe o diff e cria PR sem commit/push pelo executor; o coordenador mantém merge automático desligado.

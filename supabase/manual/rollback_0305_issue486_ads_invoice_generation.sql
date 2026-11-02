@@ -1,0 +1,148 @@
+-- #486 ROLLBACK PREPARADO. INTEGRALMENTE COMENTADO. NÃO EXECUTADO.
+-- BEGIN;
+-- SET LOCAL lock_timeout='2s';
+-- SET LOCAL statement_timeout='15s';
+-- LOCK TABLE ads486_private.command_context, ads486_private.control, public.ads_invoice,
+--  public.ads_invoice_generation_operation, public.ads_invoice_line, public.event_forecasts, public.transactions IN ACCESS EXCLUSIVE MODE;
+-- DO $identities$
+-- DECLARE r record; oid_found oid; acl_entry record;
+-- BEGIN
+--  FOR r IN SELECT * FROM (VALUES
+--   ('public._ads486_fence()','171cb9b5c32ed535b9bd8a96f1548db6',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],false,false),
+--   ('public._ads486_enter(uuid,text)','47763beb455fc5b8122f061f265a7001',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],false,false),
+--   ('public._ads486_leave()','01cbb72ac92fedc1476de55c6f9b91c5',true,'sql','v',ARRAY['search_path=pg_catalog']::text[],false,false),
+--   ('public._ads486_operation_tenant()','8bcb1f053fb84d5bb1671b09b2c12ab8',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],false,false),
+--   ('public._ads486_access(uuid)','b1a4448e29fc96446202e32f915ab28a',true,'plpgsql','s',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],false,false),
+--   ('public._ads486_money(jsonb)','dfa8b1e290461e852bcae22d79cf8d34',false,'plpgsql','i',ARRAY['search_path=pg_catalog']::text[],false,false),
+--   ('public._ads486_decimal(numeric)','131fe9587065cdab7b8b877a96c9a728',false,'sql','i',ARRAY['search_path=pg_catalog']::text[],false,false),
+--   ('public._ads486_uuid(jsonb)','d190b67276a1b9f7281b5fd1cb1b0619',false,'plpgsql','i',ARRAY['search_path=pg_catalog']::text[],false,false),
+--   ('public._ads486_keys(jsonb,text[],text[])','10ba464f855e19e1907bf3dd61f25a17',false,'plpgsql','i',ARRAY['search_path=pg_catalog']::text[],false,false),
+--   ('public._ads486_plan(uuid,jsonb)','1ce5ad12ed7eb95daeec2deb23b30cfb',true,'plpgsql','s',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],false,false),
+--   ('public._ads486_policy(uuid)','adc0205392a1e219813afdef7ce8b536',true,'plpgsql','s',ARRAY[]::text[],false,false),
+--   ('public._ads486_financial_source(uuid)','8c559c9bca1338c681c4b961d9b0f0f4',true,'plpgsql','s',ARRAY[]::text[],false,false),
+--   ('public._ads486_no_duplicate(uuid)','a29b403affa83415d062feaf79883f8d',true,'plpgsql','s',ARRAY[]::text[],false,false),
+--   ('public._ads486_tiktok_proof(uuid)','f1eb148370806530059d56142a043e7f',true,'plpgsql','s',ARRAY[]::text[],false,false),
+--   ('public._ads486_classify_tiktok(uuid)','a266cc909933c2b55bab9c88cf1a0fef',true,'plpgsql','v',ARRAY[]::text[],false,false),
+--   ('public._ads486_create_forecast(uuid,jsonb,text)','316632758f60dcebc21486c48ad25e2b',true,'plpgsql','v',ARRAY[]::text[],false,false),
+--   ('public._ads486_preview(uuid)','49656a757c8bfa82c7295bfe43df813c',true,'plpgsql','s',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],false,false),
+--   ('public.ads_invoice_generation_v1(uuid,text,jsonb)','ce1cad8a3efec92e94438609fe51455a',true,'plpgsql','v',ARRAY[]::text[],true,false),
+--   ('public.ads_invoice_reopen_v1(uuid,bigint)','240582724bc93d16bf71a196c08938d0',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],true,false),
+--   ('public._ads486_line_identity(jsonb)','1b1f494d4d56dbf05cceaf6fe6e4adc0',false,'sql','i',ARRAY['search_path=pg_catalog']::text[],false,false),
+--   ('public.ads_invoice_import_v1(jsonb,jsonb)','12ba510bef29ab9946e73cfb5a695aad',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],true,false),
+--   ('public._ads486_documents(uuid,uuid,jsonb)','d5263b9b46c0bc0d86d75ab34976f945',false,'plpgsql','i',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],false,false),
+--   ('public.ads_invoice_document_complete_v1(uuid,text,jsonb)','f9d2eb6a3d0bcb294ab11a7800b604c8',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],false,true),
+--   ('public.ads_invoice_source_attest_v1(uuid,bigint,jsonb)','221180e88e5fad03aef8966cbdf1085e',true,'plpgsql','v',ARRAY[]::text[],false,true),
+--   ('public.ads_invoice_revert_v1(uuid,uuid,bigint)','94b9a2daa0d412c7f19c01e5f025f9d6',true,'plpgsql','v',ARRAY[]::text[],true,false),
+--   ('public._ads486_invoice_guard()','bb85f9e27cb008a9a2c4662b93daf513',true,'plpgsql','v',ARRAY[]::text[],false,false),
+--   ('public._ads486_line_guard()','fc72daf5ed72a27a2e8c1312337be486',true,'plpgsql','v',ARRAY[]::text[],false,false),
+--   ('public._ads486_transaction_guard()','079e56553642d4bfbafe2d827d8f656a',true,'plpgsql','v',ARRAY[]::text[],false,false),
+--   ('public._ads486_forecast_guard()','3ffa6ddf92327cf5c3b3b66d967f5ca6',true,'plpgsql','v',ARRAY[]::text[],false,false),
+--   ('public.ads_invoice_line_set_tour_split(uuid,jsonb)','ecba641ffe14c7cb199c5ba985944e6e',true,'plpgsql','v',ARRAY['search_path=public, pg_catalog']::text[],true,true),
+--   ('public.ads_invoice_line_is_pending(public.ads_invoice_line)','be4273290e0afc349dc1711a89d3ee5a',false,'sql','s',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],true,true),
+--   ('public.ads_invoice_pending_counts(uuid[])','0252bc2d35269880d6b3e73a8adc9fd3',false,'sql','s',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],true,true),
+--   ('public._ads486_catalog()','ee4ac54b6e421bb203838d09acd279e8',true,'sql','s',ARRAY[]::text[],false,false)
+--  ) expected(signature,body_md5,secdef,language,volatility,config,authenticated_exec,service_exec) LOOP
+--   oid_found:=to_regprocedure(r.signature);
+--   IF oid_found IS NULL OR NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang
+--    WHERE p.oid=oid_found AND md5(p.prosrc)=r.body_md5 AND p.prosecdef=r.secdef AND l.lanname=r.language
+--     AND p.provolatile::text=r.volatility AND p.proconfig IS NOT DISTINCT FROM r.config
+--     AND pg_get_userbyid(p.proowner)='postgres') THEN
+--    RAISE EXCEPTION '0305_function_identity: %',r.signature;
+--   END IF;
+--   IF has_function_privilege('anon',oid_found,'EXECUTE') OR
+--    has_function_privilege('authenticated',oid_found,'EXECUTE') IS DISTINCT FROM r.authenticated_exec OR
+--    has_function_privilege('service_role',oid_found,'EXECUTE') IS DISTINCT FROM r.service_exec THEN
+--    RAISE EXCEPTION '0305_effective_acl: %',r.signature;
+--   END IF;
+--   FOR acl_entry IN SELECT a.* FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+--    WHERE p.oid=oid_found AND a.grantee<>p.proowner LOOP
+--    IF acl_entry.grantee=0 OR acl_entry.is_grantable OR NOT (
+--     (pg_get_userbyid(acl_entry.grantee)='authenticated' AND r.authenticated_exec) OR
+--     (pg_get_userbyid(acl_entry.grantee)='service_role' AND r.service_exec)) THEN
+--     RAISE EXCEPTION '0305_nominal_acl: %',r.signature;
+--    END IF;
+--   END LOOP;
+--  END LOOP;
+-- END $identities$;
+--
+-- DO $guard$ BEGIN
+--  IF current_user<>'postgres' OR public._ads486_catalog() IS DISTINCT FROM
+--   (SELECT catalog FROM ads486_private.installation_manifest WHERE singleton) THEN RAISE EXCEPTION 'rollback_catalog_changed'; END IF;
+--  IF EXISTS(SELECT 1 FROM ads486_private.control WHERE enabled) OR EXISTS(SELECT 1 FROM ads486_private.command_context)
+--   OR EXISTS(SELECT 1 FROM public.ads_invoice_generation_operation)
+--   OR EXISTS(SELECT 1 FROM public.ads_invoice WHERE generation_contract_version IS NOT NULL OR generation_plan IS NOT NULL
+--    OR generation_revision<>0 OR generation_cycle<>0 OR source_file_sha256 IS NOT NULL OR source_attestation IS NOT NULL
+--    OR confirmed_revision IS NOT NULL OR confirmed_preview_hash IS NOT NULL OR generation_maintenance<>'[]'::jsonb) THEN
+--   RAISE EXCEPTION 'rollback_has_v1_data_or_enabled'; END IF;
+--  IF EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE
+--    n.nspname NOT IN ('pg_catalog','information_schema') AND left(p.proname,8)<>'_ads486_'
+--    AND p.proname NOT IN ('ads_invoice_generation_v1','ads_invoice_import_v1','ads_invoice_reopen_v1','ads_invoice_revert_v1',
+--     'ads_invoice_source_attest_v1','ads_invoice_document_complete_v1','ads_invoice_line_set_tour_split','ads_invoice_line_is_pending','ads_invoice_pending_counts')
+--    AND p.prosrc ~ 'ads486_private|_ads486_|ads_invoice_generation_operation|generation_contract_version|source_file_sha256|generation_plan') THEN
+--   RAISE EXCEPTION 'rollback_text_dependency_requires_review'; END IF;
+-- END $guard$;
+-- -- Revisão operacional de consumidores/SQL dinâmico é obrigatória antes desta
+-- -- transação; nomes compostos dinamicamente não são provados por pg_depend/regex.
+-- DROP TRIGGER ads486_invoice_guard ON public.ads_invoice RESTRICT;
+-- DROP TRIGGER ads486_line_guard ON public.ads_invoice_line RESTRICT;
+-- DROP TRIGGER ads486_transaction_guard ON public.transactions RESTRICT;
+-- DROP TRIGGER ads486_forecast_guard ON public.event_forecasts RESTRICT;
+-- DROP TRIGGER ads486_operation_tenant ON public.ads_invoice_generation_operation RESTRICT;
+-- ALTER TABLE public.ads_invoice_generation_operation DROP CONSTRAINT ads486_documents_shape RESTRICT;
+-- -- Repor as 3 pré-imagens exatas e cada privilégio/grant option capturados.
+-- DO $restore$ DECLARE r record; a jsonb; BEGIN
+--  FOR r IN SELECT * FROM ads486_private.preimages ORDER BY signature LOOP
+--   IF r.owner_name<>'postgres' THEN RAISE EXCEPTION 'rollback_preimage_owner'; END IF;
+--   EXECUTE r.definition;
+--   EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated, service_role',r.signature);
+--   FOR a IN SELECT value FROM jsonb_array_elements(r.acl) LOOP
+--    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO %s %s',r.signature,
+--     CASE WHEN a->>'role'='PUBLIC' THEN 'PUBLIC' ELSE quote_ident(a->>'role') END,
+--     CASE WHEN (a->>'grantable')::boolean THEN 'WITH GRANT OPTION' ELSE '' END);
+--   END LOOP;
+--  END LOOP;
+-- END $restore$;
+-- DROP FUNCTION public._ads486_catalog() RESTRICT;
+-- DROP FUNCTION public._ads486_forecast_guard() RESTRICT;
+-- DROP FUNCTION public._ads486_transaction_guard() RESTRICT;
+-- DROP FUNCTION public._ads486_line_guard() RESTRICT;
+-- DROP FUNCTION public._ads486_invoice_guard() RESTRICT;
+-- DROP FUNCTION public.ads_invoice_revert_v1(uuid,uuid,bigint) RESTRICT;
+-- DROP FUNCTION public.ads_invoice_source_attest_v1(uuid,bigint,jsonb) RESTRICT;
+-- DROP FUNCTION public.ads_invoice_document_complete_v1(uuid,text,jsonb) RESTRICT;
+-- DROP FUNCTION public._ads486_documents(uuid,uuid,jsonb) RESTRICT;
+-- DROP FUNCTION public.ads_invoice_import_v1(jsonb,jsonb) RESTRICT;
+-- DROP FUNCTION public._ads486_line_identity(jsonb) RESTRICT;
+-- DROP FUNCTION public.ads_invoice_reopen_v1(uuid,bigint) RESTRICT;
+-- DROP FUNCTION public.ads_invoice_generation_v1(uuid,text,jsonb) RESTRICT;
+-- DROP FUNCTION public._ads486_preview(uuid) RESTRICT;
+-- DROP FUNCTION public._ads486_create_forecast(uuid,jsonb,text) RESTRICT;
+-- DROP FUNCTION public._ads486_classify_tiktok(uuid) RESTRICT;
+-- DROP FUNCTION public._ads486_tiktok_proof(uuid) RESTRICT;
+-- DROP FUNCTION public._ads486_no_duplicate(uuid) RESTRICT;
+-- DROP FUNCTION public._ads486_financial_source(uuid) RESTRICT;
+-- DROP FUNCTION public._ads486_policy(uuid) RESTRICT;
+-- DROP FUNCTION public._ads486_plan(uuid,jsonb) RESTRICT;
+-- DROP FUNCTION public._ads486_keys(jsonb,text[],text[]) RESTRICT;
+-- DROP FUNCTION public._ads486_uuid(jsonb) RESTRICT;
+-- DROP FUNCTION public._ads486_decimal(numeric) RESTRICT;
+-- DROP FUNCTION public._ads486_money(jsonb) RESTRICT;
+-- DROP FUNCTION public._ads486_access(uuid) RESTRICT;
+-- DROP FUNCTION public._ads486_operation_tenant() RESTRICT;
+-- DROP FUNCTION public._ads486_leave() RESTRICT;
+-- DROP FUNCTION public._ads486_enter(uuid,text) RESTRICT;
+-- DROP FUNCTION public._ads486_fence() RESTRICT;
+-- DROP TABLE public.ads_invoice_generation_operation RESTRICT;
+-- ALTER TABLE public.ads_invoice DROP CONSTRAINT ads_invoice_generation_v1_shape RESTRICT;
+-- ALTER TABLE public.ads_invoice DROP CONSTRAINT ads486_invoice_id_company RESTRICT;
+-- ALTER TABLE public.ads_invoice DROP COLUMN generation_revision RESTRICT, DROP COLUMN generation_cycle RESTRICT,
+--  DROP COLUMN generation_plan RESTRICT, DROP COLUMN generation_contract_version RESTRICT,
+--  DROP COLUMN source_file_sha256 RESTRICT, DROP COLUMN source_attestation RESTRICT,
+--  DROP COLUMN confirmed_revision RESTRICT, DROP COLUMN confirmed_preview_hash RESTRICT,
+--  DROP COLUMN generation_maintenance RESTRICT;
+-- DROP TABLE ads486_private.installation_manifest RESTRICT;
+-- DROP TABLE ads486_private.preimages RESTRICT;
+-- DROP TABLE ads486_private.command_context RESTRICT;
+-- DROP TABLE ads486_private.control RESTRICT;
+-- DROP SCHEMA ads486_private RESTRICT;
+-- COMMIT;
