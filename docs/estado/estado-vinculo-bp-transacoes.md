@@ -1,5 +1,11 @@
 # ESTADO — Vínculo BP ↔ Transações
 
+## #486 — Faturas Ads: retoma autorizada, sem aplicação (02/11/2026)
+
+Prioridade do Pedro. Coordenação: 0 · Cowork (ChatGPT); executor D1/D2/D3: Codex. A sequência aprovada prepara contrato SQL/roteiro (D1), núcleo/tipos/testes (D2) e integração edges/modal/dossier (D3); entregas parciais seguras apenas para revisão, sem merge automático. O saneamento já concluído de cinco verbas e um vínculo não será repetido; custos históricos omitidos permanecem noutro despacho R2.
+
+Mantêm-se: destinos explícitos evento/empresa, ajuste atribuído integral, escolha/criação de BP, compromisso agregado por linha e rubrica incluindo pendentes, aceites individuais com observação, baseline preservada, prévia vinculativa revalidada, atomicidade/idempotência e retoma documental. Conflitos com writers externos precisam de prova antes da promoção. D1 não aplica SQL nem prova concorrência por testes sequenciais. Estado corrente, reserva e entregas na [#486](https://github.com/pedrompropicio/mundopropicio/issues/486); corretivo do runner separado na #489/PR #490; D-ERP352. Feature ainda não resolvida nem publicada.
+
 Atualizado: 2026-10-28 · H&K Madrid sem transações válidas fora do BP · vínculo só no mesmo evento e âncora corrigida (D-ERP224) · janela administrativa como trava real (#264, D-ERP150) · portas ao excedido fechadas na base (#240) · isenções D1+D8 alinhadas nas três camadas
 
 ## Em que pé está
