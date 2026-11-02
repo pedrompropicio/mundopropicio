@@ -6583,3 +6583,9 @@ Origem: 0 · Cowork (Claude), 31/10/2026.
 - O **0 · Cowork (Claude)** fica só para as janelas: Publish (`deploy_project` existe só deste lado), aplicação de migrações no mp-homolog-3 e em Live (PROC-promocao), deploy de edge functions e crons — sessões curtas, uma por janela, com os blocos preparados pelo ChatGPT.
 - Razão: custo. O Claude Code no executor e as sessões longas do Cowork consomem o limite da subscrição Claude; o Codex no executor custou $0,13 por tarefa (medido 01/11) e o ChatGPT Business tem créditos de workspace.
 - A fonte continua a ser o GitHub (D-ERP278): nada vive só na memória de um chat. Estado de passagem: Issue #435 (janela de 01/11) e docs/prompts/arranque-0-cowork-chatgpt-2026-11-02.md.
+
+## D-ERP351 — Direção SaaS 2027 e fronteira com a contabilidade externa (02/11/2026, Pedro, #457)
+
+- Objetivo confirmado: Sistema de Gestão de Eventos como plataforma SaaS em 2027, uma plataforma de gestão com capacidades reutilizáveis entre empresas. Social Music é o piloto BR indicado, sem fork nem condições pelo nome da empresa; reutilizar a codebase multiempresa e `company_features` existente.
+- Princípio ERP/contabilidade: gestão de dados e documentos, exportação e integrações com contabilidade externa; cálculos e estimativas gerenciais dependem de regras validadas. Escrituração, SPED e apuração oficial permanecem externos.
+- Origem: #457, comentários [6567993220](https://github.com/pedrompropicio/mundopropicio/issues/457#issuecomment-6567993220) e [6567622911](https://github.com/pedrompropicio/mundopropicio/issues/457#issuecomment-6567622911), conforme contexto fornecido no despacho da #462. Visão viva: [plataforma SaaS 2027](planejamento/plataforma-saas-2027.md). Não libera quarentena nem decide contratação, preço, SLA ou data exata de lançamento.

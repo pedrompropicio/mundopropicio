@@ -30,6 +30,10 @@ Esta regra integra o Bloco Comum e todos os prompts em `docs/prompts/`; aplica-s
 
 **Regra de ouro:** informação com data no nome é arquivo. Informação sem data no nome é estado. Nunca se lê arquivo para saber onde estamos.
 
+## Visão de produto
+
+[Plataforma de gestão de eventos como SaaS em 2027](planejamento/plataforma-saas-2027.md) — direção confirmada, evidências locais, pendências e gates.
+
 ## Os chats
 
 Numeração única 0–11, igual no Claude e no ChatGPT, mais `coala-portal`, `newgang-portal`, `gestao-de-chats` e os chats de evento. Tabela completa, modelos e ficheiros de estado em `docs/CHATS.md`. O 8 (Tráfego Pago) lê `estado-audience-meta.md` e `estado-audience-google.md` até os consolidar em `estado-trafego-pago.md`.
