@@ -29,6 +29,7 @@ jobs:
       ok: ${{ steps.avaliar.outputs.ok }}
       merge_automatico: ${{ steps.avaliar.outputs.merge_automatico }}
       executor: ${{ steps.avaliar.outputs.executor }}
+      preparacao_r2: ${{ steps.avaliar.outputs.preparacao_r2 }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -81,7 +82,9 @@ jobs:
         with:
           bun-version: latest
       - name: Install
-        run: bun install --frozen-lockfile || bun install
+        run: |
+          bun install --frozen-lockfile || bun install
+          bunx -p @typescript/native-preview tsgo --version
       - uses: actions/download-artifact@v4
         with:
           name: tarefa
@@ -92,12 +95,18 @@ jobs:
         run: gh issue view "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --json body -q .body > "${{ runner.temp }}/e2b/issue.md"
       - name: Montar prompt
         id: prompt
+        env:
+          PREPARACAO_R2: ${{ needs.travas.outputs.preparacao_r2 }}
         run: |
           {
             echo 'texto<<FIM_PROMPT_E2B'
             echo "És o executor da E2b na Issue #${{ github.event.issue.number }} do repositório ${{ github.repository }}. Classe R1: só código e testes."
             echo "Lê primeiro docs/INDEX.md e o que ele indicar para o tema; procura em .lovable/memory/features/ e docs/ antes de propor."
-            echo "Regras: não toques em .github/, supabase/, drizzle/, .lovable/ nem ficheiros .env (o PR é recusado). Sem rede para serviços da MP, sem Live, sem DDL/DML, sem commits nem push: só editas a cópia local."
+            if [ "$PREPARACAO_R2" = "true" ]; then
+              echo "Regras: modo preparação R2 — podes escrever ficheiros em drizzle/migrations/NNNN_*.sql (com cópia em supabase/manual/ e rollback comentado) e em supabase/functions/; nunca executes SQL nem deploys; não toques em .github/, .lovable/, drizzle/migrations/meta/ nem ficheiros .env."
+            else
+              echo "Regras: não toques em .github/, supabase/, drizzle/, .lovable/ nem ficheiros .env (o PR é recusado). Sem rede para serviços da MP, sem Live, sem DDL/DML, sem commits nem push: só editas a cópia local."
+            fi
             echo "Antes de terminar corre: bunx -p @typescript/native-preview tsgo -p tsconfig.app.json --noEmit e bunx vitest run, e corrige o que falhar."
             echo "No fim escreve .executor/resumo.md com as secções '### Feito' e '### Não feito / lacunas' (itens '- ' de topo, um predicado verificável por linha)."
             echo "Se não puderes fazer exactamente a tarefa, pára, não inventes, e explica em '### Não feito / lacunas'."
@@ -154,7 +163,12 @@ jobs:
           git diff --cached --binary > "${{ runner.temp }}/saida/exec.patch"
           echo "Ficheiros alterados:"; cat "${{ runner.temp }}/saida/ficheiros.txt"
       - name: Travas de caminhos
-        run: bun scripts/executor/travas.ts caminhos "${{ runner.temp }}/saida/ficheiros.txt"
+        env:
+          PREPARACAO_R2: ${{ needs.travas.outputs.preparacao_r2 }}
+        run: |
+          EXTRA=""
+          [ "$PREPARACAO_R2" = "true" ] && EXTRA="--preparacao-r2"
+          bun scripts/executor/travas.ts caminhos "${{ runner.temp }}/saida/ficheiros.txt" $EXTRA
       - uses: actions/upload-artifact@v4
         with:
           name: saida
@@ -178,6 +192,7 @@ jobs:
       # Decisão do Pedro (01/11/2026): merge automático por defeito; "Merge automático: não" na autorização desliga.
       MERGE_AUTO: ${{ needs.travas.outputs.merge_automatico }}
       EXECUTOR: ${{ needs.travas.outputs.executor }}
+      PREPARACAO_R2: ${{ needs.travas.outputs.preparacao_r2 }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
@@ -202,7 +217,9 @@ jobs:
         run: |
           git apply --index "${{ runner.temp }}/saida/exec.patch"
           git diff --cached --name-only > ficheiros.txt
-          bun scripts/executor/travas.ts caminhos ficheiros.txt
+          EXTRA=""
+          [ "$PREPARACAO_R2" = "true" ] && EXTRA="--preparacao-r2"
+          bun scripts/executor/travas.ts caminhos ficheiros.txt $EXTRA
       - name: Install
         if: steps.vazio.outputs.sim == 'false'
         run: bun install --frozen-lockfile || bun install
