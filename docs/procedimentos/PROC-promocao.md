@@ -24,6 +24,12 @@ Em vigor desde 31/10/2026 (D-ERP343). Procedimento fixo; corre sempre igual.
 9. **Dados.** DML associado (marcar linhas, backfill) só depois do Publish, com «Corro?».
 10. **Registo.** Comentário na Issue com sha256, md5 e contagens; fecho documental pela frente dona.
 
+## Conferência pós-tarefa obrigatória do escopo (#357)
+
+Antes de aceitar qualquer entrega de agente, o executor confere por leitura o **diff completo e todos os caminhos alterados** contra o despacho e a sua lista autorizada, incluindo ficheiros novos, apagados e renomeados. No GitHub, confere também a lista `files` dos commits/PR entregues; o relatório do agente não substitui esta prova. Regista na Issue os heads de base e de entrega, a comparação dos caminhos e a evidência da leitura do diff.
+
+Qualquer desvio impede merge e Publish. Preservar os heads e as evidências, registar o incidente na Issue e preparar uma reposição delimitada para revisão, respeitando as autorizações existentes. Não executar automaticamente reset, force push ou revert operacional, nem alterar reserva alheia. Esta conferência soma-se aos gates existentes de CI, promoção e autorizações; não os substitui nem autoriza execução ou Publish.
+
 ## Até ao corte para a base UE
 
 Enquanto a mp-producao-eu não for a produção, cada mudança de estrutura entra também na reconstrução seguinte da base UE. A recaptura de Live do dia apanha-a automaticamente; nunca se edita o binding à mão.
