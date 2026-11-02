@@ -13,6 +13,7 @@ export interface Comentario {
 
 export interface Decisao {
   ok: boolean;
+  preparacaoR2: boolean;
   motivos: string[];
   executor: Executor | null;
   /** Texto da tarefa (corpo do despacho sem o cabeçalho). */
@@ -26,10 +27,10 @@ export const AUTORES = ["pedrompropicio"];
 /** Motores suportados; a Autorização designa qual a E2b lança. */
 export const EXECUTORES = { "claude-code": ["claude code"], codex: ["codex", "chatgpt/codex", "chatgpt codex", "openai codex"] } as const;
 export type Executor = keyof typeof EXECUTORES;
-/** Capacidades do molde; na E2b só `codigo+testes` pode estar a "sim". */
-const CAPACIDADES = ["codigo+testes", "DDL", "DML", "edge functions", "crons", "envios externos", "Publish"];
+/** Preparação R2 liberta apenas ficheiros; nunca aplicação ou deploy. */
+const CAPACIDADES = ["codigo+testes", "ficheiros de migração", "DDL", "DML", "edge functions", "crons", "envios externos", "Publish"];
 
-/** Caminhos que um PR do executor nunca pode tocar (R2 ou fora do âmbito R1). */
+/** Bloqueio por defeito; só as exceções de preparação R2 abaixo podem abrir caminhos. */
 export const CAMINHOS_PROIBIDOS = [
   /^\.github\//,
   /^supabase\//,
@@ -92,11 +93,12 @@ export function limiteDaValidade(validade: string | undefined): Date | null {
 export function avaliarDespacho(issue: number, comentarios: Comentario[], despachoId: number, agora: Date): Decisao {
   const motivos: string[] = [];
   let mergeAutomatico = true;
+  let preparacaoR2 = false;
   let executor: Executor | null = null;
   const ordem = [...comentarios].sort((a, b) => a.criadoEm.localeCompare(b.criadoEm));
   const despacho = ordem.find((c) => c.id === despachoId);
   if (!despacho || !isDespacho(despacho.corpo)) {
-    return { ok: false, motivos: ["comentário de despacho não encontrado"], tarefa: "", mergeAutomatico: false, executor: null };
+    return { ok: false, preparacaoR2: false, motivos: ["comentário de despacho não encontrado"], tarefa: "", mergeAutomatico: false, executor: null };
   }
   if (!AUTORES.includes(despacho.autor)) motivos.push(`autor do despacho não autorizado (${despacho.autor})`);
   const cab = despacho.corpo.trimStart().split(/\r?\n/)[0];
@@ -114,11 +116,16 @@ export function avaliarDespacho(issue: number, comentarios: Comentario[], despac
     executor = executorDe(f.get("executor atual") ?? f.get("executor") ?? "");
     if (!executor) motivos.push("a autorização não designa um executor suportado (Claude Code ou Codex)");
     const classe = (f.get("classe") ?? "").match(/\bR[0-2]\b/)?.[0];
-    if (classe !== "R1") motivos.push(`a E2b só corre R1 (classe da autorização: ${classe ?? "ausente"})`);
     const caps = capacidadesDe(f.get("capacidades libertadas") ?? f.get("capacidades") ?? "");
+    preparacaoR2 = caps["ficheiros de migração"] === true;
+    if (classe === "R2" && !preparacaoR2) {
+      motivos.push("classe R2 só com `ficheiros de migração` = sim (preparação sem aplicar)");
+    } else if (classe !== "R1" && !(classe === "R2" && preparacaoR2)) {
+      motivos.push(`a E2b só corre R1 ou R2 em preparação (classe da autorização: ${classe ?? "ausente"})`);
+    }
     if (caps["codigo+testes"] !== true) motivos.push("`codigo+testes` não está a sim");
-    const extra = Object.entries(caps).filter(([k, v]) => v && k !== "codigo+testes").map(([k]) => k);
-    if (extra.length) motivos.push(`capacidades além de codigo+testes: ${extra.join(", ")}`);
+    const extra = Object.entries(caps).filter(([k, v]) => v && k !== "codigo+testes" && k !== "ficheiros de migração").map(([k]) => k);
+    if (extra.length) motivos.push(`capacidades além de codigo+testes e ficheiros de migração: ${extra.join(", ")}`);
     const desconhecidas = Object.keys(caps).filter((k) => !CAPACIDADES.includes(k));
     if (desconhecidas.some((k) => caps[k])) motivos.push(`capacidade desconhecida a sim: ${desconhecidas.join(", ")}`);
     const ambiente = norm(f.get("ambiente") ?? "");
@@ -140,12 +147,21 @@ export function avaliarDespacho(issue: number, comentarios: Comentario[], despac
     if (executor && exec !== executor) motivos.push(`a reserva activa não é do executor designado (${executor})`);
   }
 
-  return { ok: motivos.length === 0, motivos, tarefa, mergeAutomatico, executor };
+  return { ok: motivos.length === 0, preparacaoR2, motivos, tarefa, mergeAutomatico, executor };
 }
 
 /** Verifica a lista de ficheiros alterados pelo executor. */
-export function caminhosProibidos(ficheiros: string[]): string[] {
-  return ficheiros.filter((f) => CAMINHOS_PROIBIDOS.some((re) => re.test(f)));
+export function caminhosProibidos(ficheiros: string[], opts?: { preparacaoR2?: boolean }): string[] {
+  return ficheiros.filter((f) => {
+    // Caminhos canónicos apenas: não permitir que segmentos relativos escapem à lista.
+    const permitido = opts?.preparacaoR2 && !f.split("/").some((parte) => parte === "." || parte === "..") && (
+      /^drizzle\/migrations\/[^/]+\.sql$/.test(f) ||
+      /^supabase\/manual\/[^/]+\.sql$/.test(f) ||
+      /^supabase\/functions\/.+\.(ts|json|md)$/.test(f)
+    );
+    if (permitido) return /(^|\/)\.env/.test(f);
+    return CAMINHOS_PROIBIDOS.some((re) => re.test(f));
+  });
 }
 
 export function textoRecusa(issue: number, motivos: string[], runUrl: string): string {

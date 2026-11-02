@@ -6571,3 +6571,8 @@ Origem: 0 · Cowork (Claude), 31/10/2026.
 - A Autorização escolhe o motor pelo campo "Executor atual": Codex (OpenAI, chave `OPENAI_API_KEY` nos segredos do repo, faturação na organização de API ligada ao workspace Business) ou Claude Code (token de subscrição). Travas, caminhos proibidos, testes no runner, PR para main, auto-merge e Fecho são os mesmos para os dois.
 - Codex é o executor por defeito para R1 a partir de 01/11/2026, para não consumir o limite da subscrição Claude; o Claude Code fica para tarefas que o Pedro designar.
 - A Reserva activa tem de ser do mesmo motor que a Autorização.
+
+## D-ERP349 — Executor E2b com modo «preparação R2» (02/11/2026, Pedro, no 0 · Cowork Claude; Issue #417)
+
+- Uma Autorização de classe R2 com `ficheiros de migração` = sim permite ao executor (Codex por defeito) escrever só ficheiros: `drizzle/migrations/NNNN_*.sql` + cópia em `supabase/manual/` com rollback comentado, e código em `supabase/functions/`. Nada é aplicado: a aplicação em mp-homolog-3 e Live e o deploy das edge functions continuam a ser do 0 · Cowork com «Sim» por passo (PROC-promocao).
+- As restantes travas (autor, reserva do mesmo motor, validade, ambiente ≠ Live, caminhos `.github/`, `.lovable/`, `.env`, `drizzle/migrations/meta/`) mantêm-se.

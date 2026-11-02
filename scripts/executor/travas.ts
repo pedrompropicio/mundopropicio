@@ -1,6 +1,6 @@
 // E2b (#417): corre no GitHub Actions com bun. Lê os comentários da Issue pela API
 // com o GITHUB_TOKEN do workflow e escreve a decisão em $GITHUB_OUTPUT.
-// Uso: bun scripts/executor/travas.ts avaliar   |   bun scripts/executor/travas.ts caminhos <lista>
+// Uso: bun scripts/executor/travas.ts avaliar   |   bun scripts/executor/travas.ts caminhos <lista> [--preparacao-r2]
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { avaliarDespacho, caminhosProibidos, textoRecusa, type Comentario } from "../../src/lib/executor/travas";
 
@@ -34,19 +34,21 @@ if (modo === "avaliar") {
     new Date(),
   );
   const out = env("GITHUB_OUTPUT");
-  appendFileSync(out, `ok=${decisao.ok}\nmerge_automatico=${decisao.mergeAutomatico}\nexecutor=${decisao.executor ?? ""}\n`);
+  appendFileSync(out, `ok=${decisao.ok}\npreparacao_r2=${decisao.preparacaoR2}\nmerge_automatico=${decisao.mergeAutomatico}\nexecutor=${decisao.executor ?? ""}\n`);
   writeFileSync("tarefa.md", decisao.tarefa);
   writeFileSync("recusa.md", decisao.ok ? "" : textoRecusa(issue, decisao.motivos, env("RUN_URL")));
   console.log(decisao.ok ? "Travas: OK" : `Travas: RECUSADO\n- ${decisao.motivos.join("\n- ")}`);
 } else if (modo === "caminhos") {
-  const ficheiros = readFileSync(process.argv[3], "utf8").split(/\r?\n/).filter(Boolean);
-  const maus = caminhosProibidos(ficheiros);
+  const args = process.argv.slice(3);
+  const preparacaoR2 = args.includes("--preparacao-r2");
+  const ficheiros = readFileSync(args.filter((arg) => arg !== "--preparacao-r2")[0], "utf8").split(/\r?\n/).filter(Boolean);
+  const maus = caminhosProibidos(ficheiros, { preparacaoR2 });
   if (maus.length) {
     console.error(`Caminhos proibidos na E2b:\n- ${maus.join("\n- ")}`);
     process.exit(1);
   }
   console.log(`Caminhos OK (${ficheiros.length} ficheiros)`);
 } else {
-  console.error("uso: travas.ts avaliar | caminhos <ficheiro>");
+  console.error("uso: travas.ts avaliar | caminhos <ficheiro> [--preparacao-r2]");
   process.exit(2);
 }
