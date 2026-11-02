@@ -8,7 +8,9 @@ import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { EventStageBadge } from "@/components/events/EventStageBadge";
 import { useEventStages } from "@/hooks/useEventStages";
 import { EVENT_STAGES, STAGE_LABELS, filterEventsByStage, type EventStage } from "@/lib/event-stage";
-import { formatCurrency, formatDate } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency, formatDate } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { toast } from "@/hooks/use-toast";
 import { CityVenueSelector } from "@/components/CityVenueSelector";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -100,6 +102,14 @@ const emptyForm: EventForm = {
 };
 
 export default function Events() {
+  const companyLocale = useCompanyLocale();
+  // Preserve the legacy PT grouping and rounding byte for byte (#498 P1b).
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<EventForm>({ ...emptyForm });
@@ -954,7 +964,7 @@ export default function Events() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Orçamento (€)</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">{companyLocale.status === "available" ? companyLocale.labels.budget : "—"}</label>
                   <input
                     type="number"
                     step="0.01"

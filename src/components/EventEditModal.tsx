@@ -13,6 +13,7 @@ import { useBackdropClose } from "@/lib/backdropClose";
 import type { EventFormat } from "@/lib/event-format";
 import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 import { EVENT_NATURES, type EventNature } from "@/lib/event-nature";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { useAuth } from "@/contexts/AuthContext";
 import { BUDGET_MODES, type BudgetMode, useCompanyDefaultBudgetMode } from "@/lib/budget-mode";
 
@@ -22,6 +23,7 @@ interface EventEditModalProps {
 }
 
 export function EventEditModal({ event, onClose }: EventEditModalProps) {
+  const companyLocale = useCompanyLocale();
   const queryClient = useQueryClient();
 
   const [name, setName] = useState(event.name);
@@ -419,7 +421,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Orçamento (€)</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">{companyLocale.status === "available" ? companyLocale.labels.budget : "—"}</label>
               <input
                 type="number"
                 step="0.01"
