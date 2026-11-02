@@ -15,8 +15,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { useBPVersions, type BPVersionRow } from "@/hooks/useBPVersions";
-import { buildMultiDiff, type MultiDiffVersionMeta } from "@/lib/bp-version-multi-diff";
+import { buildMultiDiff, mapComparisonSnapshots, type ForecastSnapshot, type MultiDiffVersionMeta } from "@/lib/bp-version-multi-diff";
 import { exportBPMultiVersionComparisonPDF } from "@/lib/export-bp-version-multi-comparison-pdf";
+import { originDisplayLines } from "@/lib/bp-version-origin";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 
 interface Props {
@@ -72,7 +73,7 @@ export function BPVersionsCompareModal({ open, onOpenChange, eventId, eventName 
         .select("id, snapshot_payload")
         .in("id", selectedIds);
       if (error) throw error;
-      const map: Record<string, any> = {};
+      const map: Record<string, { forecasts?: ForecastSnapshot[] } | null> = {};
       (data ?? []).forEach((r: any) => {
         map[r.id] = r.snapshot_payload;
       });
@@ -106,13 +107,10 @@ export function BPVersionsCompareModal({ open, onOpenChange, eventId, eventName 
     [selectedVersions]
   );
 
-  const snapshotsByVersion = useMemo(() => {
-    const map: Record<string, any[]> = {};
-    selectedVersions.forEach((v) => {
-      map[v.id] = (payloads?.[v.id]?.forecasts ?? []) as any[];
-    });
-    return map;
-  }, [payloads, selectedVersions]);
+  const snapshotsByVersion = useMemo(
+    () => mapComparisonSnapshots(versionMetas, payloads),
+    [payloads, versionMetas]
+  );
 
   const result = useMemo(() => {
     if (selectedVersions.length < MIN_VERSIONS) return null;
@@ -327,7 +325,10 @@ export function BPVersionsCompareModal({ open, onOpenChange, eventId, eventName 
                                       c.amount == null ? "text-muted-foreground italic" : ""
                                     }`}
                                   >
-                                    {c.amount == null ? "—" : formatCurrency(c.amount)}
+                                    {c.amount == null ? "— (Linha ausente)" : formatCurrency(c.amount)}
+                                    {c.amount != null && originDisplayLines(c.origin, r.changedOriginFields).map(line => (
+                                      <div key={line} className="text-xs text-muted-foreground whitespace-normal">{line}</div>
+                                    ))}
                                   </td>
                                 ))}
                               </tr>

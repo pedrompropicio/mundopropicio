@@ -5,9 +5,10 @@
  * per-version values and totals, plus a global summary. Designed for the
  * BPVersionsCompareModal "multi" mode and PDF export.
  */
+import { normalizeOrigin, changedOriginFields, type Origin, type OriginField, type OriginSnapshot } from "./bp-version-origin";
 import type { CategoryLookup } from "./category-hierarchy";
 
-export interface ForecastSnapshot {
+export interface ForecastSnapshot extends OriginSnapshot {
   id: string;
   type: "income" | "expense";
   description: string;
@@ -25,6 +26,7 @@ export interface MultiDiffVersionMeta {
 }
 
 export interface MultiDiffCell {
+  origin: Origin;
   amount: number | null; // null when forecast id absent in this version
   ivaRate: number | null;
   description: string | null;
@@ -36,7 +38,8 @@ export interface MultiDiffRow {
   description: string; // best-known description (latest version with the row)
   categoryId: string | null;
   cells: MultiDiffCell[]; // index aligned with versions[]
-  /** True when at least 2 versions have differing amount or one is missing */
+  changedOriginFields: OriginField[];
+  /** Amount, origin metadata or row presence differs. */
   hasDifferences: boolean;
 }
 
@@ -86,12 +89,14 @@ export function buildMultiDiff(input: MultiDiffInput): MultiDiffResult {
           type: f.type,
           description: f.description,
           categoryId: f.category_id,
-          cells: versions.map(() => ({ amount: null, ivaRate: null, description: null })),
+          cells: versions.map(() => ({ amount: null, ivaRate: null, description: null, origin: normalizeOrigin({}) })),
+          changedOriginFields: [],
           hasDifferences: false,
         };
         rowsById.set(f.id, row);
       }
       row.cells[idx] = {
+        origin: normalizeOrigin(f),
         amount: Number(f.amount) || 0,
         ivaRate: Number(f.iva_rate) || 0,
         description: f.description,
@@ -105,6 +110,7 @@ export function buildMultiDiff(input: MultiDiffInput): MultiDiffResult {
 
   // Compute hasDifferences per row.
   for (const row of rowsById.values()) {
+    row.changedOriginFields = changedOriginFields(row.cells.filter(c => c.amount !== null).map(c => c.origin));
     const presentAmounts = row.cells
       .map((c) => c.amount)
       .filter((a): a is number => a !== null);
@@ -115,7 +121,7 @@ export function buildMultiDiff(input: MultiDiffInput): MultiDiffResult {
     }
     const min = Math.min(...presentAmounts);
     const max = Math.max(...presentAmounts);
-    row.hasDifferences = Math.abs(max - min) >= 0.005;
+    row.hasDifferences = Math.abs(max - min) >= 0.005 || row.changedOriginFields.length > 0;
   }
 
   // Group rows by L2 category.
@@ -172,4 +178,11 @@ export function buildMultiDiff(input: MultiDiffInput): MultiDiffResult {
       rowCount: rowsById.size,
     },
   };
+}
+
+/** Projection used by the modal after reading bp_versions.snapshot_payload. */
+export function mapComparisonSnapshots(
+  versions: MultiDiffVersionMeta[], payloads: Record<string, { forecasts?: ForecastSnapshot[] } | null> | undefined,
+): Record<string, ForecastSnapshot[]> {
+  return Object.fromEntries(versions.map(v => [v.id, payloads?.[v.id]?.forecasts ?? []]));
 }

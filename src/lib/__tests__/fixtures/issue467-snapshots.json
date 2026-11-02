@@ -1,0 +1,10 @@
+{
+  "v1": {"forecasts": [
+    {"id":"fx-line","type":"expense","description":"Serviço fictício","specification":null,"amount":20,"iva_rate":23,"status":"approved","category_id":null,"currency":"BRL","original_amount":110,"fx_rate":"0.181818","fx_rate_source":"fixture-a"},
+    {"id":"legacy-line","type":"income","description":"Receita fictícia","specification":null,"amount":100,"iva_rate":23,"status":"approved","category_id":null}
+  ]},
+  "v2": {"forecasts": [
+    {"id":"fx-line","type":"expense","description":"Serviço fictício","specification":null,"amount":20,"iva_rate":23,"status":"approved","category_id":null,"currency":"BRL","original_amount":"120.00","fx_rate":"0.166667","fx_rate_source":"fixture-b"},
+    {"id":"legacy-line","type":"income","description":"Receita fictícia","specification":null,"amount":100,"iva_rate":23,"status":"approved","category_id":null}
+  ]}
+}
