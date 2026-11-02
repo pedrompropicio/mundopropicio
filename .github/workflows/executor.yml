@@ -337,4 +337,3 @@ jobs:
             echo "::error::SEM ENTREGA: o executor terminou sem alterações de produto."
             exit 1
           fi
-
