@@ -6576,3 +6576,10 @@ Origem: 0 · Cowork (Claude), 31/10/2026.
 
 - Uma Autorização de classe R2 com `ficheiros de migração` = sim permite ao executor (Codex por defeito) escrever só ficheiros: `drizzle/migrations/NNNN_*.sql` + cópia em `supabase/manual/` com rollback comentado, e código em `supabase/functions/`. Nada é aplicado: a aplicação em mp-homolog-3 e Live e o deploy das edge functions continuam a ser do 0 · Cowork com «Sim» por passo (PROC-promocao).
 - As restantes travas (autor, reserva do mesmo motor, validade, ambiente ≠ Live, caminhos `.github/`, `.lovable/`, `.env`, `drizzle/migrations/meta/`) mantêm-se.
+
+## D-ERP350 — Divisão do 0 · Cowork entre ChatGPT (dia-a-dia) e Claude (janelas) (02/11/2026, Pedro, «Avança agora» no 0 · Cowork Claude)
+
+- O **0 · Cowork (ChatGPT)** passa a orquestrar o dia-a-dia: triagem, Autorização/Reserva/Despacho ao executor (Codex por defeito, D-ERP348/349) pelo painel ou pelo conector GitHub, revisão por leitura dos PRs, fecho documental, Issues, DECISIONS.
+- O **0 · Cowork (Claude)** fica só para as janelas: Publish (`deploy_project` existe só deste lado), aplicação de migrações no mp-homolog-3 e em Live (PROC-promocao), deploy de edge functions e crons — sessões curtas, uma por janela, com os blocos preparados pelo ChatGPT.
+- Razão: custo. O Claude Code no executor e as sessões longas do Cowork consomem o limite da subscrição Claude; o Codex no executor custou $0,13 por tarefa (medido 01/11) e o ChatGPT Business tem créditos de workspace.
+- A fonte continua a ser o GitHub (D-ERP278): nada vive só na memória de um chat. Estado de passagem: Issue #435 (janela de 01/11) e docs/prompts/arranque-0-cowork-chatgpt-2026-11-02.md.
