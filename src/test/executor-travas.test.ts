@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { avaliarDespacho, caminhosProibidos, executorDe, limiteDaValidade, mergeAutomaticoDe, type Comentario } from "@/lib/executor/travas";
+import { avaliarDespacho, caminhosProibidos, executorDe, limiteDaValidade, mergeAutomaticoDe, textoRecusa, type Comentario } from "@/lib/executor/travas";
 
 const PEDRO = "pedrompropicio";
 const agora = new Date("2026-11-02T10:00:00Z");
@@ -82,6 +82,42 @@ describe("travas E2b (#417)", () => {
     expect(d.ok).toBe(true);
     expect(d.executor).toBe("claude-code");
     expect(d.tarefa).toContain("Acrescentar um teste");
+    expect(d.preparacaoR2).toBe(false);
+  });
+
+  it.each(["R1", "R2"])("aceita %s com capacidade de preparação explícita", (classe) => {
+    const cs = base();
+    cs[0].corpo = autorizacao({ classe }).replace("`codigo+testes` = sim", "`codigo+testes` = sim · `ficheiros de migração` = sim");
+    const d = avaliarDespacho(900, cs, 9, agora);
+    expect(d.ok).toBe(true);
+    expect(d.preparacaoR2).toBe(true);
+  });
+
+  it("recusa R2 sem capacidade e publica o motivo explícito", () => {
+    const cs = base();
+    cs[0].corpo = autorizacao({ classe: "R2" });
+    const d = avaliarDespacho(900, cs, 9, agora);
+    expect(d.ok).toBe(false);
+    expect(d.preparacaoR2).toBe(false);
+    expect(textoRecusa(900, d.motivos, "run-local")).toContain(
+      "classe R2 só com `ficheiros de migração` = sim (preparação sem aplicar)",
+    );
+  });
+
+  it.each(["DDL", "DML", "edge functions", "crons", "envios externos", "Publish", "desconhecida"])(
+    "preparação não liberta %s", (cap) => {
+      const cs = base();
+      cs[0].corpo = autorizacao({ classe: "R2", caps: "`codigo+testes` = sim · `ficheiros de migração` = sim · `" + cap + "` = sim" });
+      expect(avaliarDespacho(900, cs, 9, agora).ok).toBe(false);
+    },
+  );
+
+  it("preparação só abre os caminhos e extensões autorizados", () => {
+    const permitidos = ["drizzle/migrations/0304_x.sql", "supabase/manual/0304_x.sql", "supabase/functions/x/index.ts", "supabase/functions/x/deno.json", "supabase/functions/x/README.md"];
+    const proibidos = ["drizzle/migrations/meta/_journal.json", "supabase/migrations/x.sql", ".github/workflows/a.yml", "supabase/config.toml", ".lovable/x.md", ".env", "scripts/foo-live.txt", "supabase/functions/x/.env.ts", "supabase/functions/x/test.sql", "supabase/functions/../config.json", "drizzle/migrations/meta/x.sql", "supabase/manual/sub/x.sql"];
+    expect(caminhosProibidos([...permitidos, ...proibidos], { preparacaoR2: true })).toEqual(proibidos);
+    expect(caminhosProibidos(permitidos)).toEqual(permitidos);
+    expect(caminhosProibidos(permitidos, { preparacaoR2: false })).toEqual(permitidos);
   });
 
   it("recusa sem autorização", () => {
@@ -94,7 +130,7 @@ describe("travas E2b (#417)", () => {
     cs[0].corpo = autorizacao({ caps: "`codigo+testes` = sim · `DDL` = sim", classe: "R2" });
     const m = avaliarDespacho(900, cs, 9, agora).motivos.join();
     expect(m).toMatch(/DDL/);
-    expect(m).toMatch(/R1/);
+    expect(m).toContain("classe R2 só com `ficheiros de migração` = sim (preparação sem aplicar)");
   });
 
   it("recusa autorização expirada ou sem data", () => {
