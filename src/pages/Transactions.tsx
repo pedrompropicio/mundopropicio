@@ -3,7 +3,9 @@ const DataEntryDialog = lazy(() => import("@/components/data-entry/DataEntryDial
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
-import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
+import { formatCurrency as formatLegacyCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
 import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff, FileText, SlidersHorizontal, ArrowDownAZ, BookOpen, Receipt } from "lucide-react";
 import { TransactionFiltersPanel } from "@/components/TransactionFiltersPanel";
@@ -56,7 +58,22 @@ const extractRefundCodeFromPaymentDescription = (description?: string | null) =>
   return match?.[1] ?? null;
 };
 
+// Resolve monetary notices when rendering, including an active-company change
+// while the confirmation is open. Non-monetary notices remain plain strings.
+type DeleteWarning = string | ((money: (value: number) => string) => string);
+
 export default function Transactions() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+  const formatDeleteCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? `${value.toFixed(2)} €`
+      : formatMoney(value, companyLocale);
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [viewMode, setViewMode] = useState<"open" | "paid">("open");
   const [duePeriod, setDuePeriod] = useState<"day" | "week" | "month" | "all" | "range">("all");
@@ -99,7 +116,7 @@ export default function Transactions() {
   /** (#147) Liquidação de uma FATURA AGRUPADA completa, vinda do modal individual. */
   const [groupBatch, setGroupBatch] = useState<{ txs: any[]; ref: string; date?: string } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteWarnings, setDeleteWarnings] = useState<string[]>([]);
+  const [deleteWarnings, setDeleteWarnings] = useState<DeleteWarning[]>([]);
   const [deleteChecked, setDeleteChecked] = useState(false);
   const [deleteGroupSiblings, setDeleteGroupSiblings] = useState<
     { id: string; description: string | null; amount: number; date: string | null; due_date: string | null }[]
@@ -585,7 +602,7 @@ export default function Transactions() {
 
   // Check for dependent records before deleting
   const checkDependencies = async (id: string) => {
-    const warnings: string[] = [];
+    const warnings: DeleteWarning[] = [];
     const { data: tx } = await supabase
       .from("transactions")
       .select("status, paid_amount")
@@ -593,7 +610,7 @@ export default function Transactions() {
       .maybeSingle();
     if (tx?.status === "paid" || Number(tx?.paid_amount ?? 0) > 0) {
       warnings.push(
-        `⚠️ Transação já liquidada (${Number(tx?.paid_amount ?? 0).toFixed(2)} €) — todos os pagamentos registados serão também eliminados. Esta ação NÃO repõe o saldo da conta financeira automaticamente.`,
+        (money) => `⚠️ Transação já liquidada (${money(Number(tx?.paid_amount ?? 0))}) — todos os pagamentos registados serão também eliminados. Esta ação NÃO repõe o saldo da conta financeira automaticamente.`,
       );
     }
     const { data: payItems } = await supabase.from("payment_list_items").select("id, payment_list_id").eq("transaction_id", id);
@@ -611,7 +628,7 @@ export default function Transactions() {
     const { data: creditUsages } = await supabase.from("supplier_credit_usages").select("id, amount").eq("transaction_id", id);
     if (creditUsages && creditUsages.length > 0) {
       const total = creditUsages.reduce((s, c) => s + Number(c.amount), 0);
-      warnings.push(`Tem ${creditUsages.length} uso(s) de crédito de fornecedor (${total.toFixed(2)} €) — serão revertidos`);
+      warnings.push((money) => `Tem ${creditUsages.length} uso(s) de crédito de fornecedor (${money(total)}) — serão revertidos`);
     }
     const { data: children } = await fetchAllPagedQuery(supabase.from("transactions").select("id").eq("parent_transaction_id", id));
     if (children && children.length > 0) {
@@ -2203,7 +2220,7 @@ export default function Transactions() {
                   <div className="rounded-md border border-warning/30 bg-warning/10 p-3 space-y-1">
                     <p className="text-xs font-semibold text-warning">⚠️ Atenção — esta transação tem vínculos:</p>
                     <ul className="text-xs text-warning list-disc pl-4 space-y-0.5">
-                      {deleteWarnings.map((w, i) => <li key={i}>{w}</li>)}
+                      {deleteWarnings.map((w, i) => <li key={i}>{typeof w === "string" ? w : w(formatDeleteCurrency)}</li>)}
                     </ul>
                   </div>
                 )}
@@ -2216,7 +2233,10 @@ export default function Transactions() {
                       {deleteGroupSiblings.map((s) => (
                         <li key={s.id}>
                           {s.description ?? "(sem descrição)"} — {s.date ?? s.due_date ?? "sem data"} —{" "}
-                          {Number(s.amount).toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                          {companyLocale.status !== "available" ? "—"
+                            : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+                              ? `${Number(s.amount).toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+                              : formatMoney(Number(s.amount), companyLocale)}
                         </li>
                       ))}
                     </ul>

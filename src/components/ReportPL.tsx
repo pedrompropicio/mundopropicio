@@ -6,7 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
-import { formatCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, BarChart3, AlertTriangle, History } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -527,6 +529,12 @@ function buildPL(
 }
 
 export default function ReportPL() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [expandedAuditLines, setExpandedAuditLines] = useState<Set<string>>(new Set());
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
@@ -1119,12 +1127,12 @@ export default function ReportPL() {
                          <TableRow>
                           <TableHead>Rubrica</TableHead>
                           <TableHead className="text-right">Qtd</TableHead>
-                          <TableHead className="text-right">Preço Unit. (€)</TableHead>
-                          <TableHead className="text-right">Valor s/ IVA (€)</TableHead>
-                          <TableHead className="text-right">IVA (€)</TableHead>
-                          <TableHead className="text-right">Total (€)</TableHead>
-                          {mode === "comparison" && <TableHead className="text-right">Real s/ IVA (€)</TableHead>}
-                          {mode === "comparison" && <TableHead className="text-right">Variação (€)</TableHead>}
+                          <TableHead className="text-right">Preço Unit. ({companyLocale.status === "available" ? companyLocale.symbol : "—"})</TableHead>
+                          <TableHead className="text-right">Valor s/ IVA ({companyLocale.status === "available" ? companyLocale.symbol : "—"})</TableHead>
+                          <TableHead className="text-right">IVA ({companyLocale.status === "available" ? companyLocale.symbol : "—"})</TableHead>
+                          <TableHead className="text-right">Total ({companyLocale.status === "available" ? companyLocale.symbol : "—"})</TableHead>
+                          {mode === "comparison" && <TableHead className="text-right">Real s/ IVA ({companyLocale.status === "available" ? companyLocale.symbol : "—"})</TableHead>}
+                          {mode === "comparison" && <TableHead className="text-right">Variação ({companyLocale.status === "available" ? companyLocale.symbol : "—"})</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
