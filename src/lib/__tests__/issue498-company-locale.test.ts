@@ -34,6 +34,8 @@ describe("#498 — contexto puro da empresa", () => {
         taxId: "NIF", invoice: "Fatura", bankAccount: "IBAN", budget: "Orçamento (€)",
         invoiceRef: "Nº Fatura", invoiceRefPlaceholder: "Ex: FT 002/5944",
         invoiceRefHelp: "Transações com o mesmo nº de fatura serão agrupadas automaticamente",
+        address: "Morada", taxIdAny: "NIF",
+        accountingAccountHelp: "Desligue para contas puramente gerenciais (ex.: pagamentos feitos fora de Portugal por um sócio). Os movimentos e documentos dessa conta deixam de entrar nas exportações para a contabilidade. Saldos e extratos não são afetados.",
       },
       capabilities: { iva: true, sepa: true, irsWithholding: true }, ivaPolicy: "pt",
     });
@@ -46,6 +48,8 @@ describe("#498 — contexto puro da empresa", () => {
         taxId: "CNPJ", invoice: "Nota fiscal", bankAccount: "Conta bancária", budget: "Orçamento (R$)",
         invoiceRef: "Nota Fiscal/Doc", invoiceRefPlaceholder: "Ex: NF 12345",
         invoiceRefHelp: "Transações com o mesmo nº de documento serão agrupadas automaticamente",
+        address: "Endereço", taxIdAny: "CNPJ/CPF",
+        accountingAccountHelp: "Desligue para contas puramente gerenciais (ex.: pagamentos feitos fora do Brasil por um sócio). Os movimentos e documentos dessa conta deixam de entrar nas exportações para a contabilidade. Saldos e extratos não são afetados.",
       },
       capabilities: { iva: false, sepa: false, irsWithholding: false }, ivaPolicy: "none",
     });

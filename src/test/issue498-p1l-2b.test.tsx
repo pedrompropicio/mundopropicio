@@ -218,8 +218,8 @@ describe("#498 P1l-2b — rótulos autorizados", () => {
     expect(label.textContent).not.toMatch(ivaLabels);
     // Acceptance gap: this other label comes from shareOriginRows in the
     // explicitly excluded partner-contracts.ts. Do not mask or mock it away.
-    expect(screen.getByText(`= Resultado do fechamento (${withVat ? "c/IVA" : "s/IVA"})`)).toBeInTheDocument();
-    expect(document.body.innerHTML).toMatch(ivaLabels);
+    expect(screen.getByText(`= Resultado do fechamento (base ${withVat ? "bruta" : "líquida"})`)).toBeInTheDocument();
+    expect(document.body.innerHTML).not.toMatch(ivaLabels);
   });
 
   it.each([true, false])("BR: origem congelada também conserva o rótulo fora de âmbito; bruto=%s", withVat => {
@@ -231,7 +231,7 @@ describe("#498 P1l-2b — rótulos autorizados", () => {
       frozen_values: buildFreezeValues(participant, node) };
     openScreen("payment");
     expect(screen.getByText("Parte congelada:", { exact: false })).toBeInTheDocument();
-    expect(screen.getByText(`= Resultado do fechamento (${withVat ? "c/IVA" : "s/IVA"})`)).toBeInTheDocument();
+    expect(screen.getByText(`= Resultado do fechamento (base ${withVat ? "bruta" : "líquida"})`)).toBeInTheDocument();
   });
 
   it("BR: base da despesa, overhead e colunas do documento continuam funcionais", () => {

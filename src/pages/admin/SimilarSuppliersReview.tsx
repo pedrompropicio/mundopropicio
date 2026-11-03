@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,8 @@ const SOURCE_LABEL: Record<Flag["source"], string> = {
 /** D-ERP201 — pares de fornecedores parecidos criados em lote, por rever. Fusão é manual. */
 export default function SimilarSuppliersReview() {
   const { role, user } = useAuth() as any;
+  const companyLocale = useCompanyLocale();
+  const taxIdAny = companyLocale.status === "available" ? companyLocale.labels.taxIdAny : "NIF";
   const ok = role === "admin" || role === "platform_admin" || role === "manager";
   const qc = useQueryClient();
 
@@ -69,7 +72,7 @@ export default function SimilarSuppliersReview() {
   if (!ok) return <Navigate to="/admin" replace />;
   const label = (id: string) => {
     const s = data?.names.get(id);
-    return s ? `${s.name}${s.nif ? ` (NIF ${s.nif})` : ""}${s.is_active ? "" : " · inativo"}` : id;
+    return s ? `${s.name}${s.nif ? ` (${taxIdAny} ${s.nif})` : ""}${s.is_active ? "" : " · inativo"}` : id;
   };
 
   return (
@@ -79,7 +82,7 @@ export default function SimilarSuppliersReview() {
           <Users className="h-6 w-6 text-warning" /> Fornecedores parecidos
         </h1>
         <p className="text-sm text-muted-foreground mt-1 max-w-3xl">
-          Fornecedores criados em lote (importação de patrocinadores, sync Coala) com nome ou NIF parecido a outro.
+          Fornecedores criados em lote (importação de patrocinadores, sync Coala) com nome ou {taxIdAny} parecido a outro.
           A junção das fichas continua manual.
         </p>
       </div>
@@ -113,7 +116,7 @@ export default function SimilarSuppliersReview() {
                   <TableRow key={f.id}>
                     <TableCell className="text-sm">{label(f.supplier_id)}</TableCell>
                     <TableCell className="text-sm">{label(f.similar_supplier_id)}</TableCell>
-                    <TableCell><Badge variant="outline">{f.motivo === "nif" ? "mesmo NIF" : "nome parecido"}</Badge></TableCell>
+                    <TableCell><Badge variant="outline">{f.motivo === "nif" ? `mesmo ${taxIdAny}` : "nome parecido"}</Badge></TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {SOURCE_LABEL[f.source]} · {formatDatePT(f.created_at.slice(0, 10))}
                     </TableCell>

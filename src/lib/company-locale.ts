@@ -24,6 +24,9 @@ export interface CompanyLocale {
     invoiceRefHelp: string;
     bankAccount: string;
     budget: string;
+    address: string;
+    taxIdAny: string;
+    accountingAccountHelp: string;
   };
   capabilities: { iva: boolean; sepa: boolean; irsWithholding: boolean };
   /** 'pt' preserves the existing event-city rules, including events in Spain. */
@@ -71,6 +74,8 @@ export function resolveCompanyLocale(company: CompanyLocaleInput): CompanyLocale
         taxId: "CNPJ", invoice: "Nota fiscal", bankAccount: "Conta bancária", budget: `Orçamento (${symbol})`,
         invoiceRef: "Nota Fiscal/Doc", invoiceRefPlaceholder: "Ex: NF 12345",
         invoiceRefHelp: "Transações com o mesmo nº de documento serão agrupadas automaticamente",
+        address: "Endereço", taxIdAny: "CNPJ/CPF",
+        accountingAccountHelp: "Desligue para contas puramente gerenciais (ex.: pagamentos feitos fora do Brasil por um sócio). Os movimentos e documentos dessa conta deixam de entrar nas exportações para a contabilidade. Saldos e extratos não são afetados.",
       },
       capabilities: { iva: false, sepa: false, irsWithholding: false },
       ivaPolicy: "none",
@@ -86,6 +91,8 @@ export function resolveCompanyLocale(company: CompanyLocaleInput): CompanyLocale
       taxId: "NIF", invoice: "Fatura", bankAccount: "IBAN", budget: `Orçamento (${symbol})`,
       invoiceRef: "Nº Fatura", invoiceRefPlaceholder: "Ex: FT 002/5944",
       invoiceRefHelp: "Transações com o mesmo nº de fatura serão agrupadas automaticamente",
+      address: "Morada", taxIdAny: "NIF",
+      accountingAccountHelp: "Desligue para contas puramente gerenciais (ex.: pagamentos feitos fora de Portugal por um sócio). Os movimentos e documentos dessa conta deixam de entrar nas exportações para a contabilidade. Saldos e extratos não são afetados.",
     },
     capabilities: { iva: true, sepa: currency === "EUR", irsWithholding: true },
     ivaPolicy: "pt",
