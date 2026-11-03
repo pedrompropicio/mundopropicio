@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { companyHasIva } from "@/lib/company-locale";
 import { masterFormulaAmountForCity } from "@/lib/master-formula";
 import { loadMasterFormulaExpenseSlicesFor } from "@/lib/master-formula-load";
 import { useQuery } from "@tanstack/react-query";
@@ -218,6 +220,7 @@ interface BoxOfficeSettlementRow {
 }
 
 export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Props) {
+  const hasIva = companyHasIva(useCompanyLocale());
   // Quando estamos no Master de uma turnê, o encontro de contas tem de
   // consolidar receitas/despesas/bilheteira de TODOS os eventos (Master +
   // sub-eventos). Em evento simples este array fica só com o próprio id.
@@ -265,6 +268,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // Critério de fecho (IVA · base · overhead). Valor inicial do
   // IVA vem de partner_calc_basis; o toggle nunca escreve nesse campo.
   const basis = useFechoBasis(eventId, event?.partner_calc_basis);
+  const criterionLabel = hasIva ? describeFechoBasis(basis) : describeFechoBasis(basis).replace(/ [cs]\/IVA/g, "");
 
   // Motor dos apuramentos — dá o perímetro e a quota do pai do nó activo (#146 (e2)).
   const engine = useEventSettlementEngine(eventId);
@@ -1185,7 +1189,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       effectivePercentage,
       expenseIncludesIva: override,
       usesGrossExpenses,
-      expenseBasisLabel,
+      expenseBasisLabel: hasIva ? expenseBasisLabel : expenseBasisLabel.replace(/ [cs]\/IVA/g, ""),
       calcBasis,
       revenue,
       expenses,
@@ -1623,7 +1627,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     exportPartnerSettlementInternalPdf({
       eventName,
       settlementName,
-      criterion: describeFechoBasis(basis),
+      criterion: criterionLabel,
       companyName: branding.displayName,
       logoDataUrl: branding.logoDataUrl,
       overview,
@@ -2059,12 +2063,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       <div className="glass rounded-xl p-4 space-y-3">
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Receita (s/IVA)</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">{hasIva ? "Receita (s/IVA)" : "Receita"}</p>
             <p className="text-xl font-bold font-mono text-success">{formatCurrency(totalRevenueNet)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">
-              Despesas ({basis.withVat ? "c/IVA" : "s/IVA"})
+              {hasIva ? `Despesas (${basis.withVat ? "c/IVA" : "s/IVA"})` : "Despesas"}
             </p>
             <p className="text-xl font-bold font-mono text-destructive">{formatCurrency(expenseBase)}</p>
           </div>
@@ -2075,7 +2079,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             </p>
           </div>
         </div>
-        <p className="text-[10px] text-muted-foreground">{describeFechoBasis(basis)}</p>
+        <p className="text-[10px] text-muted-foreground">{criterionLabel}</p>
         {hasMixedExpenseBases && (
           <p className="mt-1 text-[10px] leading-snug text-amber-600 dark:text-amber-500">{mixedBasesNote}</p>
         )}
@@ -2095,7 +2099,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             <TableHeader>
               <TableRow>
                 <TableHead>Cidade</TableHead>
-                <TableHead className="text-right">Receita s/IVA</TableHead>
+                <TableHead className="text-right">{hasIva ? "Receita s/IVA" : "Receita"}</TableHead>
                 <TableHead className="text-right">Despesas</TableHead>
                 <TableHead className="text-right">Resultado</TableHead>
               </TableRow>
@@ -2458,7 +2462,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           <Table>
             <TableBody>
               <TableRow>
-                <TableCell className="text-sm font-medium">Resultado do evento (s/IVA)</TableCell>
+                <TableCell className="text-sm font-medium">{hasIva ? "Resultado do evento (s/IVA)" : "Resultado do evento"}</TableCell>
                 <TableCell className="text-right font-mono font-bold">{formatCurrency(resultRealNet)}</TableCell>
               </TableRow>
               {settlements
