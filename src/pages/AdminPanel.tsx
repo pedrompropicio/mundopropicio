@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import SystemRemindersBanner from "@/components/SystemRemindersBanner";
 import { CompanyBudgetModeCard } from "@/components/CompanyBudgetModeCard";
 
-const adminCards = (bankAccount: string, taxIdAny: string) => [
+const adminCards = (bankAccount: string, taxIdAny: string, isPlatformAdmin: boolean) => [
   {
     need: "settings.users",
     to: "/admin/utilizadores",
@@ -113,7 +113,7 @@ const adminCards = (bankAccount: string, taxIdAny: string) => [
     title: "Fornecedores parecidos",
     description: `Fornecedores criados em lote com nome ou ${taxIdAny} parecido a outro, por rever`,
   },
-  {
+  ...(isPlatformAdmin ? [{
     to: "/admin/invariantes",
     icon: ShieldCheck,
     title: "Verificador de Invariantes",
@@ -130,7 +130,7 @@ const adminCards = (bankAccount: string, taxIdAny: string) => [
     icon: MessageCircleQuestion,
     title: "Lacunas do manual",
     description: "Rever perguntas sem resposta ou com baixa confiança e acompanhar a cobertura do manual",
-  },
+  }] : []),
   {
     need: "settings.audit_log",
     to: "/admin/audit-downloads",
@@ -150,7 +150,7 @@ export default function AdminPanel() {
   const { hasPermission } = useAuth();
 
   const cards = [
-    ...adminCards(bankAccount, taxIdAny).filter((c: { need?: string }) => !c.need || hasPermission(c.need)),
+    ...adminCards(bankAccount, taxIdAny, isPlatformAdmin).filter((c: { need?: string }) => !c.need || hasPermission(c.need)),
     ...(isPlatformAdmin
       ? [{
           to: "/admin/empresas",
