@@ -2,6 +2,13 @@
 
 Atualizado: 28/10/2026 — #391 (Compromisso em transações, ⓘ e guia) pronto para Publish após CI, não publicado. 0286 (reembolso: pagamento fora do resultado, D-ERP329) aplicada e verificada em Live, modal atualizado, sem Publish. Participação Cloudscape (1.3.05) no Resultado da MP (D-ERP328, R1): pronto para Publish, não publicado. P5b p5-v3 e P6b (cachês/retido/Resultado MP) prontos para Publish/Verificação em Live; P6a/P6a-fix não publicados; P4/P4b em Live.
 
+### Social Music — oito categorias aprovadas (#593, 03/11/2026)
+
+- Aplicação direta autorizada pelo Pedro após revisão do PDF: oito INSERTs de cadastro na Social Music, identidade confirmada por slug e BR/BRL; Social Artists é outra empresa.
+- Criadas e conferidas por SELECT próprio: 1.1.05 Receita de Estacionamento; 1.2.08 Cessão de Espaços Comerciais; 1.2.09 Comissão de Captação de Patrocínios; 2.6.17 Perdas Operacionais de Caixa; 10.4.10 Pró-labore; 10.4.11 13.º Salário; 10.4.12 Férias e Adicional de Férias; 10.6.06 Taxas de Antecipação de Recebíveis (financeiro para EBITDA).
+- Pais L2 existentes, receitas/Operação exigem evento conforme pai; 10.4/10.6 não exigem. Sem alocação automática. As 209 categorias anteriores da Social Music e todas as categorias MP/Coala mantiveram conteúdo idêntico (hash por empresa antes/depois, excluindo somente os oito IDs criados). Social Music 209→217, incluindo inativas.
+- Sem DDL, código, agente, despacho E2b, Publish ou alteração de transações/BP. Reserva por comentário D-ERP345 libertada na Issue. Documento de origem: plano aprovado pelo Pedro nesta sessão; prova e SQL em docs/testes/issue593-categorias-social-music.md. Fecho documental em branch separada.
+
 ## Em que pé está
 
 ### Acesso da contabilista a faturas legadas (28/10/2026, D-ERP332, #352)
