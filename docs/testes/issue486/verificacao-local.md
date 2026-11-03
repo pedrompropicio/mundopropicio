@@ -1,4 +1,6 @@
-# #486 D1-C3 — verificação de preparação
+# #486 D23 — verificação de preparação
+
+> D23: a proveniência D1 abaixo é conservada como registo da base recebida. Esta execução usa o checkout main b3ee491 e o contrato do despacho; não recuperou o anexo #506. A entrega efetiva e as lacunas estão em dossier.md.
 
 Nenhum SQL novo foi executado, compilado ou ensaiado. O programa abaixo só lê/escreve texto nos caminhos autorizados: deriva as identidades das 35 definições, compara o manifesto integralmente e regenera TSV/pós/rollback/cópia com `--write`. Não é parser PostgreSQL nem prova de catálogo instalado. A comparação PostgreSQL continua exata (`IS NOT DISTINCT FROM`), incluindo a ordem de `proconfig`; não se removem aspas de um catálogo divergente.
 
@@ -159,19 +161,21 @@ if __name__ == '__main__':
     main('--write' in sys.argv)
 ```
 
-## Resultado local efetivo
+## Resultado local efetivo D23
 
-- Verificador Python acima: PASS35 funções e sete adulterações isoladas, incluindo a identidade do setter; migração/cópia/pós/rollback/TSV coerentes.
-- Delimitadores dollar-quote, condicionais psql e includes locais: conferidos como texto; não constituem parsing/compilação PostgreSQL.
-- `bunx -p @typescript/native-preview tsgo -p tsconfig.app.json --noEmit`: exit0, sem diagnósticos.
-- `bunx vitest run`: exit0;346 ficheiros aprovados,2 ignorados;3.612 testes aprovados,6 skips e11 TODO; duração211,02s. Nenhum teste, expectativa ou configuração TS foi alterado. Esta suíte não executa o candidato0305 nem os roteiros SQL novos.
-- Migração e cópia SHA256 `2cf6d79d60d21b3d43f9f9986d8729716f83bb42dff233e54805847a82a2ac4d`.
-- Duas alterações comportamentais adicionais à correção do manifesto: prévia recusa BP EUR com fx_rate diferente de1; conversão v0 aguarda também event_forecasts em SHARE para o unlink já dentro de UPDATE. Contrato, casos C3 e identidades/rollback acompanham ambas.
-- Nenhum SQL novo executado, ligação a bases/serviços MP, deploy, ativação, commit/push/merge ou publicação efetuados.
+- Verificador Python acima: PASS das 35 funções, controlos positivos e sete adulterações; cópia/pós/rollback/TSV coerentes, sem executar SQL.
+- Base: tsgo exit0; Vitest 3.666 PASS/6 skips/11 TODO existentes,348 ficheiros aprovados/2 ignorados.
+- D23: 77 testes novos confirmados na suíte integral final, incluindo CAS stale e reversão observada antes do upload; nenhum skip/TODO novo.
+- Fecho final: `bunx -p @typescript/native-preview tsgo -p tsconfig.app.json --noEmit` exit 0; verificação suplementar dos dois entrypoints com tipos locais/declaração Deno em /tmp exit 0.
+- Duas corridas integrais com paralelismo padrão tiveram apenas o timeout de 5 s no teste preexistente #359 “guarda aborta sem as colunas da A”; primeira 3.726 PASS/1 FAIL, segunda 3.740 PASS/1 FAIL; expectativas, limites e ficheiro #359 não foram alterados.
+- Repetição integral final `bunx vitest run --maxWorkers=1`: exit 0, 355 ficheiros aprovados/2 ignorados; 3.743 testes passados/6 skips/11 TODO preexistentes; duração 361,83 s. Esse parâmetro só limita paralelismo, sem alterar expectativas/limites. A repetição serial anterior passou 3.741 testes antes dos dois casos finais.
+- Migração/cópia finais SHA256 1a0620a35696feb399c48a277743fbb1cec4b20db83944b6c2f0089fc2241d82; hash de partida conferido 2cf6d79d60d21b3d43f9f9986d8729716f83bb42dff233e54805847a82a2ac4d.
+- Alterações SQL D23: Master do plano para set_split importado; preflight interno antes de Storage; classificação TikTok após atestação dentro da guarda/contexto attest. Roteiros preparados, sem prova PostgreSQL.
+- Nenhum SQL candidato executado, base/serviço MP/Live acedido, deploy/ativação/Publish/commit/push/merge efetuado.
 
 ## Inventário de artefactos finais
 
-Hashes SHA256 dos25 ficheiros de preparação abaixo. Este documento e `.executor/resumo.md` são excluídos da tabela para evitar autorreferência; a migração e a cópia têm o mesmo hash. O TSV discrimina as35 funções, não certifica catálogo instalado.
+Os 48 artefactos autorizados existentes abaixo incluem fontes D1 conservadas e implementação D23. Este ficheiro e resumo são excluídos para evitar autorreferência; nenhuma identidade/hash constitui prova de execução PostgreSQL.
 
 | Caminho | Bytes | SHA256 |
 |---|---:|---|
@@ -183,24 +187,47 @@ Hashes SHA256 dos25 ficheiros de preparação abaixo. Este documento e `.executo
 | `docs/testes/issue486/concorrencia-legado-b.sql` | 4250 | `724dad6f09e25a9bb9a1ef065ed2e882d1b260605a7787ed366664e92e481cda` |
 | `docs/testes/issue486/concorrencia-setup.sql` | 8119 | `06c13b994e716abebb57bb0bb38de3f346a77a397a727acb06299345523f9673` |
 | `docs/testes/issue486/concorrencia.md` | 8575 | `aed6a9bd4dbb9addac1924e066061a898844f972339a5ccc102d858c52036d78` |
-| `docs/testes/issue486/contrato-d1.md` | 22080 | `128fbe1b70d6e351703ac72e8bce3ed9c38ef25b4c2eae98b2478c9b15cefc6f` |
+| `docs/testes/issue486/contrato-d1.md` | 23108 | `71a29b53a46225e6a35b48b7c71fb639d0c42924ca9ab3cf2350443b0f03a047` |
+| `docs/testes/issue486/dossier.md` | 10930 | `b2acaa085e7808631374b95f6ec08d4517ebadbd1284650c7fc1ce8e4bd091c5` |
 | `docs/testes/issue486/fixture.sql` | 16583 | `02ceca6e962f5caa6083a1dc57db6fd29ef3a45e73d2e2a18de085f12339002b` |
-| `docs/testes/issue486/function-identities.tsv` | 8769 | `6784072af30d0c81bd8b24bda2ee442b325db6294621b51574b406cd15abdf18` |
-| `docs/testes/issue486/plano.md` | 12788 | `54e0b142bfd414712dc95d413f8fc888e770203bc65ba036c215c38c8b2ae50f` |
-| `docs/testes/issue486/pos-verificacoes.sql` | 13718 | `70947f6e1bbcc1b999df5e7c3650611a3a29303e89d5b64c5dc0adfbe8790d77` |
-| `docs/testes/issue486/pre-verificacoes.sql` | 12897 | `16c76d2c4784985acc2b49a6d4fb56cca4e3de0f7d91a02c6a41890a213115ef` |
-| `docs/testes/issue486/proposta-memoria.md` | 3520 | `f15b1f3047cfaa616215c83b5f2ed40f0d2995cbebe4664cdf1cc490dfd7d8f9` |
-| `docs/testes/issue486/rollback-ensaio.md` | 7005 | `729dcc9580eb40f29b722564362df939de449d4ede8a49c8b2f251e825eaeb06` |
-| `docs/testes/issue486/sintetico-destinos.sql` | 20234 | `f200a141d3b4dbebce34fb4eec4e74c7e4a27728df479d0a28fb15ee4fabf58e` |
-| `docs/testes/issue486/sintetico-documentos.sql` | 16791 | `9ad4e5eb9a1e324c03fdda4c9765f1dd8e9af6eedb6ce8c3c2429e27734d401f` |
+| `docs/testes/issue486/function-identities.tsv` | 8769 | `4e4f9fe6c47e3f9bb3c217eee89408907ebfb72dfda5620c8757e912d4cd97fc` |
+| `docs/testes/issue486/plano.md` | 13302 | `8a53c1960217798dba71b8e8feac6e92b37e52db2acd5659c455c804910c6a39` |
+| `docs/testes/issue486/pos-verificacoes.sql` | 13718 | `a9394887635ed2f95b53943ab8a9732353cbabbacd18c0592093980918d2968a` |
+| `docs/testes/issue486/pre-verificacoes.sql` | 13712 | `d64b43a244bf2f2336da7f0e8fe39b206da7e8c11fccc791ea21cc0b0e3ba23e` |
+| `docs/testes/issue486/proposta-memoria.md` | 4420 | `48f91b5c68b014572e300bf471c2231aaee3db6fe4b9f629f183afda4779910d` |
+| `docs/testes/issue486/rollback-ensaio.md` | 7543 | `74d093c0dba36aa90640f46dfee66259b98ff73ef9512a3f362986a043bf55cd` |
+| `docs/testes/issue486/sintetico-destinos.sql` | 21146 | `a018a478bd09ebf0caac0a19804c2597a314a1314668b5059ce51a505e7d5cd5` |
+| `docs/testes/issue486/sintetico-documentos.sql` | 18029 | `f49e1cf206a8843f7aa5c7bf0e927e0a0b7168d1f43e00ae31381cffcd0fc922` |
 | `docs/testes/issue486/sintetico-financeiro.sql` | 22336 | `f420e1925b4bdee4a09abfd408449348486a33696f676a6aeba0ea865f94ec03` |
-| `docs/testes/issue486/sintetico-parcela.sql` | 13309 | `8faa6ae8beaf6357c270729c3ac169485c08dbd5457c4f7782bf27edd031e175` |
+| `docs/testes/issue486/sintetico-parcela.sql` | 15252 | `b1e69eeba72e2b485c8749117c381d3781c6b909d3c75885f2d0b88390c92e0e` |
 | `docs/testes/issue486/sintetico-reversao.sql` | 8843 | `1fc2505cd14baf6253f7a64da7e1d53ea17c8dc8110d315f7e73eca63b75d872` |
 | `docs/testes/issue486/sintetico-writers.sql` | 28565 | `a4924928ec7ce78cb6dffe9a34833c558f891894f39aaba5c24162341285a9c5` |
-| `drizzle/migrations/0305_issue486_ads_invoice_generation.sql` | 160149 | `2cf6d79d60d21b3d43f9f9986d8729716f83bb42dff233e54805847a82a2ac4d` |
-| `supabase/manual/0305_issue486_ads_invoice_generation.sql` | 160149 | `2cf6d79d60d21b3d43f9f9986d8729716f83bb42dff233e54805847a82a2ac4d` |
-| `supabase/manual/rollback_0305_issue486_ads_invoice_generation.sql` | 18322 | `1dc8144ffbe866da60dd053315a08f3d77b4ac9d44cc5949c83faca4f2494345` |
+| `drizzle/migrations/0305_issue486_ads_invoice_generation.sql` | 161265 | `1a0620a35696feb399c48a277743fbb1cec4b20db83944b6c2f0089fc2241d82` |
+| `src/components/ads/AdsInvoiceDestinationSelect.tsx` | 2351 | `207b706dd13c90faf119ab312bdd585cea1ad786fcf9205c22673f86576551f5` |
+| `src/components/ads/AdsInvoiceGenerationDialog.tsx` | 18498 | `6cc390dbe4e2b51e30999fc1ed8096d43d1485a0a6c1e9c7bece736506546cb1` |
+| `src/components/ads/AdsInvoiceImportDialog.tsx` | 12162 | `9dc1309885e11e3ff68c4d6ddf6187d4eaf235dcb9b8726197429334e4f7807b` |
+| `src/components/ads/AdsTourSplitDialog.tsx` | 6720 | `b3c3b9063f8ceee25824c1c7d41cf42979ca9f0ee9e9417e730a085122f39d22` |
+| `src/integrations/supabase/types.ts` | 856870 | `80267c1bd882cd48be318d3ba630cd5d04f85792c759ac4f62382953b348884d` |
+| `src/lib/__tests__/ads-invoice-generation.test.ts` | 4624 | `121c2c15a8f766a5dd3dd6547b9c5cb09c2aebfe7eb32f39c45fc9485b93d64f` |
+| `src/lib/__tests__/ads-invoice-suggestions.test.ts` | 1264 | `50ce279a0f8ba6003fbb4ee0e40764e7c1089b2f121ee21e04eeb2338e1ac018` |
+| `src/lib/__tests__/ads-tour-split.test.ts` | 2156 | `206d1d8f13a66ee21503dd2202512e8e519a34d9f68206b448c328f049914ce8` |
+| `src/lib/ads-invoice-generation.ts` | 1889 | `84f0ec6e536bd6ab0e2481d7b4db3c73536d26f6107af4b20f547b61c07b097c` |
+| `src/lib/ads-invoice-messages.ts` | 4879 | `f4878b65260ed96a7cd5f194ba993d9c7d1691316f9f41decc74b4684cdf9a71` |
+| `src/lib/ads-invoice-suggestions.ts` | 920 | `162bf402476cef665fcd90495f6b1f8cf0e2efeb277fb18a74f506dfaa189685` |
+| `src/pages/AdsInvoices.tsx` | 10264 | `25efe25aad00fc8e20c27b7ba7245311d53d69a07324c670e6bfc16d42930a1e` |
+| `src/test/ads-invoice-documents.test.ts` | 8687 | `a3a93849946cb05bdfdc70d65d2c7c5dba28a508ca0dd4e5cec808f07aa2a2ad` |
+| `src/test/ads-invoice-generation-dialog.test.tsx` | 15958 | `953996adb2ff1c0448146df4a70a4384766940c9f431a187f4fcddf9560586a6` |
+| `src/test/ads-invoice-handlers.test.ts` | 17185 | `fd2ae3cab92a947f617d987c2b0068fa42a1f0173c74de65f2026d7a220cd876` |
+| `src/test/ads-invoice-import-retoma.test.tsx` | 4175 | `40b952d8c627e38927b11af243b3b9d5f54534377fccfe4e24fffa050975b7d7` |
+| `src/test/ads-invoice-source.test.ts` | 5880 | `7680b1410b0dafcaf2bf73ed7c6d01023e05f92382f8f460d5b3d6e594d8ec0d` |
+| `supabase/functions/_shared/ads-invoice-documents.ts` | 6147 | `9fde6c6d2913fdf30e8365a469843bc2fecc329f537760cab2a4326274bc2fb6` |
+| `supabase/functions/_shared/ads-invoice-generation.ts` | 15517 | `35098582e81a36693f681e7f59b7ca4fcaf8e19dbcf14c1778088492f0bd80d7` |
+| `supabase/functions/_shared/ads-invoice-source.ts` | 9313 | `181aa8a7f60b5de8056af63f85e7d1009ee2f5c0c7efff328362bbbf29172aea` |
+| `supabase/functions/ads-invoice-apply/index.ts` | 4556 | `2887924667645c65e021e394176dc7e7d5f5f64b77e591dbdf888e75618d723f` |
+| `supabase/functions/ads-invoice-ingest/index.ts` | 7141 | `a3ad1c8182ca507a415384be916e47d84813e7a2880b0fc7a2034f752cf23397` |
+| `supabase/manual/0305_issue486_ads_invoice_generation.sql` | 161265 | `1a0620a35696feb399c48a277743fbb1cec4b20db83944b6c2f0089fc2241d82` |
+| `supabase/manual/rollback_0305_issue486_ads_invoice_generation.sql` | 18322 | `e6c4e629c101c24d203b13c0a233231f43809271fd6ab1c25cd2deaad8a7b2d0` |
 
 ## Prova que permanece pendente
 
-A fonte pública versionada foi suficiente para esta preparação; não é um catálogo instalado. Compilação SQL, ensaio P1–P9, rollback, interações com todos os triggers transitivos, catálogo fiel e medição de contenção/limites reais exigem etapa própria. Os casos de pré-condições históricas de âncoras que os controlos atuais impedem não foram fabricados com stubs/disable. Ainda falta a reprodução fiel dessas pré-condições na etapa de ensaio. D3 deverá provar bytes/Storage/PDF/readback e drenagem real. CI do commit final, criação de PR e reconfirmação da fila/reserva/autorização ficam com runner/coordenador, mantendo merge automático desligado e enabled=false. Nenhum desses resultados é inferido dos testes TS ou deste inventário.
+A revisão do código, os testes TypeScript e os entrypoints com transportes sintéticos não compilam nem validam o catálogo PostgreSQL. P1–P9/rollback/catálogo/2s/15s/contenção global exigem a etapa própria autorizada. Os layouts reais de identidade e o primeiro PDF TikTok continuam sem certificação. O consumidor serial com claim durável e a limpeza via storage-trash ainda não estão ligados; testes de um port de claim sintético não provam exclusão entre instâncias. Drenagem de writers/HTTP/Storage antigos, quality remoto, instalação e ativação permanecem gates; enabled=false e merge automático não foi ativado pelo executor. Ver dossier.md e .executor/resumo.md.

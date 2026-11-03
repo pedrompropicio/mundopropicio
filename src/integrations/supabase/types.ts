@@ -182,6 +182,16 @@ export type Database = {
       }
       ads_invoice: {
         Row: {
+          generation_revision: number
+          generation_cycle: number
+          generation_plan: Json | null
+          generation_contract_version: number | null
+          source_file_sha256: string | null
+          source_attestation: Json | null
+          confirmed_revision: number | null
+          confirmed_preview_hash: string | null
+          generation_maintenance: Json
+
           applied_at: string | null
           applied_by: string | null
           billing_period: string
@@ -208,6 +218,16 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          generation_revision?: number
+          generation_cycle?: number
+          generation_plan?: Json | null
+          generation_contract_version?: number | null
+          source_file_sha256?: string | null
+          source_attestation?: Json | null
+          confirmed_revision?: number | null
+          confirmed_preview_hash?: string | null
+          generation_maintenance?: Json
+
           applied_at?: string | null
           applied_by?: string | null
           billing_period: string
@@ -234,6 +254,16 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          generation_revision?: number
+          generation_cycle?: number
+          generation_plan?: Json | null
+          generation_contract_version?: number | null
+          source_file_sha256?: string | null
+          source_attestation?: Json | null
+          confirmed_revision?: number | null
+          confirmed_preview_hash?: string | null
+          generation_maintenance?: Json
+
           applied_at?: string | null
           applied_by?: string | null
           billing_period?: string
@@ -23484,6 +23514,14 @@ export type Database = {
       }
     }
     Functions: {
+      ads_invoice_generation_v1: { Args: { p_invoice_id: string; p_action: string; p_payload?: Json }; Returns: Json }
+      ads_invoice_import_v1: { Args: { p_invoice: Json; p_lines: Json }; Returns: Json }
+      ads_invoice_reopen_v1: { Args: { p_invoice_id: string; p_expected_revision: number }; Returns: Json }
+      ads_invoice_revert_v1: { Args: { p_invoice_id: string; p_operation_id: string; p_expected_revision: number }; Returns: Json }
+      ads_invoice_source_attest_v1: { Args: { p_invoice_id: string; p_expected_revision: number; p_source: Json }; Returns: Json }
+      ads_invoice_document_complete_v1: { Args: { p_operation_id: string; p_task_key: string; p_payload: Json }; Returns: Json }
+      ads_invoice_maintenance_v1: { Args: { p_invoice_id: string; p_action: string; p_payload: Json }; Returns: Json }
+
       _account_true_balance_asof_raw: {
         Args: { _account_id: string; _as_of?: string }
         Returns: number

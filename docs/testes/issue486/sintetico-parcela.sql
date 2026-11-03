@@ -184,3 +184,31 @@ DO $$ DECLARE kind text; h jsonb; ls jsonb; x jsonb; old_ids uuid[]; expected_pr
  END LOOP;
 END $$;
 ROLLBACK;
+
+-- D23 / PREPARADO, NÃO EXECUTADO: Master humano do plano para mídia importada sem event_id.
+BEGIN;
+\ir fixture.sql
+SELECT public._ads486_enter('48600000-0000-4000-8000-000000000501','set_split');
+UPDATE public.ads_invoice_line SET event_id=NULL,event_split=NULL,match_source='none',matched_by=NULL,matched_at=NULL
+ WHERE id='48600000-0000-4000-8000-000000000601';
+SELECT public._ads486_leave();
+SET SESSION AUTHORIZATION authenticated;
+SELECT set_config('request.jwt.claim.sub','48600000-0000-4000-8000-000000000101',true);
+SELECT set_config('request.jwt.claims','{"sub":"48600000-0000-4000-8000-000000000101","role":"authenticated"}',true);
+SELECT public.ads_invoice_generation_v1('48600000-0000-4000-8000-000000000501','save_plan',
+ jsonb_build_object('expected_revision',0,'plan',(SELECT plan FROM ads486_fixture)));
+SELECT public.ads_invoice_generation_v1('48600000-0000-4000-8000-000000000501','set_split',
+ '{"expected_revision":1,"line_id":"48600000-0000-4000-8000-000000000601","parts":[
+ {"event_id":"48600000-0000-4000-8000-000000000201","amount":"10.00","source":"manual"},
+ {"event_id":"48600000-0000-4000-8000-000000000202","amount":"10.00","source":"manual"}]}');
+DO $$ BEGIN
+ ASSERT (SELECT event_id='48600000-0000-4000-8000-000000000201' AND jsonb_array_length(event_split)=2
+  AND matched_by='48600000-0000-4000-8000-000000000101' AND matched_at IS NOT NULL FROM public.ads_invoice_line
+  WHERE id='48600000-0000-4000-8000-000000000601'),'selected_master_and_human_parts';
+ ASSERT (SELECT generation_revision=2 AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(generation_plan->'allocations') a
+  WHERE a->>'line_id'='48600000-0000-4000-8000-000000000601') FROM public.ads_invoice
+  WHERE id='48600000-0000-4000-8000-000000000501'),'each_split_requires_new_bp_choice';
+ ASSERT NOT EXISTS(SELECT 1 FROM public.ads_invoice_generation_operation),'split_no_financial_operation';
+END $$;
+RESET SESSION AUTHORIZATION;
+ROLLBACK;

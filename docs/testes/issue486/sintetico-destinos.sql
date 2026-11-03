@@ -175,11 +175,26 @@ WHERE id='48600000-0000-4000-8000-000000000601';
 SELECT public._ads486_leave();
 UPDATE ads486_fixture SET plan=jsonb_set(plan,'{allocations}',(SELECT jsonb_agg(a-ARRAY['event_id','forecast_id']||
  jsonb_build_object('destination',CASE WHEN a->>'key'='a' THEN 'carreira' ELSE 'company' END)) FROM jsonb_array_elements(plan->'allocations') a));
+-- D23: atestar a conta publica carreira antes de a UI escolher o destino.
+-- Apenas prova do consumidor SQL; não representa extração de bytes reais.
+CREATE TEMP TABLE ads486_tiktok_source AS SELECT jsonb_set(jsonb_set(source_attestation,
+ '{sha256}',to_jsonb(repeat('b',64))),'{identity,sha256}',to_jsonb(repeat('b',64))) source
+ FROM public.ads_invoice WHERE id='48600000-0000-4000-8000-000000000501';
+GRANT SELECT ON ads486_tiktok_source TO service_role;
+SET SESSION AUTHORIZATION service_role;
+SELECT set_config('request.jwt.claims','{"role":"service_role"}',true);
+SELECT public.ads_invoice_source_attest_v1('48600000-0000-4000-8000-000000000501',0,
+ (SELECT source FROM ads486_tiktok_source));
+RESET SESSION AUTHORIZATION;
+DO $$ BEGIN
+ ASSERT (SELECT match_source='carreira' FROM public.ads_invoice_line
+  WHERE id='48600000-0000-4000-8000-000000000601'),'attestation_publishes_current_career';
+END $$;
 SET SESSION AUTHORIZATION authenticated;
 SELECT set_config('request.jwt.claim.sub','48600000-0000-4000-8000-000000000101',true);
 SELECT set_config('request.jwt.claims','{"sub":"48600000-0000-4000-8000-000000000101","role":"authenticated"}',true);
 DO $$ DECLARE x jsonb; BEGIN
- PERFORM public.ads_invoice_generation_v1('48600000-0000-4000-8000-000000000501','save_plan',jsonb_build_object('expected_revision',0,'plan',(SELECT plan FROM ads486_fixture)));
+ PERFORM public.ads_invoice_generation_v1('48600000-0000-4000-8000-000000000501','save_plan',jsonb_build_object('expected_revision',1,'plan',(SELECT plan FROM ads486_fixture)));
  x:=public.ads_invoice_generation_v1('48600000-0000-4000-8000-000000000501','preview');
  ASSERT x->'blockers'='[]'::jsonb AND x#>>'{totals,children}'='40.00','verified_career_company_costs';
  ASSERT (SELECT count(*) FROM jsonb_array_elements(x->'children') c WHERE c->>'destination'='carreira' AND c->>'amount'='20.00')=1,'career_separate_child';
