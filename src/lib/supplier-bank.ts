@@ -25,6 +25,41 @@ export type SupplierBank = {
   swift_bic_3: string | null;
 };
 
+export interface SupplierBrData {
+  foreign_bank_accounts: unknown;
+  tax_id_foreign: string | null;
+  tax_id_type: string | null;
+}
+
+/** Optional 0305 contract. Empty IDs probe the RPC projection without reading suppliers. */
+export async function fetchOptionalSupplierBrData(id?: string): Promise<{
+  available: boolean; details: SupplierBrData | null;
+}> {
+  const unavailable = { available: false, details: null } as const;
+  try {
+    const { data, error } = await (supabase as any)
+      .rpc("get_supplier_bank_details", { p_supplier_ids: id ? [id] : [] })
+      .select("id,foreign_bank_accounts,tax_id_foreign,tax_id_type");
+    // The projection fails against the pre-0305 RPC even when no rows are requested.
+    if (error || !Array.isArray(data)) return unavailable;
+    if (!id) return data.length === 0 ? { available: true, details: null } : unavailable;
+    if (data.length !== 1) return unavailable;
+    const row = data[0];
+    if (!row || row.id !== id
+      || !(row.foreign_bank_accounts === null || Array.isArray(row.foreign_bank_accounts))
+      || !(row.tax_id_foreign === null || typeof row.tax_id_foreign === "string")
+      || !(row.tax_id_type === null || typeof row.tax_id_type === "string")) return unavailable;
+    return { available: true, details: {
+      foreign_bank_accounts: row.foreign_bank_accounts,
+      tax_id_foreign: row.tax_id_foreign,
+      tax_id_type: row.tax_id_type,
+    } };
+  } catch {
+    // Optional BR data must not prevent viewing or saving the supplier's base fields.
+    return unavailable;
+  }
+}
+
 /** Colunas cadastrais de `suppliers` legíveis por qualquer membro do tenant. */
 export const SUPPLIER_BASE_COLUMNS =
   "id, name, nif, contact_name, email, phone, address, payment_terms, category, notes, is_active, created_at, updated_at, trade_name, is_partner, company_id";

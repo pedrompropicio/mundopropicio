@@ -4,6 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchOptionalSupplierBrData } from "@/lib/supplier-bank";
+
+export { fetchOptionalSupplierBrData as loadOptionalSupplierBrData } from "@/lib/supplier-bank";
+export type { SupplierBrData } from "@/lib/supplier-bank";
 
 /** BR fields extend the open slot schema documented by 0302. Keep numbers as text. */
 export interface BrBankDetails {
@@ -28,29 +32,13 @@ export function readBrBankSlots(value: unknown): BrBankSlot[] {
     v && typeof v === "object" && v.account_type === "br_banco_agencia_conta" && [1, 2, 3].includes(v.slot)) : [];
 }
 
-/** A missing optional column is expected before the manual window; other errors propagate. */
+/** Supplier availability follows the RPC; financial-account column checks stay unchanged. */
 export async function optionalBankColumns(table: "suppliers" | "financial_accounts", columns: string): Promise<boolean> {
+  if (table === "suppliers") return (await fetchOptionalSupplierBrData()).available;
   const { error } = await supabase.from(table).select(columns).limit(0);
   if (!error) return true;
   if (["42703", "PGRST204"].includes(error.code)) return false;
   throw error;
-}
-
-export interface SupplierBrData {
-  foreign_bank_accounts?: unknown;
-  tax_id_foreign?: string | null;
-  tax_id_type?: string | null;
-}
-
-export async function loadOptionalSupplierBrData(id?: string): Promise<{ available: boolean; details: SupplierBrData | null }> {
-  if (!id) return { available: await optionalBankColumns("suppliers", "foreign_bank_accounts,tax_id_foreign,tax_id_type"), details: null };
-  const { data, error } = await supabase.from("suppliers")
-    .select("foreign_bank_accounts,tax_id_foreign,tax_id_type").eq("id", id).maybeSingle();
-  if (error) {
-    if (["42703", "PGRST204", "42501"].includes(error.code)) return { available: false, details: null };
-    throw error;
-  }
-  return { available: !!data, details: data as SupplierBrData | null };
 }
 
 export function BrBankFields({ value, onChange, prefix, disabled = false }: {
@@ -136,13 +124,18 @@ export function SupplierBankDetails({ supplier, defaultExpanded = false }: Props
   const { data: brData } = useQuery({
     queryKey: ["supplier-br-details", locale.companyId, supplier?.id, role],
     enabled: isBR && canReadBank && !!locale.companyId && !!supplier?.id,
-    queryFn: () => loadOptionalSupplierBrData(supplier?.id),
+    queryFn: () => fetchOptionalSupplierBrData(supplier?.id),
+    retry: false,
   });
 
   if (!supplier) return null;
 
   if (isBR) {
-    const source = brData?.details ?? supplier;
+    if (!canReadBank || brData?.available !== true) {
+      return <p className="text-xs text-muted-foreground">Dados bancários indisponíveis.</p>;
+    }
+    const source = brData.details;
+    if (!source) return null;
     const banks = readBrBankSlots(source.foreign_bank_accounts);
     const taxId = source.tax_id_foreign;
     if (!banks.length && !taxId) return null;

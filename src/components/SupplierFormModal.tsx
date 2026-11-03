@@ -63,14 +63,16 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const companyLocale = useCompanyLocale();
   const isBR = companyLocale.status === "available" && companyLocale.locale === "pt-BR";
   const [brBanks, setBrBanks] = useState<BrBankDetails[]>([{}, {}, {}]);
+  const canReadBank = ["admin", "platform_admin", "manager", "editor", "accountant"].includes(role ?? "");
   const { data: brData } = useQuery({
     queryKey: ["supplier-br-details", companyLocale.companyId, editingSupplier?.id, role],
-    enabled: open && isBR && !!companyLocale.companyId,
+    enabled: open && isBR && canReadBank && !!companyLocale.companyId,
     queryFn: () => loadOptionalSupplierBrData(editingSupplier?.id),
     refetchOnWindowFocus: false,
+    retry: false,
   });
-  const brColumnsReady = brData?.available === true;
-  const brSource = brData?.details ?? editingSupplier;
+  const brColumnsReady = canReadBank && brData?.available === true;
+  const brSource = brColumnsReady ? brData.details : null;
   const occupiedForeignSlots = new Set<number>((Array.isArray(brSource?.foreign_bank_accounts) ? brSource.foreign_bank_accounts : [])
     .filter((bank: any) => bank && bank.account_type !== "br_banco_agencia_conta").map((bank: any) => bank.slot));
   const [iban1, setIban1] = useState<string>(editingSupplier?.iban ?? "");
