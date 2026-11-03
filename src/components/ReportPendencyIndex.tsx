@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +9,12 @@ import { FileWarning, FolderOpen, Clock, AlertTriangle } from "lucide-react";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportPendencyIndex() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (t: { amount: number | string }) => companyLocale.status !== "available" ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? Number(t.amount).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })
+      : formatMoney(Number(t.amount), companyLocale);
+
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["pendency-txs"],
     queryFn: async () => {
@@ -97,7 +105,7 @@ export default function ReportPendencyIndex() {
                   <TableRow key={t.id}>
                     <TableCell className="font-medium">{t.description}</TableCell>
                     <TableCell>{(t.events as any)?.name ?? "—"}</TableCell>
-                    <TableCell className="text-right font-mono">{Number(t.amount).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(t)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -117,7 +125,7 @@ export default function ReportPendencyIndex() {
                   <TableRow key={t.id}>
                     <TableCell className="font-medium">{t.description}</TableCell>
                     <TableCell>{(t.events as any)?.name ?? "—"}</TableCell>
-                    <TableCell className="text-right font-mono">{Number(t.amount).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(t)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -137,7 +145,7 @@ export default function ReportPendencyIndex() {
                   <TableRow key={t.id}>
                     <TableCell className="font-medium">{t.description}</TableCell>
                     <TableCell>{(t.events as any)?.name ?? "—"}</TableCell>
-                    <TableCell className="text-right font-mono">{Number(t.amount).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(t)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { Badge } from "@/components/ui/badge";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -57,7 +59,7 @@ import { eventFormatLabel } from "@/lib/event-format";
 import { EventEditModal } from "@/components/EventEditModal";
 import { AddSubEventModal } from "@/components/AddSubEventModal";
 
-import { formatCurrency, formatDate } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency, formatDate } from "@/lib/mock-data";
 import { buildSessionCopyMap } from "@/lib/session-copy";
 import EventABTab from "@/components/EventABTab";
 import { EventRealizedAllocation } from "@/components/EventRealizedAllocation";
@@ -156,6 +158,11 @@ function CopyFromSelector({ label, currentId, subEvents, onCopy }: {
 }
 
 export default function EventDetail() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (v: number) => companyLocale.status !== "available" ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(v) : formatMoney(v, companyLocale);
+
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAdmin, isManager, user, hasPermission, role } = useAuth();

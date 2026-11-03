@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -6,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Download, FileBarChart2, TrendingUp, TrendingDown, ArrowRightLeft, Users, Layers } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { calcTotalWithIva, roundCents } from "@/lib/iva";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
@@ -58,6 +60,11 @@ interface Props {
  * contabilístico da empresa. A coluna "c/ overhead" é apenas para o cálculo do acerto.
  */
 export function EventFecho({ eventId, eventName, childEventIds, parentEventId, onReviewUnusedBudget }: Props) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (v: number) => companyLocale.status !== "available" ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(v) : formatMoney(v, companyLocale);
+
   // ---- Eventos relevantes (master + filhos quando turnê)
   const allEventIds = [eventId, ...(childEventIds || [])];
 
