@@ -1,0 +1,15 @@
+# CODEOWNERS — decisão do Pedro, 03/11/2026 (#521).
+# PRs que alterem estes caminhos precisam de revisão de @pedrompropicio
+# (regra "Require review from Code Owners" no ruleset «main protegido»).
+# O administrador do repo passa por bypass só em pull request.
+# supabase/ e drizzle/ não entram aqui: já são travados pelas travas do executor
+# (só preparação R2 com Autorização do Pedro) e só se aplicam na janela Claude.
+
+/.github/                    @pedrompropicio
+/scripts/executor/           @pedrompropicio
+/src/lib/executor/           @pedrompropicio
+/docs/procedimentos/         @pedrompropicio
+/docs/CHATS.md               @pedrompropicio
+/docs/DECISIONS.md           @pedrompropicio
+/AGENTS.md                   @pedrompropicio
+/CLAUDE.md                   @pedrompropicio
