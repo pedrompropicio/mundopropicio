@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { supabase } from "@/integrations/supabase/client";
-import { readBrBankSlots, readOptionalSupplierBrData, type BrBankDetails, type SupplierBrReader } from "@/lib/supplier-bank";
+import { formatBrTaxId, readBrBankSlots, readOptionalSupplierBrData, type BrBankDetails, type SupplierBrReader } from "@/lib/supplier-bank";
 export { readBrBankSlots, type BrBankDetails, type BrBankSlot, type SupplierBrData } from "@/lib/supplier-bank";
 
 export const BR_BANK_FIELDS = [
@@ -126,7 +126,7 @@ export function SupplierBankDetails({ supplier, defaultExpanded = false }: Props
         {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
       </button>
       {expanded && <div className="px-3 pb-2.5 space-y-2">
-        {taxId && <p className="text-xs">{source.tax_id_type?.toUpperCase() || "CNPJ"}: {taxId}<CopyButton text={taxId} /></p>}
+        {taxId && <p className="text-xs">{source.tax_id_type?.toUpperCase() || "CNPJ"}: {formatBrTaxId(taxId, source.tax_id_type)}<CopyButton text={taxId} /></p>}
         {banks.map(bank => <div key={bank.slot} className="text-xs space-y-1">
           <p className="font-medium">Conta bancária {bank.slot}</p>
           {BR_BANK_FIELDS.map(([key, label]) => bank[key] ? <p key={key}>{label}: {bank[key]}<CopyButton text={bank[key]!} /></p> : null)}
