@@ -3023,7 +3023,7 @@ const descRef = useRef<HTMLInputElement>(null);
                       onClick={async () => {
                         setExportingPDF(true);
                         try {
-                          await exportEventBPToPDF({ eventId, includeChildren: true });
+                          await exportEventBPToPDF({ eventId, includeChildren: true, companyLocale: locale });
                           toast({ title: "PDF do BP gerado" });
                         } catch (err: any) {
                           toast({ title: "Erro ao gerar PDF", description: err?.message ?? String(err), variant: "destructive" });
