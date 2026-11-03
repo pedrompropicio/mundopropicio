@@ -3,7 +3,9 @@ import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +18,12 @@ import { eventCostMode, eventCostTotal, groupByEvent, type ReportCostSource } fr
 import { ReportCostSourceToggle } from "@/components/ReportCostSourceToggle";
 
 export default function ReportProfitability() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const [view, setView] = useState<"artist" | "venue">("artist");
   // #218: custo pelo BP (padrão); "Transações" só para comparação — nunca gravado.
   const [costSource, setCostSource] = useState<ReportCostSource>("bp");
