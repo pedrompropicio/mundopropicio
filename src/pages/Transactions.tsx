@@ -26,6 +26,8 @@ import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModa
 import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
 import { TransactionRow } from "@/components/TransactionRow";
 import { useInstallmentTxIds } from "@/hooks/useInstallmentTxIds";
+import { useTxIdsWithPayments } from "@/hooks/useTxIdsWithPayments";
+import { isHistoricalImportedPaid } from "@/lib/historical-paid";
 import { useOperationKeyTotals } from "@/hooks/useOperationKeyTotals";
 
 import { groupTransactionsByRefund, type RefundNoteSummary, type RefundRenderItem } from "@/lib/refund-grouping";
@@ -273,7 +275,7 @@ export default function Transactions() {
       return await fetchAllPaged<any>((from, to) =>
         supabase
           .from("transactions")
-          .select("*, events(name, status, parent_event_id, event_type), account_categories(code, name), suppliers:suppliers!transactions_supplier_id_fkey(name, trade_name), financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
+          .select("*, events(name, status, parent_event_id, event_type, historical_at), account_categories(code, name), suppliers:suppliers!transactions_supplier_id_fkey(name, trade_name), financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
           .order("due_date", { ascending: true, nullsFirst: false })
           .order("id", { ascending: true })
           .range(from, to)
@@ -282,6 +284,7 @@ export default function Transactions() {
   });
 
   const { data: installmentTxIds = new Set<string>() } = useInstallmentTxIds();
+  const { data: txIdsWithPayments } = useTxIdsWithPayments();
 
 
   // ===== Reembolsos: dados para consolidação visual =====
@@ -1285,6 +1288,7 @@ export default function Transactions() {
         highlightId={highlightId}
         inGroup={inGroup}
         hasInstallments={installmentTxIds.has(t.id)}
+        historicalImportedPaid={isHistoricalImportedPaid(t, txIdsWithPayments)}
       />
     );
 
