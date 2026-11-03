@@ -202,7 +202,7 @@ describe("#498 — conta BR e colunas opcionais", () => {
     fireEvent.click(screen.getByRole("button", { name: "Nova Conta" }));
     expect(screen.queryByText("IBAN")).toBeNull();
     expect(screen.getByLabelText("Banco").hasAttribute("disabled") || screen.getByLabelText("Banco").closest("fieldset")?.disabled).toBe(!available);
-    fireEvent.change(screen.getByPlaceholderText("Ex: Conta BPI Principal"), { target: { value: "BR banco" } });
+    fireEvent.change(screen.getByPlaceholderText(/^Ex: Conta .+ Principal$/), { target: { value: "BR banco" } });
     if (available) {
       fireEvent.change(screen.getByLabelText("Agência"), { target: { value: "0001" } });
       fireEvent.change(screen.getByLabelText("Chave Pix"), { target: { value: "email@ex.invalid" } });
