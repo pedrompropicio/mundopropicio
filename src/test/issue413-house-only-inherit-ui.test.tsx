@@ -19,10 +19,11 @@ const f = vi.hoisted(() => ({
   queryFns: {} as Record<string, () => Promise<any>>, selects: [] as { table: string; columns: string }[],
   updates: [] as { table: string; payload: any }[], filters: [] as { table: string; column: string; value: any }[],
   mutations: [] as Promise<any>[], toast: vi.fn(), invoke: vi.fn(),
+  auth: { isAdmin: true, isManager: false },
 }));
 vi.mock("@/hooks/useCompany", () => ({ useCompany: vi.fn() }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({
-  user: { id: "user", email: "fixture@example.invalid" }, isAdmin: true, isManager: false, hasPermission: () => true,
+  user: { id: "user", email: "fixture@example.invalid" }, ...f.auth, hasPermission: () => true,
 }) }));
 vi.mock("@tanstack/react-query", () => ({
   useQuery: ({ queryKey, queryFn }: any) => {
@@ -133,12 +134,21 @@ function edit(overrides = {}, canApprove = true) {
   return <MemoryRouter><TransactionEditModal onClose={vi.fn()} canApprove={canApprove}
     transaction={{ ...transaction, ...overrides }} /></MemoryRouter>;
 }
-function create(withEvent = false) {
+function create(withEvent = false, type: "income" | "expense" = "income") {
   return <TransactionFormModal onClose={vi.fn()} defaults={{
     description: "Receita fixture", amount: "1000", date: "2026-11-02", supplier_id: "supplier",
-    type: "income", account_id: "account", iva_rate: 0,
+    type, account_id: "account", iva_rate: 0,
     ...(withEvent ? { event_id: "event" } : {}),
   }} />;
+}
+function seedForecast(value: boolean | null | undefined, type: "income" | "expense" = "income") {
+  f.queries["events-active"] = [{ id: "event", name: "Evento fixture", pl_mode: "passive", event_type: "single" }];
+  f.queries["account_categories"] = [{ id: "category", code: "1.1.01", name: "Receitas fixture", type }];
+  f.queries["event_forecasts_budget"] = [{ ...forecast, type, excluded_from_partner_settlement: value }];
+}
+function creationDomHash() {
+  const dom = document.body.innerHTML.replace(/radix-:[^"\s]+:/g, "radix-:fixture:");
+  return createHash("sha256").update(dom).digest("hex");
 }
 async function submit() {
   fireEvent.submit(document.body.querySelector("form")!);
@@ -153,6 +163,7 @@ function expectInherited(value: boolean) {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  f.auth = { isAdmin: true, isManager: false };
   vi.mocked(useCompany).mockReturnValue({
     company: { id: "company", country: "PT", currency: "EUR" }, companyId: "company",
     isLoading: false, isError: false,
@@ -279,33 +290,117 @@ describe("#413 C2 — edição", () => {
 });
 
 describe("#413 C3 — criação", () => {
-  it.each([true, false, null, undefined])("linha %s prevalece sobre o estado próprio false no INSERT", async value => {
-    f.queries["events-active"] = [{ id: "event", name: "Evento fixture", pl_mode: "passive", event_type: "single" }];
-    f.queries["account_categories"] = [{ id: "category", code: "1.1.01", name: "Receitas fixture", type: "income" }];
-    f.queries["event_forecasts_budget"] = [{ ...forecast, excluded_from_partner_settlement: value }];
-    render(create(true));
-    // houseOnly começa a false; antes da escolha, a UI legada não mostra o interruptor.
-    expect(screen.queryByRole("switch", { name: switchName })).toBeNull();
-    fireEvent.click(screen.getByText("Receita BP fixture"));
-    expectInherited(value ?? false);
-    await f.queryFns["event_forecasts_budget"]();
-    expect(f.selects).toContainEqual({ table: "event_forecasts", columns: expect.stringContaining("excluded_from_partner_settlement") });
-    await submit();
-    const writes = f.writes.filter(write => write.table === "transactions");
-    expect(writes).toHaveLength(1);
-    expect(writes[0].payload).toMatchObject({ forecast_id: forecastId, excluded_from_partner_settlement: value ?? false });
+  it("preserva o DOM de #556 para despesas e utilizadores sem permissão, com e sem linha", () => {
+    const hashes: Record<string, string> = {};
+    for (const type of ["income", "expense"] as const) {
+      f.auth = { isAdmin: type === "expense", isManager: false };
+      seedForecast(true, type);
+      for (const withForecast of [false, true]) {
+        const { unmount } = render(create(withForecast, type));
+        if (withForecast) fireEvent.click(screen.getByText("Receita BP fixture"));
+        expect(screen.queryByRole("switch", { name: switchName })).toBeNull();
+        hashes[`${type}/${withForecast ? "com linha" : "sem linha"}`] = creationDomHash();
+        unmount();
+      }
+    }
+    expect(hashes).toMatchInlineSnapshot(`
+      {
+        "expense/com linha": "6eac654c50d44b11f273dd5428f1ceb10e6d219d563c101bcd5a9df0344ad4ff",
+        "expense/sem linha": "447fb10c2ff3ee850a9545540862337f58f8121f344f564fe3cc776e5eda0f55",
+        "income/com linha": "6d6d7434c3ee492504ebccaeac80e96977c735e1cfe36bc68e65867b95bdf754",
+        "income/sem linha": "17f42391f6ba65ecb51fe8dfeabff77d79110696b335a2876e6db000c199dd93",
+      }
+    `);
   });
 
-  it("sem linha mantém o DOM e o INSERT atuais", async () => {
+  describe.each([false, true])("estado próprio %s antes de escolher a linha", ownValue => {
+    it.each([true, false, null, undefined])("linha %s prevalece no INSERT", async value => {
+      seedForecast(value);
+      render(create(true));
+      const control = screen.getByRole("switch", { name: switchName });
+      expect(control).not.toBeDisabled();
+      expect(control).not.toBeChecked();
+      if (ownValue) fireEvent.click(control);
+      fireEvent.click(screen.getByText("Receita BP fixture"));
+      expectInherited(value ?? false);
+      fireEvent.click(screen.getByRole("switch", { name: switchName }));
+      expectInherited(value ?? false);
+      await f.queryFns["event_forecasts_budget"]();
+      expect(f.selects).toContainEqual({ table: "event_forecasts", columns: expect.stringContaining("excluded_from_partner_settlement") });
+      await submit();
+      const writes = f.writes.filter(write => write.table === "transactions");
+      expect(writes).toHaveLength(1);
+      expect(writes[0].payload).toMatchObject({ forecast_id: forecastId, excluded_from_partner_settlement: value ?? false });
+    });
+  });
+
+  it("sem linha mostra o interruptor próprio e mantém o INSERT desligado por omissão", async () => {
     render(create());
-    expect(screen.queryByRole("switch", { name: switchName })).toBeNull();
-    const dom = document.body.innerHTML.replace(/radix-:[^"\s]+:/g, "radix-:fixture:");
-    expect(createHash("sha256").update(dom).digest("hex")).toMatchInlineSnapshot(`"17f42391f6ba65ecb51fe8dfeabff77d79110696b335a2876e6db000c199dd93"`);
+    const control = screen.getByRole("switch", { name: switchName });
+    expect(control).not.toBeDisabled();
+    expect(control).not.toBeChecked();
+    expect(screen.queryByText("Herdado da linha do BP")).toBeNull();
+    expect(creationDomHash()).toMatchInlineSnapshot(`"9b21530f1b5a5d6f09c3324834f648209b6fa75dc8dfbe4f816428b1bb57a01e"`);
     await submit();
     expect(f.writes.filter(write => write.table === "transactions")).toHaveLength(1);
     expect(f.writes.find(write => write.table === "transactions")!.payload).toMatchObject({
       forecast_id: null, excluded_from_partner_settlement: false,
     });
+  });
+
+  describe.each(["admin", "manager"] as const)("%s sem linha", role => {
+    it.each([true, false])("grava a escolha própria %s no INSERT", async checked => {
+      f.auth = { isAdmin: role === "admin", isManager: role === "manager" };
+      render(create());
+      const control = screen.getByRole("switch", { name: switchName });
+      expect(control).not.toBeDisabled();
+      fireEvent.click(control);
+      expect(control).toBeChecked();
+      if (!checked) fireEvent.click(control);
+      expect(control).toHaveAttribute("aria-checked", String(checked));
+      await submit();
+      expect(f.writes.filter(write => write.table === "transactions")).toEqual([
+        { table: "transactions", payload: expect.objectContaining({
+          forecast_id: null, excluded_from_partner_settlement: checked,
+        }) },
+      ]);
+    });
+  });
+
+  it.each([
+    ["Caução / Transitória", "is_transitory"],
+    ["Excluir do Resultado", "exclude_from_result"],
+  ])("sem linha respeita a guarda %s mesmo com escolha própria anterior", async (button, flag) => {
+    render(create());
+    fireEvent.click(screen.getByRole("switch", { name: switchName }));
+    fireEvent.click(screen.getByRole("button", { name: "Despesa" }));
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(button) }));
+    fireEvent.click(screen.getByRole("button", { name: "Receita" }));
+    const control = screen.getByRole("switch", { name: switchName });
+    expect(control).toBeDisabled();
+    expect(control).not.toBeChecked();
+    expect(screen.getByText(partnerSettlementExclusionReason({ type: "income", [flag]: true })!)).toBeInTheDocument();
+    expect(screen.queryByText("Herdado da linha do BP")).toBeNull();
+    await submit();
+    expect(f.writes.filter(write => write.table === "transactions")).toEqual([
+      { table: "transactions", payload: expect.objectContaining({
+        [flag]: true, forecast_id: null, excluded_from_partner_settlement: false,
+      }) },
+    ]);
+  });
+
+  it("sem permissão não grava uma escolha própria feita antes da perda de acesso", async () => {
+    const { rerender } = render(create());
+    fireEvent.click(screen.getByRole("switch", { name: switchName }));
+    f.auth = { isAdmin: false, isManager: false };
+    rerender(create());
+    expect(screen.queryByRole("switch", { name: switchName })).toBeNull();
+    await submit();
+    expect(f.writes.filter(write => write.table === "transactions")).toEqual([
+      { table: "transactions", payload: expect.objectContaining({
+        forecast_id: null, excluded_from_partner_settlement: false,
+      }) },
+    ]);
   });
 });
 
