@@ -14,9 +14,9 @@
 | Acesso | Como | Estado |
 |---|---|---|
 | Caixa `dev@mplabstech.com` | Google Workspace MP, domínio secundário mplabstech.com (criado 03/11/2026) | feito |
-| 2FA da caixa | Autenticador no telemóvel da pessoa **e** códigos de recuperação guardados pelo Pedro; recuperação por telemóvel do Pedro | por fazer |
-| GitHub | Convite ao repo `pedrompropicio/mundopropicio` com permissão `write`, para a conta GitHub criada com `dev@mplabstech.com`; `main` continua protegido (PR + CI verde, D-ERP344) | por fazer |
-| Claude | Lugar no plano Team (Premium) com `dev@mplabstech.com`; acesso ao Projeto «Sistema de Gestão de Eventos» | por fazer |
+| 2FA da caixa | Verificação em 2 passos imposta na UO «MP Labs» do Workspace (03/11/2026); autenticador no telemóvel da pessoa, códigos de recuperação e recuperação por telemóvel com o Pedro | feito |
+| GitHub | Conta `mplabs-dev` (criada com `dev@mplabstech.com`), colaborador `write` no repo `pedrompropicio/mundopropicio` desde 03/11/2026; `main` continua protegido (PR + CI verde, D-ERP344). 2FA do GitHub nessa conta: por fazer | feito (2FA por fazer) |
+| Claude | Organização Team «Mundo Propício» (criada 03/11/2026, faturação MP em EUR; 1 lugar Standard do Pedro + 1 Premium); convite enviado a `dev@mplabstech.com` para o lugar Premium — aceitar a partir da caixa dev@. Acesso ao Projeto «Sistema de Gestão de Eventos»: por confirmar (o Projeto vive na conta pessoal do Pedro) | convite enviado |
 | Lovable | **Não** por defeito. Só se uma Issue o designar executor de tarefa ao agente | — |
 | Supabase / Live | **Não.** Leitura de Live só por query do 0 · Cowork; o engenheiro pede a medição pelo QUADRO | — |
 | ERP (app) | Utilizador na empresa MP com papel `viewer` para ver os ecrãs; sem papel financeiro | por fazer |
