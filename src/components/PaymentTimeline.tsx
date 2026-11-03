@@ -3,7 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { calcWithIva, formatDatePT, isFullyPaid } from "@/lib/utils";
 import {
   Receipt,
@@ -51,6 +53,13 @@ interface Props {
  *  - Caso contrário, permite ajustar `paid_amount` (e data/conta) inline.
  */
 export function PaymentTimeline({ transaction, canApprove = false, eventCompleted = false }: Props) {
+  const companyLocale = useCompanyLocale();
+  const companySymbol = companyLocale.status === "available" ? companyLocale.symbol : "—";
+  const legacyMoney = companyLocale.status === "available" && companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR";
+  const formatCurrency = (value: number) => {
+    if (companyLocale.status !== "available") return "—";
+    return legacyMoney ? formatLegacyCurrency(value) : formatMoney(value, companyLocale);
+  };
   const txId = transaction.id;
   const baseAmount = Number(transaction.amount ?? 0);
   const ivaRate = Number(transaction.iva_rate ?? 0);
@@ -509,6 +518,9 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
                   <span className="text-muted-foreground">
                     {methodLabels[p.payment_method] ?? p.payment_method}
                   </span>
+                  {companyLocale.status === "available" && !legacyMoney && p.invoice_ref && (
+                    <span className="text-muted-foreground">{companyLocale.labels.invoiceRef}: {p.invoice_ref}</span>
+                  )}
                   {p.financial_accounts?.name && (
                     <>
                       <span className="text-muted-foreground">·</span>
@@ -520,8 +532,9 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-mono font-semibold">{formatCurrency(Number(p.amount))}</span>
-                  {/* (#127) moeda de origem da parcela, quando não é EUR */}
-                  <CurrencyBadge currency={p.currency} originalAmount={p.original_amount} fxRate={p.fx_rate} />
+                  {companyLocale.status === "available" && p.currency !== companyLocale.currency && (
+                    <CurrencyBadge currency={p.currency} originalAmount={p.original_amount} fxRate={p.fx_rate} />
+                  )}
                   {canApprove && !p.reversal_kind && (
                     <button
                       type="button"
@@ -563,7 +576,7 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
               {revKind === "supplier_credit" && (
                 <div>
                   <label className="text-[10px] text-muted-foreground">
-                    Valor do crédito (€) — editável para menos (ex.: fatura renegociada)
+                    Valor do crédito ({companySymbol}) — editável para menos (ex.: fatura renegociada)
                   </label>
                   <input
                     type="number"
@@ -726,7 +739,7 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
             <div className="space-y-2 py-1">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Valor pago (€)</label>
+                  <label className="text-[10px] text-muted-foreground">Valor pago ({companySymbol})</label>
                   <input
                     type="number" step="0.01" min="0"
                     value={directForm.paid_amount}
