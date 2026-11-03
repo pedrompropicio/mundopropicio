@@ -151,7 +151,7 @@ describe("#498 P2h-c — UI BR pela RPC", () => {
     expect(screen.getAllByLabelText("Dígito")[1]).toHaveValue("X");
     expect(screen.getAllByLabelText("Tipo de conta")[1]).toHaveValue("poupanca");
     expect(screen.getAllByLabelText("Chave Pix")[1]).toHaveValue("pix@example.invalid");
-    expect(screen.getByLabelText("CNPJ")).toHaveValue("12345678000199");
+    expect(screen.getByLabelText("CNPJ")).toHaveValue("12.345.678/0001-99");
     expect(screen.queryByDisplayValue(/PROPS|NIF-PT/)).toBeNull();
     expect(f.from).not.toHaveBeenCalled();
   });

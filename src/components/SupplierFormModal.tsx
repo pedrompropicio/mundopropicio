@@ -1,5 +1,5 @@
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { SUPPLIER_BANK_READ_ROLES } from "@/lib/supplier-bank";
+import { formatBrTaxId, SUPPLIER_BANK_READ_ROLES } from "@/lib/supplier-bank";
 import { BR_BANK_FIELDS, BrBankFields, readBrBankSlots, loadOptionalSupplierBrData, type BrBankDetails } from "@/components/SupplierBankDetails";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -99,7 +99,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
 
   useEffect(() => {
     if (!open) return;
-    setBrTaxId(brSource?.tax_id_foreign ?? "");
+    setBrTaxId(formatBrTaxId(brSource?.tax_id_foreign ?? "", brSource?.tax_id_type));
     setBrTaxIdType(brSource?.tax_id_type ?? "cnpj");
     setBrTaxIdEdited(false);
   }, [open, editingSupplier?.id, companyLocale.companyId, isBR, role, user?.id,
@@ -465,6 +465,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
               {isBR ? <>
                 <Input id="sup-nif" disabled={!brColumnsReady} value={brColumnsReady ? brTaxId : ""}
                   onChange={e => { setBrTaxId(e.target.value); setBrTaxIdEdited(true); }}
+                  onBlur={() => setBrTaxId(formatBrTaxId(brTaxId, brTaxIdType))}
                   aria-invalid={!!validationErrors.tax_id_foreign}
                   aria-describedby={validationErrors.tax_id_foreign ? "sup-tax-id-error" : undefined} />
                 {validationErrors.tax_id_foreign && <p id="sup-tax-id-error" className="text-xs text-destructive">{validationErrors.tax_id_foreign}</p>}

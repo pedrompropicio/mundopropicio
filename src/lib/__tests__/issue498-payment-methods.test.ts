@@ -223,7 +223,7 @@ describe("#498 — conta BR e colunas opcionais", () => {
     const { SupplierFormModal: ActualSupplierForm } = await vi.importActual<typeof import("@/components/SupplierFormModal")>("@/components/SupplierFormModal");
     render(h(ActualSupplierForm, { open: true, onOpenChange() {}, editingSupplier: { id: "supplier", name: "Fixture", nif: "PT-OLD" } }));
     expect(screen.getAllByLabelText("Banco")[0]).toBeDisabled();
-    expect(screen.getByLabelText("CNPJ")).toHaveValue("12345678000199");
+    expect(screen.getByLabelText("CNPJ")).toHaveValue("12.345.678/0001-99");
     fireEvent.change(screen.getAllByLabelText("Conta")[1], { target: { value: "00999" } });
     fireEvent.submit(document.body.querySelector("form")!);
     await waitFor(() => expect(f.mutations).toHaveLength(1));
