@@ -1,5 +1,17 @@
 import { companyPaymentMethods, type CompanyLocaleResult } from "./company-locale";
 import { Building, FileText, Landmark, Repeat, Scale, type LucideIcon } from "lucide-react";
+import {
+  BR_ONLY_PAYMENT_METHODS,
+  BOLETO_CHECK_CONSTRAINT,
+  BOLETO_FIELDS_MESSAGE,
+  validateBoletoFields,
+} from "../../supabase/functions/_shared/payment-methods.ts";
+export {
+  BOLETO_REFERENCE_PATTERN,
+  BOLETO_CHECK_CONSTRAINT,
+  BOLETO_FIELDS_MESSAGE,
+  validateBoletoFields,
+} from "../../supabase/functions/_shared/payment-methods.ts";
 
 /**
  * FONTE ÚNICA do domínio de `payment_method`
@@ -12,7 +24,7 @@ import { Building, FileText, Landmark, Repeat, Scale, type LucideIcon } from "lu
  * em silêncio: NÃO acrescentar valores nem variantes aqui sem CHECK na base.
  *
  * Espelho no servidor: `supabase/functions/update-transaction/index.ts`
- * (constante PAYMENT_METHODS) + CHECK `transactions_payment_method_check` /
+ * (constante PAYMENT_METHODS = domínio PT + acréscimos BR partilhados) + CHECK `transactions_payment_method_check` /
  * `transaction_payments_payment_method_check`.
  */
 export const PAYMENT_METHODS = [
@@ -23,8 +35,8 @@ export const PAYMENT_METHODS = [
   "compensation",
 ] as const;
 
-// Legacy installed/edge domain stays frozen until its separate R2 publication.
-export const BR_PAYMENT_METHODS = ["pix", "boleto", "transfer", "direct_debit", "compensation"] as const;
+// Preserva a lista PT; o domínio completo é a união dos dois conjuntos.
+export const BR_PAYMENT_METHODS = [...BR_ONLY_PAYMENT_METHODS, "transfer", "direct_debit", "compensation"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number] | (typeof BR_PAYMENT_METHODS)[number];
 
 /** Acesso nomeado aos valores, para não repetir literais no código. */
@@ -152,17 +164,13 @@ export function paymentMethodOptions(opts?: {
   return list;
 }
 
-export const BOLETO_REFERENCE_PATTERN = /^\d{47,48}(?![\s\S])/;
-export const BOLETO_CHECK_CONSTRAINT = "transactions_boleto_requires_linha";
-export const BOLETO_FIELDS_MESSAGE = "Boleto exige linha digitável de 47 ou 48 dígitos";
-
 export function validatePaymentMethodFields(input: {
   payment_method?: string | null;
   payment_entity?: string | null;
   payment_reference?: string | null;
 }): string | null {
   if (input.payment_method === PAYMENT_METHOD.boleto) {
-    return BOLETO_REFERENCE_PATTERN.test(input.payment_reference ?? "") ? null : BOLETO_FIELDS_MESSAGE;
+    return validateBoletoFields(input);
   }
   return validateServicePaymentFields(input);
 }
