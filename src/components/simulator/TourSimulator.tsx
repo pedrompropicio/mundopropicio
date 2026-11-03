@@ -17,16 +17,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, ExternalLink, Calculator } from "lucide-react";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { useCitySimulator } from "@/hooks/useCitySimulator";
 import ExecutiveDashboard from "@/components/simulator/ExecutiveDashboard";
 
-const fmt = (v: number) => formatCurrency(Number.isFinite(v) ? v : 0);
 const fmtNum = (v: number) =>
   (Number.isFinite(v) ? v : 0).toLocaleString("pt-PT", { maximumFractionDigits: 0 });
 const fmtPct = (v: number) => `${(Number.isFinite(v) ? v : 0).toFixed(1)}%`;
 
 type ScenarioKey = "real" | "breakeven" | "forecast";
+type MoneyFormatter = (value: number) => string;
 const SCEN_LABELS: Record<ScenarioKey, string> = {
   real: "Real (Hoje)",
   breakeven: "Break Even",
@@ -40,8 +42,8 @@ interface Props {
 
 /* ---------- Vista compacta de UMA cidade (read-only) ---------- */
 function CityScenarioCard({
-  scen, label, rev, cost, res, kpis, tone,
-}: any) {
+  scen, label, rev, cost, res, kpis, tone, fmt,
+}: { scen: ScenarioKey; label: string; rev: any; cost: any; res: any; kpis: any; tone: string; fmt: MoneyFormatter }) {
   const toneCls = tone === "warning" ? "border-amber-500/40" : tone === "success" ? "border-emerald-500/40" : "border-border";
   const resColor = res.general >= 0 ? "text-emerald-500" : "text-rose-500";
   return (
@@ -61,7 +63,7 @@ function CityScenarioCard({
   );
 }
 
-function CityReadOnly({ split }: { split: { id: string; name: string } }) {
+function CityReadOnly({ split, fmt }: { split: { id: string; name: string }; fmt: MoneyFormatter }) {
   const navigate = useNavigate();
   const data = useCitySimulator(split.id);
   if (data.loading) {
@@ -94,6 +96,7 @@ function CityReadOnly({ split }: { split: { id: string; name: string } }) {
             cost={data.costs[t.scen]}
             res={data.res[t.scen]}
             kpis={data.kpis[t.scen]}
+            fmt={fmt}
           />
         ))}
       </div>
@@ -142,7 +145,7 @@ function CityReadOnly({ split }: { split: { id: string; name: string } }) {
 }
 
 /* ---------- Tab Consolidada da turnê ---------- */
-function TourConsolidated({ masterEvent, splits }: Props) {
+function TourConsolidated({ masterEvent, splits, fmt }: Props & { fmt: MoneyFormatter }) {
   // Carregar Master (extras) + cada split
   const masterData = useCitySimulator(masterEvent.id);
   // Hooks por cidade — chamamos um a um para respeitar a regra dos hooks.
@@ -321,6 +324,12 @@ function TourConsolidated({ masterEvent, splits }: Props) {
 
 /* ---------- Componente principal ---------- */
 export default function TourSimulator({ masterEvent, splits }: Props) {
+  const companyLocale = useCompanyLocale();
+  const fmt: MoneyFormatter = (value) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(Number.isFinite(value) ? value : 0)
+      : formatMoney(Number.isFinite(value) ? value : 0, companyLocale);
   const navigate = useNavigate();
   const [tab, setTab] = useState<string>(splits[0]?.id ?? "consolidated");
 
@@ -424,12 +433,12 @@ export default function TourSimulator({ masterEvent, splits }: Props) {
 
         {splits.map((s) => (
           <TabsContent key={s.id} value={s.id}>
-            <CityReadOnly split={s} />
+            <CityReadOnly split={s} fmt={fmt} />
           </TabsContent>
         ))}
 
         <TabsContent value="consolidated">
-          <TourConsolidated masterEvent={masterEvent} splits={splits} />
+          <TourConsolidated masterEvent={masterEvent} splits={splits} fmt={fmt} />
         </TabsContent>
 
         <TabsContent value="dashboard">

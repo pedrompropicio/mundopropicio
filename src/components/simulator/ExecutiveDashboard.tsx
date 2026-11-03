@@ -15,7 +15,9 @@ import {
   PieChart, Pie, Cell, CartesianGrid, ReferenceLine,
 } from "recharts";
 import { FileText, Loader2 } from "lucide-react";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { exportNodeToPdf } from "@/lib/event-simulator-view-pdf";
 import { toast } from "@/hooks/use-toast";
 import DailyAttendanceCard from "@/components/simulator/DailyAttendanceCard";
@@ -26,7 +28,6 @@ import ProgressKpi from "@/components/simulator/ProgressKpi";
 import FinancialTable, { type FinancialRow } from "@/components/simulator/FinancialTable";
 import CityHeatCard from "@/components/simulator/CityHeatCard";
 
-const fmt = (v: number) => formatCurrency(Number.isFinite(v) ? v : 0);
 const fmtNum = (v: number) =>
   (Number.isFinite(v) ? v : 0).toLocaleString("pt-PT", { maximumFractionDigits: 0 });
 const fmtPct = (v: number) => `${(Number.isFinite(v) ? v : 0).toFixed(1)}%`;
@@ -68,6 +69,12 @@ interface Props {
 }
 
 export default function ExecutiveDashboard(props: Props) {
+  const companyLocale = useCompanyLocale();
+  const fmt = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(Number.isFinite(value) ? value : 0)
+      : formatMoney(Number.isFinite(value) ? value : 0, companyLocale);
   const {
     eventName, today, todayCosts, todayRes, todayKpis,
     breakeven, beCosts, beRes, beKpis,
