@@ -1,0 +1,923 @@
+{
+  "description": "#498: captura única do código anterior ao adapter; apenas dados sintéticos. Não regenerar expectativas.",
+  "money": [
+    {
+      "amount": -1000000.99,
+      "expected": "-1 000 000,99 €",
+      "inCurrency": "-1 000 000,99 €",
+      "fourDecimals": "-1 000 000,99 €",
+      "fromCents": "-10 000,01 €"
+    },
+    {
+      "amount": -12345.6789,
+      "expected": "-12 345,68 €",
+      "inCurrency": "-12 345,68 €",
+      "fourDecimals": "-12 345,6789 €",
+      "fromCents": "-123,46 €"
+    },
+    {
+      "amount": -1230,
+      "expected": "-1230,00 €",
+      "inCurrency": "-1230,00 €",
+      "fourDecimals": "-1230,00 €",
+      "fromCents": "-12,30 €"
+    },
+    {
+      "amount": -1000,
+      "expected": "-1000,00 €",
+      "inCurrency": "-1000,00 €",
+      "fourDecimals": "-1000,00 €",
+      "fromCents": "-10,00 €"
+    },
+    {
+      "amount": -100.005,
+      "expected": "-100,01 €",
+      "inCurrency": "-100,01 €",
+      "fourDecimals": "-100,005 €",
+      "fromCents": "-1,00 €"
+    },
+    {
+      "amount": -0.005,
+      "expected": "-0,01 €",
+      "inCurrency": "-0,01 €",
+      "fourDecimals": "-0,005 €",
+      "fromCents": "-0,00 €"
+    },
+    {
+      "amount": -0.0049,
+      "expected": "-0,00 €",
+      "inCurrency": "-0,00 €",
+      "fourDecimals": "-0,0049 €",
+      "fromCents": "-0,00 €"
+    },
+    {
+      "amount": -0.0001,
+      "expected": "-0,00 €",
+      "inCurrency": "-0,00 €",
+      "fourDecimals": "-0,0001 €",
+      "fromCents": "-0,00 €"
+    },
+    {
+      "amount": 0,
+      "expected": "0,00 €",
+      "inCurrency": "0,00 €",
+      "fourDecimals": "0,00 €",
+      "fromCents": "0,00 €"
+    },
+    {
+      "amount": 0.0001,
+      "expected": "0,00 €",
+      "inCurrency": "0,00 €",
+      "fourDecimals": "0,0001 €",
+      "fromCents": "0,00 €"
+    },
+    {
+      "amount": 0.0049,
+      "expected": "0,00 €",
+      "inCurrency": "0,00 €",
+      "fourDecimals": "0,0049 €",
+      "fromCents": "0,00 €"
+    },
+    {
+      "amount": 0.005,
+      "expected": "0,01 €",
+      "inCurrency": "0,01 €",
+      "fourDecimals": "0,005 €",
+      "fromCents": "0,00 €"
+    },
+    {
+      "amount": 0.01,
+      "expected": "0,01 €",
+      "inCurrency": "0,01 €",
+      "fourDecimals": "0,01 €",
+      "fromCents": "0,00 €"
+    },
+    {
+      "amount": 0.1,
+      "expected": "0,10 €",
+      "inCurrency": "0,10 €",
+      "fourDecimals": "0,10 €",
+      "fromCents": "0,00 €"
+    },
+    {
+      "amount": 1,
+      "expected": "1,00 €",
+      "inCurrency": "1,00 €",
+      "fourDecimals": "1,00 €",
+      "fromCents": "0,01 €"
+    },
+    {
+      "amount": 1.005,
+      "expected": "1,01 €",
+      "inCurrency": "1,01 €",
+      "fourDecimals": "1,005 €",
+      "fromCents": "0,01 €"
+    },
+    {
+      "amount": 1.2345,
+      "expected": "1,23 €",
+      "inCurrency": "1,23 €",
+      "fourDecimals": "1,2345 €",
+      "fromCents": "0,01 €"
+    },
+    {
+      "amount": 2.675,
+      "expected": "2,68 €",
+      "inCurrency": "2,68 €",
+      "fourDecimals": "2,675 €",
+      "fromCents": "0,03 €"
+    },
+    {
+      "amount": 33.3333,
+      "expected": "33,33 €",
+      "inCurrency": "33,33 €",
+      "fourDecimals": "33,3333 €",
+      "fromCents": "0,33 €"
+    },
+    {
+      "amount": 81.3008,
+      "expected": "81,30 €",
+      "inCurrency": "81,30 €",
+      "fourDecimals": "81,3008 €",
+      "fromCents": "0,81 €"
+    },
+    {
+      "amount": 100,
+      "expected": "100,00 €",
+      "inCurrency": "100,00 €",
+      "fourDecimals": "100,00 €",
+      "fromCents": "1,00 €"
+    },
+    {
+      "amount": 100.005,
+      "expected": "100,01 €",
+      "inCurrency": "100,01 €",
+      "fourDecimals": "100,005 €",
+      "fromCents": "1,00 €"
+    },
+    {
+      "amount": 1000,
+      "expected": "1000,00 €",
+      "inCurrency": "1000,00 €",
+      "fourDecimals": "1000,00 €",
+      "fromCents": "10,00 €"
+    },
+    {
+      "amount": 1230,
+      "expected": "1230,00 €",
+      "inCurrency": "1230,00 €",
+      "fourDecimals": "1230,00 €",
+      "fromCents": "12,30 €"
+    },
+    {
+      "amount": 1234.56,
+      "expected": "1234,56 €",
+      "inCurrency": "1234,56 €",
+      "fourDecimals": "1234,56 €",
+      "fromCents": "12,35 €"
+    },
+    {
+      "amount": 9999.99,
+      "expected": "9999,99 €",
+      "inCurrency": "9999,99 €",
+      "fourDecimals": "9999,99 €",
+      "fromCents": "100,00 €"
+    },
+    {
+      "amount": 10000,
+      "expected": "10 000,00 €",
+      "inCurrency": "10 000,00 €",
+      "fourDecimals": "10 000,00 €",
+      "fromCents": "100,00 €"
+    },
+    {
+      "amount": 12345.6789,
+      "expected": "12 345,68 €",
+      "inCurrency": "12 345,68 €",
+      "fourDecimals": "12 345,6789 €",
+      "fromCents": "123,46 €"
+    },
+    {
+      "amount": 1000000.99,
+      "expected": "1 000 000,99 €",
+      "inCurrency": "1 000 000,99 €",
+      "fourDecimals": "1 000 000,99 €",
+      "fromCents": "10 000,01 €"
+    }
+  ],
+  "iva": [
+    {
+      "base": 1000,
+      "rate": 23,
+      "iva": 230,
+      "total": 1230
+    },
+    {
+      "base": 380.5,
+      "rate": 23,
+      "iva": 87.52,
+      "total": 468.02
+    },
+    {
+      "base": 100.01,
+      "rate": 23,
+      "iva": 23,
+      "total": 123.01
+    },
+    {
+      "base": 33.3333,
+      "rate": 23,
+      "iva": 7.67,
+      "total": 41
+    },
+    {
+      "base": -100.01,
+      "rate": 23,
+      "iva": -23,
+      "total": -123.01
+    },
+    {
+      "base": 0,
+      "rate": 23,
+      "iva": 0,
+      "total": 0
+    },
+    {
+      "base": 1000,
+      "rate": 13,
+      "iva": 130,
+      "total": 1130
+    },
+    {
+      "base": 380.5,
+      "rate": 13,
+      "iva": 49.47,
+      "total": 429.97
+    },
+    {
+      "base": 100.01,
+      "rate": 13,
+      "iva": 13,
+      "total": 113.01
+    },
+    {
+      "base": 33.3333,
+      "rate": 13,
+      "iva": 4.33,
+      "total": 37.66
+    },
+    {
+      "base": -100.01,
+      "rate": 13,
+      "iva": -13,
+      "total": -113.01
+    },
+    {
+      "base": 0,
+      "rate": 13,
+      "iva": 0,
+      "total": 0
+    },
+    {
+      "base": 1000,
+      "rate": 6,
+      "iva": 60,
+      "total": 1060
+    },
+    {
+      "base": 380.5,
+      "rate": 6,
+      "iva": 22.83,
+      "total": 403.33
+    },
+    {
+      "base": 100.01,
+      "rate": 6,
+      "iva": 6,
+      "total": 106.01
+    },
+    {
+      "base": 33.3333,
+      "rate": 6,
+      "iva": 2,
+      "total": 35.33
+    },
+    {
+      "base": -100.01,
+      "rate": 6,
+      "iva": -6,
+      "total": -106.01
+    },
+    {
+      "base": 0,
+      "rate": 6,
+      "iva": 0,
+      "total": 0
+    },
+    {
+      "base": 1000,
+      "rate": 0,
+      "iva": 0,
+      "total": 1000
+    },
+    {
+      "base": 380.5,
+      "rate": 0,
+      "iva": 0,
+      "total": 380.5
+    },
+    {
+      "base": 100.01,
+      "rate": 0,
+      "iva": 0,
+      "total": 100.01
+    },
+    {
+      "base": 33.3333,
+      "rate": 0,
+      "iva": 0,
+      "total": 33.33
+    },
+    {
+      "base": -100.01,
+      "rate": 0,
+      "iva": 0,
+      "total": -100.01
+    },
+    {
+      "base": 0,
+      "rate": 0,
+      "iva": 0,
+      "total": 0
+    }
+  ],
+  "bp": {
+    "input": {
+      "formulaType": "pct_ticket_revenue",
+      "params": {
+        "rate": 10,
+        "basis": "net",
+        "zone_ids": null
+      },
+      "sales": [
+        {
+          "zone_id": "zone",
+          "quantity": 10,
+          "unit_price": 106,
+          "total_value": 1060,
+          "iva_rate": 6
+        },
+        {
+          "zone_id": "zone",
+          "quantity": 1,
+          "unit_price": 123.01,
+          "total_value": 123.01,
+          "iva_rate": 23
+        }
+      ],
+      "courtesies": [],
+      "realized": true
+    },
+    "expected": {
+      "amount": 110,
+      "composition": {
+        "source": "real",
+        "revenue": 1100.01,
+        "basis": "net",
+        "sold": 11,
+        "courtesies": 0,
+        "courtesiesSource": null,
+        "pendingFinalCourtesies": false,
+        "zoneFilterUsesReal": false,
+        "clamped": null,
+        "unitAmount": null,
+        "rate": 10
+      }
+    }
+  },
+  "allocation": {
+    "input": {
+      "line": {
+        "formula_type": "pct_ticket_revenue",
+        "formula_params": {
+          "master_city_bases": {
+            "a": 1,
+            "b": 1,
+            "c": 1
+          }
+        }
+      },
+      "childIds": [
+        "a",
+        "b",
+        "c"
+      ],
+      "amount": 100
+    },
+    "expected": {
+      "amounts": [
+        33.33,
+        33.33,
+        33.34
+      ],
+      "shares": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ]
+    }
+  },
+  "engine": {
+    "input": {
+      "eventBasis": "net_result_gross_expenses",
+      "eventTotals": {
+        "revenueNet": 1000.03,
+        "expensesNet": 100.01,
+        "expensesGross": 123.01
+      },
+      "settlements": [
+        {
+          "id": "root",
+          "name": "Fecho sintético",
+          "parent_id": null,
+          "position": 0,
+          "__depth": 0
+        }
+      ],
+      "participants": [
+        {
+          "id": "partner",
+          "settlement_id": "root",
+          "participant_kind": "partner",
+          "name": "Sócio sintético",
+          "mode": "settles",
+          "profit_pct": 50,
+          "loss_pct": null
+        },
+        {
+          "id": "house",
+          "settlement_id": "root",
+          "participant_kind": "house",
+          "name": "Casa sintética",
+          "mode": "settles",
+          "profit_pct": 50,
+          "loss_pct": null
+        }
+      ]
+    },
+    "expected": {
+      "nodes": [
+        {
+          "addbackIn": 0,
+          "addbacks": [],
+          "id": "root",
+          "name": "Fecho sintético",
+          "parentId": null,
+          "depth": 0,
+          "isSealed": false,
+          "returnsParentDeductibleVat": false,
+          "effectiveUsesGrossExpenses": true,
+          "nodeUsesGrossExpenses": true,
+          "parentQuota": null,
+          "parentQuotaBasis": null,
+          "parentSharePct": null,
+          "perimeter": {
+            "revenueNet": 1000.03,
+            "expensesNet": 100.01,
+            "expensesGross": 123.01,
+            "bpLines": 0,
+            "txLines": 0,
+            "isRoot": true
+          },
+          "resultNet": 900.02,
+          "resultGross": 877.02,
+          "moneyNet": 900.02,
+          "childQuotasNet": 0,
+          "participants": [
+            {
+              "id": "partner",
+              "settlementId": "root",
+              "name": "Sócio sintético",
+              "kind": "partner",
+              "mode": "settles",
+              "profitPct": 50,
+              "lossPct": null,
+              "effectivePct": 50,
+              "usesGrossExpenses": true,
+              "effectiveUsesGrossExpenses": true,
+              "share": 438.51,
+              "shareNet": 450.01,
+              "paidByPartner": 0,
+              "extras": 0,
+              "settlementAmount": 438.51
+            },
+            {
+              "id": "house",
+              "settlementId": "root",
+              "name": "Casa sintética",
+              "kind": "house",
+              "mode": "settles",
+              "profitPct": 50,
+              "lossPct": null,
+              "effectivePct": 50,
+              "usesGrossExpenses": true,
+              "effectiveUsesGrossExpenses": true,
+              "share": 438.51,
+              "shareNet": 450.01,
+              "paidByPartner": 0,
+              "extras": 0,
+              "settlementAmount": 438.51
+            }
+          ],
+          "operations": [],
+          "additionalActiveTotal": 0,
+          "vatReturnedIn": 0,
+          "vatReturnedOut": 0,
+          "vatNonRecoverable": 0,
+          "vatNonRecoverableLines": [],
+          "vatNotReturned": 0,
+          "vatReducedIn": 0
+        }
+      ],
+      "eventNetResult": 900.02,
+      "partnersPaidTotal": 438.51,
+      "additionalActivesTotal": 0,
+      "addbacksTotal": 0,
+      "house": {
+        "houseOnlyRevenue": 0,
+        "residual": 461.51,
+        "declared": 438.51,
+        "ivaDeductible": 23,
+        "nominalGap": 0,
+        "vatNonRecoverableCost": 0,
+        "rest": 0
+      },
+      "c1": {
+        "label": "C1 — Σ partes pagas + residual da MP = resultado do evento",
+        "value": 0,
+        "ok": true
+      },
+      "c2": {
+        "label": "C2 — residual = declarada + IVA dedutível + nominal−real",
+        "value": 0,
+        "ok": true
+      },
+      "errors": []
+    }
+  },
+  "document": {
+    "input": {
+      "eventName": "Evento sintético PT",
+      "eventDate": "2026-01-02",
+      "locale": "pt-PT",
+      "generatedAt": "2026-01-03T12:00:00.000Z",
+      "recipientName": "Sócio sintético",
+      "participants": [
+        {
+          "name": "Sócio sintético",
+          "percentage": 50
+        },
+        {
+          "name": "Casa sintética",
+          "percentage": 50,
+          "isHouse": true
+        }
+      ],
+      "revenues": [
+        {
+          "origin": "Receita sintética",
+          "net": 1000.03
+        }
+      ],
+      "expenseLines": [
+        {
+          "categoryId": "expense",
+          "description": "Custo sintético",
+          "base": 100.01,
+          "ivaRate": 23
+        }
+      ],
+      "categories": [
+        {
+          "id": "income",
+          "name": "Receita sintética",
+          "code": "1",
+          "type": "income",
+          "parent_id": null
+        },
+        {
+          "id": "expense",
+          "name": "Custo sintético",
+          "code": "2",
+          "type": "expense",
+          "parent_id": null
+        }
+      ],
+      "usesGrossExpenses": true,
+      "paidByPartner": 20.01,
+      "revenuesHeld": [
+        {
+          "label": "Retida sintética",
+          "value": 10.01
+        }
+      ],
+      "partnerExtras": 5,
+      "partnerAdvances": 10,
+      "transferWithVat": true
+    },
+    "expected": {
+      "locale": "pt-PT",
+      "t": {
+        "statement": "Prestação de contas",
+        "summarySheet": "Resumo",
+        "detailSheet": "Detalhamento",
+        "section1": "1. O ACORDO",
+        "section2": "2. AS RECEITAS DO EVENTO (s/IVA)",
+        "section3": "3. AS DESPESAS DO EVENTO",
+        "section4": "4. O RESULTADO",
+        "partner": "Sócio",
+        "quota": "Quota",
+        "value": "Valor",
+        "origin": "Origem",
+        "description": "Descrição",
+        "netValue": "Valor s/IVA",
+        "family": "Família",
+        "rubrica": "Rubrica",
+        "iva": "IVA",
+        "totalWithIva": "Total c/IVA",
+        "attachments": "Anexos",
+        "totalRevenues": "Total das receitas",
+        "totalExpenses": "Total das despesas",
+        "subtotal": "Subtotal",
+        "total": "TOTAL",
+        "resultLine": "Resultado",
+        "eventResultLine": "Resultado do evento",
+        "carriedResultLine": "Resultado a repartir",
+        "societyShareLine": "Parte da sociedade",
+        "societyResultLine": "Resultado da sociedade",
+        "ticketing": "Bilheteira",
+        "localPartners": "Sócios locais",
+        "ivaNote": "O IVA é calculado linha a linha sobre o valor da despesa (artigo 18.º do CIVA) e só depois somado.",
+        "detailARevenues": "A. Receitas linha a linha (s/IVA)",
+        "detailBExpenses": "B. Despesas por família e rubrica (c/IVA)",
+        "ofResult": "do resultado",
+        "adjustmentsLine": "+/- Ajustes ao desembolso",
+        "financingLine": "= Financiamento a devolver",
+        "extrasLine": "- Extras",
+        "vatOnTransfer": "+ IVA 23% sobre o repasse",
+        "mpTransfersLine": "Transferências já feitas",
+        "vatBaseLine": "Base do IVA = transferências já feitas + saldo",
+        "invoicedTotalLine": "Total faturado",
+        "date": "Data",
+        "adjustmentsSubtotal": "+/- Ajustes ao desembolso",
+        "fileName": "Prestacao_de_Contas",
+        "page": "Página",
+        "of": "de"
+      },
+      "title": "Evento sintético PT",
+      "subtitle": "Prestação de contas · 02/01/2026",
+      "dataNote": "Dados do sistema em 03/01/2026 · valores em euros",
+      "fileBase": "Prestacao_de_Contas_Evento_sintetico_PT_Socio_sintetico",
+      "recipientName": "Sócio sintético",
+      "agreement": [
+        {
+          "name": "Sócio sintético",
+          "percentage": 50,
+          "value": 438.51,
+          "isRecipient": true
+        },
+        {
+          "name": "Mundo Propício",
+          "percentage": 50,
+          "value": 438.51,
+          "isRecipient": false
+        }
+      ],
+      "revenues": [
+        {
+          "origin": "Receita sintética",
+          "net": 1000.03
+        }
+      ],
+      "revenueGroups": [
+        {
+          "origin": "Receita sintética",
+          "net": 1000.03
+        }
+      ],
+      "revenueNet": 1000.03,
+      "extras": [],
+      "extrasTotal": 0,
+      "cascade": null,
+      "cascadeQuota": null,
+      "cascadeMismatch": 0,
+      "families": [
+        {
+          "code": "2",
+          "name": "Custo sintético",
+          "base": 100.01,
+          "iva": 23,
+          "total": 123.01,
+          "rubricas": [
+            {
+              "code": "2",
+              "name": "Custo sintético",
+              "base": 100.01,
+              "iva": 23,
+              "total": 123.01,
+              "documents": 0,
+              "lines": [
+                {
+                  "description": "Custo sintético",
+                  "base": 100.01,
+                  "iva": 23,
+                  "total": 123.01,
+                  "ivaRate": 23,
+                  "documents": 0
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "expenseBase": 100.01,
+      "expenseIva": 23,
+      "expenseTotal": 123.01,
+      "expenseForResult": 123.01,
+      "usesGrossExpenses": true,
+      "expenseColumns": "detailed",
+      "expenseBasisLabel": "Despesas c/IVA",
+      "resultBasisLabel": "Resultado c/IVA",
+      "result": 877.02,
+      "recipientShare": 438.51,
+      "othersShare": 438.51,
+      "paidByPartner": 20.01,
+      "disbursementAdjustments": 0,
+      "revenuesHeld": [
+        {
+          "label": "Retida sintética",
+          "value": 10.01
+        }
+      ],
+      "totalRevenuesHeld": 10.01,
+      "financingToReturn": 10,
+      "partnerExtras": 5,
+      "partnerAdvances": 10,
+      "paidByPartnerLines": [],
+      "disbursementAdjustmentLines": [],
+      "partnerExtrasLines": [],
+      "transferBase": 433.51,
+      "transferWithVat": true,
+      "transferVat": 99.71,
+      "transferVatBase": 433.51,
+      "mpTransfersAdvanced": 0,
+      "invoicedTotal": 533.22,
+      "transferTotal": 533.22
+    }
+  },
+  "dre": {
+    "transactions": [
+      {
+        "id": "i",
+        "type": "income",
+        "amount": 1000.03,
+        "iva_rate": 6,
+        "category_id": "income"
+      },
+      {
+        "id": "e1",
+        "type": "expense",
+        "amount": 100.01,
+        "iva_rate": 23,
+        "category_id": "expense"
+      },
+      {
+        "id": "e2",
+        "type": "expense",
+        "amount": 33.3333,
+        "iva_rate": 13,
+        "category_id": "expense"
+      },
+      {
+        "id": "e3",
+        "type": "expense",
+        "amount": -10.01,
+        "iva_rate": 6,
+        "category_id": "expense"
+      },
+      {
+        "id": "e4",
+        "type": "expense",
+        "amount": 0,
+        "iva_rate": 0,
+        "category_id": "expense"
+      },
+      {
+        "id": "ignored",
+        "type": "expense",
+        "amount": 999,
+        "iva_rate": 23,
+        "category_id": "expense",
+        "is_transitory": true
+      }
+    ],
+    "categories": [
+      {
+        "id": "income",
+        "name": "Receita sintética",
+        "code": "1",
+        "type": "income",
+        "parent_id": null
+      },
+      {
+        "id": "expense",
+        "name": "Custo sintético",
+        "code": "2",
+        "type": "expense",
+        "parent_id": null
+      }
+    ],
+    "expected": [
+      {
+        "label": "RECEITAS",
+        "amountExIva": 1000.03,
+        "ivaAmount": 60.0018,
+        "amountIncIva": 1060.0318,
+        "isTotal": true
+      },
+      {
+        "label": "Receita sintética",
+        "code": "1",
+        "amountExIva": 1000.03,
+        "ivaAmount": 60.0018,
+        "amountIncIva": 1060.0318,
+        "indent": true
+      },
+      {
+        "label": "DESPESAS",
+        "amountExIva": 123.3333,
+        "ivaAmount": 26.735029000000004,
+        "amountIncIva": 150.068329,
+        "isTotal": true,
+        "isExpenseSide": true
+      },
+      {
+        "label": "Custo sintético",
+        "code": "2",
+        "amountExIva": 123.3333,
+        "ivaAmount": 26.735029000000004,
+        "amountIncIva": 150.068329,
+        "indent": true,
+        "isExpenseSide": true
+      },
+      {
+        "label": "RESULTADO LÍQUIDO",
+        "amountExIva": 876.6967,
+        "ivaAmount": 0,
+        "amountIncIva": 0,
+        "isGrandTotal": true
+      }
+    ],
+    "partnerViewExpected": [
+      {
+        "label": "RECEITAS",
+        "amountExIva": 1000.03,
+        "ivaAmount": 60.0018,
+        "amountIncIva": 1060.0318,
+        "isTotal": true
+      },
+      {
+        "label": "Receita sintética",
+        "code": "1",
+        "amountExIva": 1000.03,
+        "ivaAmount": 60.0018,
+        "amountIncIva": 1060.0318,
+        "indent": true
+      },
+      {
+        "label": "DESPESAS",
+        "amountExIva": 123.3333,
+        "ivaAmount": 26.735029000000004,
+        "amountIncIva": 150.068329,
+        "isTotal": true,
+        "isExpenseSide": true
+      },
+      {
+        "label": "Custo sintético",
+        "code": "2",
+        "amountExIva": 123.3333,
+        "ivaAmount": 26.735029000000004,
+        "amountIncIva": 150.068329,
+        "indent": true,
+        "isExpenseSide": true
+      },
+      {
+        "label": "RESULTADO",
+        "amountExIva": 849.961671,
+        "ivaAmount": 0,
+        "amountIncIva": 849.961671,
+        "isGrandTotal": true
+      }
+    ]
+  }
+}

@@ -30,9 +30,13 @@ Esta regra integra o Bloco Comum e todos os prompts em `docs/prompts/`; aplica-s
 
 **Regra de ouro:** informação com data no nome é arquivo. Informação sem data no nome é estado. Nunca se lê arquivo para saber onde estamos.
 
+## Visão de produto
+
+[Plataforma de gestão de eventos como SaaS em 2027](planejamento/plataforma-saas-2027.md) — direção confirmada, evidências locais, pendências e gates.
+
 ## Os chats
 
-Numeração única 0–11, igual no Claude e no ChatGPT, mais `coala-portal`, `newgang-portal`, `gestao-de-chats` e os chats de evento. Tabela completa, modelos e ficheiros de estado em `docs/CHATS.md`. O 8 (Tráfego Pago) lê `estado-audience-meta.md` e `estado-audience-google.md` até os consolidar em `estado-trafego-pago.md`.
+Numeração única 0–11, igual no Claude e no ChatGPT, mais `coala-portal`, `newgang-portal`, `gestao-de-chats` e os chats de evento. Tabela completa, modelos e ficheiros de estado em `docs/CHATS.md`. O 8 (Tráfego Pago) lê [estado/estado-trafego-pago.md](estado/estado-trafego-pago.md); os antigos estados Meta e Google são ponteiros para esse estado único.
 
 **Um chat por frente. O número e o nome do chat são os de `CHATS.md`.** Se um tema muda de frente a meio, muda-se de chat.
 
@@ -159,7 +163,7 @@ O fecho documental é R0 (D-ERP291): o executor escreve-o sem nova autorização
 
 **Uma tarefa do agente só está feita depois de verificada por leitura do código e consulta a Live — o relatório do agente não é prova.**
 
-**Depois de cada Publish, confirmar `/version.json` em produção: `buildId`/`builtAt` posteriores ao deploy e `commit` igual ao HEAD publicado. Se não mudar, o build morreu e o Publish não chegou a produção.** Regras de code-splitting, chunks e limites do service worker: `.lovable/memory/features/build-code-splitting.md`.
+**Depois de cada Publish, confirmar `/version.json` na origem esperada e comparar o SHA completo de `commit` com o HEAD esperado, conferindo a proveniência da fonte. Com `commit:null`, a comprovação do commit é INCONCLUSIVA. `builtAt`/`buildId` alterados e um marcador funcional só provam build/conteúdo específico, nunca equivalência do código todo; o build precede a publicação. Metadados ausentes ou inalterados exigem investigar cache/build não identificado, sem concluir por si só que o Publish falhou.** Procedimento e prova pendente do builder real: [verificar versão publicada](procedimentos/PROC-verificar-versao-publicada.md). Regras de code-splitting, chunks e limites do service worker: `.lovable/memory/features/build-code-splitting.md`.
 
 **Toda a função `SECURITY DEFINER` nova no schema `public` leva, na mesma migração que a cria:**
 

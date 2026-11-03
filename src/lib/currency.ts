@@ -1,6 +1,5 @@
-// Multi-currency helpers (phase 1: EUR + BRL + USD)
-// The canonical "amount" stored in DB is always in EUR.
-// `original_amount` + `fx_rate` are kept for traceability when currency != EUR.
+// Currency formatting and legacy FX helpers.
+// Native company amounts use company-locale.ts; formatters never convert values.
 
 export type CurrencyCode = "EUR" | "BRL" | "USD" | "GBP";
 
@@ -22,9 +21,15 @@ export function getCurrencyMeta(code: CurrencyCode) {
 }
 
 /** Format a value in the given currency (e.g. R$ 5.000,00). */
-export function formatInCurrency(value: number, code: CurrencyCode): string {
+export function formatInCurrency(value: number, code: CurrencyCode, locale?: string): string {
   const meta = CCY_MAP[code];
-  return new Intl.NumberFormat(meta.locale, { style: "currency", currency: code }).format(value);
+  return new Intl.NumberFormat(locale ?? meta.locale, { style: "currency", currency: code }).format(value);
+}
+
+export interface MoneyFormatOptions {
+  locale?: string;
+  fromCents?: boolean;
+  maximumFractionDigits?: number;
 }
 
 /**
@@ -44,7 +49,7 @@ export function formatInCurrency(value: number, code: CurrencyCode): string {
 export function formatMoney(
   value: number | null | undefined,
   currency: string | null | undefined,
-  opts: { locale?: string; fromCents?: boolean; maximumFractionDigits?: number } = {},
+  opts: MoneyFormatOptions = {},
 ): string {
   if (value === null || value === undefined || Number.isNaN(value as number)) return "—";
   const code = (currency && currency.trim()) || "EUR";

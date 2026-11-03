@@ -6,6 +6,7 @@ import { VitePWA } from "vite-plugin-pwa";
 import fs from "fs";
 import { execSync } from "child_process";
 import type { Plugin } from "vite";
+import { resolveBuildCommit } from "./scripts/build-commit";
 
 const BUILD_AT = new Date();
 const BUILD_ID = String(BUILD_AT.getTime());
@@ -39,19 +40,12 @@ const bundleReportPlugin = (): Plugin => ({
   },
 });
 
-// Commit publicado: serve para confirmar, depois de um Publish, que o que está
-// em produção é de facto o HEAD publicado. Nunca pode fazer o build falhar.
-function resolveCommit(): string | null {
-  try {
-    const sha = execSync("git rev-parse HEAD", { stdio: ["ignore", "pipe", "ignore"] })
-      .toString()
-      .trim();
-    if (sha) return sha;
-  } catch {
-    // sem git disponível — segue para as variáveis de ambiente
-  }
-  return (
-    process.env.VITE_COMMIT_SHA || process.env.COMMIT_REF || process.env.GIT_COMMIT || null
+// SHA de origem do build: só publica candidatos completos validados.
+// Sem fonte válida, a comprovação do commit fica inconclusiva; o build continua.
+function resolveCommit() {
+  return resolveBuildCommit(
+    () => execSync("git rev-parse HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString(),
+    process.env,
   );
 }
 
@@ -68,7 +62,7 @@ const buildVersionPlugin = () => ({
       JSON.stringify({
         buildId: BUILD_ID,
         builtAt: BUILD_AT.toISOString(),
-        commit: resolveCommit(),
+        ...resolveCommit(),
       }),
     );
   },

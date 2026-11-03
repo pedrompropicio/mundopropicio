@@ -41,14 +41,15 @@ beforeAll(async () => {
   await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
   CREATE SCHEMA auth; CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$SELECT '${U}'::uuid$$;
   CREATE TYPE app_role AS ENUM ('admin','manager','platform_admin','viewer');
-  CREATE TABLE flags(pa boolean); INSERT INTO flags VALUES(false);
+  CREATE TABLE flags(pa boolean); INSERT INTO flags (pa) VALUES(false);
   CREATE FUNCTION current_company_id() RETURNS uuid LANGUAGE sql AS $$SELECT '${C}'::uuid$$;
   CREATE FUNCTION is_platform_admin(uuid) RETURNS boolean LANGUAGE sql AS $$SELECT pa FROM flags$$;
   CREATE FUNCTION has_role(uuid,app_role) RETURNS boolean LANGUAGE sql AS $$SELECT true$$;
   CREATE FUNCTION has_permission(uuid,text) RETURNS boolean LANGUAGE sql AS $$SELECT true$$;
   CREATE TABLE user_roles(user_id uuid, company_id uuid, role app_role);
-  INSERT INTO user_roles VALUES('${U}','${C}','manager');
-  CREATE TABLE events(id uuid PRIMARY KEY, name text, date date, company_id uuid, parent_event_id uuid, st text);
+  INSERT INTO user_roles (user_id, company_id, role) VALUES('${U}','${C}','manager');
+  -- Deliberately different from INSERT column order: existing RPC scenarios exercise named mapping.
+  CREATE TABLE events(st text, parent_event_id uuid, company_id uuid, date date, name text, id uuid PRIMARY KEY);
   CREATE FUNCTION event_stage(uuid) RETURNS text LANGUAGE sql STABLE AS $$SELECT st FROM events WHERE id=$1$$;
   CREATE TABLE event_dates(event_id uuid, date date);
   CREATE TABLE account_categories(id uuid, code text);
@@ -73,7 +74,7 @@ beforeAll(async () => {
 }, 30000);
 afterAll(async () => { await db?.close(); });
 beforeEach(async () => {
-  await db.exec(`BEGIN; INSERT INTO events VALUES
+  await db.exec(`BEGIN; INSERT INTO events (id, name, date, company_id, parent_event_id, st) VALUES
    ('${ROOT}','root','2000-01-01','${C}',null,'em_fecho'),
    ('${FECH}','fech','2000-02-01','${C}',null,'fechado'),
    ('${SUB}','sub','2000-02-02','${C}','${FECH}','em_curso'),
@@ -114,9 +115,9 @@ it("not-started em_curso: BP out of total, in bp_total/bp_por_lancar; launched t
 it("started em_fecho with cache contract, partner_paid (valid only), rateio mother, transitory; sums close by stage", async () => {
   const a = fc(ROOT, 100); const b = fc(ROOT, 200); const c = fc(ROOT, 300); const k = fc(ROOT, 500, { cache_config_id: `'${id()}'` });
   const kc = id(); const mother = tx(null, 1000, 0);
-  await db.exec(a.sql + b.sql + c.sql + k.sql + `INSERT INTO cache_payment_contracts VALUES('${kc}','${C}',null);
-    INSERT INTO cache_payment_contract_cities VALUES('${kc}','${k.fid}',80);
-    INSERT INTO event_bp_line_reviews VALUES('${b.fid}','${C}','partner_paid',200,now()),('${c.fid}','${C}','partner_paid',1,now());`
+  await db.exec(a.sql + b.sql + c.sql + k.sql + `INSERT INTO cache_payment_contracts (id, company_id, cancelled_at) VALUES('${kc}','${C}',null);
+    INSERT INTO cache_payment_contract_cities (contract_id, forecast_id, quota) VALUES('${kc}','${k.fid}',80);
+    INSERT INTO event_bp_line_reviews (forecast_id, company_id, decision, saldo_at_review, reviewed_at) VALUES('${b.fid}','${C}','partner_paid',200,now()),('${c.fid}','${C}','partner_paid',1,now());`
     + tx(ROOT, 30, 10, { forecast_id: `'${a.fid}'` }).sql + mother.sql + tx(ROOT, 25, 0, { parent_transaction_id: `'${mother.tid}'` }).sql
     + tx(ROOT, 999, 0, { is_transitory: "true" }).sql + tx(SUB, 7, 0).sql);
   const v = await call(); const e = pe(v, ROOT);

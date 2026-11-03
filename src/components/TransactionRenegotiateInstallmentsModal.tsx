@@ -1,3 +1,4 @@
+import { assertEuroInstallmentChange, FOREIGN_INSTALLMENT_CHANGE } from "@/lib/installment-original";
 import { useMemo, useState } from "react";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { createPortal } from "react-dom";
@@ -162,6 +163,7 @@ export function TransactionRenegotiateInstallmentsModal({
 
   const mutation = useMutation({
     mutationFn: async () => {
+      assertEuroInstallmentChange([transaction.currency]);
       const err = validateInstallments(rows, grossTotal);
       if (err) throw new Error(err);
 
@@ -222,6 +224,7 @@ export function TransactionRenegotiateInstallmentsModal({
         </div>
         <div className="manual-modal-body space-y-4">
 
+        {transaction.currency !== "EUR" && <p className="text-xs text-destructive">{FOREIGN_INSTALLMENT_CHANGE}</p>}
         {!confirming ? (
           <>
             <TransactionInstallmentsEditor
@@ -241,7 +244,7 @@ export function TransactionRenegotiateInstallmentsModal({
               <Button
                 type="button"
                 size="sm"
-                disabled={!!validationError}
+                disabled={!!validationError || transaction.currency !== "EUR"}
                 onClick={() => setConfirming(true)}
               >
                 Continuar
@@ -308,7 +311,7 @@ export function TransactionRenegotiateInstallmentsModal({
               <Button
                 type="button"
                 size="sm"
-                disabled={!!validationError || mutation.isPending}
+                disabled={!!validationError || transaction.currency !== "EUR" || mutation.isPending}
                 onClick={() => mutation.mutate()}
               >
                 {mutation.isPending ? "A gravar…" : "Confirmar renegociação"}

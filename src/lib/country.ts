@@ -15,11 +15,11 @@ export const KNOWN_COUNTRY_NAMES = ["Portugal", "Brasil", "Espanha"];
  *  (nesse caso o seletor mostra todas as cidades como fallback). */
 export function countryIsoToName(iso: string | null | undefined): string | null {
   if (!iso) return null;
-  return COUNTRY_ISO_TO_NAME[iso.toUpperCase()] ?? null;
+  return COUNTRY_ISO_TO_NAME[iso.trim().toUpperCase()] ?? null;
 }
 
 /** Formato de apresentação de cidade: "Cidade - UF" quando há state, senão "Cidade". */
-export function formatCityLabel(name: string, state?: string | null): string {
+export function formatCityLabel(name: string, state?: string | null, separator = " - "): string {
   const s = (state ?? "").trim();
-  return s ? `${name} - ${s}` : name;
+  return s ? `${name}${separator}${s}` : name;
 }

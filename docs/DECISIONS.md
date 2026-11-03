@@ -6583,3 +6583,18 @@ Origem: 0 · Cowork (Claude), 31/10/2026.
 - O **0 · Cowork (Claude)** fica só para as janelas: Publish (`deploy_project` existe só deste lado), aplicação de migrações no mp-homolog-3 e em Live (PROC-promocao), deploy de edge functions e crons — sessões curtas, uma por janela, com os blocos preparados pelo ChatGPT.
 - Razão: custo. O Claude Code no executor e as sessões longas do Cowork consomem o limite da subscrição Claude; o Codex no executor custou $0,13 por tarefa (medido 01/11) e o ChatGPT Business tem créditos de workspace.
 - A fonte continua a ser o GitHub (D-ERP278): nada vive só na memória de um chat. Estado de passagem: Issue #435 (janela de 01/11) e docs/prompts/arranque-0-cowork-chatgpt-2026-11-02.md.
+
+## D-ERP351 — Direção SaaS 2027 e fronteira com a contabilidade externa (02/11/2026, Pedro, #457)
+
+- Objetivo confirmado: Sistema de Gestão de Eventos como plataforma SaaS em 2027, uma plataforma de gestão com capacidades reutilizáveis entre empresas. Social Music é o piloto BR indicado, sem fork nem condições pelo nome da empresa; reutilizar a codebase multiempresa e `company_features` existente.
+- Princípio ERP/contabilidade: gestão de dados e documentos, exportação e integrações com contabilidade externa; cálculos e estimativas gerenciais dependem de regras validadas. Escrituração, SPED e apuração oficial permanecem externos.
+- Origem: #457, comentários [6567993220](https://github.com/pedrompropicio/mundopropicio/issues/457#issuecomment-6567993220) e [6567622911](https://github.com/pedrompropicio/mundopropicio/issues/457#issuecomment-6567622911), conforme contexto fornecido no despacho da #462. Visão viva: [plataforma SaaS 2027](planejamento/plataforma-saas-2027.md). Não libera quarentena nem decide contratação, preço, SLA ou data exata de lançamento.
+
+
+## D-ERP352 — Retoma #486 e diagnóstico do executor E2b (02/11/2026, Pedro, SIM no 0 · Cowork ChatGPT)
+
+- Pedro autorizou registar a proposta, aplicar por PR o patch do workflow e integrar só com CI verde; corretivo separado na #489/PR #490. Esforço high explícito, classe conforme autorização, preservação da última resposta e duração; Fecho SEM ENTREGA com run em erro quando não existe diff. Modelo, sandbox, permissões e travas mantidos. A preservação parcial só vale quando o despacho a admite; não equivale a conclusão.
+- Para a retoma específica da #486: D1 contrato SQL/roteiro em preparação R2; D2 núcleo puro/tipos/testes (também preparação R2 onde toca supabase); D3 integração edges/modal/tipos/testes/dossier. Âmbito integral mantido na mesma Issue. Não é uma regra geral de fragmentação por ficheiro.
+- Entrega parcial segura aceite para revisão, com lacunas numeradas e merge automático desligado. D2/D3 recebem as assinaturas efetivamente entregues e revistas de D1. Novo SQL e provas PostgreSQL ficam apenas preparados em D1; testes PGlite preexistentes continuam permitidos. Aplicação, deploy, Publish e saneamento histórico exigem autorizações próprias.
+- Validade e reserva são renovadas explicitamente no despacho, nunca automaticamente. Garantias de concorrência e interação com writers externos continuam critérios de promoção; locks exclusivos Ads não provam cobertura global.
+- Fontes: #486, comentário [6584570653](https://github.com/pedrompropicio/mundopropicio/issues/486#issuecomment-6584570653), e [#489](https://github.com/pedrompropicio/mundopropicio/issues/489). Simulações locais do workflow estão registadas na #489; não provam produtividade futura nem tratamento completo de cancelamentos anteriores à recolha.

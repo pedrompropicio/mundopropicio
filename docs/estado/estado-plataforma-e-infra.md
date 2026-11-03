@@ -1,5 +1,11 @@
 # ESTADO — Plataforma & Infra
 
+## Executor E2b — corretivo #489 e retoma #486 (02/11/2026)
+
+Executor do corretivo: 0 · Cowork (ChatGPT), conector GitHub. Patch aprovado por Pedro em `.github/workflows/executor.yml`, [PR #490](https://github.com/pedrompropicio/mundopropicio/pull/490): high explícito; rótulo de classe coerente; entrega parcial apenas se autorizada; duração/última mensagem preservadas; Fecho SEM ENTREGA com erro após comentário para diff vazio. Não altera modelo, sandbox, permissões, AGENTS ou travas. Validação local: YAML, bash -n em 14 blocos, simulações vazia/não vazia e exit 0/7. CI do SHA exato é obrigatório antes de integrar; a prova de integração e a primeira execução real ficam na [#489](https://github.com/pedrompropicio/mundopropicio/issues/489). Abortos antes da recolha não estão cobertos integralmente.
+
+Retoma da #486 autorizada em D1 → D2 → D3, sem merge automático. D1 prepara contrato SQL e roteiro sem aplicar; D2 núcleo/tipos/testes; D3 edges/modal/dossier. Revisão mantém critérios financeiros completos; entrega parcial não fecha a feature. D-ERP352. Reserva D1 e run corrente vivem nos comentários da [#486](https://github.com/pedrompropicio/mundopropicio/issues/486); nenhuma outra reserva é transferida. Sem acesso às bases MP, deploy ou Publish neste trabalho.
+
 ## Modelo de desenvolvimento — `lovable/dev` + `main` protegido (D-ERP344, 31/10/2026)
 
 ERP no Lovable em `lovable/dev`. Regra «main protegido (D-ERP343)» activa: PR + CI `quality` verde, sem force push nem apagar, sem exceções. Primeiro PR #411 junto (merge `f6468322`); CI do `main` verde outra vez. Publish: PR `lovable/dev`→`main`, Lovable em `main`, Publish, `/version.json`, volta a `lovable/dev` (comportamento do Publish noutro ramo por confirmar na primeira janela). Por fazer: o mesmo modelo nos projetos Portal/CRM, Newgang e Coala, se o Pedro decidir.

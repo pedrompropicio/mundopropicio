@@ -1,5 +1,6 @@
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import { assertEquals, assertExists } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { BR_ONLY_PAYMENT_METHODS, BOLETO_FIELDS_MESSAGE, validateBoletoFields } from "../_shared/payment-methods.ts";
 
 const SUPABASE_URL = Deno.env.get("VITE_SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("VITE_SUPABASE_PUBLISHABLE_KEY")!;
@@ -21,6 +22,25 @@ async function callFunction(name: string, body: Record<string, unknown>, token?:
 }
 
 // ── update-transaction: transitory field tests ──
+
+// #498: casos puros, sem token, chamadas remotas ou escrita financeira.
+Deno.test("update-transaction: Pix integra os acréscimos BR e dispensa linha digitável", () => {
+  assertEquals([...BR_ONLY_PAYMENT_METHODS], ["pix", "boleto"]);
+  assertEquals(validateBoletoFields({ payment_method: "pix", payment_reference: null }), null);
+});
+
+for (const length of [46, 47, 48, 49]) {
+  Deno.test(`update-transaction: boleto com ${length} dígitos`, () => {
+    assertEquals(validateBoletoFields({ payment_method: "boleto", payment_reference: "0".repeat(length) }),
+      length === 47 || length === 48 ? null : BOLETO_FIELDS_MESSAGE);
+  });
+}
+
+Deno.test("update-transaction: boleto recusa referência ausente ou quebra final", () => {
+  for (const payment_reference of [null, "", `${"1".repeat(47)}\n`]) {
+    assertEquals(validateBoletoFields({ payment_method: "boleto", payment_reference }), BOLETO_FIELDS_MESSAGE);
+  }
+});
 
 Deno.test("update-transaction: rejects unauthenticated request", async () => {
   const { status, data } = await callFunction("update-transaction", {

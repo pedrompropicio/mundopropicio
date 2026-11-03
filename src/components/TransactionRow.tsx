@@ -5,7 +5,9 @@ import { isPartnerContractTx, PARTNER_CONTRACT_TX_HINT } from "@/lib/partner-con
 import { OffsetPaidBadge } from "@/components/TransactionOffsetsBlock";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatCurrency, formatDate } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency, formatDate } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import type { IvaRate } from "@/lib/mock-data";
 import { calcWithIva, isFullyPaid, formatDatePT, formatDatePTOptions } from "@/lib/utils";
 import { computeNetPayable, getDeclaredWithholding } from "@/lib/withholding";
@@ -120,6 +122,19 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
 }
 
 export function TransactionRow({ transaction: t, canApprove, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, approveDisabled, onPayment, onDocs, onAudit, onDelete, onToggleHidden, onViewPayments, highlightId, inGroup, hasInstallments }: Props) {
+  const companyLocale = useCompanyLocale();
+  // Preserve the legacy PT grouping and rounding byte for byte (#498 P1b).
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+  const formatSplitAmount = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? `${value.toFixed(2)}${companyLocale.symbol}`
+      : formatMoney(value, companyLocale);
+
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [childrenExpanded, setChildrenExpanded] = useState(false);
@@ -426,7 +441,7 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="inline-flex items-center gap-0.5 rounded border border-muted-foreground/30 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground cursor-help">
-                        Split {splitAmt != null ? `${splitAmt.toFixed(2)}€` : splitPct != null ? `${splitPct}%` : ""}
+                        Split {splitAmt != null ? formatSplitAmount(splitAmt) : splitPct != null ? `${splitPct}%` : ""}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-xs">
@@ -932,13 +947,13 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                     const isAccountEntry = m.field_name === "Conta de pagamento" || m.field_name === "Conta de recebimento";
                     const isNoteEntry = m.field_name === "Nota de pagamento" || m.field_name === "Nota de recebimento";
 
-                    // Parse new_value for payment entries: could be "1.000,00 € — Banco X" or just a number
+                    // Payment history may contain an already formatted amount and account, or a raw number.
                     let paymentDisplayAmount = "";
                     let paymentAccountName = "";
                     if (isPaymentEntry && m.new_value) {
                       const parts = m.new_value.split(" — ");
                       if (parts.length >= 2) {
-                        // New format: "1.000,00 € — Banco Santander Totta"
+                        // Preserve the recorded formatted amount and account.
                         paymentDisplayAmount = parts[0].trim();
                         paymentAccountName = parts.slice(1).join(" — ").trim();
                       } else {
@@ -1044,7 +1059,7 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                             <td className="py-2 px-3">
                               <div className="flex items-center gap-1.5">
                                 <span className="inline-flex items-center gap-0.5 rounded border border-muted-foreground/30 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                  Split {childSplitAmt != null ? `${childSplitAmt.toFixed(2)}€` : childSplitPct != null ? `${childSplitPct}%` : ""}
+                                  Split {childSplitAmt != null ? formatSplitAmount(childSplitAmt) : childSplitPct != null ? `${childSplitPct}%` : ""}
                                 </span>
                                 <span className="font-medium text-foreground">{childEvent}</span>
                               </div>

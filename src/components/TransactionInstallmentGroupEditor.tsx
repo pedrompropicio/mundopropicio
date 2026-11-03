@@ -1,3 +1,4 @@
+import { assertEuroInstallmentChange, FOREIGN_INSTALLMENT_CHANGE } from "@/lib/installment-original";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Layers, Lock, Unlock, Wand2, AlertTriangle, Calendar as CalendarIcon } from "lucide-react";
@@ -50,12 +51,13 @@ type GroupRow = {
   status: string;
   paid_amount: number;
   isRoot: boolean;
+  currency: string | null;
 };
 
 const isPaidRow = (r: GroupRow) => r.status === "paid" || Number(r.paid_amount) > 0.01;
 
 const GROUP_COLS =
-  "id, description, amount, iva_rate, due_date, date, status, paid_amount, split_percentage, parent_transaction_id, is_transitory, installment_group_id";
+  "currency, id, description, amount, iva_rate, due_date, date, status, paid_amount, split_percentage, parent_transaction_id, is_transitory, installment_group_id";
 
 export function useInstallmentGroup(transaction: any) {
   const rootId: string = transaction.parent_transaction_id ?? transaction.id;
@@ -75,6 +77,7 @@ export function useInstallmentGroup(transaction: any) {
         status: r.status,
         paid_amount: Number(r.paid_amount) || 0,
         isRoot,
+        currency: r.currency ?? null,
       });
       const sortRows = (rows: GroupRow[]) => {
         rows.sort((a, b) => (a.due_date ?? a.date).localeCompare(b.due_date ?? b.date));
@@ -241,6 +244,18 @@ export function TransactionInstallmentGroupEditor({
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (mismatch) throw new Error("A soma das parcelas tem de igualar o novo total (±0,01 €).");
+      if (!canEdit) throw new Error("Sem permissão para editar as parcelas.");
+      // Preflight ALL rows before even a date write: a later forbidden amount
+      // or paid row must not leave earlier rows changed.
+      const monetaryChange = group.some((r) => rows[r.id] && Math.abs((r.currency === "EUR" ? +Number(rows[r.id].amount).toFixed(2) : Number(rows[r.id].amount)) - r.amount) > 0.001);
+      if (monetaryChange) assertEuroInstallmentChange(group.map((r) => r.currency));
+      for (const r of group) {
+        const edited = rows[r.id];
+        if (!edited) throw new Error("Parcelas incompletas; volte a abrir o editor.");
+        if (!Number.isFinite(edited.amount) || edited.amount < 0) throw new Error("Valor de parcela inválido.");
+        const changed = Math.abs((r.currency === "EUR" ? +Number(edited.amount).toFixed(2) : Number(edited.amount)) - r.amount) > 0.001 || (r.due_date ?? null) !== (edited.due_date || null);
+        if (changed && rowLocked(r)) throw new Error("Parcela paga travada — destranca antes de gravar (admin/gestora).");
+      }
       const changedBy = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
       const audit: any[] = [];
       let updated = 0;
@@ -250,7 +265,7 @@ export function TransactionInstallmentGroupEditor({
         if (!edited) continue;
         const newAmount = +Number(edited.amount).toFixed(2);
         const newDue = edited.due_date || null;
-        const amountChanged = Math.abs(newAmount - r.amount) > 0.001;
+        const amountChanged = Math.abs((r.currency === "EUR" ? +Number(edited.amount).toFixed(2) : Number(edited.amount)) - r.amount) > 0.001;
         const dueChanged = (r.due_date ?? null) !== newDue;
         if (!amountChanged && !dueChanged) continue;
         if (rowLocked(r)) throw new Error("Parcela paga travada — destranca antes de gravar (admin/gestora).");
@@ -297,7 +312,7 @@ export function TransactionInstallmentGroupEditor({
     },
 
     onError: (e: any) =>
-      toast({ title: "Erro ao gravar parcelas", description: e.message, variant: "destructive" }),
+      toast({ title: "Erro ao gravar parcelas", description: `${e.message} Se houve falha de gravação, confirme o grupo: podem existir alterações parciais.`, variant: "destructive" }),
   });
 
   if (group.length < 2) return null;
@@ -371,6 +386,7 @@ export function TransactionInstallmentGroupEditor({
 
       {open && canEdit && (
         <div className="space-y-3">
+          {group.some((r) => r.currency !== "EUR") && <p className="text-xs text-destructive">{FOREIGN_INSTALLMENT_CHANGE} Pode alterar apenas vencimentos de parcelas destravadas.</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">

@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { BrBankFields, optionalBankColumns, type BrBankDetails } from "@/components/SupplierBankDetails";
 import { useState, useMemo } from "react";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -44,6 +46,7 @@ function getTypeInfo(type: string) {
 }
 
 interface AccountForm {
+  bank_details_br: BrBankDetails;
   name: string;
   type: string;
   description: string;
@@ -61,6 +64,7 @@ interface AccountForm {
 }
 
 const emptyForm: AccountForm = {
+  bank_details_br: {},
   name: "",
   type: "bank",
   description: "",
@@ -79,6 +83,13 @@ const emptyForm: AccountForm = {
 
 export default function FinancialAccounts() {
   const { isAdmin, isManager, hasPermission } = useAuth();
+  const companyLocale = useCompanyLocale();
+  const isBR = companyLocale.status === "available" && companyLocale.locale === "pt-BR";
+  const { data: brColumnReady = false } = useQuery({
+    queryKey: ["financial-account-br-column", companyLocale.companyId],
+    enabled: isBR && !!companyLocale.companyId,
+    queryFn: () => optionalBankColumns("financial_accounts", "bank_details_br"),
+  });
   // Contas restritas: só quem pode ver confidenciais é que liga/desliga o interruptor.
   const canSeeConfidential = hasPermission("view_confidential");
   // Admin + Manager podem criar/editar contas (incl. Saldo Inicial). Visibilidade de saldos permanece só admin.
@@ -174,6 +185,12 @@ export default function FinancialAccounts() {
         is_circuit_account: form.is_circuit_account,
       };
 
+      if (isBR) {
+        // Hidden PT fields remain untouched when editing a BR account.
+        delete payload.iban;
+        if (brColumnReady) payload.bank_details_br = form.bank_details_br;
+      }
+
       if (editingId) {
         const { error } = await supabase
           .from("financial_accounts")
@@ -210,6 +227,7 @@ export default function FinancialAccounts() {
 
   function startEdit(account: any) {
     setForm({
+      bank_details_br: account.bank_details_br ?? {},
       name: account.name,
       type: account.type,
       description: account.description ?? "",
@@ -458,7 +476,13 @@ export default function FinancialAccounts() {
                 </select>
               </div>
 
-              {(form.type === "bank" || form.type === "prepaid_card") && (
+              {(form.type === "bank" || form.type === "prepaid_card") && (isBR ? (
+                <div className="space-y-2">
+                  {!brColumnReady && <p className="text-xs text-muted-foreground">Dados bancários indisponíveis para edição.</p>}
+                  <BrBankFields prefix="account-br" value={form.bank_details_br} disabled={!brColumnReady}
+                    onChange={value => setForm({ ...form, bank_details_br: value })} />
+                </div>
+              ) : (
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">IBAN</label>
                   <input
@@ -468,7 +492,7 @@ export default function FinancialAccounts() {
                     placeholder="Ex: PT50 0000 0000 0000 0000 0000 0"
                   />
                 </div>
-              )}
+              ))}
 
               {form.type === "prepaid_card" && (
                 <div>

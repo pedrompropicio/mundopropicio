@@ -24,7 +24,7 @@ A operação corre em paralelo no Claude e no ChatGPT, com a mesma numeração e
 | 5 | BP, Verbas e Rateio | frente | intermédio | `estado/estado-bp-verbas-e-rateio.md` |
 | 6 | Vínculo BP-Transações | frente | intermédio | `estado/estado-vinculo-bp-transacoes.md` |
 | 7 | Fecho e Sócios | frente | intermédio | `estado/estado-fecho-e-socios.md` |
-| 8 | Tráfego Pago | frente | intermédio | `estado/estado-audience-meta.md` + `estado-audience-google.md` (a consolidar em `estado-trafego-pago.md`) |
+| 8 | Tráfego Pago | frente | intermédio | [estado/estado-trafego-pago.md](estado/estado-trafego-pago.md) |
 | 9 | CRM, Portal e Leads | frente | intermédio | `estado/estado-crm-portal-e-leads.md` |
 | 10 | Entrada de Dados | operação | intermédio | sem estado próprio — usa o do 4 |
 | 11 | Testes | verificação | leve | `TESTES.md` |
@@ -39,7 +39,7 @@ A operação corre em paralelo no Claude e no ChatGPT, com a mesma numeração e
 
 A frente 2 pode executar demandas de infra quando designada na Issue (D-ERP287).
 
-Mensagens de arranque: `procedimentos/PROC-arranque-chat.md` e `docs/prompts/`. O 8 funde os antigos `audience-meta` e `audience-google` e inclui o TikTok; os dois ficheiros de estado continuam separados até ao primeiro fecho autorizado do 8.
+Mensagens de arranque: `procedimentos/PROC-arranque-chat.md` e `docs/prompts/`. O 8 funde os antigos `audience-meta` e `audience-google` e inclui o TikTok; o estado único está em [estado/estado-trafego-pago.md](estado/estado-trafego-pago.md), e os dois ficheiros antigos são ponteiros.
 
 ## Tipos e regras
 
@@ -62,6 +62,20 @@ Toda a Issue nova leva `**Frente dona:**` e `**Executor atual:**` no corpo; o pa
 **Tarefas programadas não são chats.**
 
 - **Ramos (D-ERP344, 31/10/2026).** ERP: agente Lovable em `lovable/dev`; `main` protegido (PR + CI verde). Nenhum chat escreve directo no `main`. Quem precisar de ver no `main` o que pediu ao agente espera pelo PR que o 0 · Cowork junta antes da janela de Publish.
+
+## Operadores humanos além do Pedro (03/11/2026)
+
+A operação tem dois lados de ferramenta (Claude e ChatGPT) e, a partir de 11/2026, um segundo operador humano: o **engenheiro MP Labs**. Não é um chat novo — é uma pessoa que corre o mesmo mapa de chats na conta dela.
+
+**Identidade.** Conta funcional da empresa `dev@mplabstech.com` (Google Workspace da Mundo Propício, domínio secundário MP Labs). A pessoa aparece só no nome de apresentação; recuperação e 2FA ficam com o Pedro. Todos os acessos da frente ligam-se a esta conta, não a contas pessoais: GitHub (colaborador `write` no repo; `main` continua protegido por PR + CI, D-ERP344), lugar no Claude Team e, só se designado numa Issue, Lovable. Sem acesso directo à base Live.
+
+**O que pode fazer.** Tudo o que um chat de frente pode (R0 e R1 via executor Codex, `procedimentos/PROC-despacho-executor.md`), quando designado `Executor atual` na Issue. Arranca cada chat com `procedimentos/PROC-arranque-chat.md` e os prompts de `docs/prompts/`; lê INDEX, QUADRO, estado da frente e Issues antes de agir; nunca despacha fora da lista fechada nem acima do tecto de 1.500 palavras. R2 (DDL/DML em Live, edge functions, crons, Publish, envios externos, pagamentos) continua a exigir "Sim" do Pedro na sessão do 0 · Cowork; Publish e crons ficam com o 0 · Cowork (Claude).
+
+**Frentes iniciais.** Designadas pelo Pedro por Issue; por defeito arranca na frente 2 (Plataforma e Infra) e nos lotes R1 da #498 ainda abertos (P1c–P1j, P2d–P2g, P3b–P3c), um despacho de cada vez, com revisão por leitura do 0 · Cowork. Um executor por demanda: enquanto ele tiver reserva numa Issue, os 0 não despacham nela.
+
+**Fila do executor.** O slot `executor-mundopropicio` é único para todos os operadores: antes de gravar um despacho, confirmar na página Actions (executor.yml) que não há run em curso de outra Issue; em conflito, prevalece a ordem do QUADRO.
+
+**Fecho documental.** Igual ao de qualquer executor (ritual de fecho); handoff em `docs/handoffs/` quando a sessão for longa. Estado dos chats: acrescentar na secção "Estado dos chats" a data de arranque e as frentes abertas na conta dele.
 
 ## Proibições
 

@@ -39,14 +39,15 @@ beforeAll(async () => {
   await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
   CREATE SCHEMA auth; CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$SELECT '${U}'::uuid$$;
   CREATE TYPE app_role AS ENUM ('admin','manager','platform_admin','viewer');
-  CREATE TABLE flags(pa boolean); INSERT INTO flags VALUES(false);
+  CREATE TABLE flags(pa boolean); INSERT INTO flags (pa) VALUES(false);
   CREATE FUNCTION current_company_id() RETURNS uuid LANGUAGE sql AS $$SELECT '${C}'::uuid$$;
   CREATE FUNCTION is_platform_admin(uuid) RETURNS boolean LANGUAGE sql AS $$SELECT pa FROM flags$$;
   CREATE FUNCTION has_role(uuid,app_role) RETURNS boolean LANGUAGE sql AS $$SELECT true$$;
   CREATE FUNCTION has_permission(uuid,text) RETURNS boolean LANGUAGE sql AS $$SELECT true$$;
   CREATE TABLE user_roles(user_id uuid, company_id uuid, role app_role);
-  INSERT INTO user_roles VALUES('${U}','${C}','manager');
-  CREATE TABLE events(id uuid PRIMARY KEY, name text, date date, company_id uuid, parent_event_id uuid, st text);
+  INSERT INTO user_roles (user_id, company_id, role) VALUES('${U}','${C}','manager');
+  -- Deliberately different from INSERT column order: existing RPC scenarios exercise named mapping.
+  CREATE TABLE events(st text, parent_event_id uuid, company_id uuid, date date, name text, id uuid PRIMARY KEY);
   CREATE FUNCTION event_stage(uuid) RETURNS text LANGUAGE sql STABLE AS $$SELECT st FROM events WHERE id=$1$$;
   CREATE TABLE event_dates(event_id uuid, date date);
   CREATE TABLE account_categories(id uuid, code text);
@@ -70,7 +71,7 @@ beforeAll(async () => {
 }, 30000);
 afterAll(async () => { await db?.close(); });
 beforeEach(async () => {
-  await db.exec(`BEGIN; INSERT INTO events VALUES
+  await db.exec(`BEGIN; INSERT INTO events (id, name, date, company_id, parent_event_id, st) VALUES
    ('${ROOT}','root','2000-01-01','${C}',null,'em_fecho'),
    ('${FECH}','fech','2000-02-01','${C}',null,'fechado'),
    ('${SUB}','sub','2000-02-02','${C}','${FECH}','em_curso'),
@@ -132,8 +133,8 @@ it("historical events are out of everything", async () => {
 it("active cache contract replaces the cache_module line (never summed)", async () => {
   const l = fc(ROOT, 100, { cache_config_id: `'${id()}'` });
   const k = id(); const k2 = id();
-  await db.exec(l.sql + `INSERT INTO cache_payment_contracts VALUES('${k}','${C}',null),('${k2}','${C}',now());
-    INSERT INTO cache_payment_contract_cities VALUES('${k}','${l.fid}',60),('${k}','${l.fid}',20),('${k2}','${l.fid}',999);`);
+  await db.exec(l.sql + `INSERT INTO cache_payment_contracts (id, company_id, cancelled_at) VALUES('${k}','${C}',null),('${k2}','${C}',now());
+    INSERT INTO cache_payment_contract_cities (contract_id, forecast_id, quota) VALUES('${k}','${l.fid}',60),('${k}','${l.fid}',20),('${k2}','${l.fid}',999);`);
   const v = ap(await call(), "em_fecho");
   expect(Number(v.bp)).toBeCloseTo(80, 2);
   expect(v.linhas_contrato_cache).toBe(1);
@@ -141,7 +142,7 @@ it("active cache contract replaces the cache_module line (never summed)", async 
 
 it("review buckets: valid pending_invoice confirmed, stale review por_rever, partner_paid out of total", async () => {
   const a = fc(ROOT, 100); const b = fc(ROOT, 200); const c = fc(ROOT, 300);
-  await db.exec(a.sql + b.sql + c.sql + `INSERT INTO event_bp_line_reviews VALUES
+  await db.exec(a.sql + b.sql + c.sql + `INSERT INTO event_bp_line_reviews (forecast_id, company_id, decision, saldo_at_review, reviewed_at) VALUES
     ('${a.fid}','${C}','pending_invoice',100,now()),
     ('${b.fid}','${C}','pending_invoice',150,now()),
     ('${c.fid}','${C}','partner_paid',300,now());`);
@@ -153,7 +154,7 @@ it("review buckets: valid pending_invoice confirmed, stale review por_rever, par
 });
 
 it("cash and retained never sum; hidden ticket offices apart", async () => {
-  await db.exec(`INSERT INTO financial_accounts VALUES
+  await db.exec(`INSERT INTO financial_accounts (id, name, type, company_id, is_active, is_hidden, skip_balance_check, balance_visible_to_all, initial_balance_date, bal) VALUES
    ('${id()}','Banco','bank','${C}',true,false,false,true,null,1000),
    ('${id()}','Sem controlo','bank','${C}',true,false,true,true,null,-5),
    ('${id()}','Cartao','prepaid_card','${C}',true,false,false,true,null,10),
