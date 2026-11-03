@@ -4,7 +4,7 @@
 
 ## A trabalhar agora
 
-- **Early Bird 2027 ABERTA a 03/11/2026 12:01 UTC, publicada e verificada em Live.** Publish do portal pelo Pedro a 02/11/2026 com os commits f3c1abbd (apresentação da abertura) e e5c912d3 (textos «Early Bird exclusiva» e leitura de `early_bird.general_sale_date`). Abertura por dados (DML do 0 · Cowork (Claude) em Live, com o «Sim» do Pedro de 02/11; sem DDL): `early_bird.fever_url` = https://feverup.com/m/826449 e `early_bird.state` = "aberta" (updated_at 2026-11-03 12:01:30 UTC). Verificado ~75 s depois: /pt e /en com o texto do lote exclusivo para quem entrou na lista ou esteve no Coala em 2026, venda geral a 10 de novembro, botão «Comprar Early Bird na Fever» com o link, sem formulários, sem preço (D-ERP353).
+- **Early Bird 2027 ABERTA a 03/11/2026 12:01 UTC, publicada e verificada em Live.** Publish do portal pelo Pedro a 02/11/2026 com os commits f3c1abbd (apresentação da abertura) e e5c912d3 (textos «Early Bird exclusiva» e leitura de `early_bird.general_sale_date`). Abertura por dados (DML do 0 · Cowork (Claude) em Live, com o «Sim» do Pedro de 02/11; sem DDL): `early_bird.fever_url` = https://feverup.com/m/826449 e `early_bird.state` = "aberta" (updated_at 2026-11-03 12:01:30 UTC). Verificado ~75 s depois: /pt e /en com o texto do lote exclusivo para quem entrou na lista ou esteve no Coala em 2026, venda geral a 10 de novembro, botão «Comprar Early Bird na Fever» com o link, sem formulários, sem preço (D-ERP353). Vendas confirmadas abertas na Fever pelo Pedro a 03/11/2026.
 - Nada em execução no portal. Projeto Lovable do portal Coala: bef9c59c-c2a4-453d-9aec-dae7d16c9171 (confirmado a 28/10/2026; HEAD publicado 9d0bea040411771d83246c2353db3688701c04ce).
 - #359 ponto 4 («Gerir as minhas autorizações»): **concluído, publicado e testado em Live a 28/10/2026**.
 - #359 P6 (prova do texto no formulário): **concluído, publicado e testado em Live a 28/10/2026** (email provado em Live; WhatsApp só por testes unitários, ver abaixo) e **backfill da prova de email dos 75 leads de 26 a 28/10 feito** (D-ERP333). O que falta do #359 está em "Pendentes".
@@ -40,7 +40,6 @@
 
 - Envio do aviso de abertura passa para a Fever (30/10/2026; D-ERP337): registar em suppressed_emails as saídas que a Fever enviar (R2 em lote, «Sim» do Pedro); filtro B já cumprido na lista entregue (corte 2026-10-30 11:56:57 UTC).
 - Política de privacidade PT/EN: confirmar com o jurídico se nomeia a Fever como destinatária.
-- Fever: a página do link (https://feverup.com/m/826449) mostra «Bilhetes à venda a partir de 10 de novembro!»; confirmar com a Fever (Eduarda) que a compra Early Bird está aberta desde as 12h00 de 03/11. (O pedido do link foi enviado à Eduarda a 02/11 por email; respondido: link recebido do Pedro.)
 - Inscrições da lista fechadas desde 30/10/2026 11:56:57 UTC (early_bird.signup = "encerrada"; Coala Portal df2c0806).
 - #352 / G2: o Codex vai ensaiar as migrações 0285–0293 (regra de seguimento 6465391041) para confirmar que a G2 já não acusa a `bkp_359_p6_prova_reconstruida`; dono: 0 · Cowork e Codex. A 0293 está aplicada e conferida por leitura (ledger 295).
 - Email de abertura do Early Bird pelo `coala_send_eb_open_alert`: **o dry run de 03/11 deixou de se aplicar** — o envio do aviso é da Fever (D-ERP337); a função mantém-se (ligação 0292 aplicada e renderização PT/EN provada), sem envio pelo Coala.
