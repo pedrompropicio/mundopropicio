@@ -13571,6 +13571,7 @@ export type Database = {
         Row: {
           advance_retention_pct: number | null
           balance_visible_to_all: boolean
+          bank_details_br: Json | null
           card_number: string | null
           company_id: string
           contact_name: string | null
@@ -13598,6 +13599,7 @@ export type Database = {
         Insert: {
           advance_retention_pct?: number | null
           balance_visible_to_all?: boolean
+          bank_details_br?: Json | null
           card_number?: string | null
           company_id?: string
           contact_name?: string | null
@@ -13625,6 +13627,7 @@ export type Database = {
         Update: {
           advance_retention_pct?: number | null
           balance_visible_to_all?: boolean
+          bank_details_br?: Json | null
           card_number?: string | null
           company_id?: string
           contact_name?: string | null
@@ -18889,6 +18892,7 @@ export type Database = {
           created_at: string
           doc_locale: string
           email: string | null
+          foreign_bank_accounts: Json
           iban: string | null
           iban_2: string | null
           iban_3: string | null
@@ -18903,6 +18907,8 @@ export type Database = {
           swift_bic: string | null
           swift_bic_2: string | null
           swift_bic_3: string | null
+          tax_id_foreign: string | null
+          tax_id_type: string | null
           trade_name: string | null
           updated_at: string
         }
@@ -18915,6 +18921,7 @@ export type Database = {
           created_at?: string
           doc_locale?: string
           email?: string | null
+          foreign_bank_accounts?: Json
           iban?: string | null
           iban_2?: string | null
           iban_3?: string | null
@@ -18929,6 +18936,8 @@ export type Database = {
           swift_bic?: string | null
           swift_bic_2?: string | null
           swift_bic_3?: string | null
+          tax_id_foreign?: string | null
+          tax_id_type?: string | null
           trade_name?: string | null
           updated_at?: string
         }
@@ -18941,6 +18950,7 @@ export type Database = {
           created_at?: string
           doc_locale?: string
           email?: string | null
+          foreign_bank_accounts?: Json
           iban?: string | null
           iban_2?: string | null
           iban_3?: string | null
@@ -18955,6 +18965,8 @@ export type Database = {
           swift_bic?: string | null
           swift_bic_2?: string | null
           swift_bic_3?: string | null
+          tax_id_foreign?: string | null
+          tax_id_type?: string | null
           trade_name?: string | null
           updated_at?: string
         }
@@ -26679,6 +26691,7 @@ export type Database = {
       get_supplier_bank_details: {
         Args: { p_supplier_ids?: string[] }
         Returns: {
+          foreign_bank_accounts: Json
           iban: string
           iban_2: string
           iban_3: string
@@ -26688,6 +26701,8 @@ export type Database = {
           swift_bic: string
           swift_bic_2: string
           swift_bic_3: string
+          tax_id_foreign: string
+          tax_id_type: string
         }[]
       }
       get_ticket_office_sales: {
