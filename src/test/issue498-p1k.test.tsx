@@ -439,7 +439,7 @@ describe("#498 P1k — moeda da empresa activa", () => {
     expect(tables[1].body).toEqual([["Overhead sintético", "Despesa", "R$\u00a010,00", "23%", "R$\u00a012,30"]]);
     expect(tables[1].foot?.[0].at(-1)).toBe("-R$\u00a012,30");
     expect(tables[2].body[0]).toEqual(["Despesas totais (operacionais + overhead)", "R$\u00a01.530,81"]);
-    expect(tables[3].body[0]).toEqual(["Sócio sintético", "c/IVA", "50%", "R$\u00a0234,60", "R$\u00a024,60", "R$\u00a00,00", "R$\u00a00,00", "R$\u00a0259,20"]);
+    expect(tables[3].body[0]).toEqual(["Sócio sintético", "—", "50%", "R$\u00a0234,60", "R$\u00a024,60", "R$\u00a00,00", "R$\u00a00,00", "R$\u00a0259,20"]);
     expect(JSON.stringify(tables)).not.toContain("€");
   });
 

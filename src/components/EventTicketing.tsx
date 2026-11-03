@@ -9,7 +9,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
-import { formatMoney } from "@/lib/company-locale";
+import { companyHasIva, formatMoney } from "@/lib/company-locale";
 import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { Plus, Trash2, Check, X, Ticket, Layers, ChevronDown, ChevronRight, Store, CheckCircle2, Lock, Upload, FileText } from "lucide-react";
 import { exportEventTicketingToPDF } from "@/lib/export-event-ticketing-pdf";
@@ -83,6 +83,7 @@ function ivaFromGross(gross: number, ivaRate: number): number {
 
 export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }: Props) {
   const companyLocale = useCompanyLocale();
+  const hasIva = companyHasIva(companyLocale);
   const symbol = companyLocale.status === "available" ? companyLocale.symbol : "—";
   const formatCurrency = (value: number) => companyLocale.status !== "available"
     ? "—"
@@ -1049,11 +1050,11 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                             <tr className="text-xs uppercase tracking-wider text-muted-foreground">
                               <th className="pb-2 text-left font-medium">Lote</th>
                               <th className="pb-2 text-right font-medium">Qtd.</th>
-                              <th className="pb-2 text-right font-medium">Preço c/IVA</th>
+                              <th className="pb-2 text-right font-medium">{hasIva ? "Preço c/IVA" : "Preço"}</th>
                               <th className="pb-2 text-right font-medium">IVA %</th>
-                              <th className="pb-2 text-right font-medium">Valor s/IVA</th>
+                              <th className="pb-2 text-right font-medium">{hasIva ? "Valor s/IVA" : "Valor"}</th>
                               <th className="pb-2 text-right font-medium">IVA ({symbol})</th>
-                              <th className="pb-2 text-right font-medium">Total c/IVA</th>
+                              <th className="pb-2 text-right font-medium">{hasIva ? "Total c/IVA" : "Total"}</th>
                               <th className="pb-2 text-right font-medium w-20">Ações</th>
                             </tr>
                           </thead>
@@ -1150,9 +1151,9 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                 <th className="pb-2 text-right font-medium pl-4">Capacidade</th>
                 <th className="pb-2 text-right font-medium pl-4">Bilhetes (previsão)</th>
                 <th className="pb-2 text-right font-medium pl-6">Preço Médio (previsão)</th>
-                <th className="pb-2 text-right font-medium pl-6">Valor s/IVA (previsão)</th>
+                <th className="pb-2 text-right font-medium pl-6">{hasIva ? "Valor s/IVA (previsão)" : "Valor (previsão)"}</th>
                 <th className="pb-2 text-right font-medium pl-6">IVA (previsão)</th>
-                <th className="pb-2 text-right font-medium pl-6">Total c/IVA (previsão)</th>
+                <th className="pb-2 text-right font-medium pl-6">{hasIva ? "Total c/IVA (previsão)" : "Total (previsão)"}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30">

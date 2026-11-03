@@ -1,5 +1,5 @@
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { formatMoney } from "@/lib/company-locale";
+import { companyHasIva, formatMoney } from "@/lib/company-locale";
 import { BpFormulaPanel } from "@/components/BpFormulaPanel";
 import { isFormulaType } from "@/lib/bp-formula";
 import { writeForecastAmount } from "@/lib/forecast-amount";
@@ -38,6 +38,7 @@ interface Props {
  */
 export function EventClosingCosts({ eventId, eventStatus }: Props) {
   const companyLocale = useCompanyLocale();
+  const hasIva = companyHasIva(companyLocale);
   const symbol = companyLocale.status === "available" ? companyLocale.symbol : "—";
   const noIva = companyLocale.status === "available" && companyLocale.ivaPolicy === "none";
   const formatCurrency = (value: number) => companyLocale.status !== "available"
@@ -365,7 +366,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
               <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex: Rateio assessoria de imprensa" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Valor s/ IVA ({symbol}) *</Label>
+              <Label className="text-xs">{hasIva ? "Valor s/ IVA" : "Valor"} ({symbol}) *</Label>
               <Input type="number" step="0.01" value={formulaReadOnly ? String(editingCost.amount) : amount} readOnly={formulaReadOnly} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
               {formulaReadOnly && <>
                 <p className="text-xs text-muted-foreground">{editingCost.formula_params?.last_text ?? "Por recalcular"}</p>
@@ -543,6 +544,7 @@ function OverheadTable({
   onDelete: (id: string) => void;
   onFileUpload: (costId: string, file: File) => void;
 }) {
+  const hasIva = companyHasIva(useCompanyLocale());
   return (
     <div className="glass rounded-xl overflow-hidden">
       <div className="px-4 py-2 border-b border-border/50 bg-muted/20 flex items-center gap-2">
@@ -557,7 +559,7 @@ function OverheadTable({
             {!noIva && <TableHead className="text-right">IVA %</TableHead>}
             <TableHead className="text-right">Base</TableHead>
             {!noIva && <TableHead className="text-right">IVA ({symbol})</TableHead>}
-            <TableHead className="text-right">Total c/ IVA</TableHead>
+            <TableHead className="text-right">{hasIva ? "Total c/ IVA" : "Total"}</TableHead>
             <TableHead className="w-[80px]" />
           </TableRow>
         </TableHeader>

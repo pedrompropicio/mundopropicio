@@ -1,5 +1,5 @@
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { formatMoney } from "@/lib/company-locale";
+import { companyHasIva, formatMoney } from "@/lib/company-locale";
 import { useEffect, useMemo, useState, type ComponentProps } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -119,6 +119,7 @@ function KpisConsolidados({ totals, modeBebidas, modeAlimentos, fmtEUR }: {
 
 export default function EventABTab({ eventId }: Props) {
   const companyLocale = useCompanyLocale();
+  const hasIva = companyHasIva(companyLocale);
   const symbol = companyLocale.status === "available" ? companyLocale.symbol : "€";
   const fmtEUR = (value: number) => companyLocale.status !== "available"
     ? "—"
@@ -696,7 +697,7 @@ export default function EventABTab({ eventId }: Props) {
 
           {/* Facturação REAL do operador (fecho POS) — vence o per capita */}
           <div className="space-y-2">
-            <Label>Facturação real do operador ({symbol}, s/IVA)</Label>
+            <Label>Facturação real do operador ({symbol}{hasIva ? ", s/IVA" : ""})</Label>
             <Input
               type="number"
               step="0.01"
