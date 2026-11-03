@@ -1,3 +1,4 @@
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -30,6 +31,19 @@ function calcAmountWithIva(amount: number, ivaRate: number): number {
   return amount * (1 + ivaRate / 100);
 }
 
+// Context is accepted as argument 12; the legacy overhead-array argument remains supported.
+export function buildDREForExport(
+  transactions: any[], categories: any[], ticketRevenueSource: TicketRevenueSource,
+  ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string,
+  ticketCategoryId: string | null, partners?: any[], events?: any[], brasilMode?: boolean,
+  companyLocale?: CompanyLocaleResult,
+): DRELine[];
+export function buildDREForExport(
+  transactions: any[], categories: any[], ticketRevenueSource: TicketRevenueSource,
+  ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string,
+  ticketCategoryId: string | null, partners?: any[], events?: any[], brasilMode?: boolean,
+  closingCosts?: any[], companyLocale?: CompanyLocaleResult,
+): DRELine[];
 export function buildDREForExport(
   transactions: any[],
   categories: any[],
@@ -44,8 +58,13 @@ export function buildDREForExport(
   /** When true, uses the "Brasil" mode: single-column, expenses inc-IVA */
   brasilMode: boolean = false,
   /** Overheads (BP is_overhead) já expandidos via expandOverheadToSplits — somam às despesas em modo Brasil/Vista Sócio */
-  closingCosts: any[] = []
+  closingCosts: any[] | CompanyLocaleResult = [],
+  companyLocale?: CompanyLocaleResult,
 ): DRELine[] {
+  if (!Array.isArray(closingCosts)) {
+    companyLocale = closingCosts;
+    closingCosts = [];
+  }
   const lookup = buildCategoryLookup(categories);
 
   const useTicketSales = ticketRevenueSource === "ticket_sales";
@@ -175,7 +194,7 @@ export function buildDREForExport(
       const share = base * (Number(p.percentage) / 100);
       totalDistribution += share;
       const supplierName = p.suppliers?.name || "Sócio";
-      const ivaLabel = !brasilMode && partnerUsesGrossExpenses(calcBasis, p.expense_includes_iva) ? ` (base: ${formatCurrency(totalIncEx)} - ${formatCurrency(totalExpInc)} = ${formatCurrency(base)})` : "";
+      const ivaLabel = !brasilMode && partnerUsesGrossExpenses(calcBasis, p.expense_includes_iva) ? ` (base: ${formatExportMoney(totalIncEx, companyLocale)} - ${formatExportMoney(totalExpInc, companyLocale)} = ${formatExportMoney(base, companyLocale)})` : "";
       lines.push({
         label: `  ${supplierName} (${Number(p.percentage).toFixed(1)}%)${ivaLabel}`,
         amountExIva: share,
@@ -235,9 +254,10 @@ export function computeEventSummary(
   partners: any[] = [],
   events: any[] = [],
   brasilMode: boolean = false,
-  closingCosts: any[] = []
+  closingCosts: any[] = [],
+  companyLocale?: CompanyLocaleResult,
 ) {
-  const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, eventId, ticketCategoryId, partners, events, brasilMode, closingCosts);
+  const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, eventId, ticketCategoryId, partners, events, brasilMode, closingCosts, companyLocale);
   const rev = dre.find((l) => l.label === "RECEITAS");
   const exp = dre.find((l) => l.label === "DESPESAS");
   const retained = dre.find((l) => l.isRetained);
@@ -262,8 +282,10 @@ export function exportDREToExcel(
   partners: any[] = [],
   allEvents: any[] = [],
   brasilMode: boolean = false,
-  closingCosts: any[] = []
+  closingCosts: any[] = [],
+  companyLocale?: CompanyLocaleResult,
 ) {
+  const symbol = companyLocale?.status === "available" ? companyLocale.symbol : "€";
   const allEventsSource = allEvents.length > 0 ? allEvents : events;
   const wb = XLSX.utils.book_new();
 
@@ -272,7 +294,7 @@ export function exportDREToExcel(
   const eventRows: any[][] = [];
   events.forEach((evt) => {
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, allEventsSource);
-    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource, brasilMode, closingCosts);
+    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource, brasilMode, closingCosts, companyLocale);
     gIncEx += summary.incEx; gIncInc += summary.incInc; gExpEx += summary.expEx; gExpInc += summary.expInc;
 
     if (brasilMode) {
@@ -299,7 +321,7 @@ export function exportDREToExcel(
   ];
 
   if (brasilMode) {
-    summaryRows.push(["Evento", "Transações", "Receitas (€)", "Despesas (€)", "Resultado (€)", "Resultado MP (€)"]);
+    summaryRows.push(["Evento", "Transações", `Receitas (${symbol})`, `Despesas (${symbol})`, `Resultado (${symbol})`, `Resultado MP (${symbol})`]);
     eventRows.forEach((r) => summaryRows.push(r));
     summaryRows.push([]);
     summaryRows.push(["TOTAL", "", gIncEx, gExpInc, gIncEx - gExpInc]);
@@ -314,12 +336,12 @@ export function exportDREToExcel(
   summaryWs["!cols"] = brasilMode
     ? [{ wch: 30 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }]
     : [{ wch: 30 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
-  applyPTNumberFormat(summaryWs);
+  applyPTNumberFormat(summaryWs, companyLocale);
   XLSX.utils.book_append_sheet(wb, summaryWs, "Resumo");
 
   events.forEach((evt) => {
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, allEventsSource);
-    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource, brasilMode, closingCosts);
+    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource, brasilMode, closingCosts, companyLocale);
     if (evtTx.length === 0 && dre.length <= 3) return;
 
     const rows: any[][] = [
@@ -327,7 +349,7 @@ export function exportDREToExcel(
       [],
     ];
     if (brasilMode) {
-      rows.push(["Rubrica", "Valor (€)"]);
+      rows.push(["Rubrica", `Valor (${symbol})`]);
       dre.forEach((line) => {
         const prefix = line.indent ? `    ` : line.isGroupHeader ? `  ` : '';
         const displayLabel = ticketDreDisplayLabel(line);
@@ -337,7 +359,7 @@ export function exportDREToExcel(
         rows.push([`${prefix}${displayLabel}`, val]);
       });
     } else {
-      rows.push(["Rubrica", "Valor S/IVA (€)", "IVA (€)", "Valor C/IVA (€)"]);
+      rows.push(["Rubrica", `Valor S/IVA (${symbol})`, `IVA (${symbol})`, `Valor C/IVA (${symbol})`]);
       dre.forEach((line) => {
         const prefix = line.indent ? `    ` : line.isGroupHeader ? `  ` : '';
         rows.push([`${prefix}${line.label}`, line.amountExIva, line.ivaAmount, line.amountIncIva]);
@@ -346,7 +368,7 @@ export function exportDREToExcel(
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = brasilMode ? [{ wch: 30 }, { wch: 18 }] : [{ wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
-    applyPTNumberFormat(ws);
+    applyPTNumberFormat(ws, companyLocale);
     const sheetName = evt.name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
@@ -369,8 +391,10 @@ export function exportDREToPDF(
   partners: any[] = [],
   allEvents: any[] = [],
   brasilMode: boolean = false,
-  closingCosts: any[] = []
+  closingCosts: any[] = [],
+  companyLocale?: CompanyLocaleResult,
 ) {
+  const symbol = companyLocale?.status === "available" ? companyLocale.symbol : "€";
   const eventsSource = allEvents.length > 0 ? allEvents : events;
   const doc = new jsPDF({ orientation: "portrait" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -397,9 +421,9 @@ export function exportDREToPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.text("Rubrica", colX[0] + 2, y + 5.5);
-    doc.text("S/ IVA (€)", colX[1] + colWidths[1] - 2, y + 5.5, { align: "right" });
-    doc.text("IVA (€)", colX[2] + colWidths[2] - 2, y + 5.5, { align: "right" });
-    doc.text("C/ IVA (€)", colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
+    doc.text(`S/ IVA (${symbol})`, colX[1] + colWidths[1] - 2, y + 5.5, { align: "right" });
+    doc.text(`IVA (${symbol})`, colX[2] + colWidths[2] - 2, y + 5.5, { align: "right" });
+    doc.text(`C/ IVA (${symbol})`, colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
     doc.setTextColor(0, 0, 0);
     y += 10;
   }
@@ -411,20 +435,20 @@ export function exportDREToPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.text("Rubrica", colX[0] + 2, y + 5.5);
-    doc.text("Valor (€)", colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
+    doc.text(`Valor (${symbol})`, colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
     doc.setTextColor(0, 0, 0);
     y += 10;
   }
 
   function fmtVal(v: number): string {
-    return formatCurrency(v);
+    return formatExportMoney(v, companyLocale);
   }
 
   // Compute global summary totals
   let gIncEx = 0, gIncInc = 0, gExpEx = 0, gExpInc = 0;
   events.forEach((evt) => {
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, eventsSource);
-    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource, brasilMode, closingCosts);
+    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource, brasilMode, closingCosts, companyLocale);
     gIncEx += summary.incEx; gIncInc += summary.incInc; gExpEx += summary.expEx; gExpInc += summary.expInc;
   });
 
@@ -432,7 +456,7 @@ export function exportDREToPDF(
   let isFirstEventPage = true;
   events.forEach((evt) => {
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, eventsSource);
-    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource, brasilMode, closingCosts);
+    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource, brasilMode, closingCosts, companyLocale);
     if (evtTx.length === 0 && dre.length <= 3) return;
 
     if (!isFirstEventPage) {
@@ -535,7 +559,7 @@ export function exportDREToPDF(
 
     const childSummaries = childEvts.map((child: any) => {
       const effectiveTx = getEffectiveTransactionsForExport(child.id, transactions, eventsSource);
-      const summary = computeEventSummary(effectiveTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, child.id, ticketCategoryId, partners, eventsSource, brasilMode, closingCosts);
+      const summary = computeEventSummary(effectiveTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, child.id, ticketCategoryId, partners, eventsSource, brasilMode, closingCosts, companyLocale);
       return { name: child.name, ...summary };
     });
 
@@ -721,4 +745,10 @@ export function exportDREToPDF(
     ? `DRE_Demonstrativo_Resultado_${new Date().toISOString().slice(0, 10)}.pdf`
     : `DRE_Relatorio_${new Date().toISOString().slice(0, 10)}.pdf`;
   doc.save(filename);
+}
+
+function formatExportMoney(value: number, companyLocale?: CompanyLocaleResult): string {
+  return companyLocale?.status === "available" && !(companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")
+    ? formatMoney(value, companyLocale)
+    : formatCurrency(value);
 }

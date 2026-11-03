@@ -818,7 +818,7 @@ export default function ReportDRE() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => exportDREToExcel(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId, eventPartners, events)}
+          onClick={() => exportDREToExcel(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId, eventPartners, events, false, [], companyLocale)}
           disabled={activeEvents.length === 0}
         >
           <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
@@ -826,7 +826,7 @@ export default function ReportDRE() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => exportDREToPDF(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId, eventPartners, events)}
+          onClick={() => exportDREToPDF(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId, eventPartners, events, false, [], companyLocale)}
           disabled={activeEvents.length === 0}
         >
           <FileText className="mr-1.5 h-4 w-4" /> PDF
