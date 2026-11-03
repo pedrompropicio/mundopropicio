@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatCurrency, formatDate } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency, formatDate } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { exportContasPagarToExcel, exportContasPagarToPDF } from "@/lib/export-contas-pagar";
 import { FileSpreadsheet, FileText, Filter, Search } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,6 +19,13 @@ import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 export default function ReportContasPagar() {
+  const companyLocale = useCompanyLocale();
+  const defaultIvaRate = companyLocale.status === "available" && companyLocale.ivaPolicy === "none" ? 0 : 23;
+  const formatCurrency = (value: number) => {
+    if (companyLocale.status !== "available") return "—";
+    if (companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR") return formatLegacyCurrency(value);
+    return formatMoney(value, companyLocale);
+  };
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
@@ -93,7 +102,7 @@ export default function ReportContasPagar() {
     // Balance filter
     if (appliedBalanceFilter === "open") {
       result = result.filter((t: any) => {
-        const amount = Number(t.amount) * (1 + (t.iva_rate ?? 23) / 100);
+        const amount = Number(t.amount) * (1 + (t.iva_rate ?? defaultIvaRate) / 100);
         const paid = Number(t.paid_amount ?? 0);
         return paid < amount;
       });
@@ -137,7 +146,7 @@ export default function ReportContasPagar() {
     }
 
     return result;
-  }, [transactions, appliedEventIds, appliedDateFrom, appliedDateTo, appliedDueFilter, appliedBalanceFilter, hasSearched]);
+  }, [transactions, appliedEventIds, appliedDateFrom, appliedDateTo, appliedDueFilter, appliedBalanceFilter, hasSearched, defaultIvaRate]);
 
   // Compute status
   const getStatus = (t: any) => {
@@ -164,7 +173,7 @@ export default function ReportContasPagar() {
     overdue: "bg-destructive/15 text-destructive",
   };
 
-  const totalWithIva = filtered.reduce((sum: number, t: any) => sum + Number(t.amount) * (1 + (t.iva_rate ?? 23) / 100), 0);
+  const totalWithIva = filtered.reduce((sum: number, t: any) => sum + Number(t.amount) * (1 + (t.iva_rate ?? defaultIvaRate) / 100), 0);
   const totalPaid = filtered.reduce((sum: number, t: any) => sum + Number(t.paid_amount ?? 0), 0);
   const totalBalance = totalWithIva - totalPaid;
 
@@ -184,6 +193,7 @@ export default function ReportContasPagar() {
 
   const handleExportExcel = () => {
     exportContasPagarToExcel({
+      companyLocale,
       dateFrom: dateFrom ? format(dateFrom, "dd/MM/yyyy") : null,
       dateTo: dateTo ? format(dateTo, "dd/MM/yyyy") : null,
       eventNames: selectedEventIds.size > 0
@@ -197,7 +207,7 @@ export default function ReportContasPagar() {
         iban: (t.suppliers as any)?.iban ?? "-",
         category_name: (t.account_categories as any) ? `${(t.account_categories as any).code} ${(t.account_categories as any).name}` : "-",
         amount: Number(t.amount),
-        iva_rate: t.iva_rate ?? 23,
+        iva_rate: t.iva_rate ?? defaultIvaRate,
         paid_amount: Number(t.paid_amount ?? 0),
         due_date: t.due_date,
         date: t.date,
@@ -208,6 +218,7 @@ export default function ReportContasPagar() {
 
   const handleExportPDF = () => {
     exportContasPagarToPDF({
+      companyLocale,
       dateFrom: dateFrom ? format(dateFrom, "dd/MM/yyyy") : null,
       dateTo: dateTo ? format(dateTo, "dd/MM/yyyy") : null,
       eventNames: selectedEventIds.size > 0
@@ -222,7 +233,7 @@ export default function ReportContasPagar() {
         iban: (t.suppliers as any)?.iban ?? "-",
         category_name: (t.account_categories as any) ? `${(t.account_categories as any).code} ${(t.account_categories as any).name}` : "-",
         amount: Number(t.amount),
-        iva_rate: t.iva_rate ?? 23,
+        iva_rate: t.iva_rate ?? defaultIvaRate,
         paid_amount: Number(t.paid_amount ?? 0),
         due_date: t.due_date,
         date: t.date,
@@ -454,7 +465,7 @@ export default function ReportContasPagar() {
               <tbody className="divide-y divide-border/30">
                 {groupedByEvent.map((group) => {
                   const colSpan = groupedByEvent.length > 1 ? 9 : 10;
-                  const groupWithIva = group.items.reduce((s: number, t: any) => s + Number(t.amount) * (1 + (t.iva_rate ?? 23) / 100), 0);
+                  const groupWithIva = group.items.reduce((s: number, t: any) => s + Number(t.amount) * (1 + (t.iva_rate ?? defaultIvaRate) / 100), 0);
                   const groupPaid = group.items.reduce((s: number, t: any) => s + Number(t.paid_amount ?? 0), 0);
                   const groupBalance = groupWithIva - groupPaid;
 
@@ -470,7 +481,7 @@ export default function ReportContasPagar() {
                       )}
                       {group.items.map((t: any) => {
                         const amount = Number(t.amount);
-                        const ivaRate = t.iva_rate ?? 23;
+                        const ivaRate = t.iva_rate ?? defaultIvaRate;
                         const withIva = amount * (1 + ivaRate / 100);
                         const paid = Number(t.paid_amount ?? 0);
                         const balance = withIva - paid;
