@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 
 /**
  * Progresso de liquidação por grupo de fatura (`invoice_group_id`).
@@ -24,16 +25,18 @@ export interface InvoiceGroupProgress {
   openWithIva: number;
 }
 
-export function isTxSettledByAmount(tx: { status?: string | null; paid_amount?: number | null; amount?: number | null; iva_rate?: number | null }): boolean {
-  const withIva = Number(tx.amount ?? 0) * (1 + Number(tx.iva_rate ?? 23) / 100);
+export function isTxSettledByAmount(tx: { status?: string | null; paid_amount?: number | null; amount?: number | null; iva_rate?: number | null }, defaultIvaRate = 23): boolean {
+  const withIva = Number(tx.amount ?? 0) * (1 + Number(tx.iva_rate ?? defaultIvaRate) / 100);
   const paid = Number(tx.paid_amount ?? 0);
   return tx.status === "paid" || paid >= withIva - 0.05;
 }
 
 export function useInvoiceGroupProgress(groupIds: string[]) {
+  const companyLocale = useCompanyLocale();
+  const defaultIvaRate = companyLocale.status === "available" && companyLocale.ivaPolicy === "none" ? 0 : 23;
   const ids = useMemo(() => [...new Set(groupIds.filter(Boolean))].sort(), [groupIds]);
   return useQuery({
-    queryKey: ["invoice-group-progress", ids.join(",")],
+    queryKey: ["invoice-group-progress", ids.join(","), companyLocale.companyId, defaultIvaRate],
     enabled: ids.length > 0,
     queryFn: async (): Promise<Record<string, InvoiceGroupProgress>> => {
       const { data, error } = await fetchAllPagedQuery(supabase
@@ -47,8 +50,8 @@ export function useInvoiceGroupProgress(groupIds: string[]) {
         if (!gid) continue;
         const entry = (out[gid] ??= { total: 0, paidCount: 0, openWithIva: 0 });
         entry.total += 1;
-        const withIva = Number(row.amount ?? 0) * (1 + Number(row.iva_rate ?? 23) / 100);
-        if (isTxSettledByAmount(row)) entry.paidCount += 1;
+        const withIva = Number(row.amount ?? 0) * (1 + Number(row.iva_rate ?? defaultIvaRate) / 100);
+        if (isTxSettledByAmount(row, defaultIvaRate)) entry.paidCount += 1;
         else entry.openWithIva += withIva;
       }
       return out;
