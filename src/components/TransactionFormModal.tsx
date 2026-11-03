@@ -3836,9 +3836,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             />
           )}
 
-          {selectedForecast && (
-            <PartnerSettlementExclusionSwitch row={{ type: form.type, is_transitory: isTransitory || isPartnerExtra, exclude_from_result: isExcludeFromResult || !!sharedCostAccountId }} canManage={authIsAdmin || authIsManager} checked={houseOnly} inheritedFromForecast={selectedForecast.excluded_from_partner_settlement ?? false} onChange={setHouseOnly} />
-          )}
+          <PartnerSettlementExclusionSwitch row={{ type: form.type, is_transitory: isTransitory || isPartnerExtra, exclude_from_result: isExcludeFromResult || !!sharedCostAccountId }} canManage={authIsAdmin || authIsManager} checked={houseOnly} inheritedFromForecast={selectedForecast ? (selectedForecast.excluded_from_partner_settlement ?? false) : undefined} onChange={setHouseOnly} />
 
           {/* Reimbursement toggle — only for expenses */}
           {form.type === "expense" && (

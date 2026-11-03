@@ -19,10 +19,11 @@ const f = vi.hoisted(() => ({
   queryFns: {} as Record<string, () => Promise<any>>, selects: [] as { table: string; columns: string }[],
   updates: [] as { table: string; payload: any }[], filters: [] as { table: string; column: string; value: any }[],
   mutations: [] as Promise<any>[], toast: vi.fn(), invoke: vi.fn(),
+  isAdmin: true, isManager: false,
 }));
 vi.mock("@/hooks/useCompany", () => ({ useCompany: vi.fn() }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({
-  user: { id: "user", email: "fixture@example.invalid" }, isAdmin: true, isManager: false, hasPermission: () => true,
+  user: { id: "user", email: "fixture@example.invalid" }, isAdmin: f.isAdmin, isManager: f.isManager, hasPermission: () => true,
 }) }));
 vi.mock("@tanstack/react-query", () => ({
   useQuery: ({ queryKey, queryFn }: any) => {
@@ -133,10 +134,10 @@ function edit(overrides = {}, canApprove = true) {
   return <MemoryRouter><TransactionEditModal onClose={vi.fn()} canApprove={canApprove}
     transaction={{ ...transaction, ...overrides }} /></MemoryRouter>;
 }
-function create(withEvent = false) {
+function create(withEvent = false, type: "income" | "expense" = "income") {
   return <TransactionFormModal onClose={vi.fn()} defaults={{
     description: "Receita fixture", amount: "1000", date: "2026-11-02", supplier_id: "supplier",
-    type: "income", account_id: "account", iva_rate: 0,
+    type, account_id: "account", iva_rate: 0,
     ...(withEvent ? { event_id: "event" } : {}),
   }} />;
 }
@@ -153,6 +154,7 @@ function expectInherited(value: boolean) {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  f.isAdmin = true; f.isManager = false;
   vi.mocked(useCompany).mockReturnValue({
     company: { id: "company", country: "PT", currency: "EUR" }, companyId: "company",
     isLoading: false, isError: false,
@@ -279,14 +281,52 @@ describe("#413 C2 — edição", () => {
 });
 
 describe("#413 C3 — criação", () => {
-  it.each([true, false, null, undefined])("linha %s prevalece sobre o estado próprio false no INSERT", async value => {
+  it.each([
+    ["despesa admin", "expense", true, false, "ed06a8f451f5c297fa020c76ef8734db810ee01fdc0ec2930c048ae66565908b"],
+    ["despesa gestora", "expense", false, true, "ed06a8f451f5c297fa020c76ef8734db810ee01fdc0ec2930c048ae66565908b"],
+    ["receita sem permissão", "income", false, false, "17f42391f6ba65ecb51fe8dfeabff77d79110696b335a2876e6db000c199dd93"],
+    ["despesa sem permissão", "expense", false, false, "78de0ed11e33c929910b38cd8e24020dbb0fc066768e356d540a0bfe6e3f6621"],
+  ] as const)("%s mantém o DOM sem interruptor", (_name, type, isAdmin, isManager, hash) => {
+    f.isAdmin = isAdmin; f.isManager = isManager;
+    render(create(false, type));
+    expect(screen.queryByRole("switch", { name: switchName })).toBeNull();
+    const dom = document.body.innerHTML.replace(/radix-:[^"\s]+:/g, "radix-:fixture:");
+    expect(createHash("sha256").update(dom).digest("hex")).toBe(hash);
+  });
+
+  it.each((["admin", "gestora"] as const).flatMap(profile =>
+    [false, true].flatMap(withEvent => [false, true].map(checked => ({ profile, withEvent, checked }))),
+  ))("sem linha: $profile, evento=$withEvent, marca própria=$checked", async ({ profile, withEvent, checked }) => {
+    f.isAdmin = profile === "admin"; f.isManager = profile === "gestora";
+    f.queries["events-active"] = [{ id: "event", name: "Evento fixture", pl_mode: "passive", event_type: "single" }];
+    render(create(withEvent));
+    const control = screen.getByRole("switch", { name: switchName });
+    expect(control).not.toBeDisabled();
+    expect(control).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByText("Herdado da linha do BP")).toBeNull();
+    if (checked) fireEvent.click(control);
+    expect(control).toHaveAttribute("aria-checked", String(checked));
+    await submit();
+    const writes = f.writes.filter(write => write.table === "transactions");
+    expect(writes).toHaveLength(1);
+    expect(writes[0].payload).toMatchObject({
+      event_id: withEvent ? "event" : null, forecast_id: null, excluded_from_partner_settlement: checked,
+    });
+  });
+
+  it.each([true, false, null, undefined])("linha %s prevalece sobre o estado próprio true no INSERT", async value => {
     f.queries["events-active"] = [{ id: "event", name: "Evento fixture", pl_mode: "passive", event_type: "single" }];
     f.queries["account_categories"] = [{ id: "category", code: "1.1.01", name: "Receitas fixture", type: "income" }];
     f.queries["event_forecasts_budget"] = [{ ...forecast, excluded_from_partner_settlement: value }];
     render(create(true));
-    // houseOnly começa a false; antes da escolha, a UI legada não mostra o interruptor.
-    expect(screen.queryByRole("switch", { name: switchName })).toBeNull();
+    const control = screen.getByRole("switch", { name: switchName });
+    expect(control).not.toBeDisabled();
+    expect(control).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(control);
+    expect(control).toHaveAttribute("aria-checked", "true");
     fireEvent.click(screen.getByText("Receita BP fixture"));
+    expectInherited(value ?? false);
+    fireEvent.click(screen.getByRole("switch", { name: switchName }));
     expectInherited(value ?? false);
     await f.queryFns["event_forecasts_budget"]();
     expect(f.selects).toContainEqual({ table: "event_forecasts", columns: expect.stringContaining("excluded_from_partner_settlement") });
@@ -296,11 +336,14 @@ describe("#413 C3 — criação", () => {
     expect(writes[0].payload).toMatchObject({ forecast_id: forecastId, excluded_from_partner_settlement: value ?? false });
   });
 
-  it("sem linha mantém o DOM e o INSERT atuais", async () => {
+  it("sem linha mostra o interruptor próprio desligado e mantém o INSERT atual", async () => {
     render(create());
-    expect(screen.queryByRole("switch", { name: switchName })).toBeNull();
+    const control = screen.getByRole("switch", { name: switchName });
+    expect(control).not.toBeDisabled();
+    expect(control).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByText("Herdado da linha do BP")).toBeNull();
     const dom = document.body.innerHTML.replace(/radix-:[^"\s]+:/g, "radix-:fixture:");
-    expect(createHash("sha256").update(dom).digest("hex")).toMatchInlineSnapshot(`"17f42391f6ba65ecb51fe8dfeabff77d79110696b335a2876e6db000c199dd93"`);
+    expect(createHash("sha256").update(dom).digest("hex")).toMatchInlineSnapshot(`"9b21530f1b5a5d6f09c3324834f648209b6fa75dc8dfbe4f816428b1bb57a01e"`);
     await submit();
     expect(f.writes.filter(write => write.table === "transactions")).toHaveLength(1);
     expect(f.writes.find(write => write.table === "transactions")!.payload).toMatchObject({

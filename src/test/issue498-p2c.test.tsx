@@ -74,6 +74,7 @@ function submit(container: HTMLElement) { fireEvent.submit(container.querySelect
 beforeEach(() => {
   vi.clearAllMocks(); company(); f.writes = []; f.mutations = [];
   f.queries = { "event-iva-country": ["Portugal"] };
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   vi.stubGlobal("fetch", vi.fn(() => { throw new Error("#498 P2c: rede proibida"); }));
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -137,7 +138,7 @@ describe("#498 P2c — baseline PT capturada antes da alteração", () => {
           },
         },
         "income": {
-          "hash": "aceccd74c8caa73c04d54f667aa59cfd538fbc62a0beb4b389a141d52a8a1046",
+          "hash": "cfacde7354728433d5d2320368bb64f377a061b8a78457d9b6dade7532aec26d",
           "payload": {
             "account_id": null,
             "amount": 1000,
