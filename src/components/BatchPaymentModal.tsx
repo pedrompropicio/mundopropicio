@@ -8,7 +8,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchKnownBankDate } from "@/lib/bank-link-date";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { formatMoney } from "@/lib/company-locale";
 import { MirrorAporteNotice } from "@/components/MirrorAporteNotice";
 import { calcWithIva, isFullyPaid } from "@/lib/utils";
 import { X, FileText, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
@@ -47,6 +48,14 @@ interface Props {
 
 export function BatchPaymentModal({ transactions: allTransactions, onClose, initialInvoiceRef = "", initialPaymentDate, bankAccountsOnly = false, paymentListId }: Props) {
   const companyLocale = useCompanyLocale();
+  const defaultIvaRate = companyLocale.status === "available" && companyLocale.ivaPolicy === "none" ? 0 : 23;
+  const formatCurrency = (value: number) => {
+    if (companyLocale.status !== "available") return "—";
+    if (companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR") return formatLegacyCurrency(value);
+    return formatMoney(value, companyLocale);
+  };
+  const companyCurrency = companyLocale.status === "available" ? companyLocale.currency : "EUR";
+  const companySymbol = companyLocale.status === "available" ? companyLocale.symbol : "—";
   // ===== #281 — Lote SEPA vs outro canal =====
   // Só as linhas que viajaram no ficheiro SEPA saíram do banco no lote. As outras
   // (Pag. Serviços, Estado, Débito Direto, transferência fora do lote) pagam-se
@@ -114,7 +123,7 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPaymentDate]);
-  // FX rate per non-EUR currency present in the batch (string for input control)
+  // FX rate per currency foreign to the company present in the batch (string for input control)
   const [fxRates, setFxRates] = useState<Record<CurrencyCode, string>>({} as any);
   const [loadingFx, setLoadingFx] = useState<CurrencyCode | null>(null);
   const { user } = useAuth();
@@ -142,7 +151,7 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
   const items = useMemo(() => {
     return transactions.map((t) => {
       const base = Number(t.amount);
-      const iva = t.iva_rate ?? 23;
+      const iva = t.iva_rate ?? defaultIvaRate;
       const total = calcWithIva(base, iva);
       const paid = Number(t.paid_amount ?? 0);
       const remainingEurOriginal =
@@ -153,7 +162,7 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
       const ccy: CurrencyCode = isSupportedCurrency(t.currency)
         ? t.currency
         : "EUR";
-      const isForeign = ccy !== "EUR";
+      const isForeign = ccy !== companyCurrency;
       const origAmt = Number(t.original_amount) || 0;
       const origRate = Number(t.fx_rate) || 0;
       // Outstanding portion of the original (foreign) amount
@@ -173,9 +182,9 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
         remainingEurOriginal: remainingEurClean,
       };
     });
-  }, [transactions]);
+  }, [transactions, companyCurrency, defaultIvaRate]);
 
-  // Currencies present in batch (non-EUR)
+  // Currencies present in batch that differ from the company currency
   const foreignCurrencies = useMemo(() => {
     const set = new Set<CurrencyCode>();
     items.forEach((i) => {
@@ -261,7 +270,7 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
       const selected = new Set(transactions.map((t: any) => t.id));
       const byGroup = new Map<string, { ref: string; open: number; inBatch: number }>();
       for (const row of (data ?? []) as any[]) {
-        const total = calcWithIva(Number(row.amount), Number(row.iva_rate ?? 23));
+        const total = calcWithIva(Number(row.amount), Number(row.iva_rate ?? defaultIvaRate));
         const settled = row.status === "paid" || Number(row.paid_amount ?? 0) >= total - 0.05;
         if (settled) continue;
         const gid = row.invoice_group_id as string;
@@ -300,6 +309,9 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
 
 
   async function suggestRate(ccy: CurrencyCode) {
+    // The existing suggestion helper targets EUR only; other company currencies
+    // require an explicit manual rate rather than a misleading EUR suggestion.
+    if (companyCurrency !== "EUR") return;
     setLoadingFx(ccy);
     const r = await fetchSuggestedFxRate(ccy, supabase);
     setLoadingFx(null);
@@ -361,7 +373,7 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
         if (settleEur <= 0) continue;
 
         const baseAmount = Number(item.amount);
-        const ivaRate = item.iva_rate ?? 23;
+        const ivaRate = item.iva_rate ?? defaultIvaRate;
         const totalEur = calcWithIva(baseAmount, ivaRate);
         const newPaid = Math.round((item.paid + settleEur) * 100) / 100;
         // For foreign-currency items, "fully paid" means we settled all the
@@ -467,8 +479,8 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
           notes: notes.trim() || null,
           created_by: userName,
           closes_transaction: closesForeign,
-          // (#127) `amount` é sempre EUR; a moeda de origem fica rastreada aqui
-          // com a MESMA convenção de transactions / standalone_invoices.
+          // Nativo: amount fica na moeda da empresa, sem metadados FX.
+          // Estrangeiro: conserva a moeda e o montante de origem.
           ...(item.isForeign
             ? {
                 currency: item.currency,
@@ -476,7 +488,7 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
                 fx_rate: item.dayRate > 0 ? item.dayRate : item.origRate,
                 fx_rate_source: item.dayRate > 0 ? "dia (manual)" : "original da transação",
               }
-            : {}),
+            : { currency: item.currency, original_amount: null, fx_rate: null }),
         });
         if (batchPaymentError) throw batchPaymentError;
 
@@ -512,7 +524,7 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
                 ? +((settleEur * childSplitAmt) / parentBaseEur).toFixed(2)
                 : +((settleEur * childPct) / 100).toFixed(2);
             const childBase = Number(child.amount);
-            const childIva = child.iva_rate ?? 23;
+            const childIva = child.iva_rate ?? defaultIvaRate;
             const childTotal = calcWithIva(childBase, childIva);
             const childCurrentPaid = Number(child.paid_amount ?? 0);
             const childNewPaid = Math.min(
@@ -687,6 +699,7 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
             .reduce((s, i) => s + i.remainingFx, 0);
           const rate = parseFloat(fxRates[ccy] ?? "") || 0;
           const eurNow = rate > 0 ? +(totalFx * rate).toFixed(2) : 0;
+          const formattedTotalFx = companyLocale.status === "available" ? formatInCurrency(totalFx, ccy) : "—";
           return (
             <div
               key={ccy}
@@ -695,13 +708,13 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
               <div className="flex justify-between text-[11px] text-muted-foreground">
                 <span>Total contratado em {ccy}:</span>
                 <span className="font-semibold text-foreground">
-                  {formatInCurrency(totalFx, ccy)}
+                  {formattedTotalFx}
                 </span>
               </div>
               <div className="flex items-end gap-2">
                 <div className="flex-1">
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Câmbio do dia (1 {ccy} = X €)
+                    Câmbio do dia (1 {ccy} = X {companySymbol})
                   </label>
                   <input
                     type="number"
@@ -718,7 +731,8 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
                 <button
                   type="button"
                   onClick={() => suggestRate(ccy)}
-                  disabled={loadingFx === ccy}
+                  disabled={loadingFx === ccy || companyCurrency !== "EUR"}
+                  title={companyCurrency !== "EUR" ? "Introduza o câmbio manualmente para a moeda da empresa" : undefined}
                   className="rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium hover:bg-secondary disabled:opacity-50 flex items-center gap-1.5"
                 >
                   <RefreshCw
@@ -731,7 +745,7 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
               </div>
               {rate > 0 && (
                 <p className="text-[11px] text-muted-foreground">
-                  {formatInCurrency(totalFx, ccy)} × {rate.toFixed(6)} ={" "}
+                  {formattedTotalFx} × {rate.toFixed(6)} ={" "}
                   <span className="font-semibold text-foreground">
                     {formatCurrency(eurNow)}
                   </span>
