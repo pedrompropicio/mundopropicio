@@ -2118,7 +2118,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         lines.push(`Entidade: ${group.payment_entity ?? "-"}`);
         lines.push(`Referência: ${group.payment_reference ?? "-"}`);
       } else {
-        lines.push(`IBAN: ${group.iban}`);
+        lines.push(`${companyLocale.status === "available" ? companyLocale.labels.bankAccount : "IBAN"}: ${group.iban}`);
       }
       for (const item of group.items) {
         const withIva = item.amount * (1 + item.iva_rate / 100);
@@ -2150,7 +2150,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         lines.push(`Entidade: ${item.payment_entity ?? "-"}`);
         lines.push(`Referência: ${item.payment_reference ?? "-"}`);
       } else {
-        lines.push(`IBAN: ${item.iban}`);
+        lines.push(`${companyLocale.status === "available" ? companyLocale.labels.bankAccount : "IBAN"}: ${item.iban}`);
       }
       lines.push(`${(item as any).is_reimbursement ? "Beneficiário" : "Fornecedor"}: ${formatSupplierFullName(item.supplier_name, (item as any).supplier_trade_name)}`);
       lines.push(`Descrição: ${item.description}`);
@@ -2228,21 +2228,30 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               </>
             )}
             {/* #37 — só quem aprova listas (admin) exporta; só listas aprovadas geram ficheiro. */}
-            {isAdmin && (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!(list?.status === "approved" || list?.status === "partially_approved")}
-                onClick={(e) => { e.stopPropagation(); setShowSepa(true); }}
-                title={
-                  list?.status === "approved" || list?.status === "partially_approved"
-                    ? "Gerar ficheiro SEPA para o NetBanco Santander"
-                    : "Disponível só depois de a lista ser aprovada"
-                }
-              >
-                <Landmark className="mr-1.5 h-4 w-4" /> Ficheiro Santander
-              </Button>
-            )}
+            {isAdmin && (() => {
+              const canExportSepa = companyLocale.status === "available" && companyLocale.capabilities.sepa && companyLocale.currency === "EUR";
+              const unavailableExplanation = companyLocale.status === "available"
+                ? `Exportação SEPA indisponível para esta empresa (moeda ${companyLocale.currency})`
+                : "Exportação SEPA indisponível: configuração da empresa incompleta";
+              return (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!canExportSepa || !(list?.status === "approved" || list?.status === "partially_approved")}
+                    onClick={(e) => { e.stopPropagation(); if (canExportSepa) setShowSepa(true); }}
+                    title={
+                      !canExportSepa ? unavailableExplanation : list?.status === "approved" || list?.status === "partially_approved"
+                        ? "Gerar ficheiro SEPA para o NetBanco Santander"
+                        : "Disponível só depois de a lista ser aprovada"
+                    }
+                  >
+                    <Landmark className="mr-1.5 h-4 w-4" /> Ficheiro Santander
+                  </Button>
+                  {!canExportSepa && <p className="text-xs text-muted-foreground">{unavailableExplanation}</p>}
+                </>
+              );
+            })()}
             {canEditItems && (
               <button
                 onClick={(e) => { e.stopPropagation(); setShowAddTx(true); }}
@@ -2255,7 +2264,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           </div>
         </div>
 
-        {showSepa && list && (
+        {showSepa && list && companyLocale.status === "available" && companyLocale.capabilities.sepa && companyLocale.currency === "EUR" && (
           <SepaExportModal
             listId={listId}
             listTitle={list.title ?? "Lista de Pagamentos"}
@@ -2506,7 +2515,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                         <CopyLine label="Referência" value={tx?.payment_reference ?? "-"} mono />
                       </>
                     ) : (
-                      <CopyLine label="IBAN" value={tx?.iban_override ?? tx?.suppliers?.iban ?? "-"} mono />
+                      <CopyLine label={companyLocale.status === "available" ? companyLocale.labels.bankAccount : "IBAN"} value={tx?.iban_override ?? tx?.suppliers?.iban ?? "-"} mono />
                     )}
                     <CopyLine label={(tx as any)?.is_reimbursement_payment || tx?.is_reimbursement ? "Beneficiário" : "Fornecedor"} value={formatSupplierFullName(tx?.suppliers?.name, tx?.suppliers?.trade_name)} />
                     <CopyLine label={(tx as any)?.is_reimbursement_payment || tx?.is_reimbursement ? "Email Beneficiário" : "Email Fornecedor"} value={tx?.suppliers?.email} />
@@ -2668,7 +2677,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           <CopyLine label="Referência" value={group.payment_reference ?? "-"} mono />
                         </>
                       ) : (
-                        <CopyLine label="IBAN" value={group.iban ?? "-"} mono />
+                        <CopyLine label={companyLocale.status === "available" ? companyLocale.labels.bankAccount : "IBAN"} value={group.iban ?? "-"} mono />
                       )}
                       <CopyLine
                         label={group.totalWithholding > 0 ? "Bruto" : "Total a transferir"}
