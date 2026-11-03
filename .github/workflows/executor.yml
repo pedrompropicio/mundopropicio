@@ -1,4 +1,4 @@
-# E2b (#417): um comentário "## Despacho — #N" do Pedro numa Issue aberta lança o
+# E2b (#417): um comentário "## Despacho — #N" do Pedro (ou do operador nomeado na Autorização, #521) numa Issue aberta lança o
 # executor designado na Autorização (Codex por defeito; Claude Code por designação)
 # num runner. Só R1: código e testes. D-ERP348.
 # Travas determinísticas antes de qualquer IA; o agente não tem credenciais de push
@@ -17,7 +17,7 @@ jobs:
     if: >-
       github.event.issue.pull_request == null &&
       github.event.issue.state == 'open' &&
-      github.event.comment.user.login == 'pedrompropicio' &&
+      contains(fromJSON('["pedrompropicio","mplabs-dev"]'), github.event.comment.user.login) &&
       startsWith(github.event.comment.body, '## Despacho') &&
       !startsWith(github.event.comment.body, '## Despacho recusado')
     runs-on: ubuntu-latest
