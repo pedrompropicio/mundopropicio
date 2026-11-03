@@ -1,8 +1,9 @@
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
-import { formatCurrencyDecimal, formatDate } from "@/lib/mock-data";
+import { formatCurrencyDecimal as formatLegacyCurrency, formatDate } from "@/lib/mock-data";
 import { applyPTNumberFormat } from "@/lib/excel-format";
 
 interface ContasPagarItem {
@@ -21,6 +22,7 @@ interface ContasPagarItem {
 }
 
 interface ContasPagarExport {
+  companyLocale?: CompanyLocaleResult;
   dateFrom: string | null;
   dateTo: string | null;
   eventNames: string[] | null;
@@ -47,6 +49,8 @@ function buildSubtitle(data: ContasPagarExport): string {
 }
 
 export function exportContasPagarToExcel(data: ContasPagarExport) {
+  const symbol = data.companyLocale?.status === "available" ? data.companyLocale.symbol : "€";
+
   const wb = XLSX.utils.book_new();
   const subtitle = buildSubtitle(data);
 
@@ -54,7 +58,7 @@ export function exportContasPagarToExcel(data: ContasPagarExport) {
     ["RELATÓRIO DE CONTAS A PAGAR"],
     [subtitle],
     [],
-    ["#", "Data", "Evento", "Fornecedor", "Descrição", "Especificação", "Estado", "Valor Base (€)", "IVA (%)", "Valor c/IVA (€)", "Já Pago (€)", "Saldo (€)", "Vencimento"],
+    ["#", "Data", "Evento", "Fornecedor", "Descrição", "Especificação", "Estado", `Valor Base (${symbol})`, "IVA (%)", `Valor c/IVA (${symbol})`, `Já Pago (${symbol})`, `Saldo (${symbol})`, "Vencimento"],
   ];
 
   let totalWithIva = 0;
@@ -90,14 +94,14 @@ export function exportContasPagarToExcel(data: ContasPagarExport) {
     { wch: 4 }, { wch: 12 }, { wch: 22 }, { wch: 20 }, { wch: 30 }, { wch: 20 },
     { wch: 12 }, { wch: 14 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
   ];
-  applyPTNumberFormat(ws);
+  applyPTNumberFormat(ws, data.companyLocale);
   XLSX.utils.book_append_sheet(wb, ws, "Contas a Pagar");
 
   const filename = `Contas_Pagar_${new Date().toISOString().slice(0, 10)}.xlsx`;
   XLSX.writeFile(wb, filename);
 }
 
-function renderPdfTable(doc: jsPDF, items: ContasPagarItem[], startY: number, marginLeft: number, showEventCol: boolean) {
+function renderPdfTable(doc: jsPDF, items: ContasPagarItem[], startY: number, marginLeft: number, showEventCol: boolean, formatCurrencyDecimal: (value: number) => string) {
   let totalWithIva = 0;
   let totalPaid = 0;
 
@@ -145,6 +149,10 @@ function renderPdfTable(doc: jsPDF, items: ContasPagarItem[], startY: number, ma
 }
 
 export function exportContasPagarToPDF(data: ContasPagarExport) {
+  const formatCurrencyDecimal = (value: number) => data.companyLocale?.status === "available" && !(data.companyLocale.locale === "pt-PT" && data.companyLocale.currency === "EUR")
+    ? formatMoney(value, data.companyLocale)
+    : formatLegacyCurrency(value);
+
   const doc = new jsPDF({ orientation: "landscape" });
   const marginLeft = 14;
   let y = 14;
@@ -195,7 +203,7 @@ export function exportContasPagarToPDF(data: ContasPagarExport) {
       doc.setFont("helvetica", "normal");
       y += 5;
 
-      const { totalWithIva, totalPaid } = renderPdfTable(doc, items, y, marginLeft, false);
+      const { totalWithIva, totalPaid } = renderPdfTable(doc, items, y, marginLeft, false, formatCurrencyDecimal);
       grandTotalWithIva += totalWithIva;
       grandTotalPaid += totalPaid;
     }
@@ -211,7 +219,7 @@ export function exportContasPagarToPDF(data: ContasPagarExport) {
     doc.setFont("helvetica", "bold");
     doc.text(`TOTAL GERAL — Valor c/IVA: ${formatCurrencyDecimal(grandTotalWithIva)}  |  Pago: ${formatCurrencyDecimal(grandTotalPaid)}  |  Saldo: ${formatCurrencyDecimal(grandTotalWithIva - grandTotalPaid)}`, marginLeft, y);
   } else {
-    renderPdfTable(doc, data.items, y, marginLeft, true);
+    renderPdfTable(doc, data.items, y, marginLeft, true, formatCurrencyDecimal);
   }
 
   const filename = `Contas_Pagar_${new Date().toISOString().slice(0, 10)}.pdf`;

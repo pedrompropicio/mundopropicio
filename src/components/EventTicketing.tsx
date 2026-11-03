@@ -940,6 +940,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                 setExportingPDF(true);
                 try {
                   await exportEventTicketingToPDF({
+                    companyLocale,
                     eventId,
                     includeChildren: true,
                     versionId: selectedVersionId,

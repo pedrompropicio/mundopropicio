@@ -1,16 +1,13 @@
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { applyPTNumberFormat } from "@/lib/excel-format";
 import { formatDatePT } from "@/lib/utils";
 
 function fmtDate(d: string) {
   return formatDatePT(d + "T00:00:00");
-}
-
-function fmtVal(v: number): string {
-  return formatCurrency(v);
 }
 
 // ─── Types ───
@@ -67,8 +64,11 @@ export function exportTicketOfficeAuditToExcel(
   syntheticData: SyntheticOffice[],
   analyticalData: AnalyticalOffice[],
   viewMode: "synthetic" | "analytical",
-  groupBy?: "type" | "event"
+  groupBy?: "type" | "event",
+  companyLocale?: CompanyLocaleResult
 ) {
+  const symbol = companyLocale?.status === "available" ? companyLocale.symbol : "€";
+
   const wb = XLSX.utils.book_new();
 
   if (viewMode === "synthetic") {
@@ -76,7 +76,7 @@ export function exportTicketOfficeAuditToExcel(
       ["AUDITORIA DE BILHETEIRAS — Sintético"],
       [`Gerado em ${new Date().toLocaleDateString("pt-PT")}`],
       [],
-      ["Bilheteira", "Vendas (€)", "Desp. Diretas (€)", "Transferências (€)", "Adiantamentos (€)", "Saldo Previsto (€)", "Eventos"],
+      ["Bilheteira", `Vendas (${symbol})`, `Desp. Diretas (${symbol})`, `Transferências (${symbol})`, `Adiantamentos (${symbol})`, `Saldo Previsto (${symbol})`, "Eventos"],
     ];
 
     syntheticData.forEach((office) => {
@@ -120,7 +120,7 @@ export function exportTicketOfficeAuditToExcel(
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = [{ wch: 35 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 20 }];
 
-    applyPTNumberFormat(ws);
+    applyPTNumberFormat(ws, companyLocale);
     XLSX.utils.book_append_sheet(wb, ws, "Sintético");
   } else {
     analyticalData.forEach((office) => {
@@ -149,7 +149,7 @@ export function exportTicketOfficeAuditToExcel(
 
         if (evData.sales.length > 0) {
           rows.push([`  Bilhetes Vendidos (${evData.sales.length})`, "", "", salesTotal]);
-          rows.push(["    Data", "    Descrição", "", "    Valor (€)"]);
+          rows.push(["    Data", "    Descrição", "", `    Valor (${symbol})`]);
           evData.sales.forEach((line) => {
             rows.push([`    ${fmtDate(line.date)}`, `    ${line.description}`, "", Math.abs(line.amount)]);
           });
@@ -157,7 +157,7 @@ export function exportTicketOfficeAuditToExcel(
 
         if (evData.expenses.length > 0) {
           rows.push([`  Despesas e Custos (${evData.expenses.length})`, "", "", expTotal]);
-          rows.push(["    Data", "    Descrição", "", "    Valor (€)"]);
+          rows.push(["    Data", "    Descrição", "", `    Valor (${symbol})`]);
           evData.expenses.forEach((line) => {
             rows.push([`    ${fmtDate(line.date)}`, `    ${line.description}`, "", Math.abs(line.amount)]);
           });
@@ -169,7 +169,7 @@ export function exportTicketOfficeAuditToExcel(
       if (transferLines.length > 0) {
         const transferTotal = transferLines.reduce((s, l) => s + Math.abs(l.amount), 0);
         rows.push([`ADIANTAMENTOS / TRANSFERÊNCIAS (${transferLines.length})`, "", "", "Total", transferTotal]);
-        rows.push(["  Data", "  Descrição", "", "  Valor (€)"]);
+        rows.push(["  Data", "  Descrição", "", `  Valor (${symbol})`]);
         transferLines.forEach((line) => {
           rows.push([`  ${fmtDate(line.date)}`, `  ${line.description}`, "", Math.abs(line.amount)]);
         });
@@ -181,7 +181,7 @@ export function exportTicketOfficeAuditToExcel(
       const sheetName = office.officeName.substring(0, 31);
       const ws = XLSX.utils.aoa_to_sheet(rows);
       ws["!cols"] = [{ wch: 14 }, { wch: 40 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
-      applyPTNumberFormat(ws);
+      applyPTNumberFormat(ws, companyLocale);
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
     });
   }
@@ -194,8 +194,14 @@ export function exportTicketOfficeAuditToExcel(
 export function exportTicketOfficeAuditToPDF(
   syntheticData: SyntheticOffice[],
   analyticalData: AnalyticalOffice[],
-  options: TicketOfficeAuditPDFOptions
+  options: TicketOfficeAuditPDFOptions,
+  companyLocale?: CompanyLocaleResult
 ) {
+  const symbol = companyLocale?.status === "available" ? companyLocale.symbol : "€";
+  const fmtVal = (value: number) => companyLocale?.status === "available" && !(companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")
+    ? formatMoney(value, companyLocale)
+    : formatLegacyCurrency(value);
+
   const { viewMode, groupBy, detailLevel = 3 } = options;
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -289,9 +295,9 @@ export function exportTicketOfficeAuditToPDF(
   cursor.y += 20;
 
   if (viewMode === "synthetic") {
-    renderSyntheticPDF(doc, syntheticData, ml, cw, cursor, checkPage);
+    renderSyntheticPDF(doc, syntheticData, ml, cw, cursor, checkPage, fmtVal, symbol);
   } else {
-    renderAnalyticalPDF(doc, analyticalData, ml, cw, cursor, checkPage, detailLevel);
+    renderAnalyticalPDF(doc, analyticalData, ml, cw, cursor, checkPage, detailLevel, fmtVal, symbol);
   }
 
   const totalPages = doc.getNumberOfPages();
@@ -313,7 +319,9 @@ function renderSyntheticPDF(
   data: SyntheticOffice[],
   ml: number, cw: number,
   c: Cursor,
-  checkPage: (n: number) => boolean
+  checkPage: (n: number) => boolean,
+  fmtVal: (value: number) => string,
+  symbol: string
 ) {
   const colW = [cw * 0.24, cw * 0.13, cw * 0.13, cw * 0.13, cw * 0.13, cw * 0.13, cw * 0.11];
   const colX = [ml];
@@ -326,11 +334,11 @@ function renderSyntheticPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.text("Bilheteira", colX[0] + 2, c.y + 5.5);
-    doc.text("Vendas (€)", colX[1] + colW[1] - 2, c.y + 5.5, { align: "right" });
-    doc.text("Desp. Diretas (€)", colX[2] + colW[2] - 2, c.y + 5.5, { align: "right" });
-    doc.text("Transferências (€)", colX[3] + colW[3] - 2, c.y + 5.5, { align: "right" });
-    doc.text("Adiantamentos (€)", colX[4] + colW[4] - 2, c.y + 5.5, { align: "right" });
-    doc.text("Saldo Previsto (€)", colX[5] + colW[5] - 2, c.y + 5.5, { align: "right" });
+    doc.text(`Vendas (${symbol})`, colX[1] + colW[1] - 2, c.y + 5.5, { align: "right" });
+    doc.text(`Desp. Diretas (${symbol})`, colX[2] + colW[2] - 2, c.y + 5.5, { align: "right" });
+    doc.text(`Transferências (${symbol})`, colX[3] + colW[3] - 2, c.y + 5.5, { align: "right" });
+    doc.text(`Adiantamentos (${symbol})`, colX[4] + colW[4] - 2, c.y + 5.5, { align: "right" });
+    doc.text(`Saldo Previsto (${symbol})`, colX[5] + colW[5] - 2, c.y + 5.5, { align: "right" });
     doc.text("Estado", colX[6] + 2, c.y + 5.5);
     doc.setTextColor(0, 0, 0);
     c.y += 10;
@@ -391,7 +399,9 @@ function renderAnalyticalPDF(
   ml: number, cw: number,
   c: Cursor,
   checkPage: (n: number) => boolean,
-  detailLevel: 2 | 3 = 3
+  detailLevel: 2 | 3,
+  fmtVal: (value: number) => string,
+  symbol: string
 ) {
   const dateX = ml + 16;
   const descX = ml + 42;
@@ -405,7 +415,7 @@ function renderAnalyticalPDF(
     doc.setTextColor(100, 100, 100);
     doc.text("Data", dateX, c.y + 4);
     doc.text("Descrição", descX, c.y + 4);
-    doc.text("Valor (€)", valX, c.y + 4, { align: "right" });
+    doc.text(`Valor (${symbol})`, valX, c.y + 4, { align: "right" });
     doc.setTextColor(0, 0, 0);
     c.y += 7;
   }

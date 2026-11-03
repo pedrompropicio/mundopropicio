@@ -2,7 +2,9 @@ import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { format } from "date-fns";
 import {
   Select,
@@ -74,6 +76,14 @@ interface AnalyticalLine {
 }
 
 export default function ReportTicketOfficeAudit() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+  const currencyLabel = companyLocale.status === "available" && !(companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")
+    ? ` (${companyLocale.symbol})` : "";
   // ?conta=<id> chega da composição do saldo retido; sem parâmetro fica "all".
   const [searchParams] = useSearchParams();
   const [selectedOffice, setSelectedOffice] = useState<string>(searchParams.get("conta") ?? "all");
@@ -443,7 +453,7 @@ export default function ReportTicketOfficeAudit() {
     });
 
     return result;
-  }, [offices, assignments, allSales, accountTxns, allAdvances, zoneNameMap, eventNameMap, zoneEventMap]);
+  }, [offices, assignments, allSales, accountTxns, allAdvances, zoneNameMap, eventNameMap, zoneEventMap, formatCurrency]);
 
 
   const filteredData = selectedOffice === "all"
@@ -509,7 +519,7 @@ export default function ReportTicketOfficeAudit() {
 
   const handleExportExcel = () => {
     const { syntheticExport, analyticalExport } = buildExportData();
-    exportTicketOfficeAuditToExcel(syntheticExport, analyticalExport, viewMode, analyticalGroupBy);
+    exportTicketOfficeAuditToExcel(syntheticExport, analyticalExport, viewMode, analyticalGroupBy, companyLocale);
   };
 
   const openPDFDialog = () => {
@@ -528,7 +538,7 @@ export default function ReportTicketOfficeAudit() {
       viewMode: pdfViewMode,
       groupBy: pdfViewMode === "analytical" ? pdfAnalyticalGroupBy : undefined,
       detailLevel: pdfViewMode === "analytical" ? detailLevel : undefined,
-    });
+    }, companyLocale);
     setPdfDialogOpen(false);
   };
 
@@ -691,10 +701,10 @@ export default function ReportTicketOfficeAudit() {
                 <TableRow>
                   <TableHead className="w-8"></TableHead>
                   <TableHead>Bilheteira</TableHead>
-                  <TableHead className="text-right">Vendas</TableHead>
-                  <TableHead className="text-right">Desp. Diretas</TableHead>
-                  <TableHead className="text-right">Transferências</TableHead>
-                  <TableHead className="text-right">Saldo Previsto</TableHead>
+                  <TableHead className="text-right">Vendas{currencyLabel}</TableHead>
+                  <TableHead className="text-right">Desp. Diretas{currencyLabel}</TableHead>
+                  <TableHead className="text-right">Transferências{currencyLabel}</TableHead>
+                  <TableHead className="text-right">Saldo Previsto{currencyLabel}</TableHead>
                   <TableHead className="text-center">Eventos</TableHead>
                 </TableRow>
               </TableHeader>
@@ -840,6 +850,8 @@ export default function ReportTicketOfficeAudit() {
                     <div className="text-center py-6 text-sm text-muted-foreground">Sem movimentações</div>
                   ) : (
                     <AnalyticalGroups
+                      formatCurrency={formatCurrency}
+                      currencyLabel={currencyLabel}
                       officeId={office.officeId}
                       lines={lines}
                       groupBy={analyticalGroupBy}
@@ -898,14 +910,14 @@ const KIND_META: { kind: TicketOfficeLineKind; label: string; color: string; sig
   { kind: "advance", label: "Adiantamentos", color: "text-muted-foreground", sign: -1 },
 ];
 
-function LineTable({ tableLines, colorClass }: { tableLines: AnalyticalLine[]; colorClass: string }) {
+function LineTable({ tableLines, colorClass, formatCurrency, currencyLabel }: { tableLines: AnalyticalLine[]; colorClass: string; formatCurrency: (value: number) => string; currencyLabel: string }) {
   return (
     <Table>
       <TableHeader>
         <TableRow className="bg-muted/10">
           <TableHead className="w-24 text-xs">Data</TableHead>
           <TableHead className="text-xs">Descrição</TableHead>
-          <TableHead className="text-right w-28 text-xs">Valor</TableHead>
+          <TableHead className="text-right w-28 text-xs">Valor{currencyLabel}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -927,7 +939,8 @@ function LineTable({ tableLines, colorClass }: { tableLines: AnalyticalLine[]; c
   );
 }
 
-function GroupHeader({ open, label, count, group, indent }: {
+function GroupHeader({ open, label, count, group, indent, formatCurrency }: {
+  formatCurrency: (value: number) => string;
   open: boolean;
   label: string;
   count: number;
@@ -954,7 +967,9 @@ function GroupHeader({ open, label, count, group, indent }: {
   );
 }
 
-function AnalyticalGroups({ officeId, lines, groupBy, expectedBalance, expandedCategories, toggleKey }: {
+function AnalyticalGroups({ officeId, lines, groupBy, expectedBalance, expandedCategories, toggleKey, formatCurrency, currencyLabel }: {
+  formatCurrency: (value: number) => string;
+  currencyLabel: string;
   officeId: string;
   lines: AnalyticalLine[];
   groupBy: AnalyticalGroupBy;
@@ -992,7 +1007,7 @@ function AnalyticalGroups({ officeId, lines, groupBy, expectedBalance, expandedC
                 {meta.sign < 0 ? "− " : ""}{formatCurrency(subtotal)}
               </span>
             </div>
-            {isSubOpen && <LineTable tableLines={kindLines} colorClass={meta.color} />}
+            {isSubOpen && <LineTable formatCurrency={formatCurrency} currencyLabel={currencyLabel} tableLines={kindLines} colorClass={meta.color} />}
           </div>
         );
       })}
@@ -1008,7 +1023,7 @@ function AnalyticalGroups({ officeId, lines, groupBy, expectedBalance, expandedC
             return (
               <div key={key} className="border-b">
                 <div className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => toggleKey(key)}>
-                  <GroupHeader open={isOpen} label={g.eventName} count={g.lines.length} group={g} />
+                  <GroupHeader formatCurrency={formatCurrency} open={isOpen} label={g.eventName} count={g.lines.length} group={g} />
                 </div>
                 {isOpen && renderKinds(g.lines, key)}
               </div>
@@ -1057,7 +1072,7 @@ function AnalyticalGroups({ officeId, lines, groupBy, expectedBalance, expandedC
                               </div>
                               <span className={cn("font-mono text-sm", meta.color)}>{formatCurrency(gTotal)}</span>
                             </div>
-                            {isSubOpen && <LineTable tableLines={gl} colorClass={meta.color} />}
+                            {isSubOpen && <LineTable formatCurrency={formatCurrency} currencyLabel={currencyLabel} tableLines={gl} colorClass={meta.color} />}
                           </div>
                         );
                       })}

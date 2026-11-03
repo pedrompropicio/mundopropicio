@@ -1,6 +1,7 @@
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
 
 // ─── Types ───
@@ -63,8 +64,6 @@ function fmtDate(d: string) {
   try { return format(new Date(d), "dd/MM/yyyy"); } catch { return d; }
 }
 
-function fmtVal(v: number) { return formatCurrency(v); }
-
 function varianceColor(variance: number): [number, number, number] {
   if (variance > 0) return [200, 50, 50];
   if (variance < 0) return [34, 139, 34];
@@ -88,7 +87,12 @@ function tagLabel(t: TransactionLine): string {
 
 // ═══════════════════════════ MAIN ═══════════════════════════
 
-export function exportBPTransactionsToPDF(data: BPTransactionsPDFData, viewMode: ViewMode) {
+export function exportBPTransactionsToPDF(data: BPTransactionsPDFData, viewMode: ViewMode, companyLocale?: CompanyLocaleResult) {
+  const symbol = companyLocale?.status === "available" ? companyLocale.symbol : "€";
+  const fmtVal = (value: number) => companyLocale?.status === "available" && !(companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")
+    ? formatMoney(value, companyLocale)
+    : formatLegacyCurrency(value);
+
   const doc = new jsPDF({ orientation: "landscape" });
   const pw = doc.internal.pageSize.getWidth();
   const ph = doc.internal.pageSize.getHeight();
@@ -174,9 +178,9 @@ export function exportBPTransactionsToPDF(data: BPTransactionsPDFData, viewMode:
     doc.text("Categoria / Transação", colX[0] + 2, cursor.y + 5.5);
     doc.text("Fornecedor", colX[1] + 2, cursor.y + 5.5);
     doc.text("Data", colX[2] + 2, cursor.y + 5.5);
-    doc.text("Previsto (€)", colX[3] + colW[3] - 2, cursor.y + 5.5, { align: "right" });
-    doc.text("Realizado (€)", colX[4] + colW[4] - 2, cursor.y + 5.5, { align: "right" });
-    doc.text("Variação (€)", colX[5] + colW[5] - 2, cursor.y + 5.5, { align: "right" });
+    doc.text(`Previsto (${symbol})`, colX[3] + colW[3] - 2, cursor.y + 5.5, { align: "right" });
+    doc.text(`Realizado (${symbol})`, colX[4] + colW[4] - 2, cursor.y + 5.5, { align: "right" });
+    doc.text(`Variação (${symbol})`, colX[5] + colW[5] - 2, cursor.y + 5.5, { align: "right" });
     doc.setTextColor(0, 0, 0);
     cursor.y += 10;
   }
@@ -251,7 +255,7 @@ export function exportBPTransactionsToPDF(data: BPTransactionsPDFData, viewMode:
       if (viewMode === "analytical" && cat.transactions.length > 0) {
         cat.transactions.forEach((t) => {
           if (checkPage(6)) drawTableHeader();
-          renderTransactionLine(doc, t, colX, colW, cursor);
+          renderTransactionLine(doc, t, colX, colW, cursor, fmtVal);
         });
         cursor.y += 1;
       }
@@ -277,7 +281,7 @@ export function exportBPTransactionsToPDF(data: BPTransactionsPDFData, viewMode:
     if (viewMode === "analytical") {
       data.outOfBPTransactions.forEach((t) => {
         if (checkPage(6)) drawTableHeader();
-        renderTransactionLine(doc, t, colX, colW, cursor);
+        renderTransactionLine(doc, t, colX, colW, cursor, fmtVal);
       });
     }
     cursor.y += 3;
@@ -318,7 +322,8 @@ function renderTransactionLine(
   t: TransactionLine,
   colX: number[],
   colW: number[],
-  c: Cursor
+  c: Cursor,
+  fmtVal: (value: number) => string
 ) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);

@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronDown, ChevronRight, AlertTriangle, Handshake, ReceiptText, FileDown } from "lucide-react";
@@ -75,6 +77,14 @@ interface Props {
 }
 
 export default function ReportBPTransactions({ initialEventId }: Props = {}) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+  const currencyLabel = companyLocale.status === "available" && !(companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")
+    ? ` (${companyLocale.symbol})` : "";
   const [selectedEventId, setSelectedEventId] = useState<string>(initialEventId ?? "");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -695,7 +705,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
       totalActual,
       includeOverhead,
     };
-    exportBPTransactionsToPDF(pdfData, mode);
+    exportBPTransactionsToPDF(pdfData, mode, companyLocale);
   };
 
   // Evento âncora para versões: Master se for sub, próprio caso contrário
@@ -801,8 +811,8 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
                 <TableHead>Categoria / Transação</TableHead>
                 <TableHead>Fornecedor</TableHead>
                 <TableHead>Data</TableHead>
-                <TableHead className="text-right">Previsto (s/IVA)</TableHead>
-                <TableHead className="text-right">Realizado (s/IVA)</TableHead>
+                <TableHead className="text-right">Previsto (s/IVA){currencyLabel}</TableHead>
+                <TableHead className="text-right">Realizado (s/IVA){currencyLabel}</TableHead>
                 <TableHead className="text-center">Estado</TableHead>
               </TableRow>
             </TableHeader>
