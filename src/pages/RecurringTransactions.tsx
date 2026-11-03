@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -41,8 +43,6 @@ import helpTexts from "@/lib/help-texts";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
-/** Fallback PT; o conjunto real vem do país da cidade do evento. */
-const IVA_RATES_PT = [0, 6, 13, 23];
 const FREQUENCIES = [
   { value: "monthly", label: "Mensal" },
   { value: "quarterly", label: "Trimestral" },
@@ -70,11 +70,11 @@ interface RecurringForm {
 const now = new Date();
 const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-const emptyForm: RecurringForm = {
+const makeEmptyForm = (noIva: boolean): RecurringForm => ({
   description: "",
   type: "expense",
   amount: "",
-  iva_rate: 23,
+  iva_rate: noIva ? 0 : 23,
   category_id: "",
   event_id: "",
   supplier_id: "",
@@ -86,9 +86,19 @@ const emptyForm: RecurringForm = {
   end_mode: "duration",
   end_month: "",
   duration_months: "12",
-};
+});
 
 export default function RecurringTransactions() {
+  const companyLocale = useCompanyLocale();
+  const symbol = companyLocale.status === "available" ? companyLocale.symbol : "—";
+  const noIva = companyLocale.status === "available" && companyLocale.ivaPolicy === "none";
+  const emptyForm = makeEmptyForm(noIva);
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+
   // Taxas de IVA do país da cidade do evento (PT por defeito).
 
   const { isAdmin, isManager, hasPermission, user } = useAuth();
@@ -96,6 +106,9 @@ export default function RecurringTransactions() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<RecurringForm>(emptyForm);
+  useEffect(() => {
+    if (!editId && !noIva) setForm(current => ({ ...current, iva_rate: 23 }));
+  }, [noIva]);
   const { rates: ivaRates } = useEventIvaCountry(form.event_id || null);
   const canManageRecurring = isAdmin || isManager || hasPermission("manage_recurring");
   const canDeleteRecurring = isAdmin || isManager;
@@ -238,7 +251,7 @@ export default function RecurringTransactions() {
         description: form.description,
         type: form.type,
         amount: Number(form.amount),
-        iva_rate: form.iva_rate,
+        iva_rate: noIva ? 0 : form.iva_rate,
         category_id: form.category_id || null,
         event_id: form.event_id || null,
         supplier_id: form.supplier_id || null,
@@ -488,7 +501,7 @@ export default function RecurringTransactions() {
               </div>
 
               <div>
-                <Label>Valor (€) *</Label>
+                <Label>Valor ({symbol}) *</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -499,6 +512,7 @@ export default function RecurringTransactions() {
                 />
               </div>
 
+              {!noIva && (
               <div>
                 <Label>Taxa IVA</Label>
                 <Select value={String(form.iva_rate)} onValueChange={(v) => setForm({ ...form, iva_rate: Number(v) })}>
@@ -510,6 +524,7 @@ export default function RecurringTransactions() {
                   </SelectContent>
                 </Select>
               </div>
+              )}
 
               <div>
                 <Label>Frequência</Label>

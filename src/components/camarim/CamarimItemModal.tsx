@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { useEffect, useRef, useState } from "react";
 import { deleteStorageObject, deleteStorageObjects } from "@/lib/storage-delete";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,6 +47,12 @@ interface Props {
 }
 
 export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, autoOpenCamera, onSaved }: Props) {
+  const companyLocale = useCompanyLocale();
+  const symbol = companyLocale.status === "available" ? companyLocale.symbol : "—";
+  // These two legacy displays use dot decimals and a regular space in PT.
+  const formatAmount = (value: number) => companyLocale.status !== "available" ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? `${value.toFixed(2)} €` : formatMoney(value, companyLocale);
   const invalidateFin = useInvalidateEventFinancials();
   const { user } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -518,7 +526,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       if (dupes && dupes.length > 0) {
         const ok = window.confirm(
           `⚠️ Já existe um lançamento idêntico nesta sessão:\n\n` +
-          `${supplierName} · doc ${docNumber} · ${Number(totalAmount).toFixed(2)} €\n\n` +
+          `${supplierName} · doc ${docNumber} · ${formatAmount(Number(totalAmount))}\n\n` +
           `Tens a certeza que queres registar outra vez?`
         );
         if (!ok) return;
@@ -796,7 +804,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
               <Input id="docdate" type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="total">Total (€)</Label>
+              <Label htmlFor="total">Total ({symbol})</Label>
               <Input
                 id="total"
                 type="number"
@@ -807,7 +815,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="iva">IVA (€)</Label>
+              <Label htmlFor="iva">IVA ({symbol})</Label>
               <Input
                 id="iva"
                 type="number"
@@ -897,7 +905,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                     <SelectItem value={LINE_AT_INTEGRATION}>Escolher na integração (linha da sessão)</SelectItem>
                     {bpTarget.lines.map((l) => (
                       <SelectItem key={l.id} value={l.id}>
-                        {lineLabel(l)} — disponível {(l.amount - l.realized).toFixed(2)} €
+                        {lineLabel(l)} — disponível {formatAmount(l.amount - l.realized)}
                       </SelectItem>
                     ))}
                   </SelectContent>
