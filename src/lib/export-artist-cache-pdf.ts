@@ -1,7 +1,8 @@
 import jsPDF from "jspdf";
 import autoTableRaw from "jspdf-autotable";
 import { sanitizePdfText, sanitizePdfRows } from "@/lib/pdf-text";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import { formatEventDate, tierReferenceRows, type ArtistCacheReport, type TierBasisMode } from "@/lib/cache-report";
 
 // Todo o texto das tabelas passa pelo saneador (jsPDF/WinAnsi não tem U+2212).
@@ -16,6 +17,8 @@ export interface CachePdfBlock {
 }
 
 export interface CachePdfInput {
+  /** Omission preserves the original PT/EUR output; unavailable stays explicit. */
+  companyLocale?: CompanyLocaleResult;
   title: string;
   companyName: string;
   logo: { dataUrl: string; w: number; h: number } | null;
@@ -32,8 +35,28 @@ const HEAD = { fillColor: [59, 130, 246] as [number, number, number], fontSize: 
 const BOLD = new Set(["CACHÊ LÍQUIDO A PAGAR", "Cachê da cidade", "Cachê Bruto", "CUSTOS EXTRAS A DESCONTAR", "Total da turnê"]);
 const isTierHeader = (t: string) => t.startsWith("Escalões");
 
+/** Presentation adapter only; amounts still come from the canonical cache report. */
+function cacheCurrency(value: number, companyLocale?: CompanyLocaleResult): string {
+  if (!companyLocale) return formatLegacyCurrency(value);
+  if (companyLocale.status !== "available") return "—";
+  return companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+    ? formatLegacyCurrency(value)
+    : formatMoney(value, companyLocale);
+}
+
+/** The canonical tier builder returns display cells. Reformat only its money tokens,
+ * retaining its thresholds, ticket counts, applied tiers and every other byte.
+ * No engine/formula is duplicated here; PT cells are returned untouched.
+ */
+function localizeTierRows(rows: string[][], companyLocale?: CompanyLocaleResult): string[][] {
+  if (!companyLocale || (companyLocale.status === "available" && companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")) return rows;
+  return rows.map((row) => row.map((cell) => cell.replace(/-?\d+(?:\.\d{3})*,\d{2}\u00a0€/g, (money) =>
+    cacheCurrency(Number(money.slice(0, -2).replace(/\./g, "").replace(",", ".")), companyLocale))));
+}
+
 /** Linhas da tabela de UMA cidade para UM artista (mesmos números do ecrã). */
-export function cityRowsFor(report: ArtistCacheReport, cityId: string, mode: TierBasisMode = "revenue"): string[][] {
+export function cityRowsFor(report: ArtistCacheReport, cityId: string, mode: TierBasisMode = "revenue", companyLocale?: CompanyLocaleResult): string[][] {
+  const formatCurrency = (value: number) => cacheCurrency(value, companyLocale);
   const rows: string[][] = [];
   const c = report.cities.find((x) => x.cityId === cityId);
   if (!report.isVariable) {
@@ -41,7 +64,7 @@ export function cityRowsFor(report: ArtistCacheReport, cityId: string, mode: Tie
     return rows;
   }
   const r = c?.result;
-  rows.push(...tierReferenceRows(report.config, c?.capacityRevenue ?? null, r ? r.percentage : null, mode, r ? r.revenueBasis : null));
+  rows.push(...localizeTierRows(tierReferenceRows(report.config, c?.capacityRevenue ?? null, r ? r.percentage : null, mode, r ? r.revenueBasis : null), companyLocale));
   rows.push([`Receita real de bilheteira (${r?.revenueBasisLabel || "-"})`, formatCurrency(r?.revenueBasis ?? 0)]);
   for (const d of r?.deductionDetails ?? []) rows.push([`  (-) ${d.categoryCode} ${d.categoryName}`, formatCurrency(-d.amount)]);
   if ((r?.fixedPctRate ?? 0) > 0) rows.push([`  (-) Dedução fixa (${r!.fixedPctRate}%)`, formatCurrency(-(r!.fixedPctDeduction))]);
@@ -56,6 +79,7 @@ export function cityRowsFor(report: ArtistCacheReport, cityId: string, mode: Tie
 }
 
 export async function exportArtistCachePdf(input: CachePdfInput) {
+  const formatCurrency = (value: number) => cacheCurrency(value, input.companyLocale);
   const doc = new jsPDF();
   const rawText = doc.text.bind(doc);
   (doc as any).text = (t: string | string[], ...rest: any[]) =>
@@ -139,7 +163,7 @@ export async function exportArtistCachePdf(input: CachePdfInput) {
       doc.text(`${rep.config.artist_name} · ${rep.isVariable ? "Variável" : "Fixo"}`, m, y); y += 4;
       doc.setFont("helvetica", "normal");
       const city = rep.cities.find((c) => c.cityId === sec.meta.id);
-      const rows = cityRowsFor(rep, sec.meta.id, input.tierMode);
+      const rows = cityRowsFor(rep, sec.meta.id, input.tierMode, input.companyLocale);
       if (!input.tourSummary) {
         // Cidade isolada ou evento simples: fecha com extras e líquido.
         rows.push(...extrasRows(rep.extras, rep.extrasTotal));

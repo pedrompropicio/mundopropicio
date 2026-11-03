@@ -85,5 +85,5 @@ export const ITEM_STATUS_VARIANTS: Record<CamarimItemStatus, string> = {
 };
 
 export function formatCurrency(amount: number, currency = "EUR") {
-  return new Intl.NumberFormat("pt-PT", { style: "currency", currency }).format(amount ?? 0);
+  return new Intl.NumberFormat(currency === "BRL" ? "pt-BR" : "pt-PT", { style: "currency", currency }).format(amount ?? 0);
 }
