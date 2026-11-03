@@ -332,6 +332,9 @@ describe("#498 P1i — moeda da empresa no ecrã e nos exports", () => {
 
   it.each(exports)("%s: BR formata sem mudar números, datas, ficheiros ou ordem", async name => {
     const original = JSON.stringify(await capture(name));
+    const expected = name.startsWith("payable-")
+      ? original.replaceAll("Valor c/IVA", "Valor")
+      : original;
     const output = await capture(name, br);
     const serialized = JSON.stringify(output);
     expect(serialized).not.toContain("€");
@@ -347,14 +350,14 @@ describe("#498 P1i — moeda da empresa no ecrã e nos exports", () => {
       // Exact workbook structure/values retained; only labels and cell masks differ.
       const neutralWorkbook = (input: unknown) => JSON.stringify(input, (key, value) =>
         key === "z" ? "<mask>" : typeof value === "string" ? value.replaceAll("R$", "€") : value);
-      expect(neutralWorkbook(output)).toBe(neutralWorkbook(JSON.parse(original)));
+      expect(neutralWorkbook(output)).toBe(neutralWorkbook(JSON.parse(expected)));
     } else {
       expect(serialized).toContain("R$\u00a01.234,56");
       const neutralMoney = (text: string) => text
         .replace(/(-?)R\$\u00a0([\d.]+,\d{2})/g, "$1$2 <currency>")
         .replace(/(-?[\d.]+,\d{2})\u00a0€/g, "$1 <currency>")
         .replaceAll("R$", "€");
-      expect(neutralMoney(serialized)).toBe(neutralMoney(original));
+      expect(neutralMoney(serialized)).toBe(neutralMoney(expected));
     }
   });
 

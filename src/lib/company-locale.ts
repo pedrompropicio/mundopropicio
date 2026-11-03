@@ -36,6 +36,11 @@ export interface CompanyLocaleUnavailable {
 }
 
 export type CompanyLocaleResult = CompanyLocale | CompanyLocaleUnavailable;
+
+export function companyHasIva(ctx: CompanyLocaleResult): boolean {
+  return ctx.status !== "available" || ctx.capabilities.iva;
+}
+
 export type CompanyFormatOptions = Omit<MoneyFormatOptions, "locale"> & {
   /** Existing numeric editors may retain Intl's locale-specific grouping. */
   grouping?: "locale";
