@@ -2,7 +2,7 @@
 
 > Fonte única dos pedidos entre chats, nas duas ferramentas (Claude e ChatGPT). Lê-se no início de cada resposta. O histórico até 15/10/2026 está no Claude Doc `https://claude.ai/code/artifact/66346443-15cd-419b-9a88-919549c735c2` (arquivo, não se consulta para saber o estado).
 
-`Issues — abertas: 88 · abertas na semana: 68 · fechadas na semana: 45 · sem movimento >10 dias: 4 (26 antes da triagem de 03/11) (medido em 2026-11-03 por operador mplabs-dev)`
+`Issues — abertas: 68 · abertas na semana: 68 · fechadas na semana: 65 · sem movimento >10 dias: 3 (medido em 2026-11-03 18:25 UTC por operador mplabs-dev)`
 
 ## Interruptor — Publish automático em sessões agendadas: **DESLIGADO**
 
