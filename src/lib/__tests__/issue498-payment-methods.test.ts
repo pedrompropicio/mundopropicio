@@ -257,7 +257,7 @@ describe("#498 — conta BR e colunas opcionais", () => {
     f.queries["supplier-br-details"] = await loadOptionalSupplierBrData("supplier");
     expect(f.rpc).toHaveBeenCalledWith("get_supplier_bank_details", { p_supplier_ids: ["supplier"] });
     render(h(SupplierBankDetails, { defaultExpanded: true, supplier: { id: "supplier", name: "Fixture", nif: "NIF-PT" } }));
-    expect(screen.getByText(/CNPJ: 12345678000199/)).toBeInTheDocument();
+    expect(screen.getByText(/CNPJ: 12\.345\.678\/0001-99/)).toBeInTheDocument();
     expect(screen.getByText("Conta: 00123")).toBeInTheDocument();
     expect(screen.queryByText(/NIF-PT/)).toBeNull();
   });

@@ -126,7 +126,7 @@ export function SupplierBankDetails({ supplier, defaultExpanded = false }: Props
         {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
       </button>
       {expanded && <div className="px-3 pb-2.5 space-y-2">
-        {taxId && <p className="text-xs">{source.tax_id_type?.toUpperCase() || "CNPJ"}: {taxId}<CopyButton text={taxId} /></p>}
+        {taxId && <p className="text-xs">{source.tax_id_type?.toUpperCase() || "CNPJ"}: {((digits, type) => type === "cnpj" && digits.length === 14 ? digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : type === "cpf" && digits.length === 11 ? digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4") : taxId)(taxId.replace(/\D/g, ""), (source.tax_id_type ?? "cnpj").toLowerCase())}<CopyButton text={taxId} /></p>}
         {banks.map(bank => <div key={bank.slot} className="text-xs space-y-1">
           <p className="font-medium">Conta bancária {bank.slot}</p>
           {BR_BANK_FIELDS.map(([key, label]) => bank[key] ? <p key={key}>{label}: {bank[key]}<CopyButton text={bank[key]!} /></p> : null)}
