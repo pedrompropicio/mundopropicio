@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { companyHasIva } from "@/lib/company-locale";
 /**
  * Aba "Sócios" — épica #146 (e) fase 2 (A).
  *
@@ -43,6 +45,7 @@ interface Props {
 type IvaBasis = "inherit" | "gross" | "net";
 
 export function EventPartnersTab({ eventId, eventStatus }: Props) {
+  const hasIva = companyHasIva(useCompanyLocale());
   const queryClient = useQueryClient();
   const [paymentFor, setPaymentFor] = useState<{ id: string; supplierId: string; name: string } | null>(null);
   const { isAdmin, isManager, hasPermission } = useAuth();
@@ -149,6 +152,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
    * participante (`expense_includes_iva` deixou de ser lido pelo motor).
    */
   const settlementBasisLabel = (id: string): string => {
+    if (!hasIva) return "—";
     const s = (settlements as any[]).find((x) => x.id === id);
     if (!s) return "—";
     if (!s.parent_id) return usesGrossExpenseAmounts(event?.partner_calc_basis) ? "c/IVA" : "s/IVA";
@@ -421,19 +425,19 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
           <div className="flex items-center gap-2">
             <RadioGroupItem value="net_result" id="cb-net" />
             <Label htmlFor="cb-net" className="text-sm cursor-pointer">
-              Resultado Líquido (Receitas s/ IVA − Despesas s/ IVA)
+              {hasIva ? "Resultado Líquido (Receitas s/ IVA − Despesas s/ IVA)" : "Resultado Líquido (Receitas − Despesas)"}
             </Label>
           </div>
           <div className="flex items-center gap-2">
             <RadioGroupItem value="net_result_gross_expenses" id="cb-net-gross" />
             <Label htmlFor="cb-net-gross" className="text-sm cursor-pointer">
-              Resultado Líquido (Receitas s/ IVA − Despesas c/ IVA)
+              {hasIva ? "Resultado Líquido (Receitas s/ IVA − Despesas c/ IVA)" : "Resultado Líquido (Receitas − Despesas)"}
             </Label>
           </div>
           <div className="flex items-center gap-2">
             <RadioGroupItem value="gross_revenue" id="cb-gross" />
             <Label htmlFor="cb-gross" className="text-sm cursor-pointer">
-              Receita Bruta (s/ IVA)
+              {hasIva ? "Receita Bruta (s/ IVA)" : "Receita Bruta"}
             </Label>
           </div>
         </RadioGroup>
@@ -635,7 +639,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                             {p.can_order && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">Ordenador</span>}
                             {p.can_pay && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">Pagador</span>}
                             {p.visible_in_docs === false && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">Oculto nos docs</span>}
-                            {p.transfer_with_vat === true && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">Repasse c/IVA 23%</span>}
+                            {p.transfer_with_vat === true && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">{hasIva ? "Repasse c/IVA 23%" : "Repasse"}</span>}
                             {!p.can_order && !p.can_pay && p.visible_in_docs !== false && p.transfer_with_vat !== true && <span className="text-xs text-muted-foreground">—</span>}
                           </div>
                         )}
