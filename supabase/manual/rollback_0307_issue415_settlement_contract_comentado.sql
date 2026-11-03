@@ -1,0 +1,13 @@
+-- ROLLBACK 0307 (#415) — COMENTADO. Não aplicar sem Sim separado do Pedro; preservar manifesto/auditoria/snapshots.
+-- DROP TRIGGER IF EXISTS trg_issue415_participant_overhead ON public.event_settlement_participants;
+-- DROP TRIGGER IF EXISTS trg_issue415_settlement_contract ON public.event_settlements;
+-- DROP FUNCTION IF EXISTS public.guard_issue415_settlement_contract();
+-- DROP FUNCTION IF EXISTS public.set_settlement_participant_overhead(uuid, boolean, integer, text, text);
+-- DROP FUNCTION IF EXISTS public.set_settlement_contract(uuid, text, boolean, integer, text, text);
+-- DROP FUNCTION IF EXISTS public.initialize_settlement_contract(uuid, text, boolean, text, text);
+-- DROP FUNCTION IF EXISTS public._issue415_contract_command(text,uuid,text,boolean,boolean,integer,text,text);
+-- DROP INDEX IF EXISTS public.issue415_contract_request_key;
+-- ALTER TABLE public.event_settlement_participants DROP COLUMN supports_overhead;
+-- ALTER TABLE public.event_settlements DROP CONSTRAINT issue415_contract_initialization;
+-- ALTER TABLE public.event_settlements DROP COLUMN contract_expense_source, DROP COLUMN contract_include_overhead,
+--   DROP COLUMN contract_revision, DROP COLUMN contract_initialized_at, DROP COLUMN contract_initialized_by;
