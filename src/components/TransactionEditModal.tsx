@@ -592,6 +592,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
 
 
       for (const key of allowedFields) {
+        if (key === "excluded_from_partner_settlement" && (transaction.forecast_id || isBpLinked)) continue;
         const oldVal = String(transaction[key] ?? "");
         const newVal = String((form as any)[key] ?? "");
         if (oldVal !== newVal) {
@@ -664,7 +665,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         is_transitory: form.is_transitory,
         transitory_reason: form.is_transitory ? form.transitory_reason : null,
         is_confidential: form.is_confidential,
-        ...(isAdmin || isManager ? { excluded_from_partner_settlement: !partnerSettlementExclusionReason({ ...form, type: transaction.type, exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id }) && form.excluded_from_partner_settlement } : {}),
+        ...((isAdmin || isManager) && !transaction.forecast_id && !isBpLinked ? { excluded_from_partner_settlement: !partnerSettlementExclusionReason({ ...form, type: transaction.type, exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id }) && form.excluded_from_partner_settlement } : {}),
         exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id,
         shared_cost_account_id: form.shared_cost_account_id || null,
         shared_cost_counterparty_id: form.shared_cost_account_id ? (form.shared_cost_counterparty_id || null) : null,
@@ -698,7 +699,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         is_transitory: form.is_transitory,
         transitory_reason: form.is_transitory ? form.transitory_reason : null,
         is_confidential: form.is_confidential,
-        ...(isAdmin || isManager ? { excluded_from_partner_settlement: !partnerSettlementExclusionReason({ ...form, type: transaction.type, exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id }) && form.excluded_from_partner_settlement } : {}),
+        ...((isAdmin || isManager) && !transaction.forecast_id && !isBpLinked ? { excluded_from_partner_settlement: !partnerSettlementExclusionReason({ ...form, type: transaction.type, exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id }) && form.excluded_from_partner_settlement } : {}),
         exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id,
         shared_cost_account_id: form.shared_cost_account_id || null,
         shared_cost_counterparty_id: form.shared_cost_account_id ? (form.shared_cost_counterparty_id || null) : null,
@@ -1062,7 +1063,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
       if (fid) {
         const { data, error } = await supabase
           .from("event_forecasts")
-          .select("id, category_id, description, event_id")
+          .select("id, category_id, description, event_id, excluded_from_partner_settlement")
           .eq("id", fid)
           .maybeSingle();
         if (error) throw error;
@@ -1070,7 +1071,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
       }
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, category_id, description, event_id")
+        .select("id, category_id, description, event_id, excluded_from_partner_settlement")
         .eq("transaction_id", transaction.id)
         .is("version_id", null)
         .limit(1)
@@ -1759,7 +1760,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           </div>
           )}
 
-          <PartnerSettlementExclusionSwitch row={{ ...form, type: transaction.type, exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id }} canManage={isAdmin || isManager} checked={form.excluded_from_partner_settlement} onChange={(value) => setForm({ ...form, excluded_from_partner_settlement: value })} />
+          <PartnerSettlementExclusionSwitch row={{ ...form, type: transaction.type, exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id }} canManage={isAdmin || isManager} checked={form.excluded_from_partner_settlement} inheritedFromForecast={isBpLinked ? ((linkedForecast as any)?.excluded_from_partner_settlement ?? false) : undefined} onChange={(value) => setForm({ ...form, excluded_from_partner_settlement: value })} />
 
           {/* TX liquidada + admin/gestora: categoria L3 e realocação da linha do BP continuam editáveis. */}
           {paidLocked && canReallocBpWhenPaid && !hasChildren && (
