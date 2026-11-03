@@ -648,6 +648,7 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
     onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["supplier-credits"] });
+      queryClient.invalidateQueries({ queryKey: ["account-true-balance"] });
       if ((result as any)?.partnerPaid) {
         queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
         onClose();
@@ -698,6 +699,7 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
             onUndone: () => {
               queryClient.invalidateQueries({ queryKey: ["transactions"] });
               queryClient.invalidateQueries({ queryKey: ["supplier-credits"] });
+              queryClient.invalidateQueries({ queryKey: ["account-true-balance"] });
             },
           });
           return;
