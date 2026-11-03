@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import React, { useState } from "react";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -21,6 +23,12 @@ interface TransferFormModalProps {
 }
 
 export function TransferFormModal({ onClose }: TransferFormModalProps) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? `€${value.toFixed(2)}`
+      : formatMoney(value, companyLocale);
   const [fromAccountId, setFromAccountId] = useState("");
   const [toAccountId, setToAccountId] = useState("");
   const [amount, setAmount] = useState("");
@@ -74,7 +82,7 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
       // respeita skip_balance_check internamente.
       const hasBalance = await accountHasBalanceFor(fromAccountId, numAmount);
       if (!hasBalance) {
-        throw new Error(insufficientBalanceMessage(sourceBalance, (v) => `€${v.toFixed(2)}`));
+        throw new Error(insufficientBalanceMessage(sourceBalance, formatCurrency));
       }
 
       // Se qualquer das pernas toca uma conta restrita, as DUAS nascem confidenciais.
@@ -130,14 +138,14 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
           changed_by: changedBy,
           field_name: "transferência",
           old_value: null,
-          new_value: `Saída: ${fromAccount?.name} → ${toAccount?.name} | €${numAmount.toFixed(2)}`,
+          new_value: `Saída: ${fromAccount?.name} → ${toAccount?.name} | ${formatCurrency(numAmount)}`,
         },
         {
           transaction_id: incomeTx.id,
           changed_by: changedBy,
           field_name: "transferência",
           old_value: null,
-          new_value: `Entrada: ${fromAccount?.name} ← ${fromAccount?.name} | €${numAmount.toFixed(2)}`,
+          new_value: `Entrada: ${fromAccount?.name} ← ${fromAccount?.name} | ${formatCurrency(numAmount)}`,
         },
       ];
       await supabase.from("transaction_audit_log").insert(auditEntries);
@@ -205,7 +213,7 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
             {fromAccountId && sourceBalance !== undefined && sourceBalance !== null && (
               <p className="mt-1 text-xs text-muted-foreground">
                 Saldo disponível: <span className={insufficientBalance ? "text-destructive font-medium" : "text-emerald-400 font-medium"}>
-                  €{sourceBalance.toFixed(2)}
+                  {formatCurrency(sourceBalance)}
                 </span>
               </p>
             )}
@@ -224,7 +232,7 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor (€)</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor ({companyLocale.status === "available" ? companyLocale.symbol : "€"})</label>
             <input
               type="number"
               step="0.01"

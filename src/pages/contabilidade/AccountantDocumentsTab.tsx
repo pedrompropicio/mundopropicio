@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -52,6 +54,12 @@ const fmtEUR = (n: number) =>
 
 export function AccountantDocumentsTab({ period }: { period: Period }) {
   const { companyId } = useCompany();
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? fmtEUR(value)
+      : formatMoney(value, companyLocale);
   const { toast } = useToast();
   const [typeFilter, setTypeFilter] = useState<"all" | "expense" | "income">("all");
   const [accountFilter, setAccountFilter] = useState<string>("all");
@@ -299,7 +307,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
         <div className="text-sm text-muted-foreground">
           <span className="font-semibold text-foreground">{totals.tx}</span> transações ·{" "}
           <span className="font-semibold text-foreground">{totals.docs}</span> anexos ·{" "}
-          <span className="font-semibold text-foreground">{fmtEUR(totals.amount)}</span>
+          <span className="font-semibold text-foreground">{formatCurrency(totals.amount)}</span>
           <div className="mt-1 text-xs">
             <span className="text-emerald-500 font-semibold">{reviewCounts.conferidas}</span> conferidas ·{" "}
             <span className="text-amber-500 font-semibold">{reviewCounts.pendentes}</span> pendentes ·{" "}
@@ -403,7 +411,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
                   <td className="p-2">{t.supplier_name ?? "—"}</td>
                   <td className="p-2">{t.supplier_nif ?? "—"}</td>
                   <td className="p-2 whitespace-nowrap">{(t.account_id && accountNameById.get(t.account_id)) ?? "—"}</td>
-                  <td className="p-2 text-right whitespace-nowrap">{fmtEUR(Number(t.amount))}</td>
+                  <td className="p-2 text-right whitespace-nowrap">{formatCurrency(Number(t.amount))}</td>
                   <td className="p-2">{t.invoice_ref ?? "—"}</td>
                   <td className="p-2">
                     {t.doc_count > 0 ? (

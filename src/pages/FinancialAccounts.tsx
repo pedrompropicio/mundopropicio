@@ -5,7 +5,8 @@ import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { formatMoney } from "@/lib/company-locale";
 import { toast } from "@/hooks/use-toast";
 import { invalidateCardSessionQueries } from "@/lib/card-session-helpers";
 
@@ -84,6 +85,11 @@ const emptyForm: AccountForm = {
 export default function FinancialAccounts() {
   const { isAdmin, isManager, hasPermission } = useAuth();
   const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const isBR = companyLocale.status === "available" && companyLocale.locale === "pt-BR";
   const { data: brColumnReady = false } = useQuery({
     queryKey: ["financial-account-br-column", companyLocale.companyId],
@@ -517,7 +523,7 @@ export default function FinancialAccounts() {
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Saldo Inicial (€)</label>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Saldo Inicial ({companyLocale.status === "available" ? companyLocale.symbol : "€"})</label>
                 <input
                   type="number"
                   step="0.01"
