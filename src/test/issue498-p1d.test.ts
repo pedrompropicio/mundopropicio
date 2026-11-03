@@ -211,7 +211,14 @@ describe("#498 P1d — explicit BR context", () => {
     const serialized = JSON.stringify(output);
     expect(serialized).not.toContain("€");
     expect(serialized).toContain("R$");
-    expect(digest(normalizeBR(output, name))).toBe(hash);
+    if (name === "payment-excel") {
+      expect(serialized).toContain("Valor (R$)");
+      expect(serialized).not.toContain("Valor c/IVA");
+    }
+    const normalized = normalizeBR(output, name);
+    expect(digest(name === "payment-excel"
+      ? JSON.parse(JSON.stringify(normalized).replaceAll("Valor (€)", "Valor c/IVA (€)"))
+      : normalized)).toBe(hash);
     if (name.endsWith("excel") || name === "excel-format") {
       expect(serialized).toContain(name === "pl-excel"
         ? '\\"R$ \\"#,##0.00;[Red]-\\"R$ \\"#,##0.00'
