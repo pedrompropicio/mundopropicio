@@ -68,12 +68,14 @@ export async function fetchAccountTrueBalance(accountId: string): Promise<number
  * `undefined` = ainda a carregar; `null` = sem autorização para ver.
  */
 export function useAccountTrueBalance(accountId?: string | null) {
-  const { data } = useQuery({
+  const { data, isFetching } = useQuery({
     queryKey: ["account-true-balance", accountId],
     enabled: !!accountId,
     queryFn: () => fetchAccountTrueBalance(accountId as string),
+    staleTime: 0,
+    refetchOnMount: "always",
   });
-  return accountId ? data : undefined;
+  return accountId && !isFetching ? data : undefined;
 }
 
 /** Mensagem de saldo insuficiente: só revela o valor a quem pode vê-lo. */
