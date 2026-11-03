@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { masterFormulaAmountForCity, masterFormulaCostInputsForCity } from "@/lib/master-formula";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -6,7 +8,7 @@ import { useMasterRevenueSplit } from "@/hooks/useMasterRevenueSplit";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
-import { formatCurrency, formatDate } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency, formatDate } from "@/lib/mock-data";
 import { Download, TrendingUp, Target, BarChart3, Users, Ticket, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -84,6 +86,12 @@ function SourceBadge({ source }: { source: string }) {
 }
 
 export function ResultsAnalysis({ showActiveProjections = true }: { showActiveProjections?: boolean } = {}) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const currentYear = new Date().getFullYear();
   const [includeOverhead, setIncludeOverhead] = useState<boolean>(false);
   // Override manual do modo de cálculo de "Real Atual":

@@ -4,6 +4,8 @@
  * Só consome RPCs já em Live; a parte vem SEMPRE do motor do fecho.
  * Limitação: o servidor aceita o share_amount enviado pelo cliente (sem recálculo).
  */
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +20,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { useEventSettlementEngine } from "@/hooks/useEventSettlementEngine";
 import {
   MAX_PARTNER_CONTRACTS, buildFreezeValues, emptyContractForm, partnerContractsApi, validateContractForm, readFrozenOrigin, shareOriginRows,
@@ -34,7 +36,7 @@ interface Props {
   partnerName: string;
 }
 
-function ShareOrigin({ origin }: { origin: PartnerShareOrigin | null }) {
+function ShareOrigin({ origin, formatCurrency }: { origin: PartnerShareOrigin | null; formatCurrency: (value: number) => string }) {
   if (!origin) return null;
   return (
     <div className="space-y-2 border-t border-border pt-3">
@@ -52,6 +54,12 @@ function ShareOrigin({ origin }: { origin: PartnerShareOrigin | null }) {
 }
 
 export function PartnerPaymentDialog({ open, onOpenChange, eventId, participantId, supplierId, partnerName }: Props) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const qc = useQueryClient();
   const engine = useEventSettlementEngine(eventId);
   const engineNode = useMemo(
@@ -174,7 +182,7 @@ export function PartnerPaymentDialog({ open, onOpenChange, eventId, participantI
               <>
                 <p className="text-sm">Parte congelada: <span className="font-mono">{formatCurrency(Number(row?.frozen_values?.share_amount ?? 0))}</span>
                   {row?.freeze_note ? <span className="text-muted-foreground"> · {row.freeze_note}</span> : null}</p>
-                <ShareOrigin origin={readFrozenOrigin(row?.frozen_values)} />
+                <ShareOrigin formatCurrency={formatCurrency} origin={readFrozenOrigin(row?.frozen_values)} />
                 <div className="flex gap-2 items-end">
                   <div className="flex-1"><Label className="text-xs">Motivo para descongelar</Label>
                     <Input value={unfreezeReason} onChange={(e) => setUnfreezeReason(e.target.value)} /></div>
@@ -190,7 +198,7 @@ export function PartnerPaymentDialog({ open, onOpenChange, eventId, participantI
                   <dt className="text-muted-foreground">Parte (motor, {freezePreview.uses_gross_expenses ? "c/IVA" : "s/IVA"})</dt><dd className="font-mono text-right">{formatCurrency(freezePreview.share_amount)}</dd>
                   <dt className="text-muted-foreground">% aplicada</dt><dd className="font-mono text-right">{freezePreview.effective_pct}%</dd>
                 </dl>
-                <ShareOrigin origin={freezePreview.origin} />
+                <ShareOrigin formatCurrency={formatCurrency} origin={freezePreview.origin} />
                 <p className="text-xs text-muted-foreground">A parte é a % do resultado do fechamento. Pagas pelo sócio, extras e acerto tratam-se no Encontro de Contas e não entram no congelar.</p>
                 <p className="text-[11px] text-muted-foreground">Valores calculados pelo motor do fecho, não editáveis. O servidor aceita a parte enviada por este ecrã (não a recalcula).</p>
                 <Label className="text-xs">Nota</Label>
@@ -266,7 +274,7 @@ export function PartnerPaymentDialog({ open, onOpenChange, eventId, participantI
                     <SearchableSelect value={form.beneficiaryId} onValueChange={(v: string) => setForm({ ...form, beneficiaryId: v })}
                       options={(suppliers as any[]).map((s) => ({ value: s.id, label: s.name }))} placeholder="Escolher…" /></div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div><Label className="text-xs">Valor bruto (€) *</Label><Input type="number" step="0.01" value={form.gross} onChange={(e) => setForm({ ...form, gross: e.target.value })} /></div>
+                    <div><Label className="text-xs">Valor bruto ({companyLocale.status === "available" ? companyLocale.symbol : "€"}) *</Label><Input type="number" step="0.01" value={form.gross} onChange={(e) => setForm({ ...form, gross: e.target.value })} /></div>
                     <div><Label className="text-xs">Vencimento *</Label><DatePicker value={form.due} onChange={(d) => setForm({ ...form, due: d })} /></div>
                   </div>
                   <div><Label className="text-xs">Retenção na fonte? *</Label>
