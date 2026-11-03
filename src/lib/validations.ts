@@ -23,6 +23,8 @@ export const supplierSchema = z.object({
   name: z.string().trim().min(1, "Nome é obrigatório").max(200, "Máximo 200 caracteres"),
   trade_name: z.string().max(200).nullable().optional(),
   nif: z.string().max(20).nullable().optional(),
+  tax_id_foreign: z.string().max(20).nullable().optional(),
+  tax_id_type: z.enum(["cpf", "cnpj", "ein", "tin", "vat", "outro"]).nullable().optional(),
   contact_name: z.string().max(200).nullable().optional(),
   email: z.string().email("Email inválido").max(255).nullable().optional().or(z.literal("")),
   phone: z.string().max(30).nullable().optional(),
@@ -32,6 +34,15 @@ export const supplierSchema = z.object({
   payment_terms: z.string().max(100).nullable().optional(),
   category: z.string().nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
+}).superRefine((supplier, ctx) => {
+  if (!supplier.tax_id_foreign) return;
+  const type = supplier.tax_id_type;
+  if (type !== "cpf" && type !== "cnpj") return;
+  const length = type === "cpf" ? 11 : 14;
+  if (!new RegExp(`^\\d{${length}}$`).test(supplier.tax_id_foreign)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["tax_id_foreign"],
+      message: `${type.toUpperCase()} deve conter ${length} dígitos` });
+  }
 });
 
 // ── Event validation ──
