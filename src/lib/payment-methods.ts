@@ -103,10 +103,15 @@ export function isServicePaymentCheckViolation(err: unknown): boolean {
   return text.includes(SERVICE_PAYMENT_CHECK_CONSTRAINT);
 }
 
-/** Mensagem a mostrar: troca o erro técnico do CHECK pela frase do domínio. */
+export const PAYMENT_NETWORK_ERROR_MESSAGE =
+  "Sem ligação ao servidor ao guardar — nada foi gravado. Verifique a rede e tente novamente.";
+
+/** Mensagem a mostrar: troca erros técnicos de pagamento e rede por frases do domínio. */
 export function friendlyPaymentError(err: unknown): string {
   if (String((err as { message?: string } | null)?.message).includes(BOLETO_CHECK_CONSTRAINT)) return BOLETO_FIELDS_MESSAGE;
   if (isServicePaymentCheckViolation(err)) return SERVICE_PAYMENT_FIELDS_MESSAGE;
+  const message = (err as { message?: string } | null)?.message ?? "Erro desconhecido";
+  if (["Load failed", "Failed to fetch", "NetworkError"].some(text => message.includes(text))) return PAYMENT_NETWORK_ERROR_MESSAGE;
   return (err as { message?: string } | null)?.message ?? "Erro desconhecido";
 }
 
