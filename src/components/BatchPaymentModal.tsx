@@ -13,7 +13,8 @@ import { formatMoney } from "@/lib/company-locale";
 import { MirrorAporteNotice } from "@/components/MirrorAporteNotice";
 import { calcWithIva, isFullyPaid } from "@/lib/utils";
 import { X, FileText, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
-import { checkPaymentBankability, resolvePaymentIban } from "@/lib/payment-iban";
+import NoIbanBadge from "@/components/NoIbanBadge";
+import { bankDataOutsideSepaBadgeProps, checkPaymentBankability, resolvePaymentIban } from "@/lib/payment-iban";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/hooks/use-toast";
@@ -48,6 +49,7 @@ interface Props {
 
 export function BatchPaymentModal({ transactions: allTransactions, onClose, initialInvoiceRef = "", initialPaymentDate, bankAccountsOnly = false, paymentListId }: Props) {
   const companyLocale = useCompanyLocale();
+  const sepa = companyLocale.status === "available" && companyLocale.capabilities.sepa;
   const defaultIvaRate = companyLocale.status === "available" && companyLocale.ivaPolicy === "none" ? 0 : 23;
   const formatCurrency = (value: number) => {
     if (companyLocale.status !== "available") return "—";
@@ -81,20 +83,20 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
     // Sem exportação: mesma regra do SepaExportModal — transfer com IBAN resolvível.
     const method = t.payment_method ?? "transfer";
     if (method !== "transfer") return false;
-    const chk = checkPaymentBankability(t);
+    const chk = checkPaymentBankability(t, { sepa });
     return chk.ok && !!resolvePaymentIban(t);
   };
   const batchTxs = useMemo(() => allTransactions.filter((t) => isInSepaBatch(t)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allTransactions, sepaExportedIds]);
+    [allTransactions, sepaExportedIds, sepa]);
   const otherChannelTxs = useMemo(() => allTransactions.filter((t) => !isInSepaBatch(t)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allTransactions, sepaExportedIds]);
+    [allTransactions, sepaExportedIds, sepa]);
   const [otherChosen, setOtherChosen] = useState<Set<string>>(new Set());
   const transactions = useMemo(
     () => allTransactions.filter((t) => isInSepaBatch(t) || otherChosen.has(t.id)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allTransactions, sepaExportedIds, otherChosen],
+    [allTransactions, sepaExportedIds, otherChosen, sepa],
   );
   const otherChosenCount = otherChannelTxs.filter((t) => otherChosen.has(t.id)).length;
   const otherChannelMethodLabel = (t: any): string => {
@@ -636,6 +638,9 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
                     />
                   </span>
                 </div>
+                {checkPaymentBankability(item, { sepa }).bankDataOutsideSepa && (
+                  <NoIbanBadge variant="neutral" {...bankDataOutsideSepaBadgeProps()} />
+                )}
                 <OffsetLineNote txId={item.id} />
                 {item.withholdingApplied && (
                   <div className="flex items-center justify-end gap-2 text-[10px] text-warning font-mono">
@@ -878,6 +883,9 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
                         <span className="block text-xs text-muted-foreground">
                           {otherChannelMethodLabel(t)}{ref ? ` · ${ref}` : ""}
                         </span>
+                        {checkPaymentBankability(t, { sepa }).bankDataOutsideSepa && (
+                          <NoIbanBadge variant="neutral" {...bankDataOutsideSepaBadgeProps()} />
+                        )}
                       </span>
                       <span className="shrink-0 tabular-nums">{formatCurrency(gross)}</span>
                     </label>

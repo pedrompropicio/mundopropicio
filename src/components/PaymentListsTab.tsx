@@ -30,7 +30,7 @@ import { BatchPaymentModal } from "@/components/BatchPaymentModal";
 import SepaExportModal, { type SepaCandidate } from "@/components/SepaExportModal";
 import { appendEventToDescription, formatLocalDate } from "@/lib/sepa/pain001";
 import { normalizeIban } from "@/lib/iban";
-import { checkPaymentBankability, isBankable, isInternalNoIban, internalNoIbanBadgeProps, isSocialSecurityByNif, socialSecurityBadgeProps, SEPA_INTERNAL_NO_IBAN_REASON, SEPA_SOCIAL_SECURITY_REASON, resolvePaymentIban, resolvePaymentCreditorName, noIbanBadgeProps, NO_IBAN_TOOLTIP } from "@/lib/payment-iban";
+import { checkPaymentBankability, bankDataOutsideSepaBadgeProps, internalNoIbanBadgeProps, isSocialSecurityByNif, socialSecurityBadgeProps, SEPA_INTERNAL_NO_IBAN_REASON, SEPA_SOCIAL_SECURITY_REASON, resolvePaymentIban, resolvePaymentCreditorName, noIbanBadgeProps, NO_IBAN_TOOLTIP } from "@/lib/payment-iban";
 import NoIbanBadge from "@/components/NoIbanBadge";
 import { enrichCardLoadDestinations } from "@/lib/card-load-destination";
 
@@ -895,6 +895,7 @@ function InvoiceGroupHeaderRow({
   onToggleExpanded,
   progress,
   disabled = false,
+  sepa = true,
 }: {
   formatCurrency: (value: number) => string;
   defaultIvaRate: number;
@@ -908,7 +909,9 @@ function InvoiceGroupHeaderRow({
   progress?: InvoiceGroupProgress;
   /** Algum item do grupo não tem dados bancários resolvíveis → grupo inelegível. */
   disabled?: boolean;
+  sepa?: boolean;
 }) {
+  const outsideSepa = txs.some((tx) => checkPaymentBankability(tx, { sepa }).bankDataOutsideSepa);
   const first = txs[0];
   const supplier = formatSupplierFullName(first?.suppliers?.name, (first?.suppliers as any)?.trade_name);
   const ref = (first?.invoice_ref ?? "").toString().trim();
@@ -916,7 +919,7 @@ function InvoiceGroupHeaderRow({
     <tr
       className={`bg-primary/5 ${disabled ? "opacity-50" : "cursor-pointer hover:bg-primary/10"}`}
       onClick={disabled ? undefined : onToggle}
-      title={disabled ? NO_IBAN_TOOLTIP : undefined}
+      title={disabled ? NO_IBAN_TOOLTIP : outsideSepa ? bankDataOutsideSepaBadgeProps().tooltip : undefined}
     >
       <td className="p-2 text-center">
         <Checkbox
@@ -941,6 +944,7 @@ function InvoiceGroupHeaderRow({
           {ref && <span className="text-muted-foreground">— {ref}</span>}
           <InvoiceGroupProgressBadge formatCurrency={formatCurrency} visibleCount={txs.length} progress={progress} />
           {disabled && <NoIbanBadge {...noIbanBadgeProps(txs[0])} />}
+          {outsideSepa && <NoIbanBadge variant="neutral" {...bankDataOutsideSepaBadgeProps()} />}
         </div>
       </td>
       <td className="p-2 text-right font-mono font-semibold">{formatCurrency(groupWithIvaTotal(txs, defaultIvaRate))}</td>
@@ -954,6 +958,7 @@ function InvoiceGroupHeaderRow({
 
 function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const companyLocale = useCompanyLocale();
+  const sepa = companyLocale.status === "available" && companyLocale.capabilities.sepa;
   const defaultIvaRate = companyLocale.status === "available" && companyLocale.ivaPolicy === "none" ? 0 : 23;
   const formatCurrency = (value: number) => companyLocale.status !== "available"
     ? "—"
@@ -1044,8 +1049,8 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
     });
   };
 
-  // Só transações com dados bancários resolvíveis podem entrar em lista.
-  const bankableTx = useMemo(() => filteredTx.filter((t: any) => isBankable(t)), [filteredTx]);
+  // Elegibilidade gerencial segundo a capability SEPA da empresa.
+  const bankableTx = useMemo(() => filteredTx.filter((t: any) => checkPaymentBankability(t, { sepa }).ok), [filteredTx, sepa]);
   const unbankableCount = filteredTx.length - bankableTx.length;
 
   const toggleAll = () => {
@@ -1210,7 +1215,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                     const saldo = withIva - paidWithIva;
                     const hasPartial = paid > 0;
                     const bpCheck = checkExceedsBP(t.event_id, t.category_id, Number(t.amount));
-                    const bank = checkPaymentBankability(t);
+                    const bank = checkPaymentBankability(t, { sepa });
                     const np = computeNetPayable({
                       grossWithIva: saldo,
                       declaredWithholding: getDeclaredWithholding(t),
@@ -1233,6 +1238,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                         <td className={`p-2 ${inGroup ? "pl-8" : ""}`}>
                           <span className="font-medium">{t.description}</span>
                           {!bank.ok && <NoIbanBadge className="ml-1.5" {...noIbanBadgeProps(t)} />}
+                          {bank.bankDataOutsideSepa && <NoIbanBadge className="ml-1.5" variant="neutral" {...bankDataOutsideSepaBadgeProps()} />}
                           {bank.internalNoIban && <NoIbanBadge className="ml-1.5" variant="neutral" {...internalNoIbanBadgeProps()} />}
                           {bank.socialSecurityByNif && <NoIbanBadge className="ml-1.5" variant="neutral" {...socialSecurityBadgeProps()} />}
                           {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
@@ -1266,12 +1272,13 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                   const ids = row.txs.map((t: any) => t.id);
                   const sel = ids.filter((id) => selectedIds.has(id)).length;
                   const expanded = isGroupExpanded(row.groupId);
-                  const groupBlocked = row.txs.some((t: any) => !isBankable(t));
+                  const groupBlocked = row.txs.some((t: any) => !checkPaymentBankability(t, { sepa }).ok);
                   return (
                     <Fragment key={row.key}>
                       <InvoiceGroupHeaderRow
                         formatCurrency={formatCurrency}
                         defaultIvaRate={defaultIvaRate}
+                        sepa={sepa}
                         txs={row.txs}
                         labelColSpan={4}
                         tailColSpan={4}
@@ -1335,6 +1342,7 @@ function CopyLine({ label, value, copyValue, mono, bold, hideIfEmpty = true }: {
 /* ─── View Payment List Details ─── */
 function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => void }) {
   const companyLocale = useCompanyLocale();
+  const sepa = companyLocale.status === "available" && companyLocale.capabilities.sepa;
   const defaultIvaRate = companyLocale.status === "available" && companyLocale.ivaPolicy === "none" ? 0 : 23;
   const formatCurrency = (value: number) => companyLocale.status !== "available"
     ? "—"
@@ -1921,7 +1929,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             ? "Sem valor em aberto"
             : isSocialSecurityByNif(tx)
               ? SEPA_SOCIAL_SECURITY_REASON
-              : isInternalNoIban(tx)
+              : checkPaymentBankability(tx, { sepa }).internalNoIban
                 ? SEPA_INTERNAL_NO_IBAN_REASON
                 : undefined,
         _ibans: [normalizeIban(iban)],
@@ -1956,7 +1964,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       }
       return c;
     });
-  }, [items, installmentTxIds, defaultIvaRate]);
+  }, [items, installmentTxIds, defaultIvaRate, sepa]);
 
 
 
@@ -2499,10 +2507,13 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     </div>
                   )}
                   <div className={`flex-1 space-y-1 ${isRemoved ? "line-through decoration-destructive/50" : ""}`}>
-                    {tx && !isBankable(tx) && (
+                    {tx && !checkPaymentBankability(tx, { sepa }).ok && (
                       <div className="pb-1"><NoIbanBadge {...noIbanBadgeProps(tx)} /></div>
                     )}
-                    {tx && isInternalNoIban(tx) && (
+                    {tx && checkPaymentBankability(tx, { sepa }).bankDataOutsideSepa && (
+                      <div className="pb-1"><NoIbanBadge variant="neutral" {...bankDataOutsideSepaBadgeProps()} /></div>
+                    )}
+                    {tx && checkPaymentBankability(tx, { sepa }).internalNoIban && (
                       <div className="pb-1"><NoIbanBadge variant="neutral" {...internalNoIbanBadgeProps()} /></div>
                     )}
                     {tx && isSocialSecurityByNif(tx) && (
@@ -2860,6 +2871,7 @@ function ApproveModal({
   onApproved: () => void;
 }) {
   const companyLocale = useCompanyLocale();
+  const sepa = companyLocale.status === "available" && companyLocale.capabilities.sepa;
   const defaultIvaRate = companyLocale.status === "available" && companyLocale.ivaPolicy === "none" ? 0 : 23;
   const formatCurrency = (value: number) => companyLocale.status !== "available"
     ? "—"
@@ -3035,8 +3047,8 @@ function ApproveModal({
    * fora do ficheiro Santander, para nunca haver exclusão silenciosa.
    */
   const noIbanItems = useMemo(
-    () => (items as any[]).map((i) => i.transactions).filter((tx) => tx && !isBankable(tx)),
-    [items],
+    () => (items as any[]).map((i) => i.transactions).filter((tx) => tx && !checkPaymentBankability(tx, { sepa }).ok),
+    [items, sepa],
   );
 
 
@@ -3192,8 +3204,9 @@ function ApproveModal({
                         </td>
                          <td className={`p-2 ${nested ? "pl-6" : ""}`}>
                            <span className="font-medium">{tx?.description}</span>
-                           {tx && !isBankable(tx) && <NoIbanBadge className="ml-1.5" {...noIbanBadgeProps(tx)} />}
-                           {tx && isInternalNoIban(tx) && <NoIbanBadge className="ml-1.5" variant="neutral" {...internalNoIbanBadgeProps()} />}
+                           {tx && !checkPaymentBankability(tx, { sepa }).ok && <NoIbanBadge className="ml-1.5" {...noIbanBadgeProps(tx)} />}
+                           {tx && checkPaymentBankability(tx, { sepa }).bankDataOutsideSepa && <NoIbanBadge className="ml-1.5" variant="neutral" {...bankDataOutsideSepaBadgeProps()} />}
+                           {tx && checkPaymentBankability(tx, { sepa }).internalNoIban && <NoIbanBadge className="ml-1.5" variant="neutral" {...internalNoIbanBadgeProps()} />}
                            {tx && isSocialSecurityByNif(tx) && <NoIbanBadge className="ml-1.5" variant="neutral" {...socialSecurityBadgeProps()} />}
                            {tx?.specification && <p className="text-[11px] text-muted-foreground">{tx.specification}</p>}
                            {tx && <OffsetLineNote txId={tx.id} />}
@@ -3220,6 +3233,7 @@ function ApproveModal({
                       <InvoiceGroupHeaderRow
                         formatCurrency={formatCurrency}
                         defaultIvaRate={defaultIvaRate}
+                        sepa={sepa}
                         txs={row.items.map((i: any) => i.transactions)}
                         labelColSpan={4}
                         tailColSpan={1}
@@ -3279,6 +3293,7 @@ function AddTransactionsToList({
   onAdded: (count: number) => void;
 }) {
   const companyLocale = useCompanyLocale();
+  const sepa = companyLocale.status === "available" && companyLocale.capabilities.sepa;
   const defaultIvaRate = companyLocale.status === "available" && companyLocale.ivaPolicy === "none" ? 0 : 23;
   const formatCurrency = (value: number) => companyLocale.status !== "available"
     ? "—"
@@ -3356,8 +3371,8 @@ function AddTransactionsToList({
     });
   };
 
-  // Só transações com dados bancários resolvíveis podem entrar em lista.
-  const bankableTx = useMemo(() => filteredTx.filter((t: any) => isBankable(t)), [filteredTx]);
+  // Elegibilidade gerencial segundo a capability SEPA da empresa.
+  const bankableTx = useMemo(() => filteredTx.filter((t: any) => checkPaymentBankability(t, { sepa }).ok), [filteredTx, sepa]);
   const unbankableCount = filteredTx.length - bankableTx.length;
 
   const toggleAll = () => {
@@ -3473,7 +3488,7 @@ function AddTransactionsToList({
                 {visibleRows.map((row) => {
                   const renderTx = (t: any, inGroup: boolean) => {
                     const withIva = calcWithIva(Number(t.amount), Number(t.iva_rate ?? defaultIvaRate));
-                    const bank = checkPaymentBankability(t);
+                    const bank = checkPaymentBankability(t, { sepa });
                     return (
                       <tr
                         key={t.id}
@@ -3491,6 +3506,7 @@ function AddTransactionsToList({
                         <td className={`p-2 ${inGroup ? "pl-8" : ""}`}>
                           <span className="font-medium">{t.description}</span>
                           {!bank.ok && <NoIbanBadge className="ml-1.5" {...noIbanBadgeProps(t)} />}
+                          {bank.bankDataOutsideSepa && <NoIbanBadge className="ml-1.5" variant="neutral" {...bankDataOutsideSepaBadgeProps()} />}
                           {bank.internalNoIban && <NoIbanBadge className="ml-1.5" variant="neutral" {...internalNoIbanBadgeProps()} />}
                           {bank.socialSecurityByNif && <NoIbanBadge className="ml-1.5" variant="neutral" {...socialSecurityBadgeProps()} />}
                           {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
@@ -3509,12 +3525,13 @@ function AddTransactionsToList({
                   const ids = row.txs.map((t: any) => t.id);
                   const sel = ids.filter((id) => selectedIds.has(id)).length;
                   const expanded = isGroupExpanded(row.groupId);
-                  const groupBlocked = row.txs.some((t: any) => !isBankable(t));
+                  const groupBlocked = row.txs.some((t: any) => !checkPaymentBankability(t, { sepa }).ok);
                   return (
                     <Fragment key={row.key}>
                       <InvoiceGroupHeaderRow
                         formatCurrency={formatCurrency}
                         defaultIvaRate={defaultIvaRate}
+                        sepa={sepa}
                         txs={row.txs}
                         labelColSpan={4}
                         tailColSpan={1}
