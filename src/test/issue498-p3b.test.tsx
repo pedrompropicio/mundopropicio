@@ -83,7 +83,7 @@ function allowWrites() {
     } }) }),
   }));
 }
-async function ready(value = brRow.tax_id_foreign) {
+async function ready(value = "12.345.678/0001-99") {
   await waitFor(() => {
     expect(screen.getByLabelText("CNPJ")).toBeEnabled();
     expect(screen.getByLabelText("CNPJ")).toHaveValue(value);
@@ -125,7 +125,7 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
 
   it("inicializa CNPJ e tipo apenas da RPC, sem avisos nem validação IBAN", async () => {
     mount(form()); await ready();
-    expect(screen.getByLabelText("CNPJ")).toHaveValue(brRow.tax_id_foreign);
+    expect(screen.getByLabelText("CNPJ")).toHaveValue("12.345.678/0001-99");
     expect(screen.getByLabelText("Tipo de identificador fiscal")).toHaveValue("cnpj");
     expect(screen.queryByDisplayValue("PROPS-FISCAL")).toBeNull();
     expect(screen.getAllByLabelText("Conta")[0]).toHaveValue(bank.account_number);
@@ -160,7 +160,7 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
 
   it("inicializa CPF e permite mudar para CNPJ", async () => {
     result([{ ...brRow, tax_id_foreign: "12345678900", tax_id_type: "cpf" }]);
-    allowWrites(); mount(form()); await ready("12345678900");
+    allowWrites(); mount(form()); await ready("123.456.789-00");
     expect(screen.getByLabelText("Tipo de identificador fiscal")).toHaveValue("cpf");
     fireEvent.change(screen.getByLabelText("CNPJ"), { target: { value: "12345678000199" } });
     fireEvent.change(screen.getByLabelText("Tipo de identificador fiscal"), { target: { value: "cnpj" } });
@@ -254,7 +254,7 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
     allowWrites(); const view = mount(form()); await ready();
     fireEvent.change(screen.getByLabelText("CNPJ"), { target: { value: "98765432000100" } });
     view.rerender(form(brSupplier, false)); view.rerender(form());
-    await waitFor(() => expect(screen.getByLabelText("CNPJ")).toHaveValue(brRow.tax_id_foreign));
+    await waitFor(() => expect(screen.getByLabelText("CNPJ")).toHaveValue("12.345.678/0001-99"));
     submit(); await waitFor(() => expect(f.writes).toHaveLength(1));
     expect(f.writes[0].payload).not.toHaveProperty("tax_id_foreign");
     expect(f.writes[0].payload).not.toHaveProperty("tax_id_type");
@@ -286,7 +286,7 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
     const next = { ...brSupplier, id: "supplier-b" };
     result([{ ...brRow, id: next.id, tax_id_foreign: "12345678900", tax_id_type: "cpf" }]);
     view.rerender(form(next));
-    await waitFor(() => expect(screen.getByLabelText("CNPJ")).toHaveValue("12345678900"));
+    await waitFor(() => expect(screen.getByLabelText("CNPJ")).toHaveValue("123.456.789-00"));
     expect(screen.getByLabelText("Tipo de identificador fiscal")).toHaveValue("cpf");
     submit(); await waitFor(() => expect(f.writes).toHaveLength(1));
     expect(f.writes[0].payload).not.toHaveProperty("tax_id_foreign");

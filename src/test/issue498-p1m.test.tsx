@@ -377,6 +377,6 @@ describe("#498 P1m — formatador fiscal puro e cópia do valor original", () =>
       foreign_bank_accounts: [], tax_id_foreign: "12345678000199", tax_id_type: "cnpj",
     } };
     open("supplier");
-    expect(screen.getByLabelText("CNPJ")).toHaveValue("12345678000199");
+    expect(screen.getByLabelText("CNPJ")).toHaveValue("12.345.678/0001-99");
   });
 });
