@@ -1,10 +1,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
+import { BR_ONLY_PAYMENT_METHODS, validateBoletoFields } from "../_shared/payment-methods.ts";
 
 /**
- * ESPELHO de `src/lib/payment-methods.ts` (PAYMENT_METHODS). O `src/` não é
- * publicado com as edge functions, por isso duplica-se aqui. Comparado pelo
- * teste `supabase/functions/tests/payment-method-domain.test.ts`.
+ * ESPELHO do domínio completo de `src/lib/payment-methods.ts` (PT + BR).
+ * Acréscimos BR e validação do boleto partilhados em `_shared/payment-methods.ts`.
+ * Paridade em execução: `src/lib/__tests__/issue498-update-transaction-mirror.test.ts`.
  * O trigger `trg_force_no_account_on_compensation` compara a string
  * exactamente com 'compensation': qualquer grafia fora desta lista desarmaria-o.
  */
@@ -14,6 +15,7 @@ export const PAYMENT_METHODS = [
   "direct_debit",
   "state_payment",
   "compensation",
+  ...BR_ONLY_PAYMENT_METHODS,
 ] as const;
 
 const corsHeaders = {
@@ -269,6 +271,16 @@ Deno.serve(async (req) => {
       "payment_method" in updates || "payment_entity" in updates || "payment_reference" in updates;
     if (touchesPaymentMb) {
       const effMethod = "payment_method" in updates ? updates.payment_method : transaction.payment_method;
+      const boletoError = validateBoletoFields({
+        payment_method: effMethod,
+        payment_reference: "payment_reference" in updates ? updates.payment_reference : transaction.payment_reference,
+      });
+      if (boletoError) {
+        return new Response(
+          JSON.stringify({ error: boletoError }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
       if (effMethod === "service_payment") {
         const effEntity = String(
           ("payment_entity" in updates ? updates.payment_entity : transaction.payment_entity) ?? "",
