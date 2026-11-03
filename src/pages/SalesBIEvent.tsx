@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 /**
  * Terceiro nível do BI de Vendas — uma cidade/evento.
  *
@@ -28,7 +30,6 @@ import { zoneSelloutPill } from "@/lib/zone-sellout-pill";
 const nfInt = new Intl.NumberFormat("pt-PT");
 const nfMoney = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const nf1 = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const money = (v: number) => `${nfMoney.format(Number(v || 0))} €`;
 const int = (v: number) => nfInt.format(Number(v || 0));
 const pct = (v: number) => `${nf1.format(Number(v || 0))}%`;
 
@@ -97,6 +98,11 @@ function Kpi({ label, value, sub }: { label: string; value: string; sub?: string
 }
 
 export default function SalesBIEvent() {
+  const companyLocale = useCompanyLocale();
+  const money = (v: number) => companyLocale.status !== "available" ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? `${nfMoney.format(Number(v || 0))} €` : formatMoney(v, companyLocale);
+
   const { groupId = "", eventId = "" } = useParams();
   const { withIva, setWithIva, ivaSuffix } = useIvaMode();
   const { rateOf } = useEventIvaRates();
