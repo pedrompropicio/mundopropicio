@@ -622,9 +622,7 @@ export default function FinancialAccounts() {
                 <div>
                   <Label className="text-sm font-medium">Conta contábil</Label>
                   <p className="text-xs text-muted-foreground">
-                    Desligue para contas puramente gerenciais (ex.: pagamentos feitos fora de
-                    Portugal por um sócio). Os movimentos e documentos dessa conta deixam de entrar
-                    nas exportações para a contabilidade. Saldos e extratos não são afetados.
+                    {companyLocale.status === "available" ? companyLocale.labels.accountingAccountHelp : "Desligue para contas puramente gerenciais (ex.: pagamentos feitos fora de Portugal por um sócio). Os movimentos e documentos dessa conta deixam de entrar nas exportações para a contabilidade. Saldos e extratos não são afetados."}
                   </p>
                 </div>
                 <Switch

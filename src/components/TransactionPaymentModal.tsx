@@ -1173,7 +1173,7 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
             <label className="mb-1 block text-xs font-medium text-muted-foreground">{companyLocale.status === "available" && !legacyMoney ? companyLocale.labels.invoiceRef : "Nº Doc/Fatura"}</label>
             <input type="text" value={invoiceRef}
               onChange={(e) => setInvoiceRef(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ex: FT 2026/001" />
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder={companyLocale.status === "available" && !legacyMoney ? companyLocale.labels.invoiceRefPlaceholder : "Ex: FT 2026/001"} />
           </div>
 
           <div>
