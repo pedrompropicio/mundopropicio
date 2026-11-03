@@ -1,3 +1,4 @@
+import { trainingSafeConsentBinding } from "../_shared/training-guard.ts";
 // capi-v2-send (#322 opção A) — lógica testável sem rede.
 // Envio CAPI por prova de consentimento: Lead, CompleteRegistration, ClubeConfirmado.
 // NUNCA loga PII; email/telefone só como SHA-256; token Meta nunca no código nem em logs.
@@ -208,16 +209,13 @@ async function dispatchAllowed(sb: SbLike): Promise<boolean> {
 /** Prova ainda válida no momento do envio (validação dupla #322). */
 async function proofStillValid(sb: SbLike, lead: LeadSource): Promise<boolean> {
   if (!lead.consent_subject_id || lead.consent_event_id == null || !lead.company_id || !lead.consent_portal) return false;
-  const { data, error } = await sb.rpc("marketing_consent_binding_valid", {
+  return trainingSafeConsentBinding(sb, {
     p_subject: lead.consent_subject_id,
     p_event: lead.consent_event_id,
     p_company: lead.company_id,
     p_portal: lead.consent_portal,
     p_captured_at: lead.created_at,
   });
-  if (error) return false;
-  const v = Array.isArray(data) ? data[0] : data;
-  return v === true;
 }
 
 async function buildPayloadForRow(sb: SbLike, row: CapiV2Row): Promise<

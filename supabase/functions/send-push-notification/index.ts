@@ -1,3 +1,4 @@
+import { assertPushOrigin, assertNotTraining, TrainingCompanyError } from "../_shared/training-guard.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendWhatsApp } from "../_shared/twilio.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
@@ -106,6 +107,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Resolve the origin server-side for existing tenant-aware SQL callers.
+    let originCompanyId = isServiceRole ? (body.company_id ?? null) : callerCompanyId;
+    if (target?.type === "company_admins") {
+      await assertNotTraining(adminClient, target.company_id);
+      originCompanyId ??= target.company_id;
+    }
+    if (target?.type === "frente_team") {
+      const { data: front, error } = await adminClient.from("operacao_frentes").select("company_id").eq("id", target.frente_id).maybeSingle();
+      if (error || !front?.company_id) throw new TrainingCompanyError();
+      await assertNotTraining(adminClient, front.company_id);
+      originCompanyId ??= front.company_id;
+    }
+    // A user cannot replace their active-company origin with body.company_id.
+    await assertPushOrigin(adminClient, originCompanyId, isServiceRole, body.system_sender);
+
     // Resolve target into user_ids
     const resolvedUserIds = await resolveTargetUserIds(adminClient, target ?? null, user_ids);
 
@@ -191,6 +207,9 @@ Deno.serve(async (req) => {
       resolved_user_count: resolvedUserIds.length,
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
+    if (err instanceof TrainingCompanyError) return new Response(JSON.stringify(err.body), {
+      status: err.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
     console.error("Push notification error:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },

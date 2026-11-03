@@ -18,6 +18,7 @@ export interface Company {
   address: Record<string, any> | null;
   contact_email: string | null;
   status: string;
+  is_training?: boolean;
 }
 
 const ACTIVE_COMPANY_CACHE_KEY = "mp_active_company_id";

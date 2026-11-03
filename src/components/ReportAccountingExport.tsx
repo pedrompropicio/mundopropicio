@@ -1,3 +1,4 @@
+import { useCompany } from "@/hooks/useCompany";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +19,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportAccountingExport() {
+  const { company, isLoading: companyLoading, isError: companyError } = useCompany();
+  const isTraining = company?.is_training === true;
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
@@ -137,6 +140,8 @@ export default function ReportAccountingExport() {
   // Register export in history
   const registerExport = useMutation({
     mutationFn: async () => {
+      if (companyLoading || companyError || !company) throw new Error("Empresa indisponível");
+      if (isTraining) return;
       const { error } = await supabase.from("accounting_exports").insert({
         period_from: dateFromStr,
         period_to: dateToStr,
@@ -174,7 +179,7 @@ export default function ReportAccountingExport() {
     const url = URL.createObjectURL(data);
     const a = document.createElement("a");
     a.href = url;
-    a.download = fileName;
+    a.download = isTraining ? `TREINO_${fileName}` : fileName;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -182,6 +187,7 @@ export default function ReportAccountingExport() {
   // Mapa de transações em CSV (todas as transações do período, sem filtrar as
   // transitórias — a contabilidade quer ver tudo, só precisa de distinguir).
   function handleExportCsv() {
+    if (companyLoading || companyError || !company) return;
     if (lines.length === 0) {
       toast.error("Nenhuma transação no período selecionado.");
       return;
@@ -230,7 +236,7 @@ export default function ReportAccountingExport() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `mapa-contabilidade_${dateFromStr}_${dateToStr}.csv`;
+    a.download = `${isTraining ? "TREINO_" : ""}mapa-contabilidade_${dateFromStr}_${dateToStr}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success(`Mapa exportado: ${lines.length} transação(ões).`);
@@ -238,6 +244,7 @@ export default function ReportAccountingExport() {
 
   // Export all accounting docs as individual downloads + register
   async function handleExport() {
+    if (companyLoading || companyError || !company) return;
     if (withDocs.length === 0) {
       toast.error("Nenhuma transação com documentos contábeis para exportar.");
       return;
@@ -259,6 +266,10 @@ export default function ReportAccountingExport() {
       await downloadFile(r.url, `comprovativos_${safe}`);
     }
 
+    if (isTraining) {
+      toast.success("Exportação TREINO descarregada sem registo real.");
+      return;
+    }
     // Register export
     await registerExport.mutateAsync();
     toast.success(

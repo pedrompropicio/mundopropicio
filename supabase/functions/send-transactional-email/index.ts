@@ -1,3 +1,4 @@
+import { assertNotTraining, TrainingCompanyError } from "../_shared/training-guard.ts";
 import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -140,6 +141,14 @@ Deno.serve(async (req) => {
 
   // Create Supabase client with service role (bypasses RLS)
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  try {
+    await assertNotTraining(supabase, companyId)
+  } catch (error) {
+    return new Response(JSON.stringify(error instanceof TrainingCompanyError ? error.body : { error: 'training_company_lookup_failed' }), {
+      status: error instanceof TrainingCompanyError ? error.status : 503,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
 
   // 2. Check suppression list (fail-closed: if we can't verify, don't send).
   // A supressão é POR EMPRESA (#211): o mesmo endereço pode estar descadastrado

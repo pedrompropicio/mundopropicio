@@ -1,0 +1,64 @@
+-- ROLLBACK 0308 #562 — COMENTADO; exige Sim e revisão do histórico criado.
+-- Não aplicar automaticamente; nenhuma eliminação de dados é autorizada.
+-- Repor PRIMEIRO as definições anteriores (só CREATE FUNCTION, sem DML) destas fontes:
+-- _run_invariant_checks_raw(): drizzle/migrations/0052_derp_remove_tx_paga_sem_linha_ref_paid_157.sql
+-- _run_invariant_checks_extra(): drizzle/migrations/0288_reembolso_invariante_corpo_exato_0286_b.sql
+-- _run_invariant_checks_duplicate_invoices(): drizzle/migrations/0044_derp197_284_invariante_transacao_duplica_fatura.sql
+-- _run_invariant_checks_paid(): supabase/migrations/20261002120740_6be30c36-594d-4678-9477-1a3b995136ac.sql
+-- _run_invariant_checks_infra(): supabase/migrations/20260924211456_48f0d3a1-6824-4866-8c88-ef8c9b382ef6.sql
+-- _run_invariant_checks_docs(): supabase/migrations/20260930190108_5b0ea3f9-dd18-429a-a9ac-b486725c7ad1.sql
+-- _run_invariant_checks_extrato(): supabase/baseline/live-only/functions__public._run_invariant_checks_extrato__3722d1156a.sql
+-- _run_invariant_checks_cards(): drizzle/migrations/0026_derp274_invariant_item_duplica_transacao.sql
+-- _run_invariant_checks_camarim(): drizzle/migrations/0047_derp200_287_camarim_adiantamento_entrada.sql
+-- _run_invariant_checks_suppliers(): drizzle/migrations/0048_derp201_supplier_similarity_flags.sql
+-- _run_invariant_checks_paid_below_gross(): drizzle/migrations/0049_derp202_285_invariante_pago_abaixo_do_bruto.sql
+-- _run_invariant_checks_ticketline_series(): drizzle/migrations/0061_derp214_ticketline_parallel_series_invariant.sql
+-- _run_invariant_checks_unreachable_docs(): drizzle/migrations/0062_derp215_invariant_documentos_inalcancaveis.sql
+-- _run_invariant_checks_storage(): drizzle/migrations/0065_derp217_fix_storage_invariant_ambiguous.sql
+-- _run_invariant_checks_rateio(): drizzle/migrations/0068_derp219_fix_rateio_invariant_ambiguous.sql
+-- _run_invariant_checks_cash(): drizzle/migrations/0089_derp238_invariant_cash_negativo.sql
+-- _run_invariant_checks_dre_nature(): drizzle/migrations/0096_derp_304_invariant_natureza_divergente.sql
+-- _run_invariant_checks_cache_contracts(): drizzle/migrations/0237_cache_attach_advance_to_contract.sql
+-- process_leads_capi_batch(integer), capi_guard_lead_dispatch(uuid,text): drizzle/migrations/0164_issue320_capi_p1_gaps.sql
+-- marketing_consent_binding_valid(uuid,bigint,uuid,text,timestamptz): drizzle/migrations/0175_issue322_consent_fix_apply.sql
+-- DROP TRIGGER issue562_no_integrations ON public.ticketline_sync_config;
+-- DROP TRIGGER issue562_no_integrations ON public.bol_sync_config;
+-- DROP TRIGGER issue562_no_integrations ON public.fever_sync_config;
+-- DROP TRIGGER issue562_no_integrations ON crm.ad_platform_connections;
+-- DROP TRIGGER issue562_no_integrations ON public.artist_channel_connections;
+-- DROP TRIGGER issue562_no_integrations ON public.camarim_integrations;
+-- DROP TRIGGER issue562_no_integrations ON public.card_integrations;
+-- DROP TRIGGER issue562_no_integrations ON public.data_entry_gmail_connections;
+-- DROP TRIGGER issue562_no_integrations ON public.email_campaigns;
+-- DROP TRIGGER issue562_suppress_output ON public.notification_queue;
+-- DROP TRIGGER issue562_suppress_output ON public.system_reminders;
+-- DROP TRIGGER issue562_suppress_output ON public.email_send_log;
+-- DROP TRIGGER issue562_no_real_export ON public.accounting_exports;
+-- DROP TRIGGER issue562_no_real_export ON public.payment_list_sepa_exports;
+-- DROP TRIGGER issue562_training_flag ON public.companies;
+-- DROP FUNCTION public.issue562_guard_training_flag();
+-- DROP FUNCTION public.issue562_no_integrations();
+-- DROP FUNCTION public.issue562_suppress_output();
+-- DROP FUNCTION public.issue562_no_real_export();
+-- DROP FUNCTION public.run_training_invariant_checks_and_log();
+-- DROP FUNCTION public._run_invariant_checks_raw_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_extra_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_duplicate_invoices_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_paid_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_infra_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_docs_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_extrato_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_cards_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_camarim_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_suppliers_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_paid_below_gross_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_ticketline_series_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_unreachable_docs_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_storage_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_rateio_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_cash_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_dre_nature_scoped(boolean);
+-- DROP FUNCTION public._run_invariant_checks_cache_contracts_scoped(boolean);
+-- DROP FUNCTION public.is_training_company(uuid);
+-- ALTER TABLE public.invariant_runs DROP COLUMN scope_training;
+-- ALTER TABLE public.companies DROP COLUMN is_training;

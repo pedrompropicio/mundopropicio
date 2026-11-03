@@ -1,3 +1,4 @@
+import { useCompany } from "@/hooks/useCompany";
 import { useEffect, useMemo, useState } from "react";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -95,6 +96,8 @@ function SepaExportContent({
   onExported,
   onClose,
 }: SepaExportModalProps) {
+  const { company, isLoading: companyLoading, isError: companyError } = useCompany();
+  const isTraining = company?.is_training === true;
   const queryClient = useQueryClient();
   const isTest = !(listStatus === "approved" || listStatus === "partially_approved");
   const executionDate = useMemo(() => resolveExecutionDate(paymentDate), [paymentDate]);
@@ -194,7 +197,7 @@ function SepaExportContent({
 
   const handleGenerate = async () => {
     // #37 — lista não aprovada nunca produz ficheiro (o servidor também recusa o registo).
-    if (isTest) return;
+    if (isTest || companyLoading || companyError || !company) return;
     if (valid.length === 0 || !debtorIban) return;
     const out = buildPain001({
       listId,
@@ -206,6 +209,7 @@ function SepaExportContent({
       listDate: paymentDate ?? null,
 
       isTest,
+      isTraining,
       rows: valid.map((r) => ({
         transactionId: r.transactionId,
         creditorName: r.creditorName,
@@ -214,6 +218,12 @@ function SepaExportContent({
         remittance: truncateUstrd(r.remittance),
       })),
     });
+    if (isTraining) {
+      downloadXml(out.xml, out.fileName);
+      toast({ title: "Ficheiro TREINO gerado", description: "Exercício sem registo de exportação nem marcação de pagamentos." });
+      onClose();
+      return;
+    }
     // Histórico de exportações — guarda os ids EXATOS que entraram no XML.
     // #37: o registo vem ANTES do download; se o servidor o recusar (lista não aprovada
     // ou sem permissão), não sai ficheiro nenhum.

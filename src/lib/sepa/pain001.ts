@@ -286,6 +286,7 @@ export interface SepaFileInput {
   now?: Date;
   /** true quando a lista não está aprovada → sufixo _TESTE no nome */
   isTest?: boolean;
+  isTraining?: boolean;
 }
 
 
@@ -304,7 +305,7 @@ export function buildPain001(input: SepaFileInput): SepaFileOutput {
   const now = input.now ?? currentInstant();
   // Revalidate at generation time: a modal may have remained open past midnight.
   const executionDate = resolveExecutionDate(input.executionDate, now);
-  const msgId = buildBatchReference(input.listDate ?? executionDate, now).slice(0, 32);
+  const msgId = `${input.isTraining ? "TREINO-" : ""}${buildBatchReference(input.listDate ?? executionDate, now)}`.slice(0, input.isTraining ? 35 : 32);
   const pmtInfId = `${msgId}-P1`.slice(0, 35);
 
 
@@ -361,7 +362,7 @@ export function buildPain001(input: SepaFileInput): SepaFileOutput {
   ];
 
   const stamp = executionDate.replace(/-/g, "");
-  const fileName = `transferencias_${slugify(input.listTitle)}_${stamp}${input.isTest ? "_TESTE" : ""}.xml`;
+  const fileName = `transferencias_${slugify(input.listTitle)}_${stamp}${input.isTest ? "_TESTE" : ""}${input.isTraining ? "_TREINO" : ""}.xml`;
 
   return {
     xml: lines.join("\r\n"),
