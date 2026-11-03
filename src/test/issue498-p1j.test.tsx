@@ -194,6 +194,7 @@ describe("#498 P1j — moeda e locale da empresa activa", () => {
     for (const text of brTexts[name]) expect(document.body.textContent).toContain(text);
     expect(document.body.innerHTML).not.toContain("€");
     if (name === "accounts") {
+      expect(screen.getByPlaceholderText("Ex: Conta Itaú Principal")).toBeInTheDocument();
       const rows = view.container.querySelectorAll("tbody tr");
       expect(rows[0].textContent).toContain("R$\u00a01.234,56");
       expect(rows[1].textContent).toContain("-R$\u00a012,34");
