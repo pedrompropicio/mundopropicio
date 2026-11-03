@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { TransactionDuplicateWarning, useTransactionDuplicateCheck, DUPLICATE_CONFIRM_TOAST } from "@/components/TransactionDuplicateWarning";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -24,6 +26,12 @@ interface Props {
 }
 
 export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, role, user } = useAuth();
   const isEditor = role === "editor";

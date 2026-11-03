@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Landmark, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
 import { isCapitalCategoryCode, capitalKindFromCode, type CapitalKind } from "@/lib/capital-branch";
 import { fetchSettlementParticipants } from "@/lib/settlement-participants";
@@ -51,6 +53,12 @@ interface Props {
  * NÃO participa em nenhum cálculo do acerto operacional.
  */
 export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false }: Props) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const queryClient = useQueryClient();
   const { isAdmin, isManager } = useAuth();
   const canEdit = (isAdmin || isManager) && eventStatus !== "completed" && !summaryOnly;
