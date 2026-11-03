@@ -62,10 +62,12 @@ jobs:
 
   executar:
     needs: travas
-    # Um despacho de cada vez no repositório (escritor único, #329). Fica ao nível do job
+    # Um despacho de cada vez POR ISSUE (decisão do Pedro, 03/11/2026): Issues diferentes
+    # correm em paralelo — as Reservas já separam os componentes por Issue e o CI do PR
+    # apanha conflitos no merge. Dentro da mesma Issue continua a fila. Fica ao nível do job
     # para que comentários comuns (runs ignorados) não entrem na fila.
     concurrency:
-      group: executor-mundopropicio
+      group: executor-${{ github.event.issue.number }}
       cancel-in-progress: false
     if: needs.travas.outputs.ok == 'true'
     runs-on: ubuntu-latest
