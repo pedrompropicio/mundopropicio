@@ -2,7 +2,7 @@
  * #335 fase 3a — tipos dos contratos do núcleo (transaction_offset_execute/reverse)
  * e regras de permissão/controlo do cliente. Sem I/O.
  * Decisões do Pedro: aplicar = admin/manager/editor; estornar = só admin;
- * na ficha da transação só leitura dos grupos (o "Compensa com…" legado mantém-se).
+ * na ficha da transação só leitura dos grupos (o "Compensa com…" legado foi retirado no 3c).
  */
 import type { OffsetContractItem } from "./index";
 

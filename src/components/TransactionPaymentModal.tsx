@@ -157,13 +157,6 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
   });
 
   const isStateCategory = categoryCode?.startsWith("10.4") || categoryCode?.startsWith("10.5");
-  /**
-   * Compensação: encontro de contas, sem movimento de caixa. Não há conta, não
-   * corre a trava de saldo e a linha em `transaction_payments` vai sem
-   * `account_id` (o trigger `trg_force_no_account_on_compensation` fá-lo-ia do
-   * lado da base, mas o ecrã não deve pedir o que vai ser ignorado).
-   */
-  const isCompensation = paymentMethod === "compensation";
 
   const { data: financialAccounts = [] } = useQuery({
     queryKey: ["financial-accounts-active"],
@@ -348,7 +341,7 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
       };
       const addAmount = parseFloat(paymentAmount);
       if (!addAmount || addAmount <= 0) throw new Error("Insira um valor válido");
-      if (!isCompensation && !accountId && totalCreditApplied < addAmount) throw new Error("Selecione a conta");
+      if (!accountId && totalCreditApplied < addAmount) throw new Error("Selecione a conta");
       if (paymentMethod === "service_payment" && (!paymentEntity.trim() || !paymentReference.trim())) throw new Error("Preencha Entidade e Referência");
       if (paymentMethod === "boleto") {
         const methodError = validatePaymentMethodFields({ payment_method: paymentMethod, payment_reference: paymentReference });
@@ -394,7 +387,7 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
 
       // Trava de saldo no servidor (D-ERP34): conta também as transações
       // confidenciais e respeita skip_balance_check internamente.
-      if (isExpense && netCashOut > 0 && !isCompensation) {
+      if (isExpense && netCashOut > 0) {
         if (!accountId) throw new Error("Selecione a conta para o valor de saída de caixa");
         const hasBalance = await accountHasBalanceFor(accountId, netCashOut);
         if (!hasBalance) {
@@ -450,10 +443,10 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
       // Este ecrã grava a LINHA de pagamento; aqui só escreve o que não é derivado.
       // (o estado é decidido pelo servidor; aqui não se calcula)
       const updateData: any = {
-        account_id: isCompensation ? null : accountId || null,
+        account_id: accountId || null,
         payment_method: paymentMethod,
         payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() : null,
-        payment_reference: paymentMethod !== "transfer" && !isCompensation ? paymentReference.trim() : null,
+        payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() : null,
       };
 
       // Estorno que volta a ser pago: limpar o carimbo de estorno. Enquanto
@@ -492,9 +485,7 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
           ? `Ent: ${paymentEntity.trim()} / Ref: ${paymentReference.trim()}`
           : paymentMethod === "direct_debit"
             ? "Débito direto na conta"
-            : paymentMethod === "compensation"
-              ? "Encontro de contas, sem movimento de caixa"
-              : `Ref: ${paymentReference.trim()}`;
+            : `Ref: ${paymentReference.trim()}`;
         auditEntries.push({
           transaction_id: transaction.id,
           changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
@@ -511,10 +502,10 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
         transaction_id: transaction.id,
         amount: addAmount,
         payment_date: format(paymentDate, "yyyy-MM-dd"),
-        account_id: isCompensation ? null : accountId || null,
+        account_id: accountId || null,
         payment_method: paymentMethod,
         payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() : null,
-        payment_reference: paymentMethod !== "transfer" && !isCompensation ? paymentReference.trim() : null,
+        payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() : null,
         invoice_ref: invoiceRef.trim() || null,
         withholding_amount: withholding,
         credit_amount: totalCreditApplied,
@@ -936,8 +927,6 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
           )}
 
           {!partnerMode && (<>
-          {/* Compensação: encontro de contas, sem conta nem movimento de caixa. */}
-          {!isCompensation && (
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">{accountLabel}</label>
             <SearchableSelect
@@ -976,8 +965,6 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
               <LocalizedMirrorAporteNotice accountId={accountId} amount={parseFloat(paymentAmount || "0") || balance} formatCurrency={formatCurrency} />
             )}
           </div>
-          )}
-
           {/* Método de Pagamento */}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
@@ -1015,12 +1002,6 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
                 </button>
               ))}
             </div>
-            {isCompensation && (
-              <p className="mt-1.5 text-[11px] text-muted-foreground">
-                Encontro de contas: não há movimento de dinheiro e não altera o
-                saldo de nenhuma conta.
-              </p>
-            )}
           </div>
 
           {/* Campos condicionais: Entidade + Referência.
