@@ -246,7 +246,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [sharedCostAccountId, setSharedCostAccountId] = useState("");
   const [sharedCostCounterpartyId, setSharedCostCounterpartyId] = useState("");
   const houseOnlyReason = partnerSettlementExclusionReason({ type: form.type, is_transitory: isTransitory || isPartnerExtra, exclude_from_result: isExcludeFromResult || !!sharedCostAccountId });
-  const houseOnlyValue = (authIsAdmin || authIsManager) && !houseOnlyReason && houseOnly;
   // Desdobramento da fatura (D-ERP69): parte de terceiros em % ou € sobre a BASE s/IVA.
   // Preenchido → nascem DUAS pernas no mesmo invoice_group_id (MP + terceiros).
   const [sharedCostThirdMode, setSharedCostThirdMode] = useState<ThirdPartyShareMode>("percentage");
@@ -752,7 +751,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, category_id, amount, status, description, iva_rate, specification, ordering_partner_id, paying_partner_id")
+        .select("id, event_id, type, category_id, amount, status, description, iva_rate, specification, ordering_partner_id, paying_partner_id, excluded_from_partner_settlement")
         .in("event_id", forecastEventIds).is("version_id", null));
       if (error) throw error;
       return data;
@@ -875,6 +874,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     () => (selectedForecastId ? (relevantForecasts as any[]).find((f: any) => f.id === selectedForecastId) : null),
     [selectedForecastId, relevantForecasts],
   );
+  const houseOnlyValue = selectedForecast
+    ? (selectedForecast.excluded_from_partner_settlement ?? false)
+    : (authIsAdmin || authIsManager) && !houseOnlyReason && houseOnly;
 
   // 🧳 Extra do Sócio — a isenção de BP segue a TRANSITÓRIA, não a fatura.
   // Extra TOTAL: a transação é transitória por inteiro, é custo do sócio e não
@@ -3834,6 +3836,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             />
           )}
 
+          <PartnerSettlementExclusionSwitch row={{ type: form.type, is_transitory: isTransitory || isPartnerExtra, exclude_from_result: isExcludeFromResult || !!sharedCostAccountId }} canManage={authIsAdmin || authIsManager} checked={houseOnly} inheritedFromForecast={selectedForecast ? (selectedForecast.excluded_from_partner_settlement ?? false) : undefined} onChange={setHouseOnly} />
+
           {/* Reimbursement toggle — only for expenses */}
           {form.type === "expense" && (
             <div className="space-y-2">
@@ -3924,8 +3928,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   <HelpTooltip text={helpTexts.excludeFromResultToggle} size={12} />
                 </button>
                 )}
-
-                <PartnerSettlementExclusionSwitch row={{ type: form.type, is_transitory: isTransitory || isPartnerExtra, exclude_from_result: isExcludeFromResult || !!sharedCostAccountId }} canManage={authIsAdmin || authIsManager} checked={houseOnly} onChange={setHouseOnly} />
 
                 {canSeeConfidential && (
                 <button

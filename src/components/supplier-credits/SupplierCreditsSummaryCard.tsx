@@ -1,8 +1,10 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { CreditCard } from "lucide-react";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { creditRemaining, isCreditExpired } from "@/lib/supplier-credits";
 
 /**
@@ -10,6 +12,11 @@ import { creditRemaining, isCreditExpired } from "@/lib/supplier-credits";
  * fornecedores. Clicável para a aba Créditos em Fornecedores.
  */
 export function SupplierCreditsSummaryCard() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (v: number) => companyLocale.status !== "available" ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(v) : formatMoney(v, companyLocale);
+
   const navigate = useNavigate();
 
   const { data } = useQuery({

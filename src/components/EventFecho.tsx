@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { companyHasIva, formatMoney } from "@/lib/company-locale";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -6,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Download, FileBarChart2, TrendingUp, TrendingDown, ArrowRightLeft, Users, Layers } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { calcTotalWithIva, roundCents } from "@/lib/iva";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
@@ -58,6 +60,12 @@ interface Props {
  * contabilístico da empresa. A coluna "c/ overhead" é apenas para o cálculo do acerto.
  */
 export function EventFecho({ eventId, eventName, childEventIds, parentEventId, onReviewUnusedBudget }: Props) {
+  const companyLocale = useCompanyLocale();
+  const hasIva = companyHasIva(companyLocale);
+  const formatCurrency = (v: number) => companyLocale.status !== "available" ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(v) : formatMoney(v, companyLocale);
+
   // ---- Eventos relevantes (master + filhos quando turnê)
   const allEventIds = [eventId, ...(childEventIds || [])];
 
@@ -106,6 +114,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
 
   // Critério de fecho (IVA · base da despesa · overhead).
   const basis = useFechoBasis(partnersSourceId, (eventInfo as any)?.partner_calc_basis);
+  const criterionLabel = hasIva ? describeFechoBasis(basis) : describeFechoBasis(basis).replace(/ [cs]\/IVA/g, "");
 
 
 
@@ -353,7 +362,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
       lossPercentage: p.loss_percentage != null ? Number(p.loss_percentage) : null,
       effectivePct,
       usesGrossExpenses,
-      expenseBasisLabel,
+      expenseBasisLabel: hasIva ? expenseBasisLabel : expenseBasisLabel.replace(/ [cs]\/IVA/g, ""),
       partnerShare,
       paid: roundCents(paid),
       extras: roundCents(extras),
@@ -413,7 +422,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100);
-    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}  •  Criterio: ${describeFechoBasis(basis)}`, margin, y);
+    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}  •  Criterio: ${criterionLabel}`, margin, y);
     doc.setTextColor(0);
     y += 8;
 
@@ -519,7 +528,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
         head: [["Sócio", "Base", "%", "Quota", "Pago p/ sócio", "Ajustes", "Extras", "Saldo"]],
         body: settlements.map(s => [
           s.name,
-          s.usesGrossExpenses ? "c/IVA" : "s/IVA",
+          hasIva ? (s.usesGrossExpenses ? "c/IVA" : "s/IVA") : "—",
           s.lossPercentage != null
             ? `${s.percentage}% / ${s.lossPercentage}%`
             : `${s.percentage}%`,
@@ -555,7 +564,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
           <h3 className="flex items-center gap-2 text-lg font-bold">
             Fecho do Evento <HelpTooltip anchor="fecho.ordem" size={14} />
           </h3>
-          <Badge variant="outline" className="text-[10px]">{describeFechoBasis(basis)}</Badge>
+          <Badge variant="outline" className="text-[10px]">{criterionLabel}</Badge>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1">

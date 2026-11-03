@@ -183,23 +183,6 @@ const helpManual: HelpSection[] = [
     ],
   },
   {
-    id: "suppliers",
-    title: "Entidades / Beneficiários",
-    icon: "Users",
-    topics: [
-      {
-        title: "Gerir fornecedores",
-        content:
-          "Registe dados de contacto, NIF, IBANs (até 3) e documentação. Fornecedores marcados como 'Parceiro' podem ser associados a eventos para divisão de resultados.",
-      },
-      {
-        title: "Dados bancários",
-        content:
-          "Cada fornecedor pode ter até 3 contas bancárias (IBAN + SWIFT/BIC). Ao criar transações, selecione qual IBAN usar para pagamento. Alterações nos dados bancários são registadas no log de auditoria para segurança.",
-      },
-    ],
-  },
-  {
     id: "categories",
     title: "Plano de Contas",
     icon: "BookOpen",
@@ -218,28 +201,6 @@ const helpManual: HelpSection[] = [
         title: "Impacto nos relatórios",
         content:
           "O DRE e o BP agrupam valores pela hierarquia do Plano de Contas. Uma categorização correta é essencial para relatórios precisos.",
-      },
-    ],
-  },
-  {
-    id: "ticket-offices",
-    title: "Bilheteiras",
-    icon: "Store",
-    topics: [
-      {
-        title: "Configurar bilheteiras",
-        content:
-          "Bilheteiras são pontos de venda de bilhetes (físicos ou online). Cada bilheteira pode estar associada a uma conta financeira para receber os valores de venda. A associação de bilheteiras a eventos é feita diretamente no separador 'Bilheteira' do detalhe do evento.",
-      },
-      {
-        title: "Indicadores de liquidez",
-        content:
-          "O dashboard de bilheteiras apresenta três indicadores por parceiro:\n\n• Retido — receita de vendas que permanece na bilheteira (Vendas − Despesas Diretas − Transferências)\n• Transferido — montante total já repassado para as contas da empresa\n• Movimentado — fluxo total de saída (Despesas + Transferências)\n\nA liquidez disponível é calculada de forma híbrida: receita de vendas reais (ticket_sales) menos saídas registadas em transações. O sistema proíbe transferências superiores ao saldo Retido.",
-      },
-      {
-        title: "Conciliação",
-        content:
-          "Após o evento, concilie os valores de venda registados com os valores efetivamente recebidos na conta da bilheteira. Marque como conciliado após conferência.",
       },
     ],
   },

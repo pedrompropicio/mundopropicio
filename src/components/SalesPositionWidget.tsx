@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp } from "lucide-react";
@@ -65,8 +67,12 @@ function fortnightLabel(): string {
   return day <= 15 ? `1–15/${mm}` : `16–${lastDay}/${mm}`;
 }
 
-function formatFullValue(v: number) {
-  return `${nfNoDecimals.format(Math.round(Number(v || 0)))} €`;
+function useFormatFullValue() {
+  const companyLocale = useCompanyLocale();
+  return (v: number) => companyLocale.status !== "available" ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? `${nfNoDecimals.format(Math.round(Number(v || 0)))} €`
+      : formatMoney(v, companyLocale, { maximumFractionDigits: 0 });
 }
 
 /** "Sincronizado às HH:mm" (com dd/MM se não for hoje), em hora de Lisboa. */
@@ -92,6 +98,7 @@ function formatLastSync(iso: string): string {
 
 /** Par "bilhetes · valor" em desktop. */
 function Cell({ qty, value, missing }: { qty: number; value: number; missing: boolean }) {
+  const formatFullValue = useFormatFullValue();
   if (missing) {
     return (
       <TooltipProvider>
@@ -115,6 +122,7 @@ function Cell({ qty, value, missing }: { qty: number; value: number; missing: bo
 
 /** Par "bilhetes · valor" em mobile — sem compactação, valores inteiros. */
 function MobileCell({ qty, value, missing }: { qty: number; value: number; missing: boolean }) {
+  const formatFullValue = useFormatFullValue();
   if (missing) {
     return (
       <TooltipProvider>

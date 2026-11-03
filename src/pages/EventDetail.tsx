@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { companyHasIva, formatMoney } from "@/lib/company-locale";
 import { Badge } from "@/components/ui/badge";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -57,7 +59,7 @@ import { eventFormatLabel } from "@/lib/event-format";
 import { EventEditModal } from "@/components/EventEditModal";
 import { AddSubEventModal } from "@/components/AddSubEventModal";
 
-import { formatCurrency, formatDate } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency, formatDate } from "@/lib/mock-data";
 import { buildSessionCopyMap } from "@/lib/session-copy";
 import EventABTab from "@/components/EventABTab";
 import { EventRealizedAllocation } from "@/components/EventRealizedAllocation";
@@ -156,6 +158,12 @@ function CopyFromSelector({ label, currentId, subEvents, onCopy }: {
 }
 
 export default function EventDetail() {
+  const companyLocale = useCompanyLocale();
+  const hasIva = companyHasIva(companyLocale);
+  const formatCurrency = (v: number) => companyLocale.status !== "available" ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(v) : formatMoney(v, companyLocale);
+
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAdmin, isManager, user, hasPermission, role } = useAuth();
@@ -1227,7 +1235,7 @@ export default function EventDetail() {
                   Exclusivos de fechamentos
                 </span>
                 <span className="block truncate text-[11px] text-muted-foreground">
-                  {settlementExclusives.count} transações · pertencem a {settlementExclusives.names.join(", ")} · não entram no resultado do evento (s/IVA)
+                  {settlementExclusives.count} transações · pertencem a {settlementExclusives.names.join(", ")} · não entram no resultado do evento{hasIva ? " (s/IVA)" : ""}
                 </span>
               </span>
             </span>
@@ -1377,7 +1385,7 @@ export default function EventDetail() {
                         <th className="hidden pb-3 text-left font-medium sm:table-cell">Categoria</th>
                         {isGlobalView && <th className="hidden pb-3 text-left font-medium md:table-cell">Origem</th>}
                         <th className="pb-3 text-left font-medium">Estado</th>
-                        <th className="pb-3 text-right font-medium">Valor c/IVA</th>
+                        <th className="pb-3 text-right font-medium">{hasIva ? "Valor c/IVA" : "Valor"}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/30">

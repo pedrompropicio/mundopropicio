@@ -1,13 +1,20 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { exportSuppliersToPDF } from "@/lib/export-suppliers";
 export default function ReportSuppliersPage() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (v: number) => companyLocale.status !== "available" ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(v) : formatMoney(v, companyLocale);
+
   const { data: suppliers = [], isLoading } = useQuery({
     queryKey: ["report-suppliers"],
     queryFn: async () => {

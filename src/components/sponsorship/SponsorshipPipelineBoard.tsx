@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,6 +50,11 @@ const fmtMoney = (n: number, ccy = "EUR") =>
   new Intl.NumberFormat("pt-PT", { style: "currency", currency: ccy, maximumFractionDigits: 0 }).format(n || 0);
 
 export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, companyId, canEdit }: Props) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (n: number) => companyLocale.status !== "available" ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? fmtMoney(n) : formatMoney(n, companyLocale, { maximumFractionDigits: 0 });
+
   const { data: rows = [], isLoading } = useSponsorshipPipeline(eventId);
   const create = useCreateSponsor(eventId, companyId);
   const remove = useDeleteSponsor(eventId);
@@ -128,10 +135,10 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <KpiTile label="Total no pipeline" value={String(kpis.total)} />
-        <KpiTile label="Confirmado real" value={fmtMoney(kpis.confirmed)} highlight />
-        <KpiTile label="Pipeline (proposto)" value={fmtMoney(kpis.pipelineVal)} muted />
-        <KpiTile label="Permutas" value={fmtMoney(kpis.barter)} />
-        <KpiTile label="Perdidos" value={fmtMoney(kpis.lost)} muted />
+        <KpiTile label="Confirmado real" value={formatCurrency(kpis.confirmed)} highlight />
+        <KpiTile label="Pipeline (proposto)" value={formatCurrency(kpis.pipelineVal)} muted />
+        <KpiTile label="Permutas" value={formatCurrency(kpis.barter)} />
+        <KpiTile label="Perdidos" value={formatCurrency(kpis.lost)} muted />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -186,6 +193,7 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
             <Column
               key={stage}
               stage={stage}
+              formatCurrency={formatCurrency}
               rows={grouped[stage]}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => handleDrop(stage)}
@@ -324,12 +332,14 @@ function KpiTile({
 
 function Column({
   stage,
+  formatCurrency,
   rows,
   children,
   onDragOver,
   onDrop,
 }: {
   stage: SponsorshipStage;
+  formatCurrency: (n: number) => string;
   rows: SponsorshipPipelineRow[];
   children: React.ReactNode;
   onDragOver: (e: React.DragEvent) => void;
@@ -349,7 +359,7 @@ function Column({
         <span className="text-xs font-bold shrink-0">{rows.length}</span>
       </div>
       <div className="px-3 py-1 text-[11px] text-muted-foreground border-b">
-        {fmtMoney(sum)}
+        {formatCurrency(sum)}
       </div>
       <div className="p-2 space-y-2 min-h-[120px]">{children}</div>
     </div>

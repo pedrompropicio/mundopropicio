@@ -39,7 +39,7 @@ import PaymentListReceipts from "@/components/PaymentListReceipts";
 import SepaBankExecutionPanel from "@/components/SepaBankExecutionPanel";
 import { useCompany } from "@/hooks/useCompany";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { formatMoney } from "@/lib/company-locale";
+import { companyHasIva, formatMoney } from "@/lib/company-locale";
 
 
 /**
@@ -1199,7 +1199,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                   <th className="p-2 text-left font-medium hidden sm:table-cell">Categoria</th>
                   <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
                   <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor / Beneficiário</th>
-                  <th className="p-2 text-right font-medium">Valor c/IVA</th>
+                  <th className="p-2 text-right font-medium">{companyHasIva(companyLocale) ? "Valor c/IVA" : "Valor"}</th>
                   <th className="p-2 text-right font-medium hidden sm:table-cell">Já Pago</th>
                   <th className="p-2 text-right font-medium">Saldo</th>
                   <th className="p-2 text-right font-medium" title="Valor líquido após retenção IRS declarada (saldo − retenção). Só aplica em transações sem parcelas.">A pagar (líquido)</th>
@@ -3177,7 +3177,7 @@ function ApproveModal({
                    <th className="p-2 text-left font-medium hidden sm:table-cell">Categoria</th>
                    <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
                    <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor / Beneficiário</th>
-                   <th className="p-2 text-right font-medium">Valor c/IVA</th>
+                   <th className="p-2 text-right font-medium">{companyHasIva(companyLocale) ? "Valor c/IVA" : "Valor"}</th>
                    <th className="p-2 text-right font-medium">Saldo</th>
                 </tr>
               </thead>
@@ -3480,7 +3480,7 @@ function AddTransactionsToList({
                   <th className="p-2 text-left font-medium hidden sm:table-cell">Categoria</th>
                   <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
                   <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor / Beneficiário</th>
-                  <th className="p-2 text-right font-medium">Valor c/IVA</th>
+                  <th className="p-2 text-right font-medium">{companyHasIva(companyLocale) ? "Valor c/IVA" : "Valor"}</th>
                   <th className="p-2 text-left font-medium hidden lg:table-cell">Vencimento</th>
                 </tr>
               </thead>

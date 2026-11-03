@@ -11,7 +11,7 @@ import {
 
 import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { formatMoney } from "@/lib/company-locale";
+import { companyHasIva, formatMoney } from "@/lib/company-locale";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEventCostBasis } from "@/hooks/useEventCostBasis";
 import type { EbitdaParcels } from "@/lib/ebitda";
@@ -77,6 +77,7 @@ const FORM_COLORS = {
 
 export function EventFinancialCard(props: Props) {
   const companyLocale = useCompanyLocale();
+  const hasIva = companyHasIva(companyLocale);
   // Preserve the legacy PT grouping and rounding byte for byte (#498 P1b).
   const formatCurrency = (value: number) => companyLocale.status !== "available"
     ? "—"
@@ -222,13 +223,13 @@ export function EventFinancialCard(props: Props) {
           <span className="rounded-md bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
             {MODE_LABEL[data.modeUsed]}
           </span>
-          <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+          {hasIva && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             {withVat ? "c/IVA" : "s/IVA"}
-          </span>
+          </span>}
           {viewDiffersFromContract && (
             <span
               className="rounded-md bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning"
-              title={`Vista diferente do critério contratual do evento (${shared.withVat ? "c/IVA" : "s/IVA"}), que é o usado no Fecho.`}
+              title={hasIva ? `Vista diferente do critério contratual do evento (${shared.withVat ? "c/IVA" : "s/IVA"}), que é o usado no Fecho.` : "Vista diferente do critério contratual do evento, que é o usado no Fecho."}
             >
               ≠ fecho
             </span>
@@ -264,6 +265,7 @@ export function EventFinancialCard(props: Props) {
                 {forecastAvailable && <DropdownMenuRadioItem value="forecast">Forecast</DropdownMenuRadioItem>}
               </DropdownMenuRadioGroup>
 
+              {hasIva && <>
               <DropdownMenuSeparator />
               <DropdownMenuLabel className="text-xs">Vista</DropdownMenuLabel>
               <DropdownMenuRadioGroup value={withVat ? "com" : "sem"} onValueChange={(v) => setWithVat(v === "com")}>
@@ -273,6 +275,7 @@ export function EventFinancialCard(props: Props) {
               <div className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground">
                 Critério contratual do evento: {shared.withVat ? "c/IVA" : "s/IVA"} — usado no Fecho.
               </div>
+              </>}
               {kind === "expense" && (
                 <>
                   <DropdownMenuSeparator />

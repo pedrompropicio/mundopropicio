@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
@@ -43,9 +45,6 @@ interface Props {
   companyId: string | null;
 }
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n || 0);
-
 /** Mapping kind do parser → estado no pipeline CRM */
 function kindToPipeline(kind: SponsorImportKind): {
   stage: SponsorshipStage;
@@ -72,6 +71,12 @@ export function SponsorshipPipelineImportModal({
   eventId,
   companyId,
 }: Props) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (n: number) => companyLocale.status !== "available" ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n || 0)
+      : formatMoney(n, companyLocale, { maximumFractionDigits: 0 });
+
   const qc = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
@@ -332,11 +337,11 @@ export function SponsorshipPipelineImportModal({
                 <p className="font-medium mb-1">Resumo do ficheiro</p>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
                   <Stat label="Total linhas" value={String(parsed.totals.countTotal)} />
-                  <Stat label="Confirmados (Fatura recebida)" value={fmt(parsed.totals.sumPaid)} />
-                  <Stat label="Pendentes (Faturados/Pós-evento)" value={fmt(parsed.totals.sumPending)} />
+                  <Stat label="Confirmados (Fatura recebida)" value={formatCurrency(parsed.totals.sumPaid)} />
+                  <Stat label="Pendentes (Faturados/Pós-evento)" value={formatCurrency(parsed.totals.sumPending)} />
                   <Stat label="Permutas" value={String(parsed.totals.countBarter)} />
-                  <Stat label="Em negociação (sem estado)" value={fmt(parsed.totals.sumForecastOnly)} />
-                  <Stat label="Total geral" value={fmt(parsed.totals.sumGrand)} highlight />
+                  <Stat label="Em negociação (sem estado)" value={formatCurrency(parsed.totals.sumForecastOnly)} />
+                  <Stat label="Total geral" value={formatCurrency(parsed.totals.sumGrand)} highlight />
                 </div>
               </div>
 
@@ -366,7 +371,7 @@ export function SponsorshipPipelineImportModal({
                         <div className="flex-1">
                           <div className="font-medium">{SPONSOR_KIND_LABEL[k]}</div>
                           <div className="text-[11px] text-muted-foreground">
-                            {count} linhas • {fmt(sum)}
+                            {count} linhas • {formatCurrency(sum)}
                           </div>
                         </div>
                       </label>
@@ -410,7 +415,7 @@ export function SponsorshipPipelineImportModal({
                             {r.kind === "barter" ? (
                               <span className="text-muted-foreground">permuta</span>
                             ) : (
-                              fmt(r.effectiveAmount)
+                              formatCurrency(r.effectiveAmount)
                             )}
                           </TableCell>
                         </TableRow>

@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { companyHasIva } from "@/lib/company-locale";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -95,6 +97,7 @@ interface Suggestion {
 
 
 export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName }: Props) {
+  const hasIva = companyHasIva(useCompanyLocale());
   const qc = useQueryClient();
 
   const { data: cats = [], isLoading: loadingCats } = useQuery({
@@ -715,8 +718,8 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
                         <thead className="bg-muted/30 text-muted-foreground">
                           <tr>
                             <th className="text-left px-3 py-1.5 font-medium">L3</th>
-                            <th className="text-right px-3 py-1.5 font-medium">Previsto c/IVA</th>
-                            <th className="text-right px-3 py-1.5 font-medium">Realizado c/IVA</th>
+                            <th className="text-right px-3 py-1.5 font-medium">{hasIva ? "Previsto c/IVA" : "Previsto"}</th>
+                            <th className="text-right px-3 py-1.5 font-medium">{hasIva ? "Realizado c/IVA" : "Realizado"}</th>
                             <th className="text-right px-3 py-1.5 font-medium">Diferença</th>
                           </tr>
                         </thead>
@@ -800,6 +803,7 @@ interface TxTableProps {
 }
 
 function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTableProps) {
+  const hasIva = companyHasIva(useCompanyLocale());
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
@@ -807,7 +811,7 @@ function TxTable({ txs, forecastByTxId, catLabel, onChange, options }: TxTablePr
           <tr className="border-b border-border/40">
             <th className="text-left px-2 py-1.5 font-medium">Data</th>
             <th className="text-left px-2 py-1.5 font-medium">Descrição</th>
-            <th className="text-right px-2 py-1.5 font-medium">Valor c/IVA</th>
+            <th className="text-right px-2 py-1.5 font-medium">{hasIva ? "Valor c/IVA" : "Valor"}</th>
             <th className="text-left px-2 py-1.5 font-medium">Estado</th>
             <th className="text-left px-2 py-1.5 font-medium min-w-[320px]">Linha BP / Rubrica</th>
           </tr>

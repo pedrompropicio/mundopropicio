@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { companyHasIva } from "@/lib/company-locale";
 /**
  * Painel "Apuramentos" (épica #146).
  *
@@ -46,6 +48,7 @@ function CheckSeal({ check }: { check: EngineCheck }) {
 }
 
 export function EventSettlementsPanel({ eventId }: Props) {
+  const hasIva = companyHasIva(useCompanyLocale());
   const {
     result,
     isLoading,
@@ -68,7 +71,7 @@ export function EventSettlementsPanel({ eventId }: Props) {
         {n.parentId && (
           <Badge variant="outline" className="text-xs">
             {fmtPct(n.parentSharePct)} do fechamento acima
-            {n.parentQuotaBasis === "net_result_gross_expenses" ? " · despesas c/IVA" : " · despesas s/IVA"}
+            {hasIva ? (n.parentQuotaBasis === "net_result_gross_expenses" ? " · despesas c/IVA" : " · despesas s/IVA") : " · despesas"}
             {n.parentQuota != null && ` = ${formatCurrency(n.parentQuota)}`}
             {/* (g10) A fórmula da quota mantém-se; a devolução do IVA entra aqui. */}
             {n.vatReturnedIn !== 0 && ` · IVA dedutível devolvido ${formatCurrency(n.vatReturnedIn)}`}
@@ -89,21 +92,21 @@ export function EventSettlementsPanel({ eventId }: Props) {
 
       <div className="mb-3 grid gap-2 text-xs sm:grid-cols-4">
         <div className="rounded-md border border-border/60 p-2">
-          <div className="text-muted-foreground">Receitas s/IVA</div>
+          <div className="text-muted-foreground">{hasIva ? "Receitas s/IVA" : "Receitas"}</div>
           <div className="font-semibold">{formatCurrency(n.perimeter.revenueNet)}</div>
         </div>
         <div className="rounded-md border border-border/60 p-2">
-          <div className="text-muted-foreground">Despesas s/IVA · c/IVA</div>
+          <div className="text-muted-foreground">{hasIva ? "Despesas s/IVA · c/IVA" : "Despesas"}</div>
           <div className="font-semibold">
             {formatCurrency(n.perimeter.expensesNet)} · {formatCurrency(n.perimeter.expensesGross)}
           </div>
         </div>
         <div className="rounded-md border border-border/60 p-2">
-          <div className="text-muted-foreground">Resultado s/IVA</div>
+          <div className="text-muted-foreground">{hasIva ? "Resultado s/IVA" : "Resultado"}</div>
           <div className="font-semibold">{formatCurrency(n.resultNet)}</div>
         </div>
         <div className="rounded-md border border-border/60 p-2">
-          <div className="text-muted-foreground">Resultado c/IVA</div>
+          <div className="text-muted-foreground">{hasIva ? "Resultado c/IVA" : "Resultado"}</div>
           <div className="font-semibold">{formatCurrency(n.resultGross)}</div>
         </div>
       </div>
@@ -174,10 +177,10 @@ export function EventSettlementsPanel({ eventId }: Props) {
                     )}
                   </TableCell>
                   <TableCell className="text-xs">
-                    {effectiveExpenseBasisLabel({
+                    {hasIva ? effectiveExpenseBasisLabel({
                       usesGrossExpenses: p.usesGrossExpenses,
                       returnsParentDeductibleVat: n.returnsParentDeductibleVat,
-                    })}
+                    }) : "Despesas"}
                   </TableCell>
                   <TableCell className="text-right font-semibold">{formatCurrency(p.share)}</TableCell>
                   <TableCell className="text-xs">
@@ -258,7 +261,7 @@ export function EventSettlementsPanel({ eventId }: Props) {
         <p className="mt-2 text-xs text-muted-foreground">
           Residual = declarada + IVA dedutível não devolvido + (nominal − real). O IVA
           devolvido a um fechamento abaixo já pertence aos sócios desse fechamento e por
-          isso não entra aqui. Resultado s/IVA do evento {formatCurrency(result.eventNetResult)} ·
+          isso não entra aqui. {hasIva ? "Resultado s/IVA do evento" : "Resultado do evento"} {formatCurrency(result.eventNetResult)} ·
           partes pagas aos sócios {formatCurrency(result.partnersPaidTotal)}.
         </p>
       </div>

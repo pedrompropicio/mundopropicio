@@ -145,14 +145,14 @@ export default function Suppliers() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Entidades / Beneficiários <HelpTooltip text={helpTexts.suppliers} /></h1>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Entidades / Beneficiários <HelpTooltip anchor="fornecedores.consultar" text={helpTexts.suppliers} /></h1>
           <p className="text-sm text-muted-foreground">Gestão de fornecedores e parceiros</p>
         </div>
         <button
           onClick={() => { setEditingSupplier(null); setIsOpen(true); }}
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground glow-primary"
         >
-          <Plus className="h-4 w-4" /> Novo Fornecedor <HelpTooltip text={helpTexts.newSupplier} size={13} className="text-primary-foreground/60 hover:text-primary-foreground" />
+          <Plus className="h-4 w-4" /> Novo Fornecedor <HelpTooltip anchor="fornecedores.criar" text={helpTexts.newSupplier} size={13} className="text-primary-foreground/60 hover:text-primary-foreground" />
         </button>
       </div>
 
