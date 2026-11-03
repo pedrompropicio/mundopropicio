@@ -1,9 +1,11 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { signedCompanyUrl } from "@/lib/storage";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { formatMoney } from "@/lib/company-locale";
 import { formatDatePT } from "@/lib/utils";
 import { creditRemaining, isCreditExpired, expireStaleCredits } from "@/lib/supplier-credits";
 import { NewSupplierCreditModal } from "@/components/supplier-credits/NewSupplierCreditModal";
@@ -16,6 +18,12 @@ type Row = any;
 
 /** Aba "Créditos" — gestão de créditos de fornecedor por fornecedor. */
 export function SupplierCreditsTab() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const { isAdmin, isManager } = useAuth();
   const canManage = isAdmin || isManager;
   const [search, setSearch] = useState("");
