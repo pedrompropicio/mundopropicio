@@ -1,4 +1,5 @@
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { PartnerSettlementExclusionSwitch } from "@/components/PartnerSettlementExclusionSwitch";
 import { partnerSettlementExclusionReason } from "@/lib/fecho-filters";
 import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
@@ -142,27 +143,33 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   });
   const queryClient = useQueryClient();
   const companyLocale = useCompanyLocale();
+  const companyCurrency = companyLocale.status === "available" ? companyLocale.currency : "EUR";
+  const legacyMoney = companyLocale.status !== "available" || (companyLocale.locale === "pt-PT" && companyCurrency === "EUR");
+  const money = (amount: number, legacyText: string) => legacyMoney ? legacyText : formatMoney(amount, companyLocale);
+  const moneySymbol = companyLocale.status === "available" ? companyLocale.symbol : "€";
+  const noIva = companyLocale.status === "available" && companyLocale.ivaPolicy === "none";
   const { user, isAdmin, isManager, hasPermission } = useAuth();
   const canSeeConfidential = hasPermission("view_confidential");
 
   // Multi-currency state
   const initCurrency: CurrencyCode = isSupportedCurrency(transaction.currency) ? transaction.currency : "EUR";
   const [currency, setCurrency] = useState<CurrencyCode>(initCurrency);
+  const isNativeCurrency = currency === companyCurrency;
   const [originalAmount, setOriginalAmount] = useState<string>(
-    initCurrency === "EUR"
+    initCurrency === companyCurrency
       ? ""
       : String(transaction.original_amount ?? eurToOriginal(Number(transaction.amount), Number(transaction.fx_rate) || 1))
   );
-  const [fxRate, setFxRate] = useState<string>(initCurrency === "EUR" ? "" : String(transaction.fx_rate ?? ""));
+  const [fxRate, setFxRate] = useState<string>(initCurrency === companyCurrency ? "" : String(transaction.fx_rate ?? ""));
   const [fxRateSource, setFxRateSource] = useState<"manual" | "suggested">(
     transaction.fx_rate_source === "suggested" ? "suggested" : "manual"
   );
   const [eurFromCurrency, setEurFromCurrency] = useState<number>(Number(transaction.amount) || 0);
   useEffect(() => {
-    if (currency !== "EUR") {
+    if (!isNativeCurrency) {
       setForm((f) => ({ ...f, amount: eurFromCurrency ? String(eurFromCurrency) : "" }));
     }
-  }, [currency, eurFromCurrency]);
+  }, [isNativeCurrency, eurFromCurrency]);
 
   // Check if this is a parent split transaction (has children)
   const isAbsoluteMode = (transaction.split_mode ?? "percentage") === "absolute";
@@ -593,8 +600,14 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
       }
       const wantsNewReimbursementLink =
         form.is_reimbursement && !!form.reimbursement_note_id && !isLinkedToReimbursementNote;
-      // Zero campos alterados = no-op de fecho (não é erro).
-      if (changes.length === 0 && !wantsNewReimbursementLink && !bpLinkDirty && !capitalLinkDirty) {
+      // Native rows may still carry legacy FX/IVA even without a form-field edit.
+      const nativeCurrencyFieldsDirty = !paidLocked && !isInstallmentGroup && isNativeCurrency && companyCurrency !== "EUR" && (
+        transaction.currency !== currency || transaction.original_amount != null ||
+        transaction.fx_rate != null || transaction.fx_rate_source != null ||
+        (noIva && Number(transaction.iva_rate) !== 0)
+      );
+      // Zero campos alterados e sem normalização = no-op de fecho (não é erro).
+      if (changes.length === 0 && !wantsNewReimbursementLink && !bpLinkDirty && !capitalLinkDirty && !nativeCurrencyFieldsDirty) {
         return { data: null, snapshot: null, changesCount: 0, noop: true as const };
       }
 
@@ -670,7 +683,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
 
         description: form.description,
         amount: parseFloat(form.amount),
-        iva_rate: form.iva_rate,
+        iva_rate: noIva ? 0 : form.iva_rate,
         event_id: form.event_id,
         event_settlement_id: form.event_settlement_id || null,
         category_id: form.category_id || null,
@@ -694,9 +707,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         paying_partner_id: transaction.type === "expense" ? (form.paying_partner_id || null) : null,
         ...(partnerPaidSettled ? {} : paymentFields),
         currency,
-        original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
-        fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
-        fx_rate_source: currency === "EUR" ? null : fxRateSource,
+        original_amount: isNativeCurrency ? null : (parseFloat(originalAmount) || null),
+        fx_rate: isNativeCurrency ? null : (parseFloat(fxRate) || null),
+        fx_rate_source: isNativeCurrency ? null : fxRateSource,
         declared_withholding_rate: transaction.type === "expense" && parseFloat(form.declared_withholding_rate) > 0 ? Number(form.declared_withholding_rate) : null,
         declared_withholding_amount: transaction.type === "expense" && parseFloat(form.declared_withholding_amount) > 0 ? parseFloat(form.declared_withholding_amount) : null,
         // Reembolso: permitido em despesas não liquidadas (inclui aprovadas e masters de split — ver UI).
@@ -717,7 +730,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         delete (updates as any).iva_rate;
       }
 
-      if (!paidLocked && currency !== "EUR") {
+      if (!paidLocked && !isNativeCurrency) {
         const orig = parseFloat(originalAmount) || 0;
         const rate = parseFloat(fxRate) || 0;
         if (orig <= 0 || rate <= 0) {
@@ -815,7 +828,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         if (error) throw error;
       }
       delete (updates as any).excluded_from_partner_settlement;
-      if (changes.length > 0 && !houseOnlyChange) {
+      if ((changes.length > 0 || nativeCurrencyFieldsDirty) && !houseOnlyChange) {
         const res = await supabase.functions.invoke("update-transaction", {
           body: { transaction_id: transaction.id, updates, changes, child_adjustments: childUpdatesPayload },
         });
@@ -1511,10 +1524,10 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
 
           {!paidLocked && (
           <div className="space-y-2">
-            {currency === "EUR" ? (
+            {isNativeCurrency ? (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor Base *</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">{legacyMoney ? "Valor Base *" : `Valor Base (${moneySymbol}) *`}</label>
                   <input type="number" step="0.01" min="0" value={form.amount}
                     onChange={(e) => setForm({ ...form, amount: e.target.value })}
                     disabled={valueLocked}
@@ -1538,6 +1551,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
               <CurrencyAmountInput
                 currency={currency}
                 onCurrencyChange={setCurrency}
+                companyCurrency={companyCurrency}
                 originalAmount={originalAmount}
                 onOriginalAmountChange={setOriginalAmount}
                 fxRate={fxRate}
@@ -1548,7 +1562,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                 disabled={valueLocked}
               />
             )}
-            <div>
+            {!noIva && <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
               <IvaRateSelect
                 eventId={form.event_id || null}
@@ -1558,22 +1572,27 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
               />
 
-            </div>
+            </div>}
             {(() => {
               const base = parseFloat(form.amount) || 0;
+              if (noIva) return base > 0 ? (
+                <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 text-xs font-mono">
+                  Total: {money(base, base.toFixed(2) + "€")}
+                </div>
+              ) : null;
               const iva = calcIvaAmount(base, form.iva_rate);
               const total = calcTotalWithIva(base, form.iva_rate);
               if (base <= 0) return null;
               return (
                 <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 flex items-center justify-between text-xs font-mono">
                   <span className="text-muted-foreground">
-                    Base (EUR): {base.toFixed(2)}€
+                    Base (EUR): {money(base, `${base.toFixed(2)}€`)}
                     {currency !== "EUR" && (
                       <CurrencyBadge currency={currency} originalAmount={parseFloat(originalAmount) || 0} fxRate={parseFloat(fxRate) || 0} className="ml-2" />
                     )}
                   </span>
-                  <span className="text-muted-foreground">+ IVA ({form.iva_rate}%): {iva.toFixed(2)}€</span>
-                  <span className="font-semibold text-foreground">Total: {total.toFixed(2)}€</span>
+                  <span className="text-muted-foreground">+ IVA ({form.iva_rate}%): {money(iva, `${iva.toFixed(2)}€`)}</span>
+                  <span className="font-semibold text-foreground">Total: {money(total, `${total.toFixed(2)}€`)}</span>
                 </div>
               );
             })()}
@@ -1651,15 +1670,15 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
               </div>
               {hasPreexistingSplitDiff && (
                 <p className="text-[10px] text-warning">
-                  Divergência já existente: mãe {Number(transaction.amount || 0).toFixed(2)}€ vs soma das filhas {(Number(transaction.amount || 0) - preexistingSplitDiff).toFixed(2)}€ (diferença {preexistingSplitDiff.toFixed(2)}€). Não foi criada por esta edição — pode gravar.
+                  Divergência já existente: mãe {money(Number(transaction.amount || 0), `${Number(transaction.amount || 0).toFixed(2)}€`)} vs soma das filhas {money((Number(transaction.amount || 0) - preexistingSplitDiff), `${(Number(transaction.amount || 0) - preexistingSplitDiff).toFixed(2)}€`)} (diferença {money(preexistingSplitDiff, `${preexistingSplitDiff.toFixed(2)}€`)}). Não foi criada por esta edição — pode gravar.
                 </p>
               )}
               {amountChanged && (
                 <div className="flex items-center justify-between border-t border-border/30 pt-1.5">
                   <span className="text-[10px] text-muted-foreground">Total splits</span>
                   <span className={`text-xs font-mono font-semibold ${childMismatch ? "text-destructive" : "text-success"}`}>
-                    {childAdjustmentTotal.toFixed(2)}€
-                    {childMismatch && ` (esperado: ${newParentAmount.toFixed(2)}€)`}
+                    {money(childAdjustmentTotal, `${childAdjustmentTotal.toFixed(2)}€`)}
+                    {childMismatch && ` (esperado: ${money(newParentAmount, `${newParentAmount.toFixed(2)}€`)})`}
                   </span>
                 </div>
               )}
@@ -1698,7 +1717,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                     <option value="">— Sem linha específica (via rubrica)</option>
                     {bpLines.map((l) => (
                       <option key={l.id} value={l.id}>
-                        {(l.description || "(sem descrição)")} — {Number(l.amount).toFixed(2)}€
+                        {(l.description || "(sem descrição)")} — {money(Number(l.amount), `${Number(l.amount).toFixed(2)}€`)}
                       </option>
                     ))}
                   </select>
@@ -1768,7 +1787,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                     <option value="">— Sem linha específica (via rubrica)</option>
                     {bpLines.map((l) => (
                       <option key={l.id} value={l.id}>
-                        {(l.description || "(sem descrição)")} — {Number(l.amount).toFixed(2)}€
+                        {(l.description || "(sem descrição)")} — {money(Number(l.amount), `${Number(l.amount).toFixed(2)}€`)}
                       </option>
                     ))}
                   </select>
@@ -1980,7 +1999,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                   {revertIsPartial && (
                     <div>
                       <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
-                        Valor a reverter para o evento (€)
+                        Valor a reverter para o evento ({moneySymbol})
                       </label>
                       <input
                         type="number"
@@ -1993,7 +2012,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                         className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                       />
                       <p className="mt-0.5 text-[10px] text-muted-foreground">
-                        O valor do Extra do Sócio passa a {Math.max(0, Number(transaction.amount) - (parseFloat(revertPartialAmount) || 0)).toFixed(2)} € e cria-se uma transação NORMAL pelo valor indicado, no mesmo evento/fornecedor/categoria/fatura.
+                        O valor do Extra do Sócio passa a {money(Math.max(0, Number(transaction.amount) - (parseFloat(revertPartialAmount) || 0)), `${Math.max(0, Number(transaction.amount) - (parseFloat(revertPartialAmount) || 0)).toFixed(2)} €`)} e cria-se uma transação NORMAL pelo valor indicado, no mesmo evento/fornecedor/categoria/fatura.
                       </p>
                     </div>
                   )}
@@ -2005,10 +2024,10 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                         const partial = parseFloat(revertPartialAmount) || 0;
                         const total = Number(transaction.amount);
                         if (partial <= 0 || partial >= total) {
-                          toast({ title: "Valor inválido", description: `Indica um valor entre 0,01 e ${(total - 0.01).toFixed(2)} €.`, variant: "destructive" });
+                          toast({ title: "Valor inválido", description: `Indica um valor entre 0,01 e ${money((total - 0.01), `${(total - 0.01).toFixed(2)} €`)}.`, variant: "destructive" });
                           return;
                         }
-                        if (!confirm(`Reverter ${partial.toFixed(2)} € para despesa normal do evento? O Extra do Sócio passa a ${(total - partial).toFixed(2)} €.`)) return;
+                        if (!confirm(`Reverter ${money(partial, `${partial.toFixed(2)} €`)} para despesa normal do evento? O Extra do Sócio passa a ${money((total - partial), `${(total - partial).toFixed(2)} €`)}.`)) return;
                         // 1) Reduz a transitória do sócio
                         const newExtraAmount = +(total - partial).toFixed(2);
                         const { error: updErr } = await supabase
@@ -2042,7 +2061,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                           currency: transaction.currency ?? "EUR",
                         } as any);
                         if (insErr) { toast({ title: "Erro a criar despesa", description: insErr.message, variant: "destructive" }); return; }
-                        toast({ title: "Reversão parcial concluída", description: `${partial.toFixed(2)} € voltaram para o evento.` });
+                        toast({ title: "Reversão parcial concluída", description: `${money(partial, `${partial.toFixed(2)} €`)} voltaram para o evento.` });
                       } else {
                         if (!confirm("Reverter Extra do Sócio na totalidade? A despesa volta a ser uma despesa normal do evento.")) return;
                         // Reverter = "afinal o custo é do evento". A partir daqui a
@@ -2101,16 +2120,16 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
               <div className="flex flex-wrap gap-4 text-[11px]">
                 <div>
                   <div className="text-muted-foreground">Despesa do evento</div>
-                  <div className="font-semibold">{Number(transaction.amount).toFixed(2)} €</div>
+                  <div className="font-semibold">{money(Number(transaction.amount), `${Number(transaction.amount).toFixed(2)} €`)}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Extra do sócio</div>
-                  <div className="font-semibold">{Number(extraSibling?.amount ?? 0).toFixed(2)} €</div>
+                  <div className="font-semibold">{money(Number(extraSibling?.amount ?? 0), `${Number(extraSibling?.amount ?? 0).toFixed(2)} €`)}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Total da fatura</div>
                   <div className="font-semibold">
-                    {(Number(transaction.amount) + Number(extraSibling?.amount ?? 0)).toFixed(2)} €
+                    {money((Number(transaction.amount) + Number(extraSibling?.amount ?? 0)), `${(Number(transaction.amount) + Number(extraSibling?.amount ?? 0)).toFixed(2)} €`)}
                   </div>
                 </div>
               </div>
@@ -2152,7 +2171,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                   const newPaid = +(mainPaid + sibPaid).toFixed(2);
                   if (
                     !confirm(
-                      `Eliminar o Extra do Sócio desta fatura? A fatura volta a ser 100% despesa do evento: esta transação passa de ${mainAmount.toFixed(2)} € para ${newAmount.toFixed(2)} €.`,
+                      `Eliminar o Extra do Sócio desta fatura? A fatura volta a ser 100% despesa do evento: esta transação passa de ${money(mainAmount, `${mainAmount.toFixed(2)} €`)} para ${money(newAmount, `${newAmount.toFixed(2)} €`)}.`,
                     )
                   )
                     return;
@@ -2185,7 +2204,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                   queryClient.invalidateQueries({ queryKey: ["partner-extra-sibling"] });
                   queryClient.invalidateQueries({ queryKey: ["transactions"] });
                   queryClient.invalidateQueries({ queryKey: ["partner-advance-expenses"] });
-                  toast({ title: "Extra do Sócio removido", description: `A fatura volta a ser despesa do evento por ${newAmount.toFixed(2)} €.` });
+                  toast({ title: "Extra do Sócio removido", description: `A fatura volta a ser despesa do evento por ${money(newAmount, `${newAmount.toFixed(2)} €`)}.` });
                   onClose();
                 }}
                 className="text-xs text-destructive hover:underline"
@@ -2217,7 +2236,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                     <span>Apenas parte da fatura é extra do sócio</span>
                     <HelpTooltip
                       size={12}
-                      text={`Vazio = a fatura inteira (${Number(transaction.amount).toFixed(2)} € s/IVA) vira Extra do Sócio (transitória). Ativo = a fatura reparte-se: esta despesa passa a valer o restante e cria-se uma transação irmã transitória pela parte do sócio. A soma das duas continua a valer a fatura inteira.`}
+                      text={`Vazio = a fatura inteira (${money(Number(transaction.amount), `${Number(transaction.amount).toFixed(2)} €`)} s/IVA) vira Extra do Sócio (transitória). Ativo = a fatura reparte-se: esta despesa passa a valer o restante e cria-se uma transação irmã transitória pela parte do sócio. A soma das duas continua a valer a fatura inteira.`}
                     />
                   </label>
 
@@ -2230,7 +2249,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                     return (
                       <div>
                         <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
-                          Valor que é extra do sócio — s/ IVA (€)
+                          Valor que é extra do sócio — s/ IVA ({moneySymbol})
                         </label>
                         <input
                           type="number"
@@ -2247,15 +2266,15 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                             <div className="font-medium text-muted-foreground">Como fica a repartição</div>
                             <div className="flex justify-between gap-3">
                               <span>Despesa do evento</span>
-                              <span className="font-mono">{principalNet.toFixed(2)} € s/IVA · {(principalNet * mult).toFixed(2)} € c/IVA</span>
+                              <span className="font-mono">{money(principalNet, `${principalNet.toFixed(2)} €`)} s/IVA · {money((principalNet * mult), `${(principalNet * mult).toFixed(2)} €`)} c/IVA</span>
                             </div>
                             <div className="flex justify-between gap-3">
                               <span>Extra do sócio</span>
-                              <span className="font-mono">{partialNet.toFixed(2)} € s/IVA · {(partialNet * mult).toFixed(2)} € c/IVA</span>
+                              <span className="font-mono">{money(partialNet, `${partialNet.toFixed(2)} €`)} s/IVA · {money((partialNet * mult), `${(partialNet * mult).toFixed(2)} €`)} c/IVA</span>
                             </div>
                             <div className="flex justify-between gap-3 border-t border-border/60 pt-0.5 font-medium">
                               <span>Total da fatura</span>
-                              <span className="font-mono">{totalNet.toFixed(2)} € s/IVA · {(totalNet * mult).toFixed(2)} € c/IVA</span>
+                              <span className="font-mono">{money(totalNet, `${totalNet.toFixed(2)} €`)} s/IVA · {money((totalNet * mult), `${(totalNet * mult).toFixed(2)} €`)} c/IVA</span>
                             </div>
                           </div>
                         )}
@@ -2270,7 +2289,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                       if (convertIsPartial) {
                         const partial = parseFloat(convertPartialAmount) || 0;
                         if (partial <= 0 || partial >= total) {
-                          toast({ title: "Valor inválido", description: `Indica um valor entre 0,01 e ${(total - 0.01).toFixed(2)} €.`, variant: "destructive" });
+                          toast({ title: "Valor inválido", description: `Indica um valor entre 0,01 e ${money((total - 0.01), `${(total - 0.01).toFixed(2)} €`)}.`, variant: "destructive" });
                           return;
                         }
                         // ============================================================
@@ -2312,14 +2331,14 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                         if (paidBefore > 0.01 && !fullyPaid) {
                           toast({
                             title: "Fatura paga só em parte",
-                            description: `Já estão pagos ${paidBefore.toFixed(2)} € de ${grossBefore.toFixed(2)} € c/IVA. Não é possível repartir a fatura sem arbitrar a quem pertence o valor já pago — liquida-a por inteiro ou anula o pagamento primeiro.`,
+                            description: `Já estão pagos ${money(paidBefore, `${paidBefore.toFixed(2)} €`)} de ${money(grossBefore, `${grossBefore.toFixed(2)} €`)} c/IVA. Não é possível repartir a fatura sem arbitrar a quem pertence o valor já pago — liquida-a por inteiro ou anula o pagamento primeiro.`,
                             variant: "destructive",
                           });
                           return;
                         }
 
                         if (!confirm(
-                          `Repartir esta fatura?\n\nDespesa do evento: ${newPrincipalNet.toFixed(2)} € s/IVA (${newPrincipalGross.toFixed(2)} € c/IVA)\nExtra do sócio: ${partial.toFixed(2)} € s/IVA (${siblingGross.toFixed(2)} € c/IVA)\n\nO total da fatura mantém-se ${total.toFixed(2)} € s/IVA.`
+                          `Repartir esta fatura?\n\nDespesa do evento: ${money(newPrincipalNet, `${newPrincipalNet.toFixed(2)} €`)} s/IVA (${money(newPrincipalGross, `${newPrincipalGross.toFixed(2)} €`)} c/IVA)\nExtra do sócio: ${money(partial, `${partial.toFixed(2)} €`)} s/IVA (${money(siblingGross, `${siblingGross.toFixed(2)} €`)} c/IVA)\n\nO total da fatura mantém-se ${money(total, `${total.toFixed(2)} €`)} s/IVA.`
                         )) return;
 
                         // 1) Garante invoice_group_id na principal
@@ -2384,7 +2403,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                         }
                         toast({
                           title: "Fatura repartida",
-                          description: `Despesa do evento ${newPrincipalNet.toFixed(2)} € · extra do sócio ${partial.toFixed(2)} € (s/IVA).`,
+                          description: `Despesa do evento ${money(newPrincipalNet, `${newPrincipalNet.toFixed(2)} €`)} · extra do sócio ${money(partial, `${partial.toFixed(2)} €`)} (s/IVA).`,
                         });
                       } else {
                         if (!confirm("Converter esta despesa em Extra do Sócio? Será marcada como transitória e descontada do sócio no fecho.")) return;
@@ -2409,7 +2428,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                         if (orphanLine) {
                           toast({
                             title: "Linha de BP sem transação",
-                            description: `A linha de BP «${orphanLine.description ?? "sem descrição"}» (${orphanLine.amount.toFixed(2)} €) ficou no BP do evento sem transação associada. Se foi criada só para esta despesa, remove-a no Business Plan.`,
+                            description: `A linha de BP «${orphanLine.description ?? "sem descrição"}» (${money(orphanLine.amount, `${orphanLine.amount.toFixed(2)} €`)}) ficou no BP do evento sem transação associada. Se foi criada só para esta despesa, remove-a no Business Plan.`,
                           });
                         }
                       }
@@ -2752,7 +2771,8 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                   ...(accountId ? { exclude_from_result: true } : {}),
                 })
               }
-              grossAmount={calcWithIva(parseFloat(form.amount) || 0, form.iva_rate as any)}
+              companyLocale={companyLocale}
+              grossAmount={calcWithIva(parseFloat(form.amount) || 0, (noIva ? 0 : form.iva_rate) as any)}
               suppliers={suppliers as any}
             />
           )}
