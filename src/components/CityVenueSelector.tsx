@@ -50,20 +50,20 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
     enabled: !!cityId,
   });
 
-  // Cidades do país da empresa primeiro (sem heading), depois estrangeiras
+  // Cidades do país da empresa primeiro (Brasil com heading), depois estrangeiras
   // agrupadas por país e etiquetadas "Nome · País".
   const cityOptions: SearchableSelectOption[] = useMemo(() => {
     const local: SearchableSelectOption[] = [];
     const foreignByCountry = new Map<string, SearchableSelectOption[]>();
 
     for (const c of allCities as any[]) {
-      const base = formatCityLabel(c.name, c.state);
+      const base = formatCityLabel(c.name, c.state, countryName === "Brasil" && c.country === "Brasil" ? " · " : " - ");
       const isLocal = !countryName || c.country === countryName;
       const opt: SearchableSelectOption = {
         value: c.id,
         label: isLocal ? base : `${base} · ${c.country}`,
         searchText: [c.name, c.state, c.country].filter(Boolean).join(" "),
-        group: isLocal ? undefined : c.country || "Outros países",
+        group: isLocal ? (countryName === "Brasil" ? "Brasil" : undefined) : c.country || "Outros países",
       };
       if (isLocal) local.push(opt);
       else {
