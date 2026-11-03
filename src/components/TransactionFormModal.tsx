@@ -39,6 +39,8 @@ import helpTexts from "@/lib/help-texts";
 import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, formatInCurrency } from "@/lib/currency";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { SplitByIvaModal, type IvaSplitLine } from "@/components/SplitByIvaModal";
 import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
 import { calcIvaAmount, calcTotalWithIva, roundCents } from "@/lib/iva";
@@ -170,18 +172,33 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // Sócio do movimento de capital (AEP) — obrigatório quando a categoria é do ramo 10.1.*
   const [capitalPartnerId, setCapitalPartnerId] = useState<string>("");
 
-  // Multi-currency state
-  const [currency, setCurrency] = useState<CurrencyCode>("EUR");
+  const companyLocale = useCompanyLocale();
+  const companyCurrency = companyLocale.status === "available" ? companyLocale.currency : "EUR";
+  const legacyMoney = companyLocale.status !== "available" || (companyLocale.locale === "pt-PT" && companyCurrency === "EUR");
+  // Preserve every PT presentation variant; other contexts use the shared formatter.
+  const money = (amount: number, legacy: string) => legacyMoney ? legacy : formatMoney(amount, companyLocale);
+
+  // Native amounts are stored directly; only foreign selections use legacy FX.
+  const [currency, setCurrency] = useState<CurrencyCode>(companyCurrency);
+  const isNativeCurrency = currency === companyCurrency;
   const [originalAmount, setOriginalAmount] = useState<string>("");
   const [fxRate, setFxRate] = useState<string>("");
   const [fxRateSource, setFxRateSource] = useState<"manual" | "suggested">("manual");
   const [eurFromCurrency, setEurFromCurrency] = useState<number>(0);
-  // Sync EUR amount back into form.amount when currency != EUR
+  const currencyCompanyRef = useRef(companyCurrency);
+  const companyCurrencyChanged = currencyCompanyRef.current !== companyCurrency;
   useEffect(() => {
-    if (currency !== "EUR") {
+    currencyCompanyRef.current = companyCurrency;
+    setCurrency(companyCurrency);
+    setOriginalAmount("");
+    setFxRate("");
+  }, [companyCurrency]);
+  // Foreign selections retain the legacy EUR conversion.
+  useEffect(() => {
+    if (!isNativeCurrency && !companyCurrencyChanged) {
       setForm((f) => ({ ...f, amount: eurFromCurrency ? String(eurFromCurrency) : "" }));
     }
-  }, [currency, eurFromCurrency]);
+  }, [isNativeCurrency, companyCurrencyChanged, eurFromCurrency]);
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [showProrationConfirm, setShowProrationConfirm] = useState(false);
   const [plExpanded, setPlExpanded] = useState(true);
@@ -490,14 +507,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         setShowSplitByIvaModal(true);
         toast({
           title: "Fatura com IVA misto detetada",
-          description: `${validLines.length} taxas: ${validLines.map((l) => `${l.base.toFixed(2)}€@${l.iva_rate}%`).join(" · ")}. Confirma para criar transações vinculadas.`,
+          description: `${validLines.length} taxas: ${validLines.map((l) => `${money(l.base, l.base.toFixed(2) + "€")}@${l.iva_rate}%`).join(" · ")}. Confirma para criar transações vinculadas.`,
         });
       } else if (validLines.length === 1) {
         const only = validLines[0];
         setForm((f) => ({ ...f, amount: String(only.base), iva_rate: only.iva_rate }));
         toast({
           title: "Fatura lida",
-          description: `Base ${only.base.toFixed(2)}€ a ${only.iva_rate}% preenchida automaticamente.`,
+          description: `Base ${money(only.base, only.base.toFixed(2) + "€")} a ${only.iva_rate}% preenchida automaticamente.`,
         });
       } else if (typeof (data as any)?.total === "number" && (data as any).total > 0) {
         const total = Number((data as any).total);
@@ -506,7 +523,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         setForm((f) => ({ ...f, amount: String(base) }));
         toast({
           title: "Total lido (sem rodapé de IVA)",
-          description: `Total ${total.toFixed(2)}€ · base ${base.toFixed(2)}€ a ${rate}% (taxa atual). Confirma a taxa.`,
+          description: `Total ${money(total, total.toFixed(2) + "€")} · base ${money(base, base.toFixed(2) + "€")} a ${rate}% (taxa atual). Confirma a taxa.`,
         });
       } else {
         toast({
@@ -657,13 +674,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   // Taxas de IVA aplicáveis = país da cidade do evento (PT por defeito).
   const eventIva = useEventIvaCountry(effectiveEventId || null);
+  const noIva = eventIva.ivaPolicy === "none";
   useEffect(() => {
     // Ao mudar para um evento de outro país, ajusta a taxa se a atual não existe lá.
     if (!eventIva.rates.includes(form.iva_rate as any)) {
       setForm((f) => ({ ...f, iva_rate: eventIva.defaultRate as IvaRate }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventIva.country]);
+  }, [eventIva.country, eventIva.ivaPolicy]);
 
 
   // Detect if this sub-event's category has a Master BP line (for reinforcement dialog)
@@ -1293,6 +1311,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
+      // P2f owns installments; preserve their legacy writer and validation.
+      if (!useInstallments) {
+        if (companyLocale.status !== "available") throw new Error(companyLocale.message);
+        if (noIva) data = { ...data, iva_rate: 0 };
+      }
+      const nativeCurrency = useInstallments ? currency === "EUR" : isNativeCurrency;
       // Validate the complete monetary plan before the first write, including callers
       // which invoke the mutation directly (rather than proceedWithCreate).
       if (useInstallments && (data.type !== "expense" || isSplit || isPartnerExtra || isPaidByPartner || effectiveAutoMarkPaid || data.is_reimbursement || sharedCostSplitActive || (pendingIvaSplit?.length ?? 0) >= 2)) {
@@ -1362,6 +1386,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             description: data.description,
             type: data.type,
             amount: childAmount,
+            ...(nativeCurrency && companyCurrency !== "EUR" ? { currency, original_amount: null, fx_rate: null, fx_rate_source: null } : {}),
             iva_rate: data.iva_rate,
             event_id: entry.event_id,
             category_id: data.category_id || null,
@@ -1408,6 +1433,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           description: data.description,
           type: data.type,
           amount: totalAmount,
+          ...(nativeCurrency && companyCurrency !== "EUR" ? { currency, original_amount: null, fx_rate: null, fx_rate_source: null } : {}),
           iva_rate: data.iva_rate,
           event_id: null,
           category_id: data.category_id || null,
@@ -1451,7 +1477,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             changed_by: callerName,
             field_name: "Criação",
             old_value: null,
-            new_value: `Rateio Master — ${data.description} — ${totalAmount.toFixed(2)} €`,
+            new_value: `Rateio Master — ${data.description} — ${money(totalAmount, totalAmount.toFixed(2) + " €")}`,
           });
         }
 
@@ -1620,9 +1646,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           ordering_partner_id: data.type === "expense" ? (data.ordering_partner_id || null) : null,
           paying_partner_id: data.type === "expense" ? (data.paying_partner_id || null) : null,
           currency,
-          original_amount: useInstallments ? parcelOriginals[0] : (currency === "EUR" ? null : (parseFloat(originalAmount) || null)),
-          fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
-          fx_rate_source: currency === "EUR" ? null : fxRateSource,
+          original_amount: useInstallments ? parcelOriginals[0] : (nativeCurrency ? null : (parseFloat(originalAmount) || null)),
+          fx_rate: nativeCurrency ? null : (parseFloat(fxRate) || null),
+          fx_rate_source: nativeCurrency ? null : fxRateSource,
         } as any).select("id").single();
         if (error) throw error;
         if (useInstallments && !insertedTx?.id) throw new Error("A primeira parcela não devolveu confirmação de criação.");
@@ -1663,9 +1689,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
               payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
               currency,
-              original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
-              fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
-              fx_rate_source: currency === "EUR" ? null : fxRateSource,
+              original_amount: isNativeCurrency ? null : (parseFloat(originalAmount) || null),
+              fx_rate: nativeCurrency ? null : (parseFloat(fxRate) || null),
+              fx_rate_source: nativeCurrency ? null : fxRateSource,
             } as any)
             .select("id")
             .single();
@@ -1677,14 +1703,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               changed_by: callerName,
               field_name: "Criação (parte de terceiros)",
               old_value: null,
-              new_value: `${data.description} — parte de terceiros — ${sharedCostThirdNum.toFixed(2)} € s/IVA`,
+              new_value: `${data.description} — parte de terceiros — ${money(sharedCostThirdNum, sharedCostThirdNum.toFixed(2) + " €")} s/IVA`,
             },
             {
               transaction_id: insertedTx.id,
               changed_by: callerName,
               field_name: "Custo partilhado com terceiros",
               old_value: null,
-              new_value: `Fatura desdobrada: parte MP ${principalNetAmount.toFixed(2)} € + parte de terceiros ${sharedCostThirdNum.toFixed(2)} € (s/IVA), mesmo grupo de fatura`,
+              new_value: `Fatura desdobrada: parte MP ${money(principalNetAmount, principalNetAmount.toFixed(2) + " €")} + parte de terceiros ${money(sharedCostThirdNum, sharedCostThirdNum.toFixed(2) + " €")} (s/IVA), mesmo grupo de fatura`,
             },
           ] as any);
         }
@@ -1724,7 +1750,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             changed_by: callerName,
             field_name: "Criação",
             old_value: null,
-            new_value: `${data.type === "income" ? "Receita" : "Despesa"} — ${data.description} — ${parseFloat(data.amount).toFixed(2)} €`,
+            new_value: `${data.type === "income" ? "Receita" : "Despesa"} — ${data.description} — ${useInstallments ? parseFloat(data.amount).toFixed(2) + " €" : money(parseFloat(data.amount), parseFloat(data.amount).toFixed(2) + " €")}`,
           });
           if (autoApproved && !effectiveAutoMarkPaid) {
             // A tabela não tem coluna `observation` — o campo antigo fazia o insert
@@ -1937,7 +1963,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             // #196: vínculo atómico; erro sobe (nunca fica transitória sem extra).
             const { error: linkErr } = await supabase.rpc("convert_transaction_to_partner_extra" as any, {
               p_tx_id: siblingTx!.id, p_partner_id: partnerExtraId, p_event_id: data.event_id,
-              p_notes: `Parcela do sócio na fatura "${data.description}" (total ${totalAmtNum.toFixed(2)} €)`,
+              p_notes: `Parcela do sócio na fatura "${data.description}" (total ${money(totalAmtNum, totalAmtNum.toFixed(2) + " €")})`,
               p_clear_forecast: true,
             });
             if (linkErr) throw linkErr;
@@ -2294,7 +2320,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       toast({ title: "Fornecedor obrigatório", description: "Selecione (ou crie) o fornecedor da despesa.", variant: "destructive" });
       return;
     }
-    if (currency !== "EUR") {
+    if (!isNativeCurrency) {
       const orig = parseFloat(originalAmount) || 0;
       const rate = parseFloat(fxRate) || 0;
       if (orig <= 0 || rate <= 0) {
@@ -2332,7 +2358,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       const totalAmt = parseFloat(form.amount) || 0;
       const partialAmt = parseFloat(partnerExtraPartialAmount) || 0;
       if (partialAmt <= 0 || partialAmt >= totalAmt) {
-        toast({ title: "Valor parcial do extra inválido", description: `Tem de ser maior que 0 e menor que o total (${totalAmt.toFixed(2)} €). Deixe vazio para abater a fatura inteira.`, variant: "destructive" });
+        toast({ title: "Valor parcial do extra inválido", description: `Tem de ser maior que 0 e menor que o total (${money(totalAmt, totalAmt.toFixed(2) + " €")}). Deixe vazio para abater a fatura inteira.`, variant: "destructive" });
         return;
       }
       // A fatura reparte-se: a principal nasce por (total − X). Com "Pagar em parcelas"
@@ -2354,7 +2380,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       if (sharedCostThirdNet <= 0 || sharedCostThirdNet >= totalAmt) {
         toast({
           title: "Parte de terceiros inválida",
-          description: `Tem de ser maior que 0 e menor que o total (${totalAmt.toFixed(2)} € s/IVA). A zero é uma despesa normal; pelo total inteiro basta marcar a linha com a conta de rateio, sem desdobrar.`,
+          description: `Tem de ser maior que 0 e menor que o total (${money(totalAmt, totalAmt.toFixed(2) + " €")} s/IVA). A zero é uma despesa normal; pelo total inteiro basta marcar a linha com a conta de rateio, sem desdobrar.`,
           variant: "destructive",
         });
         return;
@@ -2500,7 +2526,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       if (forecast > 0 && newAmount > remaining) {
         toast({
           title: "⚠️ Valor ultrapassa o previsto no BP",
-          description: `Previsto: ${forecast.toFixed(2)}€ | Utilizado: ${used.toFixed(2)}€ | Disponível: ${remaining.toFixed(2)}€ | Lançando: ${newAmount.toFixed(2)}€`,
+          description: `Previsto: ${money(forecast, forecast.toFixed(2) + "€")} | Utilizado: ${money(used, used.toFixed(2) + "€")} | Disponível: ${money(remaining, remaining.toFixed(2) + "€")} | Lançando: ${money(newAmount, newAmount.toFixed(2) + "€")}`,
         });
       }
     }
@@ -3013,7 +3039,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     status: "draft",
                     description: artistNames || "Cachê",
                     iva_rate: 0,
-                    specification: cacheLines.map(c => `${c.artistName}: ${c.amount.toFixed(2)}€ (${c.cacheType === "fixed" ? "fixo" : "variável"})`).join("; "),
+                    specification: cacheLines.map(c => `${c.artistName}: ${money(c.amount, c.amount.toFixed(2) + "€")} (${c.cacheType === "fixed" ? "fixo" : "variável"})`).join("; "),
                   }],
                 };
                 artGroup.details.push(cacheDetail);
@@ -3043,7 +3069,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 category_id: detail.catId,
                 description: line.description || "",
                 amount: String(Number(line.amount) || ""),
-                iva_rate: (line.iva_rate ?? 23) as IvaRate,
+                iva_rate: (noIva ? 0 : (line.iva_rate ?? 23)) as IvaRate,
                 specification: line.specification || "",
                 // Herança: preenche o ordenador da linha BP (editável caso a caso).
                 ordering_partner_id: (line as any).ordering_partner_id || prev.ordering_partner_id,
@@ -3116,10 +3142,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                   {group.groupName}
                                 </div>
                               </td>
-                              <td className="py-1.5 text-right font-mono font-semibold">{group.totalForecast.toFixed(2)}€</td>
-                              <td className="py-1.5 text-right font-mono font-semibold">{group.totalUsed.toFixed(2)}€</td>
+                              <td className="py-1.5 text-right font-mono font-semibold">{money(group.totalForecast, group.totalForecast.toFixed(2) + "€")}</td>
+                              <td className="py-1.5 text-right font-mono font-semibold">{money(group.totalUsed, group.totalUsed.toFixed(2) + "€")}</td>
                               <td className={`py-1.5 text-right font-mono font-bold ${groupRemaining <= 0 ? "text-destructive" : "text-success"}`}>
-                                {groupRemaining.toFixed(2)}€
+                                {money(groupRemaining, groupRemaining.toFixed(2) + "€")}
                               </td>
                             </tr>
                             {/* L3 Detail lines with individual forecasts */}
@@ -3146,12 +3172,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                         )}
                                       </div>
                                     </td>
-                                    <td className="py-1.5 text-right font-mono">{detail.forecast.toFixed(2)}€</td>
-                                    <td className="py-1.5 text-right font-mono">{detail.used.toFixed(2)}€</td>
+                                    <td className="py-1.5 text-right font-mono">{money(detail.forecast, detail.forecast.toFixed(2) + "€")}</td>
+                                    <td className="py-1.5 text-right font-mono">{money(detail.used, detail.used.toFixed(2) + "€")}</td>
                                     <td className={`py-1.5 text-right font-mono font-semibold ${
                                       remaining <= 0 ? "text-destructive" : "text-success"
                                     }`}>
-                                      {remaining.toFixed(2)}€
+                                      {money(remaining, remaining.toFixed(2) + "€")}
                                     </td>
                                   </tr>
                                   {/* Individual forecast lines */}
@@ -3184,20 +3210,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                         return (
                                           <>
                                             <td className="py-1 text-right font-mono text-[10px] md:text-[12px] whitespace-nowrap">
-                                              <span className="font-semibold">{lineForecast.toFixed(2)}€</span>
-                                              {lineIva > 0 && (
+                                              <span className="font-semibold">{money(lineForecast, lineForecast.toFixed(2) + "€")}</span>
+                                              {!noIva && lineIva > 0 && (
                                                 <p className="text-[9px] md:text-[10px] text-muted-foreground font-mono">
-                                                  + IVA {lineIva}% · {lineTotal.toFixed(2)}€
+                                                  + IVA {lineIva}% · {money(lineTotal, lineTotal.toFixed(2) + "€")}
                                                 </p>
                                               )}
                                             </td>
                                             <td className="py-1 text-right font-mono text-[10px] md:text-[12px] whitespace-nowrap">
-                                              {lineUsed === null ? "—" : `${lineUsed.toFixed(2)}€`}
+                                              {lineUsed === null ? "—" : `${money(lineUsed, lineUsed.toFixed(2) + "€")}`}
                                             </td>
                                             <td className={`py-1 text-right font-mono text-[10px] md:text-[12px] whitespace-nowrap ${
                                               lineRemaining === null ? "" : lineRemaining <= 0 ? "text-destructive" : "text-success"
                                             }`}>
-                                              {lineRemaining === null ? "—" : `${lineRemaining.toFixed(2)}€`}
+                                              {lineRemaining === null ? "—" : `${money(lineRemaining, lineRemaining.toFixed(2) + "€")}`}
                                             </td>
                                           </>
                                         );
@@ -3390,10 +3416,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           )}
 
           <div className="space-y-2">
-            {currency === "EUR" ? (
+            {isNativeCurrency ? (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor Base *</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">{legacyMoney ? "Valor Base *" : `Valor Base (${companyLocale.status === "available" ? companyLocale.symbol : ""}) *`}</label>
                   <input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })}
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="0.00" />
                 </div>
@@ -3405,7 +3431,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                   >
                     <option value="EUR">EUR</option>
-                    <option value="BRL">BRL</option>
+                    <option value="BRL">{companyCurrency === "BRL" ? "BRL (R$)" : "BRL"}</option>
                     <option value="USD">USD</option>
                   </select>
                 </div>
@@ -3413,6 +3439,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             ) : (
               <CurrencyAmountInput
                 currency={currency}
+                companyCurrency={companyCurrency}
                 onCurrencyChange={setCurrency}
                 originalAmount={originalAmount}
                 onOriginalAmountChange={setOriginalAmount}
@@ -3423,7 +3450,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 label="Valor Base"
               />
             )}
-            <div>
+            {!noIva && <div>
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <label className="block text-xs font-medium text-muted-foreground">Taxa IVA</label>
                   {form.type === "expense" && !isSplit && (
@@ -3503,17 +3530,22 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               {pendingIvaSplit && (
                 <div className="mt-1 flex items-center justify-between rounded-md bg-primary/10 px-2 py-1 text-[10px] text-primary">
                   <span>
-                    ✓ Vão ser criadas {pendingIvaSplit.length} transações: {pendingIvaSplit.map((l) => `${l.base.toFixed(2)}€@${l.iva_rate}%`).join(" · ")}
+                    ✓ Vão ser criadas {pendingIvaSplit.length} transações: {pendingIvaSplit.map((l) => `${money(l.base, l.base.toFixed(2) + "€")}@${l.iva_rate}%`).join(" · ")}
                   </span>
                   <button type="button" onClick={() => setPendingIvaSplit(null)} className="text-[10px] font-medium underline">
                     cancelar
                   </button>
                 </div>
               )}
-            </div>
+            </div>}
             {/* IVA breakdown */}
             {(() => {
               const baseForm = parseFloat(form.amount) || 0;
+              if (noIva) return baseForm > 0 ? (
+                <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 text-xs font-mono">
+                  Total: {money(baseForm, baseForm.toFixed(2) + "€")}
+                </div>
+              ) : null;
               // Quando há split de IVA pendente, mostrar agregados reais das linhas (não aplicar form.iva_rate sobre toda a base)
               if (pendingIvaSplit && pendingIvaSplit.length > 0) {
                 const baseSum = roundCents(pendingIvaSplit.reduce((s, l) => s + (Number(l.base) || 0), 0));
@@ -3523,16 +3555,16 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 return (
                   <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 flex items-center justify-between text-xs font-mono">
                     <span className="text-muted-foreground">
-                      Σ Bases (EUR): {baseSum.toFixed(2)}€
-                      {currency !== "EUR" && (
+                      Σ Bases (EUR): {money(baseSum, baseSum.toFixed(2) + "€")}
+                      {!isNativeCurrency && (
                         <CurrencyBadge currency={currency} originalAmount={parseFloat(originalAmount) || 0} fxRate={parseFloat(fxRate) || 0} className="ml-2" />
                       )}
                     </span>
                     <span className="text-muted-foreground">
-                      + Σ IVA ({pendingIvaSplit.length} taxas): {ivaSum.toFixed(2)}€
+                      + Σ IVA ({pendingIvaSplit.length} taxas): {money(ivaSum, ivaSum.toFixed(2) + "€")}
                     </span>
                     <span className="font-semibold text-foreground">
-                      Total: {totalSum.toFixed(2)}€
+                      Total: {money(totalSum, totalSum.toFixed(2) + "€")}
                     </span>
                   </div>
                 );
@@ -3543,16 +3575,16 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               return (
                 <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 flex items-center justify-between text-xs font-mono">
                   <span className="text-muted-foreground">
-                    Base (EUR): {baseForm.toFixed(2)}€
-                    {currency !== "EUR" && (
+                    Base (EUR): {money(baseForm, baseForm.toFixed(2) + "€")}
+                    {!isNativeCurrency && (
                       <CurrencyBadge currency={currency} originalAmount={parseFloat(originalAmount) || 0} fxRate={parseFloat(fxRate) || 0} className="ml-2" />
                     )}
                   </span>
                   <span className="text-muted-foreground">
-                    + IVA ({form.iva_rate}%): {ivaValue.toFixed(2)}€
+                    + IVA ({form.iva_rate}%): {money(ivaValue, ivaValue.toFixed(2) + "€")}
                   </span>
                   <span className="font-semibold text-foreground">
-                    Total: {total.toFixed(2)}€
+                    Total: {money(total, total.toFixed(2) + "€")}
                   </span>
                 </div>
               );
@@ -3635,20 +3667,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   />
                 </div>
                 <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
-                  <span>Previsto: {forecast.toFixed(2)}€</span>
-                  <span>Utilizado: {used.toFixed(2)}€</span>
-                  <span className={remaining < 0 ? "text-destructive" : "text-success"}>Disponível: {remaining.toFixed(2)}€</span>
+                  <span>Previsto: {money(forecast, forecast.toFixed(2) + "€")}</span>
+                  <span>Utilizado: {money(used, used.toFixed(2) + "€")}</span>
+                  <span className={remaining < 0 ? "text-destructive" : "text-success"}>Disponível: {money(remaining, remaining.toFixed(2) + "€")}</span>
                 </div>
                 {sharedCostSplitActive && (
                   <p className="text-[10px] text-muted-foreground">
-                    A verba é comparada com a <strong>parte da MP</strong> ({newAmount.toFixed(2)} € s/IVA);
+                    A verba é comparada com a <strong>parte da MP</strong> ({money(newAmount, newAmount.toFixed(2) + " €")} s/IVA);
                     a parte de terceiros não consome verba.
                   </p>
                 )}
                 {exceedsForcast && (
                   <p className="flex items-center gap-1.5 text-xs text-warning font-medium pt-1">
                     <AlertTriangle className="h-3.5 w-3.5" />
-                    Valor ultrapassa o disponível em {(newAmount - remaining).toFixed(2)}€
+                    Valor ultrapassa o disponível em {money((newAmount - remaining), (newAmount - remaining).toFixed(2) + "€")}
                   </p>
                 )}
               </div>
@@ -4048,7 +4080,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     {!isSplit && (
                       <div>
                         <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                          Apenas parte da fatura é extra — valor s/ IVA (€)
+                          Apenas parte da fatura é extra — valor s/ IVA ({companyLocale.status === "available" ? companyLocale.symbol : "€"})
                           <HelpTooltip text={`Deixe vazio se a fatura inteira é extra do sócio. Preencha um valor s/IVA menor que o total da fatura: a fatura reparte-se — a despesa do evento fica pelo restante e a parte do sócio vai numa transação irmã transitória vinculada à mesma fatura. A soma das duas continua a valer a fatura inteira.`} size={12} />
                         </label>
                         <input
@@ -4061,8 +4093,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                           disabled={totalAmt <= 0}
                           placeholder={
                             totalAmt > 0
-                              ? `Vazio = fatura inteira (${totalAmt.toFixed(2)} € s/IVA)`
-                              : "Preenche o Valor (€) da fatura primeiro"
+                              ? `Vazio = fatura inteira (${money(totalAmt, totalAmt.toFixed(2) + " €")} s/IVA)`
+                              : `Preenche o Valor (${companyLocale.status === "available" ? companyLocale.symbol : "€"}) da fatura primeiro`
                           }
                           className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed ${
                             partialInvalid
@@ -4072,7 +4104,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                         />
                         {partialInvalid && (
                           <p className="mt-1 text-[10px] text-destructive">
-                            O valor parcial deve ser maior que 0 e menor que o total da fatura ({totalAmt.toFixed(2)} €).
+                            O valor parcial deve ser maior que 0 e menor que o total da fatura ({money(totalAmt, totalAmt.toFixed(2) + " €")}).
                           </p>
                         )}
                         {isPartial && (() => {
@@ -4083,15 +4115,15 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                               <div className="font-medium text-muted-foreground">Como fica a repartição</div>
                               <div className="flex justify-between gap-3">
                                 <span>Despesa do evento</span>
-                                <span className="font-mono">{principalNet.toFixed(2)} € s/IVA · {(principalNet * mult).toFixed(2)} € c/IVA</span>
+                                <span className="font-mono">{money(principalNet, principalNet.toFixed(2) + " €")} s/IVA · {money((principalNet * mult), (principalNet * mult).toFixed(2) + " €")} c/IVA</span>
                               </div>
                               <div className="flex justify-between gap-3">
                                 <span>Extra do sócio</span>
-                                <span className="font-mono">{partialAmt.toFixed(2)} € s/IVA · {(partialAmt * mult).toFixed(2)} € c/IVA</span>
+                                <span className="font-mono">{money(partialAmt, partialAmt.toFixed(2) + " €")} s/IVA · {money((partialAmt * mult), (partialAmt * mult).toFixed(2) + " €")} c/IVA</span>
                               </div>
                               <div className="flex justify-between gap-3 border-t border-border/60 pt-0.5 font-medium">
                                 <span>Total da fatura</span>
-                                <span className="font-mono">{totalAmt.toFixed(2)} € s/IVA · {(totalAmt * mult).toFixed(2)} € c/IVA</span>
+                                <span className="font-mono">{money(totalAmt, totalAmt.toFixed(2) + " €")} s/IVA · {money((totalAmt * mult), (totalAmt * mult).toFixed(2) + " €")} c/IVA</span>
                               </div>
                               <div className="border-t border-border/60 pt-1 text-muted-foreground">
                                 A parte do evento precisa de categoria e linha do BP; a parte do sócio não.
@@ -4103,7 +4135,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     )}
                     <p className="text-[10px] text-muted-foreground">
                       {isPartial
-                        ? `🧳 A fatura reparte-se: ${(totalAmt - partialAmt).toFixed(2)} € ficam como despesa do evento (DRE/BP) e ${partialAmt.toFixed(2)} € vão para o sócio numa transação irmã transitória. A soma continua a valer ${totalAmt.toFixed(2)} €.`
+                        ? `🧳 A fatura reparte-se: ${money((totalAmt - partialAmt), (totalAmt - partialAmt).toFixed(2) + " €")} ficam como despesa do evento (DRE/BP) e ${money(partialAmt, partialAmt.toFixed(2) + " €")} vão para o sócio numa transação irmã transitória. A soma continua a valer ${money(totalAmt, totalAmt.toFixed(2) + " €")}.`
                         : "🧳 Despesa paga pela empresa, descontada do sócio no fecho. Marcada como transitória — não entra no DRE nem consome BP."}
                     </p>
                   </div>
@@ -4239,7 +4271,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   />
                   <span className="font-medium">Pagar em parcelas</span>
                   <span className="text-xs text-muted-foreground">
-                    (1 transação fiscal · N pagamentos planeados; total = {grossTotal.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })})
+                    (1 transação fiscal · N pagamentos planeados; total = {money(grossTotal, grossTotal.toLocaleString("pt-PT", { style: "currency", currency: "EUR" }))})
                   </span>
                 </label>
                 {useInstallments && (
@@ -4252,7 +4284,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                         <ul className="space-y-0.5">
                           {existingInstallmentsFound.map((r) => (
                             <li key={r.id} className="font-mono">
-                              {r.description} — {r.amount.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                              {r.description} — {money(r.amount, r.amount.toLocaleString("pt-PT", { style: "currency", currency: "EUR" }))}
                               {r.due_date ? ` — venc. ${r.due_date}` : ""} — {r.status}
                             </li>
                           ))}
@@ -4403,7 +4435,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           setForm((f) => ({ ...f, amount: String(baseNet), iva_rate: rate }));
           toast({
             title: "IVA médio aplicado",
-            description: `1 transação a ${rate}% sobre base ${baseNet.toFixed(2)}€${attach && fileToAttach ? " — fatura será anexada" : ""}. Verifica e guarda.`,
+            description: `1 transação a ${rate}% sobre base ${money(baseNet, baseNet.toFixed(2) + "€")}${attach && fileToAttach ? " — fatura será anexada" : ""}. Verifica e guarda.`,
           });
         }}
       />

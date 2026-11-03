@@ -133,3 +133,33 @@ describe("#468 production BP → TX bulk mutation", () => {
     expect(source).toContain('!(transactions ?? []).some((t: any) => t.forecast_id === f.id)');
   });
 });
+
+describe("#498 P2c native BP currency metadata", () => {
+  it.each(["EUR", "BRL", "USD", "GBP"] as const)("accepts %s as the explicit company currency without FX", currency => {
+    const native = line({ amount: 1000, currency, original_amount: null, fx_rate: null, fx_rate_source: null });
+    expect(bpTxCurrencyMetadata(native, currency)).toEqual({ currency, original_amount: null, fx_rate: null, fx_rate_source: null });
+    expect(bpTxCurrencyMetadata({ ...native, currency: undefined }, currency)).toEqual({ currency, original_amount: null, fx_rate: null, fx_rate_source: null });
+    expect(native.amount).toBe(1000);
+  });
+
+  it.each(["BRL", "USD", "GBP"] as const)("retains PT/EUR FX validation for %s", currency => {
+    const foreign = line({ currency, original_amount: null, fx_rate: null, fx_rate_source: null });
+    expect(() => bpTxCurrencyMetadata(foreign, "EUR")).toThrow("original_amount");
+    expect(() => bpTxCurrencyMetadata({ ...foreign, original_amount: 1000 }, "EUR")).toThrow("fx_rate");
+  });
+
+  it("requires FX for a different currency even when the company uses BRL", () => {
+    expect(() => bpTxCurrencyMetadata(line({ currency: "EUR", original_amount: null }), "BRL")).toThrow("original_amount");
+    expect(() => bpTxCurrencyMetadata(line({ currency: "USD", fx_rate: null }), "BRL")).toThrow("fx_rate");
+    expect(bpTxCurrencyMetadata(line({ currency: "USD" }), "BRL")).toEqual({ currency: "USD", original_amount: 100.01, fx_rate: 0.17, fx_rate_source: "manual" });
+  });
+
+  it("keeps legacy map callers in EUR for every array index", () => {
+    const native = line({ currency: "EUR", original_amount: null, fx_rate: null, fx_rate_source: null });
+    expect([native, native, native].map(bpTxCurrencyMetadata)).toEqual(Array(3).fill({ currency: "EUR", original_amount: null, fx_rate: null, fx_rate_source: null }));
+  });
+
+  it.each([{ amount: NaN }, { original_amount: "" }, { fx_rate: 0 }, { currency: "brl" }, { currency: null }])("rejects invalid metadata in BR without reconstructing it: %j", invalid => {
+    expect(() => bpTxCurrencyMetadata(line(invalid), "BRL")).toThrow();
+  });
+});
