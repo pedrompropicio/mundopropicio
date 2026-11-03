@@ -1,3 +1,4 @@
+import { companyPaymentMethods, type CompanyLocaleResult } from "./company-locale";
 import { Building, FileText, Landmark, Repeat, Scale, type LucideIcon } from "lucide-react";
 
 /**
@@ -22,7 +23,9 @@ export const PAYMENT_METHODS = [
   "compensation",
 ] as const;
 
-export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+// Legacy installed/edge domain stays frozen until its separate R2 publication.
+export const BR_PAYMENT_METHODS = ["pix", "boleto", "transfer", "direct_debit", "compensation"] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number] | (typeof BR_PAYMENT_METHODS)[number];
 
 /** Acesso nomeado aos valores, para não repetir literais no código. */
 export const PAYMENT_METHOD = {
@@ -31,6 +34,8 @@ export const PAYMENT_METHOD = {
   direct_debit: "direct_debit",
   state_payment: "state_payment",
   compensation: "compensation",
+  pix: "pix",
+  boleto: "boleto",
 } as const satisfies Record<PaymentMethod, PaymentMethod>;
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -39,6 +44,8 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   direct_debit: "Débito Direto",
   state_payment: "Pag. Estado",
   compensation: "Compensação",
+  pix: "Pix",
+  boleto: "Boleto",
 };
 
 export const PAYMENT_METHOD_ICONS: Record<PaymentMethod, LucideIcon> = {
@@ -47,6 +54,8 @@ export const PAYMENT_METHOD_ICONS: Record<PaymentMethod, LucideIcon> = {
   direct_debit: Repeat,
   state_payment: Landmark,
   compensation: Scale,
+  pix: Landmark,
+  boleto: FileText,
 };
 
 /**
@@ -84,16 +93,21 @@ export function isServicePaymentCheckViolation(err: unknown): boolean {
 
 /** Mensagem a mostrar: troca o erro técnico do CHECK pela frase do domínio. */
 export function friendlyPaymentError(err: unknown): string {
+  if (String((err as { message?: string } | null)?.message).includes(BOLETO_CHECK_CONSTRAINT)) return BOLETO_FIELDS_MESSAGE;
   if (isServicePaymentCheckViolation(err)) return SERVICE_PAYMENT_FIELDS_MESSAGE;
   return (err as { message?: string } | null)?.message ?? "Erro desconhecido";
 }
 
 export function isPaymentMethod(value: unknown): value is PaymentMethod {
-  return typeof value === "string" && (PAYMENT_METHODS as readonly string[]).includes(value);
+  return typeof value === "string" && ([...PAYMENT_METHODS, ...BR_PAYMENT_METHODS] as readonly string[]).includes(value);
 }
 
 /** Rótulo em pt-PT; devolve a string crua se vier valor fora do domínio. */
-export function paymentMethodLabel(value?: string | null): string {
+export function paymentMethodLabel(value?: string | null, context?: CompanyLocaleResult): string {
+  if (context && companyPaymentMethods(context) === "br") {
+    if (value === "transfer") return "Transferência (TED)";
+    if (value === "direct_debit") return "Débito automático";
+  }
   if (!value) return "—";
   return isPaymentMethod(value) ? PAYMENT_METHOD_LABELS[value] : value;
 }
@@ -107,8 +121,8 @@ export interface PaymentMethodOption {
   icon: LucideIcon;
 }
 
-function option(value: PaymentMethod): PaymentMethodOption {
-  return { value, label: PAYMENT_METHOD_LABELS[value], icon: PAYMENT_METHOD_ICONS[value] };
+function option(value: PaymentMethod, context?: CompanyLocaleResult): PaymentMethodOption {
+  return { value, label: paymentMethodLabel(value, context), icon: PAYMENT_METHOD_ICONS[value] };
 }
 
 /**
@@ -117,9 +131,17 @@ function option(value: PaymentMethod): PaymentMethodOption {
  * `compensation` só é oferecida onde for explicitamente pedida (liquidação).
  */
 export function paymentMethodOptions(opts?: {
+  context?: CompanyLocaleResult;
   includeStatePayment?: boolean;
   includeCompensation?: boolean;
 }): PaymentMethodOption[] {
+  const policy = opts?.context ? companyPaymentMethods(opts.context) : "pt";
+  if (policy === "unavailable") return [];
+  if (policy === "br") {
+    const values: PaymentMethod[] = ["pix", "boleto", "transfer", "direct_debit"];
+    if (opts?.includeCompensation) values.push("compensation");
+    return values.map(value => option(value, opts?.context));
+  }
   const list: PaymentMethodOption[] = [
     option("transfer"),
     option("service_payment"),
@@ -128,4 +150,19 @@ export function paymentMethodOptions(opts?: {
   if (opts?.includeStatePayment) list.push(option("state_payment"));
   if (opts?.includeCompensation) list.push(option("compensation"));
   return list;
+}
+
+export const BOLETO_REFERENCE_PATTERN = /^\d{47,48}(?![\s\S])/;
+export const BOLETO_CHECK_CONSTRAINT = "transactions_boleto_requires_linha";
+export const BOLETO_FIELDS_MESSAGE = "Boleto exige linha digitável de 47 ou 48 dígitos";
+
+export function validatePaymentMethodFields(input: {
+  payment_method?: string | null;
+  payment_entity?: string | null;
+  payment_reference?: string | null;
+}): string | null {
+  if (input.payment_method === PAYMENT_METHOD.boleto) {
+    return BOLETO_REFERENCE_PATTERN.test(input.payment_reference ?? "") ? null : BOLETO_FIELDS_MESSAGE;
+  }
+  return validateServicePaymentFields(input);
 }

@@ -1,5 +1,7 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { BR_BANK_FIELDS, BrBankFields, readBrBankSlots, loadOptionalSupplierBrData, type BrBankDetails } from "@/components/SupplierBankDetails";
 import { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogPortal, DialogOverlay } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -58,6 +60,19 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const queryClient = useQueryClient();
   const { user, role } = useAuth() as any;
   const isEditing = !!editingSupplier;
+  const companyLocale = useCompanyLocale();
+  const isBR = companyLocale.status === "available" && companyLocale.locale === "pt-BR";
+  const [brBanks, setBrBanks] = useState<BrBankDetails[]>([{}, {}, {}]);
+  const { data: brData } = useQuery({
+    queryKey: ["supplier-br-details", companyLocale.companyId, editingSupplier?.id, role],
+    enabled: open && isBR && !!companyLocale.companyId,
+    queryFn: () => loadOptionalSupplierBrData(editingSupplier?.id),
+    refetchOnWindowFocus: false,
+  });
+  const brColumnsReady = brData?.available === true;
+  const brSource = brData?.details ?? editingSupplier;
+  const occupiedForeignSlots = new Set<number>((Array.isArray(brSource?.foreign_bank_accounts) ? brSource.foreign_bank_accounts : [])
+    .filter((bank: any) => bank && bank.account_type !== "br_banco_agencia_conta").map((bank: any) => bank.slot));
   const [iban1, setIban1] = useState<string>(editingSupplier?.iban ?? "");
   const [iban2, setIban2] = useState<string>(editingSupplier?.iban_2 ?? "");
   const [iban3, setIban3] = useState<string>(editingSupplier?.iban_3 ?? "");
@@ -69,10 +84,12 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   // valor certo já no primeiro render visível.
   useEffect(() => {
     if (!open) return;
+    const slots = readBrBankSlots(brSource?.foreign_bank_accounts);
+    setBrBanks([1, 2, 3].map(slot => slots.find(bank => bank.slot === slot) ?? {}));
     setIban1(editingSupplier?.iban ?? "");
     setIban2(editingSupplier?.iban_2 ?? "");
     setIban3(editingSupplier?.iban_3 ?? "");
-  }, [open, editingSupplier]);
+  }, [open, editingSupplier, brData]);
 
   const createMutation = useMutation({
     mutationFn: async (supplier: Record<string, any>) => {
@@ -116,12 +133,13 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const updateMutation = useMutation({
     mutationFn: async (supplier: Record<string, any>) => {
       // Track IBAN/SWIFT changes for audit
-      const bankFields = ["iban", "swift_bic", "iban_2", "swift_bic_2", "iban_3", "swift_bic_3"];
+      const bankFields = ["foreign_bank_accounts", "iban", "swift_bic", "iban_2", "swift_bic_2", "iban_3", "swift_bic_3"];
       const changedBankFields: Record<string, { old: any; new: any }> = {};
       for (const field of bankFields) {
         const oldVal = editingSupplier?.[field] ?? null;
+        if (!(field in supplier)) continue;
         const newVal = supplier[field] ?? null;
-        if (oldVal !== newVal) {
+        if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
           changedBankFields[field] = { old: oldVal, new: newVal };
         }
       }
@@ -213,7 +231,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const raw = {
+    const raw: Record<string, any> = {
       name: fd.get("name") as string,
       trade_name: (fd.get("trade_name") as string) || null,
       nif: (fd.get("nif") as string) || null,
@@ -232,6 +250,27 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       notes: (fd.get("notes") as string) || null,
       is_partner: fd.get("is_partner") === "on",
     };
+    if (isBR) {
+      // The fiscal identifier is read-only here until the separate #403b editor work.
+      raw.nif = editingSupplier?.nif ?? null;
+      for (const field of ["iban", "iban_2", "iban_3", "swift_bic", "swift_bic_2", "swift_bic_3"]) {
+        raw[field] = editingSupplier?.[field] ?? null;
+      }
+      if (brColumnsReady) {
+        const existing = Array.isArray(brSource?.foreign_bank_accounts) ? brSource.foreign_bank_accounts : [];
+        const brSlots = brBanks.flatMap((bank, i) => {
+          if (occupiedForeignSlots.has(i + 1)) return [];
+          const details = { ...bank };
+          for (const [key] of BR_BANK_FIELDS) {
+            if (typeof details[key] === "string") details[key] = details[key]!.trim();
+          }
+          return Object.entries(details).some(([key, value]) => !["slot", "account_type"].includes(key) && !!value)
+            ? [{ ...details, slot: i + 1, account_type: "br_banco_agencia_conta" }] : [];
+        });
+        // Preserve other account types and metadata; only the three BR slots are edited.
+        raw.foreign_bank_accounts = [...existing.filter((bank: any) => !readBrBankSlots([bank]).length), ...brSlots];
+      }
+    }
     const result = validateForm(supplierSchema, raw);
     if (result.success === false) {
       setValidationErrors(result.errors);
@@ -249,7 +288,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       { key: "iban_3", label: "IBAN 3", value: raw.iban_3 },
     ];
 
-    for (const f of ibanFields) {
+    for (const f of isBR ? [] : ibanFields) {
       if (!f.value) continue;
       // MOD-97 só para valores com forma de IBAN; não-IBAN (ABA, BR, …) passa sem bloqueio
       if (blocksSubmit(classifyBankAccountValue(f.value))) {
@@ -398,8 +437,8 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="sup-nif">NIF</Label>
-              <Input id="sup-nif" name="nif" defaultValue={s?.nif ?? ""} />
+              <Label htmlFor="sup-nif">{isBR ? (brSource?.tax_id_type?.toUpperCase() || "CNPJ") : "NIF"}</Label>
+              {isBR ? <Input id="sup-nif" disabled value={brSource?.tax_id_foreign ?? ""} /> : <Input id="sup-nif" name="nif" defaultValue={s?.nif ?? ""} />}
             </div>
             {!defaultIsPartner && (
               <div className="grid gap-2">
@@ -439,7 +478,16 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
             <Label htmlFor="sup-address">Morada</Label>
             <Input id="sup-address" name="address" defaultValue={s?.address ?? ""} />
           </div>
-          <div className="space-y-3">
+          {isBR ? <div className="space-y-3">
+            <p className="text-xs font-medium text-muted-foreground">Dados Bancários (até 3 contas)</p>
+            {!brColumnsReady && <p className="text-xs text-muted-foreground">Dados bancários indisponíveis para edição.</p>}
+            {brBanks.map((bank, i) => <div key={i} className="space-y-2">
+              <p className="text-xs font-medium">Conta bancária {i + 1}</p>
+              {occupiedForeignSlots.has(i + 1) && <p className="text-xs text-muted-foreground">Esta conta usa outro formato bancário.</p>}
+              <BrBankFields prefix={`sup-br-${i}`} value={bank} disabled={!brColumnsReady || occupiedForeignSlots.has(i + 1)}
+                onChange={value => setBrBanks(previous => previous.map((item, index) => index === i ? value : item))} />
+            </div>)}
+          </div> : <div className="space-y-3">
             <p className="text-xs font-medium text-muted-foreground">Dados Bancários (até 3 IBANs)</p>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
@@ -474,7 +522,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
                 <Input id="sup-swift-3" name="swift_bic_3" placeholder="ex: CGDIPTPL" defaultValue={s?.swift_bic_3 ?? ""} />
               </div>
             </div>
-          </div>
+          </div>}
           <div className="grid gap-2">
             <Label htmlFor="sup-notes">Notas</Label>
             <Textarea id="sup-notes" name="notes" rows={2} defaultValue={s?.notes ?? ""} />

@@ -66,7 +66,7 @@ import InvoiceGroupSuggestDialog, { type InvoiceGroupSuggestion } from "@/compon
 
 import {
   paymentMethodOptions,
-  validateServicePaymentFields,
+  validatePaymentMethodFields,
   friendlyPaymentError,
   type PaymentMethod,
 } from "@/lib/payment-methods";
@@ -222,7 +222,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
    * Fonte única em `src/lib/payment-methods.ts`, espelhada no CHECK
    * `transactions_service_payment_requires_mb`. Bloqueia o botão de guardar.
    */
-  const servicePaymentError = validateServicePaymentFields({
+  const servicePaymentError = validatePaymentMethodFields({
     payment_method: form.payment_method,
     payment_entity: form.payment_entity,
     payment_reference: form.payment_reference,
@@ -1311,6 +1311,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
+      if (data.payment_method === "boleto") {
+        const paymentError = validatePaymentMethodFields(data);
+        if (paymentError) throw new Error(paymentError);
+      }
       // P2f owns installments; preserve their legacy writer and validation.
       if (!useInstallments) {
         if (companyLocale.status !== "available") throw new Error(companyLocale.message);
@@ -4160,7 +4164,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           {form.type === "expense" && !isPaidByPartner && (() => {
             const selectedCat = categories.find((c: any) => c.id === form.category_id);
             const isStateCategory = selectedCat?.code?.startsWith("10.4") || selectedCat?.code?.startsWith("10.5");
-            const methods = paymentMethodOptions({ includeStatePayment: isStateCategory });
+            const methods = paymentMethodOptions({ context: companyLocale, includeStatePayment: isStateCategory });
             return (
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
@@ -4187,6 +4191,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             );
           })()}
 
+          {form.type === "expense" && !isPaidByPartner && (form.payment_method === "boleto" || form.payment_method === "pix") && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">{form.payment_method === "boleto" ? "Linha digitável *" : "Chave Pix"}</label>
+              <input type="text" value={form.payment_reference}
+                inputMode={form.payment_method === "boleto" ? "numeric" : "text"}
+                onChange={(e) => setForm({ ...form, payment_reference: e.target.value })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                aria-invalid={!!servicePaymentError} />
+              {servicePaymentError && <p className="mt-1 text-xs text-destructive">{servicePaymentError}</p>}
+            </div>
+          )}
           {form.type === "expense" && !isPaidByPartner && form.payment_method === "service_payment" && (
             <div className="grid grid-cols-2 gap-2">
               <div>

@@ -1,3 +1,4 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { useState, useEffect } from "react";
 import { mustWrite } from "@/lib/must-write";
 import { fetchKnownBankDate } from "@/lib/bank-link-date";
@@ -28,7 +29,8 @@ import {
 
 
 import {
-  PAYMENT_METHOD_LABELS,
+  paymentMethodLabel,
+  validatePaymentMethodFields,
   paymentMethodOptions,
   type PaymentMethod,
 } from "@/lib/payment-methods";
@@ -95,6 +97,7 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
   const [loadingFx, setLoadingFx] = useState(false);
   const { user, isAdmin, isManager } = useAuth();
   const queryClient = useQueryClient();
+  const companyLocale = useCompanyLocale();
 
   // ===== "Pago pelo Sócio" (forma de pagamento alternativa) =====
   // Não é caixa da empresa: cria o vínculo em partner_paid_expenses.
@@ -273,6 +276,7 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
 
   const paymentMutation = useMutation({
     mutationFn: async () => {
+      if (companyLocale.status !== "available") throw new Error(companyLocale.message);
       // Guarda: reembolsos só podem ser liquidados via Nota de Reembolso
       if (transaction.is_reimbursement) {
         throw new Error("Esta transação é um reembolso. Liquide-a através da respetiva Nota de Reembolso.");
@@ -336,6 +340,10 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
       if (!addAmount || addAmount <= 0) throw new Error("Insira um valor válido");
       if (!isCompensation && !accountId && totalCreditApplied < addAmount) throw new Error("Selecione a conta");
       if (paymentMethod === "service_payment" && (!paymentEntity.trim() || !paymentReference.trim())) throw new Error("Preencha Entidade e Referência");
+      if (paymentMethod === "boleto") {
+        const methodError = validatePaymentMethodFields({ payment_method: paymentMethod, payment_reference: paymentReference });
+        if (methodError) throw new Error(methodError);
+      }
       if (paymentMethod === "state_payment" && !paymentReference.trim()) throw new Error("Preencha a Referência de Pagamento");
       const withholding = parseFloat(withholdingAmount) || 0;
       if (withholding < 0) throw new Error("O valor de retenção não pode ser negativo");
@@ -469,7 +477,7 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
       }
       if (invoiceRef.trim()) updateData.invoice_ref = invoiceRef.trim();
       if (paymentMethod !== "transfer") {
-        const methodLabel = PAYMENT_METHOD_LABELS[paymentMethod];
+        const methodLabel = paymentMethodLabel(paymentMethod, companyLocale);
         const refInfo = paymentMethod === "service_payment"
           ? `Ent: ${paymentEntity.trim()} / Ref: ${paymentReference.trim()}`
           : paymentMethod === "direct_debit"
@@ -958,6 +966,9 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
             <div className={cn("grid gap-1.5", isStateCategory ? "grid-cols-3" : "grid-cols-2")}>
               {paymentMethodOptions({
+                // Keep the installed labels visible while the active company resolves.
+                // The payment writer below requires the resolved context.
+                context: companyLocale.status === "available" ? companyLocale : undefined,
                 includeStatePayment: isStateCategory,
                 includeCompensation: true,
               }).map((m) => (
@@ -1001,6 +1012,15 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
               com pontos ("120.331.478"). Noutros métodos `payment_reference` é
               também onde vivem as chaves de agrupamento
               (ACERTO-FOOD-IVETE-2026, CAMARIM-<id>): filtrar aí destruía-as. */}
+          {(paymentMethod === "boleto" || paymentMethod === "pix") && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">{paymentMethod === "boleto" ? "Linha digitável *" : "Chave Pix"}</label>
+              <input type="text" value={paymentReference}
+                inputMode={paymentMethod === "boleto" ? "numeric" : "text"}
+                onChange={(e) => setPaymentReference(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+            </div>
+          )}
           {paymentMethod === "service_payment" && (
             <div className="grid grid-cols-2 gap-2">
               <div>

@@ -76,6 +76,11 @@ export function resolveCompanyLocale(company: CompanyLocaleInput): CompanyLocale
   };
 }
 
+/** Payment capability kept separate so the frozen PT locale object stays identical. */
+export function companyPaymentMethods(ctx: CompanyLocaleResult): "pt" | "br" | "unavailable" {
+  return ctx.status === "available" ? (ctx.locale === "pt-BR" ? "br" : "pt") : "unavailable";
+}
+
 /** Explicit company context; PT/EUR preserves the BP's legacy decimal format. */
 export function formatMoney(
   amount: number | null | undefined,

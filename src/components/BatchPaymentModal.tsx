@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { paymentMethodLabel, validatePaymentMethodFields } from "@/lib/payment-methods";
 import { useState, useMemo, useEffect } from "react";
 import { mustWrite } from "@/lib/must-write";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
@@ -44,6 +46,7 @@ interface Props {
 }
 
 export function BatchPaymentModal({ transactions: allTransactions, onClose, initialInvoiceRef = "", initialPaymentDate, bankAccountsOnly = false, paymentListId }: Props) {
+  const companyLocale = useCompanyLocale();
   // ===== #281 — Lote SEPA vs outro canal =====
   // Só as linhas que viajaram no ficheiro SEPA saíram do banco no lote. As outras
   // (Pag. Serviços, Estado, Débito Direto, transferência fora do lote) pagam-se
@@ -87,6 +90,7 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
   const otherChosenCount = otherChannelTxs.filter((t) => otherChosen.has(t.id)).length;
   const otherChannelMethodLabel = (t: any): string => {
     const m = t.payment_method ?? "transfer";
+    if (companyLocale.status === "available" && companyLocale.locale === "pt-BR") return paymentMethodLabel(m, companyLocale);
     if (m === "service_payment") return "Pagamento de Serviços";
     if (m === "state_payment") return "Pagamento ao Estado";
     if (m === "direct_debit") return "Débito Direto";
@@ -304,6 +308,11 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
 
   const paymentMutation = useMutation({
     mutationFn: async () => {
+      for (const transaction of transactions) {
+        if (transaction.payment_method !== "boleto") continue;
+        const error = validatePaymentMethodFields(transaction);
+        if (error) throw new Error(error);
+      }
       // Guarda: só as LINHAS DE DESPESA de uma nota (is_reimbursement real na BD) são
       // bloqueadas. Uma transação que PAGA uma nota (is_reimbursement_payment, flag só de UI)
       // liquida-se normalmente.
