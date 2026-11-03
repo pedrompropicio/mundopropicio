@@ -6598,3 +6598,11 @@ Origem: 0 · Cowork (Claude), 31/10/2026.
 - Entrega parcial segura aceite para revisão, com lacunas numeradas e merge automático desligado. D2/D3 recebem as assinaturas efetivamente entregues e revistas de D1. Novo SQL e provas PostgreSQL ficam apenas preparados em D1; testes PGlite preexistentes continuam permitidos. Aplicação, deploy, Publish e saneamento histórico exigem autorizações próprias.
 - Validade e reserva são renovadas explicitamente no despacho, nunca automaticamente. Garantias de concorrência e interação com writers externos continuam critérios de promoção; locks exclusivos Ads não provam cobertura global.
 - Fontes: #486, comentário [6584570653](https://github.com/pedrompropicio/mundopropicio/issues/486#issuecomment-6584570653), e [#489](https://github.com/pedrompropicio/mundopropicio/issues/489). Simulações locais do workflow estão registadas na #489; não provam produtividade futura nem tratamento completo de cancelamentos anteriores à recolha.
+
+## D-ERP353 — Abertura da Early Bird do Coala por dados (03/11/2026, Pedro, «Sim» de 02/11 no 0 · Cowork Claude; Issue #359)
+
+- A Early Bird 2027 abriu a 03/11/2026 12:01 UTC por DML em public.portal_settings (Coala), sem DDL: early_bird.fever_url = https://feverup.com/m/826449 e early_bird.state = "aberta". Publish do portal feito pelo Pedro a 02/11 (commits f3c1abbd e e5c912d3).
+- early_bird.signup mantém-se "encerrada" de propósito: com state=aberta os formulários não aparecem e a Alumni continua dependente desta chave. Substitui a parte da D-ERP336 que mandava apagar a chave na abertura.
+- Venda geral a 10/11/2026, pública (early_bird.general_sale_date = 2026-11-10). Substitui «vendas gerais 01/12/2026, interna, não divulgar».
+- Sem preço no portal: early_bird.price_label = "".
+- O envio do aviso de abertura continua da Fever (D-ERP337); o dry run de 03/11 do coala_send_eb_open_alert não se aplica.
