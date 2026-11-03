@@ -8,7 +8,9 @@
  */
 import { Fragment, useState } from "react";
 import { ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { formatDatePT } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { buildCounterpartyPositions } from "@/lib/circuit-account";
@@ -22,6 +24,13 @@ interface Props {
 }
 
 export function CircuitPositionPanel({ lines, openingBalance, position }: Props) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+
   const [expanded, setExpanded] = useState<string | null>(null);
   const rows = buildCounterpartyPositions(lines);
   const sumRows = rows.reduce((s, r) => s + r.position, 0);

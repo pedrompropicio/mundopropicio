@@ -28,7 +28,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { formatDate, formatCurrency } from "@/lib/mock-data";
+import { formatDate, formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { BookOpen, FileText, Loader2, Trash2, Upload } from "lucide-react";
 
 interface Props {
@@ -58,6 +60,13 @@ async function fetchLinkedTxIds(lineId: string): Promise<string[]> {
 }
 
 export default function BankLineDocumentsDialog({ line, onClose }: Props) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+
   const queryClient = useQueryClient();
   const { user, isAdmin, isManager } = useAuth();
   const canDelete = isAdmin || isManager;
