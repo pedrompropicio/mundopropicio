@@ -7,11 +7,14 @@ import {
   convertToEur,
   fetchSuggestedFxRate,
   formatInCurrency,
+  getCurrencyMeta,
 } from "@/lib/currency";
 
 interface Props {
   /** Currency selected. */
   currency: CurrencyCode;
+  /** Native company currency; omitted by legacy EUR consumers. */
+  companyCurrency?: CurrencyCode;
   onCurrencyChange: (c: CurrencyCode) => void;
   /** Amount in the original currency (string for input control). */
   originalAmount: string;
@@ -22,8 +25,8 @@ interface Props {
   /** Source label persisted with the row. */
   onFxRateSourceChange?: (s: "manual" | "suggested") => void;
   /**
-   * Called whenever the EUR amount changes (auto-derived from original × rate).
-   * Use this to sync the canonical EUR `amount` field stored in DB.
+   * Syncs the canonical amount: native input passes through unchanged; foreign
+   * currency retains the legacy original × EUR rate conversion.
    */
   onEurAmountChange: (eur: number) => void;
   label?: string;
@@ -35,6 +38,7 @@ const inputClass =
 
 export function CurrencyAmountInput({
   currency,
+  companyCurrency = "EUR",
   onCurrencyChange,
   originalAmount,
   onOriginalAmountChange,
@@ -47,25 +51,25 @@ export function CurrencyAmountInput({
 }: Props) {
   const [loadingRate, setLoadingRate] = useState(false);
 
-  const isEur = currency === "EUR";
+  const isNative = currency === companyCurrency;
   const numAmount = parseFloat(originalAmount) || 0;
-  const numRate = isEur ? 1 : parseFloat(fxRate) || 0;
-  const eur = isEur ? numAmount : convertToEur(numAmount, numRate);
+  const numRate = parseFloat(fxRate) || 0;
+  const eur = isNative ? numAmount : convertToEur(numAmount, numRate);
 
-  // Sync canonical EUR amount up to parent
+  // Preserve the callback name for legacy consumers.
   useEffect(() => {
     onEurAmountChange(eur);
   }, [eur]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When switching to EUR, clear fx fields
+  // Native amounts carry no FX rate.
   useEffect(() => {
-    if (isEur) {
+    if (isNative) {
       if (fxRate !== "") onFxRateChange("");
     }
-  }, [isEur]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isNative]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleFetchRate() {
-    if (isEur) return;
+    if (isNative) return;
     setLoadingRate(true);
     const r = await fetchSuggestedFxRate(currency, supabase);
     setLoadingRate(false);
@@ -80,7 +84,7 @@ export function CurrencyAmountInput({
       <div className="grid grid-cols-[1fr_auto] gap-2">
         <div>
           <label className="mb-1 block text-xs font-medium text-muted-foreground">
-            {label} {!isEur && `(${currency})`}
+            {label} {!isNative ? `(${currency})` : companyCurrency !== "EUR" ? `(${getCurrencyMeta(currency).symbol})` : ""}
           </label>
           <input
             type="number"
@@ -109,7 +113,7 @@ export function CurrencyAmountInput({
         </div>
       </div>
 
-      {!isEur && (
+      {!isNative && (
         <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
           <div className="flex items-end gap-2">
             <div className="flex-1">
