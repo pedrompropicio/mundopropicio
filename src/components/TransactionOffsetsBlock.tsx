@@ -6,7 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { Link2, Trash2 } from "lucide-react";
 import {
   createOffset,
@@ -39,6 +41,12 @@ const openOf = (t: any) => Math.max(0, Math.round((gross(t) - Number(t.paid_amou
 
 /** Bloco "Compensação" do modal da transação (compensação ligada, 28/09/2026). */
 export function TransactionOffsetsBlock({ transaction, canEdit }: Props) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const { toast } = useToast();
   const invalidate = useOffsetsInvalidate();
   const { data: all } = useAllTransactionOffsets();
@@ -77,7 +85,7 @@ export function TransactionOffsetsBlock({ transaction, canEdit }: Props) {
         label: t.description ?? "(sem descrição)",
         description: `${t.invoice_ref ? t.invoice_ref + " · " : ""}em aberto ${formatCurrency(openOf(t))}`,
       })),
-    [candidates],
+    [candidates, formatCurrency],
   );
 
   const myOpen = openOf(transaction);
@@ -212,6 +220,12 @@ export function TransactionOffsetsBlock({ transaction, canEdit }: Props) {
 
 /** Nota para a linha de uma despesa/receita com ligação, na lista de pagamento e no lote. */
 export function OffsetLineNote({ txId }: { txId: string }) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const { data: all } = useAllTransactionOffsets();
   const offsets = offsetsFor(all, txId);
   if (!offsets.length) return null;

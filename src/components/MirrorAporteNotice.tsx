@@ -4,7 +4,9 @@
  * (rubrica 10.1.01) de igual valor para esse sócio.
  */
 import { AlertTriangle } from "lucide-react";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { useMirrorPartnerAccounts } from "@/lib/mirror-partner-account";
 
 interface Props {
@@ -15,6 +17,12 @@ interface Props {
 }
 
 export function MirrorAporteNotice({ accountId, amount, className }: Props) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const { data: mirrors } = useMirrorPartnerAccounts();
   const mirror = accountId ? mirrors?.[accountId] : undefined;
   if (!mirror) return null;
