@@ -6598,3 +6598,8 @@ Origem: 0 · Cowork (Claude), 31/10/2026.
 - Entrega parcial segura aceite para revisão, com lacunas numeradas e merge automático desligado. D2/D3 recebem as assinaturas efetivamente entregues e revistas de D1. Novo SQL e provas PostgreSQL ficam apenas preparados em D1; testes PGlite preexistentes continuam permitidos. Aplicação, deploy, Publish e saneamento histórico exigem autorizações próprias.
 - Validade e reserva são renovadas explicitamente no despacho, nunca automaticamente. Garantias de concorrência e interação com writers externos continuam critérios de promoção; locks exclusivos Ads não provam cobertura global.
 - Fontes: #486, comentário [6584570653](https://github.com/pedrompropicio/mundopropicio/issues/486#issuecomment-6584570653), e [#489](https://github.com/pedrompropicio/mundopropicio/issues/489). Simulações locais do workflow estão registadas na #489; não provam produtividade futura nem tratamento completo de cancelamentos anteriores à recolha.
+
+
+## #593 — Plano de categorias da Social Music (03/11/2026, Pedro)
+
+Pedro aprovou o PDF de proposta e determinou aplicar diretamente as oito inclusões no cadastro da Social Music. Mantém-se o conceito: categoria = natureza económica; detalhe contratado = BP/especificação; artista, conta e pagamento em campos próprios. Inclusões listadas no estado Financeiro e em docs/testes/issue593-categorias-social-music.md. A taxa de antecipação é financeira para EBITDA. Não alterar categorias existentes ou o plano de outras empresas. Aplicação e SELECT próprio concluídos; sem alteração de código/DDL/Publish. Fonte: autorização expressa nesta sessão e Issue #593.
