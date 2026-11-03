@@ -6,7 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2, X, Music, Percent, DollarSign, ChevronDown, ChevronUp, Info, Lock, Unlock, Building2, Layers } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { formatMoney } from "@/lib/company-locale";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { Checkbox } from "@/components/ui/checkbox";
 import CachePercentageField from "@/components/CachePercentageField";
 import { Link } from "react-router-dom";
@@ -161,6 +163,13 @@ function TierAddForm({ onAdd }: { onAdd: (threshold: number, pct: number) => voi
 }
 
 function EventCacheConfigInner({ eventId, childEventIds, eventStatus, cityViewOf }: Props) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+  const currencySymbol = companyLocale.status === "available" ? companyLocale.symbol : "—";
   const { isAdmin, isManager } = useAuth();
   const queryClient = useQueryClient();
   const isEventLocked = eventStatus === "completed";
@@ -736,7 +745,7 @@ function EventCacheConfigInner({ eventId, childEventIds, eventStatus, cityViewOf
           {/* Row 2: Values based on type */}
           {cacheType === "fixed" ? (
             <div className="max-w-[200px]">
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor do Cachê (€)</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor do Cachê ({currencySymbol})</label>
               <input
                 type="number"
                 step="1"
@@ -764,7 +773,7 @@ function EventCacheConfigInner({ eventId, childEventIds, eventStatus, cityViewOf
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Mín. Garantido (€)</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Mín. Garantido ({currencySymbol})</label>
                   <input
                     type="number"
                     step="1"
@@ -1015,7 +1024,7 @@ function EventCacheConfigInner({ eventId, childEventIds, eventStatus, cityViewOf
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <label className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
-                          <DollarSign className="h-3 w-3" /> Mínimo Garantido (€)
+                          <DollarSign className="h-3 w-3" /> Mínimo Garantido ({currencySymbol})
                         </label>
                         <input
                           type="number"

@@ -2,7 +2,9 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { formatMoney } from "@/lib/company-locale";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { formatDatePT } from "@/lib/utils";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -23,6 +25,16 @@ interface Props {
   initialLineChoices?: Record<string, string>;
 }
 
+function useCacheCurrency() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+  return { formatCurrency, currencySymbol: companyLocale.status === "available" ? companyLocale.symbol : "—" };
+}
+
 const newKey = () => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
 const errText = (e: any) => cacheErrorMessage(e);
 
@@ -31,6 +43,7 @@ const errText = (e: any) => cacheErrorMessage(e);
  * dividem o cachê total por todas as cidades. Toda a gravação é feita pelas RPCs atómicas.
  */
 export function CacheContractsPanel({ eventId, config, canEdit, initialLineChoices }: Props) {
+  const { formatCurrency } = useCacheCurrency();
   const artistId: string | null = config.supplier_id ?? null;
   const { data: ctx, isLoading, error } = useCacheContractContext(eventId, artistId);
   const [lineChoices, setLineChoices] = useState<Record<string, string>>(initialLineChoices ?? {});
@@ -269,6 +282,7 @@ function ContractDialog({ ctx, eventId, config, edit, lineChoices, onAttachExist
   ctx: CacheContractContext; eventId: string; config: any; edit?: CacheContextContract; lineChoices: Record<string, string> | null;
   onAttachExisting: (advanceId: string) => void; onClose: () => void; onDone: () => void;
 }) {
+  const { formatCurrency } = useCacheCurrency();
   const supplierOptions = useSupplierOptions();
   const [key] = useState(newKey);
   const [label, setLabel] = useState(edit?.label ?? "");
@@ -526,6 +540,7 @@ function AdvanceDialog({ eventId, config, contract, remaining, totalCap, lineCho
   eventId: string; config: any; contract?: CacheContextContract; remaining: number; totalCap: number; lineChoices: Record<string, string> | null; onClose: () => void; onDone: () => void;
 }) {
   const [key] = useState(newKey);
+  const { formatCurrency } = useCacheCurrency();
   const [amount, setAmount] = useState("");
   const [unit, setUnit] = useState<AmountUnit>("eur");
   const [due, setDue] = useState("");
@@ -578,10 +593,11 @@ function AdvanceDialog({ eventId, config, contract, remaining, totalCap, lineCho
   );
 }
 
-/** Campo de valor com escolha € / %. Grava sempre euros (calculados e arredondados a 2 casas). */
+/** Campo de valor com escolha moeda / %. Mantém a unidade interna e o cálculo canónico. */
 function AmountWithUnit({ value, unit, onValue, onUnit, euros, baseLabel }: {
   value: string; unit: AmountUnit; onValue: (v: string) => void; onUnit: (u: AmountUnit) => void; euros: number; baseLabel: string;
 }) {
+  const { formatCurrency, currencySymbol } = useCacheCurrency();
   const btn = (u: AmountUnit, txt: string) => (
     <button type="button" aria-pressed={unit === u} onClick={() => { if (u !== unit) { onUnit(u); onValue(""); } }}
       className={`px-2 py-1 text-xs ${unit === u ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>{txt}</button>
@@ -591,7 +607,7 @@ function AmountWithUnit({ value, unit, onValue, onUnit, euros, baseLabel }: {
       <div className="flex gap-2">
         <input inputMode="decimal" value={value} onChange={(e) => onValue(e.target.value)} className="w-full rounded-md border border-border bg-background px-2 py-1.5 font-mono text-sm" />
         <div className="flex overflow-hidden rounded-md border border-border" role="group" aria-label="Unidade do valor">
-          {btn("eur", "€")}{btn("pct", "%")}
+          {btn("eur", currencySymbol)}{btn("pct", "%")}
         </div>
       </div>
       {unit === "pct" && (
@@ -606,6 +622,7 @@ function AmountWithUnit({ value, unit, onValue, onUnit, euros, baseLabel }: {
 function AttachAdvanceDialog({ ctx, cityName, initialContractId, initialAdvanceId, onClose, onDone }: {
   ctx: CacheContractContext; cityName: (id: string) => string; initialContractId?: string; initialAdvanceId?: string; onClose: () => void; onDone: () => void;
 }) {
+  const { formatCurrency } = useCacheCurrency();
   const contracts = ctx.contracts.filter((k) => !!k.artist_mother);
   const [contractId, setContractId] = useState<string>(initialContractId ?? (contracts.length === 1 ? contracts[0].id : ""));
   const [advanceId, setAdvanceId] = useState<string>(initialAdvanceId ?? (ctx.free_advances.length === 1 ? ctx.free_advances[0].id : ""));

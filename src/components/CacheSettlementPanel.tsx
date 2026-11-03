@@ -4,7 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { formatMoney } from "@/lib/company-locale";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { Calculator, TrendingUp, TrendingDown, Minus, CheckCircle2, Unlock, AlertTriangle, ChevronDown, ChevronUp, FileText, Wallet } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
@@ -39,6 +41,12 @@ export function CacheSettlementPanel({
   citySettlement,
   cityLabel,
 }: Props) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const { user } = useAuth();
   const userName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
   const queryClient = useQueryClient();
@@ -303,7 +311,7 @@ export function CacheSettlementPanel({
                     </span>
                   </td>
                   <td className="px-3 py-1.5 text-right font-mono text-destructive">
-                    {d.amount > 0 ? `−${formatCurrency(d.amount)}` : "€0,00"}
+                    {d.amount > 0 ? `−${formatCurrency(d.amount)}` : companyLocale.status === "available" && companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR" ? "€0,00" : formatCurrency(0)}
                   </td>
                 </tr>
               ))}

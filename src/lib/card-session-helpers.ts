@@ -15,7 +15,7 @@ export const CARD_SESSION_STATUS_VARIANTS: Record<CardSessionStatus, string> = {
 };
 
 export function formatCurrency(value: number, currency = "EUR"): string {
-  return new Intl.NumberFormat("pt-PT", {
+  return new Intl.NumberFormat(currency === "BRL" ? "pt-BR" : "pt-PT", {
     style: "currency",
     currency,
     minimumFractionDigits: 2,
