@@ -1,3 +1,4 @@
+import { companyHasIva } from "../company-locale";
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -215,5 +216,26 @@ describe("#498 — hook sobre useCompany, sem consultas próprias", () => {
     rerender();
     expect(result.current).toMatchObject({ status: "unavailable", isError: true, error });
     expect(result.current).not.toHaveProperty("currency");
+  });
+});
+
+
+describe("#498 P1l-1 — companyHasIva", () => {
+  it.each([["PT", true], ["ES", true], ["BR", false]] as const)(
+    "%s usa a capability IVA independentemente da moeda", (country, expected) => {
+      for (const currency of ["EUR", "BRL", "USD", "GBP"]) {
+        expect(companyHasIva(resolveCompanyLocale({ country, currency }))).toBe(expected);
+      }
+    },
+  );
+
+  it("unavailable preserva a apresentação PT", () => {
+    expect(companyHasIva(resolveCompanyLocale({}))).toBe(true);
+    expect(companyHasIva(resolveCompanyLocale({ country: "BR", currency: "" }))).toBe(true);
+  });
+
+  it("a capability é a fonte da decisão, sem reavaliar país ou ivaPolicy", () => {
+    expect(companyHasIva({ ...br, capabilities: { ...br.capabilities, iva: true } })).toBe(true);
+    expect(companyHasIva({ ...pt, capabilities: { ...pt.capabilities, iva: false } })).toBe(false);
   });
 });

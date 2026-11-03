@@ -87,6 +87,11 @@ export function resolveCompanyLocale(company: CompanyLocaleInput): CompanyLocale
   };
 }
 
+/** Unavailable context retains the existing PT IVA presentation. */
+export function companyHasIva(ctx: CompanyLocaleResult): boolean {
+  return ctx.status !== "available" || ctx.capabilities.iva;
+}
+
 /** Payment capability kept separate so the frozen PT locale object stays identical. */
 export function companyPaymentMethods(ctx: CompanyLocaleResult): "pt" | "br" | "unavailable" {
   return ctx.status === "available" ? (ctx.locale === "pt-BR" ? "br" : "pt") : "unavailable";

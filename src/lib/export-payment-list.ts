@@ -1,4 +1,4 @@
-import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
+import { companyHasIva, formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
@@ -152,6 +152,7 @@ export function groupPaymentItems(items: PaymentItem[]): { groups: PaymentGroup[
 }
 
 export function exportPaymentListToExcel(data: PaymentListExport) {
+  const hasIva = !data.companyLocale || companyHasIva(data.companyLocale);
   const symbol = data.companyLocale?.status === "available" ? data.companyLocale.symbol : "€";
   const wb = XLSX.utils.book_new();
   const { groups, ungrouped } = groupPaymentItems(data.items);
@@ -161,7 +162,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     [`Data: ${formatDate(data.payment_date)}`],
     ...(data.approved_by ? [[`Aprovado por: ${data.approved_by} em ${data.approved_at ? formatDate(data.approved_at) : ""}`]] : []),
     [],
-    ["#", "Evento", "Categoria", "Descrição", "Especificação", "Fornecedor", "Nº Fatura", "IBAN / Dados Pgto", `Valor Base (${symbol})`, "IVA (%)", `Valor c/IVA (${symbol})`, `Ret. IRS (${symbol})`, `Líquido a pagar (${symbol})`, `Já Pago (${symbol})`, `Saldo (${symbol})`, "Vencimento"],
+    ["#", "Evento", "Categoria", "Descrição", "Especificação", "Fornecedor", "Nº Fatura", "IBAN / Dados Pgto", `Valor Base (${symbol})`, "IVA (%)", `${hasIva ? "Valor c/IVA" : "Valor"} (${symbol})`, `Ret. IRS (${symbol})`, `Líquido a pagar (${symbol})`, `Já Pago (${symbol})`, `Saldo (${symbol})`, "Vencimento"],
   ];
 
   let totalWithIva = 0;

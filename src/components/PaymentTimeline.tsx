@@ -5,7 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { formatMoney } from "@/lib/company-locale";
+import { companyHasIva, formatMoney } from "@/lib/company-locale";
 import { calcWithIva, formatDatePT, isFullyPaid } from "@/lib/utils";
 import {
   Receipt,
@@ -373,7 +373,7 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
       {/* Resumo */}
       <div className="grid grid-cols-3 gap-2 rounded-lg border border-border bg-secondary/30 p-3 text-xs">
         <div>
-          <div className="text-muted-foreground">Total c/ IVA</div>
+          <div className="text-muted-foreground">{companyHasIva(companyLocale) ? "Total c/ IVA" : "Total"}</div>
           <div className="font-mono font-semibold">{formatCurrency(totalWithIva)}</div>
         </div>
         <div>

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { formatMoney } from "@/lib/company-locale";
+import { companyHasIva, formatMoney } from "@/lib/company-locale";
 import { formatCurrency as formatLegacyCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
 import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff, FileText, SlidersHorizontal, ArrowDownAZ, BookOpen, Receipt } from "lucide-react";
@@ -2008,7 +2008,7 @@ export default function Transactions() {
               Base: <span className="font-mono font-semibold">{formatCurrency(base)}</span>
             </p>
             <p className="text-sm">
-              c/IVA: <span className="font-mono font-semibold">{formatCurrency(gross)}</span>
+              {companyHasIva(companyLocale) ? "c/IVA:" : "Total:"} <span className="font-mono font-semibold">{formatCurrency(gross)}</span>
             </p>
             <p className="text-xs text-muted-foreground">Não entram no resultado dos eventos.</p>
           </div>
@@ -2127,7 +2127,7 @@ export default function Transactions() {
                     <th className="pb-2 pr-2 text-left font-medium">Estado</th>
                     <th className="pb-2 pr-2 text-left font-medium">Data Vcto</th>
                     <th className="pb-2 pr-2 text-right font-medium">Pago</th>
-                    <th className="pb-2 pr-2 text-right font-medium">Valor c/IVA</th>
+                    <th className="pb-2 pr-2 text-right font-medium">{companyHasIva(companyLocale) ? "Valor c/IVA" : "Valor"}</th>
                     <th className="pb-2 text-center font-medium">Ações</th>
                   </tr>
                 </thead>
@@ -2196,7 +2196,7 @@ export default function Transactions() {
                     <th className="pb-2 pr-2 text-left font-medium">Estado</th>
                     <th className="pb-2 pr-2 text-left font-medium">Data Pgto</th>
                     <th className="pb-2 pr-2 text-right font-medium">Pago</th>
-                    <th className="pb-2 pr-2 text-right font-medium">Valor c/IVA</th>
+                    <th className="pb-2 pr-2 text-right font-medium">{companyHasIva(companyLocale) ? "Valor c/IVA" : "Valor"}</th>
                     <th className="pb-2 text-center font-medium">Ações</th>
                   </tr>
                 </thead>

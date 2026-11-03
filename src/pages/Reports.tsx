@@ -28,6 +28,8 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { companyHasIva } from "@/lib/company-locale";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -121,6 +123,8 @@ const allReportGroups: ReportGroup[] = [
 ];
 
 export default function Reports() {
+  const companyLocale = useCompanyLocale();
+  const hasIva = companyHasIva(companyLocale);
   const location = useLocation();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -129,6 +133,7 @@ export default function Reports() {
   const filteredGroups = allReportGroups.map((group) => ({
     ...group,
     items: group.items.filter((item) => {
+      if (item.to === "/relatorios/auditoria-iva" && !hasIva) return false;
       if (item.managementOnly && !isAdmin && !isManager && !(isAccountant && item.accountantAllowed)) return false;
       return isAdmin || hasPermission(item.permission);
     }),

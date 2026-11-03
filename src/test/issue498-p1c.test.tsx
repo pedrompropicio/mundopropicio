@@ -235,7 +235,7 @@ describe("#498 P1c — apresentação monetária pela empresa activa", () => {
     setCompany("BR", "BRL");
     const { container } = renderTransactions();
     expect(container.textContent).toContain("Base: R$\u00a01.234,56");
-    expect(container.textContent).toContain("c/IVA: R$\u00a01.234,56");
+    expect(container.textContent).toContain("Total: R$\u00a01.234,56");
     const dialog = await openDeletion();
     expect(dialog.textContent).toContain("Transação já liquidada (R$\u00a01.234,56)");
     expect(dialog.textContent).toContain("crédito de fornecedor (R$\u00a01.234,56)");

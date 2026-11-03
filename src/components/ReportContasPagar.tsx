@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency as formatLegacyCurrency, formatDate } from "@/lib/mock-data";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { formatMoney } from "@/lib/company-locale";
+import { companyHasIva, formatMoney } from "@/lib/company-locale";
 import { exportContasPagarToExcel, exportContasPagarToPDF } from "@/lib/export-contas-pagar";
 import { FileSpreadsheet, FileText, Filter, Search } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -422,7 +422,7 @@ export default function ReportContasPagar() {
           <p className="mt-1 text-2xl font-bold">{filtered.length}</p>
         </div>
         <div className="glass rounded-xl p-4 text-center">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">Total c/IVA</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">{companyHasIva(companyLocale) ? "Total c/IVA" : "Total"}</p>
           <p className="mt-1 text-2xl font-bold text-warning">{formatCurrency(totalWithIva)}</p>
         </div>
         <div className="glass rounded-xl p-4 text-center">
@@ -458,7 +458,7 @@ export default function ReportContasPagar() {
                   <th className="pb-3 text-left font-medium">Estado</th>
                   <th className="pb-3 text-left font-medium">Data Vcto</th>
                   <th className="pb-3 text-right font-medium">Pago</th>
-                  <th className="pb-3 text-right font-medium">Valor c/IVA</th>
+                  <th className="pb-3 text-right font-medium">{companyHasIva(companyLocale) ? "Valor c/IVA" : "Valor"}</th>
                   <th className="pb-3 text-right font-medium">Saldo</th>
                 </tr>
               </thead>

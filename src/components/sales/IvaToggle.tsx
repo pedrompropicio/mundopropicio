@@ -3,14 +3,18 @@
  * O estado vive no search param ?iva=0 para ser partilhado pelos três ecrãs.
  */
 import { useSearchParams } from "react-router-dom";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { companyHasIva } from "@/lib/company-locale";
 import { Button } from "@/components/ui/button";
 
 export function useIvaMode() {
+  const companyLocale = useCompanyLocale();
+  const hasIva = companyHasIva(companyLocale);
   const [params, setParams] = useSearchParams();
-  const withIva = params.get("iva") !== "0";
+  const withIva = !hasIva || params.get("iva") !== "0";
   const setWithIva = (v: boolean) => {
     const next = new URLSearchParams(params);
-    if (v) next.delete("iva");
+    if (v || !hasIva) next.delete("iva");
     else next.set("iva", "0");
     setParams(next, { replace: true });
   };
@@ -20,6 +24,9 @@ export function useIvaMode() {
 }
 
 export function IvaToggle({ withIva, onChange }: { withIva: boolean; onChange: (v: boolean) => void }) {
+  const companyLocale = useCompanyLocale();
+  if (!companyHasIva(companyLocale)) return null;
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex items-center gap-1.5">
