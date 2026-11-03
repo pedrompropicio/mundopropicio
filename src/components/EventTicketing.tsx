@@ -9,7 +9,8 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatMoney } from "@/lib/company-locale";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { Plus, Trash2, Check, X, Ticket, Layers, ChevronDown, ChevronRight, Store, CheckCircle2, Lock, Upload, FileText } from "lucide-react";
 import { exportEventTicketingToPDF } from "@/lib/export-event-ticketing-pdf";
 import { toast } from "@/hooks/use-toast";
@@ -82,6 +83,13 @@ function ivaFromGross(gross: number, ivaRate: number): number {
 
 export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }: Props) {
   const companyLocale = useCompanyLocale();
+  const symbol = companyLocale.status === "available" ? companyLocale.symbol : "—";
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+
   // Taxas de IVA do país da cidade do evento (PT por defeito).
   const { rates: ivaRates } = useEventIvaCountry(eventId);
   const [forecastImportOpen, setForecastImportOpen] = useState(false);
@@ -905,7 +913,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         </div>
         <div className="glass rounded-xl p-4 space-y-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="text-success font-bold">€</span> Receita Bruta (previsão)
+            <span className="text-success font-bold">{symbol}</span> Receita Bruta (previsão)
           </div>
           <p className="font-mono text-lg font-bold text-success">{formatCurrency(totalGrossRevenue)}</p>
           {totalCapacity > 0 && (
@@ -1044,7 +1052,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                               <th className="pb-2 text-right font-medium">Preço c/IVA</th>
                               <th className="pb-2 text-right font-medium">IVA %</th>
                               <th className="pb-2 text-right font-medium">Valor s/IVA</th>
-                              <th className="pb-2 text-right font-medium">IVA (€)</th>
+                              <th className="pb-2 text-right font-medium">IVA ({symbol})</th>
                               <th className="pb-2 text-right font-medium">Total c/IVA</th>
                               <th className="pb-2 text-right font-medium w-20">Ações</th>
                             </tr>
