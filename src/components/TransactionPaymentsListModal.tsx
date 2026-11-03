@@ -3,7 +3,9 @@ import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { calcWithIva, isFullyPaid, formatDatePT } from "@/lib/utils";
 import { X, Pencil, Trash2, Check, XCircle, CalendarIcon, Building, FileText, Landmark, Repeat } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
@@ -30,6 +32,13 @@ interface Props {
 
 
 export function TransactionPaymentsListModal({ transaction, canApprove, eventCompleted = false, onClose }: Props) {
+  const companyLocale = useCompanyLocale();
+  const companySymbol = companyLocale.status === "available" ? companyLocale.symbol : "—";
+  const legacyMoney = companyLocale.status === "available" && companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR";
+  const formatCurrency = (value: number) => {
+    if (companyLocale.status !== "available") return "—";
+    return legacyMoney ? formatLegacyCurrency(value) : formatMoney(value, companyLocale);
+  };
   const { user, role } = useAuth();
   // O editor pode corrigir a DATA e APAGAR um pagamento; valor/conta/método
   // continuam reservados a admin/manager.
@@ -394,7 +403,7 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
                 <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-xs text-muted-foreground">Valor pago (€)</label>
+                      <label className="text-xs text-muted-foreground">Valor pago ({companySymbol})</label>
                       <input type="number" step="0.01" min="0"
                         value={directForm.paid_amount}
                         onChange={(e) => setDirectForm({ ...directForm, paid_amount: e.target.value })}
@@ -461,7 +470,7 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
 
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-xs text-muted-foreground">Valor (€)</label>
+                        <label className="text-xs text-muted-foreground">Valor ({companySymbol})</label>
                         <input type="number" step="0.01" min="0.01"
                           value={editForm.amount}
                           disabled={!canFull}
@@ -528,7 +537,7 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
                       )}
 
                       <div>
-                        <label className="text-xs text-muted-foreground">Nº Fatura</label>
+                        <label className="text-xs text-muted-foreground">{companyLocale.status === "available" ? companyLocale.labels.invoiceRef : "Nº Fatura"}</label>
                         <input type="text" value={editForm.invoice_ref}
                           onChange={(e) => setEditForm({ ...editForm, invoice_ref: e.target.value })}
                           className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
@@ -579,8 +588,9 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
                         <span className="text-muted-foreground">Valor:</span>
                         <span className="flex items-center gap-1 font-semibold">
                           {formatCurrency(Number(p.amount))}
-                          {/* (#127) moeda de origem da parcela, quando não é EUR */}
-                          <CurrencyBadge currency={p.currency} originalAmount={p.original_amount} fxRate={p.fx_rate} />
+                          {companyLocale.status === "available" && p.currency !== companyLocale.currency && (
+                            <CurrencyBadge currency={p.currency} originalAmount={p.original_amount} fxRate={p.fx_rate} />
+                          )}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -593,7 +603,7 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
                       </div>
                       {p.invoice_ref && (
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Fatura:</span>
+                          <span className="text-muted-foreground">{companyLocale.status === "available" && !legacyMoney ? companyLocale.labels.invoiceRef : "Fatura"}:</span>
                           <span>{p.invoice_ref}</span>
                         </div>
                       )}
