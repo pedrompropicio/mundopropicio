@@ -1,8 +1,9 @@
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { applyPTNumberFormat } from "@/lib/excel-format";
 import { formatDatePT } from "@/lib/utils";
 
@@ -15,11 +16,8 @@ function fmtVal(v: number): number {
   return Math.round(v * 100) / 100;
 }
 
-function fmtCur(v: number): string {
-  return formatCurrency(v);
-}
-
 interface MovementExportParams {
+  companyLocale?: CompanyLocaleResult;
   movements: any[];
   accountLabel: string;
   eventLabel: string;
@@ -56,12 +54,15 @@ function buildPeriodLabel(dateFrom: string, dateTo: string) {
 }
 
 export function exportMovementReconciliationToExcel(params: MovementExportParams) {
+  const { companyLocale } = params;
+  const symbol = companyLocale?.status === "available" ? companyLocale.symbol : "€";
+
   const { movements, accountLabel, dateFrom, dateTo, totalPaid, totalReceived } = params;
   const wb = XLSX.utils.book_new();
   const periodLabel = buildPeriodLabel(dateFrom, dateTo);
 
   const headerRow = ["Data", "Tipo", "Descrição", "Fornecedor", "Conta", "Estado",
-    "Líquido (€)", "IVA (€)", "Bruto (€)", "Pago (€)", "Aberto (€)", "Vencimento", "Dt Pgto", "Nº Doc"];
+    `Líquido (${symbol})`, `IVA (${symbol})`, `Bruto (${symbol})`, `Pago (${symbol})`, `Aberto (${symbol})`, "Vencimento", "Dt Pgto", "Nº Doc"];
 
   const rows: any[][] = [
     [`RELATÓRIO DE MOVIMENTAÇÕES`],
@@ -99,7 +100,7 @@ export function exportMovementReconciliationToExcel(params: MovementExportParams
     { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
     { wch: 12 }, { wch: 15 },
   ];
-  applyPTNumberFormat(ws);
+  applyPTNumberFormat(ws, companyLocale);
 
   XLSX.utils.book_append_sheet(wb, ws, "Movimentações");
   const fileName = dateFrom && dateTo ? `Movimentacoes_${dateFrom}_${dateTo}.xlsx` : `Movimentacoes_Completo.xlsx`;
@@ -107,6 +108,12 @@ export function exportMovementReconciliationToExcel(params: MovementExportParams
 }
 
 export function exportMovementReconciliationToPDF(params: MovementExportParams) {
+  const { companyLocale } = params;
+  const symbol = companyLocale?.status === "available" ? companyLocale.symbol : "€";
+  const fmtCur = (value: number) => companyLocale?.status === "available" && !(companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")
+    ? formatMoney(value, companyLocale)
+    : formatLegacyCurrency(value);
+
   const { movements, accountLabel, eventLabel, dateFrom, dateTo, totalPaid, totalReceived } = params;
   const doc = new jsPDF({ orientation: "landscape" });
   const marginLeft = 14;
@@ -135,7 +142,7 @@ export function exportMovementReconciliationToPDF(params: MovementExportParams) 
   doc.setTextColor(0, 0, 0);
 
   const head = ["Data", "Tipo", "Descrição", "Fornecedor", "Conta", "Estado",
-    "Líquido", "IVA (€)", "Bruto", "Pago", "Aberto", "Vencimento", "Dt Pgto", "Nº Doc"];
+    "Líquido", `IVA (${symbol})`, "Bruto", "Pago", "Aberto", "Vencimento", "Dt Pgto", "Nº Doc"];
 
   const grouped = groupByEvent(movements);
   const groupEntries = Array.from(grouped.entries());

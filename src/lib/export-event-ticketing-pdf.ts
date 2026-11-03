@@ -1,12 +1,14 @@
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { formatDatePT } from "@/lib/utils";
 
 interface TicketingExportInput {
+  companyLocale?: CompanyLocaleResult;
   eventId: string;
   includeChildren?: boolean;
   /** null/undefined = versão Ativa; uuid = cenário sandbox. */
@@ -50,7 +52,6 @@ interface AssignmentRow {
   financial_accounts?: { id: string; name: string; contact_name: string | null } | null;
 }
 
-const fmt = (n: number) => formatCurrency(n);
 const pct = (n: number) => `${n.toFixed(1)}%`;
 
 function statusLabel(s: string): string {
@@ -157,6 +158,7 @@ async function fetchEventTicketingBundle(eventId: string, versionId: string | nu
 }
 
 interface RenderContext {
+  fmt: (value: number) => string;
   doc: jsPDF;
   pageWidth: number;
   pageHeight: number;
@@ -272,7 +274,7 @@ function buildZoneStats(zone: ZoneRow, lots: LotRow[], sales: SaleRow[]): ZoneSt
 }
 
 function drawSummaryCards(ctx: RenderContext, yStart: number, zoneStats: ZoneStats[]): number {
-  const { doc, marginLeft, contentWidth } = ctx;
+  const { doc, marginLeft, contentWidth, fmt } = ctx;
   const totalCapacity = zoneStats.reduce((s, z) => s + z.capacity, 0);
   const totalSold = zoneStats.reduce((s, z) => s + z.soldQty, 0);
   const totalAvail = totalCapacity - totalSold;
@@ -312,7 +314,7 @@ function drawSummaryCards(ctx: RenderContext, yStart: number, zoneStats: ZoneSta
 }
 
 function drawZonesTables(ctx: RenderContext, yStart: number, zoneStats: ZoneStats[], sales: SaleRow[]): number {
-  const { doc, marginLeft, contentWidth, pageHeight } = ctx;
+  const { doc, marginLeft, contentWidth, pageHeight, fmt } = ctx;
   if (zoneStats.length === 0) {
     doc.setFontSize(9);
     doc.setFont("helvetica", "italic");
@@ -532,11 +534,16 @@ async function renderEventTicketingPage(
 }
 
 export async function exportEventTicketingToPDF({
+  companyLocale,
   eventId,
   includeChildren = true,
   versionId = null,
   scenarioLabel = null,
 }: TicketingExportInput): Promise<void> {
+  const fmt = (value: number) => companyLocale?.status === "available" && !(companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")
+    ? formatMoney(value, companyLocale)
+    : formatLegacyCurrency(value);
+
   let eventIds: string[] = [eventId];
   const masterRes = await supabase.from("events").select("id, name, event_type").eq("id", eventId).maybeSingle();
   if (masterRes.error) throw masterRes.error;
@@ -556,7 +563,7 @@ export async function exportEventTicketingToPDF({
   const marginLeft = 10;
   const marginRight = 10;
   const contentWidth = pageWidth - marginLeft - marginRight;
-  const ctx: RenderContext = { doc, pageWidth, pageHeight, marginLeft, marginRight, contentWidth };
+  const ctx: RenderContext = { fmt, doc, pageWidth, pageHeight, marginLeft, marginRight, contentWidth };
 
   for (let i = 0; i < eventIds.length; i++) {
     await renderEventTicketingPage(ctx, eventIds[i], i === 0, versionId ?? null, scenarioLabel ?? null);
