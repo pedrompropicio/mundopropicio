@@ -13,6 +13,9 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 
+/** Same bank-access roles as SupplierBankDetails; an empty RPC probe does not authorize the actor. */
+export const SUPPLIER_BANK_READ_ROLES: readonly string[] = ["admin", "platform_admin", "manager", "editor", "accountant"];
+
 /** BR fields extend the open slot schema documented by 0302. Keep numbers as text. */
 export interface BrBankDetails {
   bank_name?: string;
@@ -36,6 +39,7 @@ export interface SupplierBrData {
   tax_id_foreign: string | null;
   tax_id_type: string | null;
 }
+/** RPC contract/data availability is independent of the actor's bank-access role. */
 export type OptionalSupplierBrData = { available: boolean; details: SupplierBrData | null };
 type BankRpcResult = { data: unknown; error: unknown };
 export interface SupplierBrReader {
