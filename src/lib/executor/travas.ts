@@ -22,8 +22,10 @@ export interface Decisao {
   mergeAutomatico: boolean;
 }
 
-/** Únicos autores aceites para Despacho, Autorização e Reserva (o Pedro; conectores escrevem como ele). */
+/** Únicos autores aceites para Autorização (o Pedro; conectores escrevem como ele). */
 export const AUTORES = ["pedrompropicio"];
+/** Operadores que a Autorização vigente pode nomear para Despacho, Reserva e libertação. */
+export const OPERADORES = ["mplabs-dev"];
 /** Motores suportados; a Autorização designa qual a E2b lança. */
 export const EXECUTORES = { "claude-code": ["claude code"], codex: ["codex", "chatgpt/codex", "chatgpt codex", "openai codex"] } as const;
 export type Executor = keyof typeof EXECUTORES;
@@ -100,19 +102,22 @@ export function avaliarDespacho(issue: number, comentarios: Comentario[], despac
   if (!despacho || !isDespacho(despacho.corpo)) {
     return { ok: false, preparacaoR2: false, motivos: ["comentário de despacho não encontrado"], tarefa: "", mergeAutomatico: false, executor: null };
   }
-  if (!AUTORES.includes(despacho.autor)) motivos.push(`autor do despacho não autorizado (${despacho.autor})`);
+  const anteriores = ordem.filter((c) => c.criadoEm <= despacho.criadoEm);
+  // Autorização: só do Pedro, a mais recente antes do despacho.
+  const aut = [...anteriores].reverse().find((c) => AUTORES.includes(c.autor) && isAutorizacao(c.corpo));
+  const f = campos(aut?.corpo ?? "");
+  const operador = f.get("operador")?.replace(/`/g, "").trim().replace(/^@/, "");
+  const operadorPermitido = operador !== undefined && OPERADORES.includes(operador);
+  const autores = operadorPermitido ? [...AUTORES, operador] : AUTORES;
+  if (!autores.includes(despacho.autor)) motivos.push(`autor do despacho não autorizado (${despacho.autor})`);
   const cab = despacho.corpo.trimStart().split(/\r?\n/)[0];
   if (!new RegExp(`#${issue}\\b`).test(cab)) motivos.push(`o cabeçalho do despacho não refere #${issue}`);
   const tarefa = despacho.corpo.trimStart().split(/\r?\n/).slice(1).join("\n").trim();
   if (tarefa.length < 20) motivos.push("despacho sem texto de tarefa");
 
-  const anteriores = ordem.filter((c) => c.criadoEm <= despacho.criadoEm && AUTORES.includes(c.autor));
-
-  // Autorização: a mais recente antes do despacho.
-  const aut = [...anteriores].reverse().find((c) => isAutorizacao(c.corpo));
   if (!aut) motivos.push("não há «## Autorização» do Pedro nesta Issue");
   else {
-    const f = campos(aut.corpo);
+    if (operador !== undefined && !operadorPermitido) motivos.push(`operador não autorizado (${operador})`);
     executor = executorDe(f.get("executor atual") ?? f.get("executor") ?? "");
     if (!executor) motivos.push("a autorização não designa um executor suportado (Claude Code ou Codex)");
     const classe = (f.get("classe") ?? "").match(/\bR[0-2]\b/)?.[0];
@@ -137,8 +142,12 @@ export function avaliarDespacho(issue: number, comentarios: Comentario[], despac
   }
 
   // Reservas activas (D-ERP345): reserva sem libertação posterior.
-  const ativas = anteriores.filter(
-    (r) => isReserva(r.corpo) && !anteriores.some((l) => isLibertacao(l.corpo) && l.criadoEm > r.criadoEm),
+  // Comentários do operador só contam a partir da Autorização vigente; os do Pedro mantêm o histórico.
+  const reservas = anteriores.filter((c) => AUTORES.includes(c.autor) || (
+    aut !== undefined && autores.includes(c.autor) && c.criadoEm >= aut.criadoEm
+  ));
+  const ativas = reservas.filter(
+    (r) => isReserva(r.corpo) && !reservas.some((l) => isLibertacao(l.corpo) && l.criadoEm > r.criadoEm),
   );
   if (ativas.length === 0) motivos.push("não há «## Reserva» activa nesta Issue");
   else if (ativas.length > 1) motivos.push(`há ${ativas.length} reservas activas nesta Issue`);

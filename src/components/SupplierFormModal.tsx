@@ -64,13 +64,14 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const isBR = companyLocale.status === "available" && companyLocale.locale === "pt-BR";
   const [brBanks, setBrBanks] = useState<BrBankDetails[]>([{}, {}, {}]);
   const { data: brData } = useQuery({
-    queryKey: ["supplier-br-details", companyLocale.companyId, editingSupplier?.id, role],
+    queryKey: ["supplier-br-details", companyLocale.companyId, editingSupplier?.id, role, user?.id],
     enabled: open && isBR && !!companyLocale.companyId,
     queryFn: () => loadOptionalSupplierBrData(editingSupplier?.id),
     refetchOnWindowFocus: false,
+    retry: false,
   });
-  const brColumnsReady = brData?.available === true;
-  const brSource = brData?.details ?? editingSupplier;
+  const brColumnsReady = isBR && !!companyLocale.companyId && brData?.available === true;
+  const brSource = brColumnsReady ? brData.details : null;
   const occupiedForeignSlots = new Set<number>((Array.isArray(brSource?.foreign_bank_accounts) ? brSource.foreign_bank_accounts : [])
     .filter((bank: any) => bank && bank.account_type !== "br_banco_agencia_conta").map((bank: any) => bank.slot));
   const [iban1, setIban1] = useState<string>(editingSupplier?.iban ?? "");
@@ -89,7 +90,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     setIban1(editingSupplier?.iban ?? "");
     setIban2(editingSupplier?.iban_2 ?? "");
     setIban3(editingSupplier?.iban_3 ?? "");
-  }, [open, editingSupplier, brData]);
+  }, [open, editingSupplier, brData, companyLocale.companyId, isBR, role, user?.id]);
 
   const createMutation = useMutation({
     mutationFn: async (supplier: Record<string, any>) => {
