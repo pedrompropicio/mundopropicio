@@ -15,7 +15,9 @@ import { TicketImportModal } from "@/components/TicketUploadModals";
 import { FeverImportModal } from "@/components/FeverImportModal";
 import { Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { computeTicketOfficeBalance, isCountedTicketOfficeTxn, INTERNAL_TRANSFER_CATEGORY_ID } from "@/lib/ticket-office-balance";
 
 import { TicketOfficeBalancePanel } from "@/components/TicketOfficeBalancePanel";
@@ -30,6 +32,12 @@ import {
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function TicketOffices() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [editingOffice, setEditingOffice] = useState<any>(null);
@@ -309,7 +317,7 @@ export default function TicketOffices() {
 
           {/* #303 — o apuramento é a prova; os adiantamentos são histórico do modelo anterior. */}
           <TabsContent value="apuramentos" className="space-y-6">
-            <TicketOfficePositionCards officeId={selectedOffice.id} />
+            <TicketOfficePositionCards officeId={selectedOffice.id} companyLocale={companyLocale} />
             <TicketOfficeStatementsPanel officeId={selectedOffice.id} />
             <TicketOfficeAdvancesPanel officeId={selectedOffice.id} officeName={selectedOffice.name} />
           </TabsContent>

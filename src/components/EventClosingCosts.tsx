@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { BpFormulaPanel } from "@/components/BpFormulaPanel";
 import { isFormulaType } from "@/lib/bp-formula";
 import { writeForecastAmount } from "@/lib/forecast-amount";
@@ -5,11 +7,11 @@ import { withCompanyPath } from "@/lib/storage";
 import { deleteStorageObject, deleteStorageObjects } from "@/lib/storage-delete";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadToCompanyBucket } from "@/lib/storage";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { calcIvaAmount, calcTotalWithIva } from "@/lib/iva";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -35,6 +37,14 @@ interface Props {
  * e em cidades/splits com fatia ÷N como "via Master".
  */
 export function EventClosingCosts({ eventId, eventStatus }: Props) {
+  const companyLocale = useCompanyLocale();
+  const symbol = companyLocale.status === "available" ? companyLocale.symbol : "—";
+  const noIva = companyLocale.status === "available" && companyLocale.ivaPolicy === "none";
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   // Taxas de IVA do país da cidade do evento (PT por defeito).
   const { rates: ivaRates } = useEventIvaCountry(eventId);
   const queryClient = useQueryClient();
@@ -45,7 +55,9 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
   const [type, setType] = useState<"expense" | "income">("expense");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [ivaRate, setIvaRate] = useState<string>("23");
+  const [selectedIvaRate, setIvaRate] = useState<string>(noIva ? "0" : "23");
+  const ivaRate = noIva ? "0" : selectedIvaRate;
+  useEffect(() => { if (!editingId) setIvaRate(noIva ? "0" : "23"); }, [noIva]);
   const [categoryId, setCategoryId] = useState("");
   const [notes, setNotes] = useState("");
   const [bpForecastId, setBpForecastId] = useState<string>("");
@@ -281,7 +293,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     setType("expense");
     setDescription("");
     setAmount("");
-    setIvaRate("23");
+    setIvaRate(noIva ? "0" : "23");
     setCategoryId("");
     setNotes("");
     setBpForecastId("");
@@ -353,7 +365,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
               <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex: Rateio assessoria de imprensa" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Valor s/ IVA (€) *</Label>
+              <Label className="text-xs">Valor s/ IVA ({symbol}) *</Label>
               <Input type="number" step="0.01" value={formulaReadOnly ? String(editingCost.amount) : amount} readOnly={formulaReadOnly} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
               {formulaReadOnly && <>
                 <p className="text-xs text-muted-foreground">{editingCost.formula_params?.last_text ?? "Por recalcular"}</p>
@@ -369,6 +381,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
+            {!noIva && (
             <div className="space-y-1.5">
               <Label className="text-xs">IVA (%)</Label>
               <select
@@ -379,6 +392,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
                 {ivaRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
               </select>
             </div>
+            )}
             <div className="space-y-1.5">
               <Label className="text-xs">Categoria</Label>
               <SearchableSelect
@@ -474,6 +488,9 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
         <div className="space-y-4">
           {expenseCosts.length > 0 && (
             <OverheadTable
+              formatCurrency={formatCurrency}
+              symbol={symbol}
+              noIva={noIva}
               title="Despesas Overhead"
               icon={<TrendingDown className="h-3.5 w-3.5 text-destructive" />}
               costs={expenseCosts}
@@ -488,6 +505,9 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
           )}
           {incomeCosts.length > 0 && (
             <OverheadTable
+              formatCurrency={formatCurrency}
+              symbol={symbol}
+              noIva={noIva}
               title="Receitas Overhead"
               icon={<TrendingUp className="h-3.5 w-3.5 text-success" />}
               costs={incomeCosts}
@@ -507,8 +527,11 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
 }
 
 function OverheadTable({
-  title, icon, costs, totalBase, totalGross, colorClass, isEventLocked, onEdit, onDelete, onFileUpload,
+  title, icon, costs, totalBase, totalGross, colorClass, isEventLocked, onEdit, onDelete, onFileUpload, formatCurrency, symbol, noIva,
 }: {
+  formatCurrency: (value: number) => string;
+  symbol: string;
+  noIva: boolean;
   title: string;
   icon: React.ReactNode;
   costs: any[];
@@ -531,9 +554,9 @@ function OverheadTable({
           <TableRow>
             <TableHead>Descrição</TableHead>
             <TableHead>Categoria</TableHead>
-            <TableHead className="text-right">IVA %</TableHead>
+            {!noIva && <TableHead className="text-right">IVA %</TableHead>}
             <TableHead className="text-right">Base</TableHead>
-            <TableHead className="text-right">IVA (€)</TableHead>
+            {!noIva && <TableHead className="text-right">IVA ({symbol})</TableHead>}
             <TableHead className="text-right">Total c/ IVA</TableHead>
             <TableHead className="w-[80px]" />
           </TableRow>
@@ -541,6 +564,8 @@ function OverheadTable({
         <TableBody>
           {costs.map((c: any) => (
             <ClosingCostRow
+              formatCurrency={formatCurrency}
+              noIva={noIva}
               key={c.id}
               cost={c}
               colorClass={colorClass}
@@ -551,9 +576,9 @@ function OverheadTable({
             />
           ))}
           <TableRow className="border-t-2 border-border bg-muted/30">
-            <TableCell colSpan={3} className="font-bold text-sm">TOTAL</TableCell>
+            <TableCell colSpan={noIva ? 2 : 3} className="font-bold text-sm">TOTAL</TableCell>
             <TableCell className={`text-right font-mono font-bold ${colorClass}`}>{formatCurrency(totalBase)}</TableCell>
-            <TableCell className="text-right font-mono font-bold text-muted-foreground">{formatCurrency(totalGross - totalBase)}</TableCell>
+            {!noIva && <TableCell className="text-right font-mono font-bold text-muted-foreground">{formatCurrency(totalGross - totalBase)}</TableCell>}
             <TableCell className={`text-right font-mono font-bold ${colorClass}`}>{formatCurrency(totalGross)}</TableCell>
             <TableCell />
           </TableRow>
@@ -563,7 +588,9 @@ function OverheadTable({
   );
 }
 
-function ClosingCostRow({ cost, colorClass, isEventLocked, onEdit, onDelete, onFileUpload }: {
+function ClosingCostRow({ cost, colorClass, isEventLocked, onEdit, onDelete, onFileUpload, formatCurrency, noIva }: {
+  formatCurrency: (value: number) => string;
+  noIva: boolean;
   cost: any;
   colorClass: string;
   isEventLocked: boolean;
@@ -620,9 +647,9 @@ function ClosingCostRow({ cost, colorClass, isEventLocked, onEdit, onDelete, onF
       <TableCell className="text-sm text-muted-foreground">
         {cost.account_categories ? `${cost.account_categories.code} ${cost.account_categories.name}` : "—"}
       </TableCell>
-      <TableCell className="text-right font-mono text-xs text-muted-foreground">{ivaRate}%</TableCell>
+      {!noIva && <TableCell className="text-right font-mono text-xs text-muted-foreground">{ivaRate}%</TableCell>}
       <TableCell className={`text-right font-mono ${colorClass}`}>{formatCurrency(base)}</TableCell>
-      <TableCell className="text-right font-mono text-xs text-muted-foreground">{formatCurrency(ivaAmt)}</TableCell>
+      {!noIva && <TableCell className="text-right font-mono text-xs text-muted-foreground">{formatCurrency(ivaAmt)}</TableCell>}
       <TableCell className={`text-right font-mono font-semibold ${colorClass}`}>{formatCurrency(totalGross)}</TableCell>
       <TableCell>
         {!isEventLocked && (

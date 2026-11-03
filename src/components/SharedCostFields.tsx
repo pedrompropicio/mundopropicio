@@ -16,6 +16,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Handshake, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import { useCircuitAccounts } from "@/lib/circuit-account";
 import HelpTooltip from "@/components/HelpTooltip";
 
@@ -29,6 +30,8 @@ interface Props {
   grossAmount: number;
   suppliers: Array<{ id: string; name: string }>;
   disabled?: boolean;
+  /** Omitted context preserves the creation form’s legacy PT output. */
+  companyLocale?: CompanyLocaleResult;
 
   /** ---- Desdobramento (opcional; só na criação) ---- */
   split?: {
@@ -72,7 +75,11 @@ export function SharedCostFields({
   suppliers,
   disabled,
   split,
+  companyLocale,
 }: Props) {
+  const legacyMoney = !companyLocale || companyLocale.status !== "available" || (companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR");
+  const money = (amount: number, legacyText: string) => legacyMoney ? legacyText : formatMoney(amount, companyLocale);
+  const moneySymbol = companyLocale?.status === "available" ? companyLocale.symbol : "€";
   const { data: circuitAccounts = [] } = useCircuitAccounts();
   const [open, setOpen] = useState(!!accountId);
 
@@ -170,7 +177,7 @@ export function SharedCostFields({
                       }
                       title={
                         isMultiIva && m === "absolute"
-                          ? "Numa fatura com várias taxas de IVA a parte de terceiros indica-se em percentagem: um valor em € é ambíguo entre as linhas."
+                          ? `Numa fatura com várias taxas de IVA a parte de terceiros indica-se em percentagem: um valor em ${moneySymbol} é ambíguo entre as linhas.`
                           : undefined
                       }
                       onClick={() => split.onModeChange(m)}
@@ -180,7 +187,7 @@ export function SharedCostFields({
                           : "bg-secondary text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {m === "percentage" ? "%" : "€"}
+                      {m === "percentage" ? "%" : moneySymbol}
                     </button>
                   ))}
                 </div>
@@ -213,8 +220,8 @@ export function SharedCostFields({
                       totalNet > 0
                         ? split.mode === "percentage"
                           ? "Vazio = a linha inteira é de terceiros"
-                          : `Vazio = a linha inteira é de terceiros (${totalNet.toFixed(2)} € s/IVA)`
-                        : "Preenche o Valor (€) da fatura primeiro"
+                          : `Vazio = a linha inteira é de terceiros (${money(totalNet, `${totalNet.toFixed(2)} €`)} s/IVA)`
+                        : `Preenche o Valor (${moneySymbol}) da fatura primeiro`
                     }
                     className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 disabled:opacity-50 ${
                       splitInvalid
@@ -225,7 +232,7 @@ export function SharedCostFields({
                   {splitInvalid && (
                     <p className="text-[10px] text-destructive">
                       A parte de terceiros tem de ser maior que 0 e menor que o total
-                      ({totalNet.toFixed(2)} € s/IVA). A zero é uma despesa normal; pelo total
+                      ({money(totalNet, `${totalNet.toFixed(2)} €`)} s/IVA). A zero é uma despesa normal; pelo total
                       inteiro basta marcar a linha com a conta de rateio, sem desdobrar.
                     </p>
                   )}
@@ -245,22 +252,22 @@ export function SharedCostFields({
                         <div className="flex justify-between gap-3">
                           <span>Parte da MP (custo, com linha de BP)</span>
                           <span className="font-mono">
-                            {mpNet.toFixed(2)} € s/IVA
-                            {!isMultiIva && ` · ${(mpNet * mult).toFixed(2)} € c/IVA`}
+                            {money(mpNet, `${mpNet.toFixed(2)} €`)} s/IVA
+                            {!isMultiIva && ` · ${money((mpNet * mult), `${(mpNet * mult).toFixed(2)} €`)} c/IVA`}
                           </span>
                         </div>
                         <div className="flex justify-between gap-3">
                           <span>Parte de terceiros (adiantamento)</span>
                           <span className="font-mono">
-                            {thirdNet.toFixed(2)} € s/IVA
-                            {!isMultiIva && ` · ${(thirdNet * mult).toFixed(2)} € c/IVA`}
+                            {money(thirdNet, `${thirdNet.toFixed(2)} €`)} s/IVA
+                            {!isMultiIva && ` · ${money((thirdNet * mult), `${(thirdNet * mult).toFixed(2)} €`)} c/IVA`}
                           </span>
                         </div>
                         <div className="flex justify-between gap-3 border-t border-border/60 pt-0.5 font-medium">
                           <span>Total da fatura</span>
                           <span className="font-mono">
-                            {totalNet.toFixed(2)} € s/IVA
-                            {!isMultiIva && ` · ${(totalNet * mult).toFixed(2)} € c/IVA`}
+                            {money(totalNet, `${totalNet.toFixed(2)} €`)} s/IVA
+                            {!isMultiIva && ` · ${money((totalNet * mult), `${(totalNet * mult).toFixed(2)} €`)} c/IVA`}
                           </span>
                         </div>
                         <div className="border-t border-border/60 pt-1 text-muted-foreground">
@@ -280,7 +287,7 @@ export function SharedCostFields({
             <p className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary">
               Esta linha não é custo da MP. Fica fora do resultado, não consome verba do BP e,
               quando for paga, vai gerar automaticamente{" "}
-              <strong>{formatCurrency(grossAmount || 0)}</strong> na conta{" "}
+              <strong>{money(grossAmount || 0, formatCurrency(grossAmount || 0))}</strong> na conta{" "}
               <strong>{chosen.name}</strong>, que passa a ser o que o terceiro nos deve.
             </p>
           )}
@@ -288,7 +295,7 @@ export function SharedCostFields({
           {chosen && splitActive && (
             <p className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary">
               Quando a perna de terceiros for paga, vai gerar automaticamente{" "}
-              <strong>{formatCurrency(thirdNet * mult)}</strong> na conta{" "}
+              <strong>{money(thirdNet * mult, formatCurrency(thirdNet * mult))}</strong> na conta{" "}
               <strong>{chosen.name}</strong>. A perna da MP é despesa normal do evento.
             </p>
           )}

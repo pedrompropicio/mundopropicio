@@ -29,18 +29,34 @@ describe("#498 — contexto puro da empresa", () => {
   it("fixa o contrato PT/EUR completo", () => {
     expect(pt).toEqual({
       status: "available", currency: "EUR", locale: "pt-PT", symbol: "€",
-      labels: { taxId: "NIF", invoice: "Fatura", bankAccount: "IBAN", budget: "Orçamento (€)" },
-      capabilities: { iva: true, sepa: true }, ivaPolicy: "pt",
+      labels: {
+        taxId: "NIF", invoice: "Fatura", bankAccount: "IBAN", budget: "Orçamento (€)",
+        invoiceRef: "Nº Fatura", invoiceRefPlaceholder: "Ex: FT 002/5944",
+        invoiceRefHelp: "Transações com o mesmo nº de fatura serão agrupadas automaticamente",
+      },
+      capabilities: { iva: true, sepa: true, irsWithholding: true }, ivaPolicy: "pt",
     });
   });
 
   it("fixa o contrato BR/BRL completo", () => {
     expect(br).toEqual({
       status: "available", currency: "BRL", locale: "pt-BR", symbol: "R$",
-      labels: { taxId: "CNPJ", invoice: "Nota fiscal", bankAccount: "Conta bancária", budget: "Orçamento (R$)" },
-      capabilities: { iva: false, sepa: false }, ivaPolicy: "none",
+      labels: {
+        taxId: "CNPJ", invoice: "Nota fiscal", bankAccount: "Conta bancária", budget: "Orçamento (R$)",
+        invoiceRef: "Nota Fiscal/Doc", invoiceRefPlaceholder: "Ex: NF 12345",
+        invoiceRefHelp: "Transações com o mesmo nº de documento serão agrupadas automaticamente",
+      },
+      capabilities: { iva: false, sepa: false, irsWithholding: false }, ivaPolicy: "none",
     });
   });
+
+  it.each([["PT", true], ["ES", true], ["BR", false]] as const)(
+    "resolve a capability IRS de %s independentemente da moeda", (country, expected) => {
+      for (const currency of ["EUR", "BRL", "USD", "GBP"]) {
+        expect(available({ country, currency }).capabilities.irsWithholding).toBe(expected);
+      }
+    },
+  );
 
   it.each([undefined, null, "", " "])("mantém o legado EUR com país ausente: %s", (country) => {
     expect(resolveCompanyLocale({ country, currency: "EUR" })).toEqual(pt);

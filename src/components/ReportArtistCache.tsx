@@ -1,7 +1,9 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { formatMoney } from "@/lib/company-locale";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +29,7 @@ type EventRow = ReportEvent & { city_id: string | null; venue_id: string | null 
  * Chaves de query com prefixos de EVENT_FINANCIAL_KEY_PREFIXES (D-ERP266).
  */
 export default function ReportArtistCache() {
+  const companyLocale = useCompanyLocale();
   const [selected, setSelected] = useState<string>("");
   const [tierMode, setTierMode] = useState<TierBasisMode>("both");
   const [blockData, setBlockData] = useState<Record<string, ArtistCacheReport[]>>({});
@@ -130,6 +133,7 @@ export default function ReportArtistCache() {
     await exportArtistCachePdf({
       title: "Relatório de Cachê do Artista",
       companyName: displayName,
+      companyLocale,
       logo,
       tourSummary: tourBlock ? { tourName: root?.name ?? "", reports: blockData[blockKey(tourBlock)] ?? [], meta } : undefined,
       sections,
@@ -282,6 +286,13 @@ function ReportBlockData({ spec, onReady }: { spec: ReportBlockSpec; onReady: (k
 }
 
 function TourSummary({ reports, metaOf }: { reports: ArtistCacheReport[]; metaOf: (id: string) => EventMeta }) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+
   return (
     <Card>
       <CardHeader className="pb-3"><CardTitle className="text-base">Resumo da turnê</CardTitle></CardHeader>
@@ -316,6 +327,13 @@ function TourSummary({ reports, metaOf }: { reports: ArtistCacheReport[]; metaOf
 }
 
 function CitySection({ meta, reports, closesWithNet, note, tierMode }: { meta: EventMeta; reports: ArtistCacheReport[]; closesWithNet: boolean; note?: string; tierMode: TierBasisMode }) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-border bg-muted/20 px-4 py-3 text-sm">
@@ -329,7 +347,7 @@ function CitySection({ meta, reports, closesWithNet, note, tierMode }: { meta: E
       </div>
       {reports.map((rep) => {
         const city = rep.cities.find((c) => c.cityId === meta.id);
-        const rows = cityRowsFor(rep, meta.id, tierMode);
+        const rows = cityRowsFor(rep, meta.id, tierMode, companyLocale);
         const extras = closesWithNet ? rep.extras : city?.extras ?? [];
         const extrasTotal = closesWithNet ? rep.extrasTotal : city?.extrasTotal ?? 0;
         return (

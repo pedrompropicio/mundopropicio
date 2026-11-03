@@ -1,3 +1,6 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
+import IvaRateSelect from "@/components/IvaRateSelect";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -103,6 +106,9 @@ export function NewCardExpenseModal({
   expense,
   item,
 }: Props) {
+  const companyLocale = useCompanyLocale();
+  const symbol = companyLocale.status === "available" ? companyLocale.symbol : "—";
+  const noIva = companyLocale.status === "available" && companyLocale.ivaPolicy === "none";
   const { user } = useAuth();
   const qc = useQueryClient();
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -114,7 +120,8 @@ export function NewCardExpenseModal({
   const [description, setDescription] = useState("");
   /** Total c/IVA — igual ao talão (é o que sai do cartão). */
   const [total, setTotal] = useState("");
-  const [ivaRate, setIvaRate] = useState<number>(23);
+  const [selectedIvaRate, setIvaRate] = useState<number>(noIva ? 0 : 23);
+  const ivaRate = noIva ? 0 : selectedIvaRate;
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [eventId, setEventId] = useState<string>(defaultEventId ?? "");
   const [categoryId, setCategoryId] = useState<string>("");
@@ -166,7 +173,7 @@ export function NewCardExpenseModal({
     } else {
       setDescription("");
       setTotal("");
-      setIvaRate(23);
+      setIvaRate(noIva ? 0 : 23);
       setDate(new Date().toISOString().split("T")[0]);
       setEventId(defaultEventId ?? "");
       setCategoryId("");
@@ -180,6 +187,10 @@ export function NewCardExpenseModal({
     setPreviewUrl(null);
     setOcrPayload(null);
   }, [open, expense?.id, item?.id]);
+
+  useEffect(() => {
+    if (!isEdit && !noIva) setIvaRate(23);
+  }, [noIva, isEdit]);
 
   // Nº de anexos já gravados (só relevante para itens).
   useEffect(() => {
@@ -622,6 +633,7 @@ export function NewCardExpenseModal({
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
             <input value={description} onChange={(e) => setDescription(e.target.value)} required className={inputCls} />
           </div>
+          {companyLocale.status === "available" && companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR" ? (
           <CardAmountFields
             total={total}
             onTotalChange={setTotal}
@@ -631,6 +643,21 @@ export function NewCardExpenseModal({
             required
             inputClassName={inputCls}
           />
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Total c/IVA ({symbol}) *</label>
+                <input type="number" step="0.01" inputMode="decimal" min="0.01" value={total}
+                  onChange={(e) => setTotal(e.target.value)} required className={inputCls} />
+                <p className="mt-1 text-[11px] text-muted-foreground">Total igual ao talão — é o que sai do cartão.</p>
+                <p className="font-mono text-xs">{companyLocale.status === "available" ? formatMoney(parseFloat(total) || 0, companyLocale) : "—"}</p>
+              </div>
+              {!noIva && <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
+                <IvaRateSelect eventId={eventId || null} value={ivaRate} onChange={setIvaRate} />
+              </div>}
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Data</label>
             <DatePicker value={date} onChange={setDate} />
@@ -677,12 +704,12 @@ export function NewCardExpenseModal({
           )}
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Fatura</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">{companyLocale.status === "available" ? companyLocale.labels.invoiceRef : "Nº Fatura"}</label>
             <input
               type="text"
               value={invoiceRef}
               onChange={(e) => setInvoiceRef(e.target.value)}
-              placeholder="Ex: FT 002/5944"
+              placeholder={companyLocale.status === "available" ? companyLocale.labels.invoiceRefPlaceholder : "Ex: FT 002/5944"}
               className={inputCls}
             />
           </div>

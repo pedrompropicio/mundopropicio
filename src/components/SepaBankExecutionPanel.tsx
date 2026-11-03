@@ -4,7 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { mustWrite } from "@/lib/must-write";
 import { useSepaBankExecution } from "@/hooks/useSepaBankExecution";
 import { BANK_EXEC_LABEL, stateByTransaction, type BeLineResult } from "@/lib/sepa/bank-execution";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Landmark, Check } from "lucide-react";
@@ -16,6 +18,12 @@ import { toast } from "sonner";
  * Nunca altera a transação (status/paid_amount continuam na liquidação).
  */
 export default function SepaBankExecutionPanel({ listId }: { listId: string }) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const qc = useQueryClient();
   const { data, isLoading } = useSepaBankExecution({ listId });
   const [saving, setSaving] = useState<string | null>(null);

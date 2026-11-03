@@ -3,8 +3,8 @@
  *
  * É a MESMA resolução usada pela geração do ficheiro SEPA Santander
  * (`sepaCandidates` em PaymentListsTab) e pelo gate de elegibilidade dos
- * pickers de Listas de Pagamento — zero divergência entre o que entra na lista
- * e o que o ficheiro consegue gerar.
+ * pickers de Listas de Pagamento. A elegibilidade gerencial pode permitir
+ * pagamentos fora do SEPA; exportar continua a exigir capability e IBAN SEPA.
  *
  * Ordem: `transactions.iban_override` → `suppliers.iban` → `iban_2` → `iban_3`.
  * Nos REEMBOLSOS o `iban_override` é gravado na criação da transação de
@@ -36,12 +36,17 @@ export type BankabilityCheck = {
    * automaticamente o último mês em dívida. ELEGÍVEL, mas fora do SEPA.
    */
   socialSecurityByNif: boolean;
+  /** Elegível gerencialmente sem IBAN; os dados bancários ficam fora do SEPA. */
+  bankDataOutsideSepa?: true;
   /** motivo da inelegibilidade (só quando ok = false) */
   reason?: "no_bank_data";
 };
 
 export const NO_IBAN_TOOLTIP =
   "Associa um fornecedor com IBAN ou define IBAN manual na transação para poder incluir em lista";
+
+export const BANK_DATA_OUTSIDE_SEPA_TOOLTIP =
+  "Pagamento fora do SEPA — dados bancários no cadastro do fornecedor";
 
 export const INTERNAL_NO_IBAN_TOOLTIP =
   "Transferência entre contas próprias: sem IBAN no cadastro da conta de destino, fica fora do ficheiro Santander e liquida-se no homebanking";
@@ -123,7 +128,10 @@ export function hasPaymentReference(tx: any): boolean {
   return !!(clean(tx?.payment_entity) || clean(tx?.payment_reference));
 }
 
-export function checkPaymentBankability(tx: any): BankabilityCheck {
+export type PaymentBankabilityContext = { sepa?: boolean };
+
+/** Elegibilidade gerencial; omitir contexto preserva o contrato original. */
+export function checkPaymentBankability(tx: any, context?: PaymentBankabilityContext): BankabilityCheck {
   const dest = getCardLoadDestination(tx);
   const isCardLoad = !!dest;
   const socialSecurity = isSocialSecurityExpense(tx);
@@ -139,6 +147,8 @@ export function checkPaymentBankability(tx: any): BankabilityCheck {
   // homebanking entre contas próprias, com ou sem IBAN no cadastro.
   if (isCardLoad)
     return { ...base, ok: true, iban: null, viaReference: false, isCardLoad: true, internalNoIban: true };
+  if (context?.sepa === false)
+    return { ...base, ok: true, iban: null, viaReference: false, bankDataOutsideSepa: true };
   return { ...base, ok: false, iban: null, viaReference: false, reason: "no_bank_data" };
 }
 
@@ -159,6 +169,11 @@ export function isSocialSecurityByNif(tx: any): boolean {
 /** Rótulo + tooltip do badge de inelegibilidade. */
 export function noIbanBadgeProps(tx: any): { label: string; tooltip: string } {
   return { label: "Sem IBAN", tooltip: NO_IBAN_TOOLTIP };
+}
+
+/** Badge informativo para pagamentos gerenciais com dados fora do SEPA. */
+export function bankDataOutsideSepaBadgeProps(): { label: string; tooltip: string } {
+  return { label: "Pagamento fora do SEPA", tooltip: BANK_DATA_OUTSIDE_SEPA_TOOLTIP };
 }
 
 /** Badge informativo (neutro) da transferência interna sem IBAN. */

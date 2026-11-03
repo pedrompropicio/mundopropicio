@@ -1,6 +1,8 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { useEffect } from "react";
 import { CreditCard } from "lucide-react";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import { creditRemaining, type SupplierCredit } from "@/lib/supplier-credits";
 import { useAvailableSupplierCredits } from "@/hooks/useAvailableSupplierCredits";
 
@@ -20,6 +22,12 @@ type Props = {
  * NUNCA abate automaticamente — a financeira tem de confirmar marcando a opção.
  */
 export function SupplierCreditBanner({ supplierId, maxAmount, value, onChange, disabled }: Props) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const { data: credits = [] } = useAvailableSupplierCredits(supplierId);
 
   const totalAvailable = credits.reduce((s, c) => s + creditRemaining(c), 0);
@@ -79,7 +87,7 @@ export function SupplierCreditBanner({ supplierId, maxAmount, value, onChange, d
           </div>
           <div>
             <label className="text-[10px] text-muted-foreground">
-              Valor a abater (€) {selected ? `· máx ${formatCurrency(Math.min(creditRemaining(selected), maxAmount || creditRemaining(selected)))}` : ""}
+              Valor a abater ({companyLocale.status === "available" ? companyLocale.symbol : "€"}) {selected ? `· máx ${formatCurrency(Math.min(creditRemaining(selected), maxAmount || creditRemaining(selected)))}` : ""}
             </label>
             <input
               type="number"
@@ -102,14 +110,20 @@ export function resolveCreditSelection(
   value: CreditSelection,
   credits: SupplierCredit[],
   maxAmount: number,
+  companyLocale?: CompanyLocaleResult,
 ): { creditId: string; amount: number } | null {
   if (!value) return null;
   const credit = credits.find((c) => c.id === value.creditId);
   if (!credit) throw new Error("Crédito inválido ou já indisponível");
   const amount = Math.round((parseFloat(value.amount) || 0) * 100) / 100;
   if (amount <= 0) throw new Error("Valor do crédito a abater tem de ser positivo");
-  if (amount > creditRemaining(credit) + 0.01)
-    throw new Error(`O crédito só tem ${creditRemaining(credit).toFixed(2)} € disponível`);
+  if (amount > creditRemaining(credit) + 0.01) {
+    const remaining = creditRemaining(credit);
+    const formatted = !companyLocale || (companyLocale.status === "available" && companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")
+      ? `${remaining.toFixed(2)} €`
+      : companyLocale.status === "available" ? formatMoney(remaining, companyLocale) : "—";
+    throw new Error(`O crédito só tem ${formatted} disponível`);
+  }
   if (maxAmount > 0 && amount > maxAmount + 0.01)
     throw new Error("O crédito a abater não pode exceder o valor a pagar");
   return { creditId: credit.id, amount };

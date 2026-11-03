@@ -6,9 +6,11 @@ import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { formatMoney } from "@/lib/company-locale";
 import { MirrorAporteNotice } from "@/components/MirrorAporteNotice";
-import { X, CalendarIcon, Paperclip, CreditCard, Building, FileText, Landmark, RefreshCw, Repeat } from "lucide-react";
+import { useMirrorPartnerAccounts } from "@/lib/mirror-partner-account";
+import { X, CalendarIcon, Paperclip, CreditCard, Building, FileText, Landmark, RefreshCw, Repeat, AlertTriangle } from "lucide-react";
 import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import { toast } from "@/hooks/use-toast";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
@@ -49,6 +51,15 @@ interface Props {
 }
 
 export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }: Props) {
+  const companyLocale = useCompanyLocale();
+  const companyCurrency = companyLocale.status === "available" ? companyLocale.currency : "EUR";
+  const companySymbol = companyLocale.status === "available" ? companyLocale.symbol : "—";
+  const legacyMoney = companyLocale.status === "available" && companyLocale.locale === "pt-PT" && companyCurrency === "EUR";
+  const formatCurrency = (value: number) => {
+    if (companyLocale.status !== "available") return "—";
+    return legacyMoney ? formatLegacyCurrency(value) : formatMoney(value, companyLocale);
+  };
+  const irsWithholding = companyLocale.status !== "available" || companyLocale.capabilities.irsWithholding;
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState<Date>(() => {
     if (transaction.payment_date) {
@@ -92,12 +103,11 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
   const [paymentReference, setPaymentReference] = useState(transaction.payment_reference ?? "");
   // FX on payment day (only if transaction is in a foreign currency)
   const txCurrency: CurrencyCode = isSupportedCurrency(transaction.currency) ? transaction.currency : "EUR";
-  const isForeign = txCurrency !== "EUR";
+  const isForeign = txCurrency !== companyCurrency;
   const [paymentFxRate, setPaymentFxRate] = useState<string>(isForeign ? String(transaction.fx_rate ?? "") : "");
   const [loadingFx, setLoadingFx] = useState(false);
   const { user, isAdmin, isManager } = useAuth();
   const queryClient = useQueryClient();
-  const companyLocale = useCompanyLocale();
 
   // ===== "Pago pelo Sócio" (forma de pagamento alternativa) =====
   // Não é caixa da empresa: cria o vínculo em partner_paid_expenses.
@@ -511,8 +521,9 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
         notes: notes.trim() || null,
         created_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
       };
-      // (#127) `amount` é sempre EUR; em moeda estrangeira guarda-se o valor na
-      // moeda de origem e o câmbio usado (o do dia, se introduzido).
+      // `amount` está na moeda da empresa; FX só quando a moeda da transação difere.
+      // Nativas BRL conservam o montante e não transportam metadados FX antigos.
+      if (!isForeign && !legacyMoney) paymentRecord.currency = txCurrency;
       if (isForeign) {
         const dayRate = parseFloat(paymentFxRate) || 0;
         const txRate = Number(transaction.fx_rate) || 0;
@@ -613,8 +624,8 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
             transaction_id: child.id,
             changed_by: who,
             field_name: "Liquidação rateio",
-            old_value: `${childCurrentPaid.toFixed(2)} €`,
-            new_value: `${childNewPaid.toFixed(2)} € — ${originLabel}`,
+            old_value: legacyMoney ? `${childCurrentPaid.toFixed(2)} €` : formatCurrency(childCurrentPaid),
+            new_value: `${legacyMoney ? `${childNewPaid.toFixed(2)} €` : formatCurrency(childNewPaid)} — ${originLabel}`,
           });
         }
       };
@@ -766,7 +777,9 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
               <span className="text-muted-foreground">Saldo em aberto:</span>
               <span className="font-bold text-warning inline-flex items-center gap-1.5">
                 {formatCurrency(balance)}
-                <CurrencyBadge currency={transaction.currency} originalAmount={transaction.original_amount} fxRate={transaction.fx_rate} />
+                {companyLocale.status === "available" && isForeign && (
+                  <CurrencyBadge currency={transaction.currency} originalAmount={transaction.original_amount} fxRate={transaction.fx_rate} />
+                )}
               </span>
             </div>
           </div>
@@ -782,12 +795,12 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
               <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
                 <div className="flex justify-between text-[11px] text-muted-foreground">
                   <span>Valor contratado em {txCurrency}:</span>
-                  <span className="font-semibold text-foreground">{formatInCurrency(balanceFx, txCurrency)}</span>
+                  <span className="font-semibold text-foreground">{companyLocale.status === "available" ? formatInCurrency(balanceFx, txCurrency) : "—"}</span>
                 </div>
                 <div className="flex items-end gap-2">
                   <div className="flex-1">
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      Câmbio do dia (1 {txCurrency} = X €)
+                      Câmbio do dia (1 {txCurrency} = X {companySymbol})
                     </label>
                     <input
                       type="number"
@@ -809,6 +822,7 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
                   <button
                     type="button"
                     onClick={async () => {
+                      if (companyCurrency !== "EUR") return;
                       setLoadingFx(true);
                       const r = await fetchSuggestedFxRate(txCurrency, supabase);
                       setLoadingFx(false);
@@ -817,7 +831,7 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
                         if (balanceFx > 0) setPaymentAmount((balanceFx * r).toFixed(2));
                       }
                     }}
-                    disabled={loadingFx}
+                    disabled={loadingFx || companyCurrency !== "EUR"}
                     className="rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium hover:bg-secondary disabled:opacity-50 flex items-center gap-1.5"
                   >
                     <RefreshCw className={`h-3.5 w-3.5 ${loadingFx ? "animate-spin" : ""}`} />
@@ -828,7 +842,7 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
                   const rate = parseFloat(paymentFxRate) || 0;
                   if (rate <= 0 || balanceFx <= 0) return (
                     <p className="text-[11px] text-muted-foreground">
-                      Define o câmbio do dia para recalcular o valor em EUR a pagar.
+                      Define o câmbio do dia para recalcular o valor em {companyCurrency} a pagar.
                     </p>
                   );
                   const eurNow = +(balanceFx * rate).toFixed(2);
@@ -838,14 +852,14 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
                   return (
                     <div className="text-[11px] text-muted-foreground space-y-0.5">
                       <p>
-                        {formatInCurrency(balanceFx, txCurrency)} × {rate.toFixed(6)} ={" "}
+                        {companyLocale.status === "available" ? formatInCurrency(balanceFx, txCurrency) : "—"} × {rate.toFixed(6)} ={" "}
                         <span className="font-semibold text-foreground">{formatCurrency(eurNow)}</span>
                       </p>
                       {origRate > 0 && (
                         <p className={diffEur >= 0 ? "text-warning" : "text-success"}>
                           vs. câmbio original ({origRate.toFixed(6)} → {formatCurrency(eurOriginal)}):{" "}
                           {diffEur >= 0 ? "+" : ""}{formatCurrency(diffEur)}{" "}
-                          ({diffRate >= 0 ? "+" : ""}{diffRate.toFixed(6)} €/{txCurrency})
+                          ({diffRate >= 0 ? "+" : ""}{diffRate.toFixed(6)} {companySymbol}/{txCurrency})
                         </p>
                       )}
                     </div>
@@ -954,10 +968,11 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
                 </div>
               )}
             {/* Conta-espelho de sócio: o pagamento gera um aporte automático (10.1.01). */}
-            <MirrorAporteNotice
-              accountId={accountId}
-              amount={parseFloat(paymentAmount || "0") || balance}
-            />
+            {legacyMoney ? (
+              <MirrorAporteNotice accountId={accountId} amount={parseFloat(paymentAmount || "0") || balance} />
+            ) : (
+              <LocalizedMirrorAporteNotice accountId={accountId} amount={parseFloat(paymentAmount || "0") || balance} formatCurrency={formatCurrency} />
+            )}
           </div>
           )}
 
@@ -1093,10 +1108,10 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
             </Popover>
           </div>
 
-          {isExpense && (
+          {isExpense && irsWithholding && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                Retenção IRS (€) <span className="text-muted-foreground/60">— opcional</span>
+                Retenção IRS ({companySymbol}) <span className="text-muted-foreground/60">— opcional</span>
                 {transaction.declared_withholding_amount != null && Number(transaction.declared_withholding_amount) > 0 && (
                   <span className="ml-2 inline-flex items-center rounded-md bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">
                     Pré-preenchido da fatura{transaction.declared_withholding_rate ? ` (${Number(transaction.declared_withholding_rate)}%)` : ""}
@@ -1155,14 +1170,14 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
           )}
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Doc/Fatura</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">{companyLocale.status === "available" && !legacyMoney ? companyLocale.labels.invoiceRef : "Nº Doc/Fatura"}</label>
             <input type="text" value={invoiceRef}
               onChange={(e) => setInvoiceRef(e.target.value)}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ex: FT 2026/001" />
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor a {isExpense ? "pagar" : "receber"} (€)</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor a {isExpense ? "pagar" : "receber"} ({companySymbol})</label>
             <input type="number" step="0.01" min="0.01" max={balance} value={paymentAmount}
               onChange={(e) => setPaymentAmount(e.target.value)}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="0.00" />
@@ -1212,5 +1227,26 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
         />
       )}
     </>
+  );
+}
+
+// This dispatch cannot change the shared notice. Keep its PT renderer intact
+// and reuse the same account map and amount for local monetary presentation.
+function LocalizedMirrorAporteNotice({ accountId, amount, formatCurrency }: {
+  accountId: string;
+  amount: number;
+  formatCurrency: (value: number) => string;
+}) {
+  const { data: mirrors } = useMirrorPartnerAccounts();
+  const mirror = accountId ? mirrors?.[accountId] : undefined;
+  if (!mirror) return null;
+  return (
+    <div className="mt-2 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <span>
+        Conta-espelho de <strong>{mirror.partnerName}</strong>. Este pagamento vai gerar
+        automaticamente um aporte de <strong>{formatCurrency(amount || 0)}</strong> para o sócio.
+      </span>
+    </div>
   );
 }

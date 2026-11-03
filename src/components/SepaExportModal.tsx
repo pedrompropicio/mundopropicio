@@ -24,6 +24,7 @@ import {
 } from "@/lib/sepa/pain001";
 import { normalizeIban, formatIban } from "@/lib/iban";
 import { isInsideHelpPanel } from "@/lib/help-panel-dom";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 
 export interface SepaCandidate {
   transactionId: string;
@@ -60,16 +61,7 @@ const REASON_LABEL: Record<string, string> = {
 };
 
 
-export default function SepaExportModal({
-  listId,
-  listTitle,
-  listStatus,
-  paymentDate,
-  candidates,
-  companyName,
-  onExported,
-  onClose,
-}: {
+type SepaExportModalProps = {
   listId: string;
   listTitle: string;
   listStatus: string;
@@ -83,7 +75,26 @@ export default function SepaExportModal({
    */
   onExported?: (transactionIds: string[]) => void | Promise<void>;
   onClose: () => void;
-}) {
+};
+
+export default function SepaExportModal(props: SepaExportModalProps) {
+  const companyLocale = useCompanyLocale();
+  if (companyLocale.status !== "available" || !companyLocale.capabilities.sepa || companyLocale.currency !== "EUR") {
+    return null;
+  }
+  return <SepaExportContent {...props} />;
+}
+
+function SepaExportContent({
+  listId,
+  listTitle,
+  listStatus,
+  paymentDate,
+  candidates,
+  companyName,
+  onExported,
+  onClose,
+}: SepaExportModalProps) {
   const queryClient = useQueryClient();
   const isTest = !(listStatus === "approved" || listStatus === "partially_approved");
   const executionDate = useMemo(() => resolveExecutionDate(paymentDate), [paymentDate]);

@@ -1,4 +1,5 @@
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { SUPPLIER_BANK_READ_ROLES } from "@/lib/supplier-bank";
 import { BR_BANK_FIELDS, BrBankFields, readBrBankSlots, loadOptionalSupplierBrData, type BrBankDetails } from "@/components/SupplierBankDetails";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -62,6 +63,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const isEditing = !!editingSupplier;
   const companyLocale = useCompanyLocale();
   const isBR = companyLocale.status === "available" && companyLocale.locale === "pt-BR";
+  const canReadBank = SUPPLIER_BANK_READ_ROLES.includes(role ?? "");
   const [brBanks, setBrBanks] = useState<BrBankDetails[]>([{}, {}, {}]);
   const { data: brData } = useQuery({
     queryKey: ["supplier-br-details", companyLocale.companyId, editingSupplier?.id, role, user?.id],
@@ -70,16 +72,19 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     refetchOnWindowFocus: false,
     retry: false,
   });
-  const brColumnsReady = isBR && !!companyLocale.companyId && brData?.available === true;
+  const brColumnsReady = isBR && canReadBank && !!companyLocale.companyId && brData?.available === true;
   const brSource = brColumnsReady ? brData.details : null;
+  const [brTaxId, setBrTaxId] = useState("");
+  const [brTaxIdType, setBrTaxIdType] = useState("cnpj");
+  const [brTaxIdEdited, setBrTaxIdEdited] = useState(false);
   const occupiedForeignSlots = new Set<number>((Array.isArray(brSource?.foreign_bank_accounts) ? brSource.foreign_bank_accounts : [])
     .filter((bank: any) => bank && bank.account_type !== "br_banco_agencia_conta").map((bank: any) => bank.slot));
   const [iban1, setIban1] = useState<string>(editingSupplier?.iban ?? "");
   const [iban2, setIban2] = useState<string>(editingSupplier?.iban_2 ?? "");
   const [iban3, setIban3] = useState<string>(editingSupplier?.iban_3 ?? "");
 
-  // Os IBANs são os únicos campos controlados (o IbanWarning precisa do valor
-  // vivo a cada tecla). O Radix desmonta o conteúdo ao fechar, mas este
+  // O IbanWarning precisa do valor vivo a cada tecla.
+  // O Radix desmonta o conteúdo ao fechar, mas este
   // componente fica montado — logo o estado sobrevivia e reaparecia na
   // abertura seguinte. Ressincronizar na ABERTURA (não no fecho) garante o
   // valor certo já no primeiro render visível.
@@ -91,6 +96,14 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     setIban2(editingSupplier?.iban_2 ?? "");
     setIban3(editingSupplier?.iban_3 ?? "");
   }, [open, editingSupplier, brData, companyLocale.companyId, isBR, role, user?.id]);
+
+  useEffect(() => {
+    if (!open) return;
+    setBrTaxId(brSource?.tax_id_foreign ?? "");
+    setBrTaxIdType(brSource?.tax_id_type ?? "cnpj");
+    setBrTaxIdEdited(false);
+  }, [open, editingSupplier?.id, companyLocale.companyId, isBR, role, user?.id,
+    brColumnsReady, brSource?.tax_id_foreign, brSource?.tax_id_type]);
 
   const createMutation = useMutation({
     mutationFn: async (supplier: Record<string, any>) => {
@@ -165,6 +178,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      if (isBR) queryClient.invalidateQueries({ queryKey: ["supplier-br-details", companyLocale.companyId, editingSupplier?.id] });
       onOpenChange(false);
       toast.success("Fornecedor atualizado com sucesso");
     },
@@ -252,12 +266,21 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       is_partner: fd.get("is_partner") === "on",
     };
     if (isBR) {
-      // The fiscal identifier is read-only here until the separate #403b editor work.
+      // Hidden PT fields retain the existing payload, without being edited in BR.
       raw.nif = editingSupplier?.nif ?? null;
       for (const field of ["iban", "iban_2", "iban_3", "swift_bic", "swift_bic_2", "swift_bic_3"]) {
         raw[field] = editingSupplier?.[field] ?? null;
       }
       if (brColumnsReady) {
+        // Strip fiscal formatting; letters remain invalid rather than silently clearing an ID.
+        const taxId = brTaxId.trim().replace(/[.\-/\s]/g, "") || null;
+        const loadedTaxId = (brSource?.tax_id_foreign ?? "").trim().replace(/[.\-/\s]/g, "") || null;
+        if (brTaxIdEdited && (isEditing
+          ? taxId !== loadedTaxId || brTaxIdType !== (brSource?.tax_id_type ?? "cnpj")
+          : !!taxId)) {
+          raw.tax_id_foreign = taxId;
+          raw.tax_id_type = brTaxIdType;
+        }
         const existing = Array.isArray(brSource?.foreign_bank_accounts) ? brSource.foreign_bank_accounts : [];
         const brSlots = brBanks.flatMap((bank, i) => {
           if (occupiedForeignSlots.has(i + 1)) return [];
@@ -438,8 +461,21 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="sup-nif">{isBR ? (brSource?.tax_id_type?.toUpperCase() || "CNPJ") : "NIF"}</Label>
-              {isBR ? <Input id="sup-nif" disabled value={brSource?.tax_id_foreign ?? ""} /> : <Input id="sup-nif" name="nif" defaultValue={s?.nif ?? ""} />}
+              <Label htmlFor="sup-nif">{isBR ? companyLocale.labels.taxId : "NIF"}</Label>
+              {isBR ? <>
+                <Input id="sup-nif" disabled={!brColumnsReady} value={brColumnsReady ? brTaxId : ""}
+                  onChange={e => { setBrTaxId(e.target.value); setBrTaxIdEdited(true); }}
+                  aria-invalid={!!validationErrors.tax_id_foreign}
+                  aria-describedby={validationErrors.tax_id_foreign ? "sup-tax-id-error" : undefined} />
+                {validationErrors.tax_id_foreign && <p id="sup-tax-id-error" className="text-xs text-destructive">{validationErrors.tax_id_foreign}</p>}
+                <Label htmlFor="sup-tax-id-type">Tipo de identificador fiscal</Label>
+                <select id="sup-tax-id-type" disabled={!brColumnsReady} value={brColumnsReady ? brTaxIdType : "cnpj"}
+                  onChange={e => { setBrTaxIdType(e.target.value); setBrTaxIdEdited(true); }}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                  <option value="cnpj">CNPJ</option><option value="cpf">CPF</option>
+                  {brColumnsReady && !["cpf", "cnpj"].includes(brTaxIdType) && <option value={brTaxIdType}>{brTaxIdType.toUpperCase()}</option>}
+                </select>
+              </> : <Input id="sup-nif" name="nif" defaultValue={s?.nif ?? ""} />}
             </div>
             {!defaultIsPartner && (
               <div className="grid gap-2">

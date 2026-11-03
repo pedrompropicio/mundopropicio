@@ -13,7 +13,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
-import { formatCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, Info, Eye } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -248,6 +250,12 @@ function buildDREBrasil(
 }
 
 export default function ReportDREBrasil() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("ticket_sales");
@@ -681,7 +689,7 @@ export default function ReportDREBrasil() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => exportDREToExcel(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId, eventPartners, events, true, showPartnerView ? closingCosts : [])}
+          onClick={() => exportDREToExcel(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId, eventPartners, events, true, showPartnerView ? closingCosts : [], companyLocale)}
           disabled={activeEvents.length === 0}
         >
           <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
@@ -689,7 +697,7 @@ export default function ReportDREBrasil() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => exportDREToPDF(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId, eventPartners, events, true, showPartnerView ? closingCosts : [])}
+          onClick={() => exportDREToPDF(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId, eventPartners, events, true, showPartnerView ? closingCosts : [], companyLocale)}
           disabled={activeEvents.length === 0}
         >
           <FileText className="mr-1.5 h-4 w-4" /> PDF
@@ -776,7 +784,7 @@ export default function ReportDREBrasil() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Rubrica</TableHead>
-                          <TableHead className="text-right">Valor (€)</TableHead>
+                          <TableHead className="text-right">Valor ({companyLocale.status === "available" ? companyLocale.symbol : "—"})</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>

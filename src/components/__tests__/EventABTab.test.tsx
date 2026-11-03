@@ -18,6 +18,9 @@ import { MemoryRouter } from "react-router-dom";
 import EventABTab from "@/components/EventABTab";
 
 // ── mocks ───────────────────────────────────────────────
+vi.mock("@/hooks/useCompany", () => ({
+  useCompany: () => ({ companyId: null, company: { country: "PT", currency: "EUR" }, isLoading: false, isError: false }),
+}));
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: vi.fn() }),
 }));

@@ -1,3 +1,4 @@
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
@@ -34,6 +35,7 @@ export interface PaymentItem {
 }
 
 interface PaymentListExport {
+  companyLocale?: CompanyLocaleResult;
   title: string;
   payment_date: string;
   approved_by: string | null;
@@ -150,6 +152,7 @@ export function groupPaymentItems(items: PaymentItem[]): { groups: PaymentGroup[
 }
 
 export function exportPaymentListToExcel(data: PaymentListExport) {
+  const symbol = data.companyLocale?.status === "available" ? data.companyLocale.symbol : "€";
   const wb = XLSX.utils.book_new();
   const { groups, ungrouped } = groupPaymentItems(data.items);
 
@@ -158,7 +161,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     [`Data: ${formatDate(data.payment_date)}`],
     ...(data.approved_by ? [[`Aprovado por: ${data.approved_by} em ${data.approved_at ? formatDate(data.approved_at) : ""}`]] : []),
     [],
-    ["#", "Evento", "Categoria", "Descrição", "Especificação", "Fornecedor", "Nº Fatura", "IBAN / Dados Pgto", "Valor Base (€)", "IVA (%)", "Valor c/IVA (€)", "Ret. IRS (€)", "Líquido a pagar (€)", "Já Pago (€)", "Saldo (€)", "Vencimento"],
+    ["#", "Evento", "Categoria", "Descrição", "Especificação", "Fornecedor", "Nº Fatura", "IBAN / Dados Pgto", `Valor Base (${symbol})`, "IVA (%)", `Valor c/IVA (${symbol})`, `Ret. IRS (${symbol})`, `Líquido a pagar (${symbol})`, `Já Pago (${symbol})`, `Saldo (${symbol})`, "Vencimento"],
   ];
 
   let totalWithIva = 0;
@@ -284,12 +287,16 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     { wch: 14 },
     { wch: 14 },
   ];
-  applyPTNumberFormat(ws);
+  applyPTNumberFormat(ws, data.companyLocale);
   XLSX.utils.book_append_sheet(wb, ws, "Contas a Pagar");
   XLSX.writeFile(wb, `Contas_Pagar_${data.payment_date}.xlsx`);
 }
 
 export function exportPaymentListToPDF(data: PaymentListExport) {
+  const companyLocale = data.companyLocale;
+  const formatAmount = (value: number) => companyLocale?.status === "available" && !(companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")
+    ? formatMoney(value, companyLocale)
+    : formatCurrencyDecimal(value);
   const doc = new jsPDF({ orientation: "portrait" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginLeft = 14;
@@ -396,8 +403,8 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
       doc.text("  ↳", labelX, y);
       doc.setTextColor(0, 0, 0);
       const descLine = np.applied
-        ? `${item.description}${item.event_name ? ` (${item.event_name})` : ""} — ${formatCurrencyDecimal(withIva)} (Ret. IRS −${formatCurrencyDecimal(np.withholding)} • Líquido ${formatCurrencyDecimal(np.net)})`
-        : `${item.description}${item.event_name ? ` (${item.event_name})` : ""} — ${formatCurrencyDecimal(withIva)}`;
+        ? `${item.description}${item.event_name ? ` (${item.event_name})` : ""} — ${formatAmount(withIva)} (Ret. IRS −${formatAmount(np.withholding)} • Líquido ${formatAmount(np.net)})`
+        : `${item.description}${item.event_name ? ` (${item.event_name})` : ""} — ${formatAmount(withIva)}`;
       doc.text(descLine, labelX + 10, y);
       y += lineHeight;
     }
@@ -407,12 +414,12 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
     doc.text(group.totalWithholding > 0 ? "Líquido a transferir:" : "Total Fatura:", labelX, y);
     doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "bold");
-    doc.text(formatCurrencyDecimal(group.totalNetPayable), valueX, y);
+    doc.text(formatAmount(group.totalNetPayable), valueX, y);
     doc.setFont("helvetica", "normal");
     if (group.totalWithholding > 0) {
       y += lineHeight;
       doc.setTextColor(150, 80, 0);
-      doc.text(`(Bruto ${formatCurrencyDecimal(group.totalWithIva)} − Ret. IRS ${formatCurrencyDecimal(group.totalWithholding)})`, valueX, y);
+      doc.text(`(Bruto ${formatAmount(group.totalWithIva)} − Ret. IRS ${formatAmount(group.totalWithholding)})`, valueX, y);
       doc.setTextColor(0, 0, 0);
     }
     y += lineHeight + 4;
@@ -496,19 +503,19 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
     doc.text("Valor:", labelX, y);
     doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "bold");
-    doc.text(formatCurrencyDecimal(withIva), valueX, y);
+    doc.text(formatAmount(withIva), valueX, y);
     doc.setFont("helvetica", "normal");
     y += lineHeight;
 
     if (np.applied) {
       doc.setTextColor(150, 80, 0);
       doc.text("Ret. IRS:", labelX, y);
-      doc.text(`−${formatCurrencyDecimal(np.withholding)}`, valueX, y);
+      doc.text(`−${formatAmount(np.withholding)}`, valueX, y);
       y += lineHeight;
       doc.setTextColor(0, 110, 0);
       doc.setFont("helvetica", "bold");
       doc.text("Líquido a pagar:", labelX, y);
-      doc.text(formatCurrencyDecimal(np.net), valueX, y);
+      doc.text(formatAmount(np.net), valueX, y);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
       y += lineHeight;
@@ -523,7 +530,7 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
   y += 4;
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text(`Total: ${formatCurrencyDecimal(totalValue)}`, marginLeft, y);
+  doc.text(`Total: ${formatAmount(totalValue)}`, marginLeft, y);
 
   doc.save(`Contas_Pagar_${data.payment_date}.pdf`);
 }

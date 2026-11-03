@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "sonner";
-import { formatCurrency, formatDate } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency, formatDate } from "@/lib/mock-data";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -17,15 +19,26 @@ import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
 export default function Quotations() {
+  const companyLocale = useCompanyLocale();
+  const symbol = companyLocale.status === "available" ? companyLocale.symbol : "—";
+  const noIva = companyLocale.status === "available" && companyLocale.ivaPolicy === "none";
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+
   const [isOpen, setIsOpen] = useState(false);
   const [isSupplierOpen, setIsSupplierOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
   const [selectedEventId, setSelectedEventId] = useState<string>("");
   // Taxas de IVA do país da cidade do evento (PT por defeito).
   const { rates: ivaRates, defaultRate: defaultIvaRate } = useEventIvaCountry(selectedEventId || null);
-  const [ivaRate, setIvaRate] = useState<string>("23");
+  const [selectedIvaRate, setIvaRate] = useState<string>(noIva ? "0" : "23");
+  const ivaRate = noIva ? "0" : selectedIvaRate;
+  useEffect(() => { if (!noIva) setIvaRate("23"); }, [noIva]);
   useEffect(() => {
-    if (!ivaRates.includes(Number(ivaRate) as any)) setIvaRate(String(defaultIvaRate));
+    if (!noIva && !ivaRates.includes(Number(ivaRate) as any)) setIvaRate(String(defaultIvaRate));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ivaRates]);
   const [validUntil, setValidUntil] = useState("");
@@ -184,9 +197,10 @@ export default function Quotations() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="amount">Valor (€) *</Label>
+                  <Label htmlFor="amount">Valor ({symbol}) *</Label>
                   <Input id="amount" name="amount" type="number" step="0.01" required />
                 </div>
+                {!noIva && (
                 <div className="grid gap-2">
                   <Label>Taxa IVA</Label>
                   <Select name="iva_rate" value={ivaRate} onValueChange={setIvaRate}>
@@ -198,6 +212,7 @@ export default function Quotations() {
                     </SelectContent>
                   </Select>
                 </div>
+                )}
               </div>
               <div className="grid gap-2">
                 <Label>Válida até</Label>

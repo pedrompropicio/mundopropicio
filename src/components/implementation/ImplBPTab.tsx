@@ -1,3 +1,5 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import React, { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,7 +46,18 @@ function norm(s: string): string {
   return (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 }
 
-function matchScore(source: ParsedRow, forecast: any): { score: number; divergences: string[] } {
+// The three existing PT displays intentionally have different decimal/spacing bytes.
+function formatBPAmount(value: number, locale: CompanyLocaleResult, style: "table" | "difference" | "audit") {
+  if (locale.status !== "available") return "—";
+  if (locale.locale === "pt-PT" && locale.currency === "EUR") {
+    if (style === "audit") return `${value}€`;
+    if (style === "difference") return `${value.toFixed(2)}€`;
+    return value.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "€";
+  }
+  return formatMoney(value, locale);
+}
+
+function matchScore(source: ParsedRow, forecast: any, formatDifference: (value: number) => string): { score: number; divergences: string[] } {
   let score = 0;
   const divergences: string[] = [];
   const descMatch = norm(source.description) === norm(forecast.description);
@@ -54,7 +67,7 @@ function matchScore(source: ParsedRow, forecast: any): { score: number; divergen
   const amountDiff = Math.abs(source.baseAmount - Number(forecast.amount));
   if (amountDiff < 0.01) score += 30;
   else if (amountDiff < 1) score += 15;
-  else divergences.push(`Valor: ${source.baseAmount.toFixed(2)}€ vs ${Number(forecast.amount).toFixed(2)}€`);
+  else divergences.push(`Valor: ${formatDifference(source.baseAmount)} vs ${formatDifference(Number(forecast.amount))}`);
 
   if (source.ivaRate === Number(forecast.iva_rate)) score += 10;
   else divergences.push(`IVA: ${source.ivaRate}% vs ${forecast.iva_rate}%`);
@@ -113,6 +126,14 @@ interface ApportionmentSuggestion {
 }
 
 export function ImplBPTab({ implementation, event, allEvents, eventDates = [], eventSessions = [] }: Props) {
+  const companyLocale = useCompanyLocale();
+  const localeKey = companyLocale.status === "available" ? `${companyLocale.locale}:${companyLocale.currency}` : "unavailable";
+  const noIva = companyLocale.status === "available" && companyLocale.ivaPolicy === "none";
+  const fmtMoney = useCallback((value: number) => formatBPAmount(value, companyLocale, "table"), [localeKey]);
+  const fmtDifference = useCallback((value: number) => formatBPAmount(value, companyLocale, "difference"), [localeKey]);
+  const fmtAudit = useCallback((value: number) => formatBPAmount(value, companyLocale, "audit"), [localeKey]);
+  const moneyHeading = (label: string) => companyLocale.status !== "available" ? `${label} (—)`
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR" ? label : `${label} (${companyLocale.symbol})`;
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
   const [selectedEventId, setSelectedEventId] = useState<string>(event?.id || "");
@@ -440,7 +461,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       }
       setRawSheetData(rawData);
 
-      const sheets = parseXlsxPL(buffer, ivaRates);
+      const sheets = parseXlsxPL(buffer, ivaRates, companyLocale.status === "available" ? companyLocale : undefined);
       setParsedSheets(sheets);
 
       // Build auto-mappings if multiple sheets
@@ -466,7 +487,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     } finally {
       setParsing(false);
     }
-  }, [implementation]);
+  }, [implementation, ivaRates, localeKey]);
   // String similarity (Dice coefficient) — motor único em src/lib/string-similarity.ts
   const stringSimilarity = diceSimilarity;
 
@@ -565,7 +586,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             status = "exists";
           } else {
             status = "divergent";
-            if (amountDiff) divergenceDetails.push(`Valor: ${Number(existingMatch.amount).toFixed(2)}€ → ${totalAmount.toFixed(2)}€`);
+            if (amountDiff) divergenceDetails.push(`Valor: ${fmtDifference(Number(existingMatch.amount))} → ${fmtDifference(totalAmount)}`);
             if (ivaDiff) divergenceDetails.push(`IVA: ${existingMatch.iva_rate}% → ${candidate.row.ivaRate}%`);
             if (catDiff) {
               const oldCat = existingMatch.account_categories;
@@ -614,7 +635,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     if (suggestions.length === 0) {
       toast.info("Nenhum custo idêntico em todas as cidades encontrado");
     }
-  }, [parsedSheets, sheetMappings, allEvents, categories]);
+  }, [parsedSheets, sheetMappings, allEvents, categories, fmtDifference]);
 
   // Apply apportionment: mark promoted rows, keep them in sheets but track as rateio
   const applyApportionment = useCallback(() => {
@@ -706,7 +727,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
 
       for (const f of comparableForecasts) {
         if (usedForecastIds.has(f.id)) continue;
-        const { score, divergences } = matchScore(row, f);
+        const { score, divergences } = matchScore(row, f, fmtDifference);
         if (score > bestScore) {
           bestScore = score;
           bestMatch = f;
@@ -744,7 +765,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     }
 
     return lines;
-  }, [parsedSheets, selectedSheet, forecasts, categoryMatcher, rateioDescriptions, allEvents, selectedEventId]);
+  }, [parsedSheets, selectedSheet, forecasts, categoryMatcher, rateioDescriptions, allEvents, selectedEventId, fmtDifference]);
 
   // Stats
   const totalMatched = matchedLines.filter((l) => l.match && l.idx >= 0).length;
@@ -850,7 +871,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         description: source.description,
         specification: source.specification,
         amount: source.baseAmount,
-        iva_rate: source.ivaRate,
+        iva_rate: noIva ? 0 : source.ivaRate,
       }).eq("id", forecastId);
       if (error) throw error;
     },
@@ -919,7 +940,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
               // Update divergent fields
               const updates: any = {};
               if (amountDiff) updates.amount = row.baseAmount;
-              if (ivaDiff) updates.iva_rate = row.ivaRate;
+              if (ivaDiff) updates.iva_rate = noIva ? 0 : row.ivaRate;
               if (catDiff) updates.category_id = categoryId;
 
               const { error } = await supabase.from("event_forecasts").update(updates).eq("id", existing.id);
@@ -939,14 +960,14 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
               const { data: inserted, error } = await supabase.from("event_forecasts").insert({
                 event_id: selectedEventId, type: "expense" as const,
                 description: row.description, specification: row.specification,
-                amount: row.baseAmount, iva_rate: row.ivaRate,
+                amount: row.baseAmount, iva_rate: noIva ? 0 : row.ivaRate,
                 category_id: categoryId, status: "draft",
               }).select("id").single();
               if (error) { errors.push(`"${row.description}": ${error.message}`); continue; }
               created++;
               await mustWrite(supabase.from("forecast_audit_log").insert({
                 forecast_id: inserted.id, changed_by: changedBy, field_name: "importação",
-                old_value: null, new_value: `${row.description} — ${row.baseAmount}€`,
+                old_value: null, new_value: `${row.description} — ${fmtAudit(row.baseAmount)}`,
                 observation: `batch:${batchId} | ação:criar | master-sync`,
               }), "forecast_audit_log");
             }
@@ -991,7 +1012,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             description: row.description,
             specification: row.specification,
             amount: row.baseAmount,
-            iva_rate: row.ivaRate,
+            iva_rate: noIva ? 0 : row.ivaRate,
             category_id: categoryId,
             status: "draft",
           }).select("id").single();
@@ -1002,7 +1023,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             changed_by: changedBy,
             field_name: "importação",
             old_value: null,
-            new_value: `${row.description} — ${row.baseAmount}€`,
+            new_value: `${row.description} — ${fmtAudit(row.baseAmount)}`,
             observation: `batch:${batchId} | ação:criar | master-rateio`,
           }), "forecast_audit_log");
         }
@@ -1079,7 +1100,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             description: line.source.description,
             specification: line.source.specification,
             amount: line.source.baseAmount,
-            iva_rate: line.source.ivaRate,
+            iva_rate: noIva ? 0 : line.source.ivaRate,
             category_id: categoryId,
             status: "draft",
           }).select("id").single();
@@ -1089,7 +1110,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           createdIds.push(inserted.id);
           
           // Log creation in audit
-          await logAuditEntry(inserted.id, "importação", null, `${line.source.description} — ${line.source.baseAmount}€`, `batch:${batchId} | ação:criar`);
+          await logAuditEntry(inserted.id, "importação", null, `${line.source.description} — ${fmtAudit(line.source.baseAmount)}`, `batch:${batchId} | ação:criar`);
         }
         
         // Note: Master/rateio lines are NOT created here — they are imported
@@ -1138,7 +1159,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
               description: line.source.description,
               specification: line.source.specification,
               amount: line.source.baseAmount,
-              iva_rate: line.source.ivaRate,
+              iva_rate: noIva ? 0 : line.source.ivaRate,
             };
             if (categoryId) updates.category_id = categoryId;
             
@@ -1175,14 +1196,14 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             description: line.source.description,
             specification: line.source.specification,
             amount: line.source.baseAmount,
-            iva_rate: line.source.ivaRate,
+            iva_rate: noIva ? 0 : line.source.ivaRate,
             category_id: categoryId,
             status: "draft",
           }).select("id").single();
           if (error) { errors.push(`Criar "${line.source.description}": ${error.message}`); continue; }
           created++;
           createdIds.push(inserted.id);
-          await logAuditEntry(inserted.id, "importação", null, `${line.source.description} — ${line.source.baseAmount}€`, `batch:${batchId} | ação:criar | nova`);
+          await logAuditEntry(inserted.id, "importação", null, `${line.source.description} — ${fmtAudit(line.source.baseAmount)}`, `batch:${batchId} | ação:criar | nova`);
         }
         
         const parts: string[] = [];
@@ -1218,7 +1239,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     } finally {
       setImporting(false);
     }
-  }, [parsedSheets, selectedSheet, matchedLines, forecasts, selectedEventId, sourceCategoryOverrides, rateioDescriptions, masterSheetRows, allEvents, apportionmentSuggestions, queryClient, leafCategories, importedSheets, eventForecastCounts, refetchBatches]);
+  }, [parsedSheets, selectedSheet, matchedLines, forecasts, selectedEventId, sourceCategoryOverrides, rateioDescriptions, masterSheetRows, allEvents, apportionmentSuggestions, queryClient, leafCategories, importedSheets, eventForecastCounts, refetchBatches, noIva, fmtAudit]);
 
   const startEdit = (forecast: any) => {
     setEditingId(forecast.id);
@@ -1241,7 +1262,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         description: editValues.description,
         specification: editValues.specification || null,
         amount: Number(editValues.amount),
-        iva_rate: Number(editValues.iva_rate),
+        iva_rate: noIva ? 0 : Number(editValues.iva_rate),
         category_id: editValues.category_id || null,
         status: editValues.status,
         type: editValues.type,
@@ -1249,8 +1270,6 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     });
   };
 
-  const fmtMoney = (n: number) =>
-    n.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "€";
 
   // --- Source row editing ---
   const startEditSource = (idx: number, row: ParsedRow) => {
@@ -1270,7 +1289,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     const updated = [...parsedSheets];
     const rows = [...updated[sheetIdx].rows];
     const base = Number(editSourceValues.baseAmount) || 0;
-    const rate = Number(editSourceValues.ivaRate) || 0;
+    const rate = noIva ? 0 : Number(editSourceValues.ivaRate) || 0;
     const iva = Math.round(base * rate) / 100;
     rows[editingSourceIdx] = {
       ...rows[editingSourceIdx],
@@ -1600,7 +1619,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
              )}
              <span className="text-muted-foreground">
                Total Interpretado: <span className="font-semibold text-foreground">{fmtMoney(fileTotalGross)}</span>
-               <span className="ml-1 text-xs">(Base {fmtMoney(fileTotalBase)} + IVA {fmtMoney(fileTotalIva)})</span>
+               {!noIva && <span className="ml-1 text-xs">(Base {fmtMoney(fileTotalBase)} + IVA {fmtMoney(fileTotalIva)})</span>}
              </span>
              {originalFileTotal && Math.abs(originalFileTotal.total - fileTotalGross) > 0.5 && (
                <Badge variant="outline" className="gap-1 border-destructive/50 text-destructive">
@@ -1840,8 +1859,8 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                                <TableHead className="text-xs py-1.5 h-auto">Descrição</TableHead>
                                <TableHead className="text-xs py-1.5 h-auto">Especificação</TableHead>
                                <TableHead className="text-xs py-1.5 h-auto">Categoria</TableHead>
-                               <TableHead className="text-xs py-1.5 h-auto text-right">Valor Base</TableHead>
-                               <TableHead className="text-xs py-1.5 h-auto text-center">IVA</TableHead>
+                               <TableHead className="text-xs py-1.5 h-auto text-right">{moneyHeading("Valor Base")}</TableHead>
+                               {!noIva && <TableHead className="text-xs py-1.5 h-auto text-center">IVA</TableHead>}
                                <TableHead className="text-xs py-1.5 h-auto text-right">Total</TableHead>
                              </TableRow>
                            </TableHeader>
@@ -1865,7 +1884,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                                  })() : "—"}
                                </TableCell>
                                <TableCell className="text-xs py-1.5 text-right font-mono">{row ? fmtMoney(row.baseAmount) : "—"}</TableCell>
-                               <TableCell className="text-xs py-1.5 text-center">{row ? `${row.ivaRate}%` : "—"}</TableCell>
+                               {!noIva && (<TableCell className="text-xs py-1.5 text-center">{row ? `${row.ivaRate}%` : "—"}</TableCell>)}
                                <TableCell className="text-xs py-1.5 text-right font-mono">{row ? fmtMoney(row.total) : "—"}</TableCell>
                              </TableRow>
                              ))}
@@ -2018,8 +2037,8 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                       <TableHead className="text-xs w-8">#</TableHead>
                       <TableHead className="text-xs">Descrição</TableHead>
                       <TableHead className="text-xs">Especificação</TableHead>
-                      <TableHead className="text-xs text-right w-28">Valor Base</TableHead>
-                      <TableHead className="text-xs text-right w-20">IVA</TableHead>
+                      <TableHead className="text-xs text-right w-28">{moneyHeading("Valor Base")}</TableHead>
+                      {!noIva && <TableHead className="text-xs text-right w-20">IVA</TableHead>}
                       <TableHead className="text-xs w-52">Categoria</TableHead>
                       <TableHead className="text-xs w-16">Ações</TableHead>
                     </TableRow>
@@ -2069,7 +2088,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                               }}
                             />
                           </TableCell>
-                          <TableCell className="text-right">
+                          {!noIva && (<TableCell className="text-right">
                             <Select
                               value={String(row.ivaRate)}
                               onValueChange={(v) => {
@@ -2085,7 +2104,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                                 {ivaRates.map((r) => (<SelectItem key={r} value={String(r)}>{r}%</SelectItem>))}
                               </SelectContent>
                             </Select>
-                          </TableCell>
+                          </TableCell>)}
                           <TableCell>
                             <Select
                               value={catId}
@@ -2137,7 +2156,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                 <div className="flex items-center justify-between px-4 py-3 border-t text-xs">
                   <span className="text-muted-foreground">
                     Total Master: <span className="font-semibold text-foreground">{fmtMoney(masterSheetRows.reduce((s, r) => s + r.baseAmount, 0))}</span>
-                    <span className="ml-2">+ IVA {fmtMoney(masterSheetRows.reduce((s, r) => s + r.ivaAmount, 0))}</span>
+                    {!noIva && <span className="ml-2">+ IVA {fmtMoney(masterSheetRows.reduce((s, r) => s + r.ivaAmount, 0))}</span>}
                     <span className="ml-2">= {fmtMoney(masterSheetRows.reduce((s, r) => s + r.total, 0))}</span>
                   </span>
                   <Button
@@ -2239,12 +2258,12 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                   <TableRow>
                     <TableHead className="w-14">Linha Excel</TableHead>
                     <TableHead className="bg-muted/30 border-r">Ficheiro — Descrição</TableHead>
-                    <TableHead className="bg-muted/30 border-r text-right">Ficheiro — Valor</TableHead>
-                    <TableHead className="bg-muted/30 border-r text-right">IVA</TableHead>
+                    <TableHead className="bg-muted/30 border-r text-right">{moneyHeading("Ficheiro — Valor")}</TableHead>
+                    {!noIva && <TableHead className="bg-muted/30 border-r text-right">IVA</TableHead>}
                     <TableHead className="bg-muted/30 border-r">Cat. Sugerida</TableHead>
                     <TableHead>App — Descrição</TableHead>
-                    <TableHead className="text-right">App — Valor</TableHead>
-                    <TableHead className="text-right">IVA</TableHead>
+                    <TableHead className="text-right">{moneyHeading("App — Valor")}</TableHead>
+                    {!noIva && <TableHead className="text-right">IVA</TableHead>}
                     <TableHead>Categoria</TableHead>
                     <TableHead className="w-16">Status</TableHead>
                     <TableHead className="w-28">Ações</TableHead>
@@ -2253,7 +2272,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                 <TableBody>
                   {matchedLines.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={noIva ? 9 : 11} className="text-center text-muted-foreground py-8">
                         Nenhuma linha para comparar
                       </TableCell>
                     </TableRow>
@@ -2313,7 +2332,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                             ) : fmtMoney(line.source.baseAmount)
                           ) : "—"}
                         </TableCell>
-                        <TableCell className="border-r bg-muted/10 text-right text-xs">
+                        {!noIva && (<TableCell className="border-r bg-muted/10 text-right text-xs">
                           {line.idx >= 0 ? (
                             isEditingSource ? (
                               <Select value={editSourceValues.ivaRate} onValueChange={(v) => setEditSourceValues({ ...editSourceValues, ivaRate: v })}>
@@ -2324,7 +2343,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                               </Select>
                             ) : `${line.source.ivaRate}%`
                           ) : "—"}
-                        </TableCell>
+                        </TableCell>)}
                         {/* Suggested category for source row */}
                         <TableCell className="border-r bg-muted/10 text-xs">
                           {line.idx >= 0 ? (() => {
@@ -2377,7 +2396,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                             ) : fmtMoney(Number(line.match.amount))
                           ) : "—"}
                         </TableCell>
-                        <TableCell className="text-right text-xs">
+                        {!noIva && (<TableCell className="text-right text-xs">
                           {line.match ? (
                             isEditing ? (
                               <Select value={String(editValues.iva_rate)} onValueChange={(v) => setEditValues({ ...editValues, iva_rate: Number(v) })}>
@@ -2388,7 +2407,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                               </Select>
                             ) : `${line.match.iva_rate}%`
                           ) : "—"}
-                        </TableCell>
+                        </TableCell>)}
                         <TableCell className="text-xs">
                           {line.match ? (
                             isEditing ? (
@@ -2479,7 +2498,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                           <TableCell className="text-[10px] text-muted-foreground text-center align-top py-2">
                             <Eye className="h-3 w-3 mx-auto" />
                           </TableCell>
-                          <TableCell colSpan={10} className="py-2">
+                          <TableCell colSpan={noIva ? 8 : 10} className="py-2">
                             <div className="text-xs space-y-0.5">
                               <p className="font-semibold text-muted-foreground mb-1">Valores originais do Excel (Linha {line.source.excelRow}):</p>
                               <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1">
@@ -2492,7 +2511,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                               </div>
                               <div className="mt-1.5 pt-1.5 border-t border-border/50 flex gap-6 text-muted-foreground">
                                 <span>Interpretado → Base: <span className="font-mono text-foreground">{fmtMoney(line.source.baseAmount)}</span></span>
-                                <span>IVA: <span className="font-mono text-foreground">{fmtMoney(line.source.ivaAmount)}</span> ({line.source.ivaRate}%)</span>
+                                {!noIva && <span>IVA: <span className="font-mono text-foreground">{fmtMoney(line.source.ivaAmount)}</span> ({line.source.ivaRate}%)</span>}
                                 <span>Total: <span className="font-mono text-foreground">{fmtMoney(line.source.total)}</span></span>
                               </div>
                             </div>
@@ -2508,13 +2527,13 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                       {originalFileTotal && (
                         <TableRow className="bg-muted/30 border-t-2">
                           <TableCell className="text-xs text-muted-foreground">{originalFileTotal.rowIdx}</TableCell>
-                          <TableCell colSpan={4} className="border-r bg-muted/20 text-sm font-semibold">
+                          <TableCell colSpan={noIva ? 3 : 4} className="border-r bg-muted/20 text-sm font-semibold">
                             Total no Excel (linha original)
                           </TableCell>
                           <TableCell colSpan={2} className="text-right font-mono text-sm font-semibold">
                             {fmtMoney(originalFileTotal.total)}
                           </TableCell>
-                          <TableCell colSpan={5}></TableCell>
+                          <TableCell colSpan={noIva ? 4 : 5}></TableCell>
                         </TableRow>
                       )}
                       {/* Interpreted total row */}
@@ -2522,19 +2541,19 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                         <TableCell className="text-xs">{fileLineCount}</TableCell>
                         <TableCell className="border-r bg-muted/30 text-sm">
                           Total Interpretado ({fileLineCount} linhas)
-                          <span className="block text-xs font-normal text-muted-foreground">c/ IVA: {fmtMoney(compFileTotalGross)}</span>
+                          {!noIva && <span className="block text-xs font-normal text-muted-foreground">c/ IVA: {fmtMoney(compFileTotalGross)}</span>}
                         </TableCell>
                         <TableCell className="border-r bg-muted/30 text-right font-mono text-sm">{fmtMoney(compFileTotal)}</TableCell>
-                        <TableCell className="border-r bg-muted/30 text-right text-xs">
+                        {!noIva && (<TableCell className="border-r bg-muted/30 text-right text-xs">
                           {compFileTotalIva > 0 && fmtMoney(compFileTotalIva)}
-                        </TableCell>
+                        </TableCell>)}
                         <TableCell className="border-r bg-muted/30"></TableCell>
                         <TableCell className="text-sm">
                           Total no App
-                          <span className="block text-xs font-normal text-muted-foreground">c/ IVA: {fmtMoney(compAppTotalGross)}</span>
+                          {!noIva && <span className="block text-xs font-normal text-muted-foreground">c/ IVA: {fmtMoney(compAppTotalGross)}</span>}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">{fmtMoney(compAppTotal)}</TableCell>
-                        <TableCell className="text-right text-xs">{compAppTotalIva > 0 && fmtMoney(compAppTotalIva)}</TableCell>
+                        {!noIva && (<TableCell className="text-right text-xs">{compAppTotalIva > 0 && fmtMoney(compAppTotalIva)}</TableCell>)}
                         <TableCell></TableCell>
                         <TableCell>
                           {originalFileTotal && Math.abs(originalFileTotal.total - compFileTotalGross) > 0.5 ? (
@@ -2624,8 +2643,8 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                     <TableHead>Descrição</TableHead>
                     <TableHead>Especificação</TableHead>
                     <TableHead>Categoria</TableHead>
-                    <TableHead className="text-right">Valor Base</TableHead>
-                    <TableHead className="text-right">IVA</TableHead>
+                    <TableHead className="text-right">{moneyHeading("Valor Base")}</TableHead>
+                    {!noIva && <TableHead className="text-right">IVA</TableHead>}
                     <TableHead>Status</TableHead>
                     <TableHead className="w-24">Ações</TableHead>
                   </TableRow>
@@ -2633,11 +2652,11 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted-foreground py-8">A carregar…</TableCell>
+                      <TableCell colSpan={noIva ? 8 : 9} className="text-center text-muted-foreground py-8">A carregar…</TableCell>
                     </TableRow>
                   ) : forecasts.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nenhuma previsão encontrada</TableCell>
+                      <TableCell colSpan={noIva ? 8 : 9} className="text-center text-muted-foreground py-8">Nenhuma previsão encontrada</TableCell>
                     </TableRow>
                   ) : forecasts.map((f: any, idx: number) => {
                     const isEditing = editingId === f.id;
@@ -2692,7 +2711,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                             <Input type="number" step="0.01" className="h-7 text-xs text-right w-24" value={editValues.amount} onChange={(e) => setEditValues({ ...editValues, amount: e.target.value })} />
                           ) : <span className="text-sm font-mono">{fmtMoney(Number(f.amount))}</span>}
                         </TableCell>
-                        <TableCell className="text-right">
+                        {!noIva && (<TableCell className="text-right">
                           {isEditing ? (
                             <Select value={String(editValues.iva_rate)} onValueChange={(v) => setEditValues({ ...editValues, iva_rate: Number(v) })}>
                               <SelectTrigger className="h-7 w-16 text-xs"><SelectValue /></SelectTrigger>
@@ -2701,7 +2720,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                               </SelectContent>
                             </Select>
                           ) : <span className="text-xs">{f.iva_rate}%</span>}
-                        </TableCell>
+                        </TableCell>)}
                         <TableCell>
                           {isEditing ? (
                             <Select value={editValues.status} onValueChange={(v) => setEditValues({ ...editValues, status: v })}>

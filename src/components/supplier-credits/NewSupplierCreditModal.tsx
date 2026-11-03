@@ -1,3 +1,4 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +24,7 @@ type Props = {
  * NÃO cria movimento de DRE/BP: o custo fica no evento de origem.
  */
 export function NewSupplierCreditModal({ open, onOpenChange, supplierId, onCreated }: Props) {
+  const companyLocale = useCompanyLocale();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -146,7 +148,7 @@ export function NewSupplierCreditModal({ open, onOpenChange, supplierId, onCreat
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs text-muted-foreground">Valor (€) *</label>
+              <label className="text-xs text-muted-foreground">Valor ({companyLocale.status === "available" ? companyLocale.symbol : "€"}) *</label>
               <input type="number" step="0.01" min="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
                 className="w-full rounded-md border border-border bg-background px-2 py-2 text-sm text-right font-mono" placeholder="0.00" />
             </div>

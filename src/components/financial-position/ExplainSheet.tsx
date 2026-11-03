@@ -4,7 +4,7 @@ import { Info, HelpCircle } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { formatPositionAmount as eur } from "@/lib/financial-position";
+import { usePositionAmount } from "@/lib/financial-position";
 import { reconcile, type Breakdown } from "@/lib/financial-position-explain";
 import guide from "../../../docs/guias/guia-posicao-financeira.md?raw";
 
@@ -38,6 +38,7 @@ export function GuideButton() {
 
 /** ⓘ por toque: abre uma folha com fórmula, parcelas e reconciliação. */
 export function ExplainButton({ breakdown: b }: { breakdown: Breakdown }) {
+  const eur = usePositionAmount();
   const [open, setOpen] = useState(false);
   const mobile = useIsMobile();
   const openGuide = useOpenGuide();

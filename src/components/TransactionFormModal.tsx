@@ -1315,12 +1315,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const paymentError = validatePaymentMethodFields(data);
         if (paymentError) throw new Error(paymentError);
       }
-      // P2f owns installments; preserve their legacy writer and validation.
+      // Apply the company IVA policy to the complete installment plan as well.
       if (!useInstallments) {
         if (companyLocale.status !== "available") throw new Error(companyLocale.message);
-        if (noIva) data = { ...data, iva_rate: 0 };
       }
-      const nativeCurrency = useInstallments ? currency === "EUR" : isNativeCurrency;
+      if (noIva) data = { ...data, iva_rate: 0 };
+      const nativeCurrency = useInstallments ? currency === companyCurrency : isNativeCurrency;
       // Validate the complete monetary plan before the first write, including callers
       // which invoke the mutation directly (rather than proceedWithCreate).
       if (useInstallments && (data.type !== "expense" || isSplit || isPartnerExtra || isPaidByPartner || effectiveAutoMarkPaid || data.is_reimbursement || sharedCostSplitActive || (pendingIvaSplit?.length ?? 0) >= 2)) {
@@ -1329,7 +1329,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       const installmentNets = useInstallments
         ? computeInstallmentNets(installmentRows.map((r) => Number(r.amount)), Number(data.amount), 1 + Number(data.iva_rate || 0) / 100)
         : [];
-      if (useInstallments && currency !== "EUR" && (
+      if (useInstallments && currency !== companyCurrency && (
         !data.amount.trim() || !Number.isFinite(Number(data.amount)) || Number(data.amount) < 0 ||
         !Number.isFinite(Number(data.iva_rate)) ||
         installmentRows.some((r) => !Number.isFinite(Number(r.amount)) || Number(r.amount) < 0 || !r.scheduled_date)
@@ -1338,7 +1338,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const planError = validateInstallments(installmentRows, calcTotalWithIva(Number(data.amount), Number(data.iva_rate || 0)));
         if (planError) throw new Error(planError);
       }
-      const parcelOriginals = useInstallments ? installmentOriginals(currency, originalAmount, fxRate, installmentNets) : [];
+      const parcelOriginals = useInstallments ? installmentOriginals(currency, originalAmount, fxRate, installmentNets, companyCurrency) : [];
       // Guardrails de liquidação na criação:
       //  * papéis abaixo de manager NUNCA criam transação já paga (liquidação
       //    faz-se no modal de pagamento / listas / fluxos próprios);
@@ -1867,8 +1867,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
               currency,
               original_amount: parcelOriginals[i],
-              fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
-              fx_rate_source: currency === "EUR" ? null : fxRateSource,
+              fx_rate: currency === companyCurrency ? null : (parseFloat(fxRate) || null),
+              fx_rate_source: currency === companyCurrency ? null : fxRateSource,
               parent_transaction_id: insertedTx.id,
               installment_group_id: installmentGroupId,
               installment_number: i + 1,
@@ -2153,12 +2153,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       }
       // This must also precede the budget dialog, whose confirmation can write.
       try {
-        if (currency !== "EUR" && (!form.amount.trim() || !Number.isFinite(Number(form.amount)) || !Number.isFinite(Number(form.iva_rate)) || installmentRows.some((r) => !Number.isFinite(Number(r.amount))))) {
+        if (currency !== companyCurrency && (!form.amount.trim() || !Number.isFinite(Number(form.amount)) || !Number.isFinite(Number(form.iva_rate)) || installmentRows.some((r) => !Number.isFinite(Number(r.amount))))) {
           throw new Error("Plano de parcelas inválido.");
         }
         installmentOriginals(currency, originalAmount, fxRate, computeInstallmentNets(
           installmentRows.map((r) => Number(r.amount)), Number(form.amount), 1 + Number(form.iva_rate || 0) / 100,
-        ));
+        ), companyCurrency);
       } catch (e: any) {
         toast({ title: "Parcelas inválidas", description: e.message, variant: "destructive" });
         return;
@@ -3595,7 +3595,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             })()}
           </div>
 
-          {form.type === "expense" && (() => {
+          {form.type === "expense" && (companyLocale.status !== "available" || companyLocale.capabilities.irsWithholding) && (() => {
             const base = parseFloat(form.amount) || 0;
             const ivaRate = parseFloat(String(form.iva_rate)) || 0;
             const totalCIva = calcTotalWithIva(base, ivaRate);
@@ -4149,15 +4149,15 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           )}
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Fatura</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">{companyLocale.status === "available" ? companyLocale.labels.invoiceRef : "Nº Fatura"}</label>
             <input
               type="text"
               value={form.invoice_ref}
               onChange={(e) => setForm({ ...form, invoice_ref: e.target.value })}
-              placeholder="Ex: FT 002/5944"
+              placeholder={companyLocale.status === "available" ? companyLocale.labels.invoiceRefPlaceholder : "Ex: FT 002/5944"}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
-            <p className="mt-0.5 text-[10px] text-muted-foreground">Transações com o mesmo nº de fatura serão agrupadas automaticamente</p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">{companyLocale.status === "available" ? companyLocale.labels.invoiceRefHelp : "Transações com o mesmo nº de fatura serão agrupadas automaticamente"}</p>
           </div>
 
           {/* Método de Pagamento — escondido quando pago por sócio (não há pagamento da empresa) */}

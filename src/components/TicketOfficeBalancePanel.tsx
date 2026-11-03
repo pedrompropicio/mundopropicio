@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { AlertCircle, CheckCircle2, Store, TrendingUp, TrendingDown, ArrowRight, Receipt, Plus, Clock, FileCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import HelpTooltip from "@/components/HelpTooltip";
@@ -28,6 +30,12 @@ interface Props {
 
 export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
   const { isAdmin, hasPermission } = useAuth();
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const navigate = useNavigate();
   const canManage = isAdmin || hasPermission("manage_accounts");
   const [openPart, setOpenPart] = useState<"pos" | "open" | "res" | null>(null);
@@ -309,6 +317,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
             Composição do retido (já incluída nele)
           </p>
           <DecompRow
+            formatAmount={formatCurrency}
             label={`Posição já apurada (Apuramento ${decomposition.statement.number})`}
             value={decomposition.position}
             open={openPart === "pos"}
@@ -319,6 +328,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
             ))}
           </DecompRow>
           <DecompRow
+            formatAmount={formatCurrency}
             label={`+ Vendas de eventos ainda sem fecho (${decomposition.openEvents.length})`}
             value={decomposition.openTotal}
             open={openPart === "open"}
@@ -329,6 +339,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
             ))}
           </DecompRow>
           <DecompRow
+            formatAmount={formatCurrency}
             label="+ Por conciliar (resíduo)"
             value={decomposition.residual}
             open={openPart === "res"}
@@ -419,13 +430,13 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
   );
 }
 
-function DecompRow({ label, value, open, onToggle, children }: { label: string; value: number; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+function DecompRow({ label, value, open, onToggle, children, formatAmount }: { label: string; value: number; open: boolean; onToggle: () => void; children: React.ReactNode; formatAmount: (value: number) => string }) {
   return (
     <div>
       <button type="button" onClick={onToggle} aria-expanded={open}
         className="flex w-full items-center justify-between gap-2 rounded px-1 py-0.5 text-xs hover:bg-muted/30">
         <span className="text-left">{label}</span>
-        <span className="font-mono font-medium">{formatCurrency(value)}</span>
+        <span className="font-mono font-medium">{formatAmount(value)}</span>
       </button>
       {open && <ul className="ml-3 mt-1 space-y-0.5 text-[11px] text-muted-foreground">{children}</ul>}
     </div>

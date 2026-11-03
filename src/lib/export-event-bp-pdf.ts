@@ -1,3 +1,4 @@
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +18,7 @@ import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface BPExportInput {
   eventId: string;
+  companyLocale?: CompanyLocaleResult;
   includeChildren?: boolean; // when Master, include sub-events
 }
 
@@ -64,7 +66,6 @@ interface AuditLog {
   created_at: string;
 }
 
-const fmt = (n: number) => formatCurrency(n);
 
 interface TxRow {
   id: string;
@@ -245,6 +246,7 @@ function eventTypeLabel(t: string): string {
 }
 
 interface RenderContext {
+  fmt: (value: number) => string;
   doc: jsPDF;
   pageWidth: number;
   pageHeight: number;
@@ -347,6 +349,7 @@ function drawSummaryCards(
   yStart: number,
   forecasts: ForecastRow[],
 ): number {
+  const { fmt } = ctx;
   const { doc, marginLeft, contentWidth } = ctx;
 
   const incBase = forecasts.filter((f) => f.type === "income").reduce((s, f) => s + Number(f.amount), 0);
@@ -443,6 +446,7 @@ function drawForecastTable(
   eventId: string,
   masterEventId: string | null,
 ): number {
+  const { fmt } = ctx;
   const { doc, marginLeft, contentWidth } = ctx;
   if (forecasts.length === 0) {
     doc.setFontSize(9);
@@ -845,6 +849,7 @@ function drawFooter(ctx: RenderContext) {
 }
 
 async function renderEventBPPage(ctx: RenderContext, eventId: string, isFirst: boolean) {
+  const { fmt } = ctx;
   if (!isFirst) {
     ctx.doc.addPage();
   }
@@ -937,7 +942,7 @@ async function renderEventBPPage(ctx: RenderContext, eventId: string, isFirst: b
   y = drawForecastTable(ctx, y, "Despesas", expenses, forecasts, forecastPartners, partners, transactions, auditLogs, [160, 60, 60], event.id, event.parent_event_id ?? null);
 }
 
-export async function exportEventBPToPDF({ eventId, includeChildren = true }: BPExportInput): Promise<void> {
+export async function exportEventBPToPDF({ eventId, includeChildren = true, companyLocale }: BPExportInput): Promise<void> {
   // Resolve siblings if Master
   let eventIds: string[] = [eventId];
   let masterEvent: any = null;
@@ -968,7 +973,7 @@ export async function exportEventBPToPDF({ eventId, includeChildren = true }: BP
   const marginLeft = 10;
   const marginRight = 10;
   const contentWidth = pageWidth - marginLeft - marginRight;
-  const ctx: RenderContext = { doc, pageWidth, pageHeight, marginLeft, marginRight, contentWidth };
+  const ctx: RenderContext = { fmt: (value) => formatExportMoney(value, companyLocale), doc, pageWidth, pageHeight, marginLeft, marginRight, contentWidth };
 
   for (let i = 0; i < eventIds.length; i++) {
     await renderEventBPPage(ctx, eventIds[i], i === 0);
@@ -978,4 +983,10 @@ export async function exportEventBPToPDF({ eventId, includeChildren = true }: BP
 
   const safeName = (masterEvent?.name ?? "evento").replace(/[^\w\d-]+/g, "_").slice(0, 40);
   doc.save(`BP_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+function formatExportMoney(value: number, companyLocale?: CompanyLocaleResult): string {
+  return companyLocale?.status === "available" && !(companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")
+    ? formatMoney(value, companyLocale)
+    : formatCurrency(value);
 }

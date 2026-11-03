@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
+import { useEffect, useMemo, useState, type ComponentProps } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
@@ -29,10 +31,19 @@ interface Props {
   eventId: string;
 }
 
-const fmtEUR = (n: number) =>
-  new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n || 0);
 const fmtPct = (n: number) =>
   new Intl.NumberFormat("pt-PT", { maximumFractionDigits: 1 }).format(n || 0) + " %";
+
+// Preserve MoneyInput's Intl output for PT while supplying context to other currencies.
+function CompanyMoneyInput(props: ComponentProps<typeof MoneyInput>) {
+  const companyLocale = useCompanyLocale();
+  if (props.percent) return <MoneyInput {...props} />;
+  if (companyLocale.status !== "available") {
+    return <Input type="text" inputMode="decimal" value="—" disabled className={props.className} placeholder={props.placeholder} />;
+  }
+  const legacyPT = companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR";
+  return <MoneyInput {...props} companyLocale={legacyPT ? undefined : companyLocale} />;
+}
 
 // ── Selector de modo ──────────────────────────────────────────────────────────
 
@@ -73,7 +84,8 @@ function ModeSelector({
 
 // ── KPIs adaptativos ──────────────────────────────────────────────────────────
 
-function KpisConsolidados({ totals, modeBebidas, modeAlimentos }: {
+function KpisConsolidados({ totals, modeBebidas, modeAlimentos, fmtEUR }: {
+  fmtEUR: (value: number) => string;
   totals: ReturnType<typeof computeTotals>;
   modeBebidas: ABMode;
   modeAlimentos: ABMode;
@@ -106,6 +118,13 @@ function KpisConsolidados({ totals, modeBebidas, modeAlimentos }: {
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function EventABTab({ eventId }: Props) {
+  const companyLocale = useCompanyLocale();
+  const symbol = companyLocale.status === "available" ? companyLocale.symbol : "€";
+  const fmtEUR = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(value || 0)
+      : formatMoney(value || 0, companyLocale);
   const qc = useQueryClient();
   const { toast } = useToast();
   const { companyId } = useCompany();
@@ -427,7 +446,7 @@ export default function EventABTab({ eventId }: Props) {
       </div>
 
       {/* KPIs consolidados — adaptativos conforme os modos */}
-      <KpisConsolidados totals={totals} modeBebidas={modeBebidas} modeAlimentos={modeAlimentos} />
+      <KpisConsolidados fmtEUR={fmtEUR} totals={totals} modeBebidas={modeBebidas} modeAlimentos={modeAlimentos} />
 
       {/* Realizado (fecho) — origem: transações do evento (read-only) */}
       <EventABRealizedSection
@@ -473,7 +492,7 @@ export default function EventABTab({ eventId }: Props) {
                   <TableHead className="text-right">Override manual</TableHead>
                   <TableHead className="text-center">Open Bar</TableHead>
                   <TableHead className="text-right">{labelPerCapitaBebidas}</TableHead>
-                  <TableHead className="text-right">Facturação real (€)</TableHead>
+                  <TableHead className="text-right">Facturação real ({symbol})</TableHead>
 
                   {modeBebidas === "terceirizacao" && (
                     <TableHead className="text-right">% Repasse</TableHead>
@@ -481,7 +500,7 @@ export default function EventABTab({ eventId }: Props) {
                   {modeBebidas === "exploracao_propria" && (
                     <>
                       <TableHead className="text-right">Per capita custo</TableHead>
-                      <TableHead className="text-right">Custo fixo (€)</TableHead>
+                      <TableHead className="text-right">Custo fixo ({symbol})</TableHead>
                     </>
                   )}
                   <TableHead className="text-center">Open Food</TableHead>
@@ -539,7 +558,7 @@ export default function EventABTab({ eventId }: Props) {
                         />
                       </TableCell>
                       <TableCell className="text-right">
-                        <MoneyInput
+                        <CompanyMoneyInput
                           value={Number(z.per_capita_bebidas || 0)}
                           onChange={(v) => upsertZone.mutate({ ...z, per_capita_bebidas: v })}
                           className="w-28 ml-auto"
@@ -568,7 +587,7 @@ export default function EventABTab({ eventId }: Props) {
 
                       {modeBebidas === "terceirizacao" && (
                         <TableCell className="text-right">
-                          <MoneyInput
+                          <CompanyMoneyInput
                             value={Number(z.repasse_bebidas_pct || 0)}
                             onChange={(v) => upsertZone.mutate({ ...z, repasse_bebidas_pct: v })}
                             className="w-24 ml-auto"
@@ -580,7 +599,7 @@ export default function EventABTab({ eventId }: Props) {
                       {modeBebidas === "exploracao_propria" && (
                         <>
                           <TableCell className="text-right">
-                            <MoneyInput
+                            <CompanyMoneyInput
                               value={Number(z.per_capita_custo_bebidas || 0)}
                               onChange={(v) => upsertZone.mutate({ ...z, per_capita_custo_bebidas: v })}
                               className="w-28 ml-auto"
@@ -588,7 +607,7 @@ export default function EventABTab({ eventId }: Props) {
                             />
                           </TableCell>
                           <TableCell className="text-right">
-                            <MoneyInput
+                            <CompanyMoneyInput
                               value={Number(z.custo_fixo_bebidas || 0)}
                               onChange={(v) => upsertZone.mutate({ ...z, custo_fixo_bebidas: v })}
                               className="w-28 ml-auto"
@@ -666,10 +685,10 @@ export default function EventABTab({ eventId }: Props) {
           <div className="space-y-2">
             <Label>
               {modeAlimentos === "exploracao_propria"
-                ? "Per capita receita (evento) (€/pessoa)"
-                : "Per capita faturação (operador) (€/pessoa)"}
+                ? `Per capita receita (evento) (${symbol}/pessoa)`
+                : `Per capita faturação (operador) (${symbol}/pessoa)`}
             </Label>
-            <MoneyInput
+            <CompanyMoneyInput
               value={food.per_capita_alimentos}
               onChange={(v) => upsertConfig.mutate({ per_capita_alimentos: v })}
             />
@@ -677,7 +696,7 @@ export default function EventABTab({ eventId }: Props) {
 
           {/* Facturação REAL do operador (fecho POS) — vence o per capita */}
           <div className="space-y-2">
-            <Label>Facturação real do operador (€, s/IVA)</Label>
+            <Label>Facturação real do operador ({symbol}, s/IVA)</Label>
             <Input
               type="number"
               step="0.01"
@@ -705,8 +724,8 @@ export default function EventABTab({ eventId }: Props) {
           {modeAlimentos === "terceirizacao" && (
             <>
               <div className="space-y-2">
-                <Label>Fee fixo (€)</Label>
-                <MoneyInput
+                <Label>Fee fixo ({symbol})</Label>
+                <CompanyMoneyInput
                   value={food.fee_alimentos}
                   onChange={(v) => upsertConfig.mutate({ fee_alimentos: v })}
                 />
@@ -714,7 +733,7 @@ export default function EventABTab({ eventId }: Props) {
               </div>
               <div className="space-y-2">
                 <Label>% Repasse</Label>
-                <MoneyInput
+                <CompanyMoneyInput
                   value={food.repasse_alimentos_pct}
                   onChange={(v) => upsertConfig.mutate({ repasse_alimentos_pct: v })}
                   percent
@@ -727,16 +746,16 @@ export default function EventABTab({ eventId }: Props) {
           {modeAlimentos === "exploracao_propria" && (
             <>
               <div className="space-y-2">
-                <Label>Per capita custo (€/pessoa)</Label>
-                <MoneyInput
+                <Label>Per capita custo ({symbol}/pessoa)</Label>
+                <CompanyMoneyInput
                   value={food.per_capita_custo_alimentos}
                   onChange={(v) => upsertConfig.mutate({ per_capita_custo_alimentos: v })}
                 />
                 <p className="text-xs text-muted-foreground">Custo estimado por pessoa (CMV + operação).</p>
               </div>
               <div className="space-y-2">
-                <Label>Custo fixo (€)</Label>
-                <MoneyInput
+                <Label>Custo fixo ({symbol})</Label>
+                <CompanyMoneyInput
                   value={food.custo_fixo_alimentos}
                   onChange={(v) => upsertConfig.mutate({ custo_fixo_alimentos: v })}
                 />

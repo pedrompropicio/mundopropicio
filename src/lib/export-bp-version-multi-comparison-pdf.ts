@@ -1,18 +1,24 @@
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import { originDisplayLines } from "./bp-version-origin";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import type { MultiDiffResult } from "@/lib/bp-version-multi-diff";
 
 interface ExportInput {
+  companyLocale?: CompanyLocaleResult;
   eventName: string;
   result: MultiDiffResult;
   showOnlyDifferences: boolean;
 }
 
 export function exportBPMultiVersionComparisonPDF(input: ExportInput): void {
+  const formatCurrency = (value: number) => input.companyLocale?.status === "available" && !(input.companyLocale.locale === "pt-PT" && input.companyLocale.currency === "EUR")
+    ? formatMoney(value, input.companyLocale)
+    : formatLegacyCurrency(value);
+
   const { eventName, result, showOnlyDifferences } = input;
   const { summary, groups } = result;
   const versions = summary.versions;

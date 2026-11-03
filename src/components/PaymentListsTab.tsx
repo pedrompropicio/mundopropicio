@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { formatCurrency, formatDate } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency, formatDate } from "@/lib/mock-data";
 import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems, formatSupplierFullName, formatAmountForBank, itemNetPayable } from "@/lib/export-payment-list";
 import { calcWithIva } from "@/lib/utils";
 import { computeNetPayable, getDeclaredWithholding } from "@/lib/withholding";
@@ -30,7 +30,7 @@ import { BatchPaymentModal } from "@/components/BatchPaymentModal";
 import SepaExportModal, { type SepaCandidate } from "@/components/SepaExportModal";
 import { appendEventToDescription, formatLocalDate } from "@/lib/sepa/pain001";
 import { normalizeIban } from "@/lib/iban";
-import { checkPaymentBankability, isBankable, isInternalNoIban, internalNoIbanBadgeProps, isSocialSecurityByNif, socialSecurityBadgeProps, SEPA_INTERNAL_NO_IBAN_REASON, SEPA_SOCIAL_SECURITY_REASON, resolvePaymentIban, resolvePaymentCreditorName, noIbanBadgeProps, NO_IBAN_TOOLTIP } from "@/lib/payment-iban";
+import { checkPaymentBankability, bankDataOutsideSepaBadgeProps, internalNoIbanBadgeProps, isSocialSecurityByNif, socialSecurityBadgeProps, SEPA_INTERNAL_NO_IBAN_REASON, SEPA_SOCIAL_SECURITY_REASON, resolvePaymentIban, resolvePaymentCreditorName, noIbanBadgeProps, NO_IBAN_TOOLTIP } from "@/lib/payment-iban";
 import NoIbanBadge from "@/components/NoIbanBadge";
 import { enrichCardLoadDestinations } from "@/lib/card-load-destination";
 
@@ -38,6 +38,8 @@ import { enrichCardLoadDestinations } from "@/lib/card-load-destination";
 import PaymentListReceipts from "@/components/PaymentListReceipts";
 import SepaBankExecutionPanel from "@/components/SepaBankExecutionPanel";
 import { useCompany } from "@/hooks/useCompany";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 
 
 /**
@@ -190,7 +192,7 @@ function useForecastLookup(eventIds: string[]) {
 }
 
 /** Small warning badge for transactions exceeding BP */
-function BPExceedsWarning({ forecastAmount, txAmount }: { forecastAmount: number; txAmount: number }) {
+function BPExceedsWarning({ forecastAmount, txAmount, formatCurrency }: { forecastAmount: number; txAmount: number; formatCurrency: (value: number) => string }) {
   const pct = forecastAmount > 0 ? ((txAmount / forecastAmount - 1) * 100).toFixed(0) : "∞";
   return (
     <TooltipProvider>
@@ -220,6 +222,14 @@ const statusMap: Record<ListStatus, { label: string; variant: "default" | "secon
 };
 
 export default function PaymentListsTab() {
+  const companyLocale = useCompanyLocale();
+  const defaultIvaRate = companyLocale.status === "available" && companyLocale.ivaPolicy === "none" ? 0 : 23;
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+
   const { isAdmin, isManager, user } = useAuth();
   const { company } = useCompany();
   const queryClient = useQueryClient();
@@ -264,7 +274,7 @@ export default function PaymentListsTab() {
       const totalAmount = (itemsData ?? []).reduce((sum: number, item: any) => {
         const tx = item.transactions;
         if (!tx) return sum;
-        return sum + calcWithIva(Number(tx.amount), Number(tx.iva_rate ?? 23));
+        return sum + calcWithIva(Number(tx.amount), Number(tx.iva_rate ?? defaultIvaRate));
       }, 0);
 
       // Fetch admin emails
@@ -342,7 +352,7 @@ export default function PaymentListsTab() {
   // disjuntos e somam sempre às Lançadas; "Não aprovadas" são itens removidos
   // pela aprovação, logo ficam FORA das Lançadas.
   const { data: listAggregates } = useQuery({
-    queryKey: ["payment-lists", "totals"],
+    queryKey: ["payment-lists", "totals", companyLocale.companyId, defaultIvaRate],
     queryFn: async () => {
       const [itemsRes, paymentsRes] = await Promise.all([
         supabase
@@ -372,7 +382,7 @@ export default function PaymentListsTab() {
       for (const row of (itemsRes.data ?? []) as any[]) {
         const tx = row.transactions;
         if (!tx) continue;
-        const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+        const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? defaultIvaRate));
         const cutByApproval = String(row.removed_reason ?? "").startsWith(NOT_APPROVED_REASON_PREFIX);
 
         if (row.removed_at) {
@@ -826,8 +836,8 @@ function defaultExpandedGroups(rows: PickerRow[], term: string): Set<string> {
 }
 
 
-function groupWithIvaTotal(txs: any[]): number {
-  return txs.reduce((s, t) => s + calcWithIva(Number(t.amount), Number(t.iva_rate ?? 23)), 0);
+function groupWithIvaTotal(txs: any[], defaultIvaRate: number): number {
+  return txs.reduce((s, t) => s + calcWithIva(Number(t.amount), Number(t.iva_rate ?? defaultIvaRate)), 0);
 }
 
 /**
@@ -836,9 +846,11 @@ function groupWithIvaTotal(txs: any[]): number {
  * aberto. Tudo pago → verde "N/N pagos".
  */
 function InvoiceGroupProgressBadge({
+  formatCurrency,
   visibleCount,
   progress,
 }: {
+  formatCurrency: (value: number) => string;
   visibleCount: number;
   progress?: InvoiceGroupProgress;
 }) {
@@ -872,6 +884,8 @@ function InvoiceGroupProgressBadge({
 
 /** Cabeçalho do cartão de fatura agrupada dentro das tabelas dos pickers. */
 function InvoiceGroupHeaderRow({
+  formatCurrency,
+  defaultIvaRate,
   txs,
   labelColSpan,
   tailColSpan,
@@ -881,7 +895,10 @@ function InvoiceGroupHeaderRow({
   onToggleExpanded,
   progress,
   disabled = false,
+  sepa = true,
 }: {
+  formatCurrency: (value: number) => string;
+  defaultIvaRate: number;
   txs: any[];
   labelColSpan: number;
   tailColSpan: number;
@@ -892,7 +909,9 @@ function InvoiceGroupHeaderRow({
   progress?: InvoiceGroupProgress;
   /** Algum item do grupo não tem dados bancários resolvíveis → grupo inelegível. */
   disabled?: boolean;
+  sepa?: boolean;
 }) {
+  const outsideSepa = txs.some((tx) => checkPaymentBankability(tx, { sepa }).bankDataOutsideSepa);
   const first = txs[0];
   const supplier = formatSupplierFullName(first?.suppliers?.name, (first?.suppliers as any)?.trade_name);
   const ref = (first?.invoice_ref ?? "").toString().trim();
@@ -900,7 +919,7 @@ function InvoiceGroupHeaderRow({
     <tr
       className={`bg-primary/5 ${disabled ? "opacity-50" : "cursor-pointer hover:bg-primary/10"}`}
       onClick={disabled ? undefined : onToggle}
-      title={disabled ? NO_IBAN_TOOLTIP : undefined}
+      title={disabled ? NO_IBAN_TOOLTIP : outsideSepa ? bankDataOutsideSepaBadgeProps().tooltip : undefined}
     >
       <td className="p-2 text-center">
         <Checkbox
@@ -923,11 +942,12 @@ function InvoiceGroupHeaderRow({
           <span className="font-semibold">🧾 Fatura Agrupada</span>
           {supplier && <span className="text-muted-foreground">— {supplier}</span>}
           {ref && <span className="text-muted-foreground">— {ref}</span>}
-          <InvoiceGroupProgressBadge visibleCount={txs.length} progress={progress} />
+          <InvoiceGroupProgressBadge formatCurrency={formatCurrency} visibleCount={txs.length} progress={progress} />
           {disabled && <NoIbanBadge {...noIbanBadgeProps(txs[0])} />}
+          {outsideSepa && <NoIbanBadge variant="neutral" {...bankDataOutsideSepaBadgeProps()} />}
         </div>
       </td>
-      <td className="p-2 text-right font-mono font-semibold">{formatCurrency(groupWithIvaTotal(txs))}</td>
+      <td className="p-2 text-right font-mono font-semibold">{formatCurrency(groupWithIvaTotal(txs, defaultIvaRate))}</td>
       {tailColSpan > 0 && <td colSpan={tailColSpan} />}
     </tr>
   );
@@ -937,6 +957,15 @@ function InvoiceGroupHeaderRow({
 /* ─── Create Payment List Modal ─── */
 
 function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const companyLocale = useCompanyLocale();
+  const sepa = companyLocale.status === "available" && companyLocale.capabilities.sepa;
+  const defaultIvaRate = companyLocale.status === "available" && companyLocale.ivaPolicy === "none" ? 0 : 23;
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+
   const { user } = useAuth();
   const [initialDate] = useState(() => formatLocalDate(new Date(Date.now())));
   const [title, setTitle] = useState(() => `Pagamentos ${initialDate.split("-").reverse().join("/")}`);
@@ -1020,8 +1049,8 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
     });
   };
 
-  // Só transações com dados bancários resolvíveis podem entrar em lista.
-  const bankableTx = useMemo(() => filteredTx.filter((t: any) => isBankable(t)), [filteredTx]);
+  // Elegibilidade gerencial segundo a capability SEPA da empresa.
+  const bankableTx = useMemo(() => filteredTx.filter((t: any) => checkPaymentBankability(t, { sepa }).ok), [filteredTx, sepa]);
   const unbankableCount = filteredTx.length - bankableTx.length;
 
   const toggleAll = () => {
@@ -1180,13 +1209,13 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
               <tbody className="divide-y divide-border/30">
                 {visibleRows.map((row) => {
                   const renderTx = (t: any, inGroup: boolean) => {
-                    const withIva = t.amount * (1 + (t.iva_rate ?? 23) / 100);
+                    const withIva = t.amount * (1 + (t.iva_rate ?? defaultIvaRate) / 100);
                     const paid = Number(t.paid_amount ?? 0);
-                    const paidWithIva = paid * (1 + (t.iva_rate ?? 23) / 100);
+                    const paidWithIva = paid * (1 + (t.iva_rate ?? defaultIvaRate) / 100);
                     const saldo = withIva - paidWithIva;
                     const hasPartial = paid > 0;
                     const bpCheck = checkExceedsBP(t.event_id, t.category_id, Number(t.amount));
-                    const bank = checkPaymentBankability(t);
+                    const bank = checkPaymentBankability(t, { sepa });
                     const np = computeNetPayable({
                       grossWithIva: saldo,
                       declaredWithholding: getDeclaredWithholding(t),
@@ -1209,11 +1238,12 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                         <td className={`p-2 ${inGroup ? "pl-8" : ""}`}>
                           <span className="font-medium">{t.description}</span>
                           {!bank.ok && <NoIbanBadge className="ml-1.5" {...noIbanBadgeProps(t)} />}
+                          {bank.bankDataOutsideSepa && <NoIbanBadge className="ml-1.5" variant="neutral" {...bankDataOutsideSepaBadgeProps()} />}
                           {bank.internalNoIban && <NoIbanBadge className="ml-1.5" variant="neutral" {...internalNoIbanBadgeProps()} />}
                           {bank.socialSecurityByNif && <NoIbanBadge className="ml-1.5" variant="neutral" {...socialSecurityBadgeProps()} />}
                           {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
                           {bpCheck.exceeds && (
-                            <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={Number(t.amount)} /></div>
+                            <div className="mt-0.5"><BPExceedsWarning formatCurrency={formatCurrency} forecastAmount={bpCheck.forecastAmount!} txAmount={Number(t.amount)} /></div>
                           )}
                         </td>
                         <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "-"}</td>
@@ -1242,10 +1272,13 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                   const ids = row.txs.map((t: any) => t.id);
                   const sel = ids.filter((id) => selectedIds.has(id)).length;
                   const expanded = isGroupExpanded(row.groupId);
-                  const groupBlocked = row.txs.some((t: any) => !isBankable(t));
+                  const groupBlocked = row.txs.some((t: any) => !checkPaymentBankability(t, { sepa }).ok);
                   return (
                     <Fragment key={row.key}>
                       <InvoiceGroupHeaderRow
+                        formatCurrency={formatCurrency}
+                        defaultIvaRate={defaultIvaRate}
+                        sepa={sepa}
                         txs={row.txs}
                         labelColSpan={4}
                         tailColSpan={4}
@@ -1308,6 +1341,15 @@ function CopyLine({ label, value, copyValue, mono, bold, hideIfEmpty = true }: {
 
 /* ─── View Payment List Details ─── */
 function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => void }) {
+  const companyLocale = useCompanyLocale();
+  const sepa = companyLocale.status === "available" && companyLocale.capabilities.sepa;
+  const defaultIvaRate = companyLocale.status === "available" && companyLocale.ivaPolicy === "none" ? 0 : 23;
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+
   const queryClient = useQueryClient();
   const { user, isAdmin, isManager } = useAuth();
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
@@ -1741,7 +1783,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     const tx = item.transactions;
     if (!tx) return false;
     if (item.removed_at) return false;
-    const totalWithIva = calcWithIva(Number(tx.amount), Number(tx.iva_rate ?? 23));
+    const totalWithIva = calcWithIva(Number(tx.amount), Number(tx.iva_rate ?? defaultIvaRate));
     const paid = Number(tx.paid_amount ?? 0);
     return paid < totalWithIva - 0.05 && tx.status !== "paid";
   });
@@ -1771,7 +1813,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     for (const item of items as any[]) {
       const tx = item.transactions;
       if (!tx) continue;
-      const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+      const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? defaultIvaRate));
       if (item.removed_at) {
         if (String(item.removed_reason ?? "").startsWith(NOT_APPROVED_REASON_PREFIX)) {
           notApproved += withIva;
@@ -1797,7 +1839,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       approved: listApproved ? open : 0,
       awaiting: listApproved ? 0 : open,
     };
-  }, [items, list?.status]);
+  }, [items, list?.status, defaultIvaRate]);
 
   /**
    * Candidatos para o ficheiro SEPA Santander.
@@ -1823,7 +1865,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     for (const item of items as any[]) {
       const tx = item.transactions;
       if (!tx || item.removed_at) continue;
-      const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+      const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? defaultIvaRate));
       const np = computeNetPayable({
         grossWithIva: withIva,
         declaredWithholding: getDeclaredWithholding(tx),
@@ -1887,7 +1929,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             ? "Sem valor em aberto"
             : isSocialSecurityByNif(tx)
               ? SEPA_SOCIAL_SECURITY_REASON
-              : isInternalNoIban(tx)
+              : checkPaymentBankability(tx, { sepa }).internalNoIban
                 ? SEPA_INTERNAL_NO_IBAN_REASON
                 : undefined,
         _ibans: [normalizeIban(iban)],
@@ -1922,7 +1964,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       }
       return c;
     });
-  }, [items, installmentTxIds]);
+  }, [items, installmentTxIds, defaultIvaRate, sepa]);
 
 
 
@@ -1999,6 +2041,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     if (!list || items.length === 0) return;
     try {
       const exportData = {
+        companyLocale,
         title: list.title,
         payment_date: list.payment_date,
         approved_by: list.approved_by,
@@ -2013,7 +2056,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           supplier_id: item.transactions?.supplier_id ?? null,
           iban: item.transactions?.iban_override ?? item.transactions?.suppliers?.iban ?? "-",
           amount: Number(item.transactions?.amount ?? 0),
-          iva_rate: Number(item.transactions?.iva_rate ?? 23),
+          iva_rate: Number(item.transactions?.iva_rate ?? defaultIvaRate),
           paid_amount: Number(item.transactions?.paid_amount ?? 0),
           due_date: item.transactions?.due_date,
           date: item.transactions?.date ?? "",
@@ -2049,7 +2092,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         supplier_id: tx?.supplier_id ?? null,
         iban: tx?.iban_override ?? tx?.suppliers?.iban ?? "-",
         amount: Number(tx?.amount ?? 0),
-        iva_rate: Number(tx?.iva_rate ?? 23),
+        iva_rate: Number(tx?.iva_rate ?? defaultIvaRate),
         paid_amount: Number(tx?.paid_amount ?? 0),
         due_date: tx?.due_date,
         date: tx?.date ?? "",
@@ -2083,7 +2126,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         lines.push(`Entidade: ${group.payment_entity ?? "-"}`);
         lines.push(`Referência: ${group.payment_reference ?? "-"}`);
       } else {
-        lines.push(`IBAN: ${group.iban}`);
+        lines.push(`${companyLocale.status === "available" ? companyLocale.labels.bankAccount : "IBAN"}: ${group.iban}`);
       }
       for (const item of group.items) {
         const withIva = item.amount * (1 + item.iva_rate / 100);
@@ -2115,7 +2158,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         lines.push(`Entidade: ${item.payment_entity ?? "-"}`);
         lines.push(`Referência: ${item.payment_reference ?? "-"}`);
       } else {
-        lines.push(`IBAN: ${item.iban}`);
+        lines.push(`${companyLocale.status === "available" ? companyLocale.labels.bankAccount : "IBAN"}: ${item.iban}`);
       }
       lines.push(`${(item as any).is_reimbursement ? "Beneficiário" : "Fornecedor"}: ${formatSupplierFullName(item.supplier_name, (item as any).supplier_trade_name)}`);
       lines.push(`Descrição: ${item.description}`);
@@ -2193,21 +2236,30 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               </>
             )}
             {/* #37 — só quem aprova listas (admin) exporta; só listas aprovadas geram ficheiro. */}
-            {isAdmin && (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!(list?.status === "approved" || list?.status === "partially_approved")}
-                onClick={(e) => { e.stopPropagation(); setShowSepa(true); }}
-                title={
-                  list?.status === "approved" || list?.status === "partially_approved"
-                    ? "Gerar ficheiro SEPA para o NetBanco Santander"
-                    : "Disponível só depois de a lista ser aprovada"
-                }
-              >
-                <Landmark className="mr-1.5 h-4 w-4" /> Ficheiro Santander
-              </Button>
-            )}
+            {isAdmin && (() => {
+              const canExportSepa = companyLocale.status === "available" && companyLocale.capabilities.sepa && companyLocale.currency === "EUR";
+              const unavailableExplanation = companyLocale.status === "available"
+                ? `Exportação SEPA indisponível para esta empresa (moeda ${companyLocale.currency})`
+                : "Exportação SEPA indisponível: configuração da empresa incompleta";
+              return (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!canExportSepa || !(list?.status === "approved" || list?.status === "partially_approved")}
+                    onClick={(e) => { e.stopPropagation(); if (canExportSepa) setShowSepa(true); }}
+                    title={
+                      !canExportSepa ? unavailableExplanation : list?.status === "approved" || list?.status === "partially_approved"
+                        ? "Gerar ficheiro SEPA para o NetBanco Santander"
+                        : "Disponível só depois de a lista ser aprovada"
+                    }
+                  >
+                    <Landmark className="mr-1.5 h-4 w-4" /> Ficheiro Santander
+                  </Button>
+                  {!canExportSepa && <p className="text-xs text-muted-foreground">{unavailableExplanation}</p>}
+                </>
+              );
+            })()}
             {canEditItems && (
               <button
                 onClick={(e) => { e.stopPropagation(); setShowAddTx(true); }}
@@ -2220,7 +2272,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           </div>
         </div>
 
-        {showSepa && list && (
+        {showSepa && list && companyLocale.status === "available" && companyLocale.capabilities.sepa && companyLocale.currency === "EUR" && (
           <SepaExportModal
             listId={listId}
             listTitle={list.title ?? "Lista de Pagamentos"}
@@ -2269,7 +2321,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             const m = tx.payment_method ?? "transfer";
             const cur = by.get(m) ?? { n: 0, v: 0 };
             cur.n += 1;
-            cur.v += calcWithIva(Number(tx.amount), Number(tx.iva_rate ?? 23));
+            cur.v += calcWithIva(Number(tx.amount), Number(tx.iva_rate ?? defaultIvaRate));
             by.set(m, cur);
           }
           if (by.size === 0) return null;
@@ -2369,7 +2421,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               supplier_id: tx?.supplier_id ?? null,
               iban: tx?.iban_override ?? tx?.suppliers?.iban ?? "-",
               amount: Number(tx?.amount ?? 0),
-              iva_rate: Number(tx?.iva_rate ?? 23),
+              iva_rate: Number(tx?.iva_rate ?? defaultIvaRate),
               paid_amount: Number(tx?.paid_amount ?? 0),
               due_date: tx?.due_date,
               date: tx?.date ?? "",
@@ -2388,7 +2440,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           const renderItem = (item: any) => {
             const tx = item.transactions;
             const amount = Number(tx?.amount ?? 0);
-            const ivaRate = Number(tx?.iva_rate ?? 23);
+            const ivaRate = Number(tx?.iva_rate ?? defaultIvaRate);
             const withIva = amount * (1 + ivaRate / 100);
             const paid = Number(tx?.paid_amount ?? 0);
             const isPaid = paid >= withIva - 0.05 || tx?.status === "paid";
@@ -2455,10 +2507,13 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     </div>
                   )}
                   <div className={`flex-1 space-y-1 ${isRemoved ? "line-through decoration-destructive/50" : ""}`}>
-                    {tx && !isBankable(tx) && (
+                    {tx && !checkPaymentBankability(tx, { sepa }).ok && (
                       <div className="pb-1"><NoIbanBadge {...noIbanBadgeProps(tx)} /></div>
                     )}
-                    {tx && isInternalNoIban(tx) && (
+                    {tx && checkPaymentBankability(tx, { sepa }).bankDataOutsideSepa && (
+                      <div className="pb-1"><NoIbanBadge variant="neutral" {...bankDataOutsideSepaBadgeProps()} /></div>
+                    )}
+                    {tx && checkPaymentBankability(tx, { sepa }).internalNoIban && (
                       <div className="pb-1"><NoIbanBadge variant="neutral" {...internalNoIbanBadgeProps()} /></div>
                     )}
                     {tx && isSocialSecurityByNif(tx) && (
@@ -2471,7 +2526,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                         <CopyLine label="Referência" value={tx?.payment_reference ?? "-"} mono />
                       </>
                     ) : (
-                      <CopyLine label="IBAN" value={tx?.iban_override ?? tx?.suppliers?.iban ?? "-"} mono />
+                      <CopyLine label={companyLocale.status === "available" ? companyLocale.labels.bankAccount : "IBAN"} value={tx?.iban_override ?? tx?.suppliers?.iban ?? "-"} mono />
                     )}
                     <CopyLine label={(tx as any)?.is_reimbursement_payment || tx?.is_reimbursement ? "Beneficiário" : "Fornecedor"} value={formatSupplierFullName(tx?.suppliers?.name, tx?.suppliers?.trade_name)} />
                     <CopyLine label={(tx as any)?.is_reimbursement_payment || tx?.is_reimbursement ? "Email Beneficiário" : "Email Fornecedor"} value={tx?.suppliers?.email} />
@@ -2491,7 +2546,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     )}
                     {bpCheck.exceeds && (
 
-                      <BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={amount} />
+                      <BPExceedsWarning formatCurrency={formatCurrency} forecastAmount={bpCheck.forecastAmount!} txAmount={amount} />
                     )}
                     {paid > 0 && !isPaid && (
                       <div className="flex items-center gap-4 flex-wrap">
@@ -2617,7 +2672,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       <span className="font-semibold">{formatSupplierFullName(group.supplier_name, (group as any).supplier_trade_name)}</span>
                       <span className="text-muted-foreground">—</span>
                       <span className="font-mono text-xs">{group.invoice_ref}</span>
-                      <InvoiceGroupProgressBadge visibleCount={group.items.length} progress={gProgress} />
+                      <InvoiceGroupProgressBadge formatCurrency={formatCurrency} visibleCount={group.items.length} progress={gProgress} />
                     </div>
 
                     {Number((group as any).group_total_count ?? 0) > group.items.length && (
@@ -2633,7 +2688,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           <CopyLine label="Referência" value={group.payment_reference ?? "-"} mono />
                         </>
                       ) : (
-                        <CopyLine label="IBAN" value={group.iban ?? "-"} mono />
+                        <CopyLine label={companyLocale.status === "available" ? companyLocale.labels.bankAccount : "IBAN"} value={group.iban ?? "-"} mono />
                       )}
                       <CopyLine
                         label={group.totalWithholding > 0 ? "Bruto" : "Total a transferir"}
@@ -2815,6 +2870,15 @@ function ApproveModal({
   onClose: () => void;
   onApproved: () => void;
 }) {
+  const companyLocale = useCompanyLocale();
+  const sepa = companyLocale.status === "available" && companyLocale.capabilities.sepa;
+  const defaultIvaRate = companyLocale.status === "available" && companyLocale.ivaPolicy === "none" ? 0 : 23;
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+
   const { user } = useAuth();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
@@ -2970,12 +3034,12 @@ function ApproveModal({
     for (const item of items as any[]) {
       const tx = item.transactions;
       if (!tx) continue;
-      const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+      const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? defaultIvaRate));
       total += withIva;
       if (selectedIds.has(item.id)) toApprove += withIva;
     }
     return { total, toApprove, notApproved: total - toApprove };
-  }, [items, selectedIds]);
+  }, [items, selectedIds, defaultIvaRate]);
 
   /**
    * Itens herdados sem dados bancários resolvíveis (mesma resolução do ficheiro
@@ -2983,8 +3047,8 @@ function ApproveModal({
    * fora do ficheiro Santander, para nunca haver exclusão silenciosa.
    */
   const noIbanItems = useMemo(
-    () => (items as any[]).map((i) => i.transactions).filter((tx) => tx && !isBankable(tx)),
-    [items],
+    () => (items as any[]).map((i) => i.transactions).filter((tx) => tx && !checkPaymentBankability(tx, { sepa }).ok),
+    [items, sepa],
   );
 
 
@@ -3122,7 +3186,7 @@ function ApproveModal({
                   const renderItem = (item: any, nested: boolean) => {
                     const tx = item.transactions;
                     const txAmount = Number(tx?.amount ?? 0);
-                    const withIva = txAmount * (1 + Number(tx?.iva_rate ?? 23) / 100);
+                    const withIva = txAmount * (1 + Number(tx?.iva_rate ?? defaultIvaRate) / 100);
                     const paid = Number(tx?.paid_amount ?? 0);
                     const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, txAmount);
                     return (
@@ -3140,13 +3204,14 @@ function ApproveModal({
                         </td>
                          <td className={`p-2 ${nested ? "pl-6" : ""}`}>
                            <span className="font-medium">{tx?.description}</span>
-                           {tx && !isBankable(tx) && <NoIbanBadge className="ml-1.5" {...noIbanBadgeProps(tx)} />}
-                           {tx && isInternalNoIban(tx) && <NoIbanBadge className="ml-1.5" variant="neutral" {...internalNoIbanBadgeProps()} />}
+                           {tx && !checkPaymentBankability(tx, { sepa }).ok && <NoIbanBadge className="ml-1.5" {...noIbanBadgeProps(tx)} />}
+                           {tx && checkPaymentBankability(tx, { sepa }).bankDataOutsideSepa && <NoIbanBadge className="ml-1.5" variant="neutral" {...bankDataOutsideSepaBadgeProps()} />}
+                           {tx && checkPaymentBankability(tx, { sepa }).internalNoIban && <NoIbanBadge className="ml-1.5" variant="neutral" {...internalNoIbanBadgeProps()} />}
                            {tx && isSocialSecurityByNif(tx) && <NoIbanBadge className="ml-1.5" variant="neutral" {...socialSecurityBadgeProps()} />}
                            {tx?.specification && <p className="text-[11px] text-muted-foreground">{tx.specification}</p>}
                            {tx && <OffsetLineNote txId={tx.id} />}
                            {bpCheck.exceeds && (
-                             <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
+                             <div className="mt-0.5"><BPExceedsWarning formatCurrency={formatCurrency} forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
                            )}
                          </td>
                          <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{tx?.account_categories ? `${tx.account_categories.code} ${tx.account_categories.name}` : "-"}</td>
@@ -3166,6 +3231,9 @@ function ApproveModal({
                   return (
                     <Fragment key={row.key}>
                       <InvoiceGroupHeaderRow
+                        formatCurrency={formatCurrency}
+                        defaultIvaRate={defaultIvaRate}
+                        sepa={sepa}
                         txs={row.items.map((i: any) => i.transactions)}
                         labelColSpan={4}
                         tailColSpan={1}
@@ -3224,6 +3292,15 @@ function AddTransactionsToList({
   onClose: () => void;
   onAdded: (count: number) => void;
 }) {
+  const companyLocale = useCompanyLocale();
+  const sepa = companyLocale.status === "available" && companyLocale.capabilities.sepa;
+  const defaultIvaRate = companyLocale.status === "available" && companyLocale.ivaPolicy === "none" ? 0 : 23;
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [dateType, setDateType] = useState<"date" | "due_date">("date");
@@ -3294,8 +3371,8 @@ function AddTransactionsToList({
     });
   };
 
-  // Só transações com dados bancários resolvíveis podem entrar em lista.
-  const bankableTx = useMemo(() => filteredTx.filter((t: any) => isBankable(t)), [filteredTx]);
+  // Elegibilidade gerencial segundo a capability SEPA da empresa.
+  const bankableTx = useMemo(() => filteredTx.filter((t: any) => checkPaymentBankability(t, { sepa }).ok), [filteredTx, sepa]);
   const unbankableCount = filteredTx.length - bankableTx.length;
 
   const toggleAll = () => {
@@ -3410,8 +3487,8 @@ function AddTransactionsToList({
               <tbody className="divide-y divide-border/30">
                 {visibleRows.map((row) => {
                   const renderTx = (t: any, inGroup: boolean) => {
-                    const withIva = calcWithIva(Number(t.amount), Number(t.iva_rate ?? 23));
-                    const bank = checkPaymentBankability(t);
+                    const withIva = calcWithIva(Number(t.amount), Number(t.iva_rate ?? defaultIvaRate));
+                    const bank = checkPaymentBankability(t, { sepa });
                     return (
                       <tr
                         key={t.id}
@@ -3429,6 +3506,7 @@ function AddTransactionsToList({
                         <td className={`p-2 ${inGroup ? "pl-8" : ""}`}>
                           <span className="font-medium">{t.description}</span>
                           {!bank.ok && <NoIbanBadge className="ml-1.5" {...noIbanBadgeProps(t)} />}
+                          {bank.bankDataOutsideSepa && <NoIbanBadge className="ml-1.5" variant="neutral" {...bankDataOutsideSepaBadgeProps()} />}
                           {bank.internalNoIban && <NoIbanBadge className="ml-1.5" variant="neutral" {...internalNoIbanBadgeProps()} />}
                           {bank.socialSecurityByNif && <NoIbanBadge className="ml-1.5" variant="neutral" {...socialSecurityBadgeProps()} />}
                           {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
@@ -3447,10 +3525,13 @@ function AddTransactionsToList({
                   const ids = row.txs.map((t: any) => t.id);
                   const sel = ids.filter((id) => selectedIds.has(id)).length;
                   const expanded = isGroupExpanded(row.groupId);
-                  const groupBlocked = row.txs.some((t: any) => !isBankable(t));
+                  const groupBlocked = row.txs.some((t: any) => !checkPaymentBankability(t, { sepa }).ok);
                   return (
                     <Fragment key={row.key}>
                       <InvoiceGroupHeaderRow
+                        formatCurrency={formatCurrency}
+                        defaultIvaRate={defaultIvaRate}
+                        sepa={sepa}
                         txs={row.txs}
                         labelColSpan={4}
                         tailColSpan={1}

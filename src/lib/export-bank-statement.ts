@@ -1,3 +1,4 @@
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
@@ -7,10 +8,6 @@ import { formatDatePT } from "@/lib/utils";
 
 function fmtDate(d: string) {
   return formatDatePT(d);
-}
-
-function fmtVal(v: number): string {
-  return formatCurrency(v);
 }
 
 /**
@@ -24,8 +21,11 @@ export function exportBankStatementToExcel(
   closingBalance: number,
   dateFrom: string,
   dateTo: string,
-  uncontrolled = false
+  uncontrolled = false,
+  companyLocale?: CompanyLocaleResult,
 ) {
+  const symbol = companyLocale?.status === "available" ? companyLocale.symbol : "€";
+  const fmtVal = (value: number) => formatExportMoney(value, companyLocale);
   const wb = XLSX.utils.book_new();
   const bal = (v: number) => (uncontrolled ? "Não controlado" : v);
 
@@ -39,7 +39,7 @@ export function exportBankStatementToExcel(
     ...(implantLine ? [implantLine] : []),
     ...(uncontrolled ? [["Conta sem controlo de saldo — saldos não apurados"]] : []),
     [],
-    ["Data", "Descrição", "Evento", "Entrada (€)", "Saída (€)", "Saldo (€)"],
+    ["Data", "Descrição", "Evento", `Entrada (${symbol})`, `Saída (${symbol})`, `Saldo (${symbol})`],
     [dateFrom ? fmtDate(dateFrom) : "—", "SALDO INICIAL", "", "", "", bal(openingBalance)],
   ];
 
@@ -62,7 +62,7 @@ export function exportBankStatementToExcel(
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [{ wch: 12 }, { wch: 35 }, { wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
-  applyPTNumberFormat(ws);
+  applyPTNumberFormat(ws, companyLocale);
   XLSX.utils.book_append_sheet(wb, ws, "Extrato");
   XLSX.writeFile(wb, `Extrato_${account.name.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
@@ -74,8 +74,11 @@ export function exportBankStatementToPDF(
   closingBalance: number,
   dateFrom: string,
   dateTo: string,
-  uncontrolled = false
+  uncontrolled = false,
+  companyLocale?: CompanyLocaleResult,
 ) {
+  const symbol = companyLocale?.status === "available" ? companyLocale.symbol : "€";
+  const fmtVal = (value: number) => formatExportMoney(value, companyLocale);
   // Conta sem controlo de saldo: nunca imprimir número (nem 0, nem negativo).
   const balTxt = (v: number) => (uncontrolled ? "Não controlado" : fmtVal(v));
   const balCell = (v: number) => (uncontrolled ? "N/C" : fmtVal(v));
@@ -108,9 +111,9 @@ export function exportBankStatementToPDF(
     doc.text("Data", colX[0] + 2, y + 5.5);
     doc.text("Descrição", colX[1] + 2, y + 5.5);
     doc.text("Evento", colX[2] + 2, y + 5.5);
-    doc.text("Entrada (€)", colX[3] + colW[3] - 2, y + 5.5, { align: "right" });
-    doc.text("Saída (€)", colX[4] + colW[4] - 2, y + 5.5, { align: "right" });
-    doc.text("Saldo (€)", colX[5] + colW[5] - 2, y + 5.5, { align: "right" });
+    doc.text(`Entrada (${symbol})`, colX[3] + colW[3] - 2, y + 5.5, { align: "right" });
+    doc.text(`Saída (${symbol})`, colX[4] + colW[4] - 2, y + 5.5, { align: "right" });
+    doc.text(`Saldo (${symbol})`, colX[5] + colW[5] - 2, y + 5.5, { align: "right" });
     doc.setTextColor(0, 0, 0);
     y += 10;
   }
@@ -252,4 +255,10 @@ export function exportBankStatementToPDF(
   }
 
   doc.save(`Extrato_${account.name.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+function formatExportMoney(value: number, companyLocale?: CompanyLocaleResult): string {
+  return companyLocale?.status === "available" && !(companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")
+    ? formatMoney(value, companyLocale)
+    : formatCurrency(value);
 }

@@ -1,3 +1,4 @@
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
@@ -528,7 +529,12 @@ export async function exportPLToExcel(
   scenarioName: string | null = null,
   expandForecasts: boolean = false,
   hideOverheadTag: boolean = false,
+  companyLocale?: CompanyLocaleResult,
 ) {
+  const symbol = companyLocale?.status === "available" ? companyLocale.symbol : "€";
+  const currencyFmt = companyLocale?.status === "available" && !(companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")
+    ? `"${companyLocale.symbol} "#,##0.00;[Red]-"${companyLocale.symbol} "#,##0.00`
+    : CURRENCY_FMT;
   const wb = new ExcelJS.Workbook();
   wb.creator = companyDisplayName;
   wb.created = new Date();
@@ -560,7 +566,7 @@ export async function exportPLToExcel(
   const setCurrencyRow = (ws: ExcelJS.Worksheet, row: number, valueCols: number[]) => {
     valueCols.forEach((c) => {
       const cell = ws.getRow(row).getCell(c);
-      cell.numFmt = CURRENCY_FMT;
+      cell.numFmt = currencyFmt;
       cell.alignment = { ...(cell.alignment || {}), horizontal: "right" };
     });
   };
@@ -673,8 +679,8 @@ export async function exportPLToExcel(
 
     // Nova ordem: Rubrica | Especificação | Qtd | Preço Unit. | Valor s/IVA | IVA | Total | (comparação: Real s/IVA | IVA Real | Total Real | Variação) | Formalidade
     const header = isComparison
-      ? ["Rubrica", "Especificação", "Qtd", "Preço Unit. (€)", "Valor s/ IVA", "IVA", "Total", "Real s/ IVA", "IVA Real", "Total Real", "Variação", "Formalidade"]
-      : ["Rubrica", "Especificação", "Qtd", "Preço Unit. (€)", "Valor s/ IVA", "IVA", "Total", "Formalidade"];
+      ? ["Rubrica", "Especificação", "Qtd", `Preço Unit. (${symbol})`, "Valor s/ IVA", "IVA", "Total", "Real s/ IVA", "IVA Real", "Total Real", "Variação", "Formalidade"]
+      : ["Rubrica", "Especificação", "Qtd", `Preço Unit. (${symbol})`, "Valor s/ IVA", "IVA", "Total", "Formalidade"];
     const nCols = header.length;
     // Colunas de moeda (Preço Unit. + valores s/IVA/IVA/Total + reais/variação)
     const valueCols = isComparison ? [4, 5, 6, 7, 8, 9, 10, 11] : [4, 5, 6, 7];
@@ -744,7 +750,7 @@ export async function exportPLToExcel(
 
       valueCols.forEach((c) => {
         const cell = row.getCell(c);
-        cell.numFmt = CURRENCY_FMT;
+        cell.numFmt = currencyFmt;
         cell.alignment = { horizontal: "right" };
       });
       const qtyCell = row.getCell(qtyCol);
@@ -856,7 +862,9 @@ export function exportPLToPDF(
   scenarioName: string | null = null,
   expandForecasts: boolean = false,
   hideOverheadTag: boolean = false,
+  companyLocale?: CompanyLocaleResult,
 ) {
+  const symbol = companyLocale?.status === "available" ? companyLocale.symbol : "€";
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -890,8 +898,8 @@ export function exportPLToPDF(
     doc.text("Qtd", colX[1] + colWidths[1] - 2, y + 5.5, { align: "right" });
     doc.text("Preço Unit.", colX[2] + colWidths[2] - 2, y + 5.5, { align: "right" });
     doc.text("Valor s/ IVA", colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
-    doc.text("IVA (€)", colX[4] + colWidths[4] - 2, y + 5.5, { align: "right" });
-    doc.text("Total (€)", colX[5] + colWidths[5] - 2, y + 5.5, { align: "right" });
+    doc.text(`IVA (${symbol})`, colX[4] + colWidths[4] - 2, y + 5.5, { align: "right" });
+    doc.text(`Total (${symbol})`, colX[5] + colWidths[5] - 2, y + 5.5, { align: "right" });
     if (isComparison) {
       doc.text("Real s/ IVA", colX[6] + colWidths[6] - 2, y + 5.5, { align: "right" });
       doc.text("IVA Real", colX[7] + colWidths[7] - 2, y + 5.5, { align: "right" });
@@ -903,7 +911,7 @@ export function exportPLToPDF(
   }
 
   function fmtVal(v: number): string {
-    return formatCurrency(v);
+    return formatExportMoney(v, companyLocale);
   }
 
   try {
@@ -1243,4 +1251,10 @@ export function exportPLToPDF(
   }
 
   doc.save(`BP_Relatorio_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+function formatExportMoney(value: number, companyLocale?: CompanyLocaleResult): string {
+  return companyLocale?.status === "available" && !(companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")
+    ? formatMoney(value, companyLocale)
+    : formatCurrency(value);
 }

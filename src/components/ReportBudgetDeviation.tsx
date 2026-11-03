@@ -3,7 +3,9 @@ import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
@@ -13,6 +15,13 @@ import { Badge } from "@/components/ui/badge";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportBudgetDeviation() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+  const currencySymbol = companyLocale.status === "available" ? companyLocale.symbol : "—";
   const [selectedEventId, setSelectedEventId] = useState<string>("");
 
   const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
@@ -146,7 +155,7 @@ export default function ReportBudgetDeviation() {
                   <TableHead>Categoria (L2)</TableHead>
                   <TableHead className="text-right">Previsto (BP)</TableHead>
                   <TableHead className="text-right">Real</TableHead>
-                  <TableHead className="text-right">Desvio (€)</TableHead>
+                  <TableHead className="text-right">Desvio ({currencySymbol})</TableHead>
                   <TableHead className="text-right">Desvio (%)</TableHead>
                 </TableRow>
               </TableHeader>
@@ -157,7 +166,7 @@ export default function ReportBudgetDeviation() {
                     <TableCell className="text-right font-mono">{formatCurrency(d.forecast)}</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(d.actual)}</TableCell>
                     <TableCell className={`text-right font-mono font-semibold ${d.deviation > 0 ? "text-destructive" : d.deviation < 0 ? "text-success" : "text-muted-foreground"}`}>
-                      {d.deviation > 0 ? "+" : ""}{formatCurrency(d.deviation)}
+                      {companyLocale.status === "available" && d.deviation > 0 ? "+" : ""}{formatCurrency(d.deviation)}
                     </TableCell>
                     <TableCell className="text-right">
                       {d.forecast > 0 ? (

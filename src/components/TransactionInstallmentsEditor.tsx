@@ -1,3 +1,4 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Wand2, Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
@@ -52,6 +53,11 @@ export function TransactionInstallmentsEditor({
   interval,
   onWizardChange,
 }: Props) {
+  const companyLocale = useCompanyLocale();
+  const nativeCurrency = companyLocale.status === "available" ? companyLocale.currency : "EUR";
+  const symbol = companyLocale.status === "available" ? companyLocale.symbol : "€";
+  const locale = companyLocale.status === "available" ? companyLocale.locale : "pt-PT";
+
   // Inicializa 1ª data se vazia
   useEffect(() => {
     if (!firstDate) {
@@ -190,7 +196,7 @@ export function TransactionInstallmentsEditor({
               <tr>
                 <th className="text-left px-2 py-1.5 font-medium w-8">#</th>
                 <th className="text-left px-2 py-1.5 font-medium w-40">Data prevista</th>
-                <th className="text-right px-2 py-1.5 font-medium w-32">Valor (€)</th>
+                <th className="text-right px-2 py-1.5 font-medium w-32">Valor ({symbol})</th>
                 <th className="w-8" />
               </tr>
             </thead>
@@ -219,6 +225,8 @@ export function TransactionInstallmentsEditor({
                   </td>
                   <td className="px-2 py-1">
                     <MoneyInput
+                      currency={nativeCurrency}
+                      companyLocale={companyLocale.status === "available" && locale === "pt-BR" ? companyLocale : undefined}
                       value={Number(r.amount) || 0}
                       onChange={(v) => updateRow(i, { amount: v })}
                       className="h-8 text-right font-mono text-xs"
@@ -250,22 +258,22 @@ export function TransactionInstallmentsEditor({
         <div className="text-xs space-x-2">
           <span className="text-muted-foreground">Total:</span>
           <span className="font-mono font-semibold">
-            {grossTotal.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+            {grossTotal.toLocaleString(locale, { style: "currency", currency: nativeCurrency })}
           </span>
           <span className="text-muted-foreground">·</span>
           <span className="text-muted-foreground">Soma:</span>
-          <span className="font-mono">{sum.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</span>
+          <span className="font-mono">{sum.toLocaleString(locale, { style: "currency", currency: nativeCurrency })}</span>
           <span className="text-muted-foreground">·</span>
           <span className={cn("font-mono font-semibold", Math.abs(diff) <= 0.01 ? "text-success" : "text-destructive")}>
             {diff >= 0 ? "Falta " : "Excesso "}
-            {Math.abs(diff).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+            {Math.abs(diff).toLocaleString(locale, { style: "currency", currency: nativeCurrency })}
           </span>
         </div>
       </div>
 
       {installments.length > 0 && Math.abs(diff) > 0.01 && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          A soma das parcelas tem de ser igual ao total (tolerância 0,01 €). Usa <strong>Distribuir igualmente</strong> ou <strong>Ajustar última</strong>.
+          A soma das parcelas tem de ser igual ao total (tolerância 0,01 {symbol}). Usa <strong>Distribuir igualmente</strong> ou <strong>Ajustar última</strong>.
         </div>
       )}
       {installments.length < 2 && (
@@ -277,10 +285,10 @@ export function TransactionInstallmentsEditor({
   );
 }
 
-export function validateInstallments(rows: PlannedInstallment[], grossTotal: number): string | null {
+export function validateInstallments(rows: PlannedInstallment[], grossTotal: number, symbol = "€"): string | null {
   if (rows.length < 2) return "Parcelamento exige pelo menos 2 parcelas.";
   if (rows.some((r) => !r.scheduled_date || !(Number(r.amount) > 0))) return "Cada parcela precisa de data e valor > 0.";
   const sum = rows.reduce((s, r) => s + Number(r.amount), 0);
-  if (Math.abs(grossTotal - sum) > 0.01) return "A soma das parcelas tem de ser igual ao total (±0,01 €).";
+  if (Math.abs(grossTotal - sum) > 0.01) return `A soma das parcelas tem de ser igual ao total (±0,01 ${symbol}).`;
   return null;
 }

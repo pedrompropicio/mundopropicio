@@ -8,6 +8,8 @@
  * Bloco 4: IVA por sessão
  * Bloco 5: Resultados (Geral / Evento / A&B / Souvenir) + Indicadores per capita
  */
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { PriorCurveSelector } from "@/components/simulator/PriorCurveSelector";
 import { usePriorCurve } from "@/lib/simulator-prior-curve";
 import { selectCourtesyRows } from "@/lib/bp-formula";
@@ -28,7 +30,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Plus, Trash2, Loader2, Save, Calculator, RefreshCw, FileSpreadsheet, FileText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import {
   type CoalaSession, type CoalaCostLine, type CoalaConfig, type BreakEvenSolution, type ForecastSolution,
   computeScenarioRevenue, computeScenarioCosts, computeScenarioResult,
@@ -112,11 +114,20 @@ type DbCostLine = {
 
 type AccountCategory = { id: string; code: string; name: string };
 
-const fmt = (v: number) => formatCurrency(Number.isFinite(v) ? v : 0);
+type MoneyFormatter = (value: number) => string;
 const fmtNum = (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString("pt-PT", { maximumFractionDigits: 0 });
 const fmtPct = (v: number) => `${(v * 100).toFixed(1)}%`;
 
 export default function EventSimulator() {
+  const companyLocale = useCompanyLocale();
+  const symbol = companyLocale.status === "available" ? companyLocale.symbol : "€";
+  const fmt: MoneyFormatter = (value) => {
+    if (companyLocale.status !== "available") return "—";
+    const finiteValue = Number.isFinite(value) ? value : 0;
+    return companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(finiteValue)
+      : formatMoney(finiteValue, companyLocale);
+  };
   const { id: eventId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -1275,8 +1286,8 @@ export default function EventSimulator() {
 
       {/* KPIs scenario summary */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <ScenarioCard title="Hoje (Edição 2026)" tone="muted" rev={todayAB} cost={todayCosts} res={todayRes} kpis={todayKpis} dailyTotals={dailyTotals} />
-        <ScenarioCard
+        <ScenarioCard fmt={fmt} title="Hoje (Edição 2026)" tone="muted" rev={todayAB} cost={todayCosts} res={todayRes} kpis={todayKpis} dailyTotals={dailyTotals} />
+        <ScenarioCard fmt={fmt}
           title="Break Even"
           tone="warning"
           rev={beAB}
@@ -1284,9 +1295,9 @@ export default function EventSimulator() {
           res={beRes}
           kpis={beKpis}
           dailyTotals={beDailyTotals}
-          extra={<BreakEvenSummary solution={beSolution} />}
+          extra={<BreakEvenSummary fmt={fmt} solution={beSolution} />}
         />
-        <ScenarioCard
+        <ScenarioCard fmt={fmt}
           title="Forecast"
           tone="success"
           rev={fcAB}
@@ -1356,7 +1367,7 @@ export default function EventSimulator() {
                     <TableHead className="text-right">TM override</TableHead>
                     <TableHead className="text-right">IVA %</TableHead>
                     <TableHead className="text-right" title="Manual — referência ano anterior">2025 qty (manual)</TableHead>
-                    <TableHead className="text-right" title="Manual — referência ano anterior">2025 € (manual)</TableHead>
+                    <TableHead className="text-right" title="Manual — referência ano anterior">2025 {symbol} (manual)</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1581,12 +1592,12 @@ export default function EventSimulator() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  <RevRow label="Bilhetes" prior={calcCfg.prior_year_tickets} a={todayAB.ticketsRevenue} b={beAB.ticketsRevenue} c={fcAB.ticketsRevenue} />
-                  <RevRow label="A&B Bebida" prior={calcCfg.prior_year_drink} a={todayAB.drinkRevenue} b={beAB.drinkRevenue} c={fcAB.drinkRevenue} />
-                  <RevRow label="A&B Alimento" prior={calcCfg.prior_year_food} a={todayAB.foodRevenue} b={beAB.foodRevenue} c={fcAB.foodRevenue} />
-                  <RevRow label="Patrocínio" prior={calcCfg.prior_year_sponsor} a={todayAB.sponsorRevenue} b={beAB.sponsorRevenue} c={fcAB.sponsorRevenue} />
-                  <RevRow label="Souvenir" prior={calcCfg.prior_year_souvenir} a={todayAB.souvenirRevenue} b={beAB.souvenirRevenue} c={fcAB.souvenirRevenue} />
-                  <RevRow label="Outros Créditos" prior={calcCfg.prior_year_other} a={todayAB.otherCredits} b={beAB.otherCredits} c={fcAB.otherCredits} />
+                  <RevRow fmt={fmt} label="Bilhetes" prior={calcCfg.prior_year_tickets} a={todayAB.ticketsRevenue} b={beAB.ticketsRevenue} c={fcAB.ticketsRevenue} />
+                  <RevRow fmt={fmt} label="A&B Bebida" prior={calcCfg.prior_year_drink} a={todayAB.drinkRevenue} b={beAB.drinkRevenue} c={fcAB.drinkRevenue} />
+                  <RevRow fmt={fmt} label="A&B Alimento" prior={calcCfg.prior_year_food} a={todayAB.foodRevenue} b={beAB.foodRevenue} c={fcAB.foodRevenue} />
+                  <RevRow fmt={fmt} label="Patrocínio" prior={calcCfg.prior_year_sponsor} a={todayAB.sponsorRevenue} b={beAB.sponsorRevenue} c={fcAB.sponsorRevenue} />
+                  <RevRow fmt={fmt} label="Souvenir" prior={calcCfg.prior_year_souvenir} a={todayAB.souvenirRevenue} b={beAB.souvenirRevenue} c={fcAB.souvenirRevenue} />
+                  <RevRow fmt={fmt} label="Outros Créditos" prior={calcCfg.prior_year_other} a={todayAB.otherCredits} b={beAB.otherCredits} c={fcAB.otherCredits} />
                   <TableRow className="font-bold border-t-2">
                     <TableCell>FATURAMENTO TOTAL</TableCell>
                     <TableCell className="text-right">{fmt(calcCfg.prior_year_tickets + calcCfg.prior_year_drink + calcCfg.prior_year_food + calcCfg.prior_year_sponsor + calcCfg.prior_year_souvenir + calcCfg.prior_year_other)}</TableCell>
@@ -1744,16 +1755,16 @@ export default function EventSimulator() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  <ResRow label="Resultado Geral" a={todayRes.general} b={beRes.general} c={fcRes.general} />
-                  <ResRow label="Resultado Evento" a={todayRes.event} b={beRes.event} c={fcRes.event} />
-                  <ResRow label="Resultado A&B" a={todayRes.ab} b={beRes.ab} c={fcRes.ab} />
-                  <ResRow label="Resultado Souvenir" a={todayRes.souvenir} b={beRes.souvenir} c={fcRes.souvenir} />
+                  <ResRow fmt={fmt} label="Resultado Geral" a={todayRes.general} b={beRes.general} c={fcRes.general} />
+                  <ResRow fmt={fmt} label="Resultado Evento" a={todayRes.event} b={beRes.event} c={fcRes.event} />
+                  <ResRow fmt={fmt} label="Resultado A&B" a={todayRes.ab} b={beRes.ab} c={fcRes.ab} />
+                  <ResRow fmt={fmt} label="Resultado Souvenir" a={todayRes.souvenir} b={beRes.souvenir} c={fcRes.souvenir} />
                   <TableRow><TableCell colSpan={4} className="font-bold pt-6">Indicadores</TableCell></TableRow>
-                  <KpiRow label="Público total (qty)" a={todayKpis.totalPublic} b={beKpis.totalPublic} c={fcKpis.totalPublic} isInt />
-                  <KpiRow label="TM Bilhetes" a={todayKpis.tmTickets} b={beKpis.tmTickets} c={fcKpis.tmTickets} />
-                  <KpiRow label="TM A&B" a={todayKpis.tmAB} b={beKpis.tmAB} c={fcKpis.tmAB} />
-                  <KpiRow label="Custo / pessoa" a={todayKpis.costPerPerson} b={beKpis.costPerPerson} c={fcKpis.costPerPerson} />
-                  <KpiRow label="Resultado / pessoa" a={todayKpis.resultPerPerson} b={beKpis.resultPerPerson} c={fcKpis.resultPerPerson} />
+                  <KpiRow fmt={fmt} label="Público total (qty)" a={todayKpis.totalPublic} b={beKpis.totalPublic} c={fcKpis.totalPublic} isInt />
+                  <KpiRow fmt={fmt} label="TM Bilhetes" a={todayKpis.tmTickets} b={beKpis.tmTickets} c={fcKpis.tmTickets} />
+                  <KpiRow fmt={fmt} label="TM A&B" a={todayKpis.tmAB} b={beKpis.tmAB} c={fcKpis.tmAB} />
+                  <KpiRow fmt={fmt} label="Custo / pessoa" a={todayKpis.costPerPerson} b={beKpis.costPerPerson} c={fcKpis.costPerPerson} />
+                  <KpiRow fmt={fmt} label="Resultado / pessoa" a={todayKpis.resultPerPerson} b={beKpis.resultPerPerson} c={fcKpis.resultPerPerson} />
                 </TableBody>
               </Table>
             </CardContent>
@@ -1767,9 +1778,9 @@ export default function EventSimulator() {
             <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
               {localCfg && (
                 <>
-                  <CfgInput label="TM Bebida (€)" value={localCfg.default_drink_avg_ticket}
+                  <CfgInput label={`TM Bebida (${symbol})`} value={localCfg.default_drink_avg_ticket}
                     onChange={(v) => setLocalCfg({ ...localCfg, default_drink_avg_ticket: v })} step={0.01} />
-                  <CfgInput label="TM Alimento (€)" value={localCfg.default_food_avg_ticket}
+                  <CfgInput label={`TM Alimento (${symbol})`} value={localCfg.default_food_avg_ticket}
                     onChange={(v) => setLocalCfg({ ...localCfg, default_food_avg_ticket: v })} step={0.01} />
                   <CfgInput label="Repasse Bebida (%)" value={localCfg.ab_drink_passthrough_pct}
                     onChange={(v) => setLocalCfg({ ...localCfg, ab_drink_passthrough_pct: v })} />
@@ -1777,17 +1788,17 @@ export default function EventSimulator() {
                     onChange={(v) => setLocalCfg({ ...localCfg, ab_food_passthrough_pct: v })} />
                   <CfgInput label="IVA Bilheteira (%)" value={localCfg.ticket_iva_pct}
                     onChange={(v) => setLocalCfg({ ...localCfg, ticket_iva_pct: v })} />
-                  <CfgInput label="Patrocínio (€)" value={localCfg.sponsorship_revenue}
+                  <CfgInput label={`Patrocínio (${symbol})`} value={localCfg.sponsorship_revenue}
                     onChange={(v) => setLocalCfg({ ...localCfg, sponsorship_revenue: v })} step={0.01} />
-                  <CfgInput label="Souvenir Receita (€)" value={localCfg.souvenir_revenue}
+                  <CfgInput label={`Souvenir Receita (${symbol})`} value={localCfg.souvenir_revenue}
                     onChange={(v) => setLocalCfg({ ...localCfg, souvenir_revenue: v })} step={0.01} />
-                  <CfgInput label="Souvenir Custo (€)" value={localCfg.souvenir_cost}
+                  <CfgInput label={`Souvenir Custo (${symbol})`} value={localCfg.souvenir_cost}
                     onChange={(v) => setLocalCfg({ ...localCfg, souvenir_cost: v })} step={0.01} />
-                  <CfgInput label="Bonif. Bebidas (€)" value={localCfg.bonif_bebidas}
+                  <CfgInput label={`Bonif. Bebidas (${symbol})`} value={localCfg.bonif_bebidas}
                     onChange={(v) => setLocalCfg({ ...localCfg, bonif_bebidas: v })} step={0.01} />
-                  <CfgInput label="Ponto Vendido (€)" value={localCfg.ponto_vendido}
+                  <CfgInput label={`Ponto Vendido (${symbol})`} value={localCfg.ponto_vendido}
                     onChange={(v) => setLocalCfg({ ...localCfg, ponto_vendido: v })} step={0.01} />
-                  <CfgInput label="Outras Receitas (€)" value={Number((localCfg as any).other_revenue ?? 0)}
+                  <CfgInput label={`Outras Receitas (${symbol})`} value={Number((localCfg as any).other_revenue ?? 0)}
                     onChange={(v) => setLocalCfg({ ...(localCfg as any), other_revenue: v } as any)} step={0.01} />
                    <div className="col-span-full mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
                     <div className="col-span-full space-y-2">
@@ -1925,17 +1936,17 @@ boost       = ritmo final / ritmo base`}
                       <p className="text-sm font-semibold">Ano anterior (2025) — manual</p>
                       <p className="text-xs text-muted-foreground">Estes valores são introduzidos manualmente e servem só de referência. <strong>Não</strong> são alimentados pela plataforma — a Edição 2026 vem de Vendas + BP + Transações.</p>
                     </div>
-                    <CfgInput label="Bilhetes 2025 (€)" value={localCfg.prior_year_tickets}
+                    <CfgInput label={`Bilhetes 2025 (${symbol})`} value={localCfg.prior_year_tickets}
                       onChange={(v) => setLocalCfg({ ...localCfg, prior_year_tickets: v })} step={0.01} />
-                    <CfgInput label="Bebida 2025 (€)" value={localCfg.prior_year_drink}
+                    <CfgInput label={`Bebida 2025 (${symbol})`} value={localCfg.prior_year_drink}
                       onChange={(v) => setLocalCfg({ ...localCfg, prior_year_drink: v })} step={0.01} />
-                    <CfgInput label="Alimento 2025 (€)" value={localCfg.prior_year_food}
+                    <CfgInput label={`Alimento 2025 (${symbol})`} value={localCfg.prior_year_food}
                       onChange={(v) => setLocalCfg({ ...localCfg, prior_year_food: v })} step={0.01} />
-                    <CfgInput label="Patrocínio 2025 (€)" value={localCfg.prior_year_sponsor}
+                    <CfgInput label={`Patrocínio 2025 (${symbol})`} value={localCfg.prior_year_sponsor}
                       onChange={(v) => setLocalCfg({ ...localCfg, prior_year_sponsor: v })} step={0.01} />
-                    <CfgInput label="Souvenir 2025 (€)" value={localCfg.prior_year_souvenir}
+                    <CfgInput label={`Souvenir 2025 (${symbol})`} value={localCfg.prior_year_souvenir}
                       onChange={(v) => setLocalCfg({ ...localCfg, prior_year_souvenir: v })} step={0.01} />
-                    <CfgInput label="Outros 2025 (€)" value={localCfg.prior_year_other}
+                    <CfgInput label={`Outros 2025 (${symbol})`} value={localCfg.prior_year_other}
                       onChange={(v) => setLocalCfg({ ...localCfg, prior_year_other: v })} step={0.01} />
                   </div>
                 </>
@@ -1950,7 +1961,7 @@ boost       = ritmo final / ritmo base`}
 }
 
 // ---------- Subcomponentes ----------
-function BreakEvenSummary({ solution }: { solution: BreakEvenSolution }) {
+function BreakEvenSummary({ solution, fmt }: { solution: BreakEvenSolution; fmt: MoneyFormatter }) {
   if (!solution) return null;
 
   // ===== MODO SURPLUS: já passou o break-even — mostra margem de segurança =====
@@ -2139,7 +2150,7 @@ function ForecastSummary({ solution }: { solution: ForecastSolution }) {
   );
 }
 
-function ScenarioCard({ title, tone, rev, cost, res, kpis, extra, dailyTotals }: any) {
+function ScenarioCard({ title, tone, rev, cost, res, kpis, extra, dailyTotals, fmt }: { fmt: MoneyFormatter; [key: string]: any }) {
   const toneCls = tone === "warning" ? "border-amber-500/40" : tone === "success" ? "border-emerald-500/40" : "border-border";
   const resColor = res.general >= 0 ? "text-emerald-500" : "text-rose-500";
   const fmtDayShort = (d: string | null, idx: number) => {
@@ -2193,7 +2204,7 @@ function ScenarioCard({ title, tone, rev, cost, res, kpis, extra, dailyTotals }:
   );
 }
 
-function RevRow({ label, prior, a, b, c }: { label: string; prior: number; a: number; b: number; c: number }) {
+function RevRow({ label, prior, a, b, c, fmt }: { label: string; prior: number; a: number; b: number; c: number; fmt: MoneyFormatter }) {
   return (
     <TableRow>
       <TableCell>{label}</TableCell>
@@ -2205,7 +2216,7 @@ function RevRow({ label, prior, a, b, c }: { label: string; prior: number; a: nu
   );
 }
 
-function ResRow({ label, a, b, c }: { label: string; a: number; b: number; c: number }) {
+function ResRow({ label, a, b, c, fmt }: { label: string; a: number; b: number; c: number; fmt: MoneyFormatter }) {
   const cls = (v: number) => v >= 0 ? "text-emerald-500" : "text-rose-500";
   return (
     <TableRow>
@@ -2217,7 +2228,7 @@ function ResRow({ label, a, b, c }: { label: string; a: number; b: number; c: nu
   );
 }
 
-function KpiRow({ label, a, b, c, isInt }: { label: string; a: number; b: number; c: number; isInt?: boolean }) {
+function KpiRow({ label, a, b, c, isInt, fmt }: { label: string; a: number; b: number; c: number; isInt?: boolean; fmt: MoneyFormatter }) {
   const f = (v: number) => isInt ? fmtNum(v) : fmt(v);
   return (
     <TableRow>
@@ -2231,13 +2242,17 @@ function KpiRow({ label, a, b, c, isInt }: { label: string; a: number; b: number
 
 function CfgInput({ label, value, onChange, step = 1 }: { label: string; value: number; onChange: (v: number) => void; step?: number }) {
   const isPercent = /\(%\)/.test(label);
-  const isCurrency = /\(€\)/.test(label);
+  const companyLocale = useCompanyLocale();
+  const symbol = companyLocale.status === "available" ? companyLocale.symbol : "€";
+  const isCurrency = label.includes(`(${symbol})`);
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useState<string>("");
 
   const formatDisplay = (n: number) => {
     if (!Number.isFinite(n)) return "";
     if (isCurrency) {
+      if (companyLocale.status !== "available") return "—";
+      if (companyLocale.locale !== "pt-PT" || companyLocale.currency !== "EUR") return formatMoney(n, companyLocale);
       return new Intl.NumberFormat("pt-PT", {
         style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2,
       }).format(n);
@@ -2285,8 +2300,8 @@ function SimulatorDashboard({
   eventName, today, todayCosts, todayRes, todayKpis,
   breakeven, beCosts, beRes, beKpis,
   forecast, fcCosts, fcRes, fcKpis,
-  costLines, dailyTotals, ivaTable,
-}: any) {
+  costLines, dailyTotals, ivaTable, fmt,
+}: { fmt: MoneyFormatter; [key: string]: any }) {
   const fmtDate = (d: string | null) => {
     if (!d) return "—";
     const m = d.match(/^(\d{4})-(\d{2})-(\d{2})/);

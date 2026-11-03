@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronDown, ChevronRight, FileDown, Globe, Building2 } from "lucide-react";
@@ -55,6 +57,12 @@ interface Totals {
 const EMPTY_TOTALS: Totals = { forecast: 0, transacted: 0, paid: 0, open: 0, unlaunched: 0, payable: 0 };
 
 export default function ReportForecastPayables() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const [viewMode, setViewMode] = useState<"event" | "global">("event");
   const [selectedEventId, setSelectedEventId] = useState<string>("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -368,6 +376,7 @@ export default function ReportForecastPayables() {
 
   // --- Export: single event ---
   const exportToPDF = () => {
+    if (companyLocale.status !== "available") return;
     const doc = new jsPDF({ orientation: "landscape" });
     if (viewMode === "global") {
       doc.setFontSize(14);
@@ -460,6 +469,7 @@ export default function ReportForecastPayables() {
   };
 
   const exportToExcel = () => {
+    if (companyLocale.status !== "available") return;
     if (viewMode === "global") {
       const rows: any[] = [];
       globalData.forEach((r) => {
@@ -484,7 +494,7 @@ export default function ReportForecastPayables() {
       });
 
       const ws = utils.json_to_sheet(rows);
-      applyPTNumberFormat(ws);
+      applyPTNumberFormat(ws, companyLocale);
       const wb = utils.book_new();
       utils.book_append_sheet(wb, ws, "Exposição Financeira");
       writeFile(wb, "exposicao-financeira-global.xlsx");
@@ -524,7 +534,7 @@ export default function ReportForecastPayables() {
       });
 
       const ws = utils.json_to_sheet(rows);
-      applyPTNumberFormat(ws);
+      applyPTNumberFormat(ws, companyLocale);
       const wb = utils.book_new();
       utils.book_append_sheet(wb, ws, "Exposição Financeira");
       writeFile(wb, `exposicao-financeira-${eventName.replace(/\s+/g, "-").toLowerCase()}.xlsx`);

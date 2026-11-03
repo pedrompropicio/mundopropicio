@@ -1,3 +1,4 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { assertEuroInstallmentChange, FOREIGN_INSTALLMENT_CHANGE } from "@/lib/installment-original";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -129,6 +130,11 @@ export function TransactionInstallmentGroupEditor({
   transaction: any;
   canApprove: boolean;
 }) {
+  const companyLocale = useCompanyLocale();
+  const nativeCurrency = companyLocale.status === "available" ? companyLocale.currency : "EUR";
+  const symbol = companyLocale.status === "available" ? companyLocale.symbol : "€";
+  const locale = companyLocale.status === "available" ? companyLocale.locale : "pt-PT";
+
   const { user, isManager, hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const { data: group = [] } = useInstallmentGroup(transaction);
@@ -243,17 +249,17 @@ export function TransactionInstallmentGroupEditor({
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (mismatch) throw new Error("A soma das parcelas tem de igualar o novo total (±0,01 €).");
+      if (mismatch) throw new Error(`A soma das parcelas tem de igualar o novo total (±0,01 ${symbol}).`);
       if (!canEdit) throw new Error("Sem permissão para editar as parcelas.");
       // Preflight ALL rows before even a date write: a later forbidden amount
       // or paid row must not leave earlier rows changed.
-      const monetaryChange = group.some((r) => rows[r.id] && Math.abs((r.currency === "EUR" ? +Number(rows[r.id].amount).toFixed(2) : Number(rows[r.id].amount)) - r.amount) > 0.001);
-      if (monetaryChange) assertEuroInstallmentChange(group.map((r) => r.currency));
+      const monetaryChange = group.some((r) => rows[r.id] && Math.abs((r.currency === nativeCurrency ? +Number(rows[r.id].amount).toFixed(2) : Number(rows[r.id].amount)) - r.amount) > 0.001);
+      if (monetaryChange) assertEuroInstallmentChange(group.map((r) => r.currency), nativeCurrency);
       for (const r of group) {
         const edited = rows[r.id];
         if (!edited) throw new Error("Parcelas incompletas; volte a abrir o editor.");
         if (!Number.isFinite(edited.amount) || edited.amount < 0) throw new Error("Valor de parcela inválido.");
-        const changed = Math.abs((r.currency === "EUR" ? +Number(edited.amount).toFixed(2) : Number(edited.amount)) - r.amount) > 0.001 || (r.due_date ?? null) !== (edited.due_date || null);
+        const changed = Math.abs((r.currency === nativeCurrency ? +Number(edited.amount).toFixed(2) : Number(edited.amount)) - r.amount) > 0.001 || (r.due_date ?? null) !== (edited.due_date || null);
         if (changed && rowLocked(r)) throw new Error("Parcela paga travada — destranca antes de gravar (admin/gestora).");
       }
       const changedBy = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
@@ -265,7 +271,7 @@ export function TransactionInstallmentGroupEditor({
         if (!edited) continue;
         const newAmount = +Number(edited.amount).toFixed(2);
         const newDue = edited.due_date || null;
-        const amountChanged = Math.abs((r.currency === "EUR" ? +Number(edited.amount).toFixed(2) : Number(edited.amount)) - r.amount) > 0.001;
+        const amountChanged = Math.abs((r.currency === nativeCurrency ? +Number(edited.amount).toFixed(2) : Number(edited.amount)) - r.amount) > 0.001;
         const dueChanged = (r.due_date ?? null) !== newDue;
         if (!amountChanged && !dueChanged) continue;
         if (rowLocked(r)) throw new Error("Parcela paga travada — destranca antes de gravar (admin/gestora).");
@@ -367,7 +373,7 @@ export function TransactionInstallmentGroupEditor({
           <span className="text-muted-foreground">
             Total da fatura:{" "}
             <span className="font-mono font-semibold text-foreground">
-              {originalTotal.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+              {originalTotal.toLocaleString(locale, { style: "currency", currency: nativeCurrency })}
             </span>
           </span>
         </div>
@@ -386,7 +392,7 @@ export function TransactionInstallmentGroupEditor({
 
       {open && canEdit && (
         <div className="space-y-3">
-          {group.some((r) => r.currency !== "EUR") && <p className="text-xs text-destructive">{FOREIGN_INSTALLMENT_CHANGE} Pode alterar apenas vencimentos de parcelas destravadas.</p>}
+          {group.some((r) => r.currency !== nativeCurrency) && <p className="text-xs text-destructive">{FOREIGN_INSTALLMENT_CHANGE} Pode alterar apenas vencimentos de parcelas destravadas.</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -411,7 +417,7 @@ export function TransactionInstallmentGroupEditor({
                     mode === "eur" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground",
                   )}
                 >
-                  €
+                  {symbol}
                 </button>
                 <button
                   type="button"
@@ -446,7 +452,7 @@ export function TransactionInstallmentGroupEditor({
             <div className="hidden sm:grid grid-cols-[minmax(0,1fr)_9.5rem_8.5rem] gap-2 bg-muted/40 px-2 py-1.5 text-xs font-medium">
               <span>Parcela</span>
               <span>Vencimento</span>
-              <span className="text-right">{mode === "pct" ? "% / €" : "Valor (€)"}</span>
+              <span className="text-right">{mode === "pct" ? `% / ${symbol}` : `Valor (${symbol})`}</span>
             </div>
             {group.map((r, i) => {
               const locked = rowLocked(r);
@@ -498,6 +504,8 @@ export function TransactionInstallmentGroupEditor({
                   </Popover>
                   {mode === "eur" ? (
                     <MoneyInput
+                      currency={nativeCurrency}
+                      companyLocale={companyLocale.status === "available" && locale === "pt-BR" ? companyLocale : undefined}
                       value={Number(edited.amount) || 0}
                       disabled={locked}
                       onChange={(v) => setAmount(r.id, v)}
@@ -517,11 +525,11 @@ export function TransactionInstallmentGroupEditor({
                       />
                       <span className="text-muted-foreground shrink-0">%</span>
                       <span className="ml-auto truncate font-mono text-muted-foreground">
-                        {(Number(edited.amount) || 0).toLocaleString("pt-PT", {
+                        {(Number(edited.amount) || 0).toLocaleString(locale, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
-                        €
+                        {symbol}
                       </span>
                     </div>
                   )}
@@ -532,9 +540,9 @@ export function TransactionInstallmentGroupEditor({
 
           <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
             <span className="text-muted-foreground">
-              Pagas: <span className="font-mono">{paidSum.toFixed(2)}€</span> · Soma:{" "}
-              <span className="font-mono">{sum.toFixed(2)}€</span> · Novo total:{" "}
-              <span className="font-mono">{newTotal.toFixed(2)}€</span>
+              Pagas: <span className="font-mono">{paidSum.toFixed(2)}{symbol}</span> · Soma:{" "}
+              <span className="font-mono">{sum.toFixed(2)}{symbol}</span> · Novo total:{" "}
+              <span className="font-mono">{newTotal.toFixed(2)}{symbol}</span>
               {mode === "pct" && (
                 <>
                   {" "}· Soma %: <span className="font-mono">{pctSum.toFixed(2)}%</span>
@@ -550,7 +558,7 @@ export function TransactionInstallmentGroupEditor({
               {pctMismatch
                 ? `Percentagens somam ${pctSum.toFixed(2)}%`
                 : mismatch
-                  ? `${diff > 0 ? "Falta" : "Excesso"} ${Math.abs(diff).toFixed(2)}€`
+                  ? `${diff > 0 ? "Falta" : "Excesso"} ${Math.abs(diff).toFixed(2)}${symbol}`
                   : "Soma confere"}
             </span>
           </div>
@@ -560,7 +568,7 @@ export function TransactionInstallmentGroupEditor({
               <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               {pctMismatch
                 ? "As percentagens têm de somar 100% (tolerância 0,01%)."
-                : "A soma das parcelas tem de igualar o novo total (tolerância 0,01 €)."}{" "}
+                : `A soma das parcelas tem de igualar o novo total (tolerância 0,01 ${symbol}).`}{" "}
               Usa <strong>Distribuir igualmente</strong> ou ajusta manualmente.
             </div>
           )}

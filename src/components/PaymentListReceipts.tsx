@@ -24,7 +24,9 @@ import { canShowDeleteDocumentButton } from "@/lib/transaction-document-permissi
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/mock-data";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { AlertTriangle, FileText, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
 
 interface Props {
@@ -35,6 +37,12 @@ interface Props {
 }
 
 export default function PaymentListReceipts({ listId, listTitle, activeTransactionIds }: Props) {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const queryClient = useQueryClient();
   // Anexar comprovativo do lote está aberto a admin/manager/editor (as policies de
   // INSERT em payment_list_documents/transaction_documents já o permitem) — quem

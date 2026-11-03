@@ -28,6 +28,8 @@ export interface CardSessionExportLoad {
 
 export interface CardSessionExportData {
   companyId?: string | null;
+  /** Omitted currency preserves the legacy EUR presentation. */
+  currency?: string;
   cardName: string;
   holderName: string;
   primaryEventName: string | null;
@@ -96,7 +98,7 @@ export async function exportCardSessionToPdf(data: CardSessionExportData) {
     head: [["Resumo", "Valor", "Nota"]],
     body: summaryRows(data).map(([label, value, note]) => [
       label,
-      value === null ? "—" : formatCurrency(value),
+      value === null ? "—" : formatCurrency(value, data.currency),
       note,
     ]),
     styles: { fontSize: 8 },
@@ -110,7 +112,7 @@ export async function exportCardSessionToPdf(data: CardSessionExportData) {
     autoTable(doc, {
       startY: y,
       head: [["Despesas por evento", "Total"]],
-      body: data.byEvent.map((e) => [e.name, formatCurrency(e.amount)]),
+      body: data.byEvent.map((e) => [e.name, formatCurrency(e.amount, data.currency)]),
       styles: { fontSize: 8 },
       headStyles: { fillColor: [60, 60, 80] },
       columnStyles: { 1: { halign: "right" } },
@@ -125,9 +127,9 @@ export async function exportCardSessionToPdf(data: CardSessionExportData) {
     head: [["Data", "Descrição", "Evento", "Categoria", "Estado", "Valor"]],
     body:
       data.expenses.length > 0
-        ? data.expenses.map((e) => [e.date, e.description, e.event, e.category, e.status, formatCurrency(e.amount)])
+        ? data.expenses.map((e) => [e.date, e.description, e.event, e.category, e.status, formatCurrency(e.amount, data.currency)])
         : [["—", "Sem despesas registadas", "", "", "", ""]],
-    foot: [["", "", "", "", "Total", formatCurrency(expensesTotal)]],
+    foot: [["", "", "", "", "Total", formatCurrency(expensesTotal, data.currency)]],
     styles: { fontSize: 7.5, cellPadding: 1.5 },
     headStyles: { fillColor: [30, 30, 40] },
     footStyles: { fillColor: [235, 235, 240], textColor: 20, fontStyle: "bold" },
@@ -142,9 +144,9 @@ export async function exportCardSessionToPdf(data: CardSessionExportData) {
     head: [["Recarga (data)", "Origem", "Valor"]],
     body:
       data.loads.length > 0
-        ? data.loads.map((l) => [l.date, l.source, formatCurrency(l.amount)])
+        ? data.loads.map((l) => [l.date, l.source, formatCurrency(l.amount, data.currency)])
         : [["—", "Sem recargas", ""]],
-    foot: [["", "Total", formatCurrency(loadsTotal)]],
+    foot: [["", "Total", formatCurrency(loadsTotal, data.currency)]],
     styles: { fontSize: 8 },
     headStyles: { fillColor: [30, 30, 40] },
     footStyles: { fillColor: [235, 235, 240], textColor: 20, fontStyle: "bold" },

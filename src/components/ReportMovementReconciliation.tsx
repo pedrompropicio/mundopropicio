@@ -2,7 +2,9 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { FileSpreadsheet, FileText, ArrowLeftRight, CalendarIcon, Paperclip } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Button } from "@/components/ui/button";
@@ -16,6 +18,12 @@ import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModa
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportMovementReconciliation() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const { isAdmin } = useAuth();
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
@@ -229,7 +237,7 @@ export default function ReportMovementReconciliation() {
 
   const exportParams = {
     movements, accountLabel: accountsLabel, eventLabel, dateFrom: fullPeriod ? "" : dateFromStr,
-    dateTo: fullPeriod ? "" : dateToStr, totalPaid, totalReceived,
+    dateTo: fullPeriod ? "" : dateToStr, totalPaid, totalReceived, companyLocale,
   };
 
   return (
@@ -381,7 +389,7 @@ export default function ReportMovementReconciliation() {
                         <th className="py-2 px-1">Conta</th>
                         <th className="py-2 px-1">Estado</th>
                         <th className="py-2 px-1 text-right">Líquido</th>
-                        <th className="py-2 px-1 text-right">IVA (€)</th>
+                        <th className="py-2 px-1 text-right">IVA ({companyLocale.status === "available" ? companyLocale.symbol : "—"})</th>
                         <th className="py-2 px-1 text-right">Bruto</th>
                         <th className="py-2 px-1 text-right">Pago</th>
                         <th className="py-2 px-1 text-right">Aberto</th>
