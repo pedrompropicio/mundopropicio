@@ -13,6 +13,65 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 
+/** BR fields extend the open slot schema documented by 0302. Keep numbers as text. */
+export interface BrBankDetails {
+  bank_name?: string;
+  routing_number?: string;
+  account_number?: string;
+  account_digit?: string;
+  account_kind?: "corrente" | "poupanca";
+  pix_key?: string;
+}
+export interface BrBankSlot extends BrBankDetails {
+  slot: number;
+  account_type: "br_banco_agencia_conta";
+}
+export function readBrBankSlots(value: unknown): BrBankSlot[] {
+  return Array.isArray(value) ? value.filter((v): v is BrBankSlot =>
+    v && typeof v === "object" && v.account_type === "br_banco_agencia_conta" && [1, 2, 3].includes(v.slot)) : [];
+}
+
+export interface SupplierBrData {
+  foreign_bank_accounts: unknown[];
+  tax_id_foreign: string | null;
+  tax_id_type: string | null;
+}
+export type OptionalSupplierBrData = { available: boolean; details: SupplierBrData | null };
+type BankRpcResult = { data: unknown; error: unknown };
+export interface SupplierBrReader {
+  rpc(name: "get_supplier_bank_details", args: { p_supplier_ids: string[] }): {
+    select(columns: string): PromiseLike<BankRpcResult>;
+  };
+}
+
+/** Validate the selected supplier and all three fields, preserving the complete slot JSON. */
+export function projectSupplierBrData(data: unknown, id?: string): OptionalSupplierBrData {
+  const unavailable = { available: false, details: null };
+  if (!Array.isArray(data)) return unavailable;
+  if (!id) return { available: data.length === 0, details: null };
+  if (data.length !== 1) return unavailable;
+  const row = data[0];
+  if (!row || row.id !== id || !Array.isArray(row.foreign_bank_accounts)
+    || !(row.tax_id_foreign === null || typeof row.tax_id_foreign === "string")
+    || !(row.tax_id_type === null || typeof row.tax_id_type === "string")) return unavailable;
+  return { available: true, details: {
+    foreign_bank_accounts: row.foreign_bank_accounts,
+    tax_id_foreign: row.tax_id_foreign, tax_id_type: row.tax_id_type,
+  } };
+}
+
+/** Injectable RPC-only reader; optional data failures must never block cadastral edits. */
+export async function readOptionalSupplierBrData(client: SupplierBrReader, id?: string): Promise<OptionalSupplierBrData> {
+  try {
+    const { data, error } = await client.rpc("get_supplier_bank_details", { p_supplier_ids: id ? [id] : [] })
+      // This projection validates the RPC contract even for the empty creation probe.
+      .select("id,foreign_bank_accounts,tax_id_foreign,tax_id_type");
+    return error ? { available: false, details: null } : projectSupplierBrData(data, id);
+  } catch {
+    return { available: false, details: null };
+  }
+}
+
 export type SupplierBank = {
   id: string;
   name: string | null;
