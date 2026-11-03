@@ -5,9 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ExternalLink } from "lucide-react";
 import { useEventABRealized } from "@/hooks/useEventABRealized";
-
-const fmtEUR = (n: number) =>
-  new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n || 0);
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 
 /**
  * Secção "Realizado (fecho)" do módulo A&B — read-only, alimentada pelas
@@ -25,6 +24,12 @@ export default function EventABRealizedSection({
    */
   moduleReceita?: number | null;
 }) {
+  const companyLocale = useCompanyLocale();
+  const fmtEUR = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(value || 0)
+      : formatMoney(value || 0, companyLocale);
   const navigate = useNavigate();
   const r = useEventABRealized(eventId);
 

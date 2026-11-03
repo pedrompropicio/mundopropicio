@@ -1,4 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -22,6 +24,12 @@ interface Props {
 
 /** #89 movimento 2 — "Usar histórico de…": só sugere; o piso manual continua a mandar. */
 export function PriorCurveSelector({ eventId, eventName, companyId, mode, priorEventId, collectedAt, onChange }: Props) {
+  const companyLocale = useCompanyLocale();
+  const fmt = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? value.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })
+      : formatMoney(value, companyLocale);
   const { data: sources = [], isLoading } = useQuery({
     queryKey: ["sim-prior-sources", eventId, eventName],
     queryFn: () => listBenchmarkSourceEvents(eventId, eventName),
@@ -69,7 +77,7 @@ export function PriorCurveSelector({ eventId, eventName, companyId, mode, priorE
       </p>
       {abBench && Number(abBench.avg_ticket_per_pax) > 0 && (
         <p className="text-xs text-muted-foreground">
-          Sugestão A&amp;B (bebidas): per capita histórico da empresa {Number(abBench.avg_ticket_per_pax).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })} ({abBench.sample_size} evento(s), colhido em {fmtDate(abBench.last_calculated_at)}). Só referência — não substitui valores do A&amp;B.
+          Sugestão A&amp;B (bebidas): per capita histórico da empresa {fmt(Number(abBench.avg_ticket_per_pax))} ({abBench.sample_size} evento(s), colhido em {fmtDate(abBench.last_calculated_at)}). Só referência — não substitui valores do A&amp;B.
         </p>
       )}
     </div>
