@@ -20,6 +20,7 @@ import { formatCurrency } from "@/lib/mock-data";
 import { formatDatePT } from "@/lib/utils";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import HelpTooltip from "@/components/HelpTooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -1590,6 +1591,7 @@ export default function BankReconciliation() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight lg:text-2xl">
           <Landmark className="h-5 w-5" /> Conciliação Bancária
+          <HelpTooltip anchor="conciliacao.consultar" text="Compare o extrato com os pagamentos da conta e confira o efeito da ação antes de confirmar." />
         </h1>
         <p className="text-sm text-muted-foreground">
           O extrato do banco é um facto externo. A conciliação só liga — nunca altera transações.

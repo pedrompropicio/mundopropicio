@@ -464,6 +464,7 @@ export default function AdsInvoices() {
           <div className="flex-1">
             <h1 className="text-2xl font-semibold">
               {platformLabels[openInvoice.platform] ?? openInvoice.platform} · {openInvoice.invoice_number}
+              <HelpTooltip anchor="fornecedores.faturas-ads" text="Confira as linhas da fatura, confirme o rateio e só depois gere os lançamentos." />
             </h1>
             <p className="text-sm text-muted-foreground">
               Período {periodLabel(openInvoice.billing_period)} · total {formatCurrency(Number(openInvoice.total_amount))} ·
