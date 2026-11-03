@@ -1,4 +1,5 @@
 import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
+import { useCompany } from "@/hooks/useCompany";
 import logoMundoPropicio from "@/assets/logo-horizontal.png";
 
 interface Props {
@@ -7,11 +8,15 @@ interface Props {
 }
 
 /**
- * Renders the active company logo when available, falling back to the default
- * Mundo Propício horizontal logo. The app name "MP Gestão Eventos" is fixed.
+ * Renders the active company's logo or name. Before a company is loaded,
+ * retains the default Mundo Propício horizontal logo.
  */
 export function BrandedLogo({ className = "h-9 object-contain", alt }: Props) {
   const { logoUrl, displayName } = useCompanyBranding();
+  const { company } = useCompany();
+  if (!logoUrl && company) {
+    return <span className={`inline-flex items-center ${className}`}>{displayName}</span>;
+  }
   return (
     <img
       src={logoUrl ?? logoMundoPropicio}

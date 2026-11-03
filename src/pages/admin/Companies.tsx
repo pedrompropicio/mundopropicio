@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { Building2, UserPlus, Copy, Plus, Pencil, Upload, Trash2 } from "lucide-react";
@@ -37,6 +37,14 @@ interface CompanyRow {
   theme_config: { primary_color?: string } | null;
   created_at: string;
 }
+
+const timezoneGroups = [
+  { label: "Portugal e Espanha", zones: ["Europe/Lisbon", "Europe/Madrid", "Atlantic/Azores", "Atlantic/Madeira"] },
+  { label: "Brasil", zones: [
+    "America/Sao_Paulo", "America/Fortaleza", "America/Recife", "America/Bahia", "America/Belem",
+    "America/Manaus", "America/Cuiaba", "America/Porto_Velho", "America/Rio_Branco", "America/Noronha",
+  ] },
+];
 
 export default function Companies() {
   const { isPlatformAdmin, isLoading: companyLoading } = useCompany();
@@ -370,7 +378,7 @@ function EditCompanyDialog({
   const [contactEmail, setContactEmail] = useState(company.contact_email ?? "");
   const [status, setStatus] = useState(company.status);
   const [primaryColor, setPrimaryColor] = useState(
-    company.theme_config?.primary_color ?? "#1a6fb8"
+    company.theme_config?.primary_color ?? ""
   );
   const [logoUrl, setLogoUrl] = useState<string | null>(company.logo_url);
   const [uploading, setUploading] = useState(false);
@@ -429,7 +437,9 @@ function EditCompanyDialog({
           contact_email: contactEmail || null,
           status,
           logo_url: logoUrl,
-          theme_config: { ...(company.theme_config ?? {}), primary_color: primaryColor },
+          theme_config: primaryColor
+            ? { ...(company.theme_config ?? {}), primary_color: primaryColor }
+            : company.theme_config,
         })
         .eq("id", company.id);
       if (error) throw error;
@@ -518,15 +528,19 @@ function EditCompanyDialog({
           </div>
 
           <div>
-            <Label>Fuso horário</Label>
+            <Label htmlFor="company-timezone">Fuso horário</Label>
             <Select value={timezone} onValueChange={setTimezone}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger id="company-timezone"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="Europe/Lisbon">Europe/Lisbon</SelectItem>
-                <SelectItem value="Europe/Madrid">Europe/Madrid</SelectItem>
-                <SelectItem value="America/Sao_Paulo">America/Sao_Paulo</SelectItem>
-                <SelectItem value="Atlantic/Azores">Atlantic/Azores</SelectItem>
-                <SelectItem value="Atlantic/Madeira">Atlantic/Madeira</SelectItem>
+                {timezoneGroups.map(({ label, zones }) => (
+                  <SelectGroup key={label}>
+                    <SelectLabel>{label}</SelectLabel>
+                    {zones.map((zone) => <SelectItem key={zone} value={zone}>{zone}</SelectItem>)}
+                  </SelectGroup>
+                ))}
+                {company.timezone && !timezoneGroups.some(({ zones }) => zones.includes(company.timezone)) && (
+                  <SelectItem value={company.timezone}>{company.timezone}</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -587,18 +601,20 @@ function EditCompanyDialog({
           </div>
 
           <div>
-            <Label>Cor primária</Label>
+            <Label htmlFor="company-primary-color">Cor primária</Label>
             <div className="flex items-center gap-2 mt-1">
               <input
                 type="color"
-                value={primaryColor}
+                aria-label="Escolher cor primária"
+                value={primaryColor || "#808080"}
                 onChange={(e) => setPrimaryColor(e.target.value)}
                 className="h-9 w-12 rounded border cursor-pointer"
               />
               <Input
+                id="company-primary-color"
                 value={primaryColor}
                 onChange={(e) => setPrimaryColor(e.target.value)}
-                placeholder="#1a6fb8"
+                placeholder="Sem cor própria"
                 className="font-mono"
               />
             </div>
