@@ -14,7 +14,7 @@ import { BatchPaymentModal } from "@/components/BatchPaymentModal";
 import { SupplierBankDetails, BrBankFields, optionalBankColumns, loadOptionalSupplierBrData } from "@/components/SupplierBankDetails";
 
 const f = vi.hoisted(() => ({ country: "PT", queries: {} as Record<string, any>,
-  writers: [] as ((input?: any) => Promise<any>)[], writes: [] as any[], mutations: [] as Promise<any>[], error: null as any, toast: vi.fn(),
+  writers: [] as ((input?: any) => Promise<any>)[], writes: [] as any[], mutations: [] as Promise<any>[], error: null as any, toast: vi.fn(), rpc: vi.fn(),
 }));
 vi.mock("@/hooks/useCompany", () => ({ useCompany: () => ({
   company: { id: "company", country: f.country, currency: f.country === "BR" ? "BRL" : "EUR" },
@@ -33,6 +33,7 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   functions: { invoke: vi.fn() },
+  rpc: f.rpc,
   from: (table: string) => {
     const q: any = {
       insert: (payload: any) => { f.writes.push({ table, payload }); return q; },
@@ -72,6 +73,7 @@ const br = resolveCompanyLocale({ country: "BR", currency: "BRL" });
 beforeEach(() => {
   f.country = "PT"; f.queries = {}; f.writes = []; f.mutations = []; f.writers = []; f.error = null;
   vi.clearAllMocks();
+  f.rpc.mockImplementation(() => ({ select: async () => ({ data: [], error: f.error }) }));
   vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   vi.stubGlobal("fetch", vi.fn(() => { throw new Error("#498: rede proibida nos testes"); }));
 });
@@ -248,10 +250,13 @@ describe("#498 — conta BR e colunas opcionais", () => {
     fireEvent.change(screen.getByLabelText("Dígito"), { target: { value: "X" } });
     expect(change).toHaveBeenCalledWith({ routing_number: "0001", account_number: "00123", account_digit: "X", pix_key: "email@ex.invalid" });
   });
-  it("lê slots e identificador estrangeiros em BR, sem usar nif como CNPJ", () => {
+  it("lê slots e identificador estrangeiros em BR, sem usar nif como CNPJ", async () => {
     f.country = "BR";
-    render(h(SupplierBankDetails, { defaultExpanded: true, supplier: { name: "Fixture", nif: "NIF-PT", tax_id_type: "cnpj", tax_id_foreign: "12345678000199",
-      foreign_bank_accounts: [{ slot: 1, account_type: "br_banco_agencia_conta", bank_name: "Banco", routing_number: "0001", account_number: "00123", account_digit: "X", account_kind: "corrente", pix_key: "email@ex.invalid" }] } }));
+    f.rpc.mockReturnValue({ select: async () => ({ data: [{ id: "supplier", tax_id_type: "cnpj", tax_id_foreign: "12345678000199",
+      foreign_bank_accounts: [{ slot: 1, account_type: "br_banco_agencia_conta", bank_name: "Banco", routing_number: "0001", account_number: "00123", account_digit: "X", account_kind: "corrente", pix_key: "email@ex.invalid" }] }], error: null }) });
+    f.queries["supplier-br-details"] = await loadOptionalSupplierBrData("supplier");
+    expect(f.rpc).toHaveBeenCalledWith("get_supplier_bank_details", { p_supplier_ids: ["supplier"] });
+    render(h(SupplierBankDetails, { defaultExpanded: true, supplier: { id: "supplier", name: "Fixture", nif: "NIF-PT" } }));
     expect(screen.getByText(/CNPJ: 12345678000199/)).toBeInTheDocument();
     expect(screen.getByText("Conta: 00123")).toBeInTheDocument();
     expect(screen.queryByText(/NIF-PT/)).toBeNull();
@@ -261,10 +266,16 @@ describe("#498 — conta BR e colunas opcionais", () => {
     await expect(optionalBankColumns("financial_accounts", "bank_details_br")).resolves.toBe(false);
     await expect(loadOptionalSupplierBrData("supplier")).resolves.toEqual({ available: false, details: null });
   });
-  it("não esconde falhas de permissão ou transporte como ausência de coluna", async () => {
+  it("RPC sem acesso deixa BR indisponível sem recuperar dados das props", async () => {
+    f.country = "BR";
     await expect(optionalBankColumns("suppliers", "foreign_bank_accounts")).resolves.toBe(true);
     f.error = { code: "42501", message: "permission denied" };
-    await expect(optionalBankColumns("suppliers", "foreign_bank_accounts")).rejects.toEqual(f.error);
+    await expect(optionalBankColumns("suppliers", "foreign_bank_accounts")).resolves.toBe(false);
+    f.queries["supplier-br-details"] = await loadOptionalSupplierBrData("supplier");
+    render(h(SupplierBankDetails, { defaultExpanded: true, supplier: { id: "supplier", name: "Fixture", nif: "NIF-PT",
+      tax_id_type: "cnpj", tax_id_foreign: "12345678000199", foreign_bank_accounts: [{ slot: 1, account_type: "br_banco_agencia_conta", account_number: "00123" }] } }));
+    expect(screen.getByText("Dados bancários indisponíveis.")).toBeInTheDocument();
+    expect(screen.queryByText(/12345678000199|00123|NIF-PT/)).toBeNull();
   });
 });
 
