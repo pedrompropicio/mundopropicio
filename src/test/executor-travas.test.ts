@@ -15,6 +15,7 @@ const autorizacao = (over: Partial<Record<string, string>> = {}) =>
     `- **Ambiente:** ${over.ambiente ?? "homolog"}`,
     `- **Validade:** ${over.validade ?? "até 2026-11-03"}`,
     ...(over.merge !== undefined ? [`- **Merge automático:** ${over.merge}`] : []),
+    ...(over.operador !== undefined ? [`- **Operador:** ${over.operador}`] : []),
   ].join("\n");
 
 const reserva = (executor = "Claude Code, designado pelo Pedro; Codex revê") =>
@@ -219,4 +220,157 @@ describe("travas E2b (#417)", () => {
     expect(mergeAutomaticoDe("Nao")).toBe(false);
     expect(mergeAutomaticoDe(undefined)).toBe(true);
   });
+});
+
+describe("operador nomeado na Autorização vigente (#521)", () => {
+  const OPERADOR = "mplabs-dev";
+
+  it.each(["mplabs-dev", "@mplabs-dev", "`mplabs-dev`", "`@mplabs-dev`"])(
+    "aceita despacho e Reserva do operador nomeado como %s pelo Pedro", (operador) => {
+      const cs = base();
+      cs[0].corpo = autorizacao({ operador });
+      cs[1].autor = OPERADOR;
+      cs[2].autor = OPERADOR;
+
+      const d = avaliarDespacho(900, cs, 9, agora);
+      expect(d.ok).toBe(true);
+      expect(d.motivos).toEqual([]);
+    },
+  );
+
+  it("recusa despacho do operador sem campo Operador na Autorização", () => {
+    const cs = base();
+    cs[2].autor = OPERADOR;
+
+    const d = avaliarDespacho(900, cs, 9, agora);
+    expect(d.ok).toBe(false);
+    expect(d.motivos).toEqual(["autor do despacho não autorizado (mplabs-dev)"]);
+  });
+
+  it.each([OPERADOR, "outra-pessoa"])("ignora Autorização escrita por %s", (autor) => {
+    const cs = base();
+    cs[0].autor = autor;
+    cs[0].corpo = autorizacao({ operador: OPERADOR });
+    cs[2].autor = OPERADOR;
+
+    const d = avaliarDespacho(900, cs, 9, agora);
+    expect(d.ok).toBe(false);
+    expect(d.motivos).toEqual([
+      "autor do despacho não autorizado (mplabs-dev)",
+      "não há «## Autorização» do Pedro nesta Issue",
+    ]);
+  });
+
+  it("ignora uma Autorização posterior do operador e mantém a do Pedro", () => {
+    const cs = base([{
+      id: 3, autor: OPERADOR, criadoEm: "2026-11-02T09:05:00Z",
+      corpo: autorizacao({ operador: "outro-user", classe: "R0" }),
+    }]);
+    cs[0].corpo = autorizacao({ operador: OPERADOR });
+    cs[3].autor = OPERADOR;
+
+    expect(avaliarDespacho(900, cs, 9, agora).ok).toBe(true);
+  });
+
+  it.each([
+    ["outro-user", "outro-user"],
+    ["`@outro-user`", "outro-user"],
+    [PEDRO, PEDRO],
+    ["", ""],
+  ])("recusa Operador fora da lista: %s", (operador, login) => {
+    const cs = base();
+    cs[0].corpo = autorizacao({ operador });
+
+    const d = avaliarDespacho(900, cs, 9, agora);
+    expect(d.ok).toBe(false);
+    expect(d.motivos).toEqual([`operador não autorizado (${login})`]);
+  });
+
+  it("recusa despacho de login fora da lista mesmo quando nomeado", () => {
+    const cs = base();
+    cs[0].corpo = autorizacao({ operador: "outro-user" });
+    cs[2].autor = "outro-user";
+
+    const d = avaliarDespacho(900, cs, 9, agora);
+    expect(d.ok).toBe(false);
+    expect(d.motivos).toContain("autor do despacho não autorizado (outro-user)");
+    expect(d.motivos).toContain("operador não autorizado (outro-user)");
+  });
+
+  it("ignora Reserva do operador anterior à Autorização vigente mesmo com nomeação anterior", () => {
+    const cs = base([{
+      id: 3, autor: PEDRO, criadoEm: "2026-11-02T09:10:00Z",
+      corpo: autorizacao({ operador: OPERADOR }),
+    }]);
+    cs[0].corpo = autorizacao({ operador: OPERADOR });
+    cs[1].autor = OPERADOR;
+    cs[3].autor = OPERADOR;
+
+    const d = avaliarDespacho(900, cs, 9, agora);
+    expect(d.ok).toBe(false);
+    expect(d.motivos).toEqual(["não há «## Reserva» activa nesta Issue"]);
+  });
+
+  it("aceita libertação pelo operador de uma Reserva do Pedro", () => {
+    const cs = base([{
+      id: 3, autor: OPERADOR, criadoEm: "2026-11-02T09:05:00Z",
+      corpo: "## Reserva libertada — #900",
+    }]);
+    cs[0].corpo = autorizacao({ operador: OPERADOR });
+
+    const d = avaliarDespacho(900, cs, 9, agora);
+    expect(d.ok).toBe(false);
+    expect(d.motivos).toEqual(["não há «## Reserva» activa nesta Issue"]);
+  });
+
+  it("ignora libertação do operador anterior à Autorização vigente", () => {
+    const cs = base([
+      { id: 3, autor: OPERADOR, criadoEm: "2026-11-02T09:05:00Z", corpo: "## Reserva libertada — #900" },
+      { id: 4, autor: PEDRO, criadoEm: "2026-11-02T09:10:00Z", corpo: autorizacao({ operador: OPERADOR }) },
+    ]);
+    cs[0].corpo = autorizacao({ operador: OPERADOR });
+    cs[4].autor = OPERADOR;
+
+    expect(avaliarDespacho(900, cs, 9, agora).motivos).toEqual([]);
+  });
+
+  it.each(["## Reserva — #900\n- **Executor:** Claude Code", "## Reserva libertada — #900"])(
+    "sem Operador, ignora comentário do operador: %s", (corpo) => {
+      const cs = base([{ id: 3, autor: OPERADOR, criadoEm: "2026-11-02T09:05:00Z", corpo }]);
+
+      expect(avaliarDespacho(900, cs, 9, agora)).toEqual(avaliarDespacho(900, base(), 9, agora));
+    },
+  );
+
+  it("uma nova Autorização do Pedro sem Operador revoga a nomeação anterior", () => {
+    const cs = base([{
+      id: 3, autor: PEDRO, criadoEm: "2026-11-02T09:10:00Z", corpo: autorizacao(),
+    }]);
+    cs[0].corpo = autorizacao({ operador: OPERADOR });
+    cs[3].autor = OPERADOR;
+
+    const d = avaliarDespacho(900, cs, 9, agora);
+    expect(d.ok).toBe(false);
+    expect(d.motivos).toEqual(["autor do despacho não autorizado (mplabs-dev)"]);
+  });
+
+  it("nomeação posterior ao despacho não autoriza o operador", () => {
+    const cs = base([{
+      id: 3, autor: PEDRO, criadoEm: "2026-11-02T09:40:00Z", corpo: autorizacao({ operador: OPERADOR }),
+    }]);
+    cs[3].autor = OPERADOR;
+
+    const d = avaliarDespacho(900, cs, 9, agora);
+    expect(d.ok).toBe(false);
+    expect(d.motivos).toEqual(["autor do despacho não autorizado (mplabs-dev)"]);
+  });
+
+  it.each(["## Reserva — #900\n- **Executor:** Claude Code", "## Reserva libertada — #900"])(
+    "ignora comentário de outro login mesmo com operador nomeado: %s", (corpo) => {
+      const cs = base([{ id: 3, autor: "outra-pessoa", criadoEm: "2026-11-02T09:05:00Z", corpo }]);
+      cs[0].corpo = autorizacao({ operador: OPERADOR });
+
+      expect(avaliarDespacho(900, cs, 9, agora).motivos).toEqual([]);
+    },
+  );
 });
