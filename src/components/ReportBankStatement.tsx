@@ -7,7 +7,9 @@ import { groupStatementLines, type StatementRenderItem } from "@/lib/statement-g
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileText, FileSpreadsheet, Landmark, Lock, CalendarIcon, Paperclip } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +28,13 @@ import CircuitPositionPanel from "@/components/CircuitPositionPanel";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportBankStatement() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
+  const currencySymbol = companyLocale.status === "available" ? companyLocale.symbol : "—";
   const { isAdmin } = useAuth();
   const [searchParams] = useSearchParams();
   const [selectedAccountId, setSelectedAccountId] = useState<string>(searchParams.get("conta") ?? "");
@@ -368,7 +377,10 @@ export default function ReportBankStatement() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => exportBankStatementToExcel(selectedAccount!, lines, openingBalance, closingBalance, dateFromStr, dateToStr, isUncontrolledBalance)}
+              onClick={() => {
+                if (companyLocale.status !== "available") return;
+                exportBankStatementToExcel(selectedAccount!, lines, openingBalance, closingBalance, dateFromStr, dateToStr, isUncontrolledBalance, companyLocale);
+              }}
               disabled={lines.length === 0}
             >
               <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
@@ -376,7 +388,10 @@ export default function ReportBankStatement() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => exportBankStatementToPDF(selectedAccount!, lines, openingBalance, closingBalance, dateFromStr, dateToStr, isUncontrolledBalance)}
+              onClick={() => {
+                if (companyLocale.status !== "available") return;
+                exportBankStatementToPDF(selectedAccount!, lines, openingBalance, closingBalance, dateFromStr, dateToStr, isUncontrolledBalance, companyLocale);
+              }}
               disabled={lines.length === 0}
             >
               <FileText className="mr-1.5 h-4 w-4" /> PDF
@@ -459,9 +474,9 @@ export default function ReportBankStatement() {
                     <TableHead className="text-center w-10">
                       <Paperclip className="h-3.5 w-3.5 mx-auto" />
                     </TableHead>
-                    <TableHead className="text-right">Entrada (€)</TableHead>
-                    <TableHead className="text-right">Saída (€)</TableHead>
-                    <TableHead className="text-right">Saldo (€)</TableHead>
+                    <TableHead className="text-right">Entrada ({currencySymbol})</TableHead>
+                    <TableHead className="text-right">Saída ({currencySymbol})</TableHead>
+                    <TableHead className="text-right">Saldo ({currencySymbol})</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
