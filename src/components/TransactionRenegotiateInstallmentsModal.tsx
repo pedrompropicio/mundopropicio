@@ -1,3 +1,4 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { assertEuroInstallmentChange, FOREIGN_INSTALLMENT_CHANGE } from "@/lib/installment-original";
 import { useMemo, useState } from "react";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
@@ -28,9 +29,6 @@ import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
  * Identificação ESTRUTURAL: o sufixo "(i/N)" na descrição é cosmético e nunca
  * é lido.
  */
-
-const eur = (v: number) =>
-  v.toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
 
 /** Traduz os códigos de exceção da RPC em mensagens legíveis. */
 const RPC_ERRORS: Record<string, string> = {
@@ -135,10 +133,17 @@ export function TransactionRenegotiateInstallmentsModal({
   onClose: () => void;
   onSuccess?: () => void;
 }) {
+  const companyLocale = useCompanyLocale();
+  const nativeCurrency = companyLocale.status === "available" ? companyLocale.currency : "EUR";
+  const symbol = companyLocale.status === "available" ? companyLocale.symbol : "€";
+  const locale = companyLocale.status === "available" ? companyLocale.locale : "pt-PT";
+
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const ivaRate = Number(transaction.iva_rate) || 0;
+  const noIva = companyLocale.status === "available" && !companyLocale.capabilities.iva;
+  const eur = (v: number) => v.toLocaleString(locale, { style: "currency", currency: nativeCurrency });
+  const ivaRate = noIva ? 0 : Number(transaction.iva_rate) || 0;
   const baseTotal = Number(transaction.amount) || 0;
   const ivaMultiplier = 1 + ivaRate / 100;
   const grossTotal = +(baseTotal * ivaMultiplier).toFixed(2);
@@ -154,8 +159,8 @@ export function TransactionRenegotiateInstallmentsModal({
   const [confirming, setConfirming] = useState(false);
 
   const validationError = useMemo(
-    () => validateInstallments(rows, grossTotal),
-    [rows, grossTotal],
+    () => validateInstallments(rows, grossTotal, symbol),
+    [rows, grossTotal, symbol],
   );
 
   const baseDescription = stripInstallmentSuffix(transaction.description);
@@ -163,8 +168,8 @@ export function TransactionRenegotiateInstallmentsModal({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      assertEuroInstallmentChange([transaction.currency]);
-      const err = validateInstallments(rows, grossTotal);
+      assertEuroInstallmentChange([transaction.currency], nativeCurrency);
+      const err = validateInstallments(rows, grossTotal, symbol);
       if (err) throw new Error(err);
 
       const n = rows.length;
@@ -215,7 +220,7 @@ export function TransactionRenegotiateInstallmentsModal({
               <Layers className="h-4 w-4 text-primary" /> Renegociar em parcelas
             </h2>
             <p className="text-xs text-muted-foreground">
-              {baseDescription} · total {eur(grossTotal)} (c/IVA {ivaRate}%)
+              {baseDescription} · total {eur(grossTotal)}{!noIva && <> (c/IVA {ivaRate}%)</>}
             </p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary">
@@ -224,7 +229,7 @@ export function TransactionRenegotiateInstallmentsModal({
         </div>
         <div className="manual-modal-body space-y-4">
 
-        {transaction.currency !== "EUR" && <p className="text-xs text-destructive">{FOREIGN_INSTALLMENT_CHANGE}</p>}
+        {transaction.currency !== nativeCurrency && <p className="text-xs text-destructive">{FOREIGN_INSTALLMENT_CHANGE}</p>}
         {!confirming ? (
           <>
             <TransactionInstallmentsEditor
@@ -244,7 +249,7 @@ export function TransactionRenegotiateInstallmentsModal({
               <Button
                 type="button"
                 size="sm"
-                disabled={!!validationError || transaction.currency !== "EUR"}
+                disabled={!!validationError || transaction.currency !== nativeCurrency}
                 onClick={() => setConfirming(true)}
               >
                 Continuar
@@ -311,7 +316,7 @@ export function TransactionRenegotiateInstallmentsModal({
               <Button
                 type="button"
                 size="sm"
-                disabled={!!validationError || transaction.currency !== "EUR" || mutation.isPending}
+                disabled={!!validationError || transaction.currency !== nativeCurrency || mutation.isPending}
                 onClick={() => mutation.mutate()}
               >
                 {mutation.isPending ? "A gravar…" : "Confirmar renegociação"}

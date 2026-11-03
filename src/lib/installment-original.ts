@@ -48,8 +48,8 @@ export function distributeInstallmentOriginal(original: string | number | null |
   return shares.map(centsPayload);
 }
 
-export function installmentOriginals(currency: string, original: string, fx: string, bases: number[]): (number | null)[] {
-  if (currency === "EUR") return bases.map(() => null);
+export function installmentOriginals(currency: string, original: string, fx: string, bases: number[], nativeCurrency = "EUR"): (number | null)[] {
+  if (currency === nativeCurrency) return bases.map(() => null);
   if (!["BRL", "USD", "GBP"].includes(currency)) throw new Error("Moeda original não suportada.");
   if (!fx.trim() || !Number.isFinite(Number(fx)) || Number(fx) <= 0 || parseFloat(fx) !== Number(fx)) throw new Error("Taxa de câmbio inválida para o parcelamento.");
   return distributeInstallmentOriginal(original, bases);
@@ -58,6 +58,6 @@ export function installmentOriginals(currency: string, original: string, fx: str
 export const FOREIGN_INSTALLMENT_CHANGE = "Alterações monetárias de parcelas em moeda estrangeira estão indisponíveis até suporte atómico no servidor. Os valores originais e o câmbio seriam inconsistentes.";
 
 /** Unknown legacy currency is deliberately fail-closed for monetary changes. */
-export function assertEuroInstallmentChange(currencies: (string | null | undefined)[]) {
-  if (!currencies.length || currencies.some((currency) => currency !== "EUR")) throw new Error(FOREIGN_INSTALLMENT_CHANGE);
+export function assertEuroInstallmentChange(currencies: (string | null | undefined)[], nativeCurrency = "EUR") {
+  if (!currencies.length || currencies.some((currency) => currency !== nativeCurrency)) throw new Error(FOREIGN_INSTALLMENT_CHANGE);
 }

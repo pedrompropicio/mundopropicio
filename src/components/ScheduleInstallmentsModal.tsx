@@ -1,3 +1,4 @@
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Wand2, Pencil, Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
@@ -60,6 +61,11 @@ export function addByInterval(date: Date, interval: "weekly" | "biweekly" | "mon
 }
 
 export function ScheduleInstallmentsModal({ open, onOpenChange, forecast, isSubmitting, onConfirm }: Props) {
+  const companyLocale = useCompanyLocale();
+  const nativeCurrency = companyLocale.status === "available" ? companyLocale.currency : "EUR";
+  const symbol = companyLocale.status === "available" ? companyLocale.symbol : "€";
+  const locale = companyLocale.status === "available" ? companyLocale.locale : "pt-PT";
+
   const total = Number(forecast?.amount ?? 0);
   const labelKind = forecast?.type === "income" ? "recebimentos" : "pagamentos";
 
@@ -141,7 +147,7 @@ export function ScheduleInstallmentsModal({ open, onOpenChange, forecast, isSubm
           <DialogDescription>
             <span className="font-medium text-foreground">{forecast.description}</span> — Total{" "}
             <span className="font-mono font-semibold text-foreground">
-              {total.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+              {total.toLocaleString(locale, { style: "currency", currency: nativeCurrency })}
             </span>
             . Cria várias transações pendentes vinculadas a esta linha do BP.
           </DialogDescription>
@@ -214,7 +220,7 @@ export function ScheduleInstallmentsModal({ open, onOpenChange, forecast, isSubm
                       <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
                       <td className="px-3 py-2">{format(fromYmd(r.date), "dd/MM/yyyy", { locale: pt })}</td>
                       <td className="px-3 py-2 text-right font-mono">
-                        {r.amount.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                        {r.amount.toLocaleString(locale, { style: "currency", currency: nativeCurrency })}
                       </td>
                       <td className="px-3 py-2 text-muted-foreground">{r.description}</td>
                     </tr>
@@ -242,7 +248,7 @@ export function ScheduleInstallmentsModal({ open, onOpenChange, forecast, isSubm
                     <tr>
                       <th className="text-left px-2 py-2 font-medium w-10">#</th>
                       <th className="text-left px-2 py-2 font-medium w-44">Data</th>
-                      <th className="text-right px-2 py-2 font-medium w-32">Valor (€)</th>
+                      <th className="text-right px-2 py-2 font-medium w-32">Valor ({symbol})</th>
                       <th className="text-left px-2 py-2 font-medium">Descrição</th>
                       <th className="w-10" />
                     </tr>
@@ -272,6 +278,8 @@ export function ScheduleInstallmentsModal({ open, onOpenChange, forecast, isSubm
                         </td>
                         <td className="px-2 py-1">
                           <MoneyInput
+                            currency={nativeCurrency}
+                            companyLocale={companyLocale.status === "available" && locale === "pt-BR" ? companyLocale : undefined}
                             value={Number(r.amount) || 0}
                             onChange={(v) => updateRow(i, { amount: v })}
                             className="h-8 text-right font-mono"
@@ -303,12 +311,12 @@ export function ScheduleInstallmentsModal({ open, onOpenChange, forecast, isSubm
               <div className="text-sm space-x-3">
                 <span className="text-muted-foreground">Soma:</span>
                 <span className="font-mono font-semibold">
-                  {manualSum.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                  {manualSum.toLocaleString(locale, { style: "currency", currency: nativeCurrency })}
                 </span>
                 <span className="text-muted-foreground">·</span>
                 <span className={cn("font-mono", Math.abs(manualDiff) <= 0.05 ? "text-success" : "text-destructive")}>
                   {manualDiff >= 0 ? "Falta " : "Excesso "}
-                  {Math.abs(manualDiff).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                  {Math.abs(manualDiff).toLocaleString(locale, { style: "currency", currency: nativeCurrency })}
                 </span>
               </div>
             </div>
