@@ -19,10 +19,13 @@ export interface CompanyLocale {
   labels: {
     taxId: string;
     invoice: string;
+    invoiceRef: string;
+    invoiceRefPlaceholder: string;
+    invoiceRefHelp: string;
     bankAccount: string;
     budget: string;
   };
-  capabilities: { iva: boolean; sepa: boolean };
+  capabilities: { iva: boolean; sepa: boolean; irsWithholding: boolean };
   /** 'pt' preserves the existing event-city rules, including events in Spain. */
   ivaPolicy: "pt" | "none";
 }
@@ -59,8 +62,12 @@ export function resolveCompanyLocale(company: CompanyLocaleInput): CompanyLocale
       currency,
       locale: "pt-BR",
       symbol,
-      labels: { taxId: "CNPJ", invoice: "Nota fiscal", bankAccount: "Conta bancária", budget: `Orçamento (${symbol})` },
-      capabilities: { iva: false, sepa: false },
+      labels: {
+        taxId: "CNPJ", invoice: "Nota fiscal", bankAccount: "Conta bancária", budget: `Orçamento (${symbol})`,
+        invoiceRef: "Nota Fiscal/Doc", invoiceRefPlaceholder: "Ex: NF 12345",
+        invoiceRefHelp: "Transações com o mesmo nº de documento serão agrupadas automaticamente",
+      },
+      capabilities: { iva: false, sepa: false, irsWithholding: false },
       ivaPolicy: "none",
     };
   }
@@ -70,8 +77,12 @@ export function resolveCompanyLocale(company: CompanyLocaleInput): CompanyLocale
     currency,
     locale: "pt-PT",
     symbol,
-    labels: { taxId: "NIF", invoice: "Fatura", bankAccount: "IBAN", budget: `Orçamento (${symbol})` },
-    capabilities: { iva: true, sepa: currency === "EUR" },
+    labels: {
+      taxId: "NIF", invoice: "Fatura", bankAccount: "IBAN", budget: `Orçamento (${symbol})`,
+      invoiceRef: "Nº Fatura", invoiceRefPlaceholder: "Ex: FT 002/5944",
+      invoiceRefHelp: "Transações com o mesmo nº de fatura serão agrupadas automaticamente",
+    },
+    capabilities: { iva: true, sepa: currency === "EUR", irsWithholding: true },
     ivaPolicy: "pt",
   };
 }
