@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,13 +10,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { toast } from "sonner";
 import { invalidateEventFinancials } from "@/lib/invalidate-event-financials";
-import { formatPositionAmount } from "@/lib/financial-position";
+import { FinancialPositionLocaleContext, usePositionAmount } from "@/lib/financial-position";
 import { forecastEvent, REAL_SCENARIO, type CoverageScenario, type PlanningEvent } from "../../../supabase/functions/_shared/ticketing/planning-forecast";
 
 interface Props { eventId: string; onClose: () => void }
 
 function ScenarioForm({ event, root, companyId, onClose }: { event: PlanningEvent; root: PlanningEvent; companyId: string; onClose: () => void }) {
   const { isAdmin, isManager } = useAuth();
+  const formatPositionAmount = usePositionAmount();
+  const companyLocale = useContext(FinancialPositionLocaleContext);
+  const symbol = companyLocale === undefined ? "€" : companyLocale.status === "available" ? companyLocale.symbol : "—";
   const qc = useQueryClient();
   const initial = event.cenario ?? { ...(root.cenario ?? REAL_SCENARIO), receita_manual_bruta: null };
   const [mode, setMode] = useState<CoverageScenario["modo"]>(initial.modo);
@@ -61,7 +64,7 @@ function ScenarioForm({ event, root, companyId, onClose }: { event: PlanningEven
         <SelectTrigger id="coverage-mode"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="real">Real</SelectItem><SelectItem value="previsao">Previsão</SelectItem></SelectContent>
       </Select></div>
       <div className="space-y-1"><Label htmlFor="coverage-percentage">Percentagem considerada (%)</Label><Input id="coverage-percentage" type="number" min="0" max="100" step="0.01" value={percentage} onChange={e => setPercentage(e.target.value)} disabled={!canEdit || mutation.isPending} /></div>
-      <div className="space-y-1"><Label htmlFor="coverage-manual">Receita manual bruta (€)</Label><Input id="coverage-manual" type="number" min="0" step="0.01" value={manual} onChange={e => setManual(e.target.value)} disabled={!canEdit || preview.source === "lotes" || mutation.isPending} /></div>
+      <div className="space-y-1"><Label htmlFor="coverage-manual">Receita manual bruta ({symbol})</Label><Input id="coverage-manual" type="number" min="0" step="0.01" value={manual} onChange={e => setManual(e.target.value)} disabled={!canEdit || preview.source === "lotes" || mutation.isPending} /></div>
       <div className="space-y-1"><Label htmlFor="coverage-days">Viragem para Real (dias antes)</Label><Input id="coverage-days" type="number" min="0" step="1" value={days} onChange={e => setDays(e.target.value)} disabled={!canEdit || mutation.isPending} /></div>
     </div>
     <dl className="space-y-2 border-t border-border pt-3 text-sm">

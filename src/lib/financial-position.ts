@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { createContext, useContext } from "react";
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import { cachesSchema } from "@/lib/financial-position-p6b";
 
 export const FINANCIAL_POSITION_PATH = "/erp/posicao-financeira";
@@ -50,8 +52,18 @@ export function financialPositionError(error: unknown): string {
   if (message.includes("financial_position_invalid_response")) return "Dados da posição financeira inválidos";
   return "Não foi possível carregar a posição financeira";
 }
-export function formatPositionAmount(value: number | null): string {
-  return value === null ? "—" : new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR", useGrouping: "always" } as Intl.NumberFormatOptions).format(value);
+/** Omitted context preserves standalone PT views; unavailable context never infers EUR. */
+export const FinancialPositionLocaleContext = createContext<CompanyLocaleResult | undefined>(undefined);
+export function usePositionAmount() {
+  const companyLocale = useContext(FinancialPositionLocaleContext);
+  return (value: number | null) => formatPositionAmount(value, companyLocale);
+}
+export function formatPositionAmount(value: number | null, companyLocale?: CompanyLocaleResult): string {
+  if (value === null || companyLocale?.status === "unavailable") return "—";
+  if (companyLocale && !(companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")) {
+    return formatMoney(value, companyLocale);
+  }
+  return new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR", useGrouping: "always" } as Intl.NumberFormatOptions).format(value);
 }
 export function formatPositionDate(value: string | null): string {
   if (value === null) return "—";

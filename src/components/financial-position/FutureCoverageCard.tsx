@@ -1,5 +1,5 @@
 import { useFinancialPositionP5 } from "@/hooks/useFinancialPositionP5";
-import { formatPositionAmount } from "@/lib/financial-position";
+import { usePositionAmount } from "@/lib/financial-position";
 import type { FinancialPositionP5 } from "@/lib/financial-position-p5";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ type Coverage = FinancialPositionP5["cobertura_futuros"];
 
 /** P5b (D-ERP326): cartão só informativo. A UI completa é o P6b. Sempre todos os anos (eventos futuros podem ser do ano seguinte). */
 export function FutureCoverageView({ data }: { data: Coverage }) {
+  const formatPositionAmount = usePositionAmount();
   const [editingId, setEditingId] = useState<string | null>(null);
   const { isAdmin, isManager } = useAuth();
   const t = data.total;
