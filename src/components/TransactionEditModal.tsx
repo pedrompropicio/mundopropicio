@@ -1580,7 +1580,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           </div>
           )}
 
-          {transaction.type === "expense" && !paidLocked && (() => {
+          {transaction.type === "expense" && !paidLocked && (companyLocale.status !== "available" || companyLocale.capabilities.irsWithholding) && (() => {
             const base = parseFloat(form.amount) || 0;
             const ivaRate = parseFloat(String(form.iva_rate)) || 0;
             const totalCIva = calcTotalWithIva(base, ivaRate);
@@ -1811,9 +1811,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           )}
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Fatura</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">{companyLocale.status === "available" ? companyLocale.labels.invoiceRef : "Nº Fatura"}</label>
             <input value={form.invoice_ref} onChange={(e) => setForm({ ...form, invoice_ref: e.target.value })}
-              placeholder="Ex: FT 002/5944"
+              placeholder={companyLocale.status === "available" ? companyLocale.labels.invoiceRefPlaceholder : "Ex: FT 002/5944"}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
             <p className="mt-0.5 text-[10px] text-muted-foreground">Transações com o mesmo nº serão agrupadas</p>
             {invoiceGroupId && (
