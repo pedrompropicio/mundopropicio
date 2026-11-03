@@ -533,7 +533,7 @@ export async function exportPLToExcel(
 ) {
   const symbol = companyLocale?.status === "available" ? companyLocale.symbol : "€";
   const currencyFmt = companyLocale?.status === "available" && !(companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")
-    ? `"${companyLocale.symbol} "#.##0,00`
+    ? `"${companyLocale.symbol} "#,##0.00;[Red]-"${companyLocale.symbol} "#,##0.00`
     : CURRENCY_FMT;
   const wb = new ExcelJS.Workbook();
   wb.creator = companyDisplayName;

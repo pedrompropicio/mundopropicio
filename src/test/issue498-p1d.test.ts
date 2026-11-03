@@ -183,7 +183,7 @@ function normalizeBR(value: unknown, name: string): unknown {
   if (value && typeof value === "object") return Object.fromEntries(
     Object.entries(value).map(([key, item]) => [key, normalizeBR(item, name)]));
   if (typeof value !== "string") return value;
-  if (value === '"R$ "#.##0,00') return name === "pl-excel"
+  if (value === (name === "pl-excel" ? '"R$ "#,##0.00;[Red]-"R$ "#,##0.00' : '"R$ "#.##0,00')) return name === "pl-excel"
     ? '#,##0.00\\ "€";[Red]-#,##0.00\\ "€"'
     : '#.##0,00\\ "€"';
   return value.replace(/\(R\$\)/g, "(€)")
@@ -213,7 +213,9 @@ describe("#498 P1d — explicit BR context", () => {
     expect(serialized).toContain("R$");
     expect(digest(normalizeBR(output, name))).toBe(hash);
     if (name.endsWith("excel") || name === "excel-format") {
-      expect(serialized).toContain('\\"R$ \\"#.##0,00');
+      expect(serialized).toContain(name === "pl-excel"
+        ? '\\"R$ \\"#,##0.00;[Red]-\\"R$ \\"#,##0.00'
+        : '\\"R$ \\"#.##0,00');
       if (name !== "excel-format") expect(serialized).toContain("(R$)");
     } else {
       expect(serialized).toContain(name === "payment-pdf" ? "R$\u00a01.518,51" : "R$\u00a01.234,56");
