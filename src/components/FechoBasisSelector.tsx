@@ -1,4 +1,6 @@
 import { Settings2 } from "lucide-react";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { companyHasIva } from "@/lib/company-locale";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuLabel, DropdownMenuSeparator,
@@ -57,8 +59,9 @@ export function FechoBasisSelector({
   basis: FechoBasis;
   expenseColumns?: ExpenseColumnsChoice;
 }) {
+  const hasIva = companyHasIva(useCompanyLocale());
   const chips = [
-    basis.withVat ? "c/IVA" : "s/IVA",
+    hasIva ? (basis.withVat ? "c/IVA" : "s/IVA") : (basis.withVat ? "base bruta" : "base líquida"),
     basis.expenseSource === "committed" ? "Previsto + excedido" : "Realizado",
     basis.includeOverhead ? "+OH" : "s/OH",
   ].filter(Boolean) as string[];
@@ -77,9 +80,9 @@ export function FechoBasisSelector({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64">
-          <DropdownMenuLabel className="text-xs">IVA nas despesas</DropdownMenuLabel>
+          <DropdownMenuLabel className="text-xs">{hasIva ? "IVA nas despesas" : "Base das despesas"}</DropdownMenuLabel>
           <div className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground">
-            {basis.withVat ? "Com IVA (bruto)" : "Sem IVA (base líquida)"} — vem do critério
+            {hasIva ? (basis.withVat ? "Com IVA (bruto)" : "Sem IVA (base líquida)") : (basis.withVat ? "Base bruta" : "Base líquida")} — vem do critério
             contratual do evento; altera-se na ficha do evento.
           </div>
 

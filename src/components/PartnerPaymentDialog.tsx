@@ -5,7 +5,7 @@
  * Limitação: o servidor aceita o share_amount enviado pelo cliente (sem recálculo).
  */
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { formatMoney } from "@/lib/company-locale";
+import { companyHasIva, formatMoney } from "@/lib/company-locale";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -195,7 +195,7 @@ export function PartnerPaymentDialog({ open, onOpenChange, eventId, participantI
             ) : (
               <>
                 <dl className="grid grid-cols-2 gap-x-4 text-sm">
-                  <dt className="text-muted-foreground">Parte (motor, {freezePreview.uses_gross_expenses ? "c/IVA" : "s/IVA"})</dt><dd className="font-mono text-right">{formatCurrency(freezePreview.share_amount)}</dd>
+                  <dt className="text-muted-foreground">Parte (motor, {companyHasIva(companyLocale) ? (freezePreview.uses_gross_expenses ? "c/IVA" : "s/IVA") : (freezePreview.uses_gross_expenses ? "base bruta" : "base líquida")})</dt><dd className="font-mono text-right">{formatCurrency(freezePreview.share_amount)}</dd>
                   <dt className="text-muted-foreground">% aplicada</dt><dd className="font-mono text-right">{freezePreview.effective_pct}%</dd>
                 </dl>
                 <ShareOrigin formatCurrency={formatCurrency} origin={freezePreview.origin} />

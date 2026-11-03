@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { companyHasIva } from "@/lib/company-locale";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadToCompanyBucket } from "@/lib/storage";
@@ -34,6 +36,7 @@ interface Props {
 }
 
 export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit, calcBasis, expenseIncludesIva }: Props) {
+  const hasIva = companyHasIva(useCompanyLocale());
   // Base POR SÓCIO (D-ERP9): override do sócio quando preenchido, senão o do evento.
   const usesGross = partnerUsesGrossExpenses(calcBasis, expenseIncludesIva ?? null);
   const queryClient = useQueryClient();
@@ -174,7 +177,7 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit, c
             <span className="ml-2 font-mono text-destructive">ajustes: {formatCurrency(totalAdjustments)}</span>
           )}
           <span className="ml-1 text-[10px] font-normal text-muted-foreground">
-            valores {usesGross ? "c/IVA" : "s/IVA"}
+            valores {hasIva ? (usesGross ? "c/IVA" : "s/IVA") : (usesGross ? "em base bruta" : "em base líquida")}
           </span>
         </p>
         {canEdit && !showForm && (
