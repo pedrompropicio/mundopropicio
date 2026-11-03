@@ -29,3 +29,13 @@ describe("#471 exact informed originals", () => {
     expect(installmentOriginals("EUR", "", "", [6.8089])).toEqual([null]);
   });
 });
+
+
+describe("#498 P2f native currency originals", () => {
+  it.each(["BRL", "EUR", "USD", "GBP"])("returns null originals for native %s without FX", currency => {
+    expect(installmentOriginals(currency, "", "", [6.8089, 10], currency)).toEqual([null, null]);
+  });
+  it.each(["BRL", "USD", "GBP"])("still requires FX for foreign %s under the EUR default", currency => {
+    expect(() => installmentOriginals(currency, "100", "", [1, 1])).toThrow("câmbio");
+  });
+});

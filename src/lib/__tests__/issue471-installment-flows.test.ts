@@ -44,6 +44,7 @@ function creation(over: Record<string, any> = {}, fail = 0) {
   const t = transport(fail);
   const toast = vi.fn();
   const ctx: any = {
+    companyCurrency: "EUR", noIva: false,
     ...t, toast, computeInstallmentNets, installmentOriginals, validateInstallments, calcTotalWithIva,
     useInstallments: true, installmentRows: [33.34, 33.34, 33.34].map(amount => ({ amount, scheduled_date: "2026-11-02" })),
     pendingIvaSplit: null, currency: "BRL", originalAmount: "100.01", fxRate: "0.17", fxRateSource: "manual",
@@ -125,6 +126,7 @@ function paidLock(canApprove = false, unlockPaid = false) {
 function edit(group: any[], rows: any, extra: any = {}) {
   const t = transport();
   const ctx = { ...t, group, rows, mismatch: false, user: null, canEdit: true, assertEuroInstallmentChange,
+    nativeCurrency: "EUR", symbol: "€",
     rowLocked: paidLock(), ...extra };
   const c = config("TransactionInstallmentGroupEditor", "saveMutation", "\n  if (group.length < 2)", ctx);
   return { ...t, run: () => c.mutationFn() };
@@ -162,6 +164,7 @@ describe("#471 actual renegotiation mutation", () => {
   it.each(["BRL", "USD", "GBP", undefined, "EUR"])("guards %s while retaining the single atomic EUR RPC", async currency => {
     const t = transport();
     const c = config("TransactionRenegotiateInstallmentsModal", "mutation", "\n  return createPortal", {
+      nativeCurrency: "EUR", symbol: "€",
       ...t, assertEuroInstallmentChange, transaction: { id: "tx", currency },
       validateInstallments, rows: [{ amount: 50, scheduled_date: "2026-11-02" }, { amount: 50, scheduled_date: "2026-12-02" }],
       computeInstallmentNets, grossTotal: 100, baseTotal: 100, ivaMultiplier: 1, user: null,
@@ -198,5 +201,45 @@ describe("#471 actual submit preflight before budget writes", () => {
     await proceed();
     expect(budget).not.toHaveBeenCalled(); expect(create).not.toHaveBeenCalled(); expect(h.writes).toEqual([]);
     expect(h.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Parcelas inválidas", variant: "destructive" }));
+  });
+});
+
+
+describe("#498 P2f native BRL production mutations", () => {
+  it("creates the first BRL installment and sisters without original/FX and forces zero IVA", async () => {
+    const h = creation({ companyCurrency: "BRL", noIva: true, originalAmount: "", fxRate: "" });
+    await h.run({ ...data, iva_rate: 23 });
+    const txs = h.writes.filter(w => w.table === "transactions" && w.kind === "insert").map(w => w.payload);
+    expect(txs).toHaveLength(3);
+    expect(txs.map(t => t.amount)).toEqual([33.34, 33.34, 33.34]);
+    for (const tx of txs) expect(tx).toMatchObject({ currency: "BRL", original_amount: null, fx_rate: null, fx_rate_source: null, iva_rate: 0 });
+  });
+  it("edits BRL monetary values under the BR native currency", async () => {
+    const h = edit([member("a")], { a: { amount: 7, due_date: "2026-11-02" } }, { nativeCurrency: "BRL", symbol: "R$" });
+    expect(await h.run()).toBe(1);
+    expect(h.writes[0].payload).toEqual({ amount: 7 });
+  });
+  it("renegotiates native BRL through the same atomic RPC and native plan", async () => {
+    const t = transport();
+    const c = config("TransactionRenegotiateInstallmentsModal", "mutation", "\n  return createPortal", {
+      ...t, nativeCurrency: "BRL", symbol: "R$", assertEuroInstallmentChange, transaction: { id: "tx", currency: "BRL" },
+      validateInstallments, rows: [{ amount: 50, scheduled_date: "2026-11-02" }, { amount: 50, scheduled_date: "2026-12-02" }],
+      computeInstallmentNets, grossTotal: 100, baseTotal: 100, ivaMultiplier: 1, user: null,
+    });
+    expect(await c.mutationFn()).toBe(2);
+    expect(t.supabase.rpc).toHaveBeenCalledExactlyOnceWith("renegotiate_transaction_installments", {
+      p_transaction_id: "tx", p_changed_by: "sistema",
+      p_installments: [{ amount: 50, due_date: "2026-11-02" }, { amount: 50, due_date: "2026-12-02" }],
+    });
+    expect(t.writes).toEqual([]);
+  });
+});
+
+
+describe("#498 P2f foreign creation retains FX requirement", () => {
+  it.each(["BRL", "USD", "GBP"])("refuses foreign %s/PT without FX before writes", async currency => {
+    const h = creation({ currency, fxRate: "" });
+    await expect(h.run()).rejects.toThrow("câmbio");
+    expect(h.writes).toEqual([]);
   });
 });
