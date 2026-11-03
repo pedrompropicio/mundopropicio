@@ -1,4 +1,4 @@
-import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
+import { companyHasIva, formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -49,6 +49,7 @@ function buildSubtitle(data: ContasPagarExport): string {
 }
 
 export function exportContasPagarToExcel(data: ContasPagarExport) {
+  const hasIva = !data.companyLocale || companyHasIva(data.companyLocale);
   const symbol = data.companyLocale?.status === "available" ? data.companyLocale.symbol : "€";
 
   const wb = XLSX.utils.book_new();
@@ -58,7 +59,7 @@ export function exportContasPagarToExcel(data: ContasPagarExport) {
     ["RELATÓRIO DE CONTAS A PAGAR"],
     [subtitle],
     [],
-    ["#", "Data", "Evento", "Fornecedor", "Descrição", "Especificação", "Estado", `Valor Base (${symbol})`, "IVA (%)", `Valor c/IVA (${symbol})`, `Já Pago (${symbol})`, `Saldo (${symbol})`, "Vencimento"],
+    ["#", "Data", "Evento", "Fornecedor", "Descrição", "Especificação", "Estado", `Valor Base (${symbol})`, "IVA (%)", `${hasIva ? "Valor c/IVA" : "Valor"} (${symbol})`, `Já Pago (${symbol})`, `Saldo (${symbol})`, "Vencimento"],
   ];
 
   let totalWithIva = 0;
@@ -101,7 +102,7 @@ export function exportContasPagarToExcel(data: ContasPagarExport) {
   XLSX.writeFile(wb, filename);
 }
 
-function renderPdfTable(doc: jsPDF, items: ContasPagarItem[], startY: number, marginLeft: number, showEventCol: boolean, formatCurrencyDecimal: (value: number) => string) {
+function renderPdfTable(doc: jsPDF, items: ContasPagarItem[], startY: number, marginLeft: number, showEventCol: boolean, formatCurrencyDecimal: (value: number) => string, hasIva: boolean) {
   let totalWithIva = 0;
   let totalPaid = 0;
 
@@ -128,7 +129,7 @@ function renderPdfTable(doc: jsPDF, items: ContasPagarItem[], startY: number, ma
   const head = [
     "#", "Data",
     ...(showEventCol ? ["Evento"] : []),
-    "Fornecedor", "Descrição", "Estado", "Valor c/IVA", "Pago", "Saldo", "Vencimento",
+    "Fornecedor", "Descrição", "Estado", hasIva ? "Valor c/IVA" : "Valor", "Pago", "Saldo", "Vencimento",
   ];
 
   const footPadding = showEventCol ? ["", "", "", "", "TOTAL", ""] : ["", "", "", "TOTAL", ""];
@@ -149,6 +150,7 @@ function renderPdfTable(doc: jsPDF, items: ContasPagarItem[], startY: number, ma
 }
 
 export function exportContasPagarToPDF(data: ContasPagarExport) {
+  const hasIva = !data.companyLocale || companyHasIva(data.companyLocale);
   const formatCurrencyDecimal = (value: number) => data.companyLocale?.status === "available" && !(data.companyLocale.locale === "pt-PT" && data.companyLocale.currency === "EUR")
     ? formatMoney(value, data.companyLocale)
     : formatLegacyCurrency(value);
@@ -203,7 +205,7 @@ export function exportContasPagarToPDF(data: ContasPagarExport) {
       doc.setFont("helvetica", "normal");
       y += 5;
 
-      const { totalWithIva, totalPaid } = renderPdfTable(doc, items, y, marginLeft, false, formatCurrencyDecimal);
+      const { totalWithIva, totalPaid } = renderPdfTable(doc, items, y, marginLeft, false, formatCurrencyDecimal, hasIva);
       grandTotalWithIva += totalWithIva;
       grandTotalPaid += totalPaid;
     }
@@ -217,9 +219,9 @@ export function exportContasPagarToPDF(data: ContasPagarExport) {
     }
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text(`TOTAL GERAL — Valor c/IVA: ${formatCurrencyDecimal(grandTotalWithIva)}  |  Pago: ${formatCurrencyDecimal(grandTotalPaid)}  |  Saldo: ${formatCurrencyDecimal(grandTotalWithIva - grandTotalPaid)}`, marginLeft, y);
+    doc.text(`TOTAL GERAL — ${hasIva ? "Valor c/IVA" : "Valor"}: ${formatCurrencyDecimal(grandTotalWithIva)}  |  Pago: ${formatCurrencyDecimal(grandTotalPaid)}  |  Saldo: ${formatCurrencyDecimal(grandTotalWithIva - grandTotalPaid)}`, marginLeft, y);
   } else {
-    renderPdfTable(doc, data.items, y, marginLeft, true, formatCurrencyDecimal);
+    renderPdfTable(doc, data.items, y, marginLeft, true, formatCurrencyDecimal, hasIva);
   }
 
   const filename = `Contas_Pagar_${new Date().toISOString().slice(0, 10)}.pdf`;

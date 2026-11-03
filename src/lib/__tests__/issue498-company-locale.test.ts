@@ -1,6 +1,7 @@
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  companyHasIva,
   formatMoney,
   formatNumber,
   resolveCompanyLocale,
@@ -100,6 +101,27 @@ describe("#498 — contexto puro da empresa", () => {
     expect(es).toEqual(pt);
     expect(calcTotalWithIva(1000, getDefaultIvaRateForCountry("Espanha"))).toBe(1210);
     expect(getDefaultIvaRateForCountry("Portugal")).toBe(23);
+  });
+});
+
+describe("#498 P1l-1 — capacidade de IVA com fallback legado", () => {
+  it.each([
+    ["PT/EUR", { country: "PT", currency: "EUR" }, true],
+    ["ES/EUR", { country: "ES", currency: "EUR" }, true],
+    ["BR/BRL", { country: "BR", currency: "BRL" }, false],
+    ["BR/EUR", { country: "BR", currency: "EUR" }, false],
+    ["indisponível", {}, true],
+    ["configuração incompleta", { country: "BR" }, true],
+  ] as const)("companyHasIva: %s → %s", (_label, input, expected) => {
+    expect(companyHasIva(resolveCompanyLocale(input))).toBe(expected);
+  });
+
+  it("lê capabilities.iva sem acrescentar campos nem substituir ivaPolicy", () => {
+    const ctx = { ...pt, capabilities: { ...pt.capabilities, iva: false } };
+    const original = structuredClone(ctx);
+    expect(companyHasIva(ctx)).toBe(false);
+    expect(ctx).toEqual(original);
+    expect(companyHasIva({ ...br, capabilities: { ...br.capabilities, iva: true } })).toBe(true);
   });
 });
 
