@@ -361,7 +361,7 @@ describe("#498 P1m — formatador fiscal puro e cópia do valor original", () =>
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     try {
       render(<SupplierBankDetails supplier={{ id: "a", name: "Fornecedor sintético" }} defaultExpanded />);
-      const line = screen.getByText(`${type.toUpperCase()}: ${value.trim()}`);
+      const line = screen.getByText(`${type.toUpperCase()}: ${type === "cnpj" ? "12.345.678/0001-99" : "000.000.000-00"}`);
       fireEvent.click(line.querySelector("button")!);
       expect(writeText).toHaveBeenCalledExactlyOnceWith(value);
       expect(details).toEqual({ foreign_bank_accounts: [], tax_id_foreign: value, tax_id_type: type });

@@ -275,7 +275,7 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
     const value = type === "cpf" ? "12345678900" : brRow.tax_id_foreign;
     result([{ ...brRow, tax_id_foreign: value, tax_id_type: type }]);
     mount(<SupplierBankDetails supplier={brSupplier} defaultExpanded />);
-    expect(await screen.findByText(`${type.toUpperCase()}: ${value}`)).toBeInTheDocument();
+    expect(await screen.findByText(`${type.toUpperCase()}: ${type === "cpf" ? "123.456.789-00" : "12.345.678/0001-99"}`)).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/PROPS-FISCAL|NIF-PT|IBAN|MOD-97/);
     expect(f.from).not.toHaveBeenCalled();
   });
@@ -303,11 +303,11 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
     allowWrites(); mount(<>
       {form()}<SupplierBankDetails supplier={brSupplier} defaultExpanded />
     </>); await ready();
-    expect(await screen.findByText(`CNPJ: ${brRow.tax_id_foreign}`)).toBeInTheDocument();
+    expect(await screen.findByText("CNPJ: 12.345.678/0001-99")).toBeInTheDocument();
     result([{ ...brRow, tax_id_foreign: "98765432000100" }]);
     fireEvent.change(screen.getByLabelText("CNPJ"), { target: { value: "98765432000100" } });
     submit();
-    expect(await screen.findByText("CNPJ: 98765432000100")).toBeInTheDocument();
+    expect(await screen.findByText("CNPJ: 98.765.432/0001-00")).toBeInTheDocument();
     expect(f.writes).toHaveLength(1);
   });
 
