@@ -9,7 +9,7 @@
  * O PDF fica sempre arquivado no bucket privado "ads-invoices", em caminho
  * isolado por empresa, porque a fatura é um facto externo.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,8 @@ import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, CheckCircle2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/mock-data";
+import { useAuth } from "@/contexts/AuthContext";
+import { formatAdsMoney, adsError, adsMessages } from "@/lib/ads-invoice-messages";
 
 type Platform = "meta" | "google" | "tiktok";
 
@@ -43,6 +45,8 @@ interface DryRunResult {
   reconcilia: boolean;
   linhas: number;
   warnings?: string[];
+  currency: string;
+  source_blocker?: unknown;
 }
 
 const platformLabels: Record<Platform, string> = { meta: "Meta", google: "Google", tiktok: "TikTok" };
@@ -70,17 +74,25 @@ function periodLabel(period: string | null | undefined): string {
 
 export function AdsInvoiceImportDialog({ companyId }: { companyId: string | null }) {
   const qc = useQueryClient();
+  const {user, permissions, role, loading} = useAuth();
+  const scope = JSON.stringify([companyId,user?.id,role,loading,[...permissions].sort()]);
+  const currentScope = useRef(scope); currentScope.current = scope;
+  const turn = useRef(0);
+  const mounted = useRef(true);
+  useEffect(() => {mounted.current=true;return () => {mounted.current=false;};},[]);
+  useEffect(() => {setOpen(false);reset();},[scope]);
   const [open, setOpen] = useState(false);
   const [platform, setPlatform] = useState<Platform>("google");
   const [file, setFile] = useState<File | null>(null);
-  const [filePath, setFilePath] = useState<string | null>(null);
+  const [fileBase64, setFileBase64] = useState<string | null>(null);
   const [preview, setPreview] = useState<DryRunResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
+    turn.current++;
     setFile(null);
-    setFilePath(null);
+    setFileBase64(null);
     setPreview(null);
     setError(null);
     setBusy(false);
@@ -88,58 +100,63 @@ export function AdsInvoiceImportDialog({ companyId }: { companyId: string | null
 
   const action = platform === "meta" ? "parse_meta" : platform === "tiktok" ? "parse_tiktok" : "parse_google";
 
-  /** Fase 2 — sobe o ficheiro e lê, sem gravar nada. */
+  /** Fase 2 — bytes apenas no pedido; sem escrita no Storage ou na base. */
   const doRead = async () => {
     if (!file || !companyId) return;
+    const requestScope = scope;
+    const requestTurn = turn.current;
     setBusy(true);
     setError(null);
     setPreview(null);
     try {
-      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const path = `${companyId}/faturas/${platform}/${stamp}-${safeName}`;
-      const { error: upErr } = await supabase.storage
-        .from("ads-invoices")
-        .upload(path, file, { contentType: "application/pdf", upsert: true });
-      if (upErr) throw new Error(`arquivo do ficheiro: ${upErr.message}`);
-      setFilePath(path);
+      const base64 = await new Promise<string>((resolve,reject) => {
+        const reader=new FileReader(); reader.onload=()=>resolve(String(reader.result).split(',')[1]); reader.onerror=()=>reject(new Error('Falha ao ler o ficheiro.')); reader.readAsDataURL(file);
+      });
+      if (!mounted.current || (currentScope.current !== requestScope || turn.current !== requestTurn)) return;
+      setFileBase64(base64);
 
       const { data, error: fnErr } = await supabase.functions.invoke("ads-invoice-ingest", {
-        body: { action, file_path: path, company_id: companyId, dry_run: true },
+        body: { action, file_base64: base64, company_id: companyId, dry_run: true },
       });
+      if (!mounted.current || (currentScope.current !== requestScope || turn.current !== requestTurn)) return;
       if (fnErr) throw new Error(await fnErrorMessage(fnErr));
       if ((data as any)?.error) throw new Error(String((data as any).error));
       setPreview(data as DryRunResult);
     } catch (e: any) {
-      setError(e?.message ?? String(e));
+      if (mounted.current && currentScope.current === requestScope && turn.current === requestTurn) setError(adsError(e));
     } finally {
-      setBusy(false);
+      if (mounted.current && currentScope.current === requestScope && turn.current === requestTurn) setBusy(false);
     }
   };
 
   /** Fase 3 — grava a proposta. Só chega aqui depois da confirmação humana. */
   const doSave = async () => {
-    if (!filePath || !companyId) return;
+    if (!fileBase64 || !companyId || !preview?.reconcilia) return;
+    const requestScope = scope;
+    const requestTurn = turn.current;
     setBusy(true);
     setError(null);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke("ads-invoice-ingest", {
-        body: { action, file_path: filePath, company_id: companyId },
+        body: { action, file_base64: fileBase64, company_id: companyId },
       });
+      if (!mounted.current || (currentScope.current !== requestScope || turn.current !== requestTurn)) return;
       if (fnErr) throw new Error(await fnErrorMessage(fnErr));
       if ((data as any)?.error) throw new Error(String((data as any).error));
       await qc.invalidateQueries({ queryKey: ["ads-invoices"] });
-      await qc.invalidateQueries({ queryKey: ["ads-invoice-lines"] });
+      await qc.invalidateQueries({ queryKey: ["ads-invoice-detail"] });
+      if (!mounted.current || (currentScope.current !== requestScope || turn.current !== requestTurn)) return;
+      if ((data as any).source_verified === false) toast.warning(adsMessages.errors.financial_source_required);
       toast.success(
         `Fatura ${(data as any).invoice_number} importada — ${(data as any).linhas} linhas, ` +
-          `${formatCurrency(Number((data as any).total_amount))}`,
+          `${formatAdsMoney(Number((data as any).total_amount),(data as any).currency)}`,
       );
       setOpen(false);
       reset();
     } catch (e: any) {
-      setError(e?.message ?? String(e));
+      if (mounted.current && currentScope.current === requestScope && turn.current === requestTurn) setError(adsError(e));
     } finally {
-      setBusy(false);
+      if (mounted.current && currentScope.current === requestScope && turn.current === requestTurn) setBusy(false);
     }
   };
 
@@ -156,15 +173,15 @@ export function AdsInvoiceImportDialog({ companyId }: { companyId: string | null
           <Upload className="mr-2 h-4 w-4" /> Importar fatura
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="manual-modal-shell max-w-lg">
+        <DialogHeader className="manual-modal-header">
           <DialogTitle>Importar fatura de tráfego pago</DialogTitle>
           <DialogDescription>
             O ficheiro é lido primeiro e mostrado aqui. Nada é gravado até confirmares.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="min-h-0 space-y-4 overflow-y-auto">
           <div className="space-y-2">
             <Label>Plataforma</Label>
             <div className="flex gap-2">
@@ -178,7 +195,7 @@ export function AdsInvoiceImportDialog({ companyId }: { companyId: string | null
                   onClick={() => {
                     setPlatform(p);
                     setPreview(null);
-                    setFilePath(null);
+                    setFileBase64(null);
                   }}
                 >
                   {platformLabels[p]}
@@ -197,7 +214,7 @@ export function AdsInvoiceImportDialog({ companyId }: { companyId: string | null
               onChange={(e) => {
                 setFile(e.target.files?.[0] ?? null);
                 setPreview(null);
-                setFilePath(null);
+                setFileBase64(null);
                 setError(null);
               }}
             />
@@ -231,9 +248,9 @@ export function AdsInvoiceImportDialog({ companyId }: { companyId: string | null
                   </>
                 )}
                 <dt className="text-muted-foreground">Total da fatura</dt>
-                <dd>{formatCurrency(Number(preview.total_amount))}</dd>
+                <dd>{formatAdsMoney(Number(preview.total_amount),preview.currency)}</dd>
                 <dt className="text-muted-foreground">Soma das linhas</dt>
-                <dd>{formatCurrency(Number(preview.lines_sum))}</dd>
+                <dd>{formatAdsMoney(Number(preview.lines_sum),preview.currency)}</dd>
                 <dt className="text-muted-foreground">Linhas</dt>
                 <dd>{preview.linhas}</dd>
               </dl>
@@ -251,6 +268,8 @@ export function AdsInvoiceImportDialog({ companyId }: { companyId: string | null
               )}
             </div>
           )}
+
+          {preview?.source_blocker && <p role="alert">{adsMessages.errors.financial_source_required}</p>}
 
           {error && (
             <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
@@ -275,7 +294,7 @@ export function AdsInvoiceImportDialog({ companyId }: { companyId: string | null
               <Button variant="outline" disabled={busy} onClick={() => setPreview(null)}>
                 Voltar
               </Button>
-              <Button disabled={busy} onClick={doSave}>
+              <Button disabled={busy || !preview.reconcilia} onClick={doSave}>
                 {busy ? "A gravar…" : "Gravar proposta"}
               </Button>
             </>

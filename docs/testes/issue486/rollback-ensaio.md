@@ -1,3 +1,5 @@
+> D23: o rollback e o pós foram regenerados para as 35 identidades finais, incluindo set_split no comando, preflight de manutenção e classificação TikTok após atestação/guarda attest. A migração/cópia têm SHA256 `1a0620a35696feb399c48a277743fbb1cec4b20db83944b6c2f0089fc2241d82`. Nenhum objeto novo foi acrescentado por esta adenda; o ensaio abaixo continua preparado e não executado. Incluir os dois entrypoints e a lacuna de consumidor de manutenção de `dossier.md` na futura análise de consumidores antes do rollback.
+
 # Ensaio de rollback — preparado, não executado
 
 A autorização desta entrega não permite executar este ensaio. Exige catálogo PostgreSQL fiel, base descartável sintética sem egress/crons/dados operacionais e autorização própria. Não usar replay/bindings privados #352 nem substituir helpers por stubs.

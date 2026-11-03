@@ -1,3 +1,5 @@
+> D23 — estado desta implementação: a separação D2/D3 abaixo fica substituída pelo despacho conjunto. Código/tipos/UI/importação/documentos/testes foram implementados parcialmente; o mapa da entrega efetiva e das lacunas está em `dossier.md`. A matriz D1/P1–P9 abaixo conserva os roteiros preparados, sem equivaler a provas PostgreSQL. Não foi feito um novo diagnóstico/plano em substituição do código. Manutenção serial durável e limpeza/storage-trash ainda impedem conclusão e promoção.
+
 # #486 — D1-C3: candidato e roteiros para revisão
 
 Entrega de preparação em 02/11/2026. Esta versão substitui o plano D1-P/#496 quanto ao estado da entrega; preserva as regras e a sequência D1→D2→D3. Não declara D1/#486 concluídos. Nenhum SQL novo foi executado ou compilado.

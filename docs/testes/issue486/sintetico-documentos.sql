@@ -225,3 +225,27 @@ DO $$ DECLARE r jsonb; task jsonb; payload jsonb; relation_name text; BEGIN
 END $$;
 RESET SESSION AUTHORIZATION;
 ROLLBACK;
+
+-- D23 / PREPARADO, NÃO EXECUTADO: preflight interno lê o controlo antes de Storage.
+BEGIN;
+\ir fixture.sql
+SET SESSION AUTHORIZATION service_role;
+SELECT set_config('request.jwt.claims','{"role":"service_role"}',true);
+DO $$ DECLARE before_state jsonb; r jsonb; BEGIN
+ before_state:=pg_temp.ads486_digest();
+ r:=public.ads_invoice_maintenance_v1('48600000-0000-4000-8000-000000000501','preflight',
+  '{"company_id":"48600000-0000-4000-8000-000000000001"}');
+ ASSERT r->'contract_version'='1'::jsonb AND r->'task'='null'::jsonb,'preflight_no_claim';
+ ASSERT before_state=pg_temp.ads486_digest(),'preflight_no_effect';
+END $$;
+RESET SESSION AUTHORIZATION;
+UPDATE ads486_private.control SET enabled=false WHERE singleton;
+SET SESSION AUTHORIZATION service_role;
+SELECT set_config('request.jwt.claims','{"role":"service_role"}',true);
+SELECT public.ads_invoice_maintenance_v1('48600000-0000-4000-8000-000000000501','list',
+ '{"company_id":"48600000-0000-4000-8000-000000000001"}');
+SELECT pg_temp.ads486_expect($q$SELECT public.ads_invoice_maintenance_v1(
+ '48600000-0000-4000-8000-000000000501','preflight',
+ '{"company_id":"48600000-0000-4000-8000-000000000001"}')$q$,'0A000','feature_disabled');
+RESET SESSION AUTHORIZATION;
+ROLLBACK;

@@ -1029,6 +1029,15 @@ BEGIN
     END IF;
     SELECT * INTO split_line FROM public.ads_invoice_line WHERE id=public._ads486_uuid(p_payload->'line_id')
       AND invoice_id=i.id AND company_id=i.company_id;
+    -- D23: uma proposta importada começa sem event_id. O Master escolhido
+    -- no plano persistido é prova humana; não inferir cidade/maior verba.
+    IF split_line.event_split IS NULL AND split_line.id IS NOT NULL THEN
+      SELECT coalesce((SELECT (al->>'event_id')::uuid
+      FROM jsonb_array_elements(i.generation_plan->'allocations') al
+      WHERE al->>'line_id'=split_line.id::text AND al->>'destination'='event'
+        AND 1=(SELECT count(*) FROM jsonb_array_elements(i.generation_plan->'allocations') chosen
+          WHERE chosen->>'line_id'=split_line.id::text)),split_line.event_id) INTO split_line.event_id;
+    END IF;
     IF split_line.id IS NULL OR split_line.is_adjustment OR split_line.event_id IS NULL
       OR jsonb_typeof(p_payload->'parts') IS DISTINCT FROM 'array' THEN
       RAISE EXCEPTION USING ERRCODE='P0422',MESSAGE='invalid_plan',DETAIL='split_media_required';
@@ -1047,7 +1056,7 @@ BEGIN
     IF cardinality(split_ids)>0 AND split_total<>split_line.amount THEN
       RAISE EXCEPTION USING ERRCODE='P0422',MESSAGE='invalid_plan',DETAIL='split_sum';
     END IF;
-    UPDATE public.ads_invoice_line SET event_split=CASE WHEN parts='[]'::jsonb THEN NULL ELSE parts END,
+    UPDATE public.ads_invoice_line SET event_id=split_line.event_id,event_split=CASE WHEN parts='[]'::jsonb THEN NULL ELSE parts END,
       matched_by=u,matched_at=now(),updated_at=now() WHERE id=split_line.id;
     -- Invalida as escolhas BP desta linha; não as replica arbitrariamente para
     -- as cidades. D3 tem de recolher as novas seleções e gravar o plano completo.
@@ -1621,6 +1630,8 @@ BEGIN
   IF public._ads486_financial_source(i.id)->>'supplier_id' IS NULL THEN
     RAISE EXCEPTION USING ERRCODE='P0422',MESSAGE='financial_source_required';
   END IF;
+  -- D23: publicar a classificação apenas depois da prova da conta no PDF.
+  PERFORM public._ads486_classify_tiktok(i.id);
   PERFORM public._ads486_leave();
   RETURN jsonb_build_object('contract_version',1,'invoice_id',i.id,'revision',i.generation_revision+1,'identical',false);
 END $$;
@@ -1727,7 +1738,7 @@ DECLARE i public.ads_invoice; task jsonb; task_index integer; prior jsonb; recei
   request_digest text; reply jsonb; key text;
 BEGIN
   IF auth.role() IS DISTINCT FROM 'service_role' THEN RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='forbidden'; END IF;
-  IF p_action='list' THEN
+  IF p_action IN ('list','preflight') THEN
     PERFORM public._ads486_keys(p_payload,ARRAY['company_id'],ARRAY['company_id']);
   ELSIF p_action IN ('ack','retry') THEN
     PERFORM public._ads486_keys(p_payload,
@@ -1736,7 +1747,11 @@ BEGIN
   ELSE RAISE EXCEPTION USING ERRCODE='P0422',MESSAGE='invalid_plan',DETAIL='maintenance_action'; END IF;
   SELECT * INTO i FROM public.ads_invoice WHERE id=p_invoice_id AND company_id=public._ads486_uuid(p_payload->'company_id');
   IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='forbidden'; END IF;
-  IF p_action='list' THEN
+  IF p_action IN ('list','preflight') THEN
+    -- D23: gate de efeitos internos antes de Storage; leitura sem claim/locks.
+    IF p_action='preflight' AND NOT EXISTS(SELECT 1 FROM ads486_private.control WHERE singleton AND enabled) THEN
+      RAISE EXCEPTION USING ERRCODE='0A000',MESSAGE='feature_disabled';
+    END IF;
     -- Uma consulta, uma fotografia e somente a cabeça não concluída.
     RETURN (SELECT jsonb_build_object('contract_version',1,'invoice_id',ai.id,'task',
       (SELECT t FROM jsonb_array_elements(ai.generation_maintenance) WITH ORDINALITY q(t,ord)
@@ -1846,7 +1861,7 @@ BEGIN
         AND invoice_id=parent.id) THEN
       IF NOT EXISTS(SELECT 1 FROM ads486_private.command_context ctx WHERE backend=pg_backend_pid()
         AND transaction_id=txid_current() AND ctx.invoice_id=parent.id AND line_id=ANY(ctx.line_ids)
-        AND ctx.action IN ('import','save_plan','generate','revert','set_split')) THEN
+        AND ctx.action IN ('import','save_plan','generate','revert','set_split','attest')) THEN
         RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='ads_v1_command_required';
       END IF;
     END IF;
@@ -2114,17 +2129,17 @@ BEGIN
   ('public._ads486_create_forecast(uuid,jsonb,text)','316632758f60dcebc21486c48ad25e2b',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public']::text[],false,false,'uuid',false,false,0,NULL::text,ARRAY['p_company','p_new','p_observation']::text[],NULL::text[],NULL::text[]),
   ('public._ads486_preview(uuid)','f492bdfc4cbc8546339f900b74e8675a',true,'plpgsql','s',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],false,false,'jsonb',false,false,0,NULL::text,ARRAY['p_invoice']::text[],NULL::text[],NULL::text[]),
   ('public._ads486_task(uuid,text,bigint,uuid,jsonb)','e17c2ada734dbb6b80bcee16c7258625',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public']::text[],false,false,'jsonb',false,false,0,NULL::text,ARRAY['p_invoice','p_action','p_revision','p_operation','p_resources']::text[],NULL::text[],NULL::text[]),
-  ('public.ads_invoice_generation_v1(uuid,text,jsonb)','c84a72206abc75838a93fe2c6658b006',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],true,false,'jsonb',false,false,1,'''{}''::jsonb',ARRAY['p_invoice_id','p_action','p_payload']::text[],NULL::text[],NULL::text[]),
+  ('public.ads_invoice_generation_v1(uuid,text,jsonb)','f4715b4dea220df2a248b70fe4433d02',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],true,false,'jsonb',false,false,1,'''{}''::jsonb',ARRAY['p_invoice_id','p_action','p_payload']::text[],NULL::text[],NULL::text[]),
   ('public.ads_invoice_reopen_v1(uuid,bigint)','0dd1c819b1a0c452245952d8852398da',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],true,false,'jsonb',false,false,0,NULL::text,ARRAY['p_invoice_id','p_expected_revision']::text[],NULL::text[],NULL::text[]),
   ('public._ads486_line_identity(jsonb)','1b1f494d4d56dbf05cceaf6fe6e4adc0',false,'sql','i',ARRAY['search_path=pg_catalog']::text[],false,false,'jsonb',false,false,0,NULL::text,ARRAY['p_line']::text[],NULL::text[],NULL::text[]),
   ('public.ads_invoice_import_v1(jsonb,jsonb)','d4e2d1ed0233d7577777f1c74927bf5d',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],true,false,'jsonb',false,false,0,NULL::text,ARRAY['p_invoice','p_lines']::text[],NULL::text[],NULL::text[]),
   ('public._ads486_documents(uuid,uuid,jsonb)','d5263b9b46c0bc0d86d75ab34976f945',false,'plpgsql','i',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],false,false,'boolean',false,false,0,NULL::text,ARRAY['p_operation','p_company','p_documents']::text[],NULL::text[],NULL::text[]),
   ('public.ads_invoice_document_complete_v1(uuid,text,jsonb)','c3c55b670f8244d8294f619a64269b5d',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],false,true,'jsonb',false,false,0,NULL::text,ARRAY['p_operation_id','p_task_key','p_payload']::text[],NULL::text[],NULL::text[]),
-  ('public.ads_invoice_source_attest_v1(uuid,bigint,jsonb)','94708f203014aad9e5557c94a86e4883',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],false,true,'jsonb',false,false,0,NULL::text,ARRAY['p_invoice_id','p_expected_revision','p_source']::text[],NULL::text[],NULL::text[]),
+  ('public.ads_invoice_source_attest_v1(uuid,bigint,jsonb)','06dafd4f00a8933a04b1fd74333837f0',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],false,true,'jsonb',false,false,0,NULL::text,ARRAY['p_invoice_id','p_expected_revision','p_source']::text[],NULL::text[],NULL::text[]),
   ('public.ads_invoice_revert_v1(uuid,uuid,bigint)','15819b03a8e7def422b26b21f1813f0d',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],true,false,'jsonb',false,false,0,NULL::text,ARRAY['p_invoice_id','p_operation_id','p_expected_revision']::text[],NULL::text[],NULL::text[]),
-  ('public.ads_invoice_maintenance_v1(uuid,text,jsonb)','b9fa3f488cafe914f3512d4cf13edeb2',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],false,true,'jsonb',false,false,0,NULL::text,ARRAY['p_invoice_id','p_action','p_payload']::text[],NULL::text[],NULL::text[]),
+  ('public.ads_invoice_maintenance_v1(uuid,text,jsonb)','1bb6813bd0d185f6a365da84383586f7',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public','lock_timeout=2s','statement_timeout=15s']::text[],false,true,'jsonb',false,false,0,NULL::text,ARRAY['p_invoice_id','p_action','p_payload']::text[],NULL::text[],NULL::text[]),
   ('public._ads486_invoice_guard()','e529bb8cdd9d80b7448b31119df0aaf3',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public']::text[],false,false,'trigger',false,false,0,NULL::text,NULL::text[],NULL::text[],NULL::text[]),
-  ('public._ads486_line_guard()','fc72daf5ed72a27a2e8c1312337be486',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public']::text[],false,false,'trigger',false,false,0,NULL::text,NULL::text[],NULL::text[],NULL::text[]),
+  ('public._ads486_line_guard()','54e706abb6c5ed84dcb48ef4c3715e0e',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public']::text[],false,false,'trigger',false,false,0,NULL::text,NULL::text[],NULL::text[],NULL::text[]),
   ('public._ads486_transaction_guard()','079e56553642d4bfbafe2d827d8f656a',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public']::text[],false,false,'trigger',false,false,0,NULL::text,NULL::text[],NULL::text[],NULL::text[]),
   ('public._ads486_forecast_guard()','3ffa6ddf92327cf5c3b3b66d967f5ca6',true,'plpgsql','v',ARRAY['search_path=pg_catalog, public']::text[],false,false,'trigger',false,false,0,NULL::text,NULL::text[],NULL::text[],NULL::text[]),
   ('public.ads_invoice_line_set_tour_split(uuid,jsonb)','ecba641ffe14c7cb199c5ba985944e6e',true,'plpgsql','v',ARRAY['search_path=public, pg_catalog']::text[],true,true,'jsonb',false,false,0,NULL::text,ARRAY['_line_id','_parts']::text[],NULL::text[],NULL::text[]),

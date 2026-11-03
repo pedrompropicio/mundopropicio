@@ -163,3 +163,17 @@ DO $$ DECLARE r record; BEGIN
   RAISE EXCEPTION 'fixture_canonical_blocker_rpc_missing';
  END IF;
 END $$;
+
+-- D23: fontes adicionais do adaptador documental, antes de qualquer promoção.
+-- Consulta somente de catálogo; ausências/divergências bloqueiam, não autorizam defaults.
+DO $$ BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='public.companies'::regclass
+  AND attname='tax_id' AND atttypid IN ('text'::regtype,'varchar'::regtype) AND NOT attisdropped) THEN
+  RAISE EXCEPTION 'source_customer_tax_id_required';
+ END IF;
+END $$;
+-- Confirmar igualmente que current_company_id e has_permission_in conservam
+-- as identidades/ACL versionadas; o handler de documentos usa ambos sob JWT.
+SELECT p.oid::regprocedure,pg_get_functiondef(p.oid),p.proacl,p.proconfig
+ FROM pg_proc p WHERE p.oid IN ('public.current_company_id()'::regprocedure,
+  'public.has_permission_in(uuid,text,uuid)'::regprocedure);
