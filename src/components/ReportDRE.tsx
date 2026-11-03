@@ -14,7 +14,9 @@ import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 import { eventCostLines, eventCostMode, groupByEvent, type ReportCostSource } from "@/lib/report-event-cost";
 import { ReportCostSourceToggle } from "@/components/ReportCostSourceToggle";
-import { formatCurrency } from "@/lib/mock-data";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { formatMoney } from "@/lib/company-locale";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, Info, Eye } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -67,6 +69,7 @@ function buildDRE(
   ticketCategoryId: string | null,
   partners: any[],
   calcBasis: string,
+  formatCurrency: (value: number) => string,
   parentEventId?: string | null,
   closingCosts?: any[],
   partnerExtras?: any[],
@@ -293,6 +296,12 @@ function buildDRE(
 }
 
 export default function ReportDRE() {
+  const companyLocale = useCompanyLocale();
+  const formatCurrency = (value: number) => companyLocale.status !== "available"
+    ? "—"
+    : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("transactions");
@@ -638,7 +647,7 @@ export default function ReportDRE() {
     const evtTx = getEffectiveTransactions(e.id);
     const parentEvt = (e as any).parent_event_id ? events.find((pe) => pe.id === (e as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (e as any).partner_calc_basis || "net_result";
-    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[e.id] ?? null, ebitdaArg);
+    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, formatCurrency, (e as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[e.id] ?? null, ebitdaArg);
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
     const resLine = dre.find((l) => l.isGrandTotal);
@@ -679,7 +688,7 @@ export default function ReportDRE() {
     const evtTx = getEffectiveTransactions(evt.id);
     const parentEvt = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
-    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[evt.id] ?? null, ebitdaArg);
+    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, formatCurrency, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[evt.id] ?? null, ebitdaArg);
     dre.filter((l) => l.isDistribution).forEach((l) => {
       if (l.isHouse) {
         globalHouseSum += l.amountExIva;
@@ -877,7 +886,7 @@ export default function ReportDRE() {
           const evtTx = getEffectiveTransactions(evt.id);
           const parentEvtDetail = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
           const calcBasis = parentEvtDetail ? (parentEvtDetail as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
-          const dre = isOpen ? buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[evt.id] ?? null, ebitdaArg) : [];
+          const dre = isOpen ? buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, formatCurrency, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[evt.id] ?? null, ebitdaArg) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">
@@ -914,9 +923,9 @@ export default function ReportDRE() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Rubrica</TableHead>
-                          <TableHead className="text-right">S/ IVA (€)</TableHead>
-                          <TableHead className="text-right">IVA (€)</TableHead>
-                          <TableHead className="text-right">C/ IVA (€)</TableHead>
+                          <TableHead className="text-right">S/ IVA ({companyLocale.status === "available" ? companyLocale.symbol : "—"})</TableHead>
+                          <TableHead className="text-right">IVA ({companyLocale.status === "available" ? companyLocale.symbol : "—"})</TableHead>
+                          <TableHead className="text-right">C/ IVA ({companyLocale.status === "available" ? companyLocale.symbol : "—"})</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1007,6 +1016,7 @@ export default function ReportDRE() {
             ticketCategoryId,
             eventPartners,
             calcBasisChild,
+            formatCurrency,
             (c as any).parent_event_id,
             showPartnerView ? closingCosts : [],
             showPartnerView ? partnerExtras : [],
