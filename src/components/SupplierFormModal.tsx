@@ -512,7 +512,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
             </div>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="sup-address">Morada</Label>
+            <Label htmlFor="sup-address">{companyLocale.status === "available" ? companyLocale.labels.address : "Morada"}</Label>
             <Input id="sup-address" name="address" defaultValue={s?.address ?? ""} />
           </div>
           {isBR ? <div className="space-y-3">

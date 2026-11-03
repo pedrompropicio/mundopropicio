@@ -77,7 +77,7 @@ export function readFrozenOrigin(values: unknown): PartnerShareOrigin | null {
   return o as PartnerShareOrigin;
 }
 
-export function shareOriginRows(origin: PartnerShareOrigin) {
+export function shareOriginRows(origin: PartnerShareOrigin, opts?: { hasIva?: boolean }) {
   const rows: Array<{ key: string; label: string; value: number; detail?: boolean; note?: string }> = [
     { key: "parent", label: "Quota do fechamento acima", value: origin.parent_quota },
     { key: "vat", label: "IVA dedutível devolvido", value: origin.vat_returned_in },
@@ -91,7 +91,10 @@ export function shareOriginRows(origin: PartnerShareOrigin) {
   const sum = rows.filter((row) => !row.detail).reduce((total, row) => total + Math.round(row.value * 100), 0);
   const difference = (Math.round(origin.result_amount * 100) - sum) / 100;
   if (difference !== 0) rows.push({ key: "other", label: "Outros / arredondamentos", value: difference });
-  rows.push({ key: "result", label: `= Resultado do fechamento (${origin.result_basis_gross ? "c/IVA" : "s/IVA"})`, value: origin.result_amount });
+  const basis = opts?.hasIva === false
+    ? `base ${origin.result_basis_gross ? "bruta" : "líquida"}`
+    : origin.result_basis_gross ? "c/IVA" : "s/IVA";
+  rows.push({ key: "result", label: `= Resultado do fechamento (${basis})`, value: origin.result_amount });
   return rows;
 }
 

@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,9 @@ function normalize(v: string | null) {
 
 export default function IbanDuplicatesPage() {
   const { role } = useAuth();
+  const companyLocale = useCompanyLocale();
+  const bankAccount = companyLocale.status === "available" ? companyLocale.labels.bankAccount : "IBAN";
+  const taxIdAny = companyLocale.status === "available" ? companyLocale.labels.taxIdAny : "NIF";
   const isAuthorized =
     role === "admin" || role === ("platform_admin" as any) || role === ("manager" as any);
 
@@ -96,10 +100,10 @@ export default function IbanDuplicatesPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <ShieldAlert className="h-6 w-6 text-warning" />
-          IBANs Duplicados
+          {bankAccount === "IBAN" ? "IBANs Duplicados" : `Duplicados de ${bankAccount.toLowerCase()}`}
         </h1>
         <p className="text-sm text-muted-foreground mt-1 max-w-3xl">
-          IBANs partilhados por múltiplos fornecedores na empresa ativa. Pode ser
+          {bankAccount === "IBAN" ? "IBANs partilhados" : `${bankAccount} partilhada`} por múltiplos fornecedores na empresa ativa. Pode ser
           legítimo (mesma pessoa singular com várias entidades) ou erro de cadastro
           que conduz a pagamentos para a entidade errada. Reveja caso a caso.
         </p>
@@ -112,8 +116,8 @@ export default function IbanDuplicatesPage() {
             {isLoading
               ? "A analisar fornecedores…"
               : groups.length === 0
-                ? "Não foram detetados IBANs duplicados ✓"
-                : `${groups.length} IBAN(s) partilhado(s) por mais de um fornecedor`}
+                ? bankAccount === "IBAN" ? "Não foram detetados IBANs duplicados ✓" : `Não foram detetados duplicados de ${bankAccount.toLowerCase()} ✓`
+                : bankAccount === "IBAN" ? `${groups.length} IBAN(s) partilhado(s) por mais de um fornecedor` : `${groups.length} duplicado(s) de ${bankAccount.toLowerCase()} partilhado(s) por mais de um fornecedor`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -129,7 +133,7 @@ export default function IbanDuplicatesPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>IBAN</TableHead>
+                  <TableHead>{bankAccount}</TableHead>
                   <TableHead className="w-24">Nº</TableHead>
                   <TableHead>Fornecedores</TableHead>
                 </TableRow>
@@ -150,7 +154,7 @@ export default function IbanDuplicatesPage() {
                           >
                             <span className="font-medium">{s.name}</span>
                             <span className="text-muted-foreground text-xs">
-                              NIF: {s.nif ?? "—"}
+                              {taxIdAny}: {s.nif ?? "—"}
                             </span>
                             <Button
                               size="sm"

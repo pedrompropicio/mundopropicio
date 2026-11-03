@@ -159,7 +159,7 @@ describe("#498 P2h-c — UI BR pela RPC", () => {
     result([brRow]); mount(<SupplierBankDetails supplier={staleSupplier} defaultExpanded />);
     await screen.findByText("Conta: 00123");
     for (const text of ["Banco: Banco BR", "Agência: 0001", "Dígito: X", "Tipo de conta: Poupança",
-      "Chave Pix: pix@example.invalid", "CNPJ: 12345678000199"]) expect(screen.getByText(text)).toBeInTheDocument();
+      "Chave Pix: pix@example.invalid", "CNPJ: 12.345.678/0001-99"]) expect(screen.getByText(text)).toBeInTheDocument();
     expect(screen.queryByText(/PROPS|NIF-PT/)).toBeNull(); expect(f.from).not.toHaveBeenCalled();
   });
   it("grava pelo UPDATE existente preservando outros slots e metadados", async () => {

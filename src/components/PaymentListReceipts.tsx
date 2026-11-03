@@ -254,11 +254,17 @@ export default function PaymentListReceipts({ listId, listTitle, activeTransacti
       )}
 
       {usingFallback ? (
-        <p className="mb-2 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px]">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
-          Sem exportação SEPA registada nesta lista — o comprovativo será replicado em todos os{" "}
-          {activeTransactionIds.length} item(ns) ativo(s).
-        </p>
+        companyLocale.status === "available" && !companyLocale.capabilities.sepa ? (
+          <p className="mb-2 text-[11px] text-muted-foreground">
+            O comprovativo será replicado em todos os {activeTransactionIds.length} item(ns) ativo(s).
+          </p>
+        ) : (
+          <p className="mb-2 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px]">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+            Sem exportação SEPA registada nesta lista — o comprovativo será replicado em todos os{" "}
+            {activeTransactionIds.length} item(ns) ativo(s).
+          </p>
+        )
       ) : (
         <p className="mb-2 text-[11px] text-muted-foreground">
           Replicação para as {targetTxIds.length} transação(ões) da exportação de {formatDate(chosenExport!.exported_at)}.
