@@ -221,6 +221,24 @@ describe("#498 P2h-c — UI BR pela RPC", () => {
     expect(f.rpc).toHaveBeenCalledWith("get_supplier_bank_details", { p_supplier_ids: [] });
     expect(f.from).not.toHaveBeenCalled();
   });
+  it.each(["viewer", "producer"])("criação BR com %s mantém campos bancários e fiscais indisponíveis mesmo com contrato disponível", async role => {
+    f.role = role;
+    result([]); mount(<SupplierFormModal open onOpenChange={() => {}} />);
+    await waitFor(() => expect(f.rpc).toHaveBeenCalledWith("get_supplier_bank_details", { p_supplier_ids: [] }));
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    expect(screen.getByText("Dados bancários indisponíveis para edição.")).toBeInTheDocument();
+    for (const label of ["Banco", "Agência", "Conta", "Dígito", "Tipo de conta", "Chave Pix"]) {
+      for (const field of screen.getAllByLabelText(label)) {
+        expect(field).toBeDisabled();
+        expect(field).toHaveValue("");
+      }
+    }
+    expect(screen.getByLabelText("CNPJ")).toBeDisabled();
+    expect(screen.getByLabelText("CNPJ")).toHaveValue("");
+    expect(screen.getByLabelText("Tipo de identificador fiscal")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Criar Fornecedor" })).toBeEnabled();
+    expect(f.from).not.toHaveBeenCalled();
+  });
   it.each(["formulário", "detalhes"])("%s isola troca de fornecedor/empresa e ignora resposta atrasada", async view => {
     let finishOld!: (value: unknown) => void;
     const pending = new Promise(resolve => { finishOld = resolve; });

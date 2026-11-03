@@ -1,4 +1,5 @@
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { SUPPLIER_BANK_READ_ROLES } from "@/lib/supplier-bank";
 import { BR_BANK_FIELDS, BrBankFields, readBrBankSlots, loadOptionalSupplierBrData, type BrBankDetails } from "@/components/SupplierBankDetails";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -62,6 +63,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const isEditing = !!editingSupplier;
   const companyLocale = useCompanyLocale();
   const isBR = companyLocale.status === "available" && companyLocale.locale === "pt-BR";
+  const canReadBank = SUPPLIER_BANK_READ_ROLES.includes(role ?? "");
   const [brBanks, setBrBanks] = useState<BrBankDetails[]>([{}, {}, {}]);
   const { data: brData } = useQuery({
     queryKey: ["supplier-br-details", companyLocale.companyId, editingSupplier?.id, role, user?.id],
@@ -70,7 +72,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     refetchOnWindowFocus: false,
     retry: false,
   });
-  const brColumnsReady = isBR && !!companyLocale.companyId && brData?.available === true;
+  const brColumnsReady = isBR && canReadBank && !!companyLocale.companyId && brData?.available === true;
   const brSource = brColumnsReady ? brData.details : null;
   const [brTaxId, setBrTaxId] = useState("");
   const [brTaxIdType, setBrTaxIdType] = useState("cnpj");
