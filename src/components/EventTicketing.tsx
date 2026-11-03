@@ -1,5 +1,7 @@
 import { SalesLogPanel } from "@/components/SalesLogPanel";
 import { CoverageScenarioModal } from "@/components/financial-position/CoverageScenarioModal";
+import { FinancialPositionLocaleContext } from "@/lib/financial-position";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { EventCourtesiesEditor } from "@/components/EventCourtesiesEditor";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -79,6 +81,7 @@ function ivaFromGross(gross: number, ivaRate: number): number {
 }
 
 export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }: Props) {
+  const companyLocale = useCompanyLocale();
   // Taxas de IVA do país da cidade do evento (PT por defeito).
   const { rates: ivaRates } = useEventIvaCountry(eventId);
   const [forecastImportOpen, setForecastImportOpen] = useState(false);
@@ -853,7 +856,9 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       {!isScenarioMode && !isEventLocked && (isAdmin || isManager) && <div className="flex justify-end">
         <Button variant="outline" size="sm" onClick={() => setCoverageScenarioOpen(true)}><Ticket className="h-4 w-4" /> Cenário de receita</Button>
       </div>}
-      {coverageScenarioOpen && <CoverageScenarioModal eventId={eventId} onClose={() => setCoverageScenarioOpen(false)} />}
+      {coverageScenarioOpen && <FinancialPositionLocaleContext.Provider value={companyLocale}>
+        <CoverageScenarioModal eventId={eventId} onClose={() => setCoverageScenarioOpen(false)} />
+      </FinancialPositionLocaleContext.Provider>}
 
       {/* Banner de sandbox — apenas em modo cenário */}
       {isScenarioMode && (
