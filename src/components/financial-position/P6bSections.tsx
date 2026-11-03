@@ -3,16 +3,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
 import { useFinancialPositionP5 } from "@/hooks/useFinancialPositionP5";
 import { useRetainedComposition, type RetainedComposition } from "@/hooks/useRetainedComposition";
-import { formatPositionAmount as eur, formatPositionDate as date, type FinancialPosition } from "@/lib/financial-position";
+import { usePositionAmount, formatPositionDate as date, type FinancialPosition } from "@/lib/financial-position";
 import { cacheArtistDisplayName, cacheArtistLabel, retainedRowsToShow, type Caches } from "@/lib/financial-position-p6b";
 import type { FinancialPositionP5 } from "@/lib/financial-position-p5";
 
-const line = (label: string, value: number | null, muted = false) => (
+const makeLine = (eur: ReturnType<typeof usePositionAmount>) => (label: string, value: number | null, muted = false) => (
   <div className="flex flex-wrap justify-between gap-2 py-1 text-sm"><span className={muted ? "text-muted-foreground" : ""}>{label}</span><span className="font-mono tabular-nums">{eur(value)}</span></div>
 );
 
 /** P6b: cachês aprovados por pagar (filhas com evento). Informativo: já incluído no total a pagar. */
 export function CachesView({ caches, names, explain }: { caches: Caches; names: Record<string, string>; explain?: React.ReactNode }) {
+  const eur = usePositionAmount();
+  const line = makeLine(eur);
   return <div className="mt-5 border-l-2 border-primary pl-4" aria-label="Cachês aprovados por pagar">
     <h3 className="flex flex-wrap justify-between gap-2 font-medium"><span>Cachês aprovados por pagar · já incluídos no total</span><span className="flex items-center gap-1"><span className="font-mono tabular-nums">{eur(caches.total)}</span>{explain}</span></h3>
     {caches.por_artista.length === 0 ? <p className="text-sm text-muted-foreground">Sem cachês por pagar</p> : caches.por_artista.map(a => {
@@ -49,6 +51,8 @@ export function useCacheArtistNames() {
 type RetidoRow = FinancialPosition["retido"]["visivel"][number];
 /** P6b: composição por bilheteira, com a fórmula do painel da bilheteira; nunca rateia o pool. */
 export function RetainedCompositionView({ rows, compositions, visible }: { rows: RetidoRow[]; compositions: RetainedComposition[] | null; visible: boolean }) {
+  const eur = usePositionAmount();
+  const line = makeLine(eur);
   if (!visible) return null;
   const byId = new Map((compositions ?? []).map(c => [c.accountId, c]));
   return <div className="mt-6" aria-label="Composição do retido">
@@ -81,6 +85,7 @@ export function RetainedCompositionSection({ data }: { data: FinancialPosition }
 }
 
 export function ResultadoMpView({ data }: { data: FinancialPositionP5 | null }) {
+  const eur = usePositionAmount();
   const r = data?.resultado_mp_ano ?? null;
   if (!data || !r) return <p className="text-sm text-muted-foreground">Indisponível neste momento{data?.meta.incompleto ? " (cálculo incompleto)" : ""}.</p>;
   const part = r.participacoes.cloudscape;

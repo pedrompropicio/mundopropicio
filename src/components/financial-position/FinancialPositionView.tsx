@@ -4,11 +4,12 @@ import { stageLabel } from "@/lib/event-stage";
 import { CachesView } from "@/components/financial-position/P6bSections";
 import { ExplainButton } from "@/components/financial-position/ExplainSheet";
 import { explainBpPending, explainCaches, explainCash, explainCommitment, explainPayableTotal, explainReceivable, explainRetained, explainStage, payableSplit } from "@/lib/financial-position-explain";
-import { POSITION_STAGES, formatPositionAmount as eur, formatPositionDate as date, type FinancialPosition } from "@/lib/financial-position";
+import { POSITION_STAGES, usePositionAmount, formatPositionDate as date, type FinancialPosition } from "@/lib/financial-position";
 
 type BalanceRow = FinancialPosition["cartoes"][number] & { cutoff?: string | null };
 const hiddenMessage = "Saldos não visíveis para o seu perfil";
 function Money({ value, hidden = false }: { value: number | null; hidden?: boolean }) {
+  const eur = usePositionAmount();
   return <span className="font-mono tabular-nums break-words">{hidden || value === null ? hiddenMessage : eur(value)}</span>;
 }
 function Accounts({ rows, visible }: { rows: BalanceRow[]; visible: boolean }) {
@@ -19,14 +20,17 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return <section className="border-t border-border pt-6"><h2 className="mb-4 text-lg font-semibold">{title}</h2>{children}</section>;
 }
 function Line({ label, value }: { label: string; value: number }) {
+  const eur = usePositionAmount();
   return <div className="flex flex-wrap justify-between gap-2 py-1 text-sm"><span className="text-muted-foreground">{label}</span><span className="font-mono tabular-nums">{eur(value)}</span></div>;
 }
 function Transients({ data }: { data: FinancialPosition["a_pagar"]["transitorias"] }) {
+  const eur = usePositionAmount();
   return <div className="mt-5 border-l-2 border-warning pl-4"><h3 className="font-medium">Transitórias · {eur(data.total)}</h3>{data.itens.length === 0 ? <p className="text-sm text-muted-foreground">Sem transitórias em aberto</p> : data.itens.map(item => <Line key={item.reason} label={`${item.reason || "Sem motivo"} · ${item.n} transações`} value={item.aberto} />)}</div>;
 }
 
 /** Display only: no sums, netting, settlement logic or invented defaults. */
 export function FinancialPositionView({ data: d, cacheNames, retainedComposition, resultadoMp }: { data: FinancialPosition; cacheNames?: Record<string, string>; retainedComposition?: React.ReactNode; resultadoMp?: React.ReactNode }) {
+  const eur = usePositionAmount();
   const visible = d.meta.balances_visible;
   const summary = [
     { label: "Caixa e cartões", value: d.posicao.caixa_e_cartoes, icon: Wallet, balance: true, explain: explainCash(d) },

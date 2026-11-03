@@ -3,12 +3,19 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatMoney, type CompanyLocaleResult } from "@/lib/company-locale";
+import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { computeTicketOfficeBalance } from "@/lib/ticket-office-balance";
 import { ticketOfficePosition } from "@/lib/ticket-office-position";
 
-export function TicketOfficePositionCards({ officeId }: { officeId: string }) {
+/** The caller supplies the active company; omission retains the legacy PT rendering. */
+export function TicketOfficePositionCards({ officeId, companyLocale }: { officeId: string; companyLocale?: CompanyLocaleResult }) {
+  const formatCurrency = (value: number) => companyLocale?.status === "unavailable"
+    ? "—"
+    : !companyLocale || (companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")
+      ? formatLegacyCurrency(value)
+      : formatMoney(value, companyLocale);
   const [detail, setDetail] = useState<"events" | "calendar" | null>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ["ticket-office-position", officeId],
