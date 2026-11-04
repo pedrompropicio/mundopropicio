@@ -17,8 +17,8 @@ Deno.test("email: placeholders, assunto, link, código em texto, teste com prefi
   assertEquals(r.subject, PRESALE_SUBJECT);
   assert(!r.html.includes("{{") && !r.text.includes("{{"));
   assert(r.html.includes("Olá Maria,") && r.html.includes(">NEWGANG27A</div>"));
-  assert(r.html.includes("test-artifacts/newgang/NG27_prevenda_cabecalho_1200x600.jpg"));
-  assert(r.html.includes("test-artifacts/newgang/NG27_prevenda_carimbo_ultimos_dias.png"));
+  assert(r.html.includes("test-artifacts/newgang/NG27_prevenda_cabecalho_1200x600-2.jpg"));
+  assert(r.html.includes("test-artifacts/newgang/NG27_prevenda_carimbo_ultimos_dias-2.png"));
   assert(r.html.includes(PRESALE_LINK.replaceAll("&", "&amp;")) && PRESALE_LINK.startsWith(FEVER_CLUB_URL + "?utm_source=clube&utm_medium=email&utm_campaign=ng27_prevenda_reforco"));
   assert(r.html.includes("Cancelar a subscrição") && r.text.includes("Cancelar a subscrição: https://x/u?t=1"));
   assert(r.text.includes("Olá Maria,") && r.text.includes("NEWGANG27A"));
