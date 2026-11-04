@@ -62,7 +62,7 @@ export function FechoBasisSelector({
   const hasIva = companyHasIva(useCompanyLocale());
   const chips = [
     hasIva ? (basis.withVat ? "c/IVA" : "s/IVA") : (basis.withVat ? "base bruta" : "base líquida"),
-    basis.expenseSource === "committed" ? "Previsto + excedido" : "Realizado",
+    !basis.isWithoutBp && basis.expenseSource === "committed" ? "Previsto + excedido" : "Realizado",
     basis.includeOverhead ? "+OH" : "s/OH",
   ].filter(Boolean) as string[];
 
@@ -89,19 +89,19 @@ export function FechoBasisSelector({
           <DropdownMenuSeparator />
           <DropdownMenuLabel className="text-xs">Base da despesa</DropdownMenuLabel>
           <DropdownMenuRadioGroup
-            value={basis.expenseSource}
+            value={basis.isWithoutBp ? "realized" : basis.expenseSource}
             onValueChange={(v) => basis.setExpenseSource(v as FechoExpenseSource)}
           >
             <DropdownMenuRadioItem value="realized" disabled={!basis.canEditBasis}>
               Realizado (transações)
             </DropdownMenuRadioItem>
-            <DropdownMenuRadioItem
+            {!basis.isWithoutBp && <DropdownMenuRadioItem
               value="committed"
               disabled={!basis.canEditBasis}
               title="previsto no BP mais o que já foi gasto acima do previsto, rubrica a rubrica"
             >
               Previsto + excedido
-            </DropdownMenuRadioItem>
+            </DropdownMenuRadioItem>}
           </DropdownMenuRadioGroup>
 
           <DropdownMenuSeparator />
