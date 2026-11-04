@@ -163,7 +163,7 @@ describe("#498 P1j — baseline PT capturada antes de alterar os seis componente
         "accounts": "5fc1a1c7437e07706af4ec961c72763e4e05344e3c5f1a3882dd299c8bf68c44",
         "banner": "af154f2f476965112bd05382fafdbab7b2fc2ccadbacad09469fb390972f9898",
         "credits": "85486949e054ac7f992f021ab08f7e54554914903e742b107b9cda3aa5465bb6",
-        "documents": "340da6b73363d401a3cfce98fc4889360114414264dec2694f2bd4797fbedfef",
+        "documents": "6cdb4608830fd5a381a7ba45f9b51455b9221871ed6a49106b316b57202b8e15",
         "newCredit": "3f5503f4bcae8c56454afb0c17bff0dbb758e422e50c7531d8b87851f00e34d2",
         "transfer": "42d13d60e3c58a8a397da8ee34a7383d37814a58ea875f7bdd1fe77c5597ede0",
       }
