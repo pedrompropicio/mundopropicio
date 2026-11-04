@@ -2772,6 +2772,7 @@ export type Database = {
           finished_at: string | null
           folder_path: string | null
           id: string
+          offsite_report: Json | null
           rows_total: number | null
           run_date: string
           scope: string
@@ -2789,6 +2790,7 @@ export type Database = {
           finished_at?: string | null
           folder_path?: string | null
           id?: string
+          offsite_report?: Json | null
           rows_total?: number | null
           run_date?: string
           scope: string
@@ -2806,6 +2808,7 @@ export type Database = {
           finished_at?: string | null
           folder_path?: string | null
           id?: string
+          offsite_report?: Json | null
           rows_total?: number | null
           run_date?: string
           scope?: string
@@ -27235,8 +27238,20 @@ export type Database = {
           slug: string
         }[]
       }
+      purge_ip_geo_cache: {
+        Args: { p_batch?: number; p_hours?: number }
+        Returns: number
+      }
       purge_portal_error_log: { Args: { p_days?: number }; Returns: number }
       purge_revoked_youtube_data: { Args: never; Returns: Json }
+      purge_song_link_delivery_slots: {
+        Args: { p_batch?: number; p_days?: number }
+        Returns: number
+      }
+      purge_song_link_diag: {
+        Args: { p_batch?: number; p_days?: number }
+        Returns: number
+      }
       raise_forecast_budget: {
         Args: {
           _forecast_id: string
