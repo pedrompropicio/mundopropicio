@@ -139,7 +139,7 @@ export default function HelpCenter() {
       )}
       {!articlesQ.isLoading && !articlesQ.isError && articles.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          Ainda não há capítulos sincronizados. Use o manual antigo, em baixo.
+          Ainda não há capítulos sincronizados. Pesquise no manual.
         </p>
       )}
 

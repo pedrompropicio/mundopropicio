@@ -2,6 +2,7 @@
  * Helpers para os cards Receitas/Custos em EventDetail.
  * Pure functions — sem queries, sem React.
  */
+import type { BudgetMode } from "@/lib/budget-mode";
 
 export type CardMode = "auto" | "realized" | "committed" | "forecast";
 export type ModeUsed = "realized" | "committed" | "forecast";
@@ -52,7 +53,8 @@ export function detectPhase(opts: {
   return "development";
 }
 
-export function defaultModeForPhase(phase: Phase): ModeUsed {
+export function defaultModeForPhase(phase: Phase, budgetMode: BudgetMode = "with_bp"): ModeUsed {
+  if (budgetMode === "without_bp") return "realized";
   if (phase === "planning") return "forecast";
   if (phase === "completed") return "realized";
   return "committed";
@@ -62,15 +64,16 @@ export function defaultModeForPhase(phase: Phase): ModeUsed {
  * Modos disponíveis por fase/tipo de card.
  * Evento concluído tem custo, não previsão → forecast de custos indisponível.
  */
-export function allowedModes(phase: Phase, kind: "income" | "expense"): ModeUsed[] {
+export function allowedModes(phase: Phase, kind: "income" | "expense", budgetMode: BudgetMode = "with_bp"): ModeUsed[] {
+  if (budgetMode === "without_bp") return ["realized"];
   if (phase === "completed" && kind === "expense") return ["realized", "committed"];
   return ["realized", "committed", "forecast"];
 }
 
 /** Resolve o modo efetivo, ignorando escolhas inválidas (inclui valor fixado em localStorage). */
-export function resolveMode(mode: CardMode, phase: Phase, kind: "income" | "expense"): ModeUsed {
-  const fallback = defaultModeForPhase(phase);
-  const allowed = allowedModes(phase, kind);
+export function resolveMode(mode: CardMode, phase: Phase, kind: "income" | "expense", budgetMode: BudgetMode = "with_bp"): ModeUsed {
+  const fallback = defaultModeForPhase(phase, budgetMode);
+  const allowed = allowedModes(phase, kind, budgetMode);
   if (mode === "auto") return allowed.includes(fallback) ? fallback : allowed[0];
   return allowed.includes(mode) ? mode : (allowed.includes(fallback) ? fallback : allowed[0]);
 }

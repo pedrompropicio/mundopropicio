@@ -536,13 +536,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
       cross_event_context.other_campaigns_same_event = peerCampaigns;
 
       // Learnings summary
-      const peerRoas = peerCampaigns.map((p) => p.roas).filter((r): r is number => r != null && Number.isFinite(r));
+      const peerRoas = peerCampaigns.map((p: any) => p.roas).filter((r: any): r is number => r != null && Number.isFinite(r));
       const meRoas = campaign_summary.roas;
       if (peerRoas.length > 0 && meRoas != null) {
-        const avgPeerRoas = peerRoas.reduce((s, r) => s + r, 0) / peerRoas.length;
+        const avgPeerRoas = peerRoas.reduce((s: number, r: any) => s + r, 0) / peerRoas.length;
         const direction = meRoas >= avgPeerRoas ? "acima" : "abaixo";
         let summary = `Outras ${peerCampaigns.length} campanha(s) do mesmo evento têm ROAS médio ${avgPeerRoas.toFixed(2)}x — esta está ${direction} do peer group (${meRoas.toFixed(2)}x).`;
-        const star = peerCampaigns.find((p) => p.roas != null && p.roas > meRoas * 2);
+        const star = peerCampaigns.find((p: any) => p.roas != null && p.roas > meRoas * 2);
         if (star) summary += ` Campanha "${star.name}" performa em ${star.roas!.toFixed(2)}x — vale analisar o que faz diferente.`;
         cross_event_context.learnings_summary = summary;
       }

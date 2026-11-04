@@ -8,7 +8,7 @@ import { supplierSchema } from "@/lib/validations";
 import { toast } from "sonner";
 
 const f = vi.hoisted(() => ({
-  role: "admin", companyId: "company-a", rpc: vi.fn(), from: vi.fn(),
+  activeSlot: 0, supplierCountry: "US", role: "admin", companyId: "company-a", rpc: vi.fn(), from: vi.fn(),
   writes: [] as { payload: any; id?: string }[],
 }));
 vi.mock("@/hooks/useCompany", () => ({ useCompany: () => ({
@@ -22,7 +22,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const account = "021000021 1234567890";
 const validIban = "PT50000201231234567890154";
-const supplier = { id: "supplier-a", name: "Fornecedor sintético", nif: "509123456", iban: account, swift_bic: "BOFAUS3N" };
+const supplier = { country: "US", id: "supplier-a", name: "Fornecedor sintético", nif: "509123456", iban: account, swift_bic: "BOFAUS3N" };
 const brBank = { slot: 3, account_type: "br_banco_agencia_conta", bank_name: "Banco BR", account_number: "123-4", notes: "preservar" };
 const foreignBank = { slot: 1, account_type: "aba_us", account_number: account,
   routing_number: "021000021", bank_name: "Bank of America", beneficiary_name: "UMG Recordings, Inc." };
@@ -42,21 +42,23 @@ function mount(element: React.ReactElement) {
 function form(editingSupplier: Record<string, unknown> | undefined = supplier, open = true) {
   return <SupplierFormModal open={open} editingSupplier={editingSupplier} onOpenChange={() => {}} />;
 }
-function change(label: string, value: string) { fireEvent.change(screen.getByLabelText(label), { target: { value } }); }
+function field(label: string) { const fields = screen.getAllByLabelText(label); return fields[fields.length > 1 ? f.activeSlot : 0]; }
+function change(label: string, value: string) { fireEvent.change(field(label), { target: { value } }); }
 function submit() { fireEvent.submit(document.body.querySelector("form")!); }
 async function ready() { await waitFor(() => expect(screen.getAllByLabelText("Tipo de conta")[0]).toBeEnabled()); }
 async function saved() { submit(); await waitFor(() => expect(f.writes).toHaveLength(1)); return f.writes[0].payload; }
 function expectNoOptionalKeys(payload: any) {
-  for (const key of ["foreign_bank_accounts", "tax_id_foreign", "tax_id_type", "country"]) expect(payload).not.toHaveProperty(key);
+  for (const key of ["foreign_bank_accounts", "tax_id_foreign", "tax_id_type"]) expect(payload).not.toHaveProperty(key);
 }
 
 beforeEach(() => {
-  vi.clearAllMocks(); f.role = "admin"; f.companyId = "company-a"; f.writes = [];
+  vi.clearAllMocks(); f.activeSlot = 0; f.supplierCountry = "US"; f.role = "admin"; f.companyId = "company-a"; f.writes = [];
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   result([row]);
   f.from.mockImplementation((table: string) => {
     expect(table).toBe("suppliers");
     return {
+      select: () => ({ eq: (_column: string, id: string) => ({ maybeSingle: async () => ({ data: { id, country: f.supplierCountry }, error: null }) }) }),
       update: (payload: any) => ({ eq: async (_column: string, id: string) => {
         f.writes.push({ payload, id }); return { error: null };
       } }),
@@ -79,8 +81,8 @@ describe("#403 E2b — contas estrangeiras em empresa PT", () => {
     const invalidate = vi.spyOn(client, "invalidateQueries");
     result([{ ...row, foreign_bank_accounts: [brBank], tax_id_foreign: null, tax_id_type: null }]);
     mount(form({ ...supplier, foreign_bank_accounts: [foreignBank], tax_id_foreign: "PROPS" })); await ready();
-    expect(screen.getByLabelText("ABA / Routing")).toHaveValue("");
-    expect(screen.getByLabelText("Identificador fiscal estrangeiro")).toHaveValue("");
+    expect(field("ABA / Routing")).toHaveValue("");
+    expect(field("Identificador fiscal estrangeiro")).toHaveValue("");
     change("Tipo de conta", "aba_us"); change("ABA / Routing", " 021000021 ");
     change("Banco", " Bank of America "); change("Beneficiário (se diferente)", " UMG Recordings, Inc. ");
     change("Morada do banco", "   "); change("Identificador fiscal estrangeiro", " 95-1234567 ");
@@ -89,7 +91,7 @@ describe("#403 E2b — contas estrangeiras em empresa PT", () => {
     expect(payload).toMatchObject({ iban: account, swift_bic: "BOFAUS3N", nif: supplier.nif,
       tax_id_foreign: "95-1234567", tax_id_type: "ein" });
     expect(payload.foreign_bank_accounts).toEqual([brBank, foreignBank]);
-    expect(payload).not.toHaveProperty("country");
+    expect(payload.country).toBe("US");
     expect(f.writes[0].id).toBe(supplier.id);
     expect(f.rpc).toHaveBeenCalledWith("get_supplier_bank_details", { p_supplier_ids: [supplier.id] });
     expect(f.rpc).toHaveBeenCalledWith("check_supplier_iban_duplicate", { p_iban: account, p_supplier_id: supplier.id });
@@ -98,31 +100,35 @@ describe("#403 E2b — contas estrangeiras em empresa PT", () => {
 
   it("pré-preenche tipo, campos e fiscal; gravar sem editar omite o par fiscal", async () => {
     mount(form()); await ready();
-    expect(screen.getByLabelText("Tipo de conta")).toHaveValue("aba_us");
-    expect(screen.getByLabelText("Banco")).toHaveValue("Bank of America");
-    expect(screen.getByLabelText("Identificador fiscal estrangeiro")).toHaveValue("95-1234567");
-    expect(screen.getByLabelText("Tipo de identificador fiscal")).toHaveValue("ein");
-    expect(within(screen.getByLabelText("Tipo de identificador fiscal")).getAllByRole("option")
+    expect(field("Tipo de conta")).toHaveValue("aba_us");
+    expect(field("Banco")).toHaveValue("Bank of America");
+    expect(field("Identificador fiscal estrangeiro")).toHaveValue("95-1234567");
+    expect(field("Tipo de identificador fiscal")).toHaveValue("ein");
+    expect(within(field("Tipo de identificador fiscal")).getAllByRole("option")
       .map(option => (option as HTMLOptionElement).value)).toEqual(["ein", "tin", "vat", "cpf", "cnpj", "outro"]);
     const payload = await saved();
     expect(payload.foreign_bank_accounts).toEqual([brBank, foreignBank]);
     expect(payload).not.toHaveProperty("tax_id_foreign"); expect(payload).not.toHaveProperty("tax_id_type");
   });
 
-  it("activa a query ao escrever um não-IBAN sem repor o valor vivo quando a RPC chega", async () => {
+  it("activa a query ao escolher país estrangeiro sem repor o valor vivo quando a RPC chega", async () => {
     let resolve!: (value: unknown) => void;
     const pending = new Promise(resolvePromise => { resolve = resolvePromise; });
     f.rpc.mockImplementation(name => name === "get_supplier_bank_details" ? { select: () => pending }
       : Promise.resolve({ data: { exists: false }, error: null }));
-    mount(form({ ...supplier, iban: "" })); expect(f.rpc).not.toHaveBeenCalled();
-    change("IBAN 1", account);
+    f.supplierCountry = "PT";
+    mount(form({ ...supplier, country: "PT", iban: "" }));
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    expect(f.rpc).not.toHaveBeenCalled();
+    change("País", "US"); change("IBAN 1", account);
     expect(screen.getByText("Dados bancários estrangeiros indisponíveis para edição.")).toBeInTheDocument();
     resolve({ data: [row], error: null }); await ready();
-    expect(screen.getByLabelText("IBAN 1")).toHaveValue(account);
-    expect(screen.getByLabelText("ABA / Routing")).toHaveValue("021000021");
+    expect(field("IBAN 1")).toHaveValue(account);
+    expect(field("ABA / Routing")).toHaveValue("021000021");
   });
 
   it.each([1, 2, 3])("grava metadados por slot %i com campos trim e sem vazios", async slot => {
+    f.activeSlot = slot - 1;
     result([{ ...row, foreign_bank_accounts: [brBank] }]);
     const field = (["iban", "iban_2", "iban_3"] as const)[slot - 1];
     mount(form({ ...supplier, iban: null, [field]: `  conta / ${slot}  ` })); await ready();
@@ -151,18 +157,19 @@ describe("#403 E2b — contas estrangeiras em empresa PT", () => {
     expect((await saved()).foreign_bank_accounts).toEqual([banks[0], { ...banks[1], bank_name: "Novo banco 2" }, banks[2]]);
   });
 
-  it("IBANs válidos mantêm o payload PT completo e não activam a RPC opcional", async () => {
-    mount(form({ ...supplier, iban: validIban, iban_2: "GB82WEST12345698765432" }));
+  it("país PT com IBANs válidos mantém o payload PT completo e não activam a RPC opcional", async () => {
+    f.supplierCountry = "PT";
+    mount(form({ ...supplier, country: "PT", iban: validIban, iban_2: "GB82WEST12345698765432" }));
     expect(screen.queryByLabelText("Tipo de conta")).toBeNull();
     expect(f.rpc).not.toHaveBeenCalled();
-    expect(await saved()).toEqual({ name: supplier.name, trade_name: null, nif: supplier.nif, contact_name: null,
+    expect(await saved()).toEqual({ country: "PT", name: supplier.name, trade_name: null, nif: supplier.nif, contact_name: null,
       email: null, phone: null, address: null, iban: validIban, swift_bic: "BOFAUS3N", iban_2: "GB82WEST12345698765432",
       swift_bic_2: null, iban_3: null, swift_bic_3: null, payment_terms: null, category: null, notes: null, is_partner: false });
     expect(f.rpc.mock.calls.map(([name]) => name)).toEqual(["check_supplier_iban_duplicate", "check_supplier_iban_duplicate"]);
   });
 
-  it("deixar de ter estrangeiros omite todas as chaves opcionais mesmo após editar fiscal", async () => {
-    mount(form()); await ready(); change("Identificador fiscal estrangeiro", "outra"); change("IBAN 1", validIban);
+  it("mudar o país para nacional omite todas as chaves opcionais mesmo após editar fiscal", async () => {
+    mount(form()); await ready(); change("Identificador fiscal estrangeiro", "outra"); change("País", "PT");
     expect(screen.queryByLabelText("Tipo de conta")).toBeNull();
     expectNoOptionalKeys(await saved());
   });
@@ -183,8 +190,8 @@ describe("#403 E2b — contas estrangeiras em empresa PT", () => {
     mount(form());
     await waitFor(() => expect(client.isFetching()).toBe(0));
     expect(screen.getByText("Dados bancários estrangeiros indisponíveis para edição.")).toBeInTheDocument();
-    expect(screen.getByLabelText("Banco")).toBeDisabled();
-    expect(screen.getByLabelText("Identificador fiscal estrangeiro")).toBeDisabled();
+    expect(field("Banco")).toBeDisabled();
+    expect(field("Identificador fiscal estrangeiro")).toBeDisabled();
     expect(screen.queryByDisplayValue("95-1234567")).toBeNull();
     change("Nome da Entidade *", "Cadastro alterado");
     const payload = await saved(); expectNoOptionalKeys(payload); expect(payload.name).toBe("Cadastro alterado");
@@ -202,7 +209,7 @@ describe("#403 E2b — contas estrangeiras em empresa PT", () => {
 
   it("criação usa o probe vazio, grava estrangeiro e omite fiscal vazio", async () => {
     result([]); mount(<SupplierFormModal open onOpenChange={() => {}} />);
-    change("Nome da Entidade *", "Novo fornecedor"); change("IBAN 1", account); await ready();
+    change("Nome da Entidade *", "Novo fornecedor"); change("País", "US"); change("IBAN 1", account); await ready();
     const payload = await saved();
     expect(payload.foreign_bank_accounts).toEqual([{ slot: 1, account_type: "outro", account_number: account }]);
     expect(payload).not.toHaveProperty("tax_id_foreign");
@@ -214,17 +221,17 @@ describe("#403 E2b — contas estrangeiras em empresa PT", () => {
     view.rerender(form(supplier, false));
     result([{ ...row, id: "supplier-b", foreign_bank_accounts: [], tax_id_foreign: null, tax_id_type: null }]);
     view.rerender(form({ ...supplier, id: "supplier-b" })); await ready();
-    expect(screen.getByLabelText("Banco")).toHaveValue("");
-    expect(screen.getByLabelText("Identificador fiscal estrangeiro")).toHaveValue("");
+    expect(field("Banco")).toHaveValue("");
+    expect(field("Identificador fiscal estrangeiro")).toHaveValue("");
   });
 
   it("perder papel elimina o rascunho estrangeiro e fiscal antes de gravar", async () => {
     const view = mount(form()); await ready();
     change("Banco", "Rascunho bancário"); change("Identificador fiscal estrangeiro", "Rascunho fiscal");
     f.role = "viewer"; view.rerender(form());
-    await waitFor(() => expect(screen.getByLabelText("Banco")).toHaveValue(""));
-    expect(screen.getByLabelText("Banco")).toBeDisabled();
-    expect(screen.getByLabelText("Identificador fiscal estrangeiro")).toHaveValue("");
+    await waitFor(() => expect(field("Banco")).toHaveValue(""));
+    expect(field("Banco")).toBeDisabled();
+    expect(field("Identificador fiscal estrangeiro")).toHaveValue("");
     expectNoOptionalKeys(await saved());
   });
 });

@@ -770,7 +770,7 @@ export function buildPartnerStatement(
   }));
 
   const chain: typeof nodes = [];
-  for (let cur = activeNode; cur?.parentId; cur = nodes.find((n) => n.id === cur!.parentId) ?? null) {
+  for (let cur: typeof nodes[number] | null = activeNode; cur?.parentId; cur = nodes.find((n) => n.id === cur!.parentId) ?? null) {
     chain.unshift(cur);
   }
   const cascade =

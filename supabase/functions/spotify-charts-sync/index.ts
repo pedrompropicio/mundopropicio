@@ -76,7 +76,8 @@ Deno.serve(async (req) => {
       st = r.status;
       if (st === 200) {
         const j = await r.json().catch(() => null);
-        const recs = ((j?.entries ?? []) as unknown[]).map((e) => toRow(country, date, e)).filter(Boolean);
+        const recs = ((j?.entries ?? []) as unknown[]).map((e) => toRow(country, date, e))
+          .filter((r): r is NonNullable<ReturnType<typeof toRow>> => Boolean(r));
         if (recs.length) {
           const { error } = await admin.from("spotify_chart_daily").upsert(recs, { onConflict: "country,chart_date,position" });
           if (error) { errors++; st = -1; } else n = recs.length;

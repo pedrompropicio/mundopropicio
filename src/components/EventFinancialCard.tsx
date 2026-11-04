@@ -98,7 +98,7 @@ export function EventFinancialCard(props: Props) {
 
   const [storedMode, setStoredMode] = useState<CardMode>(() => readStoredMode(userId, eventId, kind));
   // Modo efetivo: só "Forecast" é preferência de utilizador; o resto vem da BD.
-  const mode: CardMode = storedMode === "forecast" ? "forecast" : shared.expenseSource;
+  const mode: CardMode = shared.isWithoutBp ? "realized" : storedMode === "forecast" ? "forecast" : shared.expenseSource;
   const [scenario, setScenario] = useState<RevenueScenario>("forecast");
   const [incomeOverhead, setIncomeOverhead] = useState<boolean>(
     () => readStoredCostToggle(userId, eventId, kind, "overhead"),
@@ -120,6 +120,7 @@ export function EventFinancialCard(props: Props) {
   // Modo <-> critério do evento: mexer no card grava na BD e reflete-se no Fecho
   // (e vice-versa) para TODOS os utilizadores.
   const handleModeChange = (next: CardMode) => {
+    if (shared.isWithoutBp) return;
     setStoredMode(next);
     if (next === "realized" || next === "committed") shared.setExpenseSource(next);
   };
@@ -140,6 +141,7 @@ export function EventFinancialCard(props: Props) {
     eventIds: props.eventIds,
     kind,
     mode,
+    budgetMode: shared.budgetMode,
     scenario,
     eventStatus: props.eventStatus,
     primaryEventDate: props.primaryEventDate,
@@ -191,7 +193,7 @@ export function EventFinancialCard(props: Props) {
   const variantBorder = kind === "income" ? "border-accent/30" : "border-warning/30";
   const variantIcon = kind === "income" ? "text-accent" : "text-warning";
 
-  const forecastAvailable = allowedModes(data.phase, kind).includes("forecast");
+  const forecastAvailable = allowedModes(data.phase, kind, shared.budgetMode).includes("forecast");
   const showScenarioToggle = data.modeUsed === "forecast" && kind === "income";
 
 
@@ -256,15 +258,16 @@ export function EventFinancialCard(props: Props) {
                   Realizado
                 </DropdownMenuRadioItem>
 
-                <DropdownMenuRadioItem
+                {!shared.isWithoutBp && <DropdownMenuRadioItem
                   value="committed"
                   disabled={!shared.canEditBasis}
                   title="previsto no BP mais o que já foi gasto acima do previsto, rubrica a rubrica — critério gravado no evento"
                 >
                   Previsto + excedido
-                </DropdownMenuRadioItem>
+                </DropdownMenuRadioItem>}
                 {forecastAvailable && <DropdownMenuRadioItem value="forecast">Forecast</DropdownMenuRadioItem>}
               </DropdownMenuRadioGroup>
+              {shared.isWithoutBp && <div className="px-2 pb-1 text-[11px] text-muted-foreground">evento sem BP</div>}
 
               {hasIva && <>
               <DropdownMenuSeparator />

@@ -272,7 +272,7 @@ export default function UserManagement() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">
             <button onClick={() => navigate("/admin")} className="inline-flex items-center justify-center rounded-md h-8 w-8 hover:bg-accent transition-colors"><ArrowLeft className="h-4 w-4" /></button>
-            Gestão de Utilizadores <HelpTooltip text={helpTexts.userManagement} />
+            Gestão de Utilizadores <HelpTooltip anchor="administracao.utilizadores" text={helpTexts.userManagement} />
           </h1>
           <p className="text-sm text-muted-foreground">
             Gerir acessos e permissões {company?.display_name ? `— ${company.display_name}` : ""}

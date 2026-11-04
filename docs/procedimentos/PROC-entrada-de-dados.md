@@ -18,6 +18,7 @@ Caso real, 21/10/2026: três faturas do TikTok foram lançadas à mão como tran
 | Fatura em nome da MP paga por fora das contas da empresa (cartão pessoal do sócio) | **Fatura Avulsa**, com `paid_by_partner_id` | `features/standalone-invoices.md` |
 | Fatura paga por uma conta da empresa | **Transação**, com conta e pagamento | `features/payment-account-ownership.md` |
 | Despesa de evento | Transação ligada à linha de BP (`forecast_id`) — D1/D8 | `features/transactions-bp-linkage.md` |
+| Taxa bancária de pagamento de evento | 2.6.15 + linha de BP | Secção «Encargos bancários de pagamentos» abaixo |
 | Recibo, comprovativo, nota — não é fatura | **Anexo** numa transação existente; não cria lançamento próprio | `features/transaction-documents.md` |
 
 O que decide entre Fatura Avulsa e transação é **quem pagou**, não o fornecedor: conta da empresa → transação; conta pessoal do sócio → avulsa. Regra fixada pelo Pedro a 21/10/2026 a propósito da TAP.
@@ -41,6 +42,16 @@ O que decide entre Fatura Avulsa e transação é **quem pagou**, não o fornece
 - Só quando o documento não dá euros é que se converte: BCE à data da fatura, de `public.fx_rates_daily` (`rate_to_eur`; respeitar `date_used`, que em fim-de-semana aponta ao último dia útil). Gravar `currency`, `original_amount`, `fx_rate` e `fx_rate_source`.
 - Nunca inventar taxa, nunca usar a de hoje para uma fatura de ontem.
 - IVA: a taxa da fatura, inteira. Autoliquidação ou OSS → IVA 0, com o motivo nas notas. Nunca dividir com `/100` inteiro (D-ERP198).
+
+## Encargos bancários de pagamentos
+
+- Taxa bancária de um pagamento de despesa de evento → **2.6.15 — Encargos Bancários e Taxas de Transferência**, com o evento.
+- Criar a **linha de BP por evento na 2.6.15 no momento do pagamento**, com formalidade **fechado** se a taxa já estiver paga, respeitando o IVA do documento bancário.
+- Taxa sem evento → **10.6.01 — Taxas e Encargos Bancários** (estrutura).
+
+Sem linha de BP, a taxa fica como excedido que o fecho não vê: foi a origem da diferença de **80,40 €** na Anitta EDA 2026. Mudar só a rubrica não resolve.
+
+Origem: **D-ERP255**, **D-ERP347** (Pedro, 01/11/2026) e **#312**.
 
 ## Passo 5 — O anexo
 

@@ -88,9 +88,7 @@ const TicketingSyncAlertEmail = ({ runAt = '', itens = [] }: Props) => {
       <Head>
         <meta charSet="utf-8" />
       </Head>
-      <Preview>
-        Bilheteiras a precisar de atenção ({itens.length} caso{itens.length === 1 ? '' : 's'})
-      </Preview>
+      <Preview>{`Bilheteiras a precisar de atenção (${itens.length} caso${itens.length === 1 ? '' : 's'})`}</Preview>
       <Body style={main}>
         <Container style={container}>
           {sync.length > 0 ? (

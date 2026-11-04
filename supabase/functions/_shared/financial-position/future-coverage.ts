@@ -160,16 +160,16 @@ export function assembleFutureCoverage(input: FutureCoverageInput) {
   const currentNeed = { com_sem_linha: sum(e => e.necessidade_financiamento.com_sem_linha), sem_linha_cobre_bp: sum(e => e.necessidade_financiamento.sem_linha_cobre_bp) };
   const minimumOut = saidoNull ? null : r2(bilheteiras.reduce((s, b) => s + (b.saido_minimo ?? 0), 0));
   // Without an active forecast preserve the complete legacy JSON, not just its totals.
-  const forecastBlock: { receita_prevista?: PlanningCoverageBlock } = planning.some(e => e.ativo) ? { receita_prevista: {
-    eventos: planning.map(p => {
+  const forecastBlock: { receita_prevista?: PlanningCoverageBlock } = planning.some((e: any) => e.ativo) ? { receita_prevista: {
+    eventos: planning.map((p: any) => {
       const considered = Math.max(p.receita_considerada, salesByRoot.get(p.event_id) ?? 0);
       const accounts = bilheteiras.filter(b => b.eventos.some(e => e.event_id === p.event_id));
       const unique = accounts.length > 0 && accounts.every(b => b.fonte === "unica" && b.saido_minimo != null);
       return { ...p, receita_considerada: considered, potencial: unique ? r2(Math.max(0, considered - accounts.reduce((s, b) => s + (b.saido_minimo ?? 0), 0))) : null,
         fonte_potencial: unique ? "unica" : accounts.length ? "indeterminado (pool)" : "sem vendas" };
     }),
-    eventos_sem_previsao: planning.filter(p => p.previsao_bruta == null).length,
-    ...revenueCoverage(currentNeed, planning.reduce((s, p) => s + Math.max(p.receita_considerada, salesByRoot.get(p.event_id) ?? 0), 0), minimumOut),
+    eventos_sem_previsao: planning.filter((p: any) => p.previsao_bruta == null).length,
+    ...revenueCoverage(currentNeed, planning.reduce((s: number, p: any) => s + Math.max(p.receita_considerada, salesByRoot.get(p.event_id) ?? 0), 0), minimumOut),
   } } : {};
   return {
     meta: { incompleto: false, motivo: null, nota_bp_provisorio: FUTURE_COVERAGE_NOTES.bp_provisorio, notas: FUTURE_COVERAGE_NOTES },

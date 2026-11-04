@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
       const matchFirst = (i: number) => {
         const uuids: string[] = mapped[i]._artistUuids ?? [];
         if (uuids[0] === artistScUuid) return 0;
-        if (uuids.includes(artistScUuid)) return 1;
+        if (uuids.includes(artistScUuid as string)) return 1;
         const credit = String(mapped[i].credit_name ?? "").toLowerCase();
         if (artistName && credit.includes(artistName)) return 1;
         return 2;

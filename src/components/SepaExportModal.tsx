@@ -1,3 +1,4 @@
+import { useCompany } from "@/hooks/useCompany";
 import { useEffect, useMemo, useState } from "react";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -96,6 +97,8 @@ function SepaExportContent({
   onClose,
 }: SepaExportModalProps) {
   const queryClient = useQueryClient();
+  const { company } = useCompany();
+  const isTraining = company?.is_training === true;
   const isTest = !(listStatus === "approved" || listStatus === "partially_approved");
   const executionDate = useMemo(() => resolveExecutionDate(paymentDate), [paymentDate]);
   const executionShifted = !!paymentDate && executionDate !== paymentDate;
@@ -147,7 +150,7 @@ function SepaExportContent({
     const longOnes = initial
       .filter((r) => !r.excluded && r.remittance.length > USTRD_TARGET)
       .map((r) => ({ id: r.transactionId, text: r.remittance }));
-    if (longOnes.length === 0) return;
+    if (longOnes.length === 0 || isTraining) return;
 
     let cancelled = false;
     setCompacting(true);
@@ -185,7 +188,7 @@ function SepaExportContent({
       controller.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candidates]);
+  }, [candidates, isTraining]);
 
   const valid = rows.filter((r) => !r.excluded);
   const excluded = rows.filter((r) => r.excluded);
@@ -206,6 +209,7 @@ function SepaExportContent({
       listDate: paymentDate ?? null,
 
       isTest,
+      isTraining,
       rows: valid.map((r) => ({
         transactionId: r.transactionId,
         creditorName: r.creditorName,
@@ -214,6 +218,12 @@ function SepaExportContent({
         remittance: truncateUstrd(r.remittance),
       })),
     });
+    if (isTraining) {
+      downloadXml(out.xml, out.fileName);
+      toast({ title: "TREINO — ficheiro descarregado", description: out.fileName });
+      onClose();
+      return;
+    }
     // Histórico de exportações — guarda os ids EXATOS que entraram no XML.
     // #37: o registo vem ANTES do download; se o servidor o recusar (lista não aprovada
     // ou sem permissão), não sai ficheiro nenhum.

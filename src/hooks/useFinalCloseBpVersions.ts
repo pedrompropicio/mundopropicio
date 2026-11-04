@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { BP_FINAL_CLOSE_PREFIX, type FinalCloseBpVersion } from "@/lib/bp-final-close";
+import type { FinalCloseBpVersion } from "@/lib/bp-final-close";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 
 export function useFinalCloseBpVersions() {
@@ -8,8 +8,8 @@ export function useFinalCloseBpVersions() {
     queryKey: ["bp-final-close-versions"],
     queryFn: () => fetchAllPaged<FinalCloseBpVersion>((from, to) => supabase
       .from("bp_versions")
-      .select("id, event_id, version_number, state, description, snapshot_payload")
-      .like("description", BP_FINAL_CLOSE_PREFIX + "%")
+      .select("id, event_id, version_number, state, is_final_close, description, snapshot_payload")
+      .eq("is_final_close", true)
       .in("state", ["active", "superseded"])
       .order("id", { ascending: true })
       .range(from, to)),
