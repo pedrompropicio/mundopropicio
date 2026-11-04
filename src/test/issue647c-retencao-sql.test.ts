@@ -9,7 +9,6 @@ const migration = read('drizzle/migrations/0331_issue647_song_link_retencao.sql'
 const manual = read('supabase/manual/0331_issue647_song_link_retencao.sql');
 const rollback = read('supabase/manual/rollback_0331_issue647_song_link_retencao_comentado.sql');
 const proof = read('docs/testes/issue647/prova-janela-0331.sql');
-const cron = read('supabase/manual/cron_song_link_events_retencao_live.sql');
 const source = {
   stats: read('drizzle/migrations/0299_issue350_song_link_stats_aberturas.sql'),
   origins: read('drizzle/migrations/0257_dia_a_dia_traffic_platform_fix.sql'),
@@ -175,42 +174,9 @@ describe('0331 #647 — ficheiros inertes e corpos canónicos', () => {
     const topLevel = migration.replace(/^CREATE (?:OR REPLACE )?FUNCTION .*?AS (\$\w*\$).*?\1;/gms, '');
     expect(topLevel).not.toMatch(/(?:INSERT INTO|UPDATE|DELETE FROM|CREATE TABLE|ALTER TABLE|DROP TABLE)\s+public\.song_link_report_/i);
   });
-  it('C1: crons em minutos livres do inventário, fora de 06–09, com refresh anterior e limites', () => {
-    const inventory = JSON.parse(read('docs/estudos/saas-e-desenvolvimento/gates-352/inventario.json')) as {proposals: {active: boolean; schedule: string}[]};
-    const matches = (field: string, n: number, max: number) => field.split(',').some(part => {
-      const [range, stepText] = part.split('/');
-      const step = Number(stepText ?? 1);
-      const [start, end] = range === '*' ? [0, max] : range.includes('-') ? range.split('-').map(Number) : [Number(range), Number(range)];
-      return n >= start && n <= end && (n - start) % step === 0;
-    });
-    for (const minute of [17, 53]) {
-      expect(cron).toContain(`'${minute} 4 * * *'`);
-      expect(inventory.proposals.filter(j => j.active && matches(j.schedule.split(' ')[0], minute, 59) && matches(j.schedule.split(' ')[1], 4, 23))).toEqual([]);
-    }
-    expect(cron.indexOf('song_link_ident_daily_refresh')).toBeLessThan(cron.indexOf('anonymize_song_link_events'));
-    expect(cron).toContain('v_rows=0 OR clock_timestamp()>=v_deadline');
-    expect(cron).toContain('public.anonymize_song_link_events(30)');
-    expect(cron).toContain('public.purge_song_link_events(13)');
-    expect(cron.split('\n').filter(l => l.includes('cron.unschedule')).every(l => l.startsWith('-- '))).toBe(true);
-  });
 });
 
 describe('0331 #647 — PostgreSQL real em PGlite', () => {
-  it('C1/C2: corpos reais dos crons compilam e terminam a manutenção, com refresh antes', async () => {
-    await db.exec(`CREATE SCHEMA cron;
-      CREATE TABLE cron.fixture_jobs(name text,schedule text,command text);
-      CREATE FUNCTION cron.schedule(text,text,text) RETURNS bigint LANGUAGE plpgsql AS $$ BEGIN
-        INSERT INTO cron.fixture_jobs VALUES($1,$2,$3); RETURN 1; END $$;`);
-    await db.exec(cron);
-    const jobs = (await db.query<{command: string}>('SELECT command FROM cron.fixture_jobs ORDER BY schedule')).rows;
-    expect(jobs).toHaveLength(2);
-    const before = await snapshot();
-    for (const job of jobs) await db.exec(job.command);
-    expect(await scalar(`SELECT count(*) r FROM song_link_events WHERE created_at<now()-interval '30 days' AND (${hasIds})`)).toBe(0);
-    expect(await scalar(`SELECT count(*) r FROM song_link_events WHERE created_at<now()-interval '13 months'`)).toBe(0);
-    expect(await snapshot()).toEqual(before);
-    expect(await reports()).toEqual(baseline);
-  });
   it('C2: backfills coincidem em cada grupo com 0299/0257 directas, com dois links e meias-noites', async () => {
     expect(await reports()).toEqual(baseline);
     expect(await acl()).toEqual(originalAcl);

@@ -25,7 +25,7 @@ SELECT cron.schedule('song-link-events-retencao', '53 4 * * *', $job$
   -- Cada fase inicia lotes por até 90 segundos; o lote já iniciado acaba normalmente.
   v_deadline:=clock_timestamp()+interval '90 seconds';
   LOOP
-   v_rows:=public.anonymize_song_link_events(30);
+   v_rows:=public.anonymize_song_link_events(30, 90, 20000);
    EXIT WHEN v_rows=0 OR clock_timestamp()>=v_deadline;
   END LOOP;
   v_deadline:=clock_timestamp()+interval '90 seconds';
