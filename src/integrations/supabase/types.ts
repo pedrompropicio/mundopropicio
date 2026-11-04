@@ -8112,6 +8112,7 @@ export type Database = {
           favicon_url: string | null
           feature_tickets_v2: boolean
           id: string
+          is_training: boolean
           legal_name: string
           logo_url: string | null
           public_portal: boolean
@@ -8134,6 +8135,7 @@ export type Database = {
           favicon_url?: string | null
           feature_tickets_v2?: boolean
           id?: string
+          is_training?: boolean
           legal_name: string
           logo_url?: string | null
           public_portal?: boolean
@@ -8156,6 +8158,7 @@ export type Database = {
           favicon_url?: string | null
           feature_tickets_v2?: boolean
           id?: string
+          is_training?: boolean
           legal_name?: string
           logo_url?: string | null
           public_portal?: boolean
@@ -14058,6 +14061,7 @@ export type Database = {
           ran_at: string
           ran_by: string | null
           results: Json
+          scope_training: boolean
         }
         Insert: {
           created_at?: string
@@ -14066,6 +14070,7 @@ export type Database = {
           ran_at?: string
           ran_by?: string | null
           results: Json
+          scope_training?: boolean
         }
         Update: {
           created_at?: string
@@ -14074,6 +14079,7 @@ export type Database = {
           ran_at?: string
           ran_by?: string | null
           results?: Json
+          scope_training?: boolean
         }
         Relationships: []
       }
@@ -17837,6 +17843,96 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      song_link_ident_daily_origins: {
+        Row: {
+          aberturas_android: number
+          aberturas_meta: number
+          aberturas_tiktok: number
+          artist_id: string
+          company_id: string
+          metric_day: string
+          pessoas_trafego: number
+          song_id: string
+          toques_ios: number
+        }
+        Insert: {
+          aberturas_android: number
+          aberturas_meta: number
+          aberturas_tiktok: number
+          artist_id: string
+          company_id: string
+          metric_day: string
+          pessoas_trafego: number
+          song_id: string
+          toques_ios: number
+        }
+        Update: {
+          aberturas_android?: number
+          aberturas_meta?: number
+          aberturas_tiktok?: number
+          artist_id?: string
+          company_id?: string
+          metric_day?: string
+          pessoas_trafego?: number
+          song_id?: string
+          toques_ios?: number
+        }
+        Relationships: []
+      }
+      song_link_ident_daily_stats: {
+        Row: {
+          aberturas_app: number
+          aberturas_spotify: number
+          aberturas_web: number
+          artist_id: string
+          canal: string
+          chegadas: number
+          chegadas_spotify: number
+          company_id: string
+          dia: string
+          escolhas: number
+          escolhas_por_destino: Json
+          link_id: string
+          tentativas_app: number
+          utm_campaign: string
+          utm_content: string
+        }
+        Insert: {
+          aberturas_app: number
+          aberturas_spotify: number
+          aberturas_web: number
+          artist_id: string
+          canal: string
+          chegadas: number
+          chegadas_spotify: number
+          company_id: string
+          dia: string
+          escolhas: number
+          escolhas_por_destino: Json
+          link_id: string
+          tentativas_app: number
+          utm_campaign: string
+          utm_content: string
+        }
+        Update: {
+          aberturas_app?: number
+          aberturas_spotify?: number
+          aberturas_web?: number
+          artist_id?: string
+          canal?: string
+          chegadas?: number
+          chegadas_spotify?: number
+          company_id?: string
+          dia?: string
+          escolhas?: number
+          escolhas_por_destino?: Json
+          link_id?: string
+          tentativas_app?: number
+          utm_campaign?: string
+          utm_content?: string
+        }
+        Relationships: []
       }
       song_link_report_hourly: {
         Row: {
@@ -23972,7 +24068,35 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_cache_contracts_training: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_camarim: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
+      _run_invariant_checks_camarim_training: {
         Args: never
         Returns: {
           conforme: boolean
@@ -24000,7 +24124,35 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_cards_training: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_cash: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
+      _run_invariant_checks_cash_training: {
         Args: never
         Returns: {
           conforme: boolean
@@ -24028,7 +24180,35 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_docs_training: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_dre_nature: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
+      _run_invariant_checks_dre_nature_training: {
         Args: never
         Returns: {
           conforme: boolean
@@ -24056,7 +24236,35 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_duplicate_invoices_training: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_extra: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
+      _run_invariant_checks_extra_training: {
         Args: never
         Returns: {
           conforme: boolean
@@ -24084,7 +24292,35 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_extrato_scoped: {
+        Args: { p_training: boolean }
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_infra: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
+      _run_invariant_checks_infra_training: {
         Args: never
         Returns: {
           conforme: boolean
@@ -24140,6 +24376,34 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_paid_below_gross_training: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
+      _run_invariant_checks_paid_training: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_rateio: {
         Args: never
         Returns: {
@@ -24154,7 +24418,35 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_rateio_training: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_raw: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
+      _run_invariant_checks_raw_training: {
         Args: never
         Returns: {
           conforme: boolean
@@ -24210,7 +24502,35 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_storage_training: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_suppliers: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
+      _run_invariant_checks_suppliers_training: {
         Args: never
         Returns: {
           conforme: boolean
@@ -24252,7 +24572,35 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_ticketline_series_training: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_unreachable_docs: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
+      _run_invariant_checks_unreachable_docs_training: {
         Args: never
         Returns: {
           conforme: boolean
@@ -24448,6 +24796,10 @@ export type Database = {
           reason: string
           suggested_formalidade: Database["public"]["Enums"]["bp_formalidade"]
         }[]
+      }
+      anonymize_song_link_events: {
+        Args: { p_batch?: number; p_days?: number }
+        Returns: number
       }
       anonymize_traffic_events: {
         Args: { _days?: number }
@@ -26907,6 +27259,7 @@ export type Database = {
         Returns: boolean
       }
       is_settlement_staff: { Args: { _user: string }; Returns: boolean }
+      is_training_company: { Args: { _company_id: string }; Returns: boolean }
       issue335_balance_invariant_count: { Args: never; Returns: number }
       issue335_camarim_leg: { Args: { p_tx: string }; Returns: boolean }
       issue335_cash_watch: {
@@ -27250,6 +27603,10 @@ export type Database = {
       }
       purge_song_link_diag: {
         Args: { p_batch?: number; p_days?: number }
+        Returns: number
+      }
+      purge_song_link_events: {
+        Args: { p_batch?: number; p_months?: number }
         Returns: number
       }
       raise_forecast_budget: {
@@ -27617,6 +27974,7 @@ export type Database = {
         Returns: Json
       }
       run_rls_legacy_audit_cron: { Args: never; Returns: Json }
+      run_training_invariant_checks_and_log: { Args: never; Returns: string }
       run_vip_coupon_reminder: { Args: never; Returns: Json }
       save_ticket_office_settlement: {
         Args: {
@@ -27753,6 +28111,10 @@ export type Database = {
         Returns: Json
       }
       song_link_health_run: { Args: { p_day?: string }; Returns: Json }
+      song_link_ident_daily_refresh: {
+        Args: { p_from: string; p_to: string }
+        Returns: number
+      }
       song_link_public_get: {
         Args: { p_slug: string }
         Returns: {
