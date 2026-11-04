@@ -41,7 +41,7 @@ Deno.serve(async (req: Request) => {
       id: String(it?.id ?? i),
       text: String(it?.text ?? "").slice(0, 500),
     }))
-    .filter((it) => it.text.trim().length > 0);
+    .filter((it: any) => it.text.trim().length > 0);
 
   const prompt = [
     `Compacta cada descritivo de transferencia bancaria para no maximo ${limit} caracteres.`,

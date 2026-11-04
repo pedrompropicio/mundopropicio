@@ -533,7 +533,7 @@ Deno.serve(async (req) => {
     const site = await getSite();
     if (!site) return json({ error: "site_not_configured" }, 503);
     try {
-      if (b?.action === "wallet_sync") return json({ ok: true, ...(await walletSync()) });
+      if (b?.action === "wallet_sync") return json({ ok: true, ...(await walletSync() as Record<string, unknown>) });
       // Aplicação pontual, exclusivamente service_role; não devolve chave, JWT ou save_url.
       if (b?.action === "wallet_artwork_apply" && typeof b.member_id === "string" && /^[0-9a-f-]{36}$/i.test(b.member_id)) {
         const sa = GW.readSaKey(Deno.env.get("GOOGLE_WALLET_SA_KEY"));

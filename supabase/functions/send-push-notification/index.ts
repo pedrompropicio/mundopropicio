@@ -1,5 +1,6 @@
 import { assertNotTraining, TrainingCompanyError } from "../_shared/training-guard.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { sendWhatsApp } from "../_shared/twilio.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
@@ -15,7 +16,7 @@ type Target =
   | { type: "company_admins"; company_id: string };
 
 async function resolveTargetUserIds(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   target: Target | null,
   fallbackUserIds: string[] | undefined,
 ): Promise<string[]> {
