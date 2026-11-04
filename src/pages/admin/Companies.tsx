@@ -23,6 +23,7 @@ import { Building2, UserPlus, Copy, Plus, Pencil, Upload, Trash2 } from "lucide-
 import { CompanyFeaturesPanel } from "@/components/CompanyFeaturesPanel";
 
 interface CompanyRow {
+  is_training?: boolean;
   id: string;
   legal_name: string;
   display_name: string;
@@ -108,6 +109,7 @@ export default function Companies() {
                   <Building2 className="h-5 w-5 text-muted-foreground" />
                 )}
                 <span>{c.display_name}</span>
+                {c.is_training && <Badge variant="outline">TREINO</Badge>}
               </CardTitle>
               <p className="text-xs text-muted-foreground font-mono">{c.slug}</p>
             </CardHeader>
