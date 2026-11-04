@@ -108,13 +108,13 @@ describe("#581 lote A — migração literal dos quatro grupos legados (R1)", ()
       .toBe("be632157681ab3d91a7c8996b1b73a8201a8969574133e1f2450cf86adf99750");
     expect(legacy.map((group) => group.id)).toEqual(specs.map((spec) => spec.legacyId));
     expect(legacy.find((group) => group.id === "getting-started")?.image).toBe("user-roles");
-    expect(helpManual).toHaveLength(8);
+    expect(helpManual).toHaveLength(4);
     expect(helpManual.map((group) => group.id)).toEqual([
-      "events", "transactions", "reports", "quotations", "recurring", "partner-portal", "iva", "accounting",
+      "reports", "partner-portal", "iva", "accounting",
     ]);
-    // JSON.stringify dos oito grupos originais, calculado antes de remover o lote A.
+    // JSON.stringify dos quatro grupos restantes, calculado antes de remover o lote B.
     expect(createHash("sha256").update(JSON.stringify(helpManual)).digest("hex"))
-      .toBe("b01690b22ce434e17aaaf0ab47f6ba2282f9f685c67e4ddc92f439c4e2efa74a");
+      .toBe("cfa9d2b008844a094c4468f4b9abaf9a0609a4903604464020d18df2b5fabcb6");
     expect(helpManual.some((group) => specs.some((spec) => spec.legacyId === group.id))).toBe(false);
     for (const { article, group } of migrated) {
       expect(article.sections).toHaveLength(group.topics.length);
