@@ -73,12 +73,44 @@ export function isCacheFresh(resolvedAt: string | null | undefined, now = Date.n
   return Number.isFinite(t) && now - t < GEO_CACHE_TTL_MS;
 }
 
+// #647: mesma chave h:<sha256(sal:ip)> da song-link-event. Sem sal não
+// se consulta nem escreve a tabela; nunca há fallback para o IP em claro.
+let cacheSalt: string | null | undefined;
+async function cacheKey(ip: string, c: { url: string; key: string }): Promise<string | null> {
+  if (cacheSalt === undefined) {
+    cacheSalt = Deno.env.get("SONG_LINK_IP_SALT") || null;
+    if (!cacheSalt) {
+      try {
+        const r = await fetch(`${c.url}/rest/v1/rpc/get_vault_secret`, {
+          method: "POST",
+          headers: { apikey: c.key, Authorization: `Bearer ${c.key}`, "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ _name: "SONG_LINK_IP_SALT" }),
+          signal: AbortSignal.timeout(1500),
+        });
+        if (r.ok) {
+          const raw = await r.text();
+          let value: any = raw;
+          try { value = JSON.parse(raw); } catch { /* texto */ }
+          if (Array.isArray(value) && value[0]) cacheSalt = String(value[0]);
+          else if (typeof value === "string" && value) cacheSalt = value;
+          else if (value?.get_vault_secret) cacheSalt = String(value.get_vault_secret);
+        }
+      } catch { /* sem sal: sem cache */ }
+    }
+  }
+  if (!cacheSalt) return null;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${cacheSalt}:${ip}`));
+  return "h:" + Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+}
+
 async function cacheGet(ip: string, tag: string): Promise<Geo | null> {
   const c = restCfg();
   if (!c) return null;
   try {
+    const key = await cacheKey(ip, c);
+    if (!key) return null;
     const r = await fetch(
-      `${c.url}/rest/v1/ip_geo_cache?ip=eq.${encodeURIComponent(ip)}&select=country,city,region,resolved_at`,
+      `${c.url}/rest/v1/ip_geo_cache?ip=eq.${encodeURIComponent(key)}&select=country,city,region,resolved_at`,
       { headers: { apikey: c.key, Authorization: `Bearer ${c.key}`, Accept: "application/json" }, signal: AbortSignal.timeout(1500) },
     );
     if (!r.ok) { console.warn(`[${tag}] cache get non-ok`, r.status); return null; }
@@ -96,13 +128,15 @@ async function cachePut(ip: string, g: Geo, tag: string): Promise<void> {
   const c = restCfg();
   if (!c) return;
   try {
+    const key = await cacheKey(ip, c);
+    if (!key) return;
     const r = await fetch(`${c.url}/rest/v1/ip_geo_cache?on_conflict=ip`, {
       method: "POST",
       headers: {
         apikey: c.key, Authorization: `Bearer ${c.key}`, "Content-Type": "application/json",
         Prefer: "resolution=merge-duplicates,return=minimal",
       },
-      body: JSON.stringify({ ip, ...g, resolved_at: new Date().toISOString() }),
+      body: JSON.stringify({ ip: key, ...g, resolved_at: new Date().toISOString() }),
       signal: AbortSignal.timeout(1500),
     });
     if (!r.ok) console.warn(`[${tag}] cache put non-ok`, r.status);

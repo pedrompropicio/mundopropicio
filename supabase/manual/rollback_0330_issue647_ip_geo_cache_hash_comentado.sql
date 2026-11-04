@@ -1,0 +1,6 @@
+-- Classe R2 — ROLLBACK COMENTADO, NÃO APLICADO. Issue #647.
+-- Só executar pelo 0 na janela, após autorização própria.
+-- Retira apenas o CHECK e o COMMENT; os IPs apagados NÃO voltam.
+-- Não reverter os escritores para chaves com IP em claro.
+-- ALTER TABLE public.ip_geo_cache DROP CONSTRAINT IF EXISTS ip_geo_cache_hash_key_check;
+-- COMMENT ON COLUMN public.ip_geo_cache.ip IS NULL;

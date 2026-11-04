@@ -16,6 +16,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { lookupIpGeo, type Geo } from "../_shared/geo.ts";
+import { isProtectedZone, normalizeCountry } from "../_shared/protected-zone.ts";
 import { validSsrKey, prefetchDetail, ssrClientIp, ssrClientGeo } from "./ssr.ts";
 import {
   canonicalOpenId, destinationConfigured, isDuplicateArrival, isUuid,
@@ -34,6 +35,13 @@ const TIKTOK_EVENTS_URL = "https://business-api.tiktok.com/open_api/v1.3/event/t
 const TEST_CODE_RE = /^[A-Za-z0-9]{3,40}$/;
 const RATE_LIMIT = 60; // eventos por ip_hash por minuto
 const RATE_WINDOW_MS = 60_000;
+// Colunas text sem CHECK no histórico do repositório (criação 20260924202758,
+// TikTok 20260924233339). Não requer alteração de song_link_events.
+const PROTECTED_STATUS = "nao_aplicavel_zona_protegida";
+const protectedIdentifiers = {
+  ip_hash: null, fbclid: null, ttclid: null,
+  capi_fbp: null, capi_fbc: null, capi_external_id: null,
+};
 
 function cors(origin: string | null): Record<string, string> {
   const ok = !!origin && ALLOWED_ORIGINS.has(origin);
@@ -96,7 +104,8 @@ async function getSecret(name: string): Promise<string | null> {
 
 // D-ERP234 adenda 4: geo das chegadas sem depender do ipinfo pedido a pedido.
 // Ordem: cabeçalhos/client_geo → cache por ip_hash 24 h (public.ip_geo_cache, chave "h:<ip_hash>",
-// nunca o IP) → ipinfo (com limite em _shared/geo.ts). Corre em background; nunca bloqueia a gravação.
+// nunca o IP) → DB-IP local. Estes caminhos decidem a zona ANTES da gravação.
+// O ipinfo (com limite em _shared/geo.ts) só corre em background fora da zona.
 const GEO_TTL_MS = 24 * 60 * 60 * 1000;
 const geoCache = new Map<string, { at: number; geo: Geo }>();
 const IPINFO_PER_MIN = 20;
@@ -105,8 +114,10 @@ let ipinfoCalls: number[] = [];
 async function hashGeoGet(admin: any, ipHash: string): Promise<Geo | null> {
   const { data } = await admin.from("ip_geo_cache").select("country, region, city, resolved_at")
     .eq("ip", `h:${ipHash}`).maybeSingle();
-  if (!data?.country || Date.now() - Date.parse(data.resolved_at) >= GEO_TTL_MS) return null;
-  return { country: data.country, region: data.region, city: data.city };
+  const country = normalizeCountry(data?.country);
+  const resolvedAt = Date.parse(data?.resolved_at);
+  if (!country || !Number.isFinite(resolvedAt) || Date.now() - resolvedAt >= GEO_TTL_MS) return null;
+  return { country, region: data.region, city: data.city };
 }
 // deno-lint-ignore no-explicit-any
 async function hashGeoPut(admin: any, ipHash: string | null, g: Geo) {
@@ -119,7 +130,7 @@ async function hashGeoPut(admin: any, ipHash: string | null, g: Geo) {
 // Adenda 5: 5 dos 20 pedidos/min ficam reservados às chegadas blitz_.
 const IPINFO_RESERVED_BLITZ = 5;
 // deno-lint-ignore no-explicit-any
-async function geoFor(admin: any, ipHash: string | null, ip: string, blitz = false): Promise<{ geo: Geo; src: string }> {
+async function geoFor(admin: any, ipHash: string | null, ip: string, blitz = false, allowIpinfo = true): Promise<{ geo: Geo; src: string }> {
   const now = Date.now();
   const NUL: Geo = { country: null, region: null, city: null };
   if (ipHash) {
@@ -131,14 +142,16 @@ async function geoFor(admin: any, ipHash: string | null, ip: string, blitz = fal
   if (!ip) return { geo: NUL, src: "none" };
   // D-ERP263: base local DB-IP Lite City (só BR/PT) antes do ipinfo. O IP só vai como parâmetro; nunca se grava.
   try {
-    const { data } = await admin.rpc("ip_city_lookup", { ip });
+    const { data } = await admin.rpc("ip_city_lookup", { ip }).abortSignal(AbortSignal.timeout(3000));
     const r = Array.isArray(data) ? data[0] : data;
-    if (r?.country && r?.city) {
-      const g: Geo = { country: r.country, region: r.region ?? null, city: r.city };
+    const country = normalizeCountry(r?.country);
+    if (country && (r?.city || !allowIpinfo)) {
+      const g: Geo = { country, region: r.region ?? null, city: r.city ?? null };
       await hashGeoPut(admin, ipHash, g).catch(() => {});
       return { geo: g, src: "dbip" };
     }
   } catch { /* segue para o ipinfo */ }
+  if (!allowIpinfo) return { geo: NUL, src: "none" };
   ipinfoCalls = ipinfoCalls.filter((t) => now - t < 60_000);
   const cap = blitz ? IPINFO_PER_MIN : IPINFO_PER_MIN - IPINFO_RESERVED_BLITZ;
   if (ipinfoCalls.length >= cap) return { geo: NUL, src: "quota" };
@@ -315,9 +328,6 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
   const contentId: string = link.song_id ?? link.id;
 
   const { device, os, in_app_browser } = parseUA(ua);
-  // Teste A/B ios-btn-v1: decidido só no servidor; nunca entra nos payloads Meta/TikTok.
-  const abVariant = event === "app_open" ? null
-    : await abVariantFor({ os, ipHash, force: body.ab_force, nowMs: Date.now(), window: AB_IOS_BTN_WINDOW });
   const detail = prefetchDetail(body.prefetch === true, body.purpose, ua);
   if (detail !== null) {
     const { error } = await admin.from("song_link_diag").insert({ kind: "prefetch", slug: slug.slice(0, 80),
@@ -326,10 +336,19 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     return json({ ok: true, prefetch: true }, 200, origin);
   }
   const cg = isSsr ? ssrClientGeo(body.client_geo) : null;
-  const hdrCountry = isSsr ? cg!.country : s(req.headers.get("cf-ipcountry") ?? req.headers.get("x-vercel-ip-country") ?? req.headers.get("x-country"), 8);
-  const hdrRegion = isSsr ? cg!.region : s(req.headers.get("cf-region") ?? req.headers.get("x-vercel-ip-country-region"), 80);
-  const hdrCity = isSsr ? cg!.city : s(req.headers.get("cf-ipcity") ?? req.headers.get("x-vercel-ip-city"), 120);
+  let hdrCountry = normalizeCountry(isSsr ? cg!.country : s(req.headers.get("cf-ipcountry") ?? req.headers.get("x-vercel-ip-country") ?? req.headers.get("x-country"), 8));
+  let hdrRegion = isSsr ? cg!.region : s(req.headers.get("cf-region") ?? req.headers.get("x-vercel-ip-country-region"), 80);
+  let hdrCity = isSsr ? cg!.city : s(req.headers.get("cf-ipcity") ?? req.headers.get("x-vercel-ip-city"), 120);
+  if (!hdrCountry) {
+    const { geo } = await geoFor(admin, ipHash, ip ?? "", false, false);
+    hdrCountry = normalizeCountry(geo.country); hdrRegion = geo.region; hdrCity = geo.city;
+  }
+  const protectedZone = isProtectedZone(hdrCountry);
   const eventId = s(body?.event_id, 120);
+  // #647: na zona protegida o sorteio é por evento, sem identificar visitantes.
+  // Fora da zona mantém os mesmos bytes/algoritmo; nunca entra nos envios.
+  const abVariant = event === "app_open" ? null
+    : await abVariantFor({ os, ipHash: protectedZone ? eventId : ipHash, force: body.ab_force, nowMs: Date.now(), window: AB_IOS_BTN_WINDOW });
   const pageUrl = s(body?.page_url, 2000);
   const destination = s(body?.destination, 60);
   const metaTest = typeof body?.meta_test_event_code === "string" && TEST_CODE_RE.test(body.meta_test_event_code) ? body.meta_test_event_code : null;
@@ -387,6 +406,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
       fbclid: inheritedClicks.fbclid, ttclid: inheritedClicks.ttclid,
       country: hdrCountry, region: hdrRegion, city: hdrCity, device, os, in_app_browser,
       ip_hash: ipHash, origin: "browser", capi_status: "pendente", tiktok_status: "pendente",
+      ...(protectedZone ? { ...protectedIdentifiers, capi_status: PROTECTED_STATUS, tiktok_status: PROTECTED_STATUS } : {}),
     }).select("id").maybeSingle();
     if (insErr) {
       if (insErr.code === "23505") {
@@ -407,6 +427,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     country: hdrCountry, region: hdrRegion, city: hdrCity, device, os, in_app_browser,
     ip_hash: ipHash, origin: isSsr ? "ssr" : "browser",
     ...(abVariant ? { ab_variant: abVariant } : {}),
+    ...(protectedZone ? protectedIdentifiers : {}),
   }});
   if (claimError) {
     console.warn("[song-link-event] claim falhou", claimError.message);
@@ -449,11 +470,13 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
           utm_campaign: s(body.utm_campaign, 200), utm_content: s(body.utm_content, 200), utm_term: s(body.utm_term, 200),
           fbclid: s(body.fbclid, 500), ttclid: s(body.ttclid, 500), country: hdrCountry, region: hdrRegion, city: hdrCity,
           device, os, in_app_browser, ip_hash: ipHash, origin: "browser",
-          capi_status: "nao_reenviado", tiktok_status: "nao_reenviado" });
+          capi_status: "nao_reenviado", tiktok_status: "nao_reenviado",
+          ...(protectedZone ? { ...protectedIdentifiers, capi_status: PROTECTED_STATUS, tiktok_status: PROTECTED_STATUS } : {}) });
         if (error) return json({ ok: false, error: "erro_interno" }, 500, origin);
         return json({ ok: true, duplicate: true, recovered: true, delivery: "nao_reenviada" }, 200, origin);
       }
-      if (row && s(body.fbp, 500) && row.capi_fbp !== true) patch.capi_fbp = true;
+      if (row && protectedZone) Object.assign(patch, protectedIdentifiers, { capi_status: PROTECTED_STATUS, tiktok_status: PROTECTED_STATUS });
+      if (row && !protectedZone && s(body.fbp, 500) && row.capi_fbp !== true) patch.capi_fbp = true;
       if (row && Object.keys(patch).length) {
         const { error } = await admin.from("song_link_events").update(patch).eq("id", row.id);
         if (error) return json({ ok: false, error: "erro_interno" }, 500, origin);
@@ -482,6 +505,16 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
   }
 
   const work = (async () => {
+    // #647: termina antes de geo paga, dedup por click IDs, tokens e slots.
+    // A claim existente fixa pendente; este é o resultado final sem novo DDL.
+    if (protectedZone) {
+      const { error } = await admin.from("song_link_events").update({
+        country: hdrCountry, region: hdrRegion, city: hdrCity,
+        ...protectedIdentifiers, capi_status: PROTECTED_STATUS, tiktok_status: PROTECTED_STATUS,
+      }).eq("id", claimedId);
+      if (error) console.warn("[song-link-event] update zona protegida falhou", error.message);
+      return;
+    }
     // Geo: CDN/cabeçalhos primeiro; depois cache ip_hash 24 h; depois ipinfo (limite). Nunca atrasa a resposta.
     // Adenda 5: país da CDN sem região/cidade → completa, sem NUNCA substituir o país.
     let country = hdrCountry, region = hdrRegion, city = hdrCity;
