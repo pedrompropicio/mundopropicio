@@ -26,6 +26,8 @@ import { fetchNonAccountingAccountIds, nonAccountingOrFilter, normalizeAccountFi
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { computeReviewCounts } from "@/lib/accountant-review-counts";
 import { matchesAllTerms } from "@/lib/accountant-search";
+import { chunkIds } from "@/lib/chunk-ids";
+import { fetchAccountantReimbursementNotes, fetchAccountantReimbursementTransactionIds } from "@/lib/accountant-reimbursements";
 
 interface Tx {
   id: string;
@@ -63,6 +65,9 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
   const { toast } = useToast();
   const [typeFilter, setTypeFilter] = useState<"all" | "expense" | "income">("all");
   const [accountFilter, setAccountFilter] = useState<string>("all");
+  const [reimbursementSelection, setReimbursementSelection] = useState<{ companyId: string | null; id: string } | null>(null);
+  const reimbursementFilter = reimbursementSelection?.companyId === companyId ? reimbursementSelection.id : "all";
+  const reimbursementActive = reimbursementFilter !== "all";
   const [search, setSearch] = useState("");
   const [attachmentsFilter, setAttachmentsFilter] = useState<"all" | "with" | "without">("all");
   const [sortBy, setSortBy] = useState<{ k: "payment_date" | "amount" | "supplier_name"; dir: "asc" | "desc" }>({
@@ -86,28 +91,52 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
   // #392: com texto na pesquisa, procura em TODO o histórico (ignora o período).
   const searchActive = search.trim().length > 0;
 
-  const { data, isLoading, error: txError, refetch: refetchTx } = useQuery({
-    queryKey: ["accountant-documents", companyId, period.from, period.to, typeFilter, accountFilter, searchActive, (nonAccountingIds ?? []).join(",")],
+  const exactSelectionActive = searchActive || reimbursementActive;
+
+  const { data: reimbursementNotes, isLoading: notesLoading, error: notesError, refetch: refetchNotes } = useQuery({
+    queryKey: ["accountant-reimbursement-notes", companyId],
+    enabled: !!companyId,
+    queryFn: () => fetchAccountantReimbursementNotes(companyId!),
+  });
+
+  const { data, isLoading, isFetching: txFetching, error: txError, refetch: refetchTx } = useQuery({
+    queryKey: ["accountant-documents", companyId, period.from, period.to, typeFilter, accountFilter, searchActive, reimbursementFilter, (nonAccountingIds ?? []).join(",")],
     enabled: !!companyId && !!nonAccountingIds,
     queryFn: async () => {
       const managerial = nonAccountingIds ?? [];
-      let q = (supabase as any)
-        .from("transactions")
-        .select("id, type, payment_date, description, amount, invoice_ref, supplier_id, account_id, status, paid_amount, suppliers:supplier_id(name, trade_name, nif)")
-        .eq("company_id", companyId)
-        .or("status.eq.paid,paid_amount.gt.0")
-        .order("payment_date", { ascending: false });
-      if (!searchActive) q = q.gte("payment_date", period.from).lte("payment_date", period.to);
-      if (typeFilter !== "all") q = q.eq("type", typeFilter);
-      const effectiveAccount = normalizeAccountFilter(accountFilter, managerial);
-      if (effectiveAccount !== "all") q = q.eq("account_id", effectiveAccount);
-      const orFilter = nonAccountingOrFilter(managerial);
-      if (orFilter) q = q.or(orFilter);
+      const noteIds = reimbursementActive
+        ? await fetchAccountantReimbursementTransactionIds(companyId!, reimbursementFilter)
+        : null;
+      if (noteIds?.length === 0) return [];
 
-      // Leitura SEMPRE paginada (#392): o teto de 1.000 do PostgREST é regra do
-      // INDEX e não se confirma por configuração — nunca limit fixo aqui.
-      const { data: rows, error } = await fetchAllPagedQuery(q);
-      if (error) throw error;
+      const fetchTransactions = async (transactionIds?: string[]) => {
+        let q = (supabase as any)
+          .from("transactions")
+          .select("id, type, payment_date, description, amount, invoice_ref, supplier_id, account_id, status, paid_amount, suppliers:supplier_id(name, trade_name, nif)")
+          .eq("company_id", companyId)
+          .or("status.eq.paid,paid_amount.gt.0")
+          .order("payment_date", { ascending: false });
+        if (!searchActive && !reimbursementActive) q = q.gte("payment_date", period.from).lte("payment_date", period.to);
+        if (transactionIds) q = q.in("id", transactionIds);
+        if (typeFilter !== "all") q = q.eq("type", typeFilter);
+        const effectiveAccount = normalizeAccountFilter(accountFilter, managerial);
+        if (effectiveAccount !== "all") q = q.eq("account_id", effectiveAccount);
+        const orFilter = nonAccountingOrFilter(managerial);
+        if (orFilter) q = q.or(orFilter);
+
+        // Leitura SEMPRE paginada (#392): o teto de 1.000 do PostgREST é regra do
+        // INDEX e não se confirma por configuração — nunca limit fixo aqui.
+        const { data: rows, error } = await fetchAllPagedQuery(q);
+        if (error) throw error;
+        return rows ?? [];
+      };
+      // Blocos de 200 ids como nos anexos (#392), sem exceder o tamanho da URL PostgREST.
+      const rows: any[] = [];
+      if (noteIds) {
+        for (const ids of chunkIds(noteIds)) rows.push(...await fetchTransactions(ids));
+      } else {
+        rows.push(...await fetchTransactions());
+      }
       const ids = (rows ?? []).map((r: any) => r.id);
       const counts = await fetchAccountantDocCountsBatch(ids);
       return (rows ?? []).map((r: any): Tx => ({
@@ -144,8 +173,8 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
 
   const txIds = useMemo(() => (data ?? []).map((t) => t.id), [data]);
 
-  const { data: reviews } = useQuery({
-    queryKey: ["accountant-reviews", companyId, txIds.length, period.from, period.to],
+  const { data: reviews, isFetching: reviewsFetching, error: reviewsError } = useQuery({
+    queryKey: ["accountant-reviews", companyId, txIds.join(","), period.from, period.to],
     enabled: !!companyId && txIds.length > 0,
     queryFn: () => fetchReviewsForTransactions(txIds),
   });
@@ -270,13 +299,19 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
   });
 
 
+  const zipSelectionUnavailable = exactSelectionActive && (
+    !data || txFetching || !!txError ||
+    (txIds.length > 0 && (!reviews || reviewsFetching || !!reviewsError))
+  );
+
   async function downloadAll() {
+    if (!companyId || zipSelectionUnavailable) return;
     setZipLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-accountant-zip", {
         body: {
           company_id: companyId,
-          ...(searchActive ? { transaction_ids: rows.map((row) => row.id) } : {}),
+          ...(exactSelectionActive ? { transaction_ids: rows.map((row) => row.id) } : {}),
           period,
           filters: {
             type: typeFilter,
@@ -316,7 +351,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Button onClick={downloadAll} disabled={zipLoading || !companyId || (searchActive && (isLoading || !!txError))}>
+          <Button onClick={downloadAll} disabled={zipLoading || !companyId || zipSelectionUnavailable}>
             {zipLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
             Descarregar Tudo (ZIP)
           </Button>
@@ -325,7 +360,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
 
       <div className="flex flex-wrap gap-2">
         <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
-          <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Tipo" className="w-40 h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tipo: Todos</SelectItem>
             <SelectItem value="expense">Despesa</SelectItem>
@@ -333,10 +368,19 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
           </SelectContent>
         </Select>
         <Select value={accountFilter} onValueChange={setAccountFilter}>
-          <SelectTrigger className="w-56 h-9"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Conta" className="w-56 h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Conta: Todas</SelectItem>
             {(accounts ?? []).map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={reimbursementFilter} onValueChange={(id) => setReimbursementSelection({ companyId, id })} disabled={notesLoading || !!notesError}>
+          <SelectTrigger aria-label="Reembolso" className="w-64 h-9"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Reembolso: Todos</SelectItem>
+            {(reimbursementNotes ?? []).map((note) => (
+              <SelectItem key={note.id} value={note.id}>{note.code} · {note.employee_name}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Input
@@ -345,16 +389,16 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
           onChange={(e) => setSearch(e.target.value)}
           className="w-96 h-9"
         />
-        {searchActive && (
+        {exactSelectionActive && (
           <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-500">
-            A pesquisar em todo o histórico (ignora o período)
-            <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => setSearch("")}>
+            {reimbursementActive ? "Nota de reembolso completa (ignora o período)" : "A pesquisar em todo o histórico (ignora o período)"}
+            <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => { setSearch(""); setReimbursementSelection(null); }}>
               Limitar ao período
             </Button>
           </div>
         )}
         <Select value={attachmentsFilter} onValueChange={(v) => setAttachmentsFilter(v as any)}>
-          <SelectTrigger className="w-44 h-9"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Anexos" className="w-44 h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Anexos: Todos</SelectItem>
             <SelectItem value="with">Com anexos</SelectItem>
@@ -362,7 +406,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
           </SelectContent>
         </Select>
         <Select value={reviewFilter} onValueChange={(v) => setReviewFilter(v as any)}>
-          <SelectTrigger className="w-52 h-9"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Conferência" className="w-52 h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Conferência: Todas</SelectItem>
             <SelectItem value="todo">Por conferir</SelectItem>
@@ -372,6 +416,9 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
           </SelectContent>
         </Select>
       </div>
+
+      {notesError && <QueryErrorState error={notesError} onRetry={() => refetchNotes()} context="Contabilidade — Notas de reembolso" />}
+      {reviewsError && <QueryErrorState error={reviewsError} context="Contabilidade — Conferências" />}
 
       <div className="rounded-lg border overflow-hidden">
         <div className="max-h-[60vh] overflow-auto">
@@ -396,7 +443,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
               ) : isLoading ? (
                 <tr><td colSpan={10} className="p-6 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />A carregar…</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">{searchActive ? "Sem resultados para a pesquisa." : "Sem transações no período."}</td></tr>
+                <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">{reimbursementActive ? "Sem transações para a nota e os filtros escolhidos." : searchActive ? "Sem resultados para a pesquisa." : "Sem transações no período."}</td></tr>
               ) : rows.map((t) => (
                 <tr key={t.id} className="border-t hover:bg-muted/30">
                   <td className="p-2 whitespace-nowrap">{t.payment_date ? format(new Date(t.payment_date), "dd/MM/yyyy") : "—"}</td>

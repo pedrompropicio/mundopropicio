@@ -44,29 +44,54 @@ export async function signV4(
 }
 
 export type R2Head = { size: number; meta: Record<string, string> };
+export type R2Probe = { status: number; code: string | null };
+
+// Only expose the S3 error identifier, never messages, keys or the XML body.
+const s3Code = (body: string): string | null =>
+  body.match(/<(?:\w+:)?Code>\s*([A-Za-z][A-Za-z0-9]{0,127})\s*<\/(?:\w+:)?Code>/)?.[1] ?? null;
 
 export function createR2Client(options: {
   accountId: string; accessKeyId: string; secretAccessKey: string; bucket: string;
+  endpointKind?: "eu" | "default";
   fetchImpl?: typeof fetch; now?: () => Date;
 }) {
   const fetchImpl = options.fetchImpl ?? fetch;
   const now = options.now ?? (() => new Date());
-  const endpoint = `https://${options.accountId}.eu.r2.cloudflarestorage.com`;
+  const endpoint = `https://${options.accountId}.${options.endpointKind === "default" ? "" : "eu."}r2.cloudflarestorage.com`;
   const credentials = { ...options, region: "auto", service: "s3" };
   const objectPath = (key: string) => `/${encode(options.bucket)}/${encodePath(key)}`;
-  async function request(op: string, method: string, key: string, bytes?: Uint8Array, extra: Record<string, string> = {}) {
-    const url = `${endpoint}${objectPath(key)}`;
+  async function signedRequest(method: string, url: string, bytes?: Uint8Array, extra: Record<string, string> = {}) {
     const headers = await signV4({ method, url, headers: extra,
       payloadHash: await sha256Hex(bytes ?? new Uint8Array()) }, credentials,
     now().toISOString().replace(/[:-]|\.\d{3}/g, ""));
-    const response = await fetchImpl(url, {
+    return fetchImpl(url, {
       method, headers, ...(bytes ? { body: new Uint8Array(bytes) } : {}), redirect: "error",
     });
+  }
+  async function request(op: string, method: string, key: string, bytes?: Uint8Array, extra: Record<string, string> = {}) {
+    const url = `${endpoint}${objectPath(key)}`;
+    const response = await signedRequest(method, url, bytes, extra);
     if (op === "HEAD" && response.status === 404) return null;
+    if (op === "HEAD" && !response.ok) {
+      let code: string | null = null;
+      try {
+        const detail = await signedRequest("GET", url, undefined, { range: "bytes=0-0" });
+        if (detail.ok) await detail.body?.cancel();
+        else code = s3Code(await detail.text());
+      } catch { /* Keep the original HEAD status even if its diagnostic GET fails. */ }
+      throw new Error(`R2 HEAD ${response.status} (${code ?? "sem código"})`);
+    }
     if (!response.ok) throw new Error(`R2 ${op} ${response.status}: ${(await response.text()).slice(0, 200)}`);
     return response;
   }
   return {
+    async probe(): Promise<R2Probe> {
+      const response = await signedRequest("GET", `${endpoint}/${encode(options.bucket)}?list-type=2&max-keys=1`);
+      let code: string | null = null;
+      if (response.ok) await response.body?.cancel();
+      else code = s3Code(await response.text());
+      return { status: response.status, code };
+    },
     async putObject(key: string, bytes: Uint8Array, meta: Record<string, string>) {
       const headers: Record<string, string> = { "content-type": "application/octet-stream", "if-none-match": "*" };
       for (const [k, v] of Object.entries(meta)) headers[`x-amz-meta-${k.toLowerCase()}`] = v;
