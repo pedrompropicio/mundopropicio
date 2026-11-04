@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { SUPPLIER_BASE_COLUMNS, fetchSupplierBankMap, mergeSupplierBank } from "@/lib/supplier-bank";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 
 
 type ViewMode = "grid" | "list";
@@ -31,6 +32,7 @@ type SortDir = "asc" | "desc";
 type StatusFilter = "active" | "inactive" | "all";
 
 export default function Suppliers() {
+  const companyLocale = useCompanyLocale();
   const [tab, setTab] = useState<"suppliers" | "credits">("suppliers");
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -263,7 +265,7 @@ export default function Suppliers() {
 
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Pesquisar por nome, NIF ou categoria..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+          <Input placeholder={`Pesquisar por nome, ${companyLocale.status === "available" ? companyLocale.labels.taxIdAny : "NIF"} ou categoria...`} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
         </div>
         <div className="flex items-center gap-2">
           <Select value={sortField} onValueChange={(v) => setSortField(v as SortField)}>
