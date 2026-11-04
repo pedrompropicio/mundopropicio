@@ -34,13 +34,13 @@ termos: [despesas, pagar]
 
 1. Crie despesas marcadas como 'Reembolso' no formulário de transações (toggle '💰 Marcar como Reembolso'), indicando o nome do funcionário.
 
-2. No módulo Notas de Reembolso, crie uma nova nota indicando o funcionário e notas adicionais.
+2. Antes de guardar a despesa, selecione ou crie uma Nota de Reembolso no formulário de transações; a vinculação à nota é automática, sem conta financeira associada.
 
-3. Adicione as despesas de reembolso à nota. Cada item deve ter obrigatoriamente um documento contábil (fatura, recibo) anexado.
+3. Cada item deve ter obrigatoriamente um documento contábil (fatura, recibo) anexado.
 
-4. Aprove a nota (operação em lote que aprova todas as despesas vinculadas).
+4. Aprove a nota (operação em lote que aprova apenas as despesas vinculadas em estado pendente).
 
-5. Ao pagar, o sistema gera automaticamente uma transação bancária vinculada à nota, garantindo rastreabilidade bidirecional.
+5. Use 'Gerar Transação para Pagamento' para criar uma transação aprovada, sem conta financeira e excluída do resultado; a nota passa a 'Aguarda Pagamento'. Liquide a transação no fluxo normal de pagamentos, escolhendo então a conta bancária; a nota e os itens passam automaticamente a pagos.
 
 6. A nota pode ser exportada em PDF com o detalhamento de todos os itens.
 
@@ -51,14 +51,14 @@ id: reembolsos.regras
 tooltip: "• A aprovação requer que todos os itens tenham um documento contábil (is_accounting: true) anexado."
 ecras: [reembolsos.detalhe]
 perfis: []
-fontes: [src/components/ReimbursementNoteDetail.tsx]
+fontes: [src/components/ReimbursementNoteDetail.tsx, src/pages/Reimbursements.tsx]
 termos: [aprovação, documento contábil]
 ```
 
 - A aprovação requer que todos os itens tenham um documento contábil (`is_accounting: true`) anexado.
 
-- A aprovação propaga o estado 'Aprovado' para todas as transações vinculadas.
+- A aprovação propaga o estado 'Aprovado' apenas para as transações vinculadas em estado pendente.
 
-- A liquidação gera automaticamente uma transação bancária na conta selecionada.
+- A geração do pagamento cria uma transação aprovada, sem conta financeira e excluída do resultado, e coloca a nota em 'Aguarda Pagamento'; a liquidação faz-se no fluxo normal de pagamentos e marca a nota e os itens como pagos.
 
-- Os estados disponíveis são: Rascunho, Aprovada e Paga.
+- Os estados disponíveis são: Rascunho, Aprovada, Aguarda Pagamento e Paga.

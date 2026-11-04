@@ -45,7 +45,7 @@ fontes: [src/components/HelpTooltip.tsx, src/components/help/HelpFloatingButton.
 termos: [ajuda, manual]
 ```
 
-Todas as secções, botões e campos importantes do sistema possuem ícones de ajuda (?) que explicam a funcionalidade ao passar o rato (desktop) ou ao tocar (mobile). O botão flutuante (📖) no canto inferior direito abre o manual na secção relevante à página atual.
+Todas as secções, botões e campos importantes do sistema possuem ícones de ajuda (?) que explicam a funcionalidade ao passar o rato (desktop) ou ao tocar (mobile). O botão flutuante com ícone de livro, visível em ecrãs de largura média ou superior, no canto inferior direito abre o manual na secção relevante à página atual.
 
 ## Timeout por inatividade
 

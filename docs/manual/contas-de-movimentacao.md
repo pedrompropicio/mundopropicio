@@ -19,7 +19,7 @@ fontes: [src/pages/FinancialAccounts.tsx, src/hooks/useAccountBalanceCards.ts]
 termos: [saldo, contas bancárias]
 ```
 
-Representam onde o dinheiro está: contas bancárias, caixas, bilheteiras, cartões. O saldo é calculado automaticamente a partir do saldo inicial + transações pagas (entradas) − transações pagas (saídas).
+Representam onde o dinheiro está: contas bancárias, caixas, bilheteiras, cartões. Os saldos são calculados no servidor, separando caixa (contas bancárias, caixas e cartões pré-pagos), retido em bilheteiras (com fórmula própria) e acertos em curso. Os casos 'Não controlado' e 'Sem permissão' não são apresentados como saldo zero.
 
 ## Controlo de acesso por conta
 
@@ -28,11 +28,11 @@ id: contas.acesso
 tooltip: "Cada conta pode ter visibilidade restrita."
 ecras: [contas.acesso]
 perfis: []
-fontes: [src/components/AccountAccessModal.tsx]
+fontes: [src/components/AccountAccessModal.tsx, src/pages/FinancialAccounts.tsx]
 termos: [acesso, visibilidade]
 ```
 
-Cada conta pode ter visibilidade restrita. Na configuração da conta, defina quais utilizadores têm acesso. Utilizadores sem acesso não verão a conta nem o seu saldo. Administradores veem sempre todas as contas.
+Cada conta pode ter visibilidade restrita. Na configuração da conta, defina quais utilizadores têm acesso. Utilizadores sem permissão para consultar o saldo veem o nome da conta e 'Sem permissão' no saldo. Administradores veem sempre todas as contas.
 
 ## Operações Financeiras (Grupo 10)
 
