@@ -14,6 +14,7 @@
 //  - HTML inesperado / preços estranhos / preço 0 → não escreve, loga erro.
 //  - Zonas de mobilidade condicionada/reduzida são ignoradas.
 
+import { isTrainingCompany } from "../_shared/training-guard.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import {
@@ -52,6 +53,44 @@ const UA =
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+
+// One request-local classification per company, resolved as a batch before effects.
+// Only the shared guard's absent-RPC fallback permits the pre-0327 behavior.
+async function excludeTrainingEvents<T extends { company_id?: string | null }>(
+  admin: any,
+  rows: T[],
+  trainingByCompany: Map<string, Promise<boolean>>,
+): Promise<T[]> {
+  const companyIds = [...new Set(rows.map(e => e.company_id).filter((id): id is string => id != null))];
+  const flags = await Promise.all(companyIds.map(id => {
+    if (!trainingByCompany.has(id)) trainingByCompany.set(id, isTrainingCompany(admin, id));
+    return trainingByCompany.get(id)!;
+  }));
+  const training = new Set(companyIds.filter((_, index) => flags[index]));
+  return rows.filter(e => e.company_id == null || !training.has(e.company_id));
+}
+
+// Preserve the original limit/order for real rows. If training fills a slot,
+// continue the same selection until the real pool reaches the original cap.
+async function selectNonTrainingEvents(
+  admin: any,
+  build: () => any,
+  limit: number,
+  trainingByCompany: Map<string, Promise<boolean>>,
+): Promise<any[]> {
+  const selected: any[] = [];
+  let offset = 0;
+  while (selected.length < limit) {
+    const query = build();
+    const { data, error } = await (offset === 0 ? query.limit(limit) : query.range(offset, offset + limit - 1));
+    if (error) throw error;
+    const batch = data ?? [];
+    selected.push(...await excludeTrainingEvents(admin, batch, trainingByCompany));
+    if (batch.length < limit) break;
+    offset += limit;
+  }
+  return selected.slice(0, limit);
+}
 
 async function fetchHtml(url: string): Promise<{ ok: boolean; status: number; html: string; url: string }> {
   const r = await tolerantFetch(url);
@@ -322,17 +361,19 @@ async function rotateFeatured(
   admin: any,
   today: string,
   dryRun: boolean,
+  trainingByCompany: Map<string, Promise<boolean>>,
 ): Promise<FeaturedRotation> {
   const out: FeaturedRotation = { unfeatured: [], promoted: null, lines: [], dry_run: dryRun };
 
   // 1) HIGIENE — destaques com data passada
-  const { data: stale } = await admin
+  const { data: stale, error: staleError } = await admin
     .from("events")
-    .select("id, name, date")
+    .select("id, name, date, company_id")
     .eq("portal_featured", true)
     .lt("date", today);
-
-  const staleRows = (stale ?? []) as Array<{ id: string; name: string; date: string }>;
+  if (staleError) throw staleError;
+  const staleRows = (await excludeTrainingEvents(admin, (stale ?? []) as Array<{ id: string; name: string; date: string; company_id?: string | null }>, trainingByCompany))
+    .map(({ id, name, date }) => ({ id, name, date }));
   out.unfeatured = staleRows;
 
   if (staleRows.length > 0 && !dryRun) {
@@ -343,28 +384,26 @@ async function rotateFeatured(
   }
 
   // 2) FILA NUNCA VAZIA
-  const { data: current } = await admin
+  const current = await selectNonTrainingEvents(admin, () => admin
     .from("events")
-    .select("id, name, date")
+    .select("id, name, date, company_id")
     .eq("portal_featured", true)
     .eq("portal_visible", true)
-    .gte("date", today)
-    .limit(1);
+    .gte("date", today), 1, trainingByCompany);
 
   const staleIds = new Set(staleRows.map((e) => e.id));
-  const stillFeatured = ((current ?? []) as Array<{ id: string }>).filter((e) => !staleIds.has(e.id));
+  const stillFeatured = current.filter((e) => !staleIds.has(e.id));
 
   if (stillFeatured.length === 0) {
-    const { data: candidates } = await admin
+    const candidates = await selectNonTrainingEvents(admin, () => admin
       .from("events")
-      .select("id, name, date, slug, ticketing_url")
+      .select("id, name, date, slug, ticketing_url, company_id")
       .eq("portal_visible", true)
       .gte("date", today)
       .is("parent_event_id", null)
-      .order("date", { ascending: true })
-      .limit(20);
+      .order("date", { ascending: true }), 20, trainingByCompany);
 
-    const pool = ((candidates ?? []) as Array<any>).filter((e) => !staleIds.has(e.id));
+    const pool = candidates.filter((e) => !staleIds.has(e.id));
     if (pool.length > 0) {
       const firstDate = pool[0].date;
       const sameDay = pool.filter((e) => e.date === firstDate);
@@ -595,8 +634,15 @@ Deno.serve(async (req) => {
     .select("id, name, slug, date, ticketing_url, ticketing_provider, portal_visible, company_id")
     .eq("id", body.eventId);
 
-  const { data: events, error: evErr } = await q;
+  const { data: selectedEvents, error: evErr } = await q;
   if (evErr) return json({ error: evErr.message }, 500);
+  const trainingByCompany = new Map<string, Promise<boolean>>();
+  let events: typeof selectedEvents;
+  try {
+    events = await excludeTrainingEvents(admin, selectedEvents ?? [], trainingByCompany);
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : String(error) }, 500);
+  }
 
     const ids = (events ?? []).map((e: any) => e.id);
   const { data: marketing } = ids.length
@@ -768,7 +814,7 @@ Deno.serve(async (req) => {
   let featured: FeaturedRotation | null = null;
   if (!body.eventId) {
     try {
-      featured = await rotateFeatured(admin, today, dryRun);
+      featured = await rotateFeatured(admin, today, dryRun, trainingByCompany);
       if (featured.lines.length > 0) {
         const link = featured.promoted?.slug ? `${PORTAL_BASE}/eventos/${featured.promoted.slug}` : null;
         digest.push({
