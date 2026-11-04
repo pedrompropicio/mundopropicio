@@ -522,7 +522,7 @@ export default function Dashboard() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">
-            Dashboard <HelpTooltip text={helpTexts.dashboard} />
+            Dashboard <HelpTooltip anchor="primeiros-passos.visao-geral" text={helpTexts.dashboard} />
           </h1>
         </div>
         <p className="py-8 text-center text-muted-foreground">A carregar dados…</p>
@@ -534,7 +534,7 @@ export default function Dashboard() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">
-          Dashboard <HelpTooltip text={helpTexts.dashboard} />
+          Dashboard <HelpTooltip anchor="primeiros-passos.visao-geral" text={helpTexts.dashboard} />
         </h1>
         <p className="text-sm text-muted-foreground">Visão executiva dos eventos</p>
       </div>
