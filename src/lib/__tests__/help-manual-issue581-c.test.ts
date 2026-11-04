@@ -103,7 +103,7 @@ describe("#581 lote C — migração literal dos três grupos legados (R1)", () 
       .toBe("a75af6d46daf20c71169dc78eaa149c10007e97bbdfe492d5f3be5fd388c75f0");
     expect(legacy.map((group) => group.id)).toEqual(specs.map((spec) => spec.legacyId));
     expect(legacy.find((group) => group.id === "accounts")?.image).toBe("accounts-flow");
-    expect(helpManual).toHaveLength(4);
+    expect(helpManual).toHaveLength(0);
     expect(helpManual.some((group) => specs.some((spec) => spec.legacyId === group.id))).toBe(false);
     for (const { article, group } of migrated) {
       expect(group.topics).toHaveLength(3);

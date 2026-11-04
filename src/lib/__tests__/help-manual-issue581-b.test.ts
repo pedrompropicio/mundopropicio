@@ -113,11 +113,11 @@ describe("#581 lote B — migração literal dos quatro grupos legados (R1)", ()
     expect(legacy.map((group) => group.id)).toEqual(specs.map((spec) => spec.legacyId));
     expect(legacy.find((group) => group.id === "events")?.image).toBe("event-lifecycle");
     expect(legacy.find((group) => group.id === "transactions")?.image).toBe("transaction-lifecycle");
-    expect(helpManual).toHaveLength(4);
-    expect(helpManual.map((group) => group.id)).toEqual(["reports", "partner-portal", "iva", "accounting"]);
-    // JSON.stringify dos quatro grupos restantes, calculado antes de remover o lote B.
+    expect(helpManual).toHaveLength(0);
+    expect(helpManual.map((group) => group.id)).toEqual([]);
+    // JSON.stringify do legado vazio após o lote D (#581).
     expect(createHash("sha256").update(JSON.stringify(helpManual)).digest("hex"))
-      .toBe("cfa9d2b008844a094c4468f4b9abaf9a0609a4903604464020d18df2b5fabcb6");
+      .toBe("4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945");
     expect(helpManual.some((group) => specs.some((spec) => spec.legacyId === group.id))).toBe(false);
     for (const { article, group } of migrated) {
       expect(article.sections).toHaveLength(group.topics.length);

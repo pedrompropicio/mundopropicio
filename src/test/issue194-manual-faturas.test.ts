@@ -109,15 +109,12 @@ describe("#194 — capítulo real Faturas e Fornecedores (R1)", () => {
     }
   });
 
-  it("C3: retira suppliers, ticket-offices e os lotes C, A e B, preservando integralmente os outros 4 grupos", () => {
-    expect(helpManual).toHaveLength(4);
-    expect(helpManual.map((group) => group.id)).toEqual([
-      "reports", "partner-portal", "iva", "accounting",
-    ]);
-    // Baseline de HEAD ec8d82306207befb462652a843a9d9c9d642370a, antes de editar:
-    // JSON.stringify dos 8 grupos pós-A, excluindo só events, transactions, recurring e quotations.
+  it("C3: retira suppliers, ticket-offices e os lotes C, A, B e D, deixando o legado vazio", () => {
+    expect(helpManual).toHaveLength(0);
+    expect(helpManual.map((group) => group.id)).toEqual([]);
+    // JSON.stringify do legado vazio após o lote D (#581).
     expect(createHash("sha256").update(JSON.stringify(helpManual)).digest("hex"))
-      .toBe("cfa9d2b008844a094c4468f4b9abaf9a0609a4903604464020d18df2b5fabcb6");
+      .toBe("4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945");
   });
 
   it("C4: liga h1 e Novo Fornecedor e o h1 do detalhe Ads, com reservas e destinos reais", () => {
