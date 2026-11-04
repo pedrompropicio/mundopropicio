@@ -109,15 +109,15 @@ describe("#194 — capítulo real Faturas e Fornecedores (R1)", () => {
     }
   });
 
-  it("C3: retira suppliers, ticket-offices e os lotes C e A, preservando integralmente os outros 8 grupos", () => {
-    expect(helpManual).toHaveLength(8);
+  it("C3: retira suppliers, ticket-offices e os lotes C, A e B, preservando integralmente os outros 4 grupos", () => {
+    expect(helpManual).toHaveLength(4);
     expect(helpManual.map((group) => group.id)).toEqual([
-      "events", "transactions", "reports", "quotations", "recurring", "partner-portal", "iva", "accounting",
+      "reports", "partner-portal", "iva", "accounting",
     ]);
-    // Baseline de HEAD 7c87ea234ce20aa1cbfbcd70d588da3ce57a56e3, antes de editar:
-    // JSON.stringify dos 12 grupos pós-C, excluindo só getting-started, interface, admin e calendar.
+    // Baseline de HEAD ec8d82306207befb462652a843a9d9c9d642370a, antes de editar:
+    // JSON.stringify dos 8 grupos pós-A, excluindo só events, transactions, recurring e quotations.
     expect(createHash("sha256").update(JSON.stringify(helpManual)).digest("hex"))
-      .toBe("b01690b22ce434e17aaaf0ab47f6ba2282f9f685c67e4ddc92f439c4e2efa74a");
+      .toBe("cfa9d2b008844a094c4468f4b9abaf9a0609a4903604464020d18df2b5fabcb6");
   });
 
   it("C4: liga h1 e Novo Fornecedor e o h1 do detalhe Ads, com reservas e destinos reais", () => {
