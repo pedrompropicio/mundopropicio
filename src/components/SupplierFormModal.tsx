@@ -66,7 +66,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const companyLocale = useCompanyLocale();
   const { company } = useCompany();
   const companyCountry = company?.country ?? null;
-  const [country, setCountry] = useState(companyCountry ?? "");
+  const [country, setCountry] = useState("");
   const { data: savedCountry, isPending: countryPending } = useQuery({
     queryKey: ["supplier-country", companyLocale.companyId, editingSupplier?.id, user?.id, role],
     enabled: open && isEditing && !!companyLocale.companyId,
@@ -75,8 +75,10 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     retry: false,
   });
   useEffect(() => {
-    if (open) setCountry((isEditing ? savedCountry : null) ?? companyCountry ?? "");
-  }, [open, editingSupplier?.id, companyLocale.companyId, user?.id, role, companyCountry, savedCountry, isEditing]);
+    if (open) setCountry(isEditing && savedCountry?.status === "available" ? savedCountry.country ?? "" : "");
+  }, [open, editingSupplier?.id, companyLocale.companyId, user?.id, role, savedCountry, isEditing]);
+  const countryUnreadable = isEditing && (countryPending || savedCountry?.status !== "available");
+  const countryChanged = !isEditing || (savedCountry?.status === "available" && country !== savedCountry.country);
   const isForeign = isForeignSupplier(country || null, companyCountry);
   const isBR = companyLocale.status === "available" && companyLocale.locale === "pt-BR" && !isForeign;
   const canReadBank = SUPPLIER_BANK_READ_ROLES.includes(role ?? "");
@@ -106,14 +108,16 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const [foreignTaxId, setForeignTaxId] = useState("");
   const [foreignTaxIdType, setForeignTaxIdType] = useState("outro");
   const [foreignTaxIdEdited, setForeignTaxIdEdited] = useState(false);
+  const [withoutTaxId, setWithoutTaxId] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     const slots = readForeignBankSlots(foreignSource?.foreign_bank_accounts);
     setForeignBanks([1, 2, 3].map(slot => slots.find(bank => bank.slot === slot) ?? { slot, account_type: "outro" }));
     setForeignTaxId(foreignSource?.tax_id_foreign ?? "");
-    setForeignTaxIdType(foreignSource?.tax_id_type ?? "outro");
+    setForeignTaxIdType(foreignSource?.tax_id_type === "sem_nif" ? "outro" : foreignSource?.tax_id_type ?? "outro");
     setForeignTaxIdEdited(false);
+    setWithoutTaxId(foreignSource?.tax_id_type === "sem_nif");
   }, [open, editingSupplier?.id, companyLocale.companyId, role, user?.id, foreignSource]);
 
   // O IbanWarning precisa do valor vivo a cada tecla.
@@ -279,6 +283,10 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   // Normalização única em toda a app: normalizeIban de @/lib/iban (remove espaços, pontos, hífens, _ e /)
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (countryUnreadable) {
+      setValidationErrors({ country: "Não foi possível ler o país do fornecedor. Volte a abrir o formulário antes de guardar." });
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     const raw: Record<string, any> = {
       name: fd.get("name") as string,
@@ -346,16 +354,26 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       ];
       const taxId = (["cpf", "cnpj"].includes(foreignTaxIdType)
         ? foreignTaxId.trim().replace(/[.\-/\s]/g, "") : foreignTaxId.trim()) || null;
-      if (foreignTaxIdEdited && (isEditing
+      if ((countryChanged || foreignTaxIdEdited) && (isEditing
         ? taxId !== foreignSource?.tax_id_foreign || foreignTaxIdType !== (foreignSource?.tax_id_type ?? "outro")
         : !!taxId)) {
         raw.tax_id_foreign = taxId;
         raw.tax_id_type = foreignTaxIdType;
       }
+      if (withoutTaxId) {
+        raw.tax_id_foreign = null;
+        raw.tax_id_type = "sem_nif";
+      }
     }
     const validCountry = /^[A-Z]{2}$/.test(country);
     if (!validCountry) {
       setValidationErrors({ country: "Selecione um país" });
+      return;
+    }
+    if (isForeign && countryChanged && (!foreignColumnsReady || (!withoutTaxId && !foreignTaxId.trim()))) {
+      setValidationErrors({ tax_id_foreign: foreignColumnsReady
+        ? "Indique o NIF estrangeiro ou assinale Sem NIF (particular ou sem registo)."
+        : "Não foi possível ler os dados fiscais do fornecedor. Tente novamente antes de guardar." });
       return;
     }
     const result = validateForm(supplierSchema, raw);
@@ -544,7 +562,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
               {Object.entries(COUNTRIES).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
             </select>
             {validationErrors.country && <p className="text-xs text-destructive">{validationErrors.country}</p>}
-            {isEditing && !countryPending && savedCountry === null && <p className="text-xs text-muted-foreground">
+            {isEditing && !countryPending && savedCountry?.status === "unavailable" && <p className="text-xs text-muted-foreground">
               Não foi possível ler o país do fornecedor. Confirme o país antes de guardar.
             </p>}
           </div>
@@ -568,17 +586,26 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
               </> : <Input id="sup-nif" name="nif" defaultValue={s?.nif ?? ""} />}
               {hasForeignBank && <>
                 <Label htmlFor="sup-foreign-tax-id">Identificador fiscal estrangeiro</Label>
-                <Input id="sup-foreign-tax-id" disabled={!foreignColumnsReady} value={foreignTaxId}
+                <Input id="sup-foreign-tax-id" disabled={!foreignColumnsReady || withoutTaxId} value={foreignTaxId}
                   onChange={e => { setForeignTaxId(e.target.value); setForeignTaxIdEdited(true); }}
                   aria-invalid={!!validationErrors.tax_id_foreign}
                   aria-describedby={validationErrors.tax_id_foreign ? "sup-foreign-tax-id-error" : undefined} />
                 {validationErrors.tax_id_foreign && <p id="sup-foreign-tax-id-error" className="text-xs text-destructive">{validationErrors.tax_id_foreign}</p>}
                 <Label htmlFor="sup-foreign-tax-id-type">Tipo de identificador fiscal</Label>
-                <select id="sup-foreign-tax-id-type" disabled={!foreignColumnsReady} value={foreignTaxIdType}
+                <select id="sup-foreign-tax-id-type" disabled={!foreignColumnsReady || withoutTaxId} value={foreignTaxIdType}
                   onChange={e => { setForeignTaxIdType(e.target.value); setForeignTaxIdEdited(true); }}
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
                   {["ein", "tin", "vat", "cpf", "cnpj", "outro"].map(type => <option key={type} value={type}>{type.toUpperCase()}</option>)}
                 </select>
+                <label className="flex items-center gap-2 text-sm" htmlFor="sup-without-tax-id">
+                  <input id="sup-without-tax-id" type="checkbox" disabled={!foreignColumnsReady} checked={withoutTaxId}
+                    onChange={e => { setWithoutTaxId(e.target.checked); setForeignTaxIdEdited(true); }} />
+                  Sem NIF (particular ou sem registo)
+                </label>
+                {isEditing && !countryChanged && foreignColumnsReady && !foreignSource?.tax_id_foreign
+                  && foreignSource?.tax_id_type !== "sem_nif" && <p className="text-xs text-muted-foreground" role="status">
+                    Este fornecedor estrangeiro antigo não tem NIF registado. Pode guardar sem alterar o país.
+                  </p>}
               </>}
             </div>
             {!defaultIsPartner && (

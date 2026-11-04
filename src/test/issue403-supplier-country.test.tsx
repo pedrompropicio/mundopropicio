@@ -65,28 +65,30 @@ describe("#403 — regra literal de país", () => {
   });
   it.each(["BR", null, "br", "BRA", "P1", " PT "])("lê país exato e recusa valor inválido %s", async country => {
     f.readCountry = country;
-    expect(await readSupplierCountry({ from: f.from }, "supplier")).toBe(country && /^[A-Z]{2}$/.test(country) ? country : null);
+    expect(await readSupplierCountry({ from: f.from }, "supplier")).toEqual(country === null || /^[A-Z]{2}$/.test(country)
+      ? { status: "available", country } : { status: "unavailable" });
   });
-  it("erro, rejeição, ausência ou ID diferente devolvem null", async () => {
+  it("erro, rejeição, invisibilidade ou ID diferente devolvem unavailable", async () => {
     f.readError = { code: "42501" };
-    expect(await readSupplierCountry({ from: f.from }, "supplier")).toBeNull();
+    expect(await readSupplierCountry({ from: f.from }, "supplier")).toEqual({ status: "unavailable" });
     const reader = (data: unknown, error = null): SupplierCountryReader => ({ from: () => ({ select: () => ({
       eq: () => ({ maybeSingle: async () => ({ data, error }) }),
     }) }) });
-    expect(await readSupplierCountry(reader(null), "supplier")).toBeNull();
-    expect(await readSupplierCountry(reader({ id: "other", country: "US" }), "supplier")).toBeNull();
-    expect(await readSupplierCountry({ from: () => { throw new Error("transport"); } }, "supplier")).toBeNull();
+    expect(await readSupplierCountry(reader(null), "supplier")).toEqual({ status: "unavailable" });
+    expect(await readSupplierCountry(reader({ id: "other", country: "US" }), "supplier")).toEqual({ status: "unavailable" });
+    expect(await readSupplierCountry({ from: () => { throw new Error("transport"); } }, "supplier")).toEqual({ status: "unavailable" });
   });
 });
 
 describe("#403 — País no formulário", () => {
-  it("criação PT herda PT, mudar US mostra o bloco estrangeiro e grava country", async () => {
-    mount(); expect(screen.getByLabelText("País")).toHaveValue("PT");
+  it("criação começa vazia, mudar US exige decisão fiscal e grava country", async () => {
+    mount(); expect(screen.getByLabelText("País")).toHaveValue("");
     expect(screen.queryByLabelText("Identificador fiscal estrangeiro")).toBeNull();
     change("País", "US");
     expect(screen.getAllByLabelText("ABA / Routing")).toHaveLength(3);
     change("Nome da Entidade *", "Fornecedor US"); change("IBAN 1", supplier.iban);
     await waitFor(() => expect(screen.getAllByLabelText("ABA / Routing")[0]).toBeEnabled());
+    fireEvent.click(screen.getByLabelText("Sem NIF (particular ou sem registo)"));
     expect(await save()).toMatchObject({ country: "US", foreign_bank_accounts: [
       { slot: 1, account_type: "outro", account_number: supplier.iban },
     ] });
@@ -116,8 +118,8 @@ describe("#403 — País no formulário", () => {
     change("IBAN 1", "");
     expect(screen.getByLabelText("Identificador fiscal estrangeiro")).toBeInTheDocument();
   });
-  it("empresa BR herda BR por omissão", () => {
-    f.country = "BR"; mount(); expect(screen.getByLabelText("País")).toHaveValue("BR");
+  it("empresa BR também começa sem país por omissão", () => {
+    f.country = "BR"; mount(); expect(screen.getByLabelText("País")).toHaveValue("");
     expect(screen.queryByLabelText("Identificador fiscal estrangeiro")).toBeNull();
   });
   it("empresa BR usa o mesmo critério ao escolher US e regressar a BR", async () => {
@@ -127,10 +129,12 @@ describe("#403 — País no formulário", () => {
     change("País", "BR");
     expect(screen.queryByLabelText("Identificador fiscal estrangeiro")).toBeNull();
   });
-  it("leitura falhada usa país da empresa, avisa e permite gravar", async () => {
+  it("leitura falhada não usa país da empresa, avisa e bloqueia gravar", async () => {
     f.readError = { code: "42501" }; mount(supplier);
     expect(await screen.findByText(/Não foi possível ler o país/)).toBeInTheDocument();
-    expect(screen.getByLabelText("País")).toHaveValue("PT"); expect((await save()).country).toBe("PT");
+    expect(screen.getByLabelText("País")).toHaveValue("");
+    fireEvent.submit(document.querySelector("form")!);
+    expect(await screen.findByText(/Volte a abrir o formulário/)).toBeInTheDocument(); expect(f.writes).toEqual([]);
   });
   it("não preenche PT quando a empresa não tem país e valida vazio", async () => {
     f.country = ""; mount(); change("Nome da Entidade *", "Fornecedor");
