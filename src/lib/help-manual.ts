@@ -19,29 +19,6 @@ export interface HelpSection {
 
 const helpManual: HelpSection[] = [
   {
-    id: "getting-started",
-    title: "Primeiros Passos",
-    icon: "Rocket",
-    image: "user-roles",
-    topics: [
-      {
-        title: "Visão geral do sistema",
-        content:
-          "O sistema é uma plataforma de gestão financeira e operacional para empresas de entretenimento e eventos. Permite gerir eventos, transações financeiras, fornecedores, bilheteiras e gerar relatórios detalhados. O Dashboard apresenta um resumo de indicadores-chave, facilitando o acompanhamento da saúde financeira.",
-      },
-      {
-        title: "Perfis de utilizador",
-        content:
-          "Existem 6 perfis: Admin (acesso total), Gerente (gestão operacional e financeira), Editor (registo de dados com restrições de edição), Viewer (apenas consulta), User (perfil base) e Parceiro (acesso read-only a eventos autorizados via Portal do Parceiro). Cada perfil tem permissões pré-definidas que podem ser personalizadas por utilizador na secção Admin > Utilizadores.",
-      },
-      {
-        title: "Navegação",
-        content:
-          "O menu lateral (sidebar) dá acesso a todas as secções. No desktop, o menu mostra ícones e texto; no mobile, apenas ícones. Use a pesquisa global (lupa no cabeçalho) para encontrar rapidamente eventos, transações ou fornecedores.",
-      },
-    ],
-  },
-  {
     id: "events",
     title: "Eventos",
     icon: "Calendar",
@@ -229,23 +206,6 @@ const helpManual: HelpSection[] = [
     ],
   },
   {
-    id: "calendar",
-    title: "Calendário",
-    icon: "CalendarDays",
-    topics: [
-      {
-        title: "Vistas disponíveis",
-        content:
-          "Semanal: detalhe dia a dia com eventos e reservas.\nAnual: visão de 12 meses para planeamento a longo prazo.\nAgenda: lista cronológica de próximos eventos.",
-      },
-      {
-        title: "Reservas de espaço",
-        content:
-          "Reserve espaços (venues) para datas específicas, mesmo antes de criar o evento. Útil para garantir disponibilidade durante o planeamento.",
-      },
-    ],
-  },
-  {
     id: "partner-portal",
     title: "Portal do Parceiro",
     icon: "UserCheck",
@@ -264,33 +224,6 @@ const helpManual: HelpSection[] = [
         title: "Informações disponíveis",
         content:
           "Ao clicar num evento autorizado, o parceiro tem acesso read-only a 3 abas:\n  • Bilhetes — zonas, lotes, vendas\n  • Business Plan — receitas e despesas previstas\n  • Transações — movimentos financeiros do evento\n\nTodos os dados são somente leitura — nenhum botão de criar, editar ou eliminar.",
-      },
-    ],
-  },
-  {
-    id: "admin",
-    title: "Administração",
-    icon: "Settings",
-    topics: [
-      {
-        title: "Gestão de utilizadores",
-        content:
-          "Crie contas para novos utilizadores com perfil pré-definido. Personalize permissões individuais quando necessário. É possível revogar ou conceder permissões específicas sem alterar o perfil base.",
-      },
-      {
-        title: "Segurança",
-        content:
-          "O painel de segurança mostra tentativas de login, alterações de dados sensíveis e atividade do sistema. O sistema regista automaticamente eventos de auditoria para: eliminação de transações e documentos, alteração de perfis de utilizador, modificação de dados bancários de fornecedores, tentativas de login falhadas e bloqueios de conta. Monitorize para detetar acessos não autorizados.",
-      },
-      {
-        title: "Backups",
-        content:
-          "Gerencie backups da base de dados. Crie backups manuais antes de alterações importantes ou configure rotinas automáticas para proteção contínua.",
-      },
-      {
-        title: "Permissões granulares por perfil",
-        content:
-          "O sistema usa permissões granulares atribuídas via role_permissions:\n\n• Admin e Manager — acesso total\n• Editor — acesso total a Transações e Listas de Pagamento; na Bilheteira, escrita apenas em 'Planeamento'; no BP, edição apenas de 'Categoria' e 'Descrição'; módulos de Cachê e Sócios são ocultos\n• Accountant — acesso estritamente a dados e anexos contábeis\n• Viewer — apenas consulta\n• Partner — acesso read-only via Portal do Parceiro",
       },
     ],
   },
@@ -325,33 +258,6 @@ const helpManual: HelpSection[] = [
         title: "Registo de exportações",
         content:
           "Cada exportação contábil fica registada no sistema com a data, o período exportado, quem exportou e as contagens de transações, documentos e pendências. Este registo permite rastrear o que já foi enviado à contabilidade.",
-      },
-    ],
-  },
-  {
-    id: "interface",
-    title: "Interface",
-    icon: "Monitor",
-    topics: [
-      {
-        title: "Tema claro e escuro",
-        content:
-          "Alterne entre o modo claro e escuro clicando no ícone de sol/lua (☀️/🌙) no canto superior direito do cabeçalho. A preferência é guardada automaticamente no navegador.",
-      },
-      {
-        title: "Pesquisa global",
-        content:
-          "Use o ícone de lupa no cabeçalho para pesquisar rapidamente por eventos, transações, fornecedores ou cotações em qualquer parte do sistema.",
-      },
-      {
-        title: "Ajuda contextual",
-        content:
-          "Todas as secções, botões e campos importantes do sistema possuem ícones de ajuda (?) que explicam a funcionalidade ao passar o rato (desktop) ou ao tocar (mobile). O botão flutuante (📖) no canto inferior direito abre o manual na secção relevante à página atual.",
-      },
-      {
-        title: "Timeout por inatividade",
-        content:
-          "Por segurança, o sistema encerra a sessão automaticamente após 30 minutos de inatividade. Será redirecionado para a página de login.",
       },
     ],
   },

@@ -191,7 +191,7 @@ export default function SecurityDashboard() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <button onClick={() => navigate("/admin")} className="inline-flex items-center justify-center rounded-md h-8 w-8 hover:bg-accent transition-colors"><ArrowLeft className="h-4 w-4" /></button>
-            Segurança & Monitoramento <HelpTooltip text={helpTexts.securityDashboard} />
+            Segurança & Monitoramento <HelpTooltip anchor="administracao.seguranca" text={helpTexts.securityDashboard} />
           </h1>
           <p className="text-sm text-muted-foreground">Visão geral da segurança do sistema</p>
         </div>
