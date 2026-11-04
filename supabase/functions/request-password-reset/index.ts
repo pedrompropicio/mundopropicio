@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import * as React from "npm:react@18.3.1";
 import { renderAsync } from "npm:@react-email/components@0.0.22";
+import { findAuthUserByEmail } from "../_shared/find-auth-user-by-email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -179,8 +180,17 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     // Find the user by email
-    const { data: { users } } = await adminClient.auth.admin.listUsers();
-    const targetUser = (users ?? []).find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+    let targetUser: { id: string } | null = null;
+    try {
+      const result = await findAuthUserByEmail((p) => adminClient.auth.admin.listUsers(p), email);
+      targetUser = result.user;
+      if (result.truncated) {
+        console.warn("listUsers truncated (non-fatal): maximum pages reached");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn("listUsers error (non-fatal):", msg);
+    }
 
     if (targetUser) {
       // Revoke all sessions for this user across all devices
