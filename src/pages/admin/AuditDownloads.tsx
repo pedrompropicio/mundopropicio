@@ -12,14 +12,14 @@ import { format } from "date-fns";
 const PAGE = 50;
 
 export default function AuditDownloads() {
-  const { isAdmin, role } = useAuth();
+  const { hasPermission } = useAuth();
   const [page, setPage] = useState(0);
   const [userFilter, setUserFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "transaction_document" | "zip_export" | "supplier_document">("all");
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
 
-  if (!isAdmin && role !== ("platform_admin" as any)) {
+  if (!hasPermission("settings.audit_log")) {
     return <Navigate to="/" replace />;
   }
 
