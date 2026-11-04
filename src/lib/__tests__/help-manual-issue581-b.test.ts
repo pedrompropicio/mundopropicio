@@ -119,13 +119,46 @@ describe("#581 lote B — migração literal dos quatro grupos legados (R1)", ()
     expect(createHash("sha256").update(JSON.stringify(helpManual)).digest("hex"))
       .toBe("4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945");
     expect(helpManual.some((group) => specs.some((spec) => spec.legacyId === group.id))).toBe(false);
+    const revisions: Record<string, { antigo: string; novo: string; prova: { ficheiro: string; trecho: string } }[]> = {
+      "transacoes.ciclo-de-vida": [
+        {
+          "antigo": "Bloqueio de eliminação e de alteração de valores financeiros, categorias e eventos.",
+          "novo": "Bloqueio de eliminação. A permissão de aprovação permite ajustes administrativos nos campos, sujeitos às restrições específicas da transação.",
+          "prova": {
+            "ficheiro": "src/components/TransactionEditModal.tsx",
+            "trecho": "const paidLocked = isPaid && !canApprove;"
+          }
+        },
+        {
+          "antigo": "Apenas 'Especificação' e 'Fornecedor' podem ser editados por Admins ou Editores.",
+          "novo": "Sem permissão de aprovação, podem ser alterados 'Especificação', 'Fornecedor', 'Nº Fatura' e 'Método de Pagamento', entre outros campos permitidos; os valores e o evento ficam bloqueados, e os gestores podem alterar a categoria.",
+          "prova": {
+            "ficheiro": "src/components/TransactionEditModal.tsx",
+            "trecho": "const allowedFields = (paidLocked\n        ? [\"specification\", \"supplier_id\", \"is_transitory\", \"is_confidential\", \"excluded_from_partner_settlement\", \"exclude_from_result\", \"shared_cost_account_id\", \"shared_cost_counterparty_id\", \"invoice_ref\", \"payment_method\", \"payment_entity\", \"payment_reference\", \"operation_key\", \"ordering_partner_id\", \"paying_partner_id\", \"event_settlement_id\", \"held_by_supplier_id\",\n           ...(canReallocBpWhenPaid ? [\"category_id\"] : [])]"
+          }
+        }
+      ]
+    };
     for (const { article, group } of migrated) {
       expect(article.sections).toHaveLength(group.topics.length);
       expect(article.sections.map((section) => section.heading)).toEqual(group.topics.map((topic) => topic.title));
       for (const [index, topic] of group.topics.entries()) {
         const section = article.sections[index];
         expect(section.heading).toBe(topic.title);
-        expect(normalize(section.body_md), section.anchor_id).toBe(normalize(topic.content));
+        const sectionRevisions = revisions[section.anchor_id];
+        if (sectionRevisions) {
+          let content = topic.content;
+          for (const { antigo, novo, prova } of sectionRevisions) {
+            expect(topic.content, section.anchor_id).toContain(antigo);
+            expect(topic.content.split(antigo), section.anchor_id).toHaveLength(2);
+            expect(readFileSync(prova.ficheiro, "utf8"), prova.ficheiro).toContain(prova.trecho);
+            expect(content, section.anchor_id).toContain(antigo);
+            content = content.replace(antigo, novo);
+          }
+          expect(normalize(section.body_md), section.anchor_id).toBe(normalize(content));
+        } else {
+          expect(normalize(section.body_md), section.anchor_id).toBe(normalize(topic.content));
+        }
       }
     }
   });

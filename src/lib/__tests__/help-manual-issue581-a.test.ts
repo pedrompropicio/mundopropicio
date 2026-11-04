@@ -114,13 +114,58 @@ describe("#581 lote A — migração literal dos quatro grupos legados (R1)", ()
     expect(createHash("sha256").update(JSON.stringify(helpManual)).digest("hex"))
       .toBe("4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945");
     expect(helpManual.some((group) => specs.some((spec) => spec.legacyId === group.id))).toBe(false);
+    const revisions: Record<string, { antigo: string; novo: string; prova: { ficheiro: string; trecho: string } }[]> = {
+      "primeiros-passos.navegacao": [
+        {
+          "antigo": "No desktop, o menu mostra ícones e texto; no mobile, apenas ícones.",
+          "novo": "No desktop, o menu mostra ícones e, em ecrãs largos, texto; no mobile, abre num painel com ícones e texto.",
+          "prova": {
+            "ficheiro": "src/components/AppSidebar.tsx",
+            "trecho": "const labelCls = isPanel ? \"block\" : \"hidden lg:block\";"
+          }
+        }
+      ],
+      "interface.ajuda-contextual": [
+        {
+          "antigo": "O botão flutuante (📖) no canto inferior direito abre o manual na secção relevante à página atual.",
+          "novo": "O botão flutuante com ícone de livro, visível em ecrãs de largura média ou superior, no canto inferior direito abre o manual na secção relevante à página atual.",
+          "prova": {
+            "ficheiro": "src/components/help/HelpFloatingButton.tsx",
+            "trecho": "className=\"fixed bottom-5 right-5 z-40 hidden h-11 w-11 items-center justify-center rounded-full border border-border bg-card/95 text-primary shadow-lg backdrop-blur transition-colors hover:bg-accent md:flex\"\n    >\n      <BookOpen className=\"h-5 w-5\" />"
+          }
+        }
+      ],
+      "administracao.permissoes": [
+        {
+          "antigo": "Admin e Manager — acesso total",
+          "novo": "Admin e Manager — acesso sujeito às permissões do perfil e às permissões individuais, que podem recusar ações",
+          "prova": {
+            "ficheiro": "src/lib/permissions.ts",
+            "trecho": "for (const o of overrides.filter((x) => x.company_id === companyId)) {\n    if (o.granted) base.add(o.permission); else base.delete(o.permission);\n  }"
+          }
+        }
+      ]
+    };
     for (const { article, group } of migrated) {
       expect(article.sections).toHaveLength(group.topics.length);
       expect(article.sections.map((section) => section.heading)).toEqual(group.topics.map((topic) => topic.title));
       for (const [index, topic] of group.topics.entries()) {
         const section = article.sections[index];
         expect(section.heading).toBe(topic.title);
-        expect(normalize(section.body_md), section.anchor_id).toBe(normalize(topic.content));
+        const sectionRevisions = revisions[section.anchor_id];
+        if (sectionRevisions) {
+          let content = topic.content;
+          for (const { antigo, novo, prova } of sectionRevisions) {
+            expect(topic.content, section.anchor_id).toContain(antigo);
+            expect(topic.content.split(antigo), section.anchor_id).toHaveLength(2);
+            expect(readFileSync(prova.ficheiro, "utf8"), prova.ficheiro).toContain(prova.trecho);
+            expect(content, section.anchor_id).toContain(antigo);
+            content = content.replace(antigo, novo);
+          }
+          expect(normalize(section.body_md), section.anchor_id).toBe(normalize(content));
+        } else {
+          expect(normalize(section.body_md), section.anchor_id).toBe(normalize(topic.content));
+        }
       }
     }
   });

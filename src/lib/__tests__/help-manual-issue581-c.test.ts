@@ -105,13 +105,108 @@ describe("#581 lote C — migração literal dos três grupos legados (R1)", () 
     expect(legacy.find((group) => group.id === "accounts")?.image).toBe("accounts-flow");
     expect(helpManual).toHaveLength(0);
     expect(helpManual.some((group) => specs.some((spec) => spec.legacyId === group.id))).toBe(false);
+    const revisions: Record<string, { antigo: string; novo: string; prova: { ficheiro: string; trecho: string } }[]> = {
+      "reembolsos.fluxo": [
+        {
+          "antigo": "2. No módulo Notas de Reembolso, crie uma nova nota indicando o funcionário e notas adicionais.",
+          "novo": "2. Antes de guardar a despesa, selecione ou crie uma Nota de Reembolso no formulário de transações; a vinculação à nota é automática, sem conta financeira associada.",
+          "prova": {
+            "ficheiro": "src/components/TransactionFormModal.tsx",
+            "trecho": "if (form.is_reimbursement && !form.reimbursement_note_id && !showNewReimbursementNote) {\n      toast({ title: \"Selecione ou crie uma Nota de Reembolso\", variant: \"destructive\" });\n      return;\n    }"
+          }
+        },
+        {
+          "antigo": "3. Adicione as despesas de reembolso à nota. Cada item deve ter obrigatoriamente um documento contábil (fatura, recibo) anexado.",
+          "novo": "3. Cada item deve ter obrigatoriamente um documento contábil (fatura, recibo) anexado.",
+          "prova": {
+            "ficheiro": "src/components/TransactionFormModal.tsx",
+            "trecho": "A transação será vinculada automaticamente à nota de reembolso — sem conta financeira associada"
+          }
+        },
+        {
+          "antigo": "4. Aprove a nota (operação em lote que aprova todas as despesas vinculadas).",
+          "novo": "4. Aprove a nota (operação em lote que aprova apenas as despesas vinculadas em estado pendente).",
+          "prova": {
+            "ficheiro": "src/components/ReimbursementNoteDetail.tsx",
+            "trecho": ".filter((i: any) => i.transactions?.status === \"pending\")"
+          }
+        },
+        {
+          "antigo": "5. Ao pagar, o sistema gera automaticamente uma transação bancária vinculada à nota, garantindo rastreabilidade bidirecional.",
+          "novo": "5. Use 'Gerar Transação para Pagamento' para criar uma transação aprovada, sem conta financeira e excluída do resultado; a nota passa a 'Aguarda Pagamento'. Liquide a transação no fluxo normal de pagamentos, escolhendo então a conta bancária; a nota e os itens passam automaticamente a pagos.",
+          "prova": {
+            "ficheiro": "src/components/ReimbursementNoteDetail.tsx",
+            "trecho": "// Cria transação de pagamento APENAS aprovada (pendente de liquidação).\n      // A liquidação efetiva acontece pelo fluxo normal de pagamentos da TX,\n      // e o trigger reimbursement_propagate_payment marca a nota + itens como pagos.\n      // exclude_from_result: o custo do reembolso já está nos itens; o pagamento\n      // nunca entra no resultado (0286 — a trigger na nota também o garante)."
+          }
+        }
+      ],
+      "reembolsos.regras": [
+        {
+          "antigo": "A aprovação propaga o estado 'Aprovado' para todas as transações vinculadas.",
+          "novo": "A aprovação propaga o estado 'Aprovado' apenas para as transações vinculadas em estado pendente.",
+          "prova": {
+            "ficheiro": "src/components/ReimbursementNoteDetail.tsx",
+            "trecho": ".filter((i: any) => i.transactions?.status === \"pending\")"
+          }
+        },
+        {
+          "antigo": "A liquidação gera automaticamente uma transação bancária na conta selecionada.",
+          "novo": "A geração do pagamento cria uma transação aprovada, sem conta financeira e excluída do resultado, e coloca a nota em 'Aguarda Pagamento'; a liquidação faz-se no fluxo normal de pagamentos e marca a nota e os itens como pagos.",
+          "prova": {
+            "ficheiro": "src/components/ReimbursementNoteDetail.tsx",
+            "trecho": "status: \"approved\",\n          exclude_from_result: true,"
+          }
+        },
+        {
+          "antigo": "Os estados disponíveis são: Rascunho, Aprovada e Paga.",
+          "novo": "Os estados disponíveis são: Rascunho, Aprovada, Aguarda Pagamento e Paga.",
+          "prova": {
+            "ficheiro": "src/pages/Reimbursements.tsx",
+            "trecho": "const statusLabels: Record<string, string> = {\n  draft: \"Rascunho\",\n  approved: \"Aprovada\",\n  pending_payment: \"Aguarda Pagamento\",\n  paid: \"Paga\",\n};"
+          }
+        }
+      ],
+      "contas.o-que-sao": [
+        {
+          "antigo": "O saldo é calculado automaticamente a partir do saldo inicial + transações pagas (entradas) − transações pagas (saídas).",
+          "novo": "Os saldos são calculados no servidor, separando caixa (contas bancárias, caixas e cartões pré-pagos), retido em bilheteiras (com fórmula própria) e acertos em curso. Os casos 'Não controlado' e 'Sem permissão' não são apresentados como saldo zero.",
+          "prova": {
+            "ficheiro": "src/hooks/useAccountBalanceCards.ts",
+            "trecho": "* - caixa: contas `bank`, `cash`, `prepaid_card` com controlo de saldo\n *   → `account_true_balances_asof(ids, null)`\n * - retido em bilheteiras: contas `ticket_office`\n *   → `ticket_office_balances(ids)` — fórmula própria (D-ERP15), NÃO converge\n *     com a bancária\n * - acertos em curso: contas `other`\n *\n * Regra de apresentação: onde não há permissão nunca se mostra zero."
+          }
+        }
+      ],
+      "contas.acesso": [
+        {
+          "antigo": "Utilizadores sem acesso não verão a conta nem o seu saldo.",
+          "novo": "Utilizadores sem permissão para consultar o saldo veem o nome da conta e 'Sem permissão' no saldo.",
+          "prova": {
+            "ficheiro": "src/pages/FinancialAccounts.tsx",
+            "trecho": "<span className=\"text-xs text-muted-foreground italic\">Sem permissão</span>"
+          }
+        }
+      ]
+    };
     for (const { article, group } of migrated) {
       expect(group.topics).toHaveLength(3);
       expect(article.sections.map((section) => section.heading)).toEqual(group.topics.map((topic) => topic.title));
       for (const [index, topic] of group.topics.entries()) {
         const section = article.sections[index];
         expect(section.heading).toBe(topic.title);
-        expect(normalize(section.body_md), section.anchor_id).toBe(normalize(topic.content));
+        const sectionRevisions = revisions[section.anchor_id];
+        if (sectionRevisions) {
+          let content = topic.content;
+          for (const { antigo, novo, prova } of sectionRevisions) {
+            expect(topic.content, section.anchor_id).toContain(antigo);
+            expect(topic.content.split(antigo), section.anchor_id).toHaveLength(2);
+            expect(readFileSync(prova.ficheiro, "utf8"), prova.ficheiro).toContain(prova.trecho);
+            expect(content, section.anchor_id).toContain(antigo);
+            content = content.replace(antigo, novo);
+          }
+          expect(normalize(section.body_md), section.anchor_id).toBe(normalize(content));
+        } else {
+          expect(normalize(section.body_md), section.anchor_id).toBe(normalize(topic.content));
+        }
       }
     }
   });

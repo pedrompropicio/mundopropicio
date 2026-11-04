@@ -41,8 +41,8 @@ id: primeiros-passos.navegacao
 tooltip: "O menu lateral (sidebar) dá acesso a todas as secções."
 ecras: [erp]
 perfis: []
-fontes: [src/components/AppSidebar.tsx, src/components/GlobalSearch.tsx]
+fontes: [src/components/AppSidebar.tsx, src/components/GlobalSearch.tsx, src/App.tsx]
 termos: [sidebar, lupa]
 ```
 
-O menu lateral (sidebar) dá acesso a todas as secções. No desktop, o menu mostra ícones e texto; no mobile, apenas ícones. Use a pesquisa global (lupa no cabeçalho) para encontrar rapidamente eventos, transações ou fornecedores.
+O menu lateral (sidebar) dá acesso a todas as secções. No desktop, o menu mostra ícones e, em ecrãs largos, texto; no mobile, abre num painel com ícones e texto. Use a pesquisa global (lupa no cabeçalho) para encontrar rapidamente eventos, transações ou fornecedores.

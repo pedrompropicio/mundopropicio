@@ -38,7 +38,7 @@ Aguardando → transação registada, pendente de aprovação. Pode ser editada 
 
 Aprovada (A Pagar) → validada por um gestor/admin. Eliminação e alteração de valores financeiros restritas a administradores. Exceção: transações vinculadas ao BP permitem edição de montante e IVA por qualquer utilizador autenticado até à liquidação.
 
-Paga (Liquidada) → pagamento registado. Bloqueio de eliminação e de alteração de valores financeiros, categorias e eventos. Apenas 'Especificação' e 'Fornecedor' podem ser editados por Admins ou Editores.
+Paga (Liquidada) → pagamento registado. Bloqueio de eliminação. A permissão de aprovação permite ajustes administrativos nos campos, sujeitos às restrições específicas da transação. Sem permissão de aprovação, podem ser alterados 'Especificação', 'Fornecedor', 'Nº Fatura' e 'Método de Pagamento', entre outros campos permitidos; os valores e o evento ficam bloqueados, e os gestores podem alterar a categoria.
 
 Auto-aprovação: transações para eventos 'Ativos' são automaticamente aprovadas se a categoria e tipo constarem nas previsões do BP do evento.
 

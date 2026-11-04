@@ -50,7 +50,7 @@ termos: [read-only, Bilhetes, Transações]
 Ao clicar num evento autorizado, o parceiro tem acesso read-only a 3 abas:
 
 - Bilhetes — zonas, lotes, vendas
-- Business Plan — receitas e despesas previstas
-- Transações — movimentos financeiros do evento
+- Business Plan — receitas e despesas previstas, se tiver permissão para consultar o BP
+- Transações — movimentos financeiros do evento, se tiver permissão para consultar as transações do portal
 
-Todos os dados são somente leitura — nenhum botão de criar, editar ou eliminar.
+A consulta é a regra; a edição do BP pode ser autorizada para um evento específico, com permissão para editar BP aprovado, fora da vista Master e da inspeção de administrador.

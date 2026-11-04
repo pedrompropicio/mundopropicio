@@ -111,13 +111,54 @@ describe("#581 lote D — migração literal dos quatro grupos legados (R1)", ()
     expect(createHash("sha256").update(JSON.stringify(legacy)).digest("hex"))
       .toBe("cfa9d2b008844a094c4468f4b9abaf9a0609a4903604464020d18df2b5fabcb6");
     expect(legacy.map((group) => group.id)).toEqual(["reports", "partner-portal", "iva", "accounting"]);
+    const revisions: Record<string, { antigo: string; novo: string; prova: { ficheiro: string; trecho: string } }[]> = {
+      "parceiro.informacoes": [
+        {
+          "antigo": "Business Plan — receitas e despesas previstas",
+          "novo": "Business Plan — receitas e despesas previstas, se tiver permissão para consultar o BP",
+          "prova": {
+            "ficheiro": "src/pages/PartnerEventDetail.tsx",
+            "trecho": "{hasPermission(\"view_bp\") && (\n            <TabsTrigger value=\"bp\""
+          }
+        },
+        {
+          "antigo": "Transações — movimentos financeiros do evento",
+          "novo": "Transações — movimentos financeiros do evento, se tiver permissão para consultar as transações do portal",
+          "prova": {
+            "ficheiro": "src/pages/PartnerEventDetail.tsx",
+            "trecho": "{hasPermission(\"view_partner_transactions\") && (\n            <TabsTrigger value=\"transactions\""
+          }
+        },
+        {
+          "antigo": "Todos os dados são somente leitura — nenhum botão de criar, editar ou eliminar.",
+          "novo": "A consulta é a regra; a edição do BP pode ser autorizada para um evento específico, com permissão para editar BP aprovado, fora da vista Master e da inspeção de administrador.",
+          "prova": {
+            "ficheiro": "src/pages/PartnerEventDetail.tsx",
+            "trecho": "const canEditBpHere = !isAdminView && !!activeEventId && !isMasterView\n    && canEditBpForActive(activeEventId)\n    && hasPermission(\"edit_approved_bp\");"
+          }
+        }
+      ]
+    };
     for (const { article, group } of migrated) {
       expect(article.sections).toHaveLength(group.topics.length);
       expect(article.sections.map((section) => section.heading)).toEqual(group.topics.map((topic) => topic.title));
       for (const [index, topic] of group.topics.entries()) {
         const section = article.sections[index];
         expect(section.heading).toBe(topic.title);
-        expect(normalize(section.body_md), section.anchor_id).toBe(normalize(topic.content));
+        const sectionRevisions = revisions[section.anchor_id];
+        if (sectionRevisions) {
+          let content = topic.content;
+          for (const { antigo, novo, prova } of sectionRevisions) {
+            expect(topic.content, section.anchor_id).toContain(antigo);
+            expect(topic.content.split(antigo), section.anchor_id).toHaveLength(2);
+            expect(readFileSync(prova.ficheiro, "utf8"), prova.ficheiro).toContain(prova.trecho);
+            expect(content, section.anchor_id).toContain(antigo);
+            content = content.replace(antigo, novo);
+          }
+          expect(normalize(section.body_md), section.anchor_id).toBe(normalize(content));
+        } else {
+          expect(normalize(section.body_md), section.anchor_id).toBe(normalize(topic.content));
+        }
       }
     }
   });

@@ -54,13 +54,13 @@ id: administracao.permissoes
 tooltip: "O sistema usa permissões granulares atribuídas via role_permissions:"
 ecras: [admin/utilizadores]
 perfis: []
-fontes: [src/components/UserPermissionsModal.tsx, src/contexts/AuthContext.tsx]
+fontes: [src/components/UserPermissionsModal.tsx, src/contexts/AuthContext.tsx, src/lib/permissions.ts]
 termos: [permissões, role_permissions]
 ```
 
 O sistema usa permissões granulares atribuídas via `role_permissions`:
 
-- Admin e Manager — acesso total
+- Admin e Manager — acesso sujeito às permissões do perfil e às permissões individuais, que podem recusar ações
 - Editor — acesso total a Transações e Listas de Pagamento; na Bilheteira, escrita apenas em 'Planeamento'; no BP, edição apenas de 'Categoria' e 'Descrição'; módulos de Cachê e Sócios são ocultos
 - Accountant — acesso estritamente a dados e anexos contábeis
 - Viewer — apenas consulta
