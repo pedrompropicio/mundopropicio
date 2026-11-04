@@ -76,6 +76,30 @@ export interface SupplierBrReader {
   };
 }
 
+export interface SupplierCountryReader {
+  from(table: "suppliers"): {
+    select(columns: "id,country"): {
+      eq(column: "id", id: string): { maybeSingle(): PromiseLike<{ data: unknown; error: unknown }> };
+    };
+  };
+}
+
+/** Country is cadastral data: never read bank columns to decide supplier origin. */
+export async function readSupplierCountry(client: SupplierCountryReader, id: string): Promise<string | null> {
+  try {
+    const { data, error } = await client.from("suppliers").select("id,country").eq("id", id).maybeSingle();
+    if (error || !data || typeof data !== "object" || !("id" in data) || data.id !== id
+      || !("country" in data) || typeof data.country !== "string" || !/^[A-Z]{2}$/.test(data.country)) return null;
+    return data.country;
+  } catch {
+    return null;
+  }
+}
+
+export function isForeignSupplier(supplierCountry: string | null | undefined, companyCountry: string | null | undefined): boolean {
+  return supplierCountry != null && companyCountry != null && supplierCountry !== companyCountry;
+}
+
 /** Validate the selected supplier and all three fields, preserving the complete slot JSON. */
 export function projectSupplierBrData(data: unknown, id?: string): OptionalSupplierBrData {
   const unavailable = { available: false, details: null };
