@@ -1,0 +1,45 @@
+// #405 — E-mail de reforço da pré-venda Newgang 27 (criativo validado pelo Pedro). Só liga placeholders; não alterar o HTML.
+import { legalFooterHtml, legalFooterText } from "./legal-footer.ts";
+import { REMINDER_HEADER_BASE } from "./reminder-email.ts";
+
+export const PRESALE_SUBJECT = "O teu código da pré-venda Newgang 27 (válido até 10/11)";
+export const PRESALE_TEST_PREFIX = "[TESTE] ";
+/** Link de compra do Clube na Fever (fonte única no código). */
+export const FEVER_CLUB_URL = "https://feverup.com/m/826449";
+export const PRESALE_LINK = `${FEVER_CLUB_URL}?utm_source=clube&utm_medium=email&utm_campaign=ng27_prevenda_reforco`;
+export const PRESALE_CODES = ["NEWGANG27A", "NEWGANG27B"] as const;
+
+export const PRESALE_TEMPLATE = `<!DOCTYPE html><html lang="pt-PT" xmlns="http://www.w3.org/1999/xhtml"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="color-scheme" content="dark light"><meta name="supported-color-schemes" content="dark light"><title>O teu código da pré-venda Newgang 27</title><!--[if !mso]><!--><link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;700;800&display=swap" rel="stylesheet"><!--<![endif]--><style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt}img{-ms-interpolation-mode:bicubic;border:0;outline:none;text-decoration:none;display:block}body{margin:0!important;padding:0!important;width:100%!important;background:#050806}@media screen and (max-width:620px){.wrap{width:100%!important}.pad{padding-left:22px!important;padding-right:22px!important}.col{display:block!important;width:100%!important;padding-left:0!important}.stamp{text-align:center!important;padding-top:14px!important}.stamp img{margin:0 auto!important}.code{font-size:34px!important;letter-spacing:2px!important}.btn a{display:block!important;padding:16px 20px!important}}</style></head><body style="margin:0;padding:0;background:#050806;" bgcolor="#050806"><div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">Últimos dias da pré-venda do Clube. Lotes limitados por capacidade.&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#050806;" bgcolor="#050806"><tr><td align="center" style="padding:24px 12px;"><table role="presentation" class="wrap" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:100%;background:#0B1F14;border-radius:14px;overflow:hidden;" bgcolor="#0B1F14"><tr><td bgcolor="#0B1F14"><img src="{{URL_IMAGENS}}/NG27_prevenda_cabecalho_1200x600.jpg" width="600" height="300" alt="Newgang Festival 05 Anos — A tua pré-venda está à espera. Pré-venda do Clube, Lote Promocional. Lotes limitados por capacidade." style="display:block;width:100%;height:auto;border:0;color:#3DFF6E;font-family:Arial,sans-serif;font-size:18px;font-weight:bold;line-height:1.4;background:#0B1F14;"></td></tr><tr><td class="pad" bgcolor="#0B1F14" style="padding:32px 36px 8px;font-family:'Barlow Condensed',Arial,sans-serif;color:#F0F7F2;font-size:20px;line-height:1.45;"><p style="margin:0 0 14px;font-size:22px;font-weight:700;color:#F0F7F2;">Olá{{NOME_OPCIONAL}},</p><p style="margin:0 0 22px;color:#F0F7F2;">Como membro do Clube Newgang, tens acesso à pré-venda antes de toda a gente. Se não encontraste o e-mail da Fever, o teu código está aqui.</p></td></tr><tr><td class="pad" align="center" bgcolor="#0B1F14" style="padding:0 36px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border:3px solid #3DFF6E;border-radius:12px;background:#06120B;" bgcolor="#06120B"><tr><td align="center" style="padding:14px 34px;font-family:'Barlow Condensed',Arial,sans-serif;"><div style="font-size:15px;letter-spacing:2px;font-weight:700;color:#C9D6CD;">O TEU CÓDIGO</div><div class="code" style="font-family:Anton,Impact,Arial,sans-serif;font-size:40px;letter-spacing:3px;color:#3DFF6E;line-height:1.2;">{{CODIGO}}</div></td></tr></table></td></tr><tr><td class="pad" bgcolor="#0B1F14" style="padding:22px 36px 6px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td class="col" valign="middle"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td valign="top" style="width:22px;color:#3DFF6E;font-size:18px;line-height:1.55;">&#10022;</td><td style="font-family:'Barlow Condensed',Arial,sans-serif;color:#F0F7F2;font-size:20px;line-height:1.55;padding-bottom:6px;">Só funciona com o teu e-mail do Clube</td></tr><tr><td valign="top" style="width:22px;color:#3DFF6E;font-size:18px;line-height:1.55;">&#10022;</td><td style="font-family:'Barlow Condensed',Arial,sans-serif;color:#F0F7F2;font-size:20px;line-height:1.55;padding-bottom:6px;">Máximo de <b>2 bilhetes</b> por pessoa</td></tr><tr><td valign="top" style="width:22px;color:#3DFF6E;font-size:18px;line-height:1.55;">&#10022;</td><td style="font-family:'Barlow Condensed',Arial,sans-serif;color:#F0F7F2;font-size:20px;line-height:1.55;padding-bottom:6px;">Válido até <b>10/11</b></td></tr><tr><td valign="top" style="width:22px;color:#3DFF6E;font-size:18px;line-height:1.55;">&#10022;</td><td style="font-family:'Barlow Condensed',Arial,sans-serif;color:#F0F7F2;font-size:20px;line-height:1.55;padding-bottom:6px;">Lotes limitados por capacidade</td></tr></table></td><td class="col stamp" valign="middle" align="right" width="200" style="width:200px;padding-left:8px;"><img src="{{URL_IMAGENS}}/NG27_prevenda_carimbo_ultimos_dias.png" width="200" alt="Últimos dias — válido até 10/11" style="display:block;width:200px;height:auto;border:0;color:#E58BFF;font-family:Arial,sans-serif;font-size:20px;font-weight:bold;"></td></tr></table></td></tr><tr><td class="pad btn" align="center" bgcolor="#0B1F14" style="padding:26px 36px 10px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="#3DFF6E" style="border-radius:40px;background:#3DFF6E;"><a href="{{LINK_FEVER}}" target="_blank" style="display:inline-block;background:#3DFF6E;color:#04140A;font-family:'Barlow Condensed',Arial,sans-serif;font-weight:800;font-size:24px;letter-spacing:1px;text-decoration:none;padding:16px 44px;border-radius:40px;">COMPRAR NA FEVER</a></td></tr></table></td></tr><tr><td class="pad" bgcolor="#0B1F14" style="padding:16px 36px 22px;font-family:'Barlow Condensed',Arial,sans-serif;color:#F0F7F2;font-size:19px;line-height:1.5;text-align:center;"><p style="margin:0 0 10px;font-weight:700;font-size:21px;color:#E58BFF;">Os bilhetes estão a voar. Não fiques de fora.</p><p style="margin:0;color:#C9D6CD;">Clube Newgang</p></td></tr><tr><td class="pad" align="center" bgcolor="#0B1F14" style="padding:0 36px 30px;">{{RODAPE_LEGAL}}</td></tr></table></td></tr></table></body></html>`;
+
+/** 1.ª palavra, só letras (acentos) e hífen, 1.ª maiúscula e resto minúsculas; inválido/<2 letras → "". */
+export function presaleFirstName(raw: string | null | undefined): string {
+  const w = (raw ?? "").trim().split(/\s+/)[0] ?? "";
+  if (!/^\p{L}+(-\p{L}+)*$/u.test(w)) return "";
+  if ((w.match(/\p{L}/gu) ?? []).length < 2) return "";
+  const lower = w.toLocaleLowerCase("pt-PT");
+  return lower.charAt(0).toLocaleUpperCase("pt-PT") + lower.slice(1);
+}
+
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+
+export function presaleEmail(o: { firstName: string | null; code: string; unsubscribeUrl: string; test?: boolean }) {
+  if (!(PRESALE_CODES as readonly string[]).includes(o.code)) throw new Error("presale_code_invalid");
+  if (!o.unsubscribeUrl) throw new Error("presale_unsubscribe_missing");
+  const name = presaleFirstName(o.firstName);
+  const vals: Record<string, string> = {
+    URL_IMAGENS: REMINDER_HEADER_BASE, NOME_OPCIONAL: name ? ` ${esc(name)}` : "", CODIGO: esc(o.code),
+    LINK_FEVER: esc(PRESALE_LINK), RODAPE_LEGAL: legalFooterHtml(o.unsubscribeUrl),
+  };
+  const html = PRESALE_TEMPLATE.replace(/\{\{([A-Z_]+)\}\}/g, (m, k) => (k in vals ? vals[k] : m));
+  if (html.includes("{{")) throw new Error("presale_placeholder_unresolved");
+  const text = [
+    `Olá${name ? ` ${name}` : ""},`, "",
+    "Como membro do Clube Newgang, tens acesso à pré-venda antes de toda a gente. Se não encontraste o e-mail da Fever, o teu código está aqui.", "",
+    `O TEU CÓDIGO: ${o.code}`, "",
+    "- Só funciona com o teu e-mail do Clube", "- Máximo de 2 bilhetes por pessoa", "- Válido até 10/11", "- Lotes limitados por capacidade", "",
+    `Comprar na Fever: ${PRESALE_LINK}`, "", "Os bilhetes estão a voar. Não fiques de fora.", "Clube Newgang", "",
+    ...legalFooterText(o.unsubscribeUrl),
+  ].join("\n");
+  if (text.includes("{{")) throw new Error("presale_placeholder_unresolved");
+  return { subject: (o.test ? PRESALE_TEST_PREFIX : "") + PRESALE_SUBJECT, html, text };
+}
