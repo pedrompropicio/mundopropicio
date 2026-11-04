@@ -40,7 +40,7 @@ interface Props {
 export function CompanySwitcher({ className }: Props = {}) {
   const { company, companyId, isPlatformAdmin } = useCompany();
   const { data: memberships, isLoading: loadingMemberships } = useUserMemberships(!isPlatformAdmin);
-  const { data: allCompanies, isLoading: loadingAll } = useCompaniesList(isPlatformAdmin);
+  const { data: allCompanies, isLoading: loadingAll } = useCompaniesList(true);
   const setActive = useSetActiveCompany();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -59,12 +59,15 @@ export function CompanySwitcher({ className }: Props = {}) {
         display_name: c.display_name,
         legal_name: c.legal_name,
         slug: c.slug,
+        is_training: c.is_training,
       }))
     : (memberships ?? []).map((m) => ({
         id: m.company_id,
         display_name: m.display_name,
         legal_name: m.display_name,
         slug: m.slug,
+        is_training: allCompanies?.find((c) => c.id === m.company_id)?.is_training
+          ?? (company?.id === m.company_id && company.is_training),
       }));
 
   const visible = isPlatformAdmin || (memberships?.length ?? 0) >= 2;
@@ -122,6 +125,7 @@ export function CompanySwitcher({ className }: Props = {}) {
             <Building2 className="h-3.5 w-3.5 shrink-0" />
           )}
           <span className="truncate text-xs font-medium">{label}</span>
+          {company?.is_training && <Badge variant="outline">TREINO</Badge>}
           <Badge variant="secondary" className="hidden lg:inline-flex h-4 px-1 text-[10px]">
             {isPlatformAdmin ? "admin" : `${memberships?.length ?? 0} empresas`}
           </Badge>
@@ -164,6 +168,7 @@ export function CompanySwitcher({ className }: Props = {}) {
                       />
                       <div className="flex flex-col min-w-0">
                         <span className="truncate text-sm">{c.display_name}</span>
+                        {c.is_training && <Badge variant="outline">TREINO</Badge>}
                         <span className="truncate text-[10px] text-muted-foreground">
                           {c.legal_name}
                         </span>

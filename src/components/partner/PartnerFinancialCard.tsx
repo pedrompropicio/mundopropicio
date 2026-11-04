@@ -5,6 +5,7 @@ import {
   type PartnerTxRow, type PartnerForecastRow,
 } from "@/hooks/usePartnerFinancialCardData";
 import { type CardMode } from "@/lib/event-financial-card";
+import { useEventBudgetMode } from "@/hooks/useEventBudgetMode";
 import { formatCurrency } from "@/lib/mock-data";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
@@ -65,6 +66,8 @@ function writePartnerMode(uid: string, eid: string, kind: "income" | "expense", 
 
 export function PartnerFinancialCard(props: Props) {
   const { kind, eventId, userId, onValueChange } = props;
+  const { budgetMode, isLoading } = useEventBudgetMode(eventId);
+  const isWithoutBp = budgetMode === "without_bp";
 
   const [mode, setMode] = useState<CardMode>(() => readPartnerMode(userId, eventId, kind));
   useEffect(() => { writePartnerMode(userId, eventId, kind, mode); }, [userId, eventId, kind, mode]);
@@ -77,6 +80,7 @@ export function PartnerFinancialCard(props: Props) {
   const data = usePartnerFinancialCardData({
     kind,
     mode,
+    budgetMode,
     eventStatus: props.eventStatus,
     primaryEventDate: props.primaryEventDate,
     transactions: props.transactions,
@@ -88,7 +92,9 @@ export function PartnerFinancialCard(props: Props) {
     cacheImpactGross: props.cacheImpactGross,
   });
 
-  useEffect(() => { onValueChange?.(data.displayValue); }, [data.displayValue, onValueChange]);
+  useEffect(() => {
+    if (!isLoading) onValueChange?.(data.displayValue);
+  }, [data.displayValue, onValueChange, isLoading]);
 
   const Icon = kind === "income" ? TrendingUp : TrendingDown;
   const title = kind === "income" ? "Receitas" : "Despesas";
@@ -107,8 +113,8 @@ export function PartnerFinancialCard(props: Props) {
         </div>
         <div className="flex items-center gap-1">
           <span className="rounded-md bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-            {MODE_LABEL[mode === "auto" ? "auto" : data.modeUsed]}
-            {mode === "auto" && <span className="opacity-60"> · {MODE_LABEL[data.modeUsed]}</span>}
+            {MODE_LABEL[!isWithoutBp && mode === "auto" ? "auto" : data.modeUsed]}
+            {!isWithoutBp && mode === "auto" && <span className="opacity-60"> · {MODE_LABEL[data.modeUsed]}</span>}
           </span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -121,19 +127,20 @@ export function PartnerFinancialCard(props: Props) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
               <DropdownMenuLabel className="text-xs">Modo</DropdownMenuLabel>
-              <DropdownMenuRadioGroup value={mode} onValueChange={(v) => setMode(v as CardMode)}>
-                <DropdownMenuRadioItem value="auto">Auto ({MODE_LABEL[data.modeUsed]})</DropdownMenuRadioItem>
+              <DropdownMenuRadioGroup value={isWithoutBp ? "realized" : mode} onValueChange={(v) => { if (!isWithoutBp) setMode(v as CardMode); }}>
+                {!isWithoutBp && <DropdownMenuRadioItem value="auto">Auto ({MODE_LABEL[data.modeUsed]})</DropdownMenuRadioItem>}
                 <DropdownMenuRadioItem value="realized">Realizado</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="committed">Comprometido</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="forecast">Forecast</DropdownMenuRadioItem>
+                {!isWithoutBp && <DropdownMenuRadioItem value="committed">Comprometido</DropdownMenuRadioItem>}
+                {!isWithoutBp && <DropdownMenuRadioItem value="forecast">Forecast</DropdownMenuRadioItem>}
               </DropdownMenuRadioGroup>
+              {isWithoutBp && <div className="px-2 pb-1 text-[11px] text-muted-foreground">evento sem BP</div>}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
       <div className="mt-2">
-        {showUnavailable ? (
+        {isLoading || showUnavailable ? (
           <p className="text-xl sm:text-2xl font-bold font-mono text-muted-foreground">—</p>
         ) : (
           <p className={`text-xl sm:text-2xl font-bold font-mono ${valueColor}`}>{formatCurrency(data.displayValue)}</p>

@@ -1,3 +1,4 @@
+import { assertNotTraining, TrainingCompanyError } from "../_shared/training-guard.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendWhatsApp } from "../_shared/twilio.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
@@ -106,6 +107,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    // The explicit origin also covers service_role + user_ids, before both channels.
+    for (const origin of new Set([body.company_id, callerCompanyId,
+      target?.type === "company_admins" ? target.company_id : null])) {
+      await assertNotTraining(adminClient, origin);
+    }
+    if (target?.type === "frente_team") {
+      const { data: frente, error } = await adminClient.from("operacao_frentes")
+        .select("company_id").eq("id", target.frente_id).maybeSingle();
+      if (error) throw error;
+      await assertNotTraining(adminClient, frente?.company_id);
+    }
     // Resolve target into user_ids
     const resolvedUserIds = await resolveTargetUserIds(adminClient, target ?? null, user_ids);
 
@@ -191,6 +203,10 @@ Deno.serve(async (req) => {
       resolved_user_count: resolvedUserIds.length,
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
+    if (err instanceof TrainingCompanyError) {
+      return new Response(JSON.stringify(err.body), { status: err.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     console.error("Push notification error:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },

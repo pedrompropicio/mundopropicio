@@ -1,6 +1,7 @@
 // #202-c: resumable v4 table dumps. No runtime globals or credentials: all I/O is injected.
 export interface Cursor {
   from: number; pageSize: number; ordered: boolean; partIndex: number; rows: number; bytes: number;
+  after?: string | null; // Absent only on legacy checkpoints: finish that table by OFFSET.
 }
 export interface Progress {
   version: 1; run_id: string; seq: number; phase: "tables" | "final"; next_index: number;
@@ -50,7 +51,8 @@ export function parseProgress(value: unknown, runId: string): Progress {
       !Number.isFinite(Date.parse(p.heartbeat_at)) ||
       (p.cursor !== null && (!p.cursor || !counts({ from: p.cursor.from, pageSize: p.cursor.pageSize,
         partIndex: p.cursor.partIndex, rows: p.cursor.rows, bytes: p.cursor.bytes }) ||
-        p.cursor.pageSize < 1 || p.cursor.pageSize > 250 || p.cursor.partIndex < 1 || typeof p.cursor.ordered !== "boolean")) ||
+        p.cursor.pageSize < 1 || p.cursor.pageSize > 250 || p.cursor.partIndex < 1 || typeof p.cursor.ordered !== "boolean" ||
+        (p.cursor.after !== undefined && p.cursor.after !== null && typeof p.cursor.after !== "string"))) ||
       (p.phase === "final" && p.cursor !== null)) throw new Error("_progress.json inválido");
   return p;
 }
@@ -60,7 +62,7 @@ async function upload(db: any, path: string, blob: Blob) {
 
 /** Flush before saving the offset. Counters for a table commit only when that table finishes. */
 export async function dumpTable(deps: Deps, target: Target, context: Context, cursor: Cursor | null, expired: () => boolean) {
-  const c: Cursor = cursor ? { ...cursor } : { from: 0, pageSize: 250, ordered: true, partIndex: 1, rows: 0, bytes: 0 };
+  const c: Cursor = cursor ? { ...cursor } : { from: 0, after: null, pageSize: 250, ordered: true, partIndex: 1, rows: 0, bytes: 0 };
   const key = target.schema_name === "public" ? target.tbl_name : `${target.schema_name}.${target.tbl_name}`;
   let chunks: string[] = [];
   let size = 0;
@@ -75,11 +77,28 @@ export async function dumpTable(deps: Deps, target: Target, context: Context, cu
   };
   while (true) {
     if (expired()) { await flush(); return { done: false, cursor: c }; }
-    const page = await deps.readPage(target, { ...c }, context.companyId);
+    let page: { text: string; rows: number; ordered: boolean; lastId?: string | null };
+    try {
+      page = await deps.readPage(target, { ...c }, context.companyId);
+    } catch (error) {
+      // The transport leaves time to flush/checkpoint; the failed page is read again next slice.
+      if (error instanceof Error && error.name === "BackupPageDeadline") {
+        await flush(); return { done: false, cursor: c };
+      }
+      throw error;
+    }
     if (!natural(page.rows) || page.rows > c.pageSize) throw new Error(`${key}: contagem de página inválida`);
     c.ordered = page.ordered;
     if (page.rows) {
       if (!page.text.startsWith("[") || !page.text.endsWith("]")) throw new Error(`${key}: página inválida`);
+      if (c.ordered && c.after !== undefined) {
+        // Keep the injected legacy reader contract usable; production returns the validated lastId.
+        const lastId = page.lastId === undefined ? JSON.parse(page.text)[page.rows - 1]?.id : page.lastId;
+        if (typeof lastId !== "string" && (typeof lastId !== "number" || !Number.isSafeInteger(lastId))) {
+          throw new Error(`${key}: último id da página inválido`);
+        }
+        c.after = String(lastId);
+      }
       const chunk = page.text.slice(1, -1);
       chunks.push(chunk); size += chunk.length;
       c.rows += page.rows; c.from += page.rows;
