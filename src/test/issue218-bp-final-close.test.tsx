@@ -48,7 +48,7 @@ const liveLine = {
 };
 const finalLine = { ...liveLine, amount: 300 };
 function version(overrides: Partial<FinalCloseBpVersion> = {}): FinalCloseBpVersion {
-  return { id: "v2", event_id: event.id, version_number: 2, state: "active",
+  return { id: "v2", event_id: event.id, version_number: 2, state: "active", is_final_close: true,
     description: `${BP_FINAL_CLOSE_PREFIX} — 04/11/2026`, snapshot_payload: { forecasts: [finalLine] }, ...overrides };
 }
 
@@ -84,7 +84,7 @@ beforeEach(() => {
   fixtures.queries = null;
   fixtures.rpc.mockImplementation(async (name: string) => {
     if (name === "event_close_blockers") return { data: EMPTY_BLOCKERS, error: null };
-    if (name === "create_bp_snapshot") return { data: "snapshot", error: null };
+    if (name === "create_final_close_bp_snapshot") return { data: "snapshot", error: null };
     throw new Error(`RPC inesperada: ${name}`);
   });
   mockParent();
@@ -104,12 +104,13 @@ describe("#218 — seleção e substituição puras (critérios 3/4)", () => {
     expect(withFinalCloseForecasts(live, [version()], [{ ...event, status: "active" }])).toBe(live);
   });
 
-  it("escolhe a maior versão por evento, incluindo superseded, ignorando rascunhos e outros prefixos", () => {
+  it("escolhe a maior final por evento, incluindo superseded, ignorando rascunhos e versões sem marca", () => {
     const older = version({ id: "v1", version_number: 1, snapshot_payload: { forecasts: [{ ...finalLine, amount: 100 }] } });
     const latest = version({ state: "superseded" });
     const versions = [latest, version({ version_number: 9, state: "draft" }), older,
       version({ version_number: 10, state: "archived" }), version({ version_number: 11, state: "working_draft" }),
-      version({ version_number: 12, description: "Outro snapshot" }), version({ version_number: 13, description: null })];
+      version({ version_number: 12, description: "Outro snapshot", is_final_close: false }),
+      version({ version_number: 13, description: null, is_final_close: false })];
     expect(pickFinalCloseVersions(versions).get(event.id)).toBe(latest);
     expect(withFinalCloseForecasts([liveLine], versions, [event])).toEqual([finalLine]);
     expect(versions[0]).toBe(latest);
@@ -143,26 +144,26 @@ describe("#218 — seleção e substituição puras (critérios 3/4)", () => {
 });
 
 describe("#218 — RPC e leitura paginada", () => {
-  it("usa os oito argumentos da RPC existente e a identidade de auditoria", async () => {
+  it("usa a RPC final com descrição prefixada e a identidade de auditoria", async () => {
     await expect(freezeFinalBpVersion(event.id, fixtures.user as any)).resolves.toBe("snapshot");
-    expect(supabase.rpc).toHaveBeenCalledWith("create_bp_snapshot", {
-      _event_id: event.id, _description: "Versão final do fecho — 04/11/2026", _approve_immediately: true,
-      _scenario_label: null, _scenario_assumptions: null, _is_pinned_scenario: false,
-      _created_by: "user", _created_by_label: "Utilizador teste",
+    expect(supabase.rpc).toHaveBeenCalledWith("create_final_close_bp_snapshot", {
+      _event_id: event.id, _description: "Versão final do fecho — 04/11/2026",
+      _created_by_label: "Utilizador teste",
     });
   });
 
   it("o hook filtra finais activas/superseded e percorre mais de 1000 versões sem truncar", async () => {
     const page = Array.from({ length: 1000 }, (_, i) => version({ id: `v${i}` }));
-    const query = { select: vi.fn(), like: vi.fn(), in: vi.fn(), order: vi.fn(), range: vi.fn() };
-    for (const key of ["select", "like", "in", "order"] as const) query[key].mockReturnValue(query);
+    const query = { select: vi.fn(), eq: vi.fn(), in: vi.fn(), order: vi.fn(), range: vi.fn() };
+    for (const key of ["select", "eq", "in", "order"] as const) query[key].mockReturnValue(query);
     query.range.mockImplementation(async (from: number) => ({ data: from === 0 ? page : [version({ id: "last" })], error: null }));
     fixtures.from.mockReturnValue(query);
     const { result } = renderHook(() => useFinalCloseBpVersions(), { wrapper: wrapper() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toHaveLength(1001);
     expect(fixtures.from).toHaveBeenCalledWith("bp_versions");
-    expect(query.like).toHaveBeenCalledWith("description", BP_FINAL_CLOSE_PREFIX + "%");
+    expect(query.select).toHaveBeenCalledWith("id, event_id, version_number, state, is_final_close, description, snapshot_payload");
+    expect(query.eq).toHaveBeenCalledWith("is_final_close", true);
     expect(query.in).toHaveBeenCalledWith("state", ["active", "superseded"]);
     expect(query.order).toHaveBeenCalledWith("id", { ascending: true });
     expect(query.range.mock.calls).toEqual([[0, 999], [1000, 1999]]);
@@ -170,8 +171,8 @@ describe("#218 — RPC e leitura paginada", () => {
   });
 
   it("propaga erros de leitura em vez de os devolver como lista vazia", async () => {
-    const query = { select: vi.fn(), like: vi.fn(), in: vi.fn(), order: vi.fn(), range: vi.fn() };
-    for (const key of ["select", "like", "in", "order"] as const) query[key].mockReturnValue(query);
+    const query = { select: vi.fn(), eq: vi.fn(), in: vi.fn(), order: vi.fn(), range: vi.fn() };
+    for (const key of ["select", "eq", "in", "order"] as const) query[key].mockReturnValue(query);
     query.range.mockResolvedValue({ data: null, error: new Error("leitura recusada") });
     fixtures.from.mockReturnValue(query);
     const { result } = renderHook(() => useFinalCloseBpVersions(), { wrapper: wrapper() });
@@ -190,8 +191,8 @@ describe("#218 — diálogo de conclusão (critério 2)", () => {
     expect(screen.getByRole("checkbox", { name: freezeLabel })).toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: "Concluir evento" }));
     expect(onConfirm).not.toHaveBeenCalled();
-    expect(fixtures.rpc).toHaveBeenLastCalledWith("create_bp_snapshot", expect.objectContaining({
-      _approve_immediately: true, _description: expect.stringMatching(/^Versão final do fecho — \d{2}\/\d{2}\/\d{4}$/),
+    expect(fixtures.rpc).toHaveBeenLastCalledWith("create_final_close_bp_snapshot", expect.objectContaining({
+      _description: expect.stringMatching(/^Versão final do fecho — \d{2}\/\d{2}\/\d{4}$/),
     }));
     expect(screen.getByRole("button", { name: "A concluir…" })).toBeDisabled();
     resolveSnapshot({ data: "snapshot", error: null });
@@ -210,7 +211,7 @@ describe("#218 — diálogo de conclusão (critério 2)", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: freezeLabel }));
     fireEvent.click(screen.getByRole("button", { name: "Concluir evento" }));
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
-    expect(fixtures.rpc.mock.calls.filter(([name]) => name === "create_bp_snapshot")).toHaveLength(1);
+    expect(fixtures.rpc.mock.calls.filter(([name]) => name === "create_final_close_bp_snapshot")).toHaveLength(1);
   });
 
   it("desmarcar conclui sem criar snapshot", async () => {
