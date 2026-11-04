@@ -25,6 +25,8 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import SelectiveRestoreModal from "@/components/SelectiveRestoreModal";
 import { useCompany } from "@/hooks/useCompany";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { badgeVariants } from "@/components/ui/badge";
 
 type BackupEntry = {
   /** "folder" = corrida no formato novo (pasta com um ficheiro por tabela); "file" = formato antigo */
@@ -33,6 +35,7 @@ type BackupEntry = {
   path: string;
   folder?: string;
   label: string;
+  companySlug?: string;
   created_at: string;
   size: number;
   tables?: number;
@@ -54,6 +57,21 @@ export default function DatabaseBackups() {
   const [selectiveTarget, setSelectiveTarget] = useState<string | null>(null);
 
   const companySlug = company?.slug ?? null;
+
+  // select(*) also works before 0327: an absent is_training flag means no badge.
+  // Include inactive companies too: their retained backups still belong to them.
+  const { data: backupCompanies = [] } = useQuery({
+    queryKey: ["backup-company-training", company?.id, isPlatformAdmin],
+    enabled: !!companySlug && hasPermission("settings.backups"),
+    queryFn: async () => {
+      const { data, error } = await fetchAllPagedQuery<{ slug: string; is_training?: boolean }>(
+        supabase.from("companies").select("*"),
+      );
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const trainingSlugs = new Set(backupCompanies.filter(c => c.is_training === true).map(c => c.slug));
 
   const { data: backups = [], isLoading, refetch: refetchBackups, isFetching } = useQuery<BackupEntry[]>({
     queryKey: ["database-backups", companySlug, isPlatformAdmin],
@@ -88,6 +106,7 @@ export default function DatabaseBackups() {
           ).length;
           entries.push({
             kind: "folder",
+            companySlug: slug,
             path: `${slug}/${run.name}/manifest.json`,
             folder: `${slug}/${run.name}`,
             label: `${slug} · ${run.name}`,
@@ -109,6 +128,7 @@ export default function DatabaseBackups() {
         if (!visible) continue;
         entries.push({
           kind: "file",
+          companySlug: companySlug && name.startsWith(`backup-${companySlug}-`) ? companySlug : undefined,
           path: name,
           label: name,
           created_at: f.created_at,
@@ -343,7 +363,9 @@ export default function DatabaseBackups() {
                   <Database className="h-5 w-5 text-primary shrink-0" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{file.label}</p>
+                  <p className="text-sm font-medium truncate">{file.label}{file.companySlug && trainingSlugs.has(file.companySlug) && (
+                    <span className={badgeVariants({ variant: "outline", className: "ml-2" })}>TREINO</span>
+                  )}</p>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
