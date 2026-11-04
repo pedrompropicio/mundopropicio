@@ -49,7 +49,7 @@ function json(body: unknown, status = 200): Response {
 
 // ---------------- Service Account JWT → OAuth2 access_token ----------------
 
-function pemToDer(pem: string): Uint8Array {
+function pemToDer(pem: string): Uint8Array<ArrayBuffer> {
   const b64 = pem
     .replace(/-----BEGIN [^-]+-----/g, "")
     .replace(/-----END [^-]+-----/g, "")

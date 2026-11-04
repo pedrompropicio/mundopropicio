@@ -225,7 +225,7 @@ Deno.serve(async (req) => {
       signedUrl?: string;
       error?: string;
       status?: number;
-      bucket?: string;
+      bucket: string;
       candidates?: string[];
       filename?: string | null;
       contentType?: string;

@@ -19,7 +19,7 @@
 
 import { adminClient, corsHeaders, json } from "../_shared/artist-meta.ts";
 import { authorizeArtistAdmin, getS4aAccessToken, S4aError } from "../_shared/s4a.ts";
-import { deduceTriggerSource, finishSyncRun, resolveStatus, startSyncRun } from "../_shared/sync-run.ts";
+import { deduceTriggerSource, finishSyncRun, resolveStatus, startSyncRun, type TriggerSource } from "../_shared/sync-run.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const FN = "s4a-audience-sync";
@@ -74,7 +74,7 @@ function s4aClient(admin: Admin, artistId: string) {
 
 const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 
-async function syncArtist(admin: Admin, artist: any, dryRun: boolean, trigger: "cron" | "manual" | "api", provaCidades: boolean) {
+async function syncArtist(admin: Admin, artist: any, dryRun: boolean, trigger: TriggerSource, provaCidades: boolean) {
   const started = Date.now();
   const runId = await startSyncRun(admin, {
     function_name: FN, trigger_source: trigger, dry_run: dryRun,
