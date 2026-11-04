@@ -26,6 +26,7 @@ import {
   usesGrossExpenseAmounts,
   type PartnerCalcBasis,
 } from "@/lib/partner-calc-basis";
+import type { SettlementTotals } from "@/lib/event-settlement-inputs";
 
 export interface ContractResultTotals {
   revenueNet: number;
@@ -95,6 +96,19 @@ export function computeContractBasisResult(
       ? totals.expensesGross
       : totals.expensesNet;
   return revenueBase - expenseBase;
+}
+
+/** Base do fecho na capa: receita do acerto, sem receitas exclusivas da casa. */
+export function computeCoverContractBasisResult(
+  totals: Pick<SettlementTotals, "settlementRevenueNet" | "expensesNet" | "expensesGross">,
+  cacheOnTop: number,
+  basis?: string | null,
+): number {
+  return computeContractBasisResult({
+    revenueNet: totals.settlementRevenueNet,
+    expensesNet: totals.expensesNet + cacheOnTop,
+    expensesGross: totals.expensesGross + cacheOnTop,
+  }, basis);
 }
 
 /**
