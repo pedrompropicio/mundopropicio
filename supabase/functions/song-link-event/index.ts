@@ -5,7 +5,7 @@
 // verify_jwt = false (config.toml): chamada pelo browser do visitante.
 // CORS só https://www.mundopropicio.com e https://mundopropicio.com.
 // Privacidade: o IP nunca é guardado em claro — só sha256(sal + IP), e só se
-// existir o secret SONG_LINK_IP_SALT, fora da zona protegida. Na zona protegida
+// existir o secret SONG_LINK_IP_SALT e consentimento, fora da zona protegida. Na zona protegida
 // (incluindo país desconhecido), não grava identificadores nem entrega publicidade.
 // Geo rápida e gravação precedem a resposta; CAPI fora da zona corre em segundo
 // plano e nunca faz falhar o pedido.
@@ -26,6 +26,7 @@ import {
   arrivalClickSignals, type ArrivalClickRow,
 } from "./app-open.ts";
 import { abVariantFor, AB_IOS_BTN_WINDOW } from "./ab-variant.ts";
+import { consentPolicy, consentVersion, validConsentArrival } from "./consent.ts";
 
 const ALLOWED_ORIGINS = new Set<string>([
   "https://www.mundopropicio.com",
@@ -286,10 +287,11 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
   }
 
   const slug = s(body?.slug, 120)?.toLowerCase() ?? null;
-  const event = body?.event;
+  let event = body?.event;
+  const isConsent = event === "consent";
   ctx.slug = slug;
   if (!slug || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) return json({ ok: false, error: "slug_invalido" }, 400, origin);
-  if (event !== "arrival" && event !== "choice" && event !== "app_open") return json({ ok: false, error: "event_invalido" }, 400, origin);
+  if (event !== "arrival" && event !== "choice" && event !== "app_open" && event !== "consent") return json({ ok: false, error: "event_invalido" }, 400, origin);
   const opened = body?.opened === "app" || body?.opened === "web" ? body.opened : null;
 
   const ssrIp = isSsr ? ssrClientIp(body.client_ip) : null;
@@ -330,26 +332,49 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
   const hdrCountry = normalizeCountry(isSsr ? cg!.country : req.headers.get("cf-ipcountry") ?? req.headers.get("x-vercel-ip-country") ?? req.headers.get("x-country"));
   const hdrRegion = isSsr ? cg!.region : s(req.headers.get("cf-region") ?? req.headers.get("x-vercel-ip-country-region"), 80);
   const hdrCity = isSsr ? cg!.city : s(req.headers.get("cf-ipcity") ?? req.headers.get("x-vercel-ip-city"), 120);
-  const eventId = s(body?.event_id, 120);
+  let eventId = s(body?.event_id, 120);
   // #647: só caminhos rápidos antes do claim. País desconhecido fica protegido;
   // nunca consultar ipinfo para decidir se se pode enviar publicidade.
   const fastGeo = hdrCountry ? null : await geoFor(admin, ipHash, ip ?? "", false, false);
   const country = hdrCountry ?? normalizeCountry(fastGeo?.geo.country);
   const region = hdrCountry ? hdrRegion : fastGeo?.geo.region ?? null;
   const city = hdrCountry ? hdrCity : fastGeo?.geo.city ?? null;
-  const protectedZone = isProtectedZone(country);
-  const storedIpHash = protectedZone ? null : ipHash;
+  let protectedZone = isProtectedZone(country);
+  let consentArrival: any = null;
+  if (isConsent) {
+    if (!isUuid(body.arrival_event_id) || !["granted", "denied"].includes(body.consent) || !consentVersion(body.consent_version)) {
+      return json({ ok: false, error: "consent_invalido" }, 400, origin);
+    }
+    const { data: arr, error } = await admin.from("song_link_events")
+      .select("id, link_id, event, created_at, country, region, city, mode, destination, capi_status, tiktok_status, consent_status, consent_version, consent_at")
+      .eq("event_id", body.arrival_event_id.trim().toLowerCase()).eq("event", "arrival").eq("link_id", link.id)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (error) return json({ ok: false, error: "erro_interno" }, 500, origin);
+    if (!validConsentArrival(arr, link.id, Date.now())) return json({ ok: false, error: "chegada_invalida" }, 403, origin);
+    consentArrival = arr;
+    // Uma chegada protegida nunca é desbloqueada por geo diferente num pedido posterior.
+    protectedZone = protectedZone || isProtectedZone(arr.country);
+    eventId = body.arrival_event_id.trim().toLowerCase();
+  }
+  const policy = consentPolicy(protectedZone, body.consent, event, isSsr);
+  const storedIpHash = policy.storeIdentifiers ? ipHash : null;
   // Colunas text sem CHECK: 20260924202758 (capi_status), 20260924233339 (tiktok_status).
-  const protectedStatus = "nao_aplicavel_zona_protegida";
-  const protectedFields = protectedZone ? {
+  const protectedFields = !policy.storeIdentifiers ? {
     ip_hash: null, fbclid: null, ttclid: null, capi_fbp: null, capi_fbc: null, capi_external_id: null,
-    capi_status: protectedStatus, tiktok_status: protectedStatus,
+    capi_status: policy.deliveryStatus, tiktok_status: policy.deliveryStatus,
   } : {};
-  // Fora da zona conserva a semente original; dentro usa apenas o ID deste evento.
-  const abVariant = event === "app_open" ? null : await abVariantFor({ os,
-    ipHash: protectedZone ? eventId : ipHash, force: body.ab_force, nowMs: Date.now(), window: AB_IOS_BTN_WINDOW });
+  const consentFields = {
+    consent_status: policy.status,
+    consent_version: protectedZone ? null : consentVersion(body.consent_version),
+    consent_at: policy.status === "granted" || policy.status === "denied"
+      ? (consentArrival?.consent_status === policy.status && consentArrival?.consent_version === consentVersion(body.consent_version)
+        ? consentArrival.consent_at : new Date(Date.now()).toISOString()) : null,
+  };
+  // Sem consentimento usa apenas o ID deste evento, também fora da zona protegida.
+  const abVariant = event === "app_open" || isConsent ? null : await abVariantFor({ os,
+    ipHash: policy.storeIdentifiers ? ipHash : eventId, force: body.ab_force, nowMs: Date.now(), window: AB_IOS_BTN_WINDOW });
   const pageUrl = s(body?.page_url, 2000);
-  const destination = s(body?.destination, 60);
+  const destination = isConsent ? consentArrival.destination : s(body?.destination, 60);
   const metaTest = typeof body?.meta_test_event_code === "string" && TEST_CODE_RE.test(body.meta_test_event_code) ? body.meta_test_event_code : null;
   const ttTest = typeof body?.tiktok_test_event_code === "string" && TEST_CODE_RE.test(body.tiktok_test_event_code) ? body.tiktok_test_event_code : null;
 
@@ -389,20 +414,30 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
 
   const inheritedClicks = arrivalClickSignals(clickArrival, link.id);
   const inheritClicks = event === "app_open" || (event === "choice" && arrivalEventId !== null);
-  const testPolicy = testDeliveryPolicy(s(body.mode, 30), arrivalMode, metaTest, ttTest);
+  const testPolicy = testDeliveryPolicy(s(body.mode, 30), isConsent ? consentArrival.mode : arrivalMode, metaTest, ttTest);
 
   // D-ERP234: atomic INSERT ON CONFLICT happens before any external delivery.
   // AJ19: app_open não usa a claim (a claim não mapeia arrival_event_id); o
   // índice único song_link_app_open_arrival_uidx garante no máximo 1 por chegada.
   let claimedId: string | null = null;
-  if (appOpen) {
+  if (isConsent) {
+    claimedId = consentArrival.id;
+    const { error } = await admin.from("song_link_events").update({
+      ...consentFields, ...protectedFields,
+      ...(policy.storeIdentifiers ? { ip_hash: storedIpHash, fbclid: s(body.fbclid, 500), ttclid: s(body.ttclid, 500) } : {}),
+    }).eq("id", claimedId);
+    if (error) return json({ ok: false, error: "erro_interno" }, 500, origin);
+    // O evento consent só completa a chegada; nunca cria uma quarta espécie de linha.
+    event = "arrival";
+    arrivalEventId = eventId;
+  } else if (appOpen) {
     const { data: ins, error: insErr } = await admin.from("song_link_events").insert({
       link_id: link.id, company_id: link.company_id, artist_id: link.artist_id, song_id: link.song_id,
       event: "app_open", mode: testPolicy.mode, destination: appOpen.destination, opened: "app",
       event_id: appOpen.event_id, arrival_event_id: appOpen.arrival_event_id,
       utm_source: s(body.utm_source, 200), utm_medium: s(body.utm_medium, 200),
       utm_campaign: s(body.utm_campaign, 200), utm_content: s(body.utm_content, 200), utm_term: s(body.utm_term, 200),
-      fbclid: protectedZone ? null : inheritedClicks.fbclid, ttclid: protectedZone ? null : inheritedClicks.ttclid,
+      fbclid: !policy.storeIdentifiers ? null : inheritedClicks.fbclid, ttclid: !policy.storeIdentifiers ? null : inheritedClicks.ttclid,
       country, region, city, device, os, in_app_browser,
       ip_hash: storedIpHash, origin: "browser", capi_status: "pendente", tiktok_status: "pendente",
       ...protectedFields,
@@ -422,7 +457,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     event, mode: testPolicy.mode, destination, opened, event_id: eventId,
     utm_source: s(body.utm_source, 200), utm_medium: s(body.utm_medium, 200),
     utm_campaign: s(body.utm_campaign, 200), utm_content: s(body.utm_content, 200), utm_term: s(body.utm_term, 200),
-    fbclid: protectedZone ? null : s(body.fbclid, 500), ttclid: protectedZone ? null : s(body.ttclid, 500),
+    fbclid: !policy.storeIdentifiers ? null : s(body.fbclid, 500), ttclid: !policy.storeIdentifiers ? null : s(body.ttclid, 500),
     country, region, city, device, os, in_app_browser,
     ip_hash: storedIpHash, origin: isSsr ? "ssr" : "browser",
     ...(abVariant ? { ab_variant: abVariant } : {}),
@@ -441,11 +476,13 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     let enriched = false;
     if (!isSsr && eventId) {
       const { data: row, error: rowErr } = await admin.from("song_link_events")
-        .select("id, origin, opened, destination, in_app_browser, device, os, mode, capi_fbp, country")
+        .select("id, origin, opened, destination, in_app_browser, device, os, mode, capi_fbp, country, consent_status")
         .eq("event_id", eventId).eq("event", event).eq("link_id", link.id)
         .gte("created_at", "2026-10-10T00:00:00Z").order("created_at").limit(1).maybeSingle();
       if (rowErr) return json({ ok: false, error: "erro_interno" }, 500, origin);
-      const patch: Record<string, unknown> = { ...protectedFields };
+      // Um beacon pending atrasado não revoga a decisão já registada pelo consent.
+      const patch: Record<string, unknown> = !protectedZone && (row?.consent_status === "granted" || row?.consent_status === "denied")
+        ? {} : { ...consentFields, ...protectedFields };
       if (row?.origin === "ssr") {
         if (opened && !row.opened) patch.opened = opened;
         if (destination && !row.destination) patch.destination = destination;
@@ -467,13 +504,14 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
           event, mode: s(body.mode, 30), destination, opened, event_id: crypto.randomUUID(),
           utm_source: s(body.utm_source, 200), utm_medium: s(body.utm_medium, 200),
           utm_campaign: s(body.utm_campaign, 200), utm_content: s(body.utm_content, 200), utm_term: s(body.utm_term, 200),
-          fbclid: protectedZone ? null : s(body.fbclid, 500), ttclid: protectedZone ? null : s(body.ttclid, 500), country, region, city,
+          fbclid: !policy.storeIdentifiers ? null : s(body.fbclid, 500), ttclid: !policy.storeIdentifiers ? null : s(body.ttclid, 500), country, region, city,
           device, os, in_app_browser, ip_hash: storedIpHash, origin: "browser",
-          capi_status: "nao_reenviado", tiktok_status: "nao_reenviado", ...protectedFields });
+          capi_status: "nao_reenviado", tiktok_status: "nao_reenviado", ...protectedFields, ...consentFields });
         if (error) return json({ ok: false, error: "erro_interno" }, 500, origin);
         return json({ ok: true, duplicate: true, recovered: true, delivery: "nao_reenviada" }, 200, origin);
       }
-      if (!protectedZone && row && s(body.fbp, 500) && row.capi_fbp !== true) patch.capi_fbp = true;
+      // capi_fbp só prova presença no payload efectivamente enviado; um cookie
+      // num beacon duplicado não prova que o SSR o entregou à Meta.
       if (row && Object.keys(patch).length) {
         const { error } = await admin.from("song_link_events").update(patch).eq("id", row.id);
         if (error) return json({ ok: false, error: "erro_interno" }, 500, origin);
@@ -490,6 +528,13 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
   }
   }
 
+  // A claim legada só grava as suas colunas explícitas. Persistir o consentimento
+  // antes da resposta e de qualquer slot/token/envio; falha fecha a entrega.
+  if (!isConsent) {
+    const { error } = await admin.from("song_link_events").update({ ...consentFields, ...protectedFields }).eq("id", claimedId);
+    if (error) return json({ ok: false, error: "erro_interno" }, 500, origin);
+  }
+
   // AJ19: choice COM arrival_event_id — vincula a linha à chegada. Se outra
   // choice já ocupa (link, chegada, destino), o vínculo falha e o ListenClick
   // Meta não é entregue por esta linha (sem slot → sem envio duplicado).
@@ -501,12 +546,25 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     if (error) console.warn("[song-link-event] choice arrival link falhou", error.message);
   }
 
-  const initialGeo = { country, region, city };
+  const initialGeo = isConsent
+    ? { country: consentArrival.country, region: consentArrival.region, city: consentArrival.city }
+    : { country, region, city };
   const work = (async () => {
-    // A claim existente fixa pendente; finalizar aqui sem slots, tokens ou APIs.
-    if (protectedZone) {
-      const { error } = await admin.from("song_link_events").update(protectedFields).eq("id", claimedId);
-      if (error) console.warn("[song-link-event] protected update falhou", error.message);
+    // Consentimento/estados já persistidos antes da resposta; sem slots/tokens.
+    if (!policy.send) {
+      if (protectedZone) {
+        const { error } = await admin.from("song_link_events").update(protectedFields).eq("id", claimedId);
+        if (error) console.warn("[song-link-event] protected update falhou", error.message);
+      } else if (!isConsent && !initialGeo.city && ip) {
+        // Preservar medição própria quando a CDN só fornece o país: DB-IP local,
+        // sem chave ip_hash na cache e sem API paga/publicitária. Nunca regravar
+        // os identificadores/estados de um consent que possa ter chegado entretanto.
+        const { geo } = await geoFor(admin, null, ip, false, false);
+        if (normalizeCountry(geo.country) === initialGeo.country && geo.city) {
+          const { error } = await admin.from("song_link_events").update({ region: initialGeo.region ?? geo.region, city: geo.city }).eq("id", claimedId);
+          if (error) console.warn("[song-link-event] own geo update falhou", error.message);
+        }
+      }
       return;
     }
     // Geo: CDN/cabeçalhos primeiro; depois cache ip_hash 24 h; depois ipinfo (limite). Nunca atrasa a resposta.
@@ -537,15 +595,15 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     // TikTok: arrival → ViewContent; choice → ClickButton (ID próprio, inalterado);
     // app_open → CompleteRegistration com ID canónico atrás do slot (tiktok, CompleteRegistration).
     const openId = arrivalEventId ? canonicalOpenId(arrivalEventId) : null;
-    const metaSlot = (appOpen || (event === "choice" && choiceArrivalLinked)) ? "ListenClick" : null;
+    const metaSlot = isConsent ? "ViewContent" : (appOpen || (event === "choice" && choiceArrivalLinked)) ? "ListenClick" : null;
     const metaEventName = event === "arrival" ? "ViewContent" : "ListenClick";
-    const metaEventId = metaSlot ? openId! : (eventId ?? undefined);
-    const ttSlot = appOpen ? "CompleteRegistration" : null;
+    const metaEventId = isConsent ? eventId! : metaSlot ? openId! : (eventId ?? undefined);
+    const ttSlot = isConsent ? "ViewContent" : appOpen ? "CompleteRegistration" : null;
     const ttEventName = event === "arrival" ? "ViewContent" : appOpen ? "CompleteRegistration" : "ClickButton";
-    const ttEventId = ttSlot ? openId! : (eventId ?? undefined);
+    const ttEventId = isConsent ? eventId! : ttSlot ? openId! : (eventId ?? undefined);
     // AJ19 dedup ViewContent (só chegadas): marca 'duplicate' por fornecedor.
     let metaDup = false, ttDup = false;
-    if (event === "arrival") {
+    if (event === "arrival" && !isConsent) {
       const fbclidIn = s(body?.fbclid, 500);
       const ttclidIn = s(body?.ttclid, 500);
       if (fbclidIn) metaDup = await recentDuplicate(admin, link.id, "fbclid", fbclidIn, claimedId!);
@@ -553,10 +611,14 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     }
     let capi_status = naoAplicavel ? "nao_aplicavel" : "sem_pixel";
     let capi_fbc: boolean | null = null, capi_fbp: boolean | null = null, capi_external_id: boolean | null = null;
+    let metaSlotLost = false, ttSlotLost = false;
     if (testPolicy.suppressMeta) capi_status = "suprimido_teste";
     else if (!naoAplicavel && link.meta_pixel_id && metaDup) capi_status = "duplicate";
     else if (!naoAplicavel && link.meta_pixel_id && metaSlot &&
-      !(await reserveSlot(admin, arrivalEventId!, "meta", metaSlot, claimedId!))) capi_status = "slot_perdido";
+      !(await reserveSlot(admin, arrivalEventId!, "meta", metaSlot, claimedId!))) {
+      capi_status = isConsent ? consentArrival.capi_status : "slot_perdido";
+      metaSlotLost = true;
+    }
     else if (!naoAplicavel && link.meta_pixel_id) {
       const token = await getSecret("META_CAPI_TOKEN");
       if (!token) capi_status = "sem_token";
@@ -585,7 +647,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
             body: JSON.stringify({
               data: [{
                 event_name: metaEventName,
-                event_time: Math.floor(Date.now() / 1000),
+                event_time: Math.floor((isConsent ? Date.parse(consentArrival.created_at) : Date.now()) / 1000),
                 event_id: metaEventId,
                 action_source: "website",
                 event_source_url: pageUrl ?? undefined,
@@ -615,7 +677,10 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     if (testPolicy.suppressTikTok) tiktok_status = "suprimido_teste";
     else if (!naoAplicavel && link.tiktok_pixel_id && ttDup) tiktok_status = "duplicate";
     else if (!naoAplicavel && link.tiktok_pixel_id && ttSlot &&
-      !(await reserveSlot(admin, arrivalEventId!, "tiktok", ttSlot, claimedId!))) tiktok_status = "slot_perdido";
+      !(await reserveSlot(admin, arrivalEventId!, "tiktok", ttSlot, claimedId!))) {
+      tiktok_status = isConsent ? consentArrival.tiktok_status : "slot_perdido";
+      ttSlotLost = true;
+    }
     else if (!naoAplicavel && link.tiktok_pixel_id) {
       const ttToken = await getSecret("TIKTOK_EVENTS_ACCESS_TOKEN");
       if (!ttToken) tiktok_status = "sem_token";
@@ -636,7 +701,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
               ...(ttTest ? { test_event_code: ttTest } : {}),
               data: [{
                 event: ttEventName,
-                event_time: Math.floor(Date.now() / 1000),
+                event_time: Math.floor((isConsent ? Date.parse(consentArrival.created_at) : Date.now()) / 1000),
                 event_id: ttEventId,
                 user,
                 page: { url: pageUrl ?? undefined },
@@ -662,14 +727,17 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
         }
       }
     }
+    // Os dois recibos pertencem a outro pedido; não emitir UPDATE vazio.
+    if (isConsent && metaSlotLost && ttSlotLost) return;
     const { error: insErr } = await admin.from("song_link_events").update({
-      country, region, city,
-      capi_status,
-      capi_fbc, capi_external_id,
-      tiktok_status,
+      ...(!isConsent ? { country, region, city } : {}),
+      // Um replay que perdeu o slot não pode repor o estado lido antes de a
+      // entrega concorrente terminar. Cada fornecedor só escreve o seu recibo.
+      ...(!isConsent || !metaSlotLost ? { capi_status } : {}),
+      ...(!isConsent || capi_fbc !== null ? { capi_fbc, capi_external_id } : {}),
+      ...(capi_fbp !== null ? { capi_fbp } : {}),
+      ...(!isConsent || !ttSlotLost ? { tiktok_status } : {}),
     }).eq("id", claimedId);
-    // Do not overwrite enrichment by a concurrent browser request with false/null.
-    if (capi_fbp === true) await admin.from("song_link_events").update({ capi_fbp: true }).eq("id", claimedId);
     if (insErr) console.warn("[song-link-event] update falhou", insErr.message);
   })();
 

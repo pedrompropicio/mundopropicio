@@ -5,6 +5,7 @@ import { transformSync } from "esbuild";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as zone from "../../supabase/functions/_shared/protected-zone";
 import * as appOpen from "../../supabase/functions/song-link-event/app-open";
+import * as consent from "../../supabase/functions/song-link-event/consent";
 import * as ssr from "../../supabase/functions/song-link-event/ssr";
 import * as ab from "../../supabase/functions/song-link-event/ab-variant";
 
@@ -24,7 +25,7 @@ type Options = {
   rpcCountry?: string | null; rpcCity?: string | null; rpcError?: boolean; expiredCache?: boolean;
   event?: "arrival" | "choice" | "app_open"; duplicate?: "recover" | "enrich";
   ssr?: boolean; noSalt?: boolean; eventId?: string; ip?: string;
-  mode?: string; compiled?: string;
+  mode?: string; compiled?: string; consent?: "granted";
 };
 
 async function runtime(options: Options = {}) {
@@ -87,10 +88,10 @@ async function runtime(options: Options = {}) {
   const abModule = { ...ab, abVariantFor: async (input: Parameters<typeof ab.abVariantFor>[0]) => {
     abInputs.push(input); return ab.abVariantFor(input);
   } };
-  const names = ["createClient", "lookupIpGeo", ...Object.keys(zone), ...Object.keys(ssr), ...Object.keys(appOpen),
+  const names = ["createClient", "lookupIpGeo", ...Object.keys(consent), ...Object.keys(zone), ...Object.keys(ssr), ...Object.keys(appOpen),
     ...Object.keys(abModule), "Deno", "fetch"];
   const values = [() => admin, async () => { paidGeo++; return { country: "BR", city: null, region: null }; },
-    ...Object.values(zone), ...Object.values(ssr), ...Object.values(appOpen), ...Object.values(abModule),
+    ...Object.values(consent), ...Object.values(zone), ...Object.values(ssr), ...Object.values(appOpen), ...Object.values(abModule),
     { env: { get: (key: string) => { secrets.push(key); return env[key]; } }, serve: (fn: typeof handler) => { handler = fn; } },
     async (url: string, init: RequestInit) => {
       const body = JSON.parse(String(init.body));
@@ -107,7 +108,7 @@ async function runtime(options: Options = {}) {
     if (o.ssr) headers["x-song-link-ssr-key"] = "synthetic-ssr";
     else { headers.Origin = "https://www.mundopropicio.com"; if (o.country) headers["cf-ipcountry"] = o.country; }
     const response = await handler!(new Request("https://backend.invalid", { method: "POST", headers,
-      body: JSON.stringify({ slug: "synthetic-link", event, destination: "spotify", opened: "app",
+      body: JSON.stringify({ slug: "synthetic-link", event, consent: o.consent, destination: "spotify", opened: "app",
         event_id: o.eventId ?? (event === "app_open" ? `${ARRIVAL_ID}:open` : ARRIVAL_ID),
         ...(event === "arrival" ? {} : { arrival_event_id: ARRIVAL_ID }), elapsed_ms: 100,
         fbclid: "current-fb", ttclid: "current-tt", fbc: "current-fbc", fbp: "current-fbp", ttp: "current-ttp",
@@ -206,7 +207,7 @@ describe("#647 critério 2 — gravação protegida sem publicidade", () => {
     expectNoDelivery(r);
   });
   it("cache desconhecida deixa o RPC rápido resolver BR", async () => {
-    const r = await runtime({ cacheCountry: "XX", rpcCountry: "BR", rpcCity: "São Paulo" });
+    const r = await runtime({ cacheCountry: "XX", rpcCountry: "BR", rpcCity: "São Paulo", consent: "granted" });
     await r.invoke();
     expect(r.sent).toHaveLength(2);
     expect(r.rpcs.find(c => c.name === "song_link_event_claim")?.args.p_payload).toMatchObject({ country: "BR", ip_hash: IP_HASH });
@@ -223,7 +224,7 @@ describe("#647 critério 2 — gravação protegida sem publicidade", () => {
     expectNoDelivery(r);
   });
   it("A/B BR conserva a semente por ip_hash", async () => {
-    const r = await runtime({ country: "BR" });
+    const r = await runtime({ country: "BR", consent: "granted" });
     await r.invoke();
     expect(r.abInputs[0].ipHash).toBe(IP_HASH);
   });
@@ -231,7 +232,7 @@ describe("#647 critério 2 — gravação protegida sem publicidade", () => {
 
 describe("#647 critério 2 — paridade BR fixada antes da alteração da SLE", () => {
   it.each(["arrival", "choice", "app_open"] as const)("%s: claim/insert e envios byte a byte", async event => {
-    const r = await runtime({ country: "BR", event });
+    const r = await runtime({ country: "BR", event, consent: "granted" });
     expect((await r.invoke()).response.status).toBe(200);
     const payload = r.rpcs.find(c => c.name === "song_link_event_claim")?.args.p_payload
       ?? r.writes.find(w => w.table === "song_link_events" && w.op === "insert")?.value;
