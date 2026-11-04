@@ -20773,6 +20773,7 @@ export type Database = {
           transitory_reason: string | null
           type: string
           updated_at: string
+          vat_non_recoverable: boolean
         }
         Insert: {
           account_id?: string | null
@@ -20842,6 +20843,7 @@ export type Database = {
           transitory_reason?: string | null
           type: string
           updated_at?: string
+          vat_non_recoverable?: boolean
         }
         Update: {
           account_id?: string | null
@@ -20911,6 +20913,7 @@ export type Database = {
           transitory_reason?: string | null
           type?: string
           updated_at?: string
+          vat_non_recoverable?: boolean
         }
         Relationships: [
           {
