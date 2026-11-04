@@ -583,7 +583,8 @@ Deno.serve(async (req) => {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  let q = admin
+  // deno-lint-ignore no-explicit-any
+  let q: any = admin
     .from("events")
     .select("id, name, slug, date, ticketing_url, ticketing_provider, portal_visible, company_id")
     .eq("portal_visible", true)
@@ -597,7 +598,7 @@ Deno.serve(async (req) => {
   const { data: events, error: evErr } = await q;
   if (evErr) return json({ error: evErr.message }, 500);
 
-  const ids = (events ?? []).map((e) => e.id);
+    const ids = (events ?? []).map((e: any) => e.id);
   const { data: marketing } = ids.length
     ? await admin
         .from("event_marketing")

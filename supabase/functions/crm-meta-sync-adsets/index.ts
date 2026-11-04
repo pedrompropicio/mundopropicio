@@ -76,8 +76,8 @@ async function fetchAllPages(initialUrl: URL, accessToken: string): Promise<Grap
   let safety = 0;
   while (nextUrl && safety < 50) {
     safety++;
-    const r = await fetch(nextUrl);
-    const j = await r.json();
+    const r: Response = await fetch(nextUrl);
+    const j: any = await r.json();
     if (!r.ok || j.error) {
       throw new Error(j.error?.message ?? `HTTP ${r.status}`);
     }

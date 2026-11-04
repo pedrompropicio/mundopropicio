@@ -10363,6 +10363,7 @@ export type Database = {
       }
       event_coverage_scenarios: {
         Row: {
+          bp_horizon_days: number | null
           company_id: string
           event_id: string
           modo: string
@@ -10373,6 +10374,7 @@ export type Database = {
           viragem_real_dias: number | null
         }
         Insert: {
+          bp_horizon_days?: number | null
           company_id: string
           event_id: string
           modo?: string
@@ -10383,6 +10385,7 @@ export type Database = {
           viragem_real_dias?: number | null
         }
         Update: {
+          bp_horizon_days?: number | null
           company_id?: string
           event_id?: string
           modo?: string
@@ -18920,7 +18923,7 @@ export type Database = {
           category?: string | null
           company_id?: string
           contact_name?: string | null
-          country?: string
+          country: string
           created_at?: string
           doc_locale?: string
           email?: string | null
@@ -23938,6 +23941,20 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_backup: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_cache_contracts: {
         Args: never
         Returns: {
@@ -25190,6 +25207,7 @@ export type Database = {
         Args: { p_artist_id: string; p_from: string; p_to: string }
         Returns: {
           aberturas_app: number
+          aberturas_spotify: number
           aberturas_web: number
           campanha_id: string
           campanha_nome: string
@@ -25204,6 +25222,8 @@ export type Database = {
           moeda: string
           slug: string
           song_id: string
+          taxa_abertura: number
+          tentativas_app: number
           utm_campaign: string
           utm_content: string
         }[]
@@ -25978,9 +25998,9 @@ export type Database = {
       }
       create_final_close_bp_snapshot: {
         Args: {
-          _event_id: string
-          _description: string
           _created_by_label?: string
+          _description: string
+          _event_id: string
         }
         Returns: string
       }
@@ -27545,6 +27565,10 @@ export type Database = {
       }
       revoke_coala_learning: { Args: { rule_id: string }; Returns: boolean }
       row_belongs_to_current_company: {
+        Args: { _row_company_id: string }
+        Returns: boolean
+      }
+      row_belongs_to_current_company_or_platform: {
         Args: { _row_company_id: string }
         Returns: boolean
       }

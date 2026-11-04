@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
   }
 
   const results: Array<{ id: string; ok: boolean; error?: string }> = [];
-  for (const item of (items ?? []) as QueueRow[]) {
+  for (const item of (items ?? []) as unknown as QueueRow[]) {
     if (await isTrainingCompany(supabase, item.company_id)) {
       const { error } = await supabase.from("notification_queue")
         .update({ status: "skipped", last_error: "suppressed_training" }).eq("id", item.id).eq("status", "queued");

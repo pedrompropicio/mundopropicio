@@ -1997,7 +1997,7 @@ Deno.serve(async (req) => {
         const { data: fc, error: fcErr } = await admin.from("event_forecasts").insert({
           company_id: ev.company_id, event_id: eventId, category_id: categoryId, type: "expense",
           description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
-          status: "approved", approved_at: new Date().toISOString(), approved_by: user?.email ?? user?.id ?? "system:sync-coala",
+          status: "approved", approved_at: new Date().toISOString(), approved_by: (user as { email?: string | null } | null)?.email ?? user?.id ?? "system:sync-coala",
           formalidade: formalidadeMap[r.formalidade] ?? "estimado",
           notes: [`Coala ${fileVersion} (RESET)`, r.invoiceRef ? `Fatura ${r.invoiceRef}` : null].filter(Boolean).join(" • "),
         }).select("id").single();
@@ -2314,7 +2314,7 @@ Deno.serve(async (req) => {
             iva_rate: r.ivaRate,
             status: "approved",
             approved_at: new Date().toISOString(),
-            approved_by: user?.email ?? user?.id ?? "system:sync-coala",
+            approved_by: (user as { email?: string | null } | null)?.email ?? user?.id ?? "system:sync-coala",
             formalidade: formalidadeMap[r.formalidade] ?? "estimado",
             notes: [
               `Coala ${fileVersion}`,
