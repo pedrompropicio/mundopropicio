@@ -1,0 +1,6 @@
+-- ROLLBACK da 0314 (#218) — COMENTADO de propósito. Só com Sim pelo PROC-promocao.
+-- AVISO: remover a coluna perde todas as marcas de fecho final, incluindo as manuais.
+-- Os snapshots e a função original create_bp_snapshot permanecem.
+-- DROP FUNCTION IF EXISTS public.create_final_close_bp_snapshot(uuid, text, text);
+-- DROP INDEX IF EXISTS public.idx_bp_versions_one_final_close_per_event;
+-- ALTER TABLE public.bp_versions DROP COLUMN IF EXISTS is_final_close;

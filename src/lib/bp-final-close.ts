@@ -10,20 +10,16 @@ export interface FinalCloseBpVersion {
   event_id: string;
   version_number: number;
   state: string;
+  is_final_close: boolean;
   description: string | null;
   snapshot_payload: unknown;
 }
 
-/** A RPC existente aprova a versão e trata a cascata para os sub-eventos. */
+/** A RPC aprova e marca a versão final e a cascata numa única transacção. */
 export async function freezeFinalBpVersion(eventId: string, user: User | null | undefined) {
-  const { data, error } = await supabase.rpc("create_bp_snapshot", {
+  const { data, error } = await supabase.rpc("create_final_close_bp_snapshot", {
     _event_id: eventId,
     _description: `${BP_FINAL_CLOSE_PREFIX} — ${format(new Date(), "dd/MM/yyyy")}`,
-    _approve_immediately: true,
-    _scenario_label: null,
-    _scenario_assumptions: null,
-    _is_pinned_scenario: false,
-    _created_by: user?.id ?? null,
     _created_by_label: getAuditUser(user),
   });
   if (error) throw error;
@@ -34,7 +30,7 @@ export async function freezeFinalBpVersion(eventId: string, user: User | null | 
 export function pickFinalCloseVersions(versions: readonly FinalCloseBpVersion[] = []) {
   const byEvent = new Map<string, FinalCloseBpVersion>();
   for (const version of versions) {
-    if (!version.description?.startsWith(BP_FINAL_CLOSE_PREFIX)) continue;
+    if (version.is_final_close !== true) continue;
     if (version.state !== "active" && version.state !== "superseded") continue;
     const previous = byEvent.get(version.event_id);
     if (!previous || version.version_number > previous.version_number) {

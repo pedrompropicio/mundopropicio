@@ -3708,6 +3708,7 @@ export type Database = {
           description: string | null
           event_id: string
           id: string
+          is_final_close: boolean
           is_pinned_scenario: boolean
           is_retroactive_snapshot: boolean
           scenario_assumptions: Json | null
@@ -3731,6 +3732,7 @@ export type Database = {
           description?: string | null
           event_id: string
           id?: string
+          is_final_close?: boolean
           is_pinned_scenario?: boolean
           is_retroactive_snapshot?: boolean
           scenario_assumptions?: Json | null
@@ -3754,6 +3756,7 @@ export type Database = {
           description?: string | null
           event_id?: string
           id?: string
+          is_final_close?: boolean
           is_pinned_scenario?: boolean
           is_retroactive_snapshot?: boolean
           scenario_assumptions?: Json | null
@@ -25967,6 +25970,14 @@ export type Database = {
           p_notes?: string
           p_session_id: string
           p_source_account_id: string
+        }
+        Returns: string
+      }
+      create_final_close_bp_snapshot: {
+        Args: {
+          _event_id: string
+          _description: string
+          _created_by_label?: string
         }
         Returns: string
       }
