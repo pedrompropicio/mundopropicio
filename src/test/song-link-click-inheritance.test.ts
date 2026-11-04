@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import * as appOpen from "../../supabase/functions/song-link-event/app-open";
 import * as ssr from "../../supabase/functions/song-link-event/ssr";
 import * as ab from "../../supabase/functions/song-link-event/ab-variant";
+import * as protectedZone from "../../supabase/functions/_shared/protected-zone";
 
 // Execute the actual handler with isolated database/network/runtime adapters.
 // No Deno entrypoint import, credentials, hosted data or external delivery.
@@ -46,9 +47,9 @@ async function run(event: "choice" | "app_open", row: typeof arrival | null) {
   let handler: ((request: Request) => Promise<Response>) | undefined;
   const env: Record<string, string> = { SUPABASE_URL: "https://backend.invalid", SUPABASE_SERVICE_ROLE_KEY: "synthetic",
     SONG_LINK_IP_SALT: "synthetic", META_CAPI_TOKEN: "synthetic", TIKTOK_EVENTS_ACCESS_TOKEN: "synthetic" };
-  const names = ["createClient", "lookupIpGeo", ...Object.keys(ssr), ...Object.keys(appOpen), ...Object.keys(ab), "Deno", "fetch"];
+  const names = ["createClient", "lookupIpGeo", ...Object.keys(ssr), ...Object.keys(appOpen), ...Object.keys(ab), ...Object.keys(protectedZone), "Deno", "fetch"];
   const values = [() => admin, async () => ({ country: null, region: null, city: null }),
-    ...Object.values(ssr), ...Object.values(appOpen), ...Object.values(ab),
+    ...Object.values(ssr), ...Object.values(appOpen), ...Object.values(ab), ...Object.values(protectedZone),
     { env: { get: (key: string) => env[key] }, serve: (fn: typeof handler) => { handler = fn; } },
     async (url: string, options: RequestInit) => {
       sent.push({ url, body: JSON.parse(String(options.body)) });
@@ -57,7 +58,7 @@ async function run(event: "choice" | "app_open", row: typeof arrival | null) {
   new Function(...names, compiled)(...values);
   if (!handler) throw new Error("handler not registered");
   const response = await handler(new Request("https://backend.invalid", {
-    method: "POST", headers: { Origin: "https://www.mundopropicio.com", "user-agent": "Synthetic current device" },
+    method: "POST", headers: { Origin: "https://www.mundopropicio.com", "user-agent": "Synthetic current device", "cf-ipcountry": "BR" },
     body: JSON.stringify({ slug: "synthetic-link", event, destination: "spotify", opened: "app",
       arrival_event_id: arrivalId, event_id: `${arrivalId}:open`, elapsed_ms: 100,
       fbclid: "wrong-request-click", ttclid: "wrong-request-click", fbc: "wrong-request-fbc",
