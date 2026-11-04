@@ -1,3 +1,4 @@
+import { withVatNonRecoverableCost } from "@/lib/vat-non-recoverable";
 import { useFinalCloseBpVersions } from "@/hooks/useFinalCloseBpVersions";
 import { withFinalCloseForecasts } from "@/lib/bp-final-close";
 import { masterFormulaAmountForCity } from "@/lib/master-formula";
@@ -277,7 +278,7 @@ export default function ReportDREBrasil() {
   // #256: o filtro só restringe o conjunto de eventos; vazio = todos (resultado idêntico).
   const events = useMemo(() => filterEventsByNature(allEvents as any[], natureFilter) as typeof allEvents, [allEvents, natureFilter]);
 
-  const { data: transactionsAll = [] } = useQuery({
+  const { data: transactionsRaw = [] } = useQuery({
     queryKey: ["transactions", "dre-brasil"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase.from("transactions").select("*").in("status", ["approved", "paid"]).order("date", { ascending: false }));
@@ -285,6 +286,7 @@ export default function ReportDREBrasil() {
       return data;
     },
   });
+  const transactionsAll = useMemo(() => withVatNonRecoverableCost(transactionsRaw as any[]), [transactionsRaw]);
 
   // Perímetro da raiz (D25 g3) + flags bloqueadores canónicos — paridade com o
   // ReportDRE e com o filtro de Fecho (fecho-filter-parity.md). Aplicado à

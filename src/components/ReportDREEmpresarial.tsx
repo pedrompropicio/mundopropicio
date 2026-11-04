@@ -1,3 +1,4 @@
+import { withVatNonRecoverableCost } from "@/lib/vat-non-recoverable";
 import { useFinalCloseBpVersions } from "@/hooks/useFinalCloseBpVersions";
 import { withFinalCloseForecasts } from "@/lib/bp-final-close";
 import { EventNatureFilter } from "@/components/EventNatureFilter";
@@ -81,7 +82,7 @@ export default function ReportDREEmpresarial() {
   // #256: o filtro só restringe o conjunto de eventos; vazio = todos (resultado idêntico).
   const events = useMemo(() => filterEventsByNature(allEvents as any[], natureFilter) as typeof allEvents, [allEvents, natureFilter]);
 
-  const { data: transactionsAll = [] } = useQuery({
+  const { data: transactionsRaw = [] } = useQuery({
     queryKey: ["transactions-approved"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase.from("transactions").select("*").in("status", ["approved", "paid"]));
@@ -89,6 +90,7 @@ export default function ReportDREEmpresarial() {
       return data;
     },
   });
+  const transactionsAll = useMemo(() => withVatNonRecoverableCost(transactionsRaw as any[]), [transactionsRaw]);
 
   const { data: rootSettlementIds } = useQuery({
     queryKey: ["dre-root-settlements"],

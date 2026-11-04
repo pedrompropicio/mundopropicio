@@ -1,0 +1,3 @@
+-- Classe R2 — PREPARADO, NÃO APLICADO. Rollback comentado; só na janela com Sim.
+-- #257: usar exclusivamente a mesma lista de ids aprovada e aplicada na 0325.
+-- UPDATE public.transactions SET vat_non_recoverable = false WHERE id = ANY(ARRAY[__IDS_APROVADOS__]::uuid[]);
