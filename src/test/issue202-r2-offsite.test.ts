@@ -175,7 +175,7 @@ describe("#202 SigV4 e envelope de backup", () => {
     const client = createR2Client({ accountId: "acc", accessKeyId: "id", secretAccessKey: "secret", bucket: "bkt", fetchImpl });
     await expect(client.putObject("x", text("x"), {})).rejects.toThrow(`R2 PUT 403: ${"x".repeat(200)}`);
     await expect(client.getObject("x")).rejects.toThrow(/^R2 GET 403: x{200}$/);
-    await expect(client.headObject("x")).rejects.toThrow(/^R2 HEAD 403: x{200}$/);
+    await expect(client.headObject("x")).rejects.toThrow(/^R2 HEAD 403 \(sem código\)$/);
     await expect(client.copyObject("x", "y")).rejects.toThrow(/^R2 COPY 403: x{200}$/);
     fetchImpl.mockImplementation(async () => new Response("<Error><Code>Denied</Code></Error>"));
     await expect(client.copyObject("x", "y")).rejects.toThrow("R2 COPY 200");
