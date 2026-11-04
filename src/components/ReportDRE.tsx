@@ -1,3 +1,4 @@
+import { withVatNonRecoverableCost } from "@/lib/vat-non-recoverable";
 import { useFinalCloseBpVersions } from "@/hooks/useFinalCloseBpVersions";
 import { withFinalCloseForecasts } from "@/lib/bp-final-close";
 import { masterFormulaAmountForCity } from "@/lib/master-formula";
@@ -324,7 +325,7 @@ export default function ReportDRE() {
   // #256: o filtro só restringe o conjunto de eventos; vazio = todos (resultado idêntico).
   const events = useMemo(() => filterEventsByNature(allEvents as any[], natureFilter) as typeof allEvents, [allEvents, natureFilter]);
 
-  const { data: transactionsAll = [] } = useQuery({
+  const { data: transactionsRaw = [] } = useQuery({
     queryKey: ["transactions", "dre"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase.from("transactions").select("*").in("status", ["approved", "paid"]).order("date", { ascending: false }));
@@ -332,6 +333,7 @@ export default function ReportDRE() {
       return data;
     },
   });
+  const transactionsAll = useMemo(() => withVatNonRecoverableCost(transactionsRaw as any[]), [transactionsRaw]);
 
   // Perímetro da raiz (D25 g3): linhas marcadas com um fechamento filho são
   // exclusivas desse fechamento e não entram no resultado do evento.

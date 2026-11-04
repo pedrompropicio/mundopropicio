@@ -1,3 +1,4 @@
+import { withVatNonRecoverableCost } from "@/lib/vat-non-recoverable";
 import { EventNatureFilter } from "@/components/EventNatureFilter";
 import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
 import React, { useState, useMemo } from "react";
@@ -63,17 +64,18 @@ export default function ReportProfitability() {
     },
   });
 
-  const { data: transactionsAll = [] } = useQuery({
+  const { data: transactionsRaw = [] } = useQuery({
     queryKey: ["profitability-transactions"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("event_id, type, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, reversed_at, is_hidden, event_settlement_id, account_categories(ebitda_class)")
+        .select("event_id, type, amount, iva_rate, vat_non_recoverable, category_id, status, is_transitory, exclude_from_result, reversed_at, is_hidden, event_settlement_id, account_categories(ebitda_class)")
         .in("status", ["approved", "paid"]));
       if (error) throw error;
       return data;
     },
   });
+  const transactionsAll = useMemo(() => withVatNonRecoverableCost(transactionsRaw as any[]), [transactionsRaw]);
 
   const { data: rootSettlementIds } = useQuery({
     queryKey: ["dre-root-settlements"],
