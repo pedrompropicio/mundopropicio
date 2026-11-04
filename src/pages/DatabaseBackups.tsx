@@ -288,7 +288,7 @@ export default function DatabaseBackups() {
         <div>
           <h1 className="text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2">
             <button onClick={() => navigate("/admin")} className="inline-flex items-center justify-center rounded-md h-8 w-8 hover:bg-accent transition-colors"><ArrowLeft className="h-4 w-4" /></button>
-            Backups <HelpTooltip text={helpTexts.databaseBackups} />
+            Backups <HelpTooltip anchor="administracao.backups" text={helpTexts.databaseBackups} />
           </h1>
           <p className="text-sm text-muted-foreground">Cópias de segurança da base de dados e ficheiros</p>
         </div>

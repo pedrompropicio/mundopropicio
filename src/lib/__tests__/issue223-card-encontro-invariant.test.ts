@@ -247,7 +247,7 @@ describe("#223 — seleção de overhead e soma por evento", () => {
     expect(cost.total).toBe(encontro.expensesGross);
   });
 
-  it("mantém o excesso por evento sem absorver a folga de outro evento", () => {
+  it("excedido somado na família como o Encontro (#223, decisão A 6621117257)", () => {
     const forecasts = ["ev1", "ev2"].map((event_id) => ({ ...forecast, event_id, category_id: "A", amount: 1000 }));
     const transactions = [
       { ...transaction, category_id: "A", amount: 1200, status: "paid" },
@@ -256,7 +256,7 @@ describe("#223 — seleção de overhead e soma por evento", () => {
     ];
     const cost = computeEventCardCost({ eventId: "ev1", forecasts, transactions,
       mode: "committed", includeOverhead: false, withVat: false });
-    expect(cost).toEqual({ total: 2200, overhead: 0, excess: 200, approvedCount: 2 });
+    expect(cost).toEqual({ total: 2000, overhead: 0, excess: 0, approvedCount: 2 });
   });
 });
 
@@ -369,17 +369,81 @@ function compareCosts(input: SettlementTotalsInput) {
   };
 }
 
-describe("#223 — medições sintéticas, sem corrigir o card nem o motor", () => {
-  it("divergência conhecida 23,70 — decisão do Pedro pendente (#223)", () => {
+describe("#223 — reconciliação da família e medições sintéticas do motor", () => {
+  it("família M/L/P: card = Encontro (#223, decisão A)", () => {
     const measured = compareCosts(familyFixture);
-    expect(measured.cardNet).toBeCloseTo(419.27, 2);
+    expect(measured.cardNet).toBeCloseTo(400, 2);
     expect(measured.encontroNet).toBeCloseTo(400, 2);
-    expect(measured.cardGross).toBeCloseTo(515.7, 2);
+    expect(measured.cardGross).toBeCloseTo(492, 2);
     expect(measured.encontroGross).toBeCloseTo(492, 2);
-    expect(measured.deltaNet).toBeCloseTo(19.27, 2);
-    expect(measured.deltaGross).toBeCloseTo(23.7, 2);
+    expect(Math.abs(measured.deltaNet)).toBeLessThanOrEqual(0.005);
+    expect(Math.abs(measured.deltaGross)).toBeLessThanOrEqual(0.005);
     expect(computeEventCardCost({ ...familyFixture, eventId: "M", mode: "committed",
-      includeOverhead: true, withVat: true }).excess).toBeCloseTo(23.7, 2);
+      includeOverhead: true, withVat: true }).excess).toBe(0);
+  });
+
+  it.each([
+    ["committed", false, false, 200],
+    ["committed", false, true, 246],
+    ["committed", true, false, 400],
+    ["committed", true, true, 492],
+    ["realized", false, false, 200],
+    ["realized", false, true, 246],
+    ["realized", true, false, 400],
+    ["realized", true, true, 492],
+  ] as const)("família M/L/P: %s, OH=%s, c/IVA=%s: helper e hook = Encontro", (mode, includeOverhead, withVat, expected) => {
+    const input = { ...familyFixture, basis: { expenseSource: mode, includeOverhead } };
+    const totals = computeEventSettlementTotals(input);
+    const encontro = withVat ? totals.expensesGross : totals.expensesNet;
+    const cost = computeEventCardCost({ ...input, eventId: "M", mode, includeOverhead, withVat });
+    expect(cost.total).toBeCloseTo(expected, 2);
+    expect(Math.abs(cost.total - encontro)).toBeLessThanOrEqual(0.005);
+    expect(cost.excess).toBe(0);
+    expect(cost.overhead).toBe(includeOverhead ? withVat ? 246 : 200 : 0);
+    reads.forecasts = input.forecasts;
+    reads.transactions = input.transactions;
+    const { result } = renderHook(() => useEventFinancialCardData({
+      eventId: "M", eventIds: ["M", "L", "P"], kind: "expense", mode,
+      includeOverhead, withVat,
+    }));
+    expect(Math.abs(result.current.displayValue - encontro)).toBeLessThanOrEqual(0.005);
+    expect(result.current.perimeter?.net).toBeCloseTo(totals.expensesNet, 2);
+    expect(result.current.perimeter?.gross).toBeCloseTo(totals.expensesGross, 2);
+  });
+
+  it.each([false, true])("committed: retém excedido residual na família com os filtros canónicos, c/IVA=%s", withVat => {
+    const forecasts = familyFixture.forecasts.map(f => f.is_overhead ? { ...f, category_id: "Y" } : f);
+    const transactions = [...familyFixture.transactions,
+      { ...transaction, id: "outside-M", event_id: "M", category_id: "Y", amount: 10, iva_rate: 6, status: "approved" }];
+    const args = { eventId: "M", forecasts, transactions, mode: "committed" as const,
+      includeOverhead: true, withVat };
+    const expected = computeEventCardCost(args);
+    const totals = computeEventSettlementTotals({ ...familyFixture, forecasts, transactions });
+    expect(expected.total).toBeCloseTo(withVat ? 502.6 : 410, 2);
+    expect(expected.excess).toBeCloseTo(withVat ? 10.6 : 10, 2);
+    expect(expected.overhead).toBe(withVat ? 246 : 200);
+    expect(expected.approvedCount).toBe(3);
+    expect(Math.abs(expected.total - (withVat ? totals.expensesGross : totals.expensesNet))).toBeLessThanOrEqual(0.005);
+
+    for (const flags of [
+      { status: "pending" }, { status: "rejected" }, { is_transitory: true },
+      { exclude_from_result: true }, { version_id: "snapshot" },
+      { account_categories: { ebitda_class: "imposto_rendimento" } },
+    ]) {
+      const ignored = { ...forecast, id: "ignored-bp", event_id: "P", category_id: "Y",
+        amount: 1000, iva_rate: 23, ...flags };
+      expect(computeEventCardCost({ ...args, forecasts: [...forecasts, ignored] }), JSON.stringify(flags)).toEqual(expected);
+    }
+    for (const flags of [
+      { type: "income" }, { status: "pending" }, { status: "partially_paid" },
+      { is_transitory: true }, { exclude_from_result: true },
+      { reversed_at: "2026-11-04T00:00:00Z" }, { is_hidden: true },
+      { account_categories: { ebitda_class: "imposto_rendimento" } },
+    ]) {
+      const ignored = { ...transaction, id: "ignored-tx", event_id: "L", category_id: "Y",
+        amount: 1000, iva_rate: 23, status: "paid", ...flags };
+      expect(computeEventCardCost({ ...args, transactions: [...transactions, ignored] }), JSON.stringify(flags)).toEqual(expected);
+    }
   });
 
   it("na mesma família, realized e Forecast medem diferença zero nas duas bases", () => {
