@@ -14,6 +14,8 @@ const f = vi.hoisted(() => ({
   eq: vi.fn(),
 }));
 vi.mock("@/hooks/useCompany", () => ({ useCompany: vi.fn() }));
+// BrandedLogo now reads the theme; these P586-a fixtures retain their light-theme baseline.
+vi.mock("@/contexts/ThemeContext", () => ({ useTheme: () => ({ theme: "light" }) }));
 // The query never executes; saves go exclusively to these in-memory spies.
 vi.mock("@tanstack/react-query", () => ({
   useQuery: () => ({ data: f.companies, isLoading: false }),
