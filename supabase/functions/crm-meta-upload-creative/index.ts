@@ -232,7 +232,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const fileName = (cre.storage_path?.split("/").pop()) || `${creativeId}.jpg`;
       const fd = new FormData();
       fd.append("access_token", token);
-      fd.append("filename", new Blob([bytes!], { type: mime }), fileName);
+      fd.append("filename", new Blob([bytes! as unknown as BlobPart], { type: mime }), fileName);
 
       const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/act_${adAccountId}/adimages`;
       await dbg("fb_called", { ad_account: adAccountId, graph_api_version: GRAPH_API_VERSION, detail: url });
