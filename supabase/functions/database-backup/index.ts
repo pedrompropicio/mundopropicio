@@ -154,6 +154,28 @@ Deno.serve(async (req) => {
     const wantedCompanyId: string | null =
       typeof body?.company_id === "string" && body.company_id ? body.company_id : null;
 
+    if (body?.target === "offsite_probe") {
+      if (!isSr) return json({ error: "Apenas service role" }, 403);
+      try {
+        const { createR2Client } = await import("../_shared/r2.ts");
+        const accountId = Deno.env.get("BACKUP_R2_ACCOUNT_ID") ?? "";
+        const bucket = Deno.env.get("BACKUP_R2_BUCKET") ?? "";
+        const options = { accountId, bucket,
+          accessKeyId: Deno.env.get("BACKUP_R2_ACCESS_KEY_ID") ?? "",
+          secretAccessKey: Deno.env.get("BACKUP_R2_SECRET_ACCESS_KEY") ?? "",
+        };
+        const [eu, defaultEndpoint] = await Promise.all([
+          createR2Client({ ...options, endpointKind: "eu" }).probe(),
+          createR2Client({ ...options, endpointKind: "default" }).probe(),
+        ]);
+        return json({ eu, default: defaultEndpoint, bucket_set: Boolean(bucket),
+          account_id_format_ok: /^[0-9a-f]{32}$/.test(accountId) });
+      } catch {
+        // Transport errors may contain URLs or credentials; never forward or log them.
+        return json({ error: "Sonda offsite indisponível" }, 500);
+      }
+    }
+
     if (body?.target === "offsite") {
       if (!isSr) return json({ error: "Apenas service role" }, 403);
       const { runOffsiteFromEnv } = await import("./offsite.ts");
