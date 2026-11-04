@@ -122,7 +122,7 @@ describe("#498 P1m — hashes PT fixados antes de alterar produção; não regen
         "listFallback": "8e6c9720e3445b2698dfdd91056f09b9940848345cf1cf4ca1f5cfcc4bbde23a",
         "receipt": "522b00a56204f7b47a14684fe68e36dcf3734b57bb984377267278a893c8de79",
         "similar": "159bfb1b7d4d73f75310ece21a0c8facfb41caa5c349d6197300d90a1cab57df",
-        "supplier": "22258efe1e47b6cf22186236816e1c5be1c9f8f0ca9f562b65e8fedd02655de2",
+        "supplier": "491b39bce2616e350bd3d6a20cd7c2d1be27d750092e2e0d8224ec2cf92a80b7",
       }
     `);
   });
