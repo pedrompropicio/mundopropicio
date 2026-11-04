@@ -7,6 +7,8 @@ import { X, Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { CityVenueSelector } from "@/components/CityVenueSelector";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Checkbox } from "@/components/ui/checkbox";
+import { freezeFinalBpVersion } from "@/lib/bp-final-close";
 import { formatDate } from "@/lib/mock-data";
 import { formatCityLabel } from "@/lib/country";
 import { useBackdropClose } from "@/lib/backdropClose";
@@ -33,11 +35,12 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
   const [budget, setBudget] = useState(String(event.budget || ""));
   const [ticketsTotal, setTicketsTotal] = useState(String(event.tickets_total || ""));
   const [status, setStatus] = useState(event.status);
+  const [freezeFinal, setFreezeFinal] = useState(true);
   const [eventNature, setEventNature] = useState<EventNature | "">(event.event_nature || "");
   const [plMode, setPlMode] = useState(event.pl_mode || "passive");
   // D6 — "" = herda o default da empresa (events.budget_mode NULL). NÃO é operacao_mode.
   const [budgetMode, setBudgetMode] = useState<BudgetMode | "">(event.budget_mode ?? "");
-  const { isAdmin, isManager } = useAuth();
+  const { user, isAdmin, isManager } = useAuth();
   const canEditBudgetMode = isAdmin || isManager;
   const { data: companyBudgetMode } = useCompanyDefaultBudgetMode();
   const [format, setFormat] = useState<EventFormat>(event.format === "residencia" ? "residencia" : "festival");
@@ -71,6 +74,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
 
   const eventType = event.event_type || "simple";
   const isSplit = !!event.parent_event_id;
+  const isCompleting = status === "completed" && event.status !== "completed" && !isSplit;
   const canAbsorb = !isSplit; // Só Single ou Master podem absorver (trigger DB também valida)
 
   // Festival dates
@@ -125,6 +129,12 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
       const venueName = venueId ? venuesMap[venueId]?.name : null;
       const cityName = cityId ? citiesMap[cityId] : null;
       const locationStr = [venueName, cityName].filter(Boolean).join(", ");
+
+      if (isCompleting && freezeFinal) {
+        await freezeFinalBpVersion(event.id, user);
+        queryClient.invalidateQueries({ queryKey: ["bp-final-close-versions"] });
+        queryClient.invalidateQueries({ queryKey: ["bp-versions"] });
+      }
 
       const { data, error } = await supabase
         .from("events")
@@ -299,6 +309,14 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
               </select>
             </div>
           </div>
+
+          {isCompleting && (
+            <label className="flex items-start gap-2 text-sm">
+              <Checkbox checked={freezeFinal} disabled={updateMutation.isPending}
+                onCheckedChange={(v) => setFreezeFinal(v === true)} />
+              <span>Congelar a versão actual do BP como versão final do fecho</span>
+            </label>
+          )}
 
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Modo orçamental</label>
