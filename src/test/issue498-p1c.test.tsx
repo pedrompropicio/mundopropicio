@@ -171,8 +171,8 @@ describe("#498 P1c — hashes PT capturados antes de alterar os seis componentes
         "CashFlow:initial": "36dfdc324d34e73a195658ba753e42d43f2765947088c9433373b6f6d9f449b8",
         "DRE:detail": "d905a0dbb9491929bb591bdad73b81bb5d8069d9267d11bac32185ec59099dfb",
         "DRE:initial": "93db0e4e27d2fab958db48c936af2afbb2ab9345577afebb6e0ce9214a7364c8",
-        "Empresarial:detail": "5aabb31e2ac823e0733fb7b6d20d8cc9a8292afc603677db7a575c87fc2630a4",
-        "Empresarial:initial": "5aabb31e2ac823e0733fb7b6d20d8cc9a8292afc603677db7a575c87fc2630a4",
+        "Empresarial:detail": "553c64be88fb834afad1202fb78e15a1dff5056ae63668045334e493abc2716b",
+        "Empresarial:initial": "553c64be88fb834afad1202fb78e15a1dff5056ae63668045334e493abc2716b",
         "PL:detail": "e8f7af7d9d9a38d70a566b4f8077e3ac99ebd799de5e09c4bb0efb8299e57a35",
         "PL:initial": "755cb513082c129d218abe1c2231821bd6ade464c9d4d19365fd7f57f65a8aba",
       }

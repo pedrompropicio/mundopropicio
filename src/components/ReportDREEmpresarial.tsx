@@ -31,6 +31,8 @@ import {
   type ReportCostSource,
 } from "@/lib/report-event-cost";
 import { ReportCostSourceToggle } from "@/components/ReportCostSourceToggle";
+import { ReportRegimeToggle } from "@/components/ReportRegimeToggle";
+import { regimeDate, useReportRegime } from "@/lib/report-regime";
 import { computeNatureDivergence } from "@/lib/dre-nature-divergence";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
@@ -68,6 +70,7 @@ export default function ReportDREEmpresarial() {
   const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("ticket_sales");
   // #218: custo de evento pelo BP (padrão). "Transações" é só comparação — nunca gravado.
   const [costSource, setCostSource] = useState<ReportCostSource>("bp");
+  const { regime, setRegime } = useReportRegime();
   const year = Number(selectedYear);
 
   const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
@@ -234,10 +237,10 @@ export default function ReportDREEmpresarial() {
   // Filter transactions by year
   const yearTx = useMemo(
     () => transactions.filter((t) => {
-      const d = t.payment_date || t.date;
+      const d = regimeDate(t, regime);
       return d && d.startsWith(String(year));
     }),
-    [transactions, year]
+    [transactions, year, regime]
   );
 
   // Event transactions (with event_id AND not corporate categories)
@@ -294,7 +297,7 @@ export default function ReportDREEmpresarial() {
     const eventExpenseMonthly = new Array(12).fill(0);
 
     eventTx.forEach((t) => {
-      const d = t.payment_date || t.date;
+      const d = regimeDate(t, regime);
       if (!d) return;
       const mi = getMonthIndex(d);
       // Quando a fonte é ticket_sales, ignoramos transações income da categoria de bilheteira
@@ -414,7 +417,7 @@ export default function ReportDREEmpresarial() {
       if (!corpGroupMonthly[groupCode]) {
         corpGroupMonthly[groupCode] = { name: groupName, code: groupCode, monthly: new Array(12).fill(0) };
       }
-      const d = t.payment_date || t.date;
+      const d = regimeDate(t, regime);
       if (!d) return;
       const mi = getMonthIndex(d);
       corpGroupMonthly[groupCode].monthly[mi] += Number(t.amount);
@@ -450,7 +453,7 @@ export default function ReportDREEmpresarial() {
       if (!finGroupMonthly[groupCode]) {
         finGroupMonthly[groupCode] = { name: groupName, code: groupCode, monthly: new Array(12).fill(0) };
       }
-      const d = t.payment_date || t.date;
+      const d = regimeDate(t, regime);
       if (!d) return;
       const mi = getMonthIndex(d);
       finGroupMonthly[groupCode].monthly[mi] += Number(t.amount);
@@ -472,7 +475,7 @@ export default function ReportDREEmpresarial() {
     }
 
     return result;
-  }, [costSource, bpCostByEvent, eventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year, ticketRevenueSource, ticketSales, ticketLots, ticketZones, ticketCategoryId]);
+  }, [regime, costSource, bpCostByEvent, eventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year, ticketRevenueSource, ticketSales, ticketLots, ticketZones, ticketCategoryId]);
 
   // #304 ponto 4: o que cai fora de todas as secções por natureza ≠ rubrica — só aviso.
   const natureDivergence = useMemo(
@@ -483,18 +486,19 @@ export default function ReportDREEmpresarial() {
   const years = useMemo(() => {
     const ySet = new Set<number>();
     transactions.forEach((t) => {
-      const d = t.payment_date || t.date;
+      const d = regimeDate(t, regime);
       if (d) ySet.add(new Date(d).getFullYear());
     });
     if (ySet.size === 0) ySet.add(currentYear);
     return Array.from(ySet).sort((a, b) => b - a);
-  }, [transactions]);
+  }, [transactions, regime]);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-4">
 <EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
         <ReportCostSourceToggle value={costSource} onChange={setCostSource} />
+        <ReportRegimeToggle value={regime} onChange={setRegime} />
         <Select value={selectedYear} onValueChange={setSelectedYear}>
           <SelectTrigger className="w-32">
             <SelectValue />
