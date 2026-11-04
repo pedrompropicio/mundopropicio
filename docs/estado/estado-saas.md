@@ -28,7 +28,7 @@ Transformar o MP Gestão Eventos (ERP, Audience, CRM, Produção) num produto Sa
 
 ## A seguir
 
-1. Modelo de negócio (pilar 3): segmentos, pacotes e hipótese de preço numa folha com fórmulas, fora do repo.
+1. Modelo de negócio (pilar 3): primeira versão feita (página privada, fora do repo), com as premissas como hipóteses. Custos por empresa a medir com o piloto BR — plano de medição na #629 (comentário 6622192118); faltam as faturas da plataforma, a entregar pelo Pedro. Data da leitura de 30 dias a combinar.
 2. Frente 2: dividir a #629 em filhas com classe e executor.
 3. Parecer do `juridico` sobre a entidade vendedora.
 4. Desenho do suporte e da implementação (pilar 4), medindo a entrada das três empresas brasileiras do grupo.
