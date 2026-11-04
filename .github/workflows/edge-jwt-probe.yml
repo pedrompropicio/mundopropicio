@@ -1,0 +1,39 @@
+name: Canário verify_jwt (manual)
+# #388: sonda HTTP ao portão verify_jwt das edge functions, separada do CI geral.
+# Desligada por omissão: só corre por workflow_dispatch, com o destino escrito
+# à mão e a confirmação "SONDAR". Nunca por push, pull_request ou cron.
+# Declarar verify_jwt no config.toml não prova que a definição foi implantada;
+# esta sonda envia um JWT com assinatura inválida e exige a resposta do portão.
+on:
+  workflow_dispatch:
+    inputs:
+      destino:
+        description: "Destino autorizado (ex.: homolog, producao) — fica registado no run"
+        required: true
+        type: string
+      confirmar:
+        description: 'Escrever SONDAR para confirmar a chamada HTTP ao destino'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  probe:
+    if: ${{ inputs.confirmar == 'SONDAR' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Destino
+        env:
+          DESTINO: ${{ inputs.destino }}
+        run: printf 'Destino declarado: %s\n' "$DESTINO" >> "$GITHUB_STEP_SUMMARY"
+      - name: Sonda runtime verify_jwt
+        # Sem os dois secrets o script termina com erro (nunca finge cobertura verde).
+        env:
+          EDGE_GATE_BASE_URL: ${{ secrets.EDGE_GATE_BASE_URL }}
+          EDGE_GATE_ANON_KEY: ${{ secrets.EDGE_GATE_ANON_KEY }}
+        run: bun scripts/probe-edge-jwt-gate.mjs
