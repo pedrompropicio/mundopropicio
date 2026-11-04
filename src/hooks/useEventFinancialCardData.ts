@@ -25,6 +25,7 @@ import {
   signedParcelsFromLines, classOf,
 } from "@/lib/ebitda";
 import { useEbitdaClassMap } from "@/hooks/useEbitdaClassMap";
+import type { BudgetMode } from "@/lib/budget-mode";
 
 // #269 — defaults estáveis: `= []` cria um array novo a cada desenho e reabre useMemo/efeitos.
 const EMPTY_ARR_STABLE: any[] = [];
@@ -37,6 +38,7 @@ export interface UseEventFinancialCardDataArgs {
   eventIds: string[];
   kind: "income" | "expense";
   mode: CardMode;
+  budgetMode?: BudgetMode;
   scenario?: RevenueScenario; // só usado em forecast+income
   eventStatus?: string | null;
   primaryEventDate?: string | null;
@@ -92,7 +94,7 @@ export interface UseEventFinancialCardDataResult {
 export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): UseEventFinancialCardDataResult {
   const {
     eventId, eventIds, kind, mode, scenario = "forecast", eventStatus, primaryEventDate,
-    withVat = false, includeOverhead = false,
+    withVat = false, includeOverhead = false, budgetMode = "with_bp",
   } = args;
   const ids = eventIds.length > 0 ? eventIds : [eventId];
   const { data: classMap } = useEbitdaClassMap();
@@ -215,7 +217,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     [masterForecasts, masterTxs, formulaSiblings, eventId]);
 
   // ── Simulator (apenas em forecast+income) ──
-  const simEnabled = mode === "forecast" && kind === "income";
+  const simEnabled = budgetMode === "with_bp" && mode === "forecast" && kind === "income";
   const { data: simCfg } = useQuery({
     queryKey: ["efc-sim-cfg", eventId],
     queryFn: async () => {
@@ -260,7 +262,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       hasTransactions: hasTx,
       hasSales,
     });
-    const modeUsed: ModeUsed = resolveMode(mode, phase, kind);
+    const modeUsed: ModeUsed = resolveMode(mode, phase, kind, budgetMode);
 
     // Receita REAL (perímetro da raiz) na base de IVA do card — alimenta o Lucro.
     const realValue = kind === "income"
@@ -593,7 +595,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       };
     }
 
-  }, [txs, forecasts, revenue, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate, withVat,
+  }, [txs, forecasts, revenue, simCfg, simInputs, mode, budgetMode, kind, scenario, eventStatus, primaryEventDate, withVat,
       includeOverhead, eventId, masterForecasts, masterTxs,
       args.ticketSales, args.masterQuota, args.cacheImpact, formulaMasterCost]);
 
