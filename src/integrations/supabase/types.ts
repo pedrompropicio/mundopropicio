@@ -6672,6 +6672,69 @@ export type Database = {
           },
         ]
       }
+      club_presale_codes: {
+        Row: {
+          code: string
+          created_at: string
+          email: string
+          source: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          email: string
+          source?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          email?: string
+          source?: string | null
+        }
+        Relationships: []
+      }
+      club_presale_exclusions: {
+        Row: {
+          created_at: string
+          email: string
+          reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
+      club_presale_reservations: {
+        Row: {
+          created_at: string
+          error: string | null
+          member_id: string
+          message_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          member_id: string
+          message_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          member_id?: string
+          message_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
       club_profile_countries: {
         Row: {
           code: string
