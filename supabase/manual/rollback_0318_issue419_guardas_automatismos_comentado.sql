@@ -1,0 +1,8 @@
+-- Classe R2 — rollback da 0318, preparado e NÃO EXECUTADO.
+-- Só descomentar na janela autorizada pelo PROC-promocao com Sim.
+-- BEGIN;
+-- DROP TRIGGER IF EXISTS zz_guard_automatism_rows ON public.transactions;
+-- DROP TRIGGER IF EXISTS zz_guard_manual_compensation_leg ON public.transaction_payments;
+-- DROP FUNCTION IF EXISTS public.guard_automatism_rows();
+-- DROP FUNCTION IF EXISTS public.guard_manual_compensation_leg();
+-- COMMIT;

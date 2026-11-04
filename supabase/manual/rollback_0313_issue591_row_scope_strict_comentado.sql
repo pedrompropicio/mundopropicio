@@ -1,0 +1,22 @@
+-- #591 — rollback preparado; NÃO APLICADO. Só pelo 0 na janela com Sim do Pedro.
+-- Descomentar exclusivamente o bloco delimitado; restaurar a política antes de apagar o helper.
+-- >>> ROLLBACK
+-- ALTER POLICY company_isolation_backup_runs ON public.backup_runs
+--   USING (
+--     (company_id IS NOT NULL AND public.row_belongs_to_current_company(company_id))
+--     OR (company_id IS NULL AND public.has_role(auth.uid(), 'platform_admin'))
+--   );
+-- DROP FUNCTION public.row_belongs_to_current_company_or_platform(uuid);
+-- CREATE OR REPLACE FUNCTION public.row_belongs_to_current_company(_row_company_id uuid)
+--  RETURNS boolean
+--  LANGUAGE sql
+--  STABLE SECURITY DEFINER
+--  SET search_path TO 'public'
+-- AS $function$
+--   SELECT
+--     public.is_platform_admin()
+--     OR _row_company_id IS NULL
+--     OR _row_company_id = public.current_company_id()
+-- $function$;
+-- COMMENT ON FUNCTION public.row_belongs_to_current_company(uuid) IS NULL;
+-- <<< ROLLBACK

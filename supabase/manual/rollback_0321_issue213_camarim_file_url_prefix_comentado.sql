@@ -1,0 +1,19 @@
+-- Classe R2 — ROLLBACK COMENTADO, NÃO APLICADO. Issue #213, 0321.
+-- Aplicar só pelo PROC-promocao na janela do 0, com Sim para a reversão.
+-- Substituir __IDS_DA_PROVA__ exclusivamente pelos IDs guardados na prova §1,
+-- como literais UUID entre aspas separados por vírgulas; conferir URLs originais.
+-- Não inferir IDs pelas transações nem incluir linhas que não foram corrigidas.
+-- UPDATE public.transaction_documents td
+-- SET file_url = regexp_replace(
+--   td.file_url,
+--   '^camarim://',
+--   'camarim://7c858982-6ccd-47ca-bd65-e0dd3eebf01c/'
+-- )
+-- WHERE td.company_id = '7c858982-6ccd-47ca-bd65-e0dd3eebf01c'
+--   AND td.id IN (__IDS_DA_PROVA__)
+--   AND (
+--     td.transaction_id::text LIKE '6b58adf0-%'
+--     OR td.transaction_id::text LIKE '3ea19905-%'
+--   )
+--   AND td.file_url LIKE 'camarim://%'
+--   AND td.file_url NOT LIKE 'camarim://7c858982-%';

@@ -23,8 +23,10 @@ import { previewCount, createSnapshot, exportSnapshotCSV } from "./audienceSnaps
 import { EMPTY_CRITERION, type Criterion } from "./audienceCriterion";
 import { formatDateTime, relativeFromNow } from "../lib/relativeTime";
 import { useCompany } from "@/hooks/useCompany";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AudienceEditor() {
+  const { hasPermission } = useAuth();
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
   const qc = useQueryClient();
@@ -214,14 +216,16 @@ export default function AudienceEditor() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={s.member_count === 0 || exportMut.isPending}
-                  onClick={() => exportMut.mutate(s.id)}
-                >
-                  <Download className="h-3 w-3" /> Export CSV
-                </Button>
+                {hasPermission("crm.audience.export") && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={s.member_count === 0 || exportMut.isPending}
+                    onClick={() => exportMut.mutate(s.id)}
+                  >
+                    <Download className="h-3 w-3" /> Export CSV
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="ghost"

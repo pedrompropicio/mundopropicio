@@ -24,11 +24,23 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
 vi.mock("@/lib/audit", () => ({ logAudit: vi.fn(), getAuditUser: () => "fixture" }));
 vi.mock("@/components/SupplierPortalUserLink", () => ({ SupplierPortalUserLink: () => null }));
 
-const ptSupplier = {
+const ptSupplier = { country: "PT",
   id: "supplier-a", name: "Fornecedor PT", nif: "509123456", contact_name: "Contacto",
   email: "pt@example.invalid", iban: "PT50000201231234567890154", swift_bic: "BPLIPTPL",
   iban_2: "GB82WEST12345698765432", swift_bic_2: "WESTGB2L", notes: "Notas PT",
 };
+function countrySelect(columns: string) {
+  expect(columns).toBe("id,country");
+  return { eq: (column: string, id: string) => {
+    expect(column).toBe("id");
+    return { maybeSingle: async () => ({ data: { id, country: f.country }, error: null }) };
+  } };
+}
+function expectCountryReads() {
+  expect(f.from).toHaveBeenCalledWith("suppliers");
+  expect(f.from.mock.calls.every(([table]) => table === "suppliers")).toBe(true);
+  expect(f.writes).toEqual([]);
+}
 let client: QueryClient;
 function mount(element: React.ReactElement) {
   return render(element, { wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider> });
@@ -42,7 +54,10 @@ beforeEach(() => {
   vi.clearAllMocks(); f.country = "PT"; f.companyId = "company-a"; f.role = "admin"; f.writes = [];
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   f.rpc.mockReturnValue({ select: async () => ({ data: [], error: null }) });
-  f.from.mockImplementation(() => { throw new Error("#498: unexpected direct table access"); });
+  f.from.mockImplementation((table: string) => {
+    expect(table).toBe("suppliers");
+    return { select: countrySelect };
+  });
   vi.stubGlobal("fetch", vi.fn(() => { throw new Error("#498: network blocked"); }));
   vi.stubGlobal("XMLHttpRequest", class { constructor() { throw new Error("#498: network blocked"); } });
   vi.stubGlobal("WebSocket", class { constructor() { throw new Error("#498: network blocked"); } });
@@ -55,13 +70,13 @@ afterEach(() => {
 describe("#498 P2h-c — quatro snapshots DOM PT anteriores à alteração", () => {
   it("criação PT", () => {
     mount(<SupplierFormModal open onOpenChange={() => {}} />);
-    expect(dom()).toMatchInlineSnapshot(`"22258efe1e47b6cf22186236816e1c5be1c9f8f0ca9f562b65e8fedd02655de2"`);
+    expect(dom()).toMatchInlineSnapshot(`"491b39bce2616e350bd3d6a20cd7c2d1be27d750092e2e0d8224ec2cf92a80b7"`);
     expect(f.rpc).not.toHaveBeenCalled(); expect(f.from).not.toHaveBeenCalled();
   });
   it("edição PT", () => {
     mount(<SupplierFormModal open onOpenChange={() => {}} editingSupplier={ptSupplier} />);
-    expect(dom()).toMatchInlineSnapshot(`"ca01f85fed0b24d812e8f3828bfee48a0497f951ced232006cb9adf6e6089f4a"`);
-    expect(f.rpc).not.toHaveBeenCalled(); expect(f.from).not.toHaveBeenCalled();
+    expect(dom()).toMatchInlineSnapshot(`"7c0f0f0a442c23c902023b307ff3adb85dcef77a19d03f68a48ddc7df3bdcac7"`);
+    expect(f.rpc).not.toHaveBeenCalled(); expectCountryReads();
   });
   it("detalhes PT recolhidos", () => {
     mount(<SupplierBankDetails supplier={ptSupplier} />);
@@ -80,7 +95,7 @@ const bank = { slot: 2, account_type: "br_banco_agencia_conta", bank_name: "Banc
   account_number: "00123", account_digit: "X", account_kind: "poupanca", pix_key: "pix@example.invalid",
   notes: "  metadados originais  ", beneficiary_name: "Beneficiário", custom: { untouched: true } };
 const brRow = { id: "supplier-a", foreign_bank_accounts: [bank], tax_id_foreign: "12345678000199", tax_id_type: "cnpj" };
-const staleSupplier = { id: "supplier-a", name: "Fornecedor BR", nif: "NIF-PT",
+const staleSupplier = { country: "BR", id: "supplier-a", name: "Fornecedor BR", nif: "NIF-PT",
   foreign_bank_accounts: [{ ...bank, bank_name: "BANCO DAS PROPS", account_number: "PROPS-CONTA" }],
   tax_id_foreign: "PROPS-FISCAL", tax_id_type: "cpf" };
 function result(data: unknown, error: unknown = null) {
@@ -90,7 +105,7 @@ function result(data: unknown, error: unknown = null) {
 }
 function form() { return <SupplierFormModal open onOpenChange={() => {}} editingSupplier={staleSupplier} />; }
 function allowUpdate() {
-  f.from.mockImplementation((table: string) => ({ update: (payload: any) => ({ eq: async (_column: string, id: string) => {
+  f.from.mockImplementation((table: string) => ({ select: countrySelect, update: (payload: any) => ({ eq: async (_column: string, id: string) => {
     f.writes.push({ table, payload, id }); return { error: null };
   } }) }));
 }
@@ -153,7 +168,7 @@ describe("#498 P2h-c — UI BR pela RPC", () => {
     expect(screen.getAllByLabelText("Chave Pix")[1]).toHaveValue("pix@example.invalid");
     expect(screen.getByLabelText("CNPJ")).toHaveValue("12.345.678/0001-99");
     expect(screen.queryByDisplayValue(/PROPS|NIF-PT/)).toBeNull();
-    expect(f.from).not.toHaveBeenCalled();
+    expectCountryReads();
   });
   it("detalhes mostram valores BR e não tratam NIF como CNPJ", async () => {
     result([brRow]); mount(<SupplierBankDetails supplier={staleSupplier} defaultExpanded />);
@@ -213,7 +228,7 @@ describe("#498 P2h-c — UI BR pela RPC", () => {
     expect(screen.getAllByLabelText("Banco")[1]).toBeDisabled();
     expect(screen.getByLabelText("CNPJ")).toHaveValue("");
     expect(screen.queryByDisplayValue(/PROPS/)).toBeNull();
-    expect(f.from).not.toHaveBeenCalled();
+    expectCountryReads();
   });
   it("criação BR sonda [] e permite preencher slots", async () => {
     result([]); mount(<SupplierFormModal open onOpenChange={() => {}} />);
@@ -263,6 +278,7 @@ describe("#498 P2h-c — UI BR pela RPC", () => {
     expect(screen.queryByText("Conta: NOVA-CONTA")).toBeNull();
     expect(screen.queryByDisplayValue("NOVA-CONTA")).toBeNull();
     expect(screen.getByText(/Dados bancários indisponíveis/)).toBeInTheDocument();
-    expect(f.from).not.toHaveBeenCalled();
+    if (view === "formulário") expectCountryReads();
+    else expect(f.from).not.toHaveBeenCalled();
   });
 });

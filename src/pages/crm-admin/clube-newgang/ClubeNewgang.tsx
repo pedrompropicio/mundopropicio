@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCompany } from "@/hooks/useCompany";
+import { useAuth } from "@/contexts/AuthContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { downloadCsv } from "@/lib/crm/csv-export";
@@ -66,6 +67,7 @@ function Ranked({ title, items, footnote }: { title: string; items: Kv[]; footno
 }
 
 export default function ClubeNewgang() {
+  const { hasPermission } = useAuth();
   const { companyId } = useCompany();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
@@ -127,10 +129,12 @@ export default function ClubeNewgang() {
           <h1 className="text-2xl font-bold">Clube Newgang</h1>
           <p className="text-sm text-muted-foreground">Inscrições do Clube Newgang Festival 2027</p>
         </div>
-        <Button onClick={exportCsv} disabled={exporting}>
-          {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-          Exportar CSV (Fever)
-        </Button>
+        {hasPermission("crm.audience.export") && (
+          <Button onClick={exportCsv} disabled={exporting}>
+            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+            Exportar CSV (Fever)
+          </Button>
+        )}
       </div>
 
       {summary.error && <p className="text-sm text-destructive">Erro: {(summary.error as Error).message}</p>}

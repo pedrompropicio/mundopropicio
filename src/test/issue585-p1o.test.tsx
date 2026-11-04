@@ -120,7 +120,7 @@ vi.mock("@/components/fecho/BpUnusedBudgetPanel", () => ({ BpUnusedBudgetSummary
 
 const event = { id: "event", name: "Evento sintético", date: "2026-12-03", status: "active", event_type: "single",
   event_format: "single", company_id: "fixture-company", tickets_total: 100, partner_calc_basis: "net_result_gross_expenses" };
-const supplier = { id: "supplier", name: "Fornecedor sintético", nif: "509123456" };
+const supplier = { country: "PT", id: "supplier", name: "Fornecedor sintético", nif: "509123456" };
 function eventView() {
   return <MemoryRouter initialEntries={["/events/event"]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
     <Routes><Route path="/events/:id" element={<EventDetail />} /></Routes>
@@ -135,6 +135,7 @@ function hash(html: string) {
 function form() { return <SupplierFormModal open onOpenChange={() => {}} editingSupplier={supplier} />; }
 function submit() { fireEvent.submit(document.body.querySelector("form")!); }
 function brDetails(value: string | null = "11222333000181", type: string | null = "cnpj") {
+  f.queries["supplier-country"] = f.country;
   f.queries["supplier-br-details"] = { available: true, details: {
     foreign_bank_accounts: [], tax_id_foreign: value, tax_id_type: type,
   } };
@@ -172,7 +173,7 @@ describe("#585 P1o — hashes PT fixados antes das alterações de produção; n
   it("edição de fornecedor PT", () => {
     render(form());
     expect(screen.getByLabelText("NIF")).toHaveValue(supplier.nif);
-    expect(hash(document.body.innerHTML)).toMatchInlineSnapshot(`"bcc24c74b8d40f99f42a831c18a1c4049402d7615a481ae2cafd7d77e54afe11"`);
+    expect(hash(document.body.innerHTML)).toMatchInlineSnapshot(`"5a4f50a44d4c14305a35442f6bec02aeef9f0259d6efaf67ebee3c7b37a90846"`);
   });
 });
 
@@ -261,7 +262,7 @@ describe("#585 P1o — pesquisa de Entidades", () => {
 });
 
 describe("#585 P1o — apresentação fiscal BR e payload cru", () => {
-  beforeEach(() => { f.country = "BR"; f.currency = "BRL"; });
+  beforeEach(() => { f.country = "BR"; f.currency = "BRL"; f.queries["supplier-country"] = "BR"; });
   it.each([
     ["11222333000181", "cnpj", "11.222.333/0001-81"],
     ["12345678900", "cpf", "123.456.789-00"],

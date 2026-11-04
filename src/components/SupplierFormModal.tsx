@@ -1,5 +1,7 @@
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { formatBrTaxId, readForeignBankSlots, SUPPLIER_BANK_READ_ROLES, type ForeignBankSlot } from "@/lib/supplier-bank";
+import { useCompany } from "@/hooks/useCompany";
+import { COUNTRIES } from "@/lib/crm/countries";
+import { formatBrTaxId, isForeignSupplier, readSupplierCountry, readForeignBankSlots, SUPPLIER_BANK_READ_ROLES, type ForeignBankSlot } from "@/lib/supplier-bank";
 import { BR_BANK_FIELDS, BrBankFields, FOREIGN_BANK_FIELDS, ForeignBankFields, readBrBankSlots, loadOptionalSupplierBrData, type BrBankDetails } from "@/components/SupplierBankDetails";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -62,14 +64,27 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const { user, role } = useAuth() as any;
   const isEditing = !!editingSupplier;
   const companyLocale = useCompanyLocale();
-  const isBR = companyLocale.status === "available" && companyLocale.locale === "pt-BR";
+  const { company } = useCompany();
+  const companyCountry = company?.country ?? null;
+  const [country, setCountry] = useState(companyCountry ?? "");
+  const { data: savedCountry, isPending: countryPending } = useQuery({
+    queryKey: ["supplier-country", companyLocale.companyId, editingSupplier?.id, user?.id, role],
+    enabled: open && isEditing && !!companyLocale.companyId,
+    queryFn: () => readSupplierCountry(supabase as any, editingSupplier.id),
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+  useEffect(() => {
+    if (open) setCountry((isEditing ? savedCountry : null) ?? companyCountry ?? "");
+  }, [open, editingSupplier?.id, companyLocale.companyId, user?.id, role, companyCountry, savedCountry, isEditing]);
+  const isForeign = isForeignSupplier(country || null, companyCountry);
+  const isBR = companyLocale.status === "available" && companyLocale.locale === "pt-BR" && !isForeign;
   const canReadBank = SUPPLIER_BANK_READ_ROLES.includes(role ?? "");
   const [brBanks, setBrBanks] = useState<BrBankDetails[]>([{}, {}, {}]);
   const [iban1, setIban1] = useState<string>(editingSupplier?.iban ?? "");
   const [iban2, setIban2] = useState<string>(editingSupplier?.iban_2 ?? "");
   const [iban3, setIban3] = useState<string>(editingSupplier?.iban_3 ?? "");
-  const foreignSlots = [iban1, iban2, iban3].map(value => !isBR && classifyBankAccountValue(value) === "nao_iban");
-  const hasForeignBank = foreignSlots.some(Boolean);
+  const hasForeignBank = isForeign;
   const { data: brData } = useQuery({
     queryKey: ["supplier-br-details", companyLocale.companyId, editingSupplier?.id, role, user?.id],
     enabled: open && (isBR || hasForeignBank) && !!companyLocale.companyId,
@@ -196,6 +211,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["supplier-country", companyLocale.companyId, editingSupplier?.id] });
       if (isBR || hasForeignBank) queryClient.invalidateQueries({ queryKey: ["supplier-br-details", companyLocale.companyId, editingSupplier?.id] });
       onOpenChange(false);
       toast.success("Fornecedor atualizado com sucesso");
@@ -266,6 +282,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     const fd = new FormData(e.currentTarget);
     const raw: Record<string, any> = {
       name: fd.get("name") as string,
+      country,
       trade_name: (fd.get("trade_name") as string) || null,
       nif: (fd.get("nif") as string) || null,
       contact_name: (fd.get("contact_name") as string) || null,
@@ -335,6 +352,11 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
         raw.tax_id_foreign = taxId;
         raw.tax_id_type = foreignTaxIdType;
       }
+    }
+    const validCountry = /^[A-Z]{2}$/.test(country);
+    if (!validCountry) {
+      setValidationErrors({ country: "Selecione um país" });
+      return;
     }
     const result = validateForm(supplierSchema, raw);
     if (result.success === false) {
@@ -482,7 +504,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
 
   const isPending = createMutation.isPending || updateMutation.isPending;
   const s = editingSupplier;
-  const renderForeignBankFields = (index: number) => foreignSlots[index] && <>
+  const renderForeignBankFields = (index: number) => isForeign && <>
     <Label htmlFor={`sup-foreign-${index}-type`}>Tipo de conta</Label>
     <select id={`sup-foreign-${index}-type`} disabled={!foreignColumnsReady} value={foreignBanks[index].account_type}
       onChange={e => setForeignBanks(previous => previous.map((bank, i) => i === index
@@ -511,6 +533,20 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
               <Label htmlFor="sup-trade-name">Nome Fantasia</Label>
               <Input id="sup-trade-name" name="trade_name" defaultValue={s?.trade_name ?? ""} />
             </div>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="sup-country">País</Label>
+            <select id="sup-country" name="country" required value={country}
+              onChange={e => setCountry(e.target.value)}
+              aria-invalid={!!validationErrors.country}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+              <option value="">Selecionar</option>
+              {Object.entries(COUNTRIES).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+            </select>
+            {validationErrors.country && <p className="text-xs text-destructive">{validationErrors.country}</p>}
+            {isEditing && !countryPending && savedCountry === null && <p className="text-xs text-muted-foreground">
+              Não foi possível ler o país do fornecedor. Confirme o país antes de guardar.
+            </p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
