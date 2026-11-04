@@ -10360,6 +10360,7 @@ export type Database = {
       }
       event_coverage_scenarios: {
         Row: {
+          bp_horizon_days: number | null
           company_id: string
           event_id: string
           modo: string
@@ -10370,6 +10371,7 @@ export type Database = {
           viragem_real_dias: number | null
         }
         Insert: {
+          bp_horizon_days?: number | null
           company_id: string
           event_id: string
           modo?: string
@@ -10380,6 +10382,7 @@ export type Database = {
           viragem_real_dias?: number | null
         }
         Update: {
+          bp_horizon_days?: number | null
           company_id?: string
           event_id?: string
           modo?: string
@@ -25184,6 +25187,7 @@ export type Database = {
         Args: { p_artist_id: string; p_from: string; p_to: string }
         Returns: {
           aberturas_app: number
+          aberturas_spotify: number
           aberturas_web: number
           campanha_id: string
           campanha_nome: string
@@ -25198,6 +25202,8 @@ export type Database = {
           moeda: string
           slug: string
           song_id: string
+          taxa_abertura: number
+          tentativas_app: number
           utm_campaign: string
           utm_content: string
         }[]
