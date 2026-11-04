@@ -1,8 +1,17 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 28/10/2026 — #391 (Compromisso em transações, ⓘ e guia) pronto para Publish após CI, não publicado. 0286 (reembolso: pagamento fora do resultado, D-ERP329) aplicada e verificada em Live, modal atualizado, sem Publish. Participação Cloudscape (1.3.05) no Resultado da MP (D-ERP328, R1): pronto para Publish, não publicado. P5b p5-v3 e P6b (cachês/retido/Resultado MP) prontos para Publish/Verificação em Live; P6a/P6a-fix não publicados; P4/P4b em Live.
+Atualizado: 04/11/2026 — #257 (IVA não recuperável) fechada. Antes: 28/10/2026 — #391 (Compromisso em transações, ⓘ e guia) pronto para Publish após CI, não publicado. 0286 (reembolso: pagamento fora do resultado, D-ERP329) aplicada e verificada em Live, modal atualizado, sem Publish. Participação Cloudscape (1.3.05) no Resultado da MP (D-ERP328, R1): pronto para Publish, não publicado. P5b p5-v3 e P6b (cachês/retido/Resultado MP) prontos para Publish/Verificação em Live; P6a/P6a-fix não publicados; P4/P4b em Live.
 
 ## Em que pé está
+
+### #257 — IVA não recuperável no resultado (04/11/2026, fechada)
+- **Regra (D-ERP347):** IVA não recuperável = `amount × iva_rate/100` da própria transacção; vai ao custo (soma à despesa), não ao IVA dedutível; só despesas; retroactivo só 2026, por **ids revistos fatura a fatura** (decisão B, 6629856995), nunca por critério de país.
+- **Em produção:** coluna `transactions.vat_non_recoverable` (0319); caixa «IVA não recuperável (vai ao custo)» na criação (#626) e na edição (`TransactionEditModal`, #643); `update-transaction` aceita e propaga a filhas de rateio e parcelas pendentes; DRE, DRE Brasil, DRE Empresarial e Rentabilidade somam esse IVA ao custo (`withVatNonRecoverableCost`). Verificado no ecrã a 04/11 (6634924785).
+- **Retroactivo 2026 aplicado (0325 §C, «Corro?» do Pedro):** 3 despesas da MP — LAS TRES EN RAYA e DAKIA UMUSIC (IVA espanhol 21 %, 390,60 €; fornecedores → ES) e THOMANN (IVA PT por OSS, fatura em nome de pessoa singular, 92,19 €; fornecedor → DE). A Expert Numbers confirma antes da declaração.
+- **Conferência (chat 10):** POP CARGO e FELIPE CAVALCANTE corrigidas para 0 %; THOMANN confirmada correcta (fatura 91679981 = 444 + 49 de portes); UAB e Bolt fora de âmbito (evento Coala 2026 encerrado). Regra para lotes futuros: só eventos activos, nunca `completed`; com vários anexos, confirmar qual é a fatura antes de comparar valores.
+- **Fica noutras Issues:** fornecedores com país PT por defeito e NIF estrangeiro vazio (#664); fecho/motor (#404/#415), export contabilístico (#562), ReportPL/Evolução/IvaAudit e IVA não recuperável no BP da DRE — por abrir se o Pedro quiser.
+- Ficheiros: `src/lib/vat-non-recoverable.ts`, `supabase/manual/0325_issue257_retroactivo_2026.sql` (§A/§B por taxa, #662).
+
 
 ### Acesso da contabilista a faturas legadas (28/10/2026, D-ERP332, #352)
 - 28/10/2026 — `storage_path_belongs_to_current_company` passou a aceitar caminhos legados `<id_transação>/<ts>.pdf` do bucket `transaction-documents` (133 documentos em 85 transações); correção feita em Live e regularizada pela migração 0294 (ledger 296, no-op em Live). Issue #397 (modal de fecho de bilheteira não anexa faturas às despesas deduzidas) em espera até à homologação.
