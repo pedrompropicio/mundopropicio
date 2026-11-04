@@ -1,0 +1,8 @@
+-- ROLLBACK da 0316 (#311 E2b) — COMENTADO de propósito; não aplicado.
+-- Aplicar só pelo PROC-promocao com Sim do Pedro.
+-- Retirar cada linha só se a prova §1 mostrou que não existiam antes.
+-- Se uma delas já existia, preservá-la e retirar apenas a linha criada pela 0316.
+-- Coordenar a reversão do código antes de retirar a chave para ninguém perder acesso.
+-- DELETE FROM public.role_permissions
+-- WHERE permission = 'crm.audience.export'
+--   AND role IN ('marketing_manager'::public.app_role, 'content_manager'::public.app_role);

@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useCompany } from "@/hooks/useCompany";
+import { useAuth } from "@/contexts/AuthContext";
 import ContactDetailsSheet from "./ContactDetailsSheet";
 import { relativeFromNow } from "../lib/relativeTime";
 import { contactPrimaryLabel, contactSecondaryLabel } from "../lib/contactDisplay";
@@ -51,6 +52,7 @@ const fmt = (n: number) => String(Math.trunc(n)).replace(/\B(?=(\d{3})+(?!\d))/g
 import { whatsappSourceLabel } from "@/lib/crm/whatsapp";
 
 export default function ContactosList() {
+  const { hasPermission } = useAuth();
   const qc = useQueryClient();
   const { companyId } = useCompany();
   const [search, setSearch] = useState("");
@@ -357,10 +359,12 @@ export default function ContactosList() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <p className="text-sm font-medium" data-testid="contactos-total">{isLoading ? "A carregar…" : `${fmt(total)} contactos`}</p>
-          <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting || total === 0}>
-            {exporting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Download className="h-4 w-4 mr-1.5" />}
-            Exportar CSV
-          </Button>
+          {hasPermission("crm.audience.export") && (
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting || total === 0}>
+              {exporting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Download className="h-4 w-4 mr-1.5" />}
+              Exportar CSV
+            </Button>
+          )}
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Button variant="ghost" size="icon" className="h-8 w-8" disabled={page === 0} onClick={() => setPage((p) => p - 1)} aria-label="Página anterior">
               <ChevronLeft className="h-4 w-4" />
