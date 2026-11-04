@@ -1,0 +1,9 @@
+-- ROLLBACK 0315 (#403) — COMENTADO; só com Sim pelo PROC-promocao.
+-- Usar só se a §1 mostrou o estado anterior: DEFAULT 'PT' e country sem SELECT.
+-- Não desfaz o backfill manual; não altera dados, NOT NULL, CHECK ou RLS.
+-- BEGIN;
+-- DROP TRIGGER IF EXISTS zz_suppliers_default_country ON public.suppliers;
+-- DROP FUNCTION IF EXISTS public.suppliers_default_country();
+-- ALTER TABLE public.suppliers ALTER COLUMN country SET DEFAULT 'PT';
+-- REVOKE SELECT (country) ON public.suppliers FROM authenticated;
+-- COMMIT;

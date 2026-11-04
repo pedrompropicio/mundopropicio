@@ -8,7 +8,7 @@ import { supplierSchema } from "@/lib/validations";
 import { toast } from "sonner";
 
 const f = vi.hoisted(() => ({
-  role: "admin", companyId: "company-a", rpc: vi.fn(), from: vi.fn(),
+  supplierCountry: "US", role: "admin", companyId: "company-a", rpc: vi.fn(), from: vi.fn(),
   writes: [] as { payload: any; id?: string }[],
 }));
 vi.mock("@/hooks/useCompany", () => ({ useCompany: () => ({
@@ -47,16 +47,20 @@ function submit() { fireEvent.submit(document.body.querySelector("form")!); }
 async function ready() { await waitFor(() => expect(screen.getAllByLabelText("Tipo de conta")[0]).toBeEnabled()); }
 async function saved() { submit(); await waitFor(() => expect(f.writes).toHaveLength(1)); return f.writes[0].payload; }
 function expectNoOptionalKeys(payload: any) {
-  for (const key of ["foreign_bank_accounts", "tax_id_foreign", "tax_id_type", "country"]) expect(payload).not.toHaveProperty(key);
+  for (const key of ["foreign_bank_accounts", "tax_id_foreign", "tax_id_type"]) expect(payload).not.toHaveProperty(key);
 }
 
 beforeEach(() => {
-  vi.clearAllMocks(); f.role = "admin"; f.companyId = "company-a"; f.writes = [];
+  vi.clearAllMocks(); f.supplierCountry = "US"; f.role = "admin"; f.companyId = "company-a"; f.writes = [];
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   result([row]);
   f.from.mockImplementation((table: string) => {
     expect(table).toBe("suppliers");
     return {
+      // #403: leitura cadastral country agora autorizada, sem dados bancários.
+      select: () => ({ eq: (_column: string, id: string) => ({ maybeSingle: async () => ({
+        data: { id, country: f.supplierCountry }, error: null,
+      }) }) }),
       update: (payload: any) => ({ eq: async (_column: string, id: string) => {
         f.writes.push({ payload, id }); return { error: null };
       } }),
@@ -89,7 +93,7 @@ describe("#403 E2b — contas estrangeiras em empresa PT", () => {
     expect(payload).toMatchObject({ iban: account, swift_bic: "BOFAUS3N", nif: supplier.nif,
       tax_id_foreign: "95-1234567", tax_id_type: "ein" });
     expect(payload.foreign_bank_accounts).toEqual([brBank, foreignBank]);
-    expect(payload).not.toHaveProperty("country");
+    expect(payload.country).toBe("US");
     expect(f.writes[0].id).toBe(supplier.id);
     expect(f.rpc).toHaveBeenCalledWith("get_supplier_bank_details", { p_supplier_ids: [supplier.id] });
     expect(f.rpc).toHaveBeenCalledWith("check_supplier_iban_duplicate", { p_iban: account, p_supplier_id: supplier.id });
@@ -109,13 +113,17 @@ describe("#403 E2b — contas estrangeiras em empresa PT", () => {
     expect(payload).not.toHaveProperty("tax_id_foreign"); expect(payload).not.toHaveProperty("tax_id_type");
   });
 
-  it("activa a query ao escrever um não-IBAN sem repor o valor vivo quando a RPC chega", async () => {
+  // Antigo: não-IBAN activava a query → novo: país diferente activa a query.
+  it("activa a query ao mudar o país sem repor o valor vivo quando a RPC chega", async () => {
+    f.supplierCountry = "PT";
     let resolve!: (value: unknown) => void;
     const pending = new Promise(resolvePromise => { resolve = resolvePromise; });
     f.rpc.mockImplementation(name => name === "get_supplier_bank_details" ? { select: () => pending }
       : Promise.resolve({ data: { exists: false }, error: null }));
-    mount(form({ ...supplier, iban: "" })); expect(f.rpc).not.toHaveBeenCalled();
-    change("IBAN 1", account);
+    mount(form({ ...supplier, iban: "" }));
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    expect(f.rpc).not.toHaveBeenCalled();
+    change("País", "US"); change("IBAN 1", account);
     expect(screen.getByText("Dados bancários estrangeiros indisponíveis para edição.")).toBeInTheDocument();
     resolve({ data: [row], error: null }); await ready();
     expect(screen.getByLabelText("IBAN 1")).toHaveValue(account);
@@ -151,18 +159,19 @@ describe("#403 E2b — contas estrangeiras em empresa PT", () => {
     expect((await saved()).foreign_bank_accounts).toEqual([banks[0], { ...banks[1], bank_name: "Novo banco 2" }, banks[2]]);
   });
 
-  it("IBANs válidos mantêm o payload PT completo e não activam a RPC opcional", async () => {
+  it("país PT mantém o payload PT com IBANs válidos e não activa a RPC opcional", async () => {
+    f.supplierCountry = "PT";
     mount(form({ ...supplier, iban: validIban, iban_2: "GB82WEST12345698765432" }));
     expect(screen.queryByLabelText("Tipo de conta")).toBeNull();
     expect(f.rpc).not.toHaveBeenCalled();
-    expect(await saved()).toEqual({ name: supplier.name, trade_name: null, nif: supplier.nif, contact_name: null,
+    expect(await saved()).toEqual({ country: "PT", name: supplier.name, trade_name: null, nif: supplier.nif, contact_name: null,
       email: null, phone: null, address: null, iban: validIban, swift_bic: "BOFAUS3N", iban_2: "GB82WEST12345698765432",
       swift_bic_2: null, iban_3: null, swift_bic_3: null, payment_terms: null, category: null, notes: null, is_partner: false });
     expect(f.rpc.mock.calls.map(([name]) => name)).toEqual(["check_supplier_iban_duplicate", "check_supplier_iban_duplicate"]);
   });
 
   it("deixar de ter estrangeiros omite todas as chaves opcionais mesmo após editar fiscal", async () => {
-    mount(form()); await ready(); change("Identificador fiscal estrangeiro", "outra"); change("IBAN 1", validIban);
+    mount(form()); await ready(); change("Identificador fiscal estrangeiro", "outra"); change("País", "PT");
     expect(screen.queryByLabelText("Tipo de conta")).toBeNull();
     expectNoOptionalKeys(await saved());
   });
@@ -202,7 +211,7 @@ describe("#403 E2b — contas estrangeiras em empresa PT", () => {
 
   it("criação usa o probe vazio, grava estrangeiro e omite fiscal vazio", async () => {
     result([]); mount(<SupplierFormModal open onOpenChange={() => {}} />);
-    change("Nome da Entidade *", "Novo fornecedor"); change("IBAN 1", account); await ready();
+    change("Nome da Entidade *", "Novo fornecedor"); change("País", "US"); change("IBAN 1", account); await ready();
     const payload = await saved();
     expect(payload.foreign_bank_accounts).toEqual([{ slot: 1, account_type: "outro", account_number: account }]);
     expect(payload).not.toHaveProperty("tax_id_foreign");

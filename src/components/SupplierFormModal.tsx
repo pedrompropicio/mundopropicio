@@ -1,5 +1,7 @@
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { formatBrTaxId, readForeignBankSlots, SUPPLIER_BANK_READ_ROLES, type ForeignBankSlot } from "@/lib/supplier-bank";
+import { useCompany } from "@/hooks/useCompany";
+import { COUNTRIES } from "@/lib/crm/countries";
+import { formatBrTaxId, isForeignSupplier, readSupplierCountry, readForeignBankSlots, SUPPLIER_BANK_READ_ROLES, type ForeignBankSlot, type SupplierCountryReader } from "@/lib/supplier-bank";
 import { BR_BANK_FIELDS, BrBankFields, FOREIGN_BANK_FIELDS, ForeignBankFields, readBrBankSlots, loadOptionalSupplierBrData, type BrBankDetails } from "@/components/SupplierBankDetails";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -62,29 +64,48 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const { user, role } = useAuth() as any;
   const isEditing = !!editingSupplier;
   const companyLocale = useCompanyLocale();
+  const { company } = useCompany();
+  const companyCountry = company?.country ?? null;
+  const countryScope = JSON.stringify([companyLocale.companyId, editingSupplier?.id, role, user?.id]);
+  const [countryDraft, setCountryDraft] = useState<{ scope: string; value: string } | null>(null);
+  const { data: savedCountry, isFetched: countryFetched } = useQuery({
+    queryKey: ["supplier-country", companyLocale.companyId, editingSupplier?.id, role, user?.id],
+    enabled: open && isEditing && !!companyLocale.companyId,
+    queryFn: () => readSupplierCountry(supabase as unknown as SupplierCountryReader, editingSupplier.id),
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+  const supplierCountry = countryDraft?.scope === countryScope ? countryDraft.value
+    : (isEditing ? savedCountry : null) ?? companyCountry ?? "";
+  const isForeign = isForeignSupplier(supplierCountry || null, companyCountry);
+  useEffect(() => {
+    if (open) setCountryDraft(null);
+  }, [open, countryScope]);
   const isBR = companyLocale.status === "available" && companyLocale.locale === "pt-BR";
   const canReadBank = SUPPLIER_BANK_READ_ROLES.includes(role ?? "");
   const [brBanks, setBrBanks] = useState<BrBankDetails[]>([{}, {}, {}]);
   const [iban1, setIban1] = useState<string>(editingSupplier?.iban ?? "");
   const [iban2, setIban2] = useState<string>(editingSupplier?.iban_2 ?? "");
   const [iban3, setIban3] = useState<string>(editingSupplier?.iban_3 ?? "");
-  const foreignSlots = [iban1, iban2, iban3].map(value => !isBR && classifyBankAccountValue(value) === "nao_iban");
-  const hasForeignBank = foreignSlots.some(Boolean);
+  // Country alone decides whether the supplier is foreign. The classifier only
+  // distinguishes the individual IBAN slots from the non-IBAN slot editors.
+  const foreignSlots = [iban1, iban2, iban3].map((value, index) => isForeign && !isBR
+    && (classifyBankAccountValue(value) === "nao_iban" || (index === 0 && !iban1 && !iban2 && !iban3)));
   const { data: brData } = useQuery({
     queryKey: ["supplier-br-details", companyLocale.companyId, editingSupplier?.id, role, user?.id],
-    enabled: open && (isBR || hasForeignBank) && !!companyLocale.companyId,
+    enabled: open && isForeign && !!companyLocale.companyId,
     queryFn: () => loadOptionalSupplierBrData(editingSupplier?.id),
     refetchOnWindowFocus: false,
     retry: false,
   });
-  const brColumnsReady = isBR && canReadBank && !!companyLocale.companyId && brData?.available === true;
+  const brColumnsReady = isForeign && isBR && canReadBank && !!companyLocale.companyId && brData?.available === true;
   const brSource = brColumnsReady ? brData.details : null;
   const [brTaxId, setBrTaxId] = useState("");
   const [brTaxIdType, setBrTaxIdType] = useState("cnpj");
   const [brTaxIdEdited, setBrTaxIdEdited] = useState(false);
   const occupiedForeignSlots = new Set<number>((Array.isArray(brSource?.foreign_bank_accounts) ? brSource.foreign_bank_accounts : [])
     .filter((bank: any) => bank && bank.account_type !== "br_banco_agencia_conta").map((bank: any) => bank.slot));
-  const foreignColumnsReady = hasForeignBank && canReadBank && !!companyLocale.companyId && brData?.available === true;
+  const foreignColumnsReady = isForeign && !isBR && canReadBank && !!companyLocale.companyId && brData?.available === true;
   const foreignSource = foreignColumnsReady ? brData.details : null;
   const [foreignBanks, setForeignBanks] = useState<ForeignBankSlot[]>(
     () => [1, 2, 3].map(slot => ({ slot, account_type: "outro" })));
@@ -196,7 +217,8 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-      if (isBR || hasForeignBank) queryClient.invalidateQueries({ queryKey: ["supplier-br-details", companyLocale.companyId, editingSupplier?.id] });
+      queryClient.invalidateQueries({ queryKey: ["supplier-country", companyLocale.companyId, editingSupplier?.id] });
+      if (isForeign) queryClient.invalidateQueries({ queryKey: ["supplier-br-details", companyLocale.companyId, editingSupplier?.id] });
       onOpenChange(false);
       toast.success("Fornecedor atualizado com sucesso");
     },
@@ -264,8 +286,14 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    if (!/^[A-Z]{2}$/.test(supplierCountry)) {
+      setValidationErrors({ country: "Selecione um país com código ISO de duas letras" });
+      toast.error("Corrija os erros de validação");
+      return;
+    }
     const raw: Record<string, any> = {
       name: fd.get("name") as string,
+      country: supplierCountry,
       trade_name: (fd.get("trade_name") as string) || null,
       nif: (fd.get("nif") as string) || null,
       contact_name: (fd.get("contact_name") as string) || null,
@@ -312,7 +340,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
         // Preserve other account types and metadata; only the three BR slots are edited.
         raw.foreign_bank_accounts = [...existing.filter((bank: any) => !readBrBankSlots([bank]).length), ...brSlots];
       }
-    } else if (hasForeignBank && foreignColumnsReady) {
+    } else if (foreignColumnsReady) {
       const existing = foreignSource?.foreign_bank_accounts ?? [];
       const slots = foreignBanks.flatMap((bank, i) => {
         const accountNumber = raw[(["iban", "iban_2", "iban_3"] as const)[i]];
@@ -512,8 +540,24 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
               <Input id="sup-trade-name" name="trade_name" defaultValue={s?.trade_name ?? ""} />
             </div>
           </div>
+          <div className="grid gap-2">
+            <Label htmlFor="sup-country">País</Label>
+            <select id="sup-country" name="country" required value={supplierCountry}
+              onChange={e => setCountryDraft({ scope: countryScope, value: e.target.value })}
+              aria-invalid={!!validationErrors.country}
+              aria-describedby={validationErrors.country ? "sup-country-error" : undefined}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+              <option value="">Selecionar</option>
+              {supplierCountry && !COUNTRIES[supplierCountry] && <option value={supplierCountry}>{supplierCountry}</option>}
+              {Object.entries(COUNTRIES).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+            </select>
+            {validationErrors.country && <p id="sup-country-error" className="text-xs text-destructive">{validationErrors.country}</p>}
+            {isEditing && countryFetched && savedCountry === null && <p className="text-xs text-muted-foreground">
+              Não foi possível ler o país do fornecedor. Foi usado o país da empresa; confirme antes de guardar.
+            </p>}
+          </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
+            {(!isBR || isForeign) && <div className="grid gap-2">
               <Label htmlFor="sup-nif">{isBR ? companyLocale.labels.taxId : "NIF"}</Label>
               {isBR ? <>
                 <Input id="sup-nif" disabled={!brColumnsReady} value={brColumnsReady ? brTaxId : ""}
@@ -530,7 +574,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
                   {brColumnsReady && !["cpf", "cnpj"].includes(brTaxIdType) && <option value={brTaxIdType}>{brTaxIdType.toUpperCase()}</option>}
                 </select>
               </> : <Input id="sup-nif" name="nif" defaultValue={s?.nif ?? ""} />}
-              {hasForeignBank && <>
+              {isForeign && !isBR && <>
                 <Label htmlFor="sup-foreign-tax-id">Identificador fiscal estrangeiro</Label>
                 <Input id="sup-foreign-tax-id" disabled={!foreignColumnsReady} value={foreignTaxId}
                   onChange={e => { setForeignTaxId(e.target.value); setForeignTaxIdEdited(true); }}
@@ -544,7 +588,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
                   {["ein", "tin", "vat", "cpf", "cnpj", "outro"].map(type => <option key={type} value={type}>{type.toUpperCase()}</option>)}
                 </select>
               </>}
-            </div>
+            </div>}
             {!defaultIsPartner && (
               <div className="grid gap-2">
                 <Label htmlFor="sup-category">Categoria</Label>
@@ -583,7 +627,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
             <Label htmlFor="sup-address">{companyLocale.status === "available" ? companyLocale.labels.address : "Morada"}</Label>
             <Input id="sup-address" name="address" defaultValue={s?.address ?? ""} />
           </div>
-          {isBR ? <div className="space-y-3">
+          {isBR ? isForeign && <div className="space-y-3">
             <p className="text-xs font-medium text-muted-foreground">Dados Bancários (até 3 contas)</p>
             {!brColumnsReady && <p className="text-xs text-muted-foreground">Dados bancários indisponíveis para edição.</p>}
             {brBanks.map((bank, i) => <div key={i} className="space-y-2">
@@ -594,7 +638,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
             </div>)}
           </div> : <div className="space-y-3">
             <p className="text-xs font-medium text-muted-foreground">Dados Bancários (até 3 IBANs)</p>
-            {hasForeignBank && !foreignColumnsReady && <p className="text-xs text-muted-foreground">Dados bancários estrangeiros indisponíveis para edição.</p>}
+            {isForeign && !foreignColumnsReady && <p className="text-xs text-muted-foreground">Dados bancários estrangeiros indisponíveis para edição.</p>}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="sup-iban">IBAN 1</Label>

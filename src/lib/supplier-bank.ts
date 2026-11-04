@@ -16,6 +16,33 @@ import { supabase } from "@/integrations/supabase/client";
 /** Same bank-access roles as SupplierBankDetails; an empty RPC probe does not authorize the actor. */
 export const SUPPLIER_BANK_READ_ROLES: readonly string[] = ["admin", "platform_admin", "manager", "editor", "accountant"];
 
+export interface SupplierCountryReader {
+  from(table: "suppliers"): {
+    select(columns: "id,country"): {
+      eq(column: "id", id: string): {
+        maybeSingle(): PromiseLike<{ data: unknown; error: unknown }>;
+      };
+    };
+  };
+}
+
+/** Separate cadastral read: never adds country to a bank RPC or a base projection. */
+export async function readSupplierCountry(client: SupplierCountryReader, id: string): Promise<string | null> {
+  try {
+    const { data, error } = await client.from("suppliers").select("id,country").eq("id", id).maybeSingle();
+    if (error || !data || typeof data !== "object" || !("id" in data) || data.id !== id
+      || !("country" in data) || typeof data.country !== "string" || !/^[A-Z]{2}$/.test(data.country)) return null;
+    return data.country;
+  } catch {
+    return null;
+  }
+}
+
+/** Literal business rule; an unknown country never implies a foreign supplier. */
+export function isForeignSupplier(supplierCountry: string | null | undefined, companyCountry: string | null | undefined): boolean {
+  return supplierCountry != null && companyCountry != null && supplierCountry !== companyCountry;
+}
+
 /** Presentation only; preserve the original for unsupported types or lengths. */
 export function formatBrTaxId(value: string, type?: string | null): string {
   const digits = value.replace(/\D/g, "");
