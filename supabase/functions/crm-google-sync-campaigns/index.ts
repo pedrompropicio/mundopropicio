@@ -1132,6 +1132,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       // --- 1c) D-ERP181: país de mercado por campanha (campaign_criterion LOCATION, só leitura).
       // Respeita market_country_locked; sem critérios de local → não mexe. Falha nunca trava o sync.
       let marketCountryUpdated: number | null = null;
+      const notes: string[] = [];
       try {
         const critRows = await searchStreamCampaigns(accessToken, GOOGLE_ADS_DEVELOPER_TOKEN!, loginCustomerId, customerId, `
   SELECT campaign.id, campaign_criterion.location.geo_target_constant
@@ -1242,6 +1243,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         auto_link: autoLink,
         songs_linked: songsLinked,
         market_country_updated: marketCountryUpdated,
+        notes,
       });
 
     } catch (e) {
