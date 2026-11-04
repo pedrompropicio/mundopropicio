@@ -1,0 +1,106 @@
+-- #562c — ROLLBACK INTEGRAL COMENTADO, NÃO EXECUTAR nesta preparação.
+-- Repor primeiro o caller 0327 e só depois remover o helper novo.
+-- CREATE OR REPLACE FUNCTION public.run_training_invariant_checks_and_log()
+-- RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_catalog'
+-- AS $function$
+-- DECLARE results_training jsonb; drift integer; run_id uuid;
+-- BEGIN
+--   IF auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'platform_admin') THEN
+--     RAISE EXCEPTION 'training_company_platform_admin_only' USING ERRCODE = '42501';
+--   END IF;
+--   -- A referência real não é reutilizada/alterada: para treino, zero violações.
+--   SELECT coalesce(jsonb_agg(jsonb_build_object(
+--     'name', r.name, 'description', r.description, 'severity', r.severity,
+--     'scope', r.scope, 'current_count', r.current_count, 'reference_count', 0,
+--     'conforme', r.current_count = 0) ORDER BY r.name), '[]'::jsonb)
+--   INTO results_training FROM (
+-- SELECT * FROM public._run_invariant_checks_raw_training()
+--     UNION ALL SELECT * FROM public._run_invariant_checks_extra_training()
+--     UNION ALL SELECT * FROM public._run_invariant_checks_infra_training()
+--     UNION ALL SELECT * FROM public._run_invariant_checks_docs_training()
+--     UNION ALL SELECT * FROM public._run_invariant_checks_paid_training()
+--     UNION ALL SELECT * FROM public._run_invariant_checks_cash_training()
+--     UNION ALL SELECT * FROM public._run_invariant_checks_cards_training()
+--     UNION ALL SELECT * FROM public._run_invariant_checks_duplicate_invoices_training()
+--     UNION ALL SELECT * FROM public._run_invariant_checks_camarim_training()
+--     UNION ALL SELECT * FROM public._run_invariant_checks_suppliers_training()
+--     UNION ALL SELECT * FROM public._run_invariant_checks_paid_below_gross_training()
+--     UNION ALL SELECT * FROM public._run_invariant_checks_ticketline_series_training()
+--     UNION ALL SELECT * FROM public._run_invariant_checks_unreachable_docs_training()
+--     UNION ALL SELECT * FROM public._run_invariant_checks_storage_training()
+--     UNION ALL SELECT * FROM public._run_invariant_checks_rateio_training()
+--     UNION ALL SELECT * FROM public._run_invariant_checks_dre_nature_training()
+--     UNION ALL SELECT * FROM public._run_invariant_checks_cache_contracts_training()
+--   ) r;
+--   SELECT count(*) INTO drift FROM jsonb_array_elements(results_training) e
+--    WHERE (e->>'conforme')::boolean IS FALSE;
+--   INSERT INTO public.invariant_runs(ran_by, drift_count, results, scope_training)
+--   VALUES (auth.uid(), drift, results_training, true) RETURNING id INTO run_id;
+--   RETURN run_id;
+-- END;
+-- $function$;
+-- REVOKE EXECUTE ON FUNCTION public.run_training_invariant_checks_and_log() FROM PUBLIC, anon, authenticated;
+-- GRANT EXECUTE ON FUNCTION public.run_training_invariant_checks_and_log() TO authenticated, service_role;
+--
+-- DROP FUNCTION public._run_invariant_checks_extrato_scoped(boolean);
+--
+-- -- Extrato literal fornecido no despacho (Live, leitura do 0 em 04/11).
+-- CREATE OR REPLACE FUNCTION public._run_invariant_checks_extrato()
+--  RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+--  LANGUAGE plpgsql
+--  STABLE SECURITY DEFINER
+--  SET search_path TO 'public', 'pg_catalog'
+-- AS $function$
+-- DECLARE cR bigint; sR jsonb;
+-- BEGIN
+--   WITH ult AS (
+--     SELECT l.financial_account_id AS acc, max(l.booking_date) AS ate
+--       FROM public.bank_statement_lines l
+--      WHERE l.financial_account_id IS NOT NULL
+--      GROUP BY l.financial_account_id
+--   ),
+--   calc AS (
+--     SELECT a.name, u.ate,
+--            COALESCE(a.initial_balance,0) + COALESCE((
+--              SELECT sum(l2.amount) FROM public.bank_statement_lines l2
+--               WHERE l2.financial_account_id = a.id
+--                 AND (a.initial_balance_date IS NULL OR l2.booking_date > a.initial_balance_date)
+--                 AND l2.booking_date <= u.ate),0) AS banco,
+--            public._account_true_balance_asof_raw(a.id, u.ate) AS sistema
+--       FROM ult u JOIN public.financial_accounts a ON a.id = u.acc
+--   )
+--   SELECT count(*), COALESCE(jsonb_agg(to_jsonb(y)), '[]'::jsonb)
+--     INTO cR, sR
+--     FROM (SELECT c.name AS conta, c.ate AS ate_data,
+--                  round(c.banco,2) AS banco, round(c.sistema,2) AS sistema,
+--                  round(c.sistema - c.banco,2) AS diferenca
+--             FROM calc c
+--            WHERE c.sistema IS NOT NULL AND abs(c.sistema - c.banco) > 1.00
+--            ORDER BY abs(c.sistema - c.banco) DESC LIMIT 5) y;
+--
+--   RETURN QUERY
+--   SELECT i.name, i.description, i.severity, i.scope,
+--          cR, i.reference_count, (cR <= i.reference_count) AS conforme,
+--          i.notes, sR
+--     FROM public.system_invariants i
+--    WHERE i.name = 'saldo_conta_difere_do_extrato';
+-- END;
+-- $function$;
+-- REVOKE EXECUTE ON FUNCTION public._run_invariant_checks_extrato() FROM PUBLIC, anon, authenticated;
+-- GRANT EXECUTE ON FUNCTION public._run_invariant_checks_extrato() TO service_role;
+--
+-- -- Refresh literal da 0304.
+-- CREATE OR REPLACE FUNCTION public.clube_newgang_summary_refresh()
+-- RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+-- AS $function$
+-- DECLARE v_company uuid;
+-- BEGIN
+--  FOR v_company IN SELECT DISTINCT company_id FROM public.lead_capture
+--  WHERE source='clube_newgang' AND company_id IS NOT NULL LOOP
+--   INSERT INTO public.clube_newgang_summary_cache(company_id,payload)
+--   VALUES (v_company,public.clube_newgang_summary_compute(v_company))
+--   ON CONFLICT (company_id) DO UPDATE SET payload=excluded.payload,computed_at=now();
+--  END LOOP;
+-- END $function$;
+-- REVOKE EXECUTE ON FUNCTION public.clube_newgang_summary_refresh() FROM PUBLIC, anon, authenticated;
+-- GRANT EXECUTE ON FUNCTION public.clube_newgang_summary_refresh() TO service_role;
