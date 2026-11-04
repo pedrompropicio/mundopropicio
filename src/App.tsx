@@ -1,3 +1,4 @@
+import { TrainingBanner } from "@/components/TrainingBanner";
 import { ReductionObservationHost } from "@/components/bp/ReductionObservationHost";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { MutationCache, QueryClient, QueryClientProvider, useIsMutating, useQueryClient } from "@tanstack/react-query";
@@ -307,7 +308,7 @@ function MobileNavSheet() {
 function ProtectedLayout() {
   const { user, loading, isAdmin, isManager, hasPermission, role, signOut, permissions } = useAuth();
   const erpAllowed = accessByPermission(String(role ?? ""), permissions ?? []).has("erp");
-  const { companyId, isLoading: companyLoading, isError: companyError, error: companyErrorObj, isPlatformAdmin, refetch: refetchCompany } = useCompany();
+  const { company, companyId, isLoading: companyLoading, isError: companyError, error: companyErrorObj, isPlatformAdmin, refetch: refetchCompany } = useCompany();
   const queryClient = useQueryClient();
   const previousCompanyIdRef = useRef<string | null>(null);
   const isMobileViewport = useIsMobile();
@@ -537,6 +538,7 @@ function ProtectedLayout() {
         {!isMobileViewport && <AppSidebar />}
         <main className="min-w-0 flex-1 pl-0 md:pl-16 lg:pl-56">
           <div className={cn("mx-auto p-4 lg:p-6", FULL_WIDTH_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/")) ? "max-w-none" : "max-w-7xl")}>
+            <TrainingBanner company={company} />
             {/* MFA gate temporariamente desativado — reativar envolvendo <Routes> com <MfaRequiredGate> */}
             <Suspense fallback={<RouteFallback />}>
             <Routes>

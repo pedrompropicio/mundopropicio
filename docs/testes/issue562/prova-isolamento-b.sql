@@ -1,0 +1,144 @@
+-- #562 E2b — PROVA INERTE, NÃO CORRIDA. Nenhum comando ativo neste ficheiro.
+-- Autorização de preparação 6609881059 não autoriza executar esta prova.
+-- Executar só na janela PROC-promocao com Sim, depois de resolver as LACUNAS do inventário,
+-- aplicar 0310 + 0322 + 0327 e promover as sete edges/UI na ordem aprovada.
+-- Não cria empresas, utilizadores, dados operacionais, segredos nem cron.
+-- A empresa sintética vazia e os pré-requisitos sintéticos são preparados pelo operador
+-- numa autorização separada. Nunca reutilizar destinatários/templates/contas de terceiros.
+-- Os parâmetros psql abaixo são referências a artefactos sintéticos da janela, não seeds.
+-- LACUNA: a prova integral das 23 famílias depende do corpo ausente de _run_invariant_checks_extrato.
+-- LACUNA: prova de ausência de entregas exige recibos/observação dos providers, não só logs locais.
+--
+-- Parâmetros obrigatórios, sem valores reais neste ficheiro:
+--   training_company_id: empresa vazia, active e is_training=true, criada fora desta prova.
+--   fixture_template_id, fixture_profile_id: fixtures válidas com consentimento, sem destinatário real.
+--   fixture_payment_list_id: lista sintética da empresa treino (só preparar após snapshot vazio).
+--   fixture_event_id: evento sintético da empresa treino (necessário para configuração Ticketline).
+--
+-- PRECHECK SELECT-only: ficheiro/manual iguais; corpos, triggers, ACL e ordem de aplicação.
+-- SELECT id, status, is_training FROM public.companies WHERE id=:'training_company_id'::uuid;
+-- SELECT has_function_privilege('anon','public.is_training_company(uuid)','EXECUTE') AS anon_false,
+--        has_function_privilege('authenticated','public.is_training_company(uuid)','EXECUTE') AS authenticated_true,
+--        has_function_privilege('service_role','public.is_training_company(uuid)','EXECUTE') AS service_true;
+-- SELECT p.proname, pg_get_functiondef(p.oid) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+--  WHERE n.nspname='public' AND (p.proname LIKE '_run_invariant_checks_%' OR p.proname='run_invariant_checks_and_log');
+-- SELECT count(*) AS must_be_zero FROM public.transactions WHERE company_id=:'training_company_id'::uuid;
+-- SELECT count(*) AS must_be_zero FROM public.events WHERE company_id=:'training_company_id'::uuid;
+-- SELECT count(*) AS must_be_zero FROM public.suppliers WHERE company_id=:'training_company_id'::uuid;
+-- Também verificar zero nas 19 tabelas da barreira 1, listadas em inventario-b.md.
+-- Não presumir que is_training sozinho prova isolamento.
+--
+-- Capturar contagens das empresas reais (logs de invariantes são globais por scope).
+-- A captura usa uma única sessão e janela sem cron concorrente para atribuição causal.
+-- CREATE TEMP TABLE issue562_before_counts AS
+-- SELECT 'invariant_runs' AS source, count(*)::bigint AS n FROM public.invariant_runs WHERE NOT scope_training
+-- UNION ALL SELECT 'system_reminders',count(*) FROM public.system_reminders x
+--  WHERE NOT EXISTS(SELECT 1 FROM public.companies c WHERE c.id=x.company_id AND c.is_training)
+-- UNION ALL SELECT 'notification_queue',count(*) FROM public.notification_queue x
+--  WHERE NOT EXISTS(SELECT 1 FROM public.companies c WHERE c.id=x.company_id AND c.is_training)
+-- UNION ALL SELECT 'email_send_log',count(*) FROM public.email_send_log x
+--  WHERE NOT EXISTS(SELECT 1 FROM public.companies c WHERE c.id=x.company_id AND c.is_training);
+-- CREATE TEMP TABLE issue562_real_before AS
+-- SELECT name,current_count,reference_count,conforme FROM public._run_invariant_checks_all();
+-- CREATE TEMP TABLE issue562_reminders_before AS SELECT * FROM public.system_reminders;
+-- SELECT * FROM issue562_before_counts ORDER BY source;
+--
+-- Cada ensaio abaixo é uma transação de teste com ROLLBACK e não deve deixar fixtures.
+-- Antes de executar: conferir todos os triggers/constraints legados no catálogo completo.
+-- Um erro de FK/NOT NULL/permissão não é aprovação do teste; exigir a mensagem de treino.
+--
+-- B1: integração de treino dá precisamente training_company_no_integrations.
+-- O evento sintético indicado é pré-requisito da FK; não inferir que um UUID livre existe.
+-- BEGIN;
+-- INSERT INTO public.ticketline_sync_config(company_id,event_id,organization_name)
+-- VALUES(:'training_company_id'::uuid,:'fixture_event_id'::uuid,'fixture-issue562');
+-- Esperado: training_company_no_integrations, antes de persistir configuração.
+-- ROLLBACK;
+-- Repetir INSERT e UPDATE de pertença nas restantes 18 tabelas com fixtures válidas;
+-- o teste PGlite percorre todas, a janela tem de validar ainda os triggers/ACL legados.
+--
+-- B2: lembrete suprimido (nenhum destinatário configurado).
+-- BEGIN;
+-- INSERT INTO public.system_reminders(company_id,key,title,message,due_date,is_active)
+-- VALUES(:'training_company_id'::uuid,'issue562_synthetic_proof','TREINO','fixture',CURRENT_DATE,true)
+-- RETURNING is_active,completed_at;
+-- Esperado: is_active=false, completed_at NOT NULL.
+-- INSERT INTO public.notification_queue(company_id,template_id,recipient_profile_id,recipient_phone)
+-- VALUES(:'training_company_id'::uuid,:'fixture_template_id'::uuid,:'fixture_profile_id'::uuid,'00000000000')
+-- RETURNING status,last_error;
+-- Esperado: skipped / suppressed_training; número sintético não é destino de entrega.
+-- INSERT INTO public.email_send_log(company_id,template_name,recipient_email,status)
+-- VALUES(:'training_company_id'::uuid,'issue562_synthetic','fixture@invalid.test','pending')
+-- RETURNING status,error_message;
+-- Esperado: suppressed / suppressed_training, CHECK original intacto.
+-- ROLLBACK;
+--
+-- B4: os erros são obrigatoriamente training_company_no_export, não erro de lista/aprovação.
+-- BEGIN;
+-- INSERT INTO public.payment_list_sepa_exports(payment_list_id,exported_by,file_name,msg_id,total_amount,n_transactions)
+-- VALUES(:'fixture_payment_list_id'::uuid,'fixture','fixture_TREINO.xml','TREINO-fixture',0,0);
+-- Esperado: training_company_no_export. Validar ordem face a enforce_sepa_export_guard.
+-- ROLLBACK;
+-- BEGIN;
+-- INSERT INTO public.accounting_exports(company_id,period_from,period_to,exported_by)
+-- VALUES(:'training_company_id'::uuid,DATE '2030-01-01',DATE '2030-01-31','fixture');
+-- Esperado: training_company_no_export.
+-- ROLLBACK;
+--
+-- B3: reais mantêm exatamente as mesmas contagens, referências e conformidade.
+-- Os fixtures com violações de treino são criados só por autorização separada;
+-- não desativar guards reais nem introduzir violações em empresas reais para esta prova.
+-- SELECT * FROM (
+--   (SELECT name,current_count,reference_count,conforme FROM public._run_invariant_checks_all()
+--    EXCEPT SELECT * FROM issue562_real_before)
+--   UNION ALL
+--   (SELECT * FROM issue562_real_before
+--    EXCEPT SELECT name,current_count,reference_count,conforme FROM public._run_invariant_checks_all())
+-- ) differences;
+-- Esperado: zero linhas, incluindo backup_empresa_em_falta, backup_global_running_2h e backup_global_sem_ok_30h.
+--
+-- B3 corrida própria: apenas log scope_training=true; zero lembretes ou saídas novas.
+-- BEGIN;
+-- CREATE TEMP TABLE issue562_training_before AS SELECT count(*) AS n FROM public.invariant_runs WHERE scope_training;
+-- SELECT public.run_training_invariant_checks_and_log();
+-- SELECT (SELECT count(*) FROM public.invariant_runs WHERE scope_training)-(SELECT n FROM issue562_training_before) AS exactly_one;
+-- SELECT * FROM (
+--   (SELECT * FROM public.system_reminders EXCEPT SELECT * FROM issue562_reminders_before)
+--   UNION ALL
+--   (SELECT * FROM issue562_reminders_before EXCEPT SELECT * FROM public.system_reminders)
+-- ) differences;
+-- Esperado: exactly_one=1, zero diferenças em system_reminders.
+-- ROLLBACK;
+--
+-- Corrida real: continua a gravar o log real e o lembrete habitual se houver desvio real.
+-- Não exigir zero alterações do runner real: um invariant_run extra é o efeito legado esperado.
+-- BEGIN;
+-- SELECT public.run_invariant_checks_and_log();
+-- SELECT scope_training,results FROM public.invariant_runs WHERE NOT scope_training ORDER BY ran_at DESC LIMIT 1;
+-- Comparar results com snapshot real anterior (mesmo universo, sem concorrência).
+-- ROLLBACK;
+--
+-- Pós-prova: contagens reais e globais iguais ao snapshot porque todos os ensaios fizeram rollback.
+-- WITH after_counts AS (
+-- SELECT 'invariant_runs' AS source,count(*)::bigint AS n FROM public.invariant_runs WHERE NOT scope_training
+-- UNION ALL SELECT 'system_reminders',count(*) FROM public.system_reminders x
+--  WHERE NOT EXISTS(SELECT 1 FROM public.companies c WHERE c.id=x.company_id AND c.is_training)
+-- UNION ALL SELECT 'notification_queue',count(*) FROM public.notification_queue x
+--  WHERE NOT EXISTS(SELECT 1 FROM public.companies c WHERE c.id=x.company_id AND c.is_training)
+-- UNION ALL SELECT 'email_send_log',count(*) FROM public.email_send_log x
+--  WHERE NOT EXISTS(SELECT 1 FROM public.companies c WHERE c.id=x.company_id AND c.is_training)
+-- ) SELECT a.source,b.n AS before,a.n AS after,a.n-b.n AS delta
+-- FROM after_counts a JOIN issue562_before_counts b USING(source) ORDER BY a.source;
+-- Esperado: todos os delta=0; explicar qualquer concorrência, nunca ocultar divergências.
+--
+-- Provas HTTP/UI da janela, separadas desta SQL, com interceção local e recibos externos:
+-- - sete edges: treino recusado/suprimido; real/global byte-paridade relevante;
+-- - push service_role com user_ids reais e origem TREINO: 403, zero entregas em ambos os canais;
+-- - filas email com payload treino e legado com log de origem treino: zero provider calls;
+-- - SEPA: nome _TREINO + MsgId TREINO-, zero payment_list_sepa_exports e zero marcações de pagos;
+-- - CSV/documentos contabilísticos: nomes TREINO, zero accounting_exports;
+-- - ZIP contabilista: 403 {error:training_company}, sem storage/upload/download audit;
+-- - faixa e selos só para is_training=true, empresa active permanece selecionável;
+-- - identificar o comando efetivo 241 e o ativador process-email-queue antes de certificar B2;
+-- - demonstrar proprietários dos UUIDs fixos conforme inventário sem publicar dados pessoais/segredos;
+-- - provas dos emissores e relatórios marcados LACUNA precedem qualquer aceitação/seed.

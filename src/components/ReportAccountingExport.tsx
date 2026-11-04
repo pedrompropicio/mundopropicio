@@ -1,3 +1,4 @@
+import { useCompany } from "@/hooks/useCompany";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +20,8 @@ import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportAccountingExport() {
   const queryClient = useQueryClient();
+  const { company } = useCompany();
+  const isTraining = company?.is_training === true;
   const { user } = useAuth();
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
@@ -137,6 +140,7 @@ export default function ReportAccountingExport() {
   // Register export in history
   const registerExport = useMutation({
     mutationFn: async () => {
+      if (isTraining) return;
       const { error } = await supabase.from("accounting_exports").insert({
         period_from: dateFromStr,
         period_to: dateToStr,
@@ -174,7 +178,7 @@ export default function ReportAccountingExport() {
     const url = URL.createObjectURL(data);
     const a = document.createElement("a");
     a.href = url;
-    a.download = fileName;
+    a.download = isTraining ? `TREINO_${fileName}` : fileName;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -230,7 +234,7 @@ export default function ReportAccountingExport() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `mapa-contabilidade_${dateFromStr}_${dateToStr}.csv`;
+    a.download = `mapa-contabilidade_${dateFromStr}_${dateToStr}${isTraining ? "_TREINO" : ""}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success(`Mapa exportado: ${lines.length} transação(ões).`);
@@ -259,6 +263,10 @@ export default function ReportAccountingExport() {
       await downloadFile(r.url, `comprovativos_${safe}`);
     }
 
+    if (isTraining) {
+      toast.success("TREINO — documentos descarregados sem registo de exportação.");
+      return;
+    }
     // Register export
     await registerExport.mutateAsync();
     toast.success(

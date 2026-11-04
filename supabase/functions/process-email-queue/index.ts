@@ -1,3 +1,4 @@
+import { isTrainingCompany } from "../_shared/training-guard.ts";
 import { sendLovableEmail } from 'npm:@lovable.dev/email-js'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
@@ -272,6 +273,17 @@ Deno.serve(async (req) => {
           .maybeSingle()
         if (origin?.company_id) payload.company_id = origin.company_id
         else console.warn('[process-email-queue] mensagem sem company_id', { message_id: payload.message_id, label: payload.label })
+      }
+      if (await isTrainingCompany(supabase, payload?.company_id)) {
+        const { error: logError } = await supabase.from('email_send_log').insert({
+          message_id: payload.message_id, template_name: payload.label || queue,
+          recipient_email: payload.to, company_id: payload.company_id,
+          status: 'suppressed', error_message: 'suppressed_training',
+        })
+        if (logError) throw logError
+        const { error: deleteError } = await supabase.rpc('delete_email', { queue_name: queue, message_id: msg.msg_id })
+        if (deleteError) throw deleteError
+        continue
       }
       const failedAttempts =
         payload?.message_id && typeof payload.message_id === 'string'
