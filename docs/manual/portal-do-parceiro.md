@@ -12,14 +12,14 @@ fontes: [src/pages/PartnerPortal.tsx, src/components/PartnerLayout.tsx, src/page
 
 ```ajuda
 id: parceiro.o-que-e
-tooltip: "Portal de acesso dedicado para parceiros/sócios. Mostra apenas os eventos autorizados pelo administrador, com dados somente leitura (bilhetes, BP e transações)."
+tooltip: "Portal de acesso dedicado para parceiros/sócios aos eventos autorizados. A consulta do BP e das transações depende de permissões; a edição do BP exige autorização para o evento e permissão para editar BP aprovado, fora da vista Master e da inspeção de administrador."
 ecras: [parceiro.o-que-e]
 perfis: []
 fontes: [src/pages/PartnerPortal.tsx, src/components/PartnerLayout.tsx]
 termos: [Portal do Parceiro, Parceiro]
 ```
 
-Utilizadores com perfil 'Parceiro' acedem a um layout simplificado e dedicado, sem acesso ao sistema principal. O portal mostra apenas os eventos a que o parceiro foi autorizado pelo administrador.
+Utilizadores com perfil 'Parceiro' acedem a um layout dedicado para consultar eventos autorizados; a edição do BP exige autorização para o evento e permissão para editar BP aprovado, fora da vista Master e da inspeção de administrador. O portal mostra apenas os eventos a que o parceiro foi autorizado pelo administrador.
 
 ## Acesso a eventos
 
@@ -40,14 +40,14 @@ Para eventos multi-cidade (Turnês), pode-se autorizar o evento Master (acesso a
 
 ```ajuda
 id: parceiro.informacoes
-tooltip: "Ao clicar num evento autorizado, o parceiro tem acesso read-only a 3 abas:"
+tooltip: "Ao abrir um evento autorizado, o parceiro pode consultar Bilhetes; os separadores Business Plan e Transações dependem das respetivas permissões."
 ecras: [parceiro.informacoes]
 perfis: []
 fontes: [src/pages/PartnerEventDetail.tsx]
 termos: [read-only, Bilhetes, Transações]
 ```
 
-Ao clicar num evento autorizado, o parceiro tem acesso read-only a 3 abas:
+Ao abrir um evento autorizado, o parceiro pode consultar Bilhetes; os separadores Business Plan e Transações dependem das respetivas permissões. A vista de administrador é read-only.
 
 - Bilhetes — zonas, lotes, vendas
 - Business Plan — receitas e despesas previstas, se tiver permissão para consultar o BP

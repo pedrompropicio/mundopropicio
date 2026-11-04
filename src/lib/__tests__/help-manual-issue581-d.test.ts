@@ -60,6 +60,88 @@ function legacySearch(search: string): HelpSection[] {
     .filter((s) => s.topics.length > 0);
 }
 
+// Revisões do T2: o T5 aplica o mesmo mapa ao conteúdo legado antes de extrair a primeira frase.
+const revisions: Record<string, { antigo: string; novo: string; prova: { ficheiro: string; trecho: string } }[]> = {
+  "parceiro.informacoes": [
+    {
+      "antigo": "Business Plan — receitas e despesas previstas",
+      "novo": "Business Plan — receitas e despesas previstas, se tiver permissão para consultar o BP",
+      "prova": {
+        "ficheiro": "src/pages/PartnerEventDetail.tsx",
+        "trecho": "{hasPermission(\"view_bp\") && (\n            <TabsTrigger value=\"bp\""
+      }
+    },
+    {
+      "antigo": "Transações — movimentos financeiros do evento",
+      "novo": "Transações — movimentos financeiros do evento, se tiver permissão para consultar as transações do portal",
+      "prova": {
+        "ficheiro": "src/pages/PartnerEventDetail.tsx",
+        "trecho": "{hasPermission(\"view_partner_transactions\") && (\n            <TabsTrigger value=\"transactions\""
+      }
+    },
+    {
+      "antigo": "Todos os dados são somente leitura — nenhum botão de criar, editar ou eliminar.",
+      "novo": "A consulta é a regra; a edição do BP pode ser autorizada para um evento específico, com permissão para editar BP aprovado, fora da vista Master e da inspeção de administrador.",
+      "prova": {
+        "ficheiro": "src/pages/PartnerEventDetail.tsx",
+        "trecho": "const canEditBpHere = !isAdminView && !!activeEventId && !isMasterView\n    && canEditBpForActive(activeEventId)\n    && hasPermission(\"edit_approved_bp\");"
+      }
+    },
+    {
+      "antigo": "Ao clicar num evento autorizado, o parceiro tem acesso read-only a 3 abas:",
+      "novo": "Ao abrir um evento autorizado, o parceiro pode consultar Bilhetes; os separadores Business Plan e Transações dependem das respetivas permissões. A vista de administrador é read-only.",
+      "prova": {
+        "ficheiro": "src/pages/PartnerEventDetail.tsx",
+        "trecho": "        <TabsList className=\"w-full\">\n          {hasPermission(\"view_bp\") && (\n            <TabsTrigger value=\"bp\" className=\"gap-1.5 flex-1\"><ClipboardList className=\"h-3.5 w-3.5\" /> BP</TabsTrigger>\n          )}\n          <TabsTrigger value=\"ticketing\" className=\"gap-1.5 flex-1\"><Ticket className=\"h-3.5 w-3.5\" /> Bilhetes</TabsTrigger>\n          {hasPermission(\"view_partner_transactions\") && (\n            <TabsTrigger value=\"transactions\" className=\"gap-1.5 flex-1\"><TrendingDown className=\"h-3.5 w-3.5\" /> Transações</TabsTrigger>\n          )}\n        </TabsList>"
+      }
+    }
+  ],
+  "iva.taxas": [
+    {
+      "antigo": "Consulte e configure as taxas de IVA aplicáveis (0%, 6%, 13%, 23%).",
+      "novo": "Consulte as taxas de IVA apresentadas para Portugal Continental (0%, 6%, 13%, 23%) e acompanhe a previsão e o controlo do IVA.",
+      "prova": {
+        "ficheiro": "src/pages/IvaManagement.tsx",
+        "trecho": "          <div className=\"text-sm\">\n            <p className=\"font-semibold mb-1\">Taxas de IVA em vigor — Portugal Continental</p>\n            <div className=\"grid grid-cols-2 gap-x-6 gap-y-1 text-muted-foreground\">\n              <span><strong className=\"text-foreground\">23%</strong> — Taxa normal (serviços, bens gerais)</span>\n              <span><strong className=\"text-foreground\">13%</strong> — Taxa intermédia (alimentação, bebidas)</span>\n              <span><strong className=\"text-foreground\">6%</strong> — Taxa reduzida (espetáculos, bilheteira)</span>\n              <span><strong className=\"text-foreground\">0%</strong> — Isento (seguros, exportações)</span>\n            </div>"
+      }
+    }
+  ],
+  "relatorios.fluxo-caixa": [
+    {
+      "antigo": "Projeção de entradas e saídas futuras com base nas datas de vencimento.",
+      "novo": "Consulte entradas e saídas liquidadas pelos valores pagos e pela data efetiva de pagamento, usando a data da transação quando não existe data de pagamento.",
+      "prova": {
+        "ficheiro": "src/components/ReportCashFlow.tsx",
+        "trecho": "   * FONTE ÚNICA DE SALDO (D-ERP12/D-ERP25, #149): o Fluxo de Caixa lê os mesmos\n   * movimentos que `computeAccountBalance` — só transações liquidadas, por\n   * `paid_amount`, data efetiva COALESCE(payment_date, date), estornadas fora e\n   * saldo inicial com a data de corte respeitada. Sem limite de data na leitura:\n   * é o saldo de abertura do período que precisa do histórico anterior.\n   */\n  const { data: transactions = [], isLoading } = useQuery({"
+      }
+    }
+  ],
+  "relatorios.exportar": [
+    {
+      "antigo": "Todos os relatórios podem ser exportados para PDF (impressão) ou Excel (análise).",
+      "novo": "As opções de exportação variam por relatório; o Fluxo de Caixa dispõe de consulta no ecrã, sem botões próprios de exportação para PDF ou Excel.",
+      "prova": {
+        "ficheiro": "src/pages/ReportCashFlowPage.tsx",
+        "trecho": "export default function ReportCashFlowPage() {\n  return (\n    <div className=\"space-y-4\">\n      <div>\n        <h1 className=\"text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2\">Fluxo de Caixa <HelpTooltip text={helpTexts.reportCashFlow} /></h1>\n        <p className=\"text-sm text-muted-foreground\">Receitas vs despesas por período, com opção de separação por evento</p>\n      </div>\n      <ReportCashFlow />\n    </div>\n  );\n}"
+      }
+    }
+  ],
+  "parceiro.o-que-e": [
+    {
+      "antigo": "Utilizadores com perfil 'Parceiro' acedem a um layout simplificado e dedicado, sem acesso ao sistema principal.",
+      "novo": "Utilizadores com perfil 'Parceiro' acedem a um layout dedicado para consultar eventos autorizados; a edição do BP exige autorização para o evento e permissão para editar BP aprovado, fora da vista Master e da inspeção de administrador.",
+      "prova": {
+        "ficheiro": "src/pages/PartnerEventDetail.tsx",
+        "trecho": "  const canEditBpHere = !isAdminView && !!activeEventId && !isMasterView\n    && canEditBpForActive(activeEventId)\n    && hasPermission(\"edit_approved_bp\");"
+      }
+    }
+  ]
+};
+
+function applyRevisions(content: string, anchor: string): string {
+  return (revisions[anchor] ?? []).reduce((revised, { antigo, novo }) => revised.replace(antigo, novo), content);
+}
+
 describe("#581 lote D — migração literal dos quatro grupos legados (R1)", () => {
   it("T1/C1: lê os quatro capítulos e os 19 anchors pelo parser e pelo glob de produção", () => {
     const loaded = loadManualArticles();
@@ -111,54 +193,19 @@ describe("#581 lote D — migração literal dos quatro grupos legados (R1)", ()
     expect(createHash("sha256").update(JSON.stringify(legacy)).digest("hex"))
       .toBe("cfa9d2b008844a094c4468f4b9abaf9a0609a4903604464020d18df2b5fabcb6");
     expect(legacy.map((group) => group.id)).toEqual(["reports", "partner-portal", "iva", "accounting"]);
-    const revisions: Record<string, { antigo: string; novo: string; prova: { ficheiro: string; trecho: string } }[]> = {
-      "parceiro.informacoes": [
-        {
-          "antigo": "Business Plan — receitas e despesas previstas",
-          "novo": "Business Plan — receitas e despesas previstas, se tiver permissão para consultar o BP",
-          "prova": {
-            "ficheiro": "src/pages/PartnerEventDetail.tsx",
-            "trecho": "{hasPermission(\"view_bp\") && (\n            <TabsTrigger value=\"bp\""
-          }
-        },
-        {
-          "antigo": "Transações — movimentos financeiros do evento",
-          "novo": "Transações — movimentos financeiros do evento, se tiver permissão para consultar as transações do portal",
-          "prova": {
-            "ficheiro": "src/pages/PartnerEventDetail.tsx",
-            "trecho": "{hasPermission(\"view_partner_transactions\") && (\n            <TabsTrigger value=\"transactions\""
-          }
-        },
-        {
-          "antigo": "Todos os dados são somente leitura — nenhum botão de criar, editar ou eliminar.",
-          "novo": "A consulta é a regra; a edição do BP pode ser autorizada para um evento específico, com permissão para editar BP aprovado, fora da vista Master e da inspeção de administrador.",
-          "prova": {
-            "ficheiro": "src/pages/PartnerEventDetail.tsx",
-            "trecho": "const canEditBpHere = !isAdminView && !!activeEventId && !isMasterView\n    && canEditBpForActive(activeEventId)\n    && hasPermission(\"edit_approved_bp\");"
-          }
-        }
-      ]
-    };
     for (const { article, group } of migrated) {
       expect(article.sections).toHaveLength(group.topics.length);
       expect(article.sections.map((section) => section.heading)).toEqual(group.topics.map((topic) => topic.title));
       for (const [index, topic] of group.topics.entries()) {
         const section = article.sections[index];
         expect(section.heading).toBe(topic.title);
-        const sectionRevisions = revisions[section.anchor_id];
-        if (sectionRevisions) {
-          let content = topic.content;
-          for (const { antigo, novo, prova } of sectionRevisions) {
-            expect(topic.content, section.anchor_id).toContain(antigo);
-            expect(topic.content.split(antigo), section.anchor_id).toHaveLength(2);
-            expect(readFileSync(prova.ficheiro, "utf8"), prova.ficheiro).toContain(prova.trecho);
-            expect(content, section.anchor_id).toContain(antigo);
-            content = content.replace(antigo, novo);
-          }
-          expect(normalize(section.body_md), section.anchor_id).toBe(normalize(content));
-        } else {
-          expect(normalize(section.body_md), section.anchor_id).toBe(normalize(topic.content));
+        for (const { antigo, prova } of revisions[section.anchor_id] ?? []) {
+          expect(topic.content, section.anchor_id).toContain(antigo);
+          expect(topic.content.split(antigo), section.anchor_id).toHaveLength(2);
+          expect(readFileSync(prova.ficheiro, "utf8"), prova.ficheiro).toContain(prova.trecho);
         }
+        expect(normalize(section.body_md), section.anchor_id)
+          .toBe(normalize(applyRevisions(topic.content, section.anchor_id)));
       }
     }
   });
@@ -224,7 +271,7 @@ describe("#581 lote D — migração literal dos quatro grupos legados (R1)", ()
     }
   });
 
-  it("T5/C4: liga os quatro h1 com reserva e conserva literalmente os tooltips", () => {
+  it("T5/C4: liga os quatro h1 com reserva e valida os tooltips com as revisões do T2", () => {
     const bindings = [
       { page: "IvaManagement", key: "ivaManagement", anchor: "iva.taxas" },
       { page: "PartnerPortal", key: "partnerPortal", anchor: "parceiro.o-que-e" },
@@ -244,7 +291,8 @@ describe("#581 lote D — migração literal dos quatro grupos legados (R1)", ()
       for (const [index, section] of article.sections.entries()) {
         if (bindings.some(({ anchor }) => anchor === section.anchor_id)) continue;
         // Em Informações disponíveis, a frase introdutória termina em dois pontos antes da lista.
-        const firstSentence = group.topics[index].content.match(/^.*?(?:[.!?](?=\s|$)|:(?=\n))/)?.[0];
+        const content = applyRevisions(group.topics[index].content, section.anchor_id);
+        const firstSentence = content.match(/^.*?(?:[.!?](?=\s|$)|:(?=\n))/)?.[0];
         expect(firstSentence, section.anchor_id).toBeDefined();
         expect(section.tooltip, section.anchor_id).toBe(firstSentence);
       }

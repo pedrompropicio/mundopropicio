@@ -38,14 +38,14 @@ O painel de segurança mostra tentativas de login, alterações de dados sensív
 
 ```ajuda
 id: administracao.backups
-tooltip: "Gerencie backups da base de dados. Crie backups manuais ou configure rotinas automáticas."
+tooltip: "Gira os backups da base de dados. Crie backups manuais e consulte a informação sobre o backup diário automático."
 ecras: [admin/backups]
 perfis: []
 fontes: [src/pages/DatabaseBackups.tsx]
 termos: [Backups, base de dados]
 ```
 
-Gerencie backups da base de dados. Crie backups manuais antes de alterações importantes ou configure rotinas automáticas para proteção contínua.
+Gira os backups da base de dados. Crie backups manuais antes de alterações importantes e consulte a informação sobre o backup diário automático.
 
 ## Permissões granulares por perfil
 
@@ -64,4 +64,4 @@ O sistema usa permissões granulares atribuídas via `role_permissions`:
 - Editor — acesso total a Transações e Listas de Pagamento; na Bilheteira, escrita apenas em 'Planeamento'; no BP, edição apenas de 'Categoria' e 'Descrição'; módulos de Cachê e Sócios são ocultos
 - Accountant — acesso estritamente a dados e anexos contábeis
 - Viewer — apenas consulta
-- Partner — acesso read-only via Portal do Parceiro
+- Partner — consulta via Portal do Parceiro; a edição do BP exige autorização para o evento e permissão para editar BP aprovado, fora da vista Master e da inspeção de administrador

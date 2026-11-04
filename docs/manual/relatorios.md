@@ -57,14 +57,14 @@ Extrato detalhado de cada conta financeira com todas as movimentações e saldo 
 
 ```ajuda
 id: relatorios.fluxo-caixa
-tooltip: "Projeção de entradas e saídas futuras com base nas datas de vencimento."
+tooltip: "Consulte entradas e saídas liquidadas pelos valores pagos e pela data efetiva de pagamento, usando a data da transação quando não existe data de pagamento."
 ecras: [relatorios.fluxo-caixa]
 perfis: []
 fontes: [src/components/ReportCashFlow.tsx]
 termos: [liquidez, vencimento]
 ```
 
-Projeção de entradas e saídas futuras com base nas datas de vencimento. Essencial para planear a liquidez da empresa.
+Consulte entradas e saídas liquidadas pelos valores pagos e pela data efetiva de pagamento, usando a data da transação quando não existe data de pagamento. Essencial para planear a liquidez da empresa.
 
 ## Contas a Pagar
 
@@ -165,11 +165,11 @@ Agrupe transações aprovadas em listas para processamento em lote. As listas pa
 
 ```ajuda
 id: relatorios.exportar
-tooltip: "Todos os relatórios podem ser exportados para PDF (impressão) ou Excel (análise)."
+tooltip: "As opções de exportação variam por relatório; o Fluxo de Caixa dispõe de consulta no ecrã, sem botões próprios de exportação para PDF ou Excel."
 ecras: [relatorios.exportar]
 perfis: []
 fontes: [src/pages/Reports.tsx, src/components/ReportMovementReconciliation.tsx]
 termos: [PDF, Excel]
 ```
 
-Todos os relatórios podem ser exportados para PDF (impressão) ou Excel (análise). O PDF preserva a hierarquia e formatação visual.
+As opções de exportação variam por relatório; o Fluxo de Caixa dispõe de consulta no ecrã, sem botões próprios de exportação para PDF ou Excel. O PDF preserva a hierarquia e formatação visual.
