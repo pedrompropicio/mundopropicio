@@ -3,11 +3,12 @@
 // aqui só se envia, 1 email/dia/empresa, só a destinatários com papel nessa empresa.
 // Body: { dry_run?: boolean } — dry_run é o default; enviar exige dry_run:false explícito.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { FN_VERSION, FN_VERSION_HEADER } from "./version.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const json = (b: unknown, s = 200) =>
-  new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
+  new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json", [FN_VERSION_HEADER]: FN_VERSION } });
 
 Deno.serve(async (req) => {
   const auth = req.headers.get("Authorization") ?? "";
