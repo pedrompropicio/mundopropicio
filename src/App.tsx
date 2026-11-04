@@ -19,7 +19,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { CompanyBrandingProvider } from "@/contexts/CompanyBrandingContext";
 import { HelpPanelProvider } from "@/contexts/HelpPanelContext";
 import HelpSidePanel from "@/components/help/HelpSidePanel";
@@ -31,11 +31,12 @@ import { useCompany } from "@/hooks/useCompany";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { BrandedLogo } from "@/components/BrandedLogo";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { ModuleSwitcherButton } from "@/components/ModuleSwitcherButton";
 import { MfaRequiredGate } from "@/components/MfaRequiredGate";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Sun, Moon, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -676,19 +677,6 @@ function ProtectedLayout() {
       <HelpSidePanel />
     </div>
     </HelpPanelProvider>
-  );
-}
-
-function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
-  return (
-    <button
-      onClick={toggleTheme}
-      className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      title={theme === "dark" ? "Modo claro" : "Modo escuro"}
-    >
-      {theme === "dark" ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />}
-    </button>
   );
 }
 
