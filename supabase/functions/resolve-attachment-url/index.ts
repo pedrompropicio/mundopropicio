@@ -217,11 +217,19 @@ Deno.serve(async (req) => {
       return json({ error: "Pedido inválido" }, 400);
     }
 
-    const resolved = kind === "transaction_document"
+    const resolved = (kind === "transaction_document"
       ? await resolveTransactionDocument(adminClient, documentId, callerCtx)
       : kind === "event_forecast_attachment"
       ? await resolveForecastAttachment(adminClient, documentId, callerCtx)
-      : await resolveCamarimItemDocument(adminClient, documentId, callerCtx);
+      : await resolveCamarimItemDocument(adminClient, documentId, callerCtx)) as {
+      signedUrl?: string;
+      error?: string;
+      status?: number;
+      bucket?: string;
+      candidates?: string[];
+      filename?: string | null;
+      contentType?: string;
+    };
 
     if (resolved.signedUrl) return json({ signedUrl: resolved.signedUrl });
     if (resolved.error) return json({ error: resolved.error }, resolved.status ?? 400);
