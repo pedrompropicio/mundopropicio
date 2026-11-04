@@ -34,9 +34,11 @@ interface CompanyRow {
   status: string;
   contact_email: string | null;
   logo_url: string | null;
-  theme_config: { primary_color?: string } | null;
+  theme_config: ({ primary_color?: string } & Partial<Record<ThemeLogoKey, string | null>> & Record<string, unknown>) | null;
   created_at: string;
 }
+
+type ThemeLogoKey = "logo_dark_url" | "logo_horizontal_url" | "logo_horizontal_dark_url";
 
 const timezoneGroups = [
   { label: "Portugal e Espanha", zones: ["Europe/Lisbon", "Europe/Madrid", "Atlantic/Azores", "Atlantic/Madeira"] },
@@ -381,37 +383,41 @@ function EditCompanyDialog({
     company.theme_config?.primary_color ?? ""
   );
   const [logoUrl, setLogoUrl] = useState<string | null>(company.logo_url);
+  // Only changed slots are merged, so opening/saving does not introduce absent keys.
+  const [themeLogoChanges, setThemeLogoChanges] = useState<Partial<Record<ThemeLogoKey, string | null>>>({});
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const handleLogoUpload = async (original: File) => {
-    let file = original;
-    if (isHeicFile(original)) {
-      try {
-        file = await normalizeImageFile(original);
-      } catch (err: any) {
-        toast({ title: "Foto HEIC não suportada", description: err?.message, variant: "destructive" });
-        return;
-      }
-    }
-    if (!file.type.startsWith("image/")) {
-      toast({ title: "Ficheiro inválido", description: "Envia uma imagem (PNG, JPG ou SVG).", variant: "destructive" });
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      toast({ title: "Ficheiro grande", description: "Máx. 2 MB.", variant: "destructive" });
-      return;
-    }
+  const handleLogoUpload = async (original: File, key?: ThemeLogoKey) => {
     setUploading(true);
     try {
+      let file = original;
+      if (isHeicFile(original)) {
+        try {
+          file = await normalizeImageFile(original);
+        } catch (err: any) {
+          toast({ title: "Foto HEIC não suportada", description: err?.message, variant: "destructive" });
+          return;
+        }
+      }
+      if (!file.type.startsWith("image/")) {
+        toast({ title: "Ficheiro inválido", description: "Envia uma imagem (PNG, JPG ou SVG).", variant: "destructive" });
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        toast({ title: "Ficheiro grande", description: "Máx. 2 MB.", variant: "destructive" });
+        return;
+      }
       const ext = file.name.split(".").pop() ?? "png";
-      const path = `${company.id}/logo-${Date.now()}.${ext}`;
+      const prefix = key ? key.replace(/_url$/, "").replaceAll("_", "-") : "logo";
+      const path = `${company.id}/${prefix}-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("company-logos")
         .upload(path, file, { cacheControl: "3600", upsert: true });
       if (upErr) throw upErr;
       const { data } = supabase.storage.from("company-logos").getPublicUrl(path);
-      setLogoUrl(data.publicUrl);
+      if (key) setThemeLogoChanges((previous) => ({ ...previous, [key]: data.publicUrl }));
+      else setLogoUrl(data.publicUrl);
       toast({ title: "Logo carregado" });
     } catch (e: any) {
       toast({ title: "Erro no upload", description: e.message ?? String(e), variant: "destructive" });
@@ -437,8 +443,8 @@ function EditCompanyDialog({
           contact_email: contactEmail || null,
           status,
           logo_url: logoUrl,
-          theme_config: primaryColor
-            ? { ...(company.theme_config ?? {}), primary_color: primaryColor }
+          theme_config: primaryColor || Object.keys(themeLogoChanges).length > 0
+            ? { ...(company.theme_config ?? {}), ...themeLogoChanges, ...(primaryColor ? { primary_color: primaryColor } : {}) }
             : company.theme_config,
         })
         .eq("id", company.id);
@@ -450,6 +456,52 @@ function EditCompanyDialog({
     } finally {
       setSaving(false);
     }
+  };
+
+  const renderThemeLogo = (key: ThemeLogoKey, label: string, dark = false) => {
+    const value = themeLogoChanges[key] !== undefined ? themeLogoChanges[key] : company.theme_config?.[key];
+    const url = typeof value === "string" && value.trim() ? value : null;
+    return (
+      <div>
+        <Label htmlFor={`company-${key}`}>{label}</Label>
+        <div className="flex items-center gap-3 mt-2">
+          {url ? (
+            <img src={url} alt={label} className={`h-14 max-w-[160px] object-contain rounded border p-1 ${dark ? "bg-slate-900" : "bg-white"}`} />
+          ) : (
+            <div className="h-14 w-14 rounded border border-dashed flex items-center justify-center text-muted-foreground">
+              <Building2 className="h-6 w-6" />
+            </div>
+          )}
+          <div className="flex flex-col gap-2">
+            <label className="cursor-pointer">
+              <input
+                id={`company-${key}`}
+                type="file"
+                accept={`image/*,${HEIC_ACCEPT}`}
+                className="hidden"
+                disabled={uploading || saving}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleLogoUpload(file, key);
+                  e.target.value = "";
+                }}
+              />
+              <Button type="button" variant="outline" size="sm" disabled={uploading || saving} asChild>
+                <span><Upload className="h-3.5 w-3.5 mr-2" />{uploading ? "A carregar…" : url ? "Substituir" : "Carregar logo"}</span>
+              </Button>
+            </label>
+            {url && (
+              <Button type="button" variant="ghost" size="sm" disabled={uploading || saving}
+                aria-label={`Remover ${label}`}
+                onClick={() => setThemeLogoChanges((previous) => ({ ...previous, [key]: null }))}>
+                <Trash2 className="h-3.5 w-3.5 mr-2" /> Remover
+              </Button>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">PNG/SVG transparente recomendado, máx. 2 MB.</p>
+      </div>
+    );
   };
 
   return (
@@ -565,16 +617,18 @@ function EditCompanyDialog({
                     type="file"
                     accept={`image/*,${HEIC_ACCEPT}`}
                     className="hidden"
+                    disabled={uploading || saving}
                     onChange={(e) => {
                       const f = e.target.files?.[0];
-                      if (f) handleLogoUpload(f);
+                      if (f) void handleLogoUpload(f);
+                      e.target.value = "";
                     }}
                   />
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={uploading}
+                    disabled={uploading || saving}
                     asChild
                   >
                     <span>
@@ -588,6 +642,7 @@ function EditCompanyDialog({
                     type="button"
                     variant="ghost"
                     size="sm"
+                    disabled={uploading || saving}
                     onClick={handleRemoveLogo}
                   >
                     <Trash2 className="h-3.5 w-3.5 mr-2" /> Remover
@@ -599,6 +654,16 @@ function EditCompanyDialog({
               PNG/SVG transparente recomendado, máx. 2 MB. URL pública (visível em emails).
             </p>
           </div>
+
+          {renderThemeLogo("logo_dark_url", "Logo (modo escuro)", true)}
+
+          <details className="rounded border p-3">
+            <summary className="cursor-pointer text-sm font-medium">Logo horizontal (opcional)</summary>
+            <div className="space-y-4 mt-3">
+              {renderThemeLogo("logo_horizontal_url", "Logo horizontal (modo claro)")}
+              {renderThemeLogo("logo_horizontal_dark_url", "Logo horizontal (modo escuro)", true)}
+            </div>
+          </details>
 
           <div>
             <Label htmlFor="company-primary-color">Cor primária</Label>
@@ -627,7 +692,7 @@ function EditCompanyDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving || uploading}>
             {saving ? "A guardar…" : "Guardar"}
           </Button>
         </DialogFooter>
