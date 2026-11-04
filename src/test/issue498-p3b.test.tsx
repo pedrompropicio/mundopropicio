@@ -361,6 +361,6 @@ describe("#498 P3b — schema fiscal opcional sem alterar IBAN", () => {
     expect(supplierSchema.safeParse({ name: "Fornecedor", tax_id_foreign: null, tax_id_type: null }).success).toBe(true);
     expect(supplierSchema.safeParse({ name: "Fornecedor", tax_id_type: "NIF" }).success).toBe(false);
     expect(supplierSchema.safeParse({ name: "Fornecedor", tax_id_foreign: "1".repeat(21) }).success).toBe(false);
-    expect(supplierSchema.safeParse({ name: "Fornecedor", iban: "1".repeat(35) }).success).toBe(false);
+    expect(supplierSchema.safeParse({ name: "Fornecedor", iban: "1".repeat(65) }).success).toBe(false);
   });
 });

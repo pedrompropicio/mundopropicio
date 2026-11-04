@@ -256,6 +256,12 @@ Deno.serve(async (req) => {
     const wantedCompanyId: string | null =
       typeof body?.company_id === "string" && body.company_id ? body.company_id : null;
 
+    if (body?.target === "offsite") {
+      if (!isSr) return json({ error: "Apenas service role" }, 403);
+      const { runOffsiteFromEnv } = await import("./offsite.ts");
+      return json(await runOffsiteFromEnv(adminClient, body, (n) => Deno.env.get(n)));
+    }
+
     // Janela 02:00-05:00 Europe/Lisbon para chamadas de máquina.
     if (isMachine && !force) {
       const lisbonHour = Number(

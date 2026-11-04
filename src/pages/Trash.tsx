@@ -15,7 +15,7 @@ import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 
 export default function TrashPage() {
-  const { isAdmin } = useAuth();
+  const { hasPermission } = useAuth();
   const { companyId } = useCompany();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -231,7 +231,7 @@ export default function TrashPage() {
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
-                          {isAdmin && (
+                          {hasPermission("settings.trash") && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-destructive hover:text-destructive" disabled={permanentDeleteMutation.isPending}>

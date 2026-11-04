@@ -28,7 +28,7 @@ import { fetchAllPaged, fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { computeEventSettlementTotals } from "@/lib/event-settlement-inputs";
 import { useMasterRevenueSlicesFor } from "@/hooks/useMasterRevenueSplit";
 import {
-  computeContractBasisResult,
+  computeCoverContractBasisResult,
   computeEventContractResult,
   type ContractResult,
   type ContractVatViews,
@@ -193,12 +193,9 @@ export function useEventContractResult(
     });
     // #259: cachê só por cima quando o módulo não está já nas linhas de BP.
     const cacheOnTop = cacheImpactOnTopOfCost(cacheImpact, forecasts as any[], basis.expenseSource);
-    return computeContractBasisResult(
-      {
-        revenueNet: totals.revenueNet,
-        expensesNet: totals.expensesNet + cacheOnTop,
-        expensesGross: totals.expensesGross + cacheOnTop,
-      },
+    return computeCoverContractBasisResult(
+      totals,
+      cacheOnTop,
       (event as any)?.partner_calc_basis ?? partnerCalcBasis,
     );
   }, [

@@ -13,7 +13,7 @@ import { generateRecoveryCodes, hashRecoveryCodes, forgetCurrentDeviceLocally } 
 import { toast } from "@/hooks/use-toast";
 
 export default function SecurityDashboard() {
-  const { isAdmin, user } = useAuth();
+  const { hasPermission, user } = useAuth();
   const { companyId } = useCompany();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -168,7 +168,7 @@ export default function SecurityDashboard() {
     URL.revokeObjectURL(url);
   };
 
-  if (!isAdmin) return <Navigate to="/" replace />;
+  if (!hasPermission("settings.security")) return <Navigate to="/" replace />;
 
   // Stats
   const totalUsers = profiles.length;

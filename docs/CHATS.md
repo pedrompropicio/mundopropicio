@@ -31,11 +31,12 @@ A operação corre em paralelo no Claude e no ChatGPT, com a mesma numeração e
 | — | `coala-portal` | portal de evento | leve | `estado/estado-coala-portal.md` |
 | — | `newgang-portal` | portal de evento | leve | `estado/estado-newgang-portal.md` |
 | — | `juridico` | assessoria | pesado | `estado/estado-juridico.md` |
+| — | `saas` | projeto/assessoria | pesado | `estado/estado-saas.md` |
 | — | `gestao-de-chats` | secretaria | leve | este ficheiro |
 | — | `bp-<evento>-<ano>` | evento (BP) | intermédio | `estado/estado-bp-<evento>-<ano>.md` |
 | — | `fecho-<evento>-<ano>` | evento (fecho) | intermédio | `fechos/estado-<evento>-<ano>.md` |
 
-"Pesado / intermédio / leve" mapeia para o selector de cada ferramenta (Claude: Opus ou Fable / Sonnet / Haiku). Decisão de 14/10/2026: o trabalho pesado é do agente Lovable; o chat lê docs, prepara prompts e verifica. Subir ao pesado só para desenho de arquitectura ou decisão com números grandes. **Excepção: o `juridico` corre em pesado** (decisão do Pedro, 26/10/2026) — o trabalho dele é raciocínio sobre texto longo (contratos, legislação de três países), não despacho ao agente, e a cláusula que custa dinheiro está quase sempre enterrada. Quando a ferramenta expõe o modelo em execução, o chat compara-o com esta tabela no arranque e avisa se estiver acima — ou, no caso do `juridico`, abaixo; quando não expõe, não se exige.
+"Pesado / intermédio / leve" mapeia para o selector de cada ferramenta (Claude: Opus ou Fable / Sonnet / Haiku). Decisão de 14/10/2026: o trabalho pesado é do agente Lovable; o chat lê docs, prepara prompts e verifica. Subir ao pesado só para desenho de arquitectura ou decisão com números grandes. **Excepção: o `juridico` corre em pesado** (decisão do Pedro, 26/10/2026) — o trabalho dele é raciocínio sobre texto longo (contratos, legislação de três países), não despacho ao agente, e a cláusula que custa dinheiro está quase sempre enterrada. Quando a ferramenta expõe o modelo em execução, o chat compara-o com esta tabela no arranque e avisa se estiver acima — ou, no caso do `juridico`, abaixo; quando não expõe, não se exige. **Excepção: o `saas` corre em pesado** (decisão do Pedro, 04/11/2026) — desenho de modelo de negócio e de arquitectura de produto, com números grandes.
 
 A frente 2 pode executar demandas de infra quando designada na Issue (D-ERP287).
 
@@ -56,6 +57,8 @@ Mensagens de arranque: `procedimentos/PROC-arranque-chat.md` e `docs/prompts/`. 
 **(f) `11 - Testes`.** Corre baterias, marca resultados em `TESTES.md`, abre Issue quando falha. Não corrige, não dispara o agente, não escreve na base.
 
 **(g) `juridico`.** Assessoria jurídica em Portugal, Espanha e Brasil (aberto a 26/10/2026). Contratos — ler, criticar, redigir, negociar; RGPD e proteção de dados — decide a regra (fundamento de licitude, consentimento, políticas, retenção, subcontratantes, transferências internacionais, pedidos de titulares e de autoridades), que o 9 e os portais implementam; laboral; licenciamento de espetáculos e direitos de autor; fiscal só na parte de direito (o IVA operacional fica no 4, a contabilidade na Expert Numbers). **Só R0**: não escreve código, não dispara o agente, não escreve na base, **não envia nada para fora** — prepara, e diz quando deve passar por advogado. **O repo é público**: termos contratuais, valores negociados, dados pessoais e estratégia de negociação nunca entram no repo; vivem no Projeto do Claude, no Drive com partilha restrita, ou no chat. No repo entram só regras e decisões sem dados identificáveis.
+
+**(h) `saas`.** Projeto de transformar a plataforma em produto SaaS vendável a terceiros (aberto a 04/11/2026): diagnóstico de prontidão, pesquisa de mercado e concorrência, modelo de negócio, empacotamento e preços, requisitos de produto e técnicos, marketing e comunicação, roteiro de implementação. Convoca as skills de pesquisa, mercado, jurídico, tráfego e criativo; a regra jurídica final é do `juridico`, campanhas pelo 8, implementação pelas frentes donas por Issue. **Só R0**: não escreve código, não dispara o agente, não escreve na base, não envia nada para fora. **O repo é público**: preços, margens, custos, estratégia comercial, potenciais clientes e análise de concorrência nunca entram no repo; vivem no Projeto do Claude (`claude/saas-*`), no Drive com partilha restrita ou num Claude Doc. No repo entram só requisitos técnicos e decisões sem dados comerciais.
 
 Toda a Issue nova leva `**Frente dona:**` e `**Executor atual:**` no corpo; o painel (#360) lê estas linhas; sem elas infere pelo label de módulo e marca '(inferida)'.
 
@@ -106,6 +109,7 @@ A operação tem dois lados de ferramenta (Claude e ChatGPT) e, a partir de 11/2
 | Fecho de um evento concreto | `fecho-<evento>-<ano>` |
 | Portal Coala | `coala-portal` |
 | Portal newgangfestival.pt, Clube Newgang, revelações, `/crm/sites/newgang`, `/crm/clube-newgang` | `newgang-portal` |
+| Produto SaaS: prontidão, mercado e concorrência, modelo de negócio, planos e preços, requisitos para vender, marketing do produto, roteiro | `saas` |
 | Onde trato X / chat novo / arquivar | `gestao-de-chats` |
 
 ## Estado dos chats (actualizar por demanda autorizada)
@@ -115,6 +119,8 @@ Abertos a 15/10/2026: 0 (Claude), 0 (ChatGPT), 1–11, `coala-portal`, `newgang-
 Aberto a 26/10/2026: `juridico` (decisão do Pedro; prompt em `docs/prompts/juridico.md`).
 
 Aberto a 28/10/2026: `bp-hk-madrid-2026` (decisão do Pedro; BP da temporada Henry & Klauss em Madrid, evento `bf9ce2d8-754e-4485-8427-e2d486c39919`; estado em `estado/estado-bp-hk-madrid-2026.md`).
+
+Aberto a 04/11/2026: `saas` (decisão do Pedro; prompt em `docs/prompts/saas.md`; estado em `estado/estado-saas.md`).
 
 ## Partilha Claude ↔ ChatGPT — quadros
 

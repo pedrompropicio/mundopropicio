@@ -113,7 +113,7 @@ import {
 // Main Page
 // ============================================================
 export default function CrmCampaigns() {
-  const { role, hasPermission, loading: authLoading } = useAuth();
+  const { hasPermission, loading: authLoading } = useAuth();
   const { companyId, isLoading: companyLoading } = useCompany();
   const qc = useQueryClient();
   const { confirm: confirmMetaAction } = useConfirmMetaAction();
@@ -148,11 +148,7 @@ export default function CrmCampaigns() {
     useDashboardColumns();
 
 
-  const isAuthorized =
-    role === "admin" ||
-    role === ("platform_admin" as any) ||
-    role === ("marketing_manager" as any) ||
-    hasPermission("crm.campaign.create");
+  const isAuthorized = hasPermission("crm.audience.view");
 
   // ---------- Active ad account (multi-account support) ----------
   const adAccountId = active?.ad_account_id ?? null;
@@ -666,7 +662,7 @@ export default function CrmCampaigns() {
   // ---------- Issue #36: saúde da ligação Meta ----------
   const { data: health } = useMetaConnectionHealth(connectionId);
   const metaFreshness = freshness[0];
-  const canSeeError = role === "admin" || role === ("platform_admin" as any);
+  const canSeeError = hasPermission("settings.diagnostics");
 
   const metaLastSuccess = useMemo(() => {
     const latest = (metaInsights ?? [])
