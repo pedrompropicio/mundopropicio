@@ -38,9 +38,9 @@ const eur = (n: number) =>
   Number(n ?? 0).toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 
 export default function InvoiceGroupAudit() {
-  const { role } = useAuth();
+  const { hasPermission } = useAuth();
   const qc = useQueryClient();
-  const isAuthorized = role === "admin" || role === ("platform_admin" as any);
+  const isAuthorized = hasPermission("settings.diagnostics");
   const [running, setRunning] = useState(false);
   const [applying, setApplying] = useState(false);
   const [confirmApply, setConfirmApply] = useState(false);
