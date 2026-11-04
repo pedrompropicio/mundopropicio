@@ -1,4 +1,5 @@
 import { masterFormulaCostInputsForCity } from "@/lib/master-formula";
+import { computeEventCardCost } from "@/lib/event-card-cost";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -269,34 +270,13 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     /**
      * CUSTO POR EVENTO, nunca pooled (issue #217).
      *
-     * Um único critério (`computeEventCostOnBasis`) para a cidade, para a quota
-     * do Master e para a turnê. Somar evento a evento é o que torna
-     * `Σ custo(cidades) = custo(turnê)` verdadeiro por construção e impede que
-     * o excesso por rubrica de uma cidade seja absorvido pela folga de outra.
+     * O helper do card preserva a soma evento a evento e inclui o overhead
+     * em realizado (#223). A quota do Master mantém o critério existente.
      */
     const costForMode = (m: "realized" | "committed", vat: boolean = withVat) => {
-      const byEvent = new Map<string, { f: any[]; t: any[] }>();
-      const bucket = (evId: string) => {
-        let b = byEvent.get(evId);
-        if (!b) { b = { f: [], t: [] }; byEvent.set(evId, b); }
-        return b;
-      };
-      for (const f of forecasts as any[]) bucket(f.event_id ?? eventId).f.push(f);
-      for (const t of txs as any[]) {
-        if (t.type !== "expense") continue;
-        bucket(t.event_id ?? eventId).t.push(t);
-      }
-
-      let total = 0, overhead = 0, excess = 0, approvedCount = 0;
-      for (const b of byEvent.values()) {
-        const r = computeEventCostOnBasis({
-          forecasts: b.f, transactions: b.t, mode: m, withVat: vat, includeOverhead,
-        });
-        total += r.total;
-        overhead += r.overhead;
-        excess += r.excess;
-        approvedCount += r.approvedCount;
-      }
+      const cost = computeEventCardCost({
+        eventId, forecasts, transactions: txs, mode: m, withVat: vat, includeOverhead,
+      });
 
       // Quota do Master: MESMO critério, dividido pelo nº de cidades.
       let quota = 0;
@@ -311,7 +291,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         }).total : computeMasterQuota(masterCost, args.masterQuota.siblingCount);
       }
 
-      return { total, overhead, excess, approvedCount, quota };
+      return { ...cost, quota };
     };
 
 
@@ -365,7 +345,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             { label: "Comprometido (próprio)", value: approved },
           ],
           formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
-          meta: { masterQuota: c.quota, cacheAdded: cache },
+          meta: { overhead: c.overhead, masterQuota: c.quota, cacheAdded: cache },
           perimeter: { net: cNet.total + cNet.quota + cache, gross: cGross.total + cGross.quota + cache },
         };
       }
