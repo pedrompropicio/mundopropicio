@@ -29,7 +29,7 @@ export const supplierSchema = z.object({
   email: z.string().email("Email inválido").max(255).nullable().optional().or(z.literal("")),
   phone: z.string().max(30).nullable().optional(),
   address: z.string().max(500).nullable().optional(),
-  iban: z.string().max(34, "IBAN inválido").nullable().optional(),
+  iban: z.string().max(64, "IBAN inválido").nullable().optional(),
   swift_bic: z.string().max(11, "SWIFT/BIC inválido").nullable().optional(),
   payment_terms: z.string().max(100).nullable().optional(),
   category: z.string().nullable().optional(),

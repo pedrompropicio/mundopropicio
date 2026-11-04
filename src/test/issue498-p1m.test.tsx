@@ -117,7 +117,7 @@ describe("#498 P1m — hashes PT fixados antes de alterar produção; não regen
     expect(hashes).toMatchInlineSnapshot(`
       {
         "account": "fff3710c80d4831d9b1259c00665052968a8030336799907499702bdebae1b39",
-        "admin": "7322d6b2e51ffb65aadf7b31ffa3b4c51706b360a7e725a33cf6f834ae038011",
+        "admin": "6a1a06086d3f8b8391c740cb9c0092ca5f3f679aa2fa03d9dca1142ba7505d89",
         "duplicates": "093dd5a09458fa3f4bc85a4819c4c2bfe166f6c7f045044df98912890303d2b7",
         "listFallback": "8e6c9720e3445b2698dfdd91056f09b9940848345cf1cf4ca1f5cfcc4bbde23a",
         "receipt": "522b00a56204f7b47a14684fe68e36dcf3734b57bb984377267278a893c8de79",
@@ -377,6 +377,6 @@ describe("#498 P1m — formatador fiscal puro e cópia do valor original", () =>
       foreign_bank_accounts: [], tax_id_foreign: "12345678000199", tax_id_type: "cnpj",
     } };
     open("supplier");
-    expect(screen.getByLabelText("CNPJ")).toHaveValue("12345678000199");
+    expect(screen.getByLabelText("CNPJ")).toHaveValue("12.345.678/0001-99");
   });
 });

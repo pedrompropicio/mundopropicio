@@ -22,7 +22,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/hooks/useCompany";
 import { toast } from "sonner";
 
 interface CheckRow {
@@ -55,8 +55,7 @@ const fmtDate = (iso: string) =>
   new Date(iso).toLocaleString("pt-PT", { dateStyle: "short", timeStyle: "short" });
 
 export default function InvariantMonitor() {
-  const { role } = useAuth();
-  const allowed = role === "admin" || role === "platform_admin";
+  const { isPlatformAdmin: allowed } = useCompany();
   const qc = useQueryClient();
   const [accepting, setAccepting] = useState<CheckRow | null>(null);
   const [note, setNote] = useState("");

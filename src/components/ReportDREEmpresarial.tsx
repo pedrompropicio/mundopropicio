@@ -1,3 +1,5 @@
+import { useFinalCloseBpVersions } from "@/hooks/useFinalCloseBpVersions";
+import { withFinalCloseForecasts } from "@/lib/bp-final-close";
 import { EventNatureFilter } from "@/components/EventNatureFilter";
 import { findTicketCategoryId } from "@/lib/ticket-category";
 import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
@@ -103,8 +105,8 @@ export default function ReportDREEmpresarial() {
     [transactionsAll, rootSettlementIds],
   );
 
-  // #218: BP vivo (version_id IS NULL) — viva vs congelada é decisão pendente do Pedro.
-  const { data: forecastsAll = [] } = useQuery({
+  // #218: o BP vivo é substituído pela versão final nos eventos concluídos.
+  const { data: forecastsAllLive = [] } = useQuery({
     queryKey: ["dre-emp-forecasts-expense"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
@@ -117,6 +119,11 @@ export default function ReportDREEmpresarial() {
       return data ?? [];
     },
   });
+  const { data: finalVersions } = useFinalCloseBpVersions();
+  const forecastsAll = useMemo(
+    () => withFinalCloseForecasts(forecastsAllLive, finalVersions, events),
+    [forecastsAllLive, finalVersions, events],
+  );
   const forecastsByEvent = useMemo(
     () => groupByEvent(keepRootPerimeter(forecastsAll as any[], rootSettlementIds)),
     [forecastsAll, rootSettlementIds],

@@ -131,7 +131,7 @@ export function CompanySwitcher({ className }: Props = {}) {
       <PopoverContent className="w-[260px] p-0" align="end">
         <Command>
           <CommandInput placeholder="Procurar empresa..." className="h-9" />
-          <CommandList>
+          <CommandList className="max-h-[320px] overflow-y-auto">
             {isLoading ? (
               <div className="py-6 text-center text-xs text-muted-foreground">
                 A carregar empresas…
@@ -143,6 +143,15 @@ export function CompanySwitcher({ className }: Props = {}) {
                   {(companies ?? []).map((c) => (
                     <CommandItem
                       key={c.id}
+                      ref={(item) => {
+                        if (item && c.id === companyId && !item.dataset.activeCompanyScrolled) {
+                          item.dataset.activeCompanyScrolled = "true";
+                          // Wait for cmdk's initial selection scroll before revealing the active company.
+                          requestAnimationFrame(() => {
+                            if (item.isConnected) item.scrollIntoView({ block: "nearest" });
+                          });
+                        }
+                      }}
                       value={`${c.display_name} ${c.legal_name} ${c.slug}`}
                       onSelect={() => handleSelect(c.id)}
                       className="flex items-center gap-2"

@@ -41,7 +41,7 @@ type BackupEntry = {
 
 export default function DatabaseBackups() {
   const AUTO_REFRESH_INTERVAL_MS = 60_000;
-  const { isAdmin } = useAuth();
+  const { hasPermission } = useAuth();
   const { company, isPlatformAdmin } = useCompany();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -265,7 +265,7 @@ export default function DatabaseBackups() {
     }
   };
 
-  if (!isAdmin) return <Navigate to="/" replace />;
+  if (!hasPermission("settings.backups")) return <Navigate to="/" replace />;
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;

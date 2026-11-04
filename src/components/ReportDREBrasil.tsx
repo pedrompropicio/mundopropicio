@@ -1,3 +1,5 @@
+import { useFinalCloseBpVersions } from "@/hooks/useFinalCloseBpVersions";
+import { withFinalCloseForecasts } from "@/lib/bp-final-close";
 import { masterFormulaAmountForCity } from "@/lib/master-formula";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import { fetchPartnerExtras, partnerExtraValue } from "@/lib/partner-extras";
@@ -298,8 +300,8 @@ export default function ReportDREBrasil() {
 
   const transactions = keepRootPerimeter((transactionsAll as any[]).filter((t) => !hasResultBlockingFlags(t)), rootSettlementIds);
 
-  // #218: BP vivo (version_id IS NULL) — igual ao ReportDRE.
-  const { data: costForecastsAll = [] } = useQuery({
+  // #218: o BP vivo é substituído pela versão final nos eventos concluídos.
+  const { data: costForecastsAllLive = [] } = useQuery({
     queryKey: ["dre-forecasts-expense"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
@@ -312,6 +314,11 @@ export default function ReportDREBrasil() {
       return data ?? [];
     },
   });
+  const { data: finalVersions } = useFinalCloseBpVersions();
+  const costForecastsAll = useMemo(
+    () => withFinalCloseForecasts(costForecastsAllLive, finalVersions, events),
+    [costForecastsAllLive, finalVersions, events],
+  );
   const costForecastsByEvent = useMemo(
     () => groupByEvent(keepRootPerimeter(costForecastsAll as any[], rootSettlementIds)),
     [costForecastsAll, rootSettlementIds],

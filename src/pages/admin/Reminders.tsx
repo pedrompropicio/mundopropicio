@@ -38,9 +38,9 @@ interface SettingsRow {
 }
 
 export default function Reminders() {
-  const { role } = useAuth();
+  const { hasPermission } = useAuth();
   const qc = useQueryClient();
-  const isAuthorized = role === "admin" || role === ("platform_admin" as any);
+  const isAuthorized = hasPermission("settings.notifications");
 
   const [recipient, setRecipient] = useState("");
   const [twilioFrom, setTwilioFrom] = useState("");

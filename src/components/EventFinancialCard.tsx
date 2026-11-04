@@ -197,6 +197,7 @@ export function EventFinancialCard(props: Props) {
 
   // Extras visíveis (cachê, rateio turnê e overhead) — mostrados em todos os modos quando > 0.
   const extras: Array<{ label: string; value: number }> = [];
+  const excess = Number(data.meta?.excess ?? 0);
   if (kind === "expense") {
     // #259: "+ Cachê" só quando soma de facto; se já está nas linhas do módulo
     // no BP, aparece como decomposição informativa ("já no BP").
@@ -343,6 +344,15 @@ export function EventFinancialCard(props: Props) {
                   <span key={i}>+ {e.label}: {formatCurrency(e.value)}</span>
                 ))}
               </div>
+            )}
+            {kind === "expense" && data.modeUsed === "committed" && Math.abs(excess) > 0.005 && (
+              <p
+                className="text-[10px] text-warning"
+                data-testid="card-excess-warning"
+                title="Custo acima do previsto no BP ou em rubricas sem linha de BP. Não aparece na barra de formalidade (só linhas de BP)."
+              >
+                Excedido fora do BP: {formatCurrency(excess)}
+              </p>
             )}
           </>
         ) : data.subtotals.length > 0 || extras.length > 0 ? (

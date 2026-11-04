@@ -47,6 +47,21 @@ export function readBrBankSlots(value: unknown): BrBankSlot[] {
     v && typeof v === "object" && v.account_type === "br_banco_agencia_conta" && [1, 2, 3].includes(v.slot)) : [];
 }
 
+export interface ForeignBankSlot {
+  slot: number;
+  account_type: "aba_us" | "outro";
+  account_number?: string;
+  routing_number?: string;
+  bank_name?: string;
+  bank_address?: string;
+  intermediary_bank?: string;
+  beneficiary_name?: string;
+}
+export function readForeignBankSlots(value: unknown): ForeignBankSlot[] {
+  return Array.isArray(value) ? value.filter((v): v is ForeignBankSlot =>
+    v && typeof v === "object" && ["aba_us", "outro"].includes(v.account_type) && [1, 2, 3].includes(v.slot)) : [];
+}
+
 export interface SupplierBrData {
   foreign_bank_accounts: unknown[];
   tax_id_foreign: string | null;
