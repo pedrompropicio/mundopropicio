@@ -33,12 +33,11 @@ function normalize(v: string | null) {
 }
 
 export default function IbanDuplicatesPage() {
-  const { role } = useAuth();
+  const { hasPermission } = useAuth();
   const companyLocale = useCompanyLocale();
   const bankAccount = companyLocale.status === "available" ? companyLocale.labels.bankAccount : "IBAN";
   const taxIdAny = companyLocale.status === "available" ? companyLocale.labels.taxIdAny : "NIF";
-  const isAuthorized =
-    role === "admin" || role === ("platform_admin" as any) || role === ("manager" as any);
+  const isAuthorized = hasPermission("settings.audit_accounts");
 
   const [editingId, setEditingId] = useState<string | null>(null);
 

@@ -27,10 +27,10 @@ const SOURCE_LABEL: Record<Flag["source"], string> = {
 
 /** D-ERP201 — pares de fornecedores parecidos criados em lote, por rever. Fusão é manual. */
 export default function SimilarSuppliersReview() {
-  const { role, user } = useAuth() as any;
+  const { hasPermission, user } = useAuth();
   const companyLocale = useCompanyLocale();
   const taxIdAny = companyLocale.status === "available" ? companyLocale.labels.taxIdAny : "NIF";
-  const ok = role === "admin" || role === "platform_admin" || role === "manager";
+  const ok = hasPermission("settings.audit_accounts");
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({

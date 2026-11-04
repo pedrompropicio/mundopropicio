@@ -25,8 +25,8 @@ const statusTone: Record<string, string> = {
 };
 
 export default function Notifications() {
-  const { role } = useAuth();
-  const isAuthorized = role === "admin" || role === ("platform_admin" as any);
+  const { hasPermission } = useAuth();
+  const isAuthorized = hasPermission("settings.notifications");
   const [tab, setTab] = useState("templates");
 
   if (!isAuthorized) return <Navigate to="/admin" replace />;
