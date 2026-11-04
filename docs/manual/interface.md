@@ -25,14 +25,14 @@ Alterne entre o modo claro e escuro clicando no ícone de sol/lua (☀️/🌙) 
 
 ```ajuda
 id: interface.pesquisa
-tooltip: "Use o ícone de lupa no cabeçalho para pesquisar rapidamente por eventos, transações, fornecedores ou cotações em qualquer parte do sistema."
+tooltip: "Use o ícone de lupa no cabeçalho para pesquisar eventos, transações, fornecedores e páginas do sistema."
 ecras: [erp]
 perfis: []
 fontes: [src/components/GlobalSearch.tsx]
 termos: [pesquisa, lupa]
 ```
 
-Use o ícone de lupa no cabeçalho para pesquisar rapidamente por eventos, transações, fornecedores ou cotações em qualquer parte do sistema.
+Use o ícone de lupa no cabeçalho para pesquisar eventos, transações, fornecedores e páginas do sistema.
 
 ## Ajuda contextual
 

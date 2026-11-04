@@ -12,11 +12,11 @@ fontes: [src/pages/Quotations.tsx]
 
 ```ajuda
 id: cotacoes.fluxo
-tooltip: "Registe e compare cotações de fornecedores para eventos. Aprove ou recuse propostas antes de criar transações."
+tooltip: "Registe cotações de fornecedores para serviços de eventos. Ao aprovar uma cotação, o sistema cria uma transação de despesa pendente, sem criar uma linha no BP."
 ecras: [cotacoes]
 perfis: []
 fontes: [src/pages/Quotations.tsx]
 termos: [cotações, fornecedores]
 ```
 
-Solicite cotações a fornecedores para serviços de eventos. Compare propostas lado a lado. Ao aprovar uma cotação, pode convertê-la diretamente numa transação no BP do evento.
+Registe cotações de fornecedores para serviços de eventos. Ao aprovar uma cotação, o sistema cria automaticamente uma transação de despesa em estado pendente, associada ao evento, sem criar uma linha no BP.

@@ -12,14 +12,14 @@ fontes: [src/pages/Reimbursements.tsx, src/components/ReimbursementNoteFormModal
 
 ```ajuda
 id: reembolsos.o-que-sao
-tooltip: "Notas de Reembolso permitem agrupar despesas pagas do bolso de um funcionário e processá-las num único pagamento. Crie a nota, adicione despesas marcadas como 'Reembolso', aprove (todas devem ter fatura contábil) e pague. O sistema gera automaticamente a transação de pagamento."
+tooltip: "Agrupe despesas pagas do bolso de um funcionário numa Nota de Reembolso. Após a aprovação, use 'Gerar Transação para Pagamento': a transação fica aprovada e a nota em 'Aguarda Pagamento'. Liquide depois a transação no fluxo normal de pagamentos para concluir o reembolso."
 ecras: [reembolsos]
 perfis: []
 fontes: [src/pages/Reimbursements.tsx, src/components/ReimbursementNoteFormModal.tsx]
 termos: [Reembolso, funcionário, R-001/2026]
 ```
 
-As Notas de Reembolso permitem agrupar despesas pagas do bolso de um funcionário e processá-las num único pagamento. O sistema gera automaticamente um código sequencial (ex: R-001/2026) para cada nota.
+As Notas de Reembolso agrupam despesas pagas do bolso de um funcionário para reembolso através de uma transação aprovada, gerada antes da liquidação. O sistema gera automaticamente um código sequencial (ex: R-001/2026) para cada nota.
 
 ## Fluxo completo
 

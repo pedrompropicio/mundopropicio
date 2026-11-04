@@ -74,14 +74,14 @@ As transações de reembolso podem ser agrupadas em Notas de Reembolso (módulo 
 
 ```ajuda
 id: transacoes.pago-por-socio
-tooltip: "Para despesas pagas diretamente por um sócio/parceiro, active o toggle '🤝 Pago por Sócio' no formulário."
+tooltip: "O registo de um valor pago por sócio faz-se no modal de pagamento ou no painel 'Despesas Pagas por Sócios' do evento."
 ecras: [transacoes]
 perfis: []
 fontes: [src/components/TransactionFormModal.tsx, src/components/PartnerPaidExpensesPanel.tsx]
 termos: [pago por sócio, encontro de contas]
 ```
 
-Para despesas pagas diretamente por um sócio/parceiro, active o toggle '🤝 Pago por Sócio' no formulário. A despesa segue o ciclo normal de aprovação e fica vinculada ao sócio para efeitos de encontro de contas. Veja a secção de Eventos → ['Despesas Pagas por Sócio'](/ajuda?artigo=eventos#eventos.pago-por-socio) para mais detalhes.
+O registo de um valor pago por sócio faz-se no modal de pagamento ou no painel 'Despesas Pagas por Sócios' do evento. O vínculo pode ser aprovado ou ficar pendente de aprovação; quando aprovado, a despesa fica paga e vinculada ao sócio para efeitos de encontro de contas. Veja a secção de Eventos → ['Despesas Pagas por Sócio'](/ajuda?artigo=eventos#eventos.pago-por-socio) para mais detalhes.
 
 ## Pagamentos parciais
 

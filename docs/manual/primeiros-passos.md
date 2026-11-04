@@ -25,14 +25,14 @@ O sistema é uma plataforma de gestão financeira e operacional para empresas de
 
 ```ajuda
 id: primeiros-passos.perfis
-tooltip: "Existem 6 perfis: Admin (acesso total), Gerente (gestão operacional e financeira), Editor (registo de dados com restrições de edição), Viewer (apenas consulta), User (perfil base) e Parceiro (acesso read-only a eventos autorizados via Portal do Parceiro)."
+tooltip: "O sistema distingue 12 perfis: Administrador, Manager, Produtor, Produtor de Campo, Editor, Viewer, Utilizador, Parceiro, Super-Admin, Gestor de Marketing, Gestor de Conteúdo e Contabilista."
 ecras: [admin/utilizadores]
 perfis: []
 fontes: [src/pages/UserManagement.tsx, src/contexts/AuthContext.tsx]
 termos: [perfis, Admin, permissões]
 ```
 
-Existem 6 perfis: Admin (acesso total), Gerente (gestão operacional e financeira), Editor (registo de dados com restrições de edição), Viewer (apenas consulta), User (perfil base) e Parceiro (acesso read-only a eventos autorizados via Portal do Parceiro). Cada perfil tem permissões pré-definidas que podem ser personalizadas por utilizador na secção [Admin > Utilizadores](/ajuda?artigo=administracao#administracao.utilizadores).
+O sistema distingue 12 perfis: Administrador, Manager, Produtor, Produtor de Campo, Editor, Viewer, Utilizador, Parceiro, Super-Admin, Gestor de Marketing, Gestor de Conteúdo e Contabilista. Cada perfil tem permissões pré-definidas que podem ser personalizadas por utilizador na secção [Admin > Utilizadores](/ajuda?artigo=administracao#administracao.utilizadores).
 
 ## Navegação
 

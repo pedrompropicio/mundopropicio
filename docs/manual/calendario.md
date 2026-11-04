@@ -12,12 +12,14 @@ fontes: [src/pages/EventCalendar.tsx, src/components/calendar/VenueReservationMo
 
 ```ajuda
 id: calendario.vistas
-tooltip: "Visualize todos os eventos e reservas de espaços num calendário. Alterne entre vistas semanal, anual e agenda."
+tooltip: "Consulte eventos e reservas de espaços nas vistas mensal, semanal, anual e agenda."
 ecras: [calendario]
 perfis: []
 fontes: [src/pages/EventCalendar.tsx]
 termos: [Semanal, Anual, Agenda]
 ```
+
+Mensal: eventos e reservas organizados por dia no mês.
 
 Semanal: detalhe dia a dia com eventos e reservas.
 

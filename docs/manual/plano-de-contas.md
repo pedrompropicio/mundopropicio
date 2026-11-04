@@ -25,14 +25,14 @@ O Plano de Contas organiza receitas e despesas em categorias com códigos numér
 
 ```ajuda
 id: plano-contas.eventos
-tooltip: "Categorias operacionais (grupos 1 a 4) exigem associação a um evento nas transações."
+tooltip: "A obrigatoriedade de associar um evento é definida na categoria raiz e herdada pelas subcategorias."
 ecras: [transacoes]
 perfis: []
 fontes: [src/components/TransactionFormModal.tsx, src/components/CategoryFormModal.tsx]
 termos: [eventos, grupo 10]
 ```
 
-Categorias operacionais (grupos 1 a 4) exigem associação a um evento nas transações. O grupo 10 (Administrativo/Financeiro) trata de custos fixos e estruturais sem essa exigência.
+A obrigatoriedade de associar um evento é definida na categoria raiz e herdada pelas subcategorias. O código do grupo, incluindo o Grupo 10 (Administrativo/Financeiro), não determina por si só essa exigência; a opção 'Evento obrigatório' é configurada no nível 1.
 
 ## Impacto nos relatórios
 

@@ -56,6 +56,92 @@ function legacySearch(search: string): HelpSection[] {
     .filter((s) => s.topics.length > 0);
 }
 
+// Revisões do T2: o T5 aplica o mesmo mapa ao conteúdo legado antes de extrair a primeira frase.
+const revisions: Record<string, { antigo: string; novo: string; prova: { ficheiro: string; trecho: string } }[]> = {
+  "primeiros-passos.navegacao": [
+    {
+      "antigo": "No desktop, o menu mostra ícones e texto; no mobile, apenas ícones.",
+      "novo": "No desktop, o menu mostra ícones e, em ecrãs largos, texto; no mobile, abre num painel com ícones e texto.",
+      "prova": {
+        "ficheiro": "src/components/AppSidebar.tsx",
+        "trecho": "const labelCls = isPanel ? \"block\" : \"hidden lg:block\";"
+      }
+    }
+  ],
+  "interface.ajuda-contextual": [
+    {
+      "antigo": "O botão flutuante (📖) no canto inferior direito abre o manual na secção relevante à página atual.",
+      "novo": "O botão flutuante com ícone de livro, visível em ecrãs de largura média ou superior, no canto inferior direito abre o manual na secção relevante à página atual.",
+      "prova": {
+        "ficheiro": "src/components/help/HelpFloatingButton.tsx",
+        "trecho": "className=\"fixed bottom-5 right-5 z-40 hidden h-11 w-11 items-center justify-center rounded-full border border-border bg-card/95 text-primary shadow-lg backdrop-blur transition-colors hover:bg-accent md:flex\"\n    >\n      <BookOpen className=\"h-5 w-5\" />"
+      }
+    }
+  ],
+  "administracao.permissoes": [
+    {
+      "antigo": "Admin e Manager — acesso total",
+      "novo": "Admin e Manager — acesso sujeito às permissões do perfil e às permissões individuais, que podem recusar ações",
+      "prova": {
+        "ficheiro": "src/lib/permissions.ts",
+        "trecho": "for (const o of overrides.filter((x) => x.company_id === companyId)) {\n    if (o.granted) base.add(o.permission); else base.delete(o.permission);\n  }"
+      }
+    },
+    {
+      "antigo": "Partner — acesso read-only via Portal do Parceiro",
+      "novo": "Partner — consulta via Portal do Parceiro; a edição do BP exige autorização para o evento e permissão para editar BP aprovado, fora da vista Master e da inspeção de administrador",
+      "prova": {
+        "ficheiro": "src/pages/PartnerEventDetail.tsx",
+        "trecho": "  const canEditBpHere = !isAdminView && !!activeEventId && !isMasterView\n    && canEditBpForActive(activeEventId)\n    && hasPermission(\"edit_approved_bp\");"
+      }
+    }
+  ],
+  "primeiros-passos.perfis": [
+    {
+      "antigo": "Existem 6 perfis: Admin (acesso total), Gerente (gestão operacional e financeira), Editor (registo de dados com restrições de edição), Viewer (apenas consulta), User (perfil base) e Parceiro (acesso read-only a eventos autorizados via Portal do Parceiro).",
+      "novo": "O sistema distingue 12 perfis: Administrador, Manager, Produtor, Produtor de Campo, Editor, Viewer, Utilizador, Parceiro, Super-Admin, Gestor de Marketing, Gestor de Conteúdo e Contabilista.",
+      "prova": {
+        "ficheiro": "src/contexts/AuthContext.tsx",
+        "trecho": "  admin: \"Administrador\",\n  manager: \"Manager\",\n  producer: \"Produtor\",\n  field_producer: \"Produtor de Campo\",\n  editor: \"Editor\",\n  viewer: \"Viewer\",\n  user: \"Utilizador\",\n  partner: \"Parceiro\",\n  platform_admin: \"Super-Admin\",\n  marketing_manager: \"Gestor de Marketing\",\n  content_manager: \"Gestor de Conteúdo\",\n  accountant: \"Contabilista\",\n};\n"
+      }
+    }
+  ],
+  "interface.pesquisa": [
+    {
+      "antigo": "Use o ícone de lupa no cabeçalho para pesquisar rapidamente por eventos, transações, fornecedores ou cotações em qualquer parte do sistema.",
+      "novo": "Use o ícone de lupa no cabeçalho para pesquisar eventos, transações, fornecedores e páginas do sistema.",
+      "prova": {
+        "ficheiro": "src/components/GlobalSearch.tsx",
+        "trecho": "\n          <CommandGroup heading=\"Páginas\">\n            {PAGES.map((page) => (\n              <CommandItem\n                key={page.path}\n                onSelect={() => go(page.path)}\n                className=\"gap-3\"\n              >"
+      }
+    }
+  ],
+  "calendario.vistas": [
+    {
+      "antigo": "Semanal: detalhe dia a dia com eventos e reservas.",
+      "novo": "Mensal: eventos e reservas organizados por dia no mês.\n\nSemanal: detalhe dia a dia com eventos e reservas.",
+      "prova": {
+        "ficheiro": "src/pages/EventCalendar.tsx",
+        "trecho": "      <div className=\"flex items-center gap-1 glass rounded-lg p-1 w-fit\">\n        {([\n          { mode: \"month\" as const, icon: LayoutGrid, label: \"Mês\" },\n          { mode: \"week\" as const, icon: Calendar, label: \"Semana\" },\n          { mode: \"agenda\" as const, icon: List, label: \"Lista\" },\n          { mode: \"year\" as const, icon: CalendarDays, label: \"Ano\" },\n        ]).map(({ mode, icon: Icon, label }) => ("
+      }
+    }
+  ],
+  "administracao.backups": [
+    {
+      "antigo": "Gerencie backups da base de dados. Crie backups manuais antes de alterações importantes ou configure rotinas automáticas para proteção contínua.",
+      "novo": "Gira os backups da base de dados. Crie backups manuais antes de alterações importantes e consulte a informação sobre o backup diário automático.",
+      "prova": {
+        "ficheiro": "src/pages/DatabaseBackups.tsx",
+        "trecho": "      <div className=\"glass rounded-xl p-4\">\n        <h3 className=\"text-sm font-semibold mb-2 flex items-center gap-2\">\n          <RefreshCw className=\"h-4 w-4 text-primary\" />\n          Backup Automático\n        </h3>\n        <p className=\"text-xs text-muted-foreground\">\n          O sistema cria automaticamente um backup diário às 3h da manhã.\n          São mantidos os últimos 30 backups. Backups antigos são eliminados automaticamente.\n        </p>"
+      }
+    }
+  ]
+};
+
+function applyRevisions(content: string, anchor: string): string {
+  return (revisions[anchor] ?? []).reduce((revised, { antigo, novo }) => revised.replace(antigo, novo), content);
+}
+
 describe("#581 lote A — migração literal dos quatro grupos legados (R1)", () => {
   it("T1/C1: lê os quatro capítulos e os 13 anchors pelo parser e pelo glob de produção", () => {
     const loaded = loadManualArticles();
@@ -114,58 +200,19 @@ describe("#581 lote A — migração literal dos quatro grupos legados (R1)", ()
     expect(createHash("sha256").update(JSON.stringify(helpManual)).digest("hex"))
       .toBe("4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945");
     expect(helpManual.some((group) => specs.some((spec) => spec.legacyId === group.id))).toBe(false);
-    const revisions: Record<string, { antigo: string; novo: string; prova: { ficheiro: string; trecho: string } }[]> = {
-      "primeiros-passos.navegacao": [
-        {
-          "antigo": "No desktop, o menu mostra ícones e texto; no mobile, apenas ícones.",
-          "novo": "No desktop, o menu mostra ícones e, em ecrãs largos, texto; no mobile, abre num painel com ícones e texto.",
-          "prova": {
-            "ficheiro": "src/components/AppSidebar.tsx",
-            "trecho": "const labelCls = isPanel ? \"block\" : \"hidden lg:block\";"
-          }
-        }
-      ],
-      "interface.ajuda-contextual": [
-        {
-          "antigo": "O botão flutuante (📖) no canto inferior direito abre o manual na secção relevante à página atual.",
-          "novo": "O botão flutuante com ícone de livro, visível em ecrãs de largura média ou superior, no canto inferior direito abre o manual na secção relevante à página atual.",
-          "prova": {
-            "ficheiro": "src/components/help/HelpFloatingButton.tsx",
-            "trecho": "className=\"fixed bottom-5 right-5 z-40 hidden h-11 w-11 items-center justify-center rounded-full border border-border bg-card/95 text-primary shadow-lg backdrop-blur transition-colors hover:bg-accent md:flex\"\n    >\n      <BookOpen className=\"h-5 w-5\" />"
-          }
-        }
-      ],
-      "administracao.permissoes": [
-        {
-          "antigo": "Admin e Manager — acesso total",
-          "novo": "Admin e Manager — acesso sujeito às permissões do perfil e às permissões individuais, que podem recusar ações",
-          "prova": {
-            "ficheiro": "src/lib/permissions.ts",
-            "trecho": "for (const o of overrides.filter((x) => x.company_id === companyId)) {\n    if (o.granted) base.add(o.permission); else base.delete(o.permission);\n  }"
-          }
-        }
-      ]
-    };
     for (const { article, group } of migrated) {
       expect(article.sections).toHaveLength(group.topics.length);
       expect(article.sections.map((section) => section.heading)).toEqual(group.topics.map((topic) => topic.title));
       for (const [index, topic] of group.topics.entries()) {
         const section = article.sections[index];
         expect(section.heading).toBe(topic.title);
-        const sectionRevisions = revisions[section.anchor_id];
-        if (sectionRevisions) {
-          let content = topic.content;
-          for (const { antigo, novo, prova } of sectionRevisions) {
-            expect(topic.content, section.anchor_id).toContain(antigo);
-            expect(topic.content.split(antigo), section.anchor_id).toHaveLength(2);
-            expect(readFileSync(prova.ficheiro, "utf8"), prova.ficheiro).toContain(prova.trecho);
-            expect(content, section.anchor_id).toContain(antigo);
-            content = content.replace(antigo, novo);
-          }
-          expect(normalize(section.body_md), section.anchor_id).toBe(normalize(content));
-        } else {
-          expect(normalize(section.body_md), section.anchor_id).toBe(normalize(topic.content));
+        for (const { antigo, prova } of revisions[section.anchor_id] ?? []) {
+          expect(topic.content, section.anchor_id).toContain(antigo);
+          expect(topic.content.split(antigo), section.anchor_id).toHaveLength(2);
+          expect(readFileSync(prova.ficheiro, "utf8"), prova.ficheiro).toContain(prova.trecho);
         }
+        expect(normalize(section.body_md), section.anchor_id)
+          .toBe(normalize(applyRevisions(topic.content, section.anchor_id)));
       }
     }
   });
@@ -242,7 +289,7 @@ describe("#581 lote A — migração literal dos quatro grupos legados (R1)", ()
     }
   });
 
-  it("T5/C4: liga os seis h1 com reserva e conserva literalmente os tooltips", () => {
+  it("T5/C4: liga os seis h1 com reserva e valida os tooltips com as revisões do T2", () => {
     const bindings = [
       { page: "Index", count: 2, key: "dashboard", anchor: "primeiros-passos.visao-geral" },
       { page: "EventCalendar", count: 1, key: "calendar", anchor: "calendario.vistas" },
@@ -263,7 +310,7 @@ describe("#581 lote A — migração literal dos quatro grupos legados (R1)", ()
       for (const [index, section] of article.sections.entries()) {
         if (bindings.some(({ anchor }) => anchor === section.anchor_id)) continue;
         // A introdução das permissões termina em dois-pontos, sem frase pontuada.
-        const content = group.topics[index].content;
+        const content = applyRevisions(group.topics[index].content, section.anchor_id);
         const firstSentence = content.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? content.split("\n")[0];
         expect(section.tooltip, section.anchor_id).toBe(firstSentence);
       }

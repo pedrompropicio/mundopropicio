@@ -63,33 +63,33 @@ Múltiplos Dias (Turnê): mesmo evento repetido em diferentes datas/cidades. Per
 
 ```ajuda
 id: eventos.wizard
-tooltip: "Para eventos do tipo 'Múltiplos Dias', o sistema oferece um assistente avançado que permite configurar a hierarquia completa de cidades (eventos Split), datas extra e múltiplas sessões num único fluxo atómico."
+tooltip: "Para eventos do tipo 'Múltiplos Dias', o assistente permite configurar cidades (eventos Split), datas extra e múltiplas sessões."
 ecras: [eventos]
 perfis: []
 fontes: [src/pages/Events.tsx]
 termos: [wizard, cidades, sessões]
 ```
 
-Para eventos do tipo 'Múltiplos Dias', o sistema oferece um assistente avançado que permite configurar a hierarquia completa de cidades (eventos Split), datas extra e múltiplas sessões num único fluxo atómico. Ao finalizar o wizard, toda a estrutura é criada de uma só vez.
+Para eventos do tipo 'Múltiplos Dias', o assistente permite configurar cidades (eventos Split), datas extra e múltiplas sessões. Ao finalizar o wizard, o Master é criado primeiro e os eventos Split são criados em operações sucessivas; uma falha pode deixar a estrutura parcialmente criada.
 
 ## Despesas Pagas por Sócio ('Pago por Sócio')
 
 ```ajuda
 id: eventos.pago-por-socio
-tooltip: "Quando um sócio/parceiro paga uma despesa diretamente do seu bolso (sem usar contas da empresa), utilize o toggle '🤝 Pago por Sócio' no formulário de transação."
+tooltip: "Para registar uma despesa paga por um sócio/parceiro, associe-a ao sócio no modal de pagamento ou no painel 'Despesas Pagas por Sócios' do evento."
 ecras: [eventos]
 perfis: []
 fontes: [src/components/TransactionFormModal.tsx, src/components/PartnerPaidExpensesPanel.tsx]
 termos: [Pago por Sócio, despesas]
 ```
 
-Quando um sócio/parceiro paga uma despesa diretamente do seu bolso (sem usar contas da empresa), utilize o toggle '🤝 Pago por Sócio' no formulário de transação. O toggle aparece automaticamente quando o evento selecionado tem sócios.
+Para registar uma despesa paga por um sócio/parceiro, associe-a ao sócio no modal de pagamento ou no painel 'Despesas Pagas por Sócios' do evento.
 
-Ao ativar:
+Na liquidação por sócio:
 
-- O campo 'Conta Destino' desaparece (não há movimentação em contas da empresa)
-- Aparece o seletor 'Sócio que pagou' para indicar qual parceiro pagou
-- A despesa é criada normalmente e segue o ciclo de aprovação padrão (Aguardando → Aprovada → Paga)
+- A liquidação por sócio fica sem conta financeira da empresa
+- Selecione o sócio que pagou
+- O vínculo pode ficar aprovado ou pendente de aprovação; quando aprovado, a transação é marcada como paga
 - A despesa pode ser editada e eliminada segundo as mesmas regras de qualquer transação
 - Na listagem de transações, a despesa mostra um badge '🤝 Sócio' com tooltip indicando o nome do parceiro
 - A despesa aparece no separador 'Desp. Sócios' do evento, agrupada por sócio
