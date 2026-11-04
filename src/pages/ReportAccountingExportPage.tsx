@@ -7,7 +7,7 @@ export default function ReportAccountingExportPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2">
-          Exportação Contábil <HelpTooltip text={helpTexts.accountingExport} />
+          Exportação Contábil <HelpTooltip anchor="contabilidade.exportacoes" text={helpTexts.accountingExport} />
         </h1>
         <p className="text-sm text-muted-foreground">Exporte transações e documentos fiscais para a contabilidade</p>
       </div>
