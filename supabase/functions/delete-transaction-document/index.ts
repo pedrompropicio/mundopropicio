@@ -13,6 +13,7 @@
 // para _trash (#265, com storage_deletion_log). Esquemas bank:/ref:/camarim:/card:
 // e URLs externas nunca tocam no storage. Falha no storage = sucesso com aviso.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { getCallerContext, canAccessCompany, type CallerContext } from "../_shared/caller-context.ts";
 import { trashStorageObject } from "../_shared/storage-trash.ts";
@@ -39,7 +40,7 @@ function bucketPath(fileUrl: string): string | null {
 async function canDeleteIn(
   ctx: CallerContext,
   companyId: string | null,
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   callerId: string,
 ): Promise<boolean> {
   if (!canAccessCompany(ctx, companyId)) return false;

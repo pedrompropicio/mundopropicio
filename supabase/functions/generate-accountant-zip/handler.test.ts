@@ -14,7 +14,10 @@ const state = vi.hoisted(() => ({
 vi.mock("npm:@supabase/supabase-js@2", () => ({
   createClient: () => ({
     auth: { getUser: async () => ({ data: { user: { id: "caller" } }, error: null }) },
-    rpc: state.audit,
+    rpc: (name: string, args: unknown) =>
+      name === "is_training_company"
+        ? Promise.resolve({ data: false, error: null })
+        : state.audit(name, args),
     from: (table: string) => {
       const query: Record<string, unknown> = {};
       let selectedIds: string[] | undefined;
