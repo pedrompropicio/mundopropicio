@@ -33,12 +33,16 @@ const originalPolicy = extractOne(
 );
 const rollbackBody = extractOne(rollback, /-- >>> ROLLBACK\n[\s\S]*?-- <<< ROLLBACK/g)
   .split("\n").slice(1, -1).map((line) => line.replace(/^-- /, "")).join("\n");
-const strictScope = existsSync(strictPath) ? readFileSync(strictPath, "utf8") : `
+const expectedStrictScope = `
   CREATE OR REPLACE FUNCTION public.row_belongs_to_current_company(_row_company_id uuid)
   RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
   AS $function$
     SELECT _row_company_id IS NULL OR _row_company_id = public.current_company_id()
   $function$;`;
+const strictScope = existsSync(strictPath) ? extractOne(
+  readFileSync(strictPath, "utf8"),
+  /CREATE OR REPLACE FUNCTION public\.row_belongs_to_current_company\(_row_company_id uuid\)[\s\S]*?\$function\$;/g,
+) : expectedStrictScope;
 
 const id = (n: number) => `00000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
 const x = id(1);
@@ -55,6 +59,11 @@ const yLabels = ["Y-1"];
 const allLabels = [...xLabels, ...yLabels];
 
 describe("#591 E2b — contrato dos artefactos preparados", () => {
+  it("critério 1: a 0313 em main traz o mesmo rbcc estrito que o teste aplica", () => {
+    expect(existsSync(strictPath)).toBe(true);
+    expect(normalized(strictScope)).toBe(normalized(expectedStrictScope));
+  });
+
   it("critério 1: mantém as cópias byte a byte e uma única instrução ALTER POLICY", () => {
     expect(readFileSync(migrationPath).equals(readFileSync(manualPath))).toBe(true);
     expect(normalized(migration)).toBe(normalized(`
