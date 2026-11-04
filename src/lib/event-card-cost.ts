@@ -1,12 +1,14 @@
 import {
   computeEventCostOnBasis,
+  computeOutsideBpExcess,
+  isApprovedOperationalForecast,
   isApprovedOverheadForecast,
   sumLines,
   type EventCostOnBasisArgs,
 } from "@/lib/event-cost-basis";
-import { withoutIncomeTax } from "@/lib/fecho-filters";
+import { isValidFechoTransaction, withoutIncomeTax } from "@/lib/fecho-filters";
 
-/** Soma do card evento a evento; a quota do Master continua a cargo do hook. */
+/** Operacionais e OH por evento; excedido committed na família (#223, decisão A). */
 export function computeEventCardCost(args: EventCostOnBasisArgs & { eventId: string }) {
   const { eventId, forecasts, transactions, mode, withVat, includeOverhead } = args;
   const byEvent = new Map<string, { f: any[]; t: any[] }>();
@@ -36,6 +38,17 @@ export function computeEventCardCost(args: EventCostOnBasisArgs & { eventId: str
     overhead += cost.overhead + realizedOverhead;
     excess += cost.excess;
     approvedCount += cost.approvedCount;
+  }
+  if (mode === "committed") {
+    // Exceção só do card (#223, decisão A 6621117257): o excedido usa o
+    // perímetro inteiro como o Encontro; o motor e a regra #217 mantêm-se.
+    const familyExcess = computeOutsideBpExcess(
+      withoutIncomeTax(forecasts).filter(isApprovedOperationalForecast),
+      withoutIncomeTax(transactions).filter(t => t.type === "expense" && isValidFechoTransaction(t)),
+      withVat,
+    );
+    total += familyExcess - excess;
+    excess = familyExcess;
   }
   return { total, overhead, excess, approvedCount };
 }
