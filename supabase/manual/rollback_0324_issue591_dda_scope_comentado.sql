@@ -1,0 +1,15 @@
+-- 0324 — #591 E2b: rollback PREPARADO, NÃO APLICADO; só pelo 0 com Sim próprio.
+-- Repõe o USING capturado em Live e reabre a fuga do admin entre tenants.
+-- Não reverte a 0313 nem altera row_belongs_to_current_company.
+-- Descomentar apenas o bloco delimitado para a janela autorizada.
+-- >>> ROLLBACK
+-- ALTER POLICY "dda_select_admin_manager" ON public.document_download_audit
+--   USING (
+--     public.has_role(( SELECT auth.uid() AS uid), 'platform_admin'::app_role)
+--     OR public.has_role(( SELECT auth.uid() AS uid), 'admin'::app_role)
+--     OR (
+--       public.has_role(( SELECT auth.uid() AS uid), 'manager'::app_role)
+--       AND public.row_belongs_to_current_company(company_id)
+--     )
+--   );
+-- <<< ROLLBACK
