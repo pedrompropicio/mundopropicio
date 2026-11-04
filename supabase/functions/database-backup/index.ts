@@ -250,22 +250,66 @@ Deno.serve(async (req) => {
       },
       readPage: async (target: Target, cursor: Cursor, filterCompany: string | null) => {
         let ordered = cursor.ordered;
+        let attempts = 0;
+        // The checkpoint uses the work client too: retain 5 s before its deadline for the handoff.
+        const pageDeadline = workDeadline - 5000;
+        const yieldPage = (): never => {
+          throw Object.assign(new Error("202-d: prazo da página esgotado"), { name: "BackupPageDeadline" });
+        };
         while (true) {
-          const qs = new URLSearchParams({ select: "*", limit: String(cursor.pageSize), offset: String(cursor.from) });
+          if (Date.now() >= pageDeadline) yieldPage();
+          const qs = new URLSearchParams({ select: "*", limit: String(cursor.pageSize) });
           if (filterCompany) qs.set("company_id", `eq.${filterCompany}`);
           if (ordered) qs.set("order", "id.asc");
-          const response = await fetch(`${supabaseUrl}/rest/v1/${target.tbl_name}?${qs}`, {
-            headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}`,
-              "Accept-Profile": target.schema_name, Prefer: "count=none" },
-            signal: signalUntil(workDeadline),
-          });
-          const text = await response.text();
+          if (!ordered || cursor.after === undefined) qs.set("offset", String(cursor.from));
+          // Encode exactly once, including ids containing query-string separators.
+          const after = ordered && cursor.after != null ? `&id=gt.${encodeURIComponent(cursor.after)}` : "";
+          const signal = signalUntil(pageDeadline);
+          let response: Response | undefined;
+          let text = "";
+          let failure = "";
+          attempts++;
+          try {
+            response = await fetch(`${supabaseUrl}/rest/v1/${target.tbl_name}?${qs}${after}`, {
+              headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}`,
+                "Accept-Profile": target.schema_name, Prefer: "count=none" },
+              signal,
+            });
+            text = await response.text();
+          } catch (error) {
+            if (signal.aborted || Date.now() >= pageDeadline) yieldPage();
+            if (error instanceof Error && error.name === "AbortError") throw error;
+            failure = error instanceof Error ? error.message : String(error);
+          }
           // Only the missing-id error permits the legacy unordered fallback.
-          if (response.status === 400 && ordered && /42703/.test(text) && /\bid\b/.test(text)) { ordered = false; continue; }
-          if (!response.ok) throw new Error(`${target.tbl_name}: ${response.status} ${text.slice(0, 200)}`);
-          const range = response.headers.get("content-range")?.match(/^(\d+)-(\d+)\//);
-          const rows = text === "[]" || !text ? 0 : range ? Number(range[2]) - Number(range[1]) + 1 : JSON.parse(text).length;
-          return { text, rows, ordered };
+          if (!failure && response) {
+            if (response.status === 400 && ordered && /42703/.test(text) && /\bid\b/.test(text)) {
+              ordered = false; attempts = 0; continue;
+            }
+            if (response.ok) {
+              const page = JSON.parse(text || "[]");
+              if (!Array.isArray(page)) throw new Error(`${target.tbl_name}: página inválida`);
+              let lastId: string | null = null;
+              let previous = cursor.after ?? null;
+              if (ordered) for (const row of page) {
+                const id = row?.id;
+                if (typeof id !== "string" && (typeof id !== "number" || !Number.isSafeInteger(id))) {
+                  throw new Error(`${target.tbl_name}: linha sem id válido`);
+                }
+                if (previous !== null && !(typeof id === "number" ? id > Number(previous) : id > previous)) {
+                  throw new Error(`${target.tbl_name}: ordem id não estritamente crescente`);
+                }
+                previous = lastId = String(id);
+              }
+              return { text, rows: page.length, ordered, lastId };
+            }
+            failure = `${target.tbl_name}: ${response.status} ${text.slice(0, 200)}`;
+            if (response.status !== 429 && response.status < 500) throw new Error(failure);
+          }
+          if (attempts >= 4) throw new Error(`${failure} após ${attempts} tentativas`);
+          const delay = 1000 * 2 ** (attempts - 1);
+          if (Date.now() + delay >= pageDeadline) yieldPage();
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       },
       final: async (progress, context) => {
