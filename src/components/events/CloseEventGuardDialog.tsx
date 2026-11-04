@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
+import { freezeFinalBpVersion } from "@/lib/bp-final-close";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -88,30 +91,71 @@ export function CloseEventGuardDialog({
   isPending,
   onConfirm,
 }: Props) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [blockers, setBlockers] = useState<EventCloseBlockers | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ack, setAck] = useState(false);
+  const [parentEventId, setParentEventId] = useState<string | null | undefined>();
+  const [freezeFinal, setFreezeFinal] = useState(true);
+  const [freezing, setFreezing] = useState(false);
+  const [freezeError, setFreezeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setAck(false);
     setError(null);
+    setFreezeError(null);
+    setFreezeFinal(true);
+    setParentEventId(undefined);
     setBlockers(null);
     setLoading(true);
-    fetchEventCloseBlockers(eventId)
-      .then(setBlockers)
-      .catch((e: any) => setError(e.message ?? "Erro ao verificar sessões abertas."))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    Promise.all([
+      fetchEventCloseBlockers(eventId),
+      supabase.from("events").select("parent_event_id").eq("id", eventId).single(),
+    ])
+      .then(([nextBlockers, event]) => {
+        if (cancelled) return;
+        if (event.error) throw event.error;
+        if (!event.data) throw new Error("Evento não encontrado.");
+        setParentEventId(event.data.parent_event_id);
+        setBlockers(nextBlockers);
+      })
+      .catch((e: any) => {
+        if (!cancelled) setError(e.message ?? "Erro ao verificar sessões abertas.");
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [open, eventId]);
 
   const hard = hasHardBlockers(blockers);
   const pending = blockers?.soft.pending_expenses ?? [];
   const needsAck = pending.length > 0;
-  const canClose = !loading && !hard && (!needsAck || ack);
+  const canClose = !loading && !error && blockers !== null && parentEventId !== undefined
+    && !hard && (!needsAck || ack);
+
+  const handleConfirm = async () => {
+    if (!canClose || isPending || freezing) return;
+    setFreezeError(null);
+    setFreezing(true);
+    try {
+      if (!parentEventId && freezeFinal) {
+        await freezeFinalBpVersion(eventId, user);
+        queryClient.invalidateQueries({ queryKey: ["bp-final-close-versions"] });
+        queryClient.invalidateQueries({ queryKey: ["bp-versions"] });
+      }
+      onConfirm();
+    } catch (e: any) {
+      setFreezeError(e.message ?? "Erro ao congelar a versão final do BP.");
+    } finally {
+      setFreezing(false);
+    }
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => { if (!freezing) onOpenChange(v); }}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -204,15 +248,33 @@ export function CloseEventGuardDialog({
                 Sem sessões abertas nem despesas pendentes. O evento pode ser concluído.
               </p>
             )}
+
+            {parentEventId ? (
+              <p className="text-sm text-muted-foreground">
+                Sub-evento: a versão final congela-se no evento principal.
+              </p>
+            ) : (
+              <label className="flex items-start gap-2 text-sm">
+                <Checkbox checked={freezeFinal} disabled={freezing || isPending}
+                  onCheckedChange={(v) => setFreezeFinal(v === true)} />
+                <span>Congelar a versão actual do BP como versão final do fecho</span>
+              </label>
+            )}
           </div>
         )}
 
+        {freezeError && (
+          <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+            {freezeError}
+          </p>
+        )}
+
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" disabled={freezing} onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button disabled={!canClose || isPending} onClick={onConfirm}>
-            {isPending ? "A concluir…" : "Concluir evento"}
+          <Button disabled={!canClose || isPending || freezing} onClick={handleConfirm}>
+            {isPending || freezing ? "A concluir…" : "Concluir evento"}
           </Button>
         </DialogFooter>
       </DialogContent>
