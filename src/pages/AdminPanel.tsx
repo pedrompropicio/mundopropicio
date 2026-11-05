@@ -8,6 +8,7 @@ import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { useAuth } from "@/contexts/AuthContext";
 import SystemRemindersBanner from "@/components/SystemRemindersBanner";
 import { CompanyBudgetModeCard } from "@/components/CompanyBudgetModeCard";
+import { BusinessLinesCard } from "@/components/BusinessLinesCard";
 
 const adminCards = (bankAccount: string, taxIdAny: string, isPlatformAdmin: boolean) => [
   {
@@ -193,6 +194,7 @@ export default function AdminPanel() {
 
       <div className="max-w-xl">
         <CompanyBudgetModeCard />
+        <BusinessLinesCard />
       </div>
     </div>
   );

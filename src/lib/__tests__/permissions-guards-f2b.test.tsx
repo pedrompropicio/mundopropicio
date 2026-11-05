@@ -16,6 +16,7 @@ vi.mock("@/components/CrmSidebar", () => ({ CrmSidebar: () => null }));
 vi.mock("@/components/NotificationBell", () => ({ NotificationBell: () => null }));
 vi.mock("@/components/SystemRemindersBanner", () => ({ default: () => null }));
 vi.mock("@/components/CompanyBudgetModeCard", () => ({ CompanyBudgetModeCard: () => null }));
+vi.mock("@/components/BusinessLinesCard", () => ({ BusinessLinesCard: () => null }));
 vi.mock("@/components/HelpTooltip", () => ({ default: () => null }));
 vi.mock("@/hooks/useInactivityTimeout", () => ({ useInactivityTimeout: () => {} }));
 vi.mock("@/hooks/useActivityTracker", () => ({ useActivityTracker: () => {} }));
