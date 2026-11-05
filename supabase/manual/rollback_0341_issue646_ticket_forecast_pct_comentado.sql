@@ -1,0 +1,12 @@
+-- PREPARADA, NÃO APLICADA — retorno da 0341, integralmente comentado.
+-- Não executar automaticamente nem eliminar estruturas/histórico.
+-- Pré-condição: desligar futuros consumidores/editor por empresa e confirmar o retorno à leitura antiga.
+-- Preservar event_ticket_forecast_pct, event_ticket_forecast_pct_log e event_ticket_forecast_rollouts.
+-- Preservar receita_manual_iva_rate; não repor percentagens antigas sobre edições novas.
+-- Antes de qualquer retorno de dados: exportar mapa exacto, log, recibo e hashes; obter autorização própria.
+-- Regressão de aplicação usa modo/percentagem antigos, que a 0341 e a cópia não modificam.
+-- Reversão física não está autorizada neste despacho (proibição de DROP).
+-- Após aprovação específica, fechar acesso à configuração nova sem apagar artefactos:
+-- REVOKE INSERT, UPDATE, DELETE ON public.event_ticket_forecast_pct FROM authenticated;
+-- REVOKE EXECUTE ON FUNCTION public.get_event_ticket_forecast_inputs(uuid, uuid[], uuid) FROM authenticated;
+-- O service_role fica reservado à recuperação autorizada; não reaplicar a cópia para desfazer edições.
