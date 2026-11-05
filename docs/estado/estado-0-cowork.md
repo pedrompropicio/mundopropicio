@@ -19,13 +19,16 @@
 4. #669: lote R1 para o filtro de natureza na DRE Empresarial (decisão 1A).
 5. #695: «Data de competência» e vencimento separado nas recorrentes.
 6. #677: preparação da importação da Social Music de 2026 (1B/2A). Só depois da #664.
-7. #405: envio de reforço NG27 a 06/11, autorizado («SIM» a 05/11). **Executa o 0 pessoal** (decisão do Pedro); o 0 MP não mexe no envio nem no cron `ng27-reforco-envio`. Arranque às 10:25 UTC.
+7. #405: envio de reforço NG27 a 06/11, autorizado («SIM» a 05/11). **Executa o 0 pessoal** (decisão do Pedro); o 0 MP não mexe no envio nem no cron `ng27-reforco-envio`. Arranque às 10:25 UTC. Lote R1 pendente: alinhar o teste B1 (hash de `presale-reinforce-email.ts`) com o link 821990 em main.
 8. #675 / 0334 / SLE: suspensos até ao 647-d-portal.
 9. Cloudflare: o Pedro apaga os tokens antigos `mp-backups-supabase` e `-v2`.
 10. Coala, venda geral a 10/11: apagar `early_bird.general_sale_date` com «Corro?» (#359). A tarefa agendada estava na conta pessoal: recriar do lado MP.
 11. #603: decidir onde corre o piloto, na conta Lovable actual ou numa conta nova, e registar a escolha e o motivo na #603. Decisão do Pedro com o 0 (MP).
 
 ## Registo (mais recente primeiro)
+- 05/11 19:43 · 0 pessoal · #405 · Publish do Portal Newgang (`80419da`, deployment f0fead77); /bilhetes com sessão de membro elegível mostra o código e a Fever 821990 · ok; caso não elegível por verificar no ecrã.
+- 05/11 19:40 · 0 pessoal · #405 · verificação em Live da `presale_code` (401 `no_session` sem sessão; 400 com campo extra) e `request_access` de teste (enviado, fila `auth_emails`) · ok.
+- 05/11 19:36 · 0 pessoal · #405 · deploy só da `newgang-portal` a partir de `1bf9b46` (B1 sem diff face a `4a7da40`), SHA-256 `581b2b85…08d9` · ok.
 - 05/11 ~14:00 · Pedro · #405 · o envio de reforço NG27 de 06/11 fica com o 0 pessoal · comentário 6659824675.
 - 05/11 ~13:50 · 0 pessoal · — · o «0 - Cowork (MP)» passa a tarefa Cowork no projeto «espelho MP», com tarefas agendadas, GitHub e Lovable confirmados · ok.
 - 05/11 12:31 · 0 MP · #473 · comentário «0 · Cowork (MP) assume o comando» (6658031538) · ok.
