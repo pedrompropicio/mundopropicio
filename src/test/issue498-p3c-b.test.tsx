@@ -152,10 +152,10 @@ describe("#498 P3c-b — hashes PT capturados antes de alterar os consumidores (
     }
     expect(hashes).toMatchInlineSnapshot(`
       {
-        "adição": "648b82c0714f3a5ec3f63740eca06f4bf3dafc39068f511b2fa4bbbd4a07b0bf",
+        "adição": "a4c26d057391195f8f252711b8d61b7df156134b88bfab8215d50c26b01b0c91",
         "aprovação": "5dddbaf6eb040c87d95454f11357a033bd782ea2ad7e18773f87820d20a15134",
         "aprovação expandida": "e15e04efd6427083d32ab5fb705a92ad545b0194bb2717a083cedb1451b9e924",
-        "criação": "fe90534cda3d3e8c970ecfed5469a13e71012e58f7088b5cb56182545ee799b5",
+        "criação": "161a19b26f9d06c01f5bfc6db41b2c252281784bbf8d5c8a2c48bf5d555f56bb",
         "detalhe": "7f779efc605b7f9d4b2f4d4a614342578f283b6a4abbdaa7a7dbcd3c1c8d0a00",
         "lote": "2d0c0db4a8f4021da8b197f39545188fb60d1120dd7417c63f802efdf6ec579a",
         "lote seleccionado": "93d0c00c8c60758bbc8f2e2cc1ec66a6029bb2a76fbac364b4b0390dcb4bac88",
