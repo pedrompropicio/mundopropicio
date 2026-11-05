@@ -12,9 +12,9 @@
 
 ## Pendentes abertos (o 0 de comando mantém esta lista)
 1. #647: confirmar a 1.ª corrida dos crons 15703 e 15704 (06/11, 04:17 e 04:53 UTC) em `cron.job_run_details`.
-2. #646 D2: conferência entregue (D2-c, PR #704, por fundir). **Gate:** o Publish do ERP só sai depois de o 0 correr `docs/testes/issue646/conferencia-d2.sql` em Live (só SELECT) e fechar a conferência. Seguem D2-d, D2-f e D2-e (Autorizações à espera de confirmação do Pedro no chat do 0).
+2. #646 D2: D2-c em `main` (`a54f3fe`). **Gate:** o Publish do ERP só sai depois de o 0 correr `docs/testes/issue646/conferencia-d2.sql` em Live (só SELECT) e fechar a conferência. Autorizados D2-d (6663210910), D2-f (6663212161) e D2-e (6663213468, depois do #564 em `main`).
 3. #664: código completo em `main`. Falta a janela: 0340 → deploys (`sync-coala-from-drive`, `test-multi-tenant-isolation`) → Publish → país nas configurações Coala → PARTE 2 da 0335 com provas → DML dos dados pela lista do chat 10.
-4. #669: 669-c entregue (PR #705, CI verde, revisto pelo 0) — por fundir.
+4. #669: 669-c em `main` (`18db40a`); entra no Publish, com prova no ecrã.
 5. #695: 695-a parado por conflito no critério 3; respondido por delegação (6662955867), a voltar a despachar.
 6. #677: preparação da importação da Social Music de 2026 (1B/2A). Só depois da #664.
 7. #405: envio do reforço NG27 a 06/11 — executor 0 pessoal (decisão do Pedro, 13:57). O 0 MP não actua.
@@ -28,6 +28,10 @@
 15. Janela de Publish de 05/11: plano em `docs/janela/2026-11-05-publish.md` (PR #702), por corrigir — tem 9 passos já feitos de manhã (revisão 6662181445). Publish geral ao fim do dia (decisão do Pedro, 14:45).
 
 ## Registo (mais recente primeiro)
+- 05/11 16:25 · 0 MP · #646 · Autorizações D2-d (R2, 6663210910), D2-f (R2, 6663212161) e D2-e (R1, 6663213468), com as decisões do Pedro confirmadas no chat do 0 · emitidas.
+- 05/11 16:24 · 0 MP · #669 · merge do PR #705 (669-c; squash `18db40a`; quality verde), com «Sim» do Pedro · ok.
+- 05/11 16:24 · 0 MP · #646 · merge do PR #704 (D2-c; squash `a54f3fe`; quality verde), com «Sim» do Pedro · ok.
+- 05/11 16:23 · Pedro · #646 · confirma no chat do 0 as decisões «1B 2A», «1A 2A 3A» e «1A 1A 2A» registadas pelo operador · decisão.
 - 05/11 16:15 · 0 MP · #695 · resposta por delegação: o OCR mantém a regra de hoje; ajusta-se o critério 3 do despacho · registada (6662955867).
 - 05/11 15:44 · 0 MP · — · revisão do plano da janela (PR #702): 9 passos já feitos de manhã; pedida a correcção · comentário 6662181445.
 - 05/11 15:27 · Pedro (via operador) · #646 · perguntas do Fecho D2-c: «1A 1A 2A» (D2-e selos com composição; famílias mistas mantêm o desconto; D2-f `partially_paid` no `committed`) · registadas (6661900951).
