@@ -125,6 +125,7 @@ beforeEach(() => {
     "transactions:dre": [tx], "transactions:dre-brasil": [tx], "transactions:pl": [tx],
     transactions: [{ ...tx, type: "expense", exclude_from_result: true }],
     "transactions-approved": [tx],
+    "dre-emp-non-accounting-accounts": [],
     "account-categories": [
       { id: "income", code: "1.1.01", name: "Receita sintética", type: "income" },
       { id: "expense", code: "2.1.01", name: "Despesa sintética", type: "expense" },
@@ -171,8 +172,8 @@ describe("#498 P1c — hashes PT capturados antes de alterar os seis componentes
         "CashFlow:initial": "36dfdc324d34e73a195658ba753e42d43f2765947088c9433373b6f6d9f449b8",
         "DRE:detail": "d905a0dbb9491929bb591bdad73b81bb5d8069d9267d11bac32185ec59099dfb",
         "DRE:initial": "93db0e4e27d2fab958db48c936af2afbb2ab9345577afebb6e0ce9214a7364c8",
-        "Empresarial:detail": "553c64be88fb834afad1202fb78e15a1dff5056ae63668045334e493abc2716b",
-        "Empresarial:initial": "553c64be88fb834afad1202fb78e15a1dff5056ae63668045334e493abc2716b",
+        "Empresarial:detail": "791f161dfda211e46651fb3e736ce602dd58ee7193bb0685a3bb7c07c0703ff9",
+        "Empresarial:initial": "791f161dfda211e46651fb3e736ce602dd58ee7193bb0685a3bb7c07c0703ff9",
         "PL:detail": "e8f7af7d9d9a38d70a566b4f8077e3ac99ebd799de5e09c4bb0efb8299e57a35",
         "PL:initial": "755cb513082c129d218abe1c2231821bd6ade464c9d4d19365fd7f57f65a8aba",
       }
