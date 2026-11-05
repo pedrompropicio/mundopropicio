@@ -12,6 +12,7 @@
 //   Interno: service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2.39.0";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
 import { assertCallerRoleOnRow, assertCallerRoleInCompany, isServiceRoleRequest, errorResponse, CRM_ADS_ROLES } from "../_shared/multiTenant.ts";
 
@@ -288,7 +289,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 // Desmarca a principal anterior do mesmo evento. Se exceptId vier preenchido,
 // desmarca todas EXCETO essa (usado no caminho idempotente).
 async function unsetPrimaryForEvent(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   eventId: string,
   exceptId: string | null,
 ): Promise<{ error: { message: string } | null }> {

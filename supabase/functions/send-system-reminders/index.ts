@@ -1,3 +1,4 @@
+import { isTrainingCompany } from "../_shared/training-guard.ts";
 // Sends WhatsApp reminders for due system_reminders rows.
 // Triggered daily by pg_cron at 09:00 Lisbon (08:00 UTC summer / 09:00 UTC winter).
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -41,6 +42,10 @@ Deno.serve(async (req) => {
     if (error) throw error;
 
     for (const r of reminders ?? []) {
+      if (await isTrainingCompany(supabase, r.company_id)) {
+        log.push({ key: r.key, skipped: "suppressed_training" });
+        continue;
+      }
       // Frequency gate: only send daily if not already sent today
       if (r.frequency === "daily" && r.last_sent_at) {
         const lastDay = new Intl.DateTimeFormat("en-CA", {

@@ -1,0 +1,25 @@
+-- #591 / 0326 — rollback preparado, NÃO EXECUTAR nesta tarefa.
+-- Só comentários; descomentar apenas pelo 0 com autorização própria.
+-- Repõe o corpo e comentário da 0313 e as quatro políticas originais do catálogo.
+-- email_send_log é reposta identicamente, embora a 0326 não a altere.
+-- CREATE POLICY abaixo conserva byte a byte a definição capturada (acrescenta só ;).
+-- >>> ROLLBACK
+-- CREATE OR REPLACE FUNCTION public.row_belongs_to_current_company(_row_company_id uuid)
+--  RETURNS boolean
+--  LANGUAGE sql
+--  STABLE SECURITY DEFINER
+--  SET search_path TO 'public'
+-- AS $function$
+--   SELECT _row_company_id IS NULL OR _row_company_id = public.current_company_id()
+-- $function$;
+-- COMMENT ON FUNCTION public.row_belongs_to_current_company(uuid) IS
+--   '#591: âmbito estrito; ramo NULL mantido até decisão do Pedro';
+-- DROP POLICY "sync_runs_select_authenticated" ON public.sync_runs;
+-- CREATE POLICY sync_runs_select_authenticated ON public.sync_runs AS PERMISSIVE FOR SELECT TO authenticated USING (row_belongs_to_current_company(company_id));
+-- DROP POLICY "company_isolation_email_send_log" ON public.email_send_log;
+-- CREATE POLICY company_isolation_email_send_log ON public.email_send_log AS RESTRICTIVE FOR ALL TO authenticated USING (row_belongs_to_current_company(company_id)) WITH CHECK (row_belongs_to_current_company(company_id));
+-- DROP POLICY "company_isolation_system_audit_log" ON public.system_audit_log;
+-- CREATE POLICY company_isolation_system_audit_log ON public.system_audit_log AS RESTRICTIVE FOR ALL TO authenticated USING (row_belongs_to_current_company(company_id)) WITH CHECK (row_belongs_to_current_company(company_id));
+-- DROP POLICY "system_reminders_company_isolation" ON public.system_reminders;
+-- CREATE POLICY system_reminders_company_isolation ON public.system_reminders AS RESTRICTIVE FOR ALL TO authenticated USING (((company_id IS NULL) OR row_belongs_to_current_company(company_id))) WITH CHECK (((company_id IS NULL) OR row_belongs_to_current_company(company_id)));
+-- <<< ROLLBACK

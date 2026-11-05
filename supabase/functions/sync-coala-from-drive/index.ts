@@ -309,6 +309,7 @@ Deno.serve(async (req) => {
           fileName: `drive-auto-${cfg.drive_file_id}.xlsx`,
           fileVersion: `drive-auto-${new Date().toISOString().slice(0, 10)}`,
           eventId: cfg.event_id,
+          newSupplierCountry: cfg.new_supplier_country ?? null,
           phase: "auto_apply",
           basedOnRunId,
           configId: cfg.id,
@@ -316,6 +317,20 @@ Deno.serve(async (req) => {
         }),
       });
       const aaJson = await aaResp.json().catch(() => ({}));
+      if (aaResp.status === 400 && aaJson?.error === "supplier_country_required") {
+        const blockedDiff = { reason: "supplier_country_required", missingSuppliers: aaJson.missingSuppliers ?? [] };
+        await admin.from("coala_sync_runs").update({
+          status: "blocked",
+          error_message: "supplier_country_required",
+          diff: blockedDiff,
+          finished_at: new Date().toISOString(),
+        }).eq("id", basedOnRunId);
+        await admin.from("coala_sync_config").update({
+          last_run_at: new Date().toISOString(),
+          last_run_status: "blocked_supplier_country",
+        }).eq("id", cfg.id);
+        return json({ ok: true, status: "blocked", basedOnRunId, ...blockedDiff });
+      }
       if (!aaResp.ok || !aaJson?.ok) {
         return json({ error: "auto_apply falhou", detail: aaJson }, 500);
       }
@@ -678,12 +693,28 @@ Deno.serve(async (req) => {
               fileName: `drive-sync-${cfg.drive_file_id}.xlsx`,
               fileVersion: `drive-${new Date().toISOString().slice(0, 10)}`,
               eventId: cfg.event_id,
+              newSupplierCountry: cfg.new_supplier_country ?? null,
               phase: "reset_reimport",
               syncMode: "replace",
               ackTotals: true,
             }),
           });
           const applyJson = await applyResp.json().catch(() => ({}));
+          if (applyResp.status === 400 && applyJson?.error === "supplier_country_required") {
+            const blockedDiff = { reason: "supplier_country_required", missingSuppliers: applyJson.missingSuppliers ?? [] };
+            await admin.from("coala_sync_runs").update({
+              status: "blocked",
+              error_message: "supplier_country_required",
+              diff: blockedDiff,
+              finished_at: new Date().toISOString(),
+            }).eq("id", runId);
+            await admin.from("coala_sync_config").update({
+              last_run_at: new Date().toISOString(),
+              last_run_status: "blocked_supplier_country",
+            }).eq("id", cfg.id);
+            runs.push({ runId, configId: cfg.id, status: "blocked", ...blockedDiff });
+            continue;
+          }
           if (!applyResp.ok) {
             throw new Error(`apply-coala-bp falhou (${applyResp.status}): ${JSON.stringify(applyJson)}`);
           }
@@ -794,6 +825,7 @@ Deno.serve(async (req) => {
                   fileName: `drive-auto-${cfg.drive_file_id}.xlsx`,
                   fileVersion: `drive-auto-${new Date().toISOString().slice(0, 10)}`,
                   eventId: cfg.event_id,
+                  newSupplierCountry: cfg.new_supplier_country ?? null,
                   phase: "auto_apply",
                   basedOnRunId: runId,
                   configId: cfg.id,
@@ -801,6 +833,21 @@ Deno.serve(async (req) => {
                 }),
               });
               const aaJson = await aaResp.json().catch(() => ({}));
+              if (aaResp.status === 400 && aaJson?.error === "supplier_country_required") {
+                const blockedDiff = { reason: "supplier_country_required", missingSuppliers: aaJson.missingSuppliers ?? [] };
+                await admin.from("coala_sync_runs").update({
+                  status: "blocked",
+                  error_message: "supplier_country_required",
+                  diff: blockedDiff,
+                  finished_at: new Date().toISOString(),
+                }).eq("id", runId);
+                await admin.from("coala_sync_config").update({
+                  last_run_at: new Date().toISOString(),
+                  last_run_status: "blocked_supplier_country",
+                }).eq("id", cfg.id);
+                runs.push({ runId, configId: cfg.id, status: "blocked", ...blockedDiff });
+                continue;
+              }
               if (aaResp.ok && aaJson?.ok) {
                 escalation = { status: "auto_applied", audit: aaJson.audit };
                 await admin.from("coala_sync_runs").update({

@@ -142,6 +142,7 @@ beforeEach(() => {
   setCompany();
   fixtures.pdf = []; fixtures.xlsx = []; fixtures.consolidate = false;
   fixtures.queries = {
+    "business-lines": [],
     events: [event], "all-forecasts": [forecast], "all-transactions-payables": [expense], "account-categories": [category],
     "financial-accounts": [account], "bank-statement-tx": [income, expense, { ...expense, id: "expense-zero", amount: 0, paid_amount: 0 }],
     "bank-statement-adj": { before: 0, inPeriod: -0.01 },
@@ -194,9 +195,9 @@ describe("#498 P1h — PT capturado ANTES da alteração dos seis relatórios; n
         "Forecast:initial": "38e0b7edbef0f5d72f0c52ef479a853e074f479a8b097e73c7b5a69acc6535e4",
         "Monthly:detail": "186ed06ff5597dd1d439d6361d398434b5a9816f055eab9fdb078a47c43e8569",
         "Monthly:initial": "186ed06ff5597dd1d439d6361d398434b5a9816f055eab9fdb078a47c43e8569",
-        "Profitability:detail": "faa79d51a5346d1267ee374f908b6a7797ad44c0d68bf169e584f8561571ef3f",
-        "Profitability:initial": "faa79d51a5346d1267ee374f908b6a7797ad44c0d68bf169e584f8561571ef3f",
-        "Profitability:venue": "e67d6c66e4ede5f52c07156b57106d8e48a32b9e4b072b3abeeee83a6417056c",
+        "Profitability:detail": "4ca9ec1a865083c968373efaaf8615f1f7b9d0d6443c4282ecfcbe5ccd875864",
+        "Profitability:initial": "4ca9ec1a865083c968373efaaf8615f1f7b9d0d6443c4282ecfcbe5ccd875864",
+        "Profitability:venue": "b7a965246c36ec8b5fec7623081037a5a6c95ddda0e73591e9037af427a854bc",
         "Treasury:detail": "e520d15fb7e277bed7ac5ba7d331d24029a7dee76aa74580fbf9ef0b57594d86",
         "Treasury:initial": "e520d15fb7e277bed7ac5ba7d331d24029a7dee76aa74580fbf9ef0b57594d86",
       }

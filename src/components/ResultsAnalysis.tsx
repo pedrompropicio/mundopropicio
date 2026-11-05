@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { fetchWithBpEventIds } from "@/lib/bp-line-required";
 
 const PESSIMISTIC_FACTOR = 0.8;
 
@@ -59,12 +60,13 @@ interface ActiveProjection {
   resultMode: ResultMode;
   // True quando a última data efetiva do evento já passou (mostrar só Real Atual)
   isPast: boolean;
+  projectionAvailable: boolean;
   // Partners
   totalPartnerPct: number;
   companyMargin100: number;
   companyMargin80: number;
   companyRealMargin: number;
-  incomeSource: "lot_projection" | "ticket_sales";
+  incomeSource: "lot_projection" | "ticket_sales" | "transactions";
   expenseSource: "forecasts" | "transactions";
 }
 
@@ -110,6 +112,13 @@ export function ResultsAnalysis({ showActiveProjections = true }: { showActivePr
       if (error) throw error;
       return data;
     },
+  });
+
+  const eventIds = events.map((event) => event.id).sort();
+  const { data: withBpEventIds } = useQuery({
+    queryKey: ["ra_budget_modes", eventIds.join(",")],
+    queryFn: () => fetchWithBpEventIds(eventIds),
+    enabled: eventIds.length > 0,
   });
 
   // Perímetro da raiz (D25 g3): linhas marcadas com um fechamento filho são
@@ -402,11 +411,13 @@ export function ResultsAnalysis({ showActiveProjections = true }: { showActivePr
     // Para Master prorrateado de um sub-evento, considera-se a data do próprio sub-evento.
     const todayStr = new Date().toISOString().slice(0, 10);
     const autoModeFor = (eventId: string): ResultMode => {
+      if (withBpEventIds && !withBpEventIds.has(eventId)) return "realized";
       const lastDate = lastDateByEvent[eventId];
       if (!lastDate) return "projection";
       return lastDate.localeCompare(todayStr) < 0 ? "realized" : "projection";
     };
     const resolveMode = (eventId: string): ResultMode => {
+      if (withBpEventIds && !withBpEventIds.has(eventId)) return "realized";
       if (resultModeOverride !== "auto") return resultModeOverride;
       return autoModeFor(eventId);
     };
@@ -524,12 +535,13 @@ export function ResultsAnalysis({ showActiveProjections = true }: { showActivePr
           realMarginPct: realIncome > 0 ? (realMargin / realIncome) * 100 : 0,
           resultMode: eventMode,
           isPast: (lastDateByEvent[e.id] ?? e.date).localeCompare(todayStr) < 0,
+          projectionAvailable: !withBpEventIds || withBpEventIds.has(e.id),
           totalPartnerPct,
           companyMargin100: margin100 * (companyPct / 100),
           companyMargin80: margin80 * (companyPct / 100),
           companyRealMargin: realMargin * (companyPct / 100),
-          incomeSource: hasSales ? "ticket_sales" : "lot_projection",
-          expenseSource: "forecasts",
+          incomeSource: hasSales ? "ticket_sales" : withBpEventIds && !withBpEventIds.has(e.id) ? "transactions" : "lot_projection",
+          expenseSource: withBpEventIds && !withBpEventIds.has(e.id) ? "transactions" : "forecasts",
         });
       }
     });
@@ -568,7 +580,7 @@ export function ResultsAnalysis({ showActiveProjections = true }: { showActivePr
     };
 
     return { completed, active, yearTotals };
-  }, [events, transactions, forecasts, ticketSales, partners, ticketLots, closingCosts, eventDates, currentYear, includeOverhead, resultModeOverride, revenueSplit]);
+  }, [events, transactions, forecasts, ticketSales, partners, ticketLots, closingCosts, eventDates, currentYear, includeOverhead, resultModeOverride, revenueSplit, withBpEventIds]);
 
   const generatePdf = () => {
     const doc = new jsPDF({ orientation: "landscape" });
@@ -640,11 +652,11 @@ export function ResultsAnalysis({ showActiveProjections = true }: { showActivePr
         body: active.map((e) => [
           e.name,
           formatDate(e.date),
-          e.isPast ? "—" : formatCurrency(e.bpIncome100),
-          e.isPast ? "—" : formatCurrency(e.margin100),
-          e.isPast ? "—" : `${e.breakEvenPct.toFixed(1)}%`,
-          e.isPast ? "—" : formatCurrency(e.bpIncome80),
-          e.isPast ? "—" : formatCurrency(e.margin80),
+          e.isPast || !e.projectionAvailable ? "—" : formatCurrency(e.bpIncome100),
+          e.isPast || !e.projectionAvailable ? "—" : formatCurrency(e.margin100),
+          e.isPast || !e.projectionAvailable ? "—" : `${e.breakEvenPct.toFixed(1)}%`,
+          e.isPast || !e.projectionAvailable ? "—" : formatCurrency(e.bpIncome80),
+          e.isPast || !e.projectionAvailable ? "—" : formatCurrency(e.margin80),
           formatCurrency(e.realIncome),
           formatCurrency(e.realExpense),
           formatCurrency(e.realMargin),
@@ -676,7 +688,7 @@ export function ResultsAnalysis({ showActiveProjections = true }: { showActivePr
             title="Como calcular a coluna 'Real Atual': automático por data, projeção (com teto BP) ou só realizado"
           >
             <option value="auto">Auto (por data)</option>
-            <option value="projection">Projeção (BP+Real)</option>
+            {(!withBpEventIds || withBpEventIds.size > 0) && <option value="projection">Projeção (BP+Real)</option>}
             <option value="realized">Realizado (só TX)</option>
           </select>
           <span className="text-xs text-muted-foreground ml-2">Overhead</span>
@@ -851,7 +863,7 @@ export function ResultsAnalysis({ showActiveProjections = true }: { showActivePr
                       </td>
 
                       {/* Planeado 100% */}
-                      {e.isPast ? (
+                      {e.isPast || !e.projectionAvailable ? (
                         <>
                           <td className="p-3 text-right font-mono text-muted-foreground/40">—</td>
                           <td className="p-3 text-right font-mono text-muted-foreground/40">—</td>
@@ -889,7 +901,7 @@ export function ResultsAnalysis({ showActiveProjections = true }: { showActivePr
                       )}
 
                       {/* Planeado 80% */}
-                      {e.isPast ? (
+                      {e.isPast || !e.projectionAvailable ? (
                         <>
                           <td className="p-3 text-right font-mono text-muted-foreground/40 border-l-2 border-l-border">—</td>
                           <td className="p-3 text-right font-mono text-muted-foreground/40">—</td>

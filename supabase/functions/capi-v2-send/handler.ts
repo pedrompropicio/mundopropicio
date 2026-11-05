@@ -1,3 +1,4 @@
+import { isTrainingCompany } from "../_shared/training-guard.ts";
 // capi-v2-send (#322 opção A) — lógica testável sem rede.
 // Envio CAPI por prova de consentimento: Lead, CompleteRegistration, ClubeConfirmado.
 // NUNCA loga PII; email/telefone só como SHA-256; token Meta nunca no código nem em logs.
@@ -222,12 +223,13 @@ async function proofStillValid(sb: SbLike, lead: LeadSource): Promise<boolean> {
 
 async function buildPayloadForRow(sb: SbLike, row: CapiV2Row): Promise<
   | { ok: true; event: Record<string, unknown>; event_time: number }
-  | { ok: false; reason: "expired" | "skipped_no_consent" | "source_missing" }
+  | { ok: false; reason: "expired" | "skipped_no_consent" | "source_missing" | "training_company" }
 > {
   if (row.source_table === "lead_capture") {
     const { data, error } = await sb.from("lead_capture").select("*").eq("id", row.source_id).maybeSingle();
     if (error || !data) return { ok: false, reason: "source_missing" };
     const lead = data as LeadSource;
+    if (await isTrainingCompany(sb, lead.company_id)) return { ok: false, reason: "training_company" };
     if (isOlderThanMaxAge(lead.created_at, new Date())) return { ok: false, reason: "expired" };
     if (!(await proofStillValid(sb, lead))) return { ok: false, reason: "skipped_no_consent" };
     const portal = lead.consent_portal;
@@ -267,6 +269,7 @@ async function buildPayloadForRow(sb: SbLike, row: CapiV2Row): Promise<
     const { data, error } = await sb.from("club_members").select("*").eq("id", row.source_id).maybeSingle();
     if (error || !data || !data.confirmed_at) return { ok: false, reason: "source_missing" };
     const m = data as MemberSource;
+    if (await isTrainingCompany(sb, data.company_id)) return { ok: false, reason: "training_company" };
     if (isOlderThanMaxAge(m.confirmed_at!, new Date())) return { ok: false, reason: "expired" };
     // Elegível só se o membro confirmado tem lead_capture com prova válida (email normalizado).
     const { data: leads } = await sb.from("lead_capture").select("*")
@@ -276,6 +279,7 @@ async function buildPayloadForRow(sb: SbLike, row: CapiV2Row): Promise<
     for (const l of (leads ?? []) as LeadSource[]) {
       if (normEmail(l.email ?? "") === normEmail(m.email ?? "") && (await proofStillValid(sb, l))) { validLead = l; break; }
     }
+    if (validLead && await isTrainingCompany(sb, validLead.company_id)) return { ok: false, reason: "training_company" };
     if (!validLead) return { ok: false, reason: "skipped_no_consent" };
     let emHash: string | null = null;
     let phHash: string | null = null;

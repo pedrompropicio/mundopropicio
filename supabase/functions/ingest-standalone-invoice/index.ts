@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
       const reserved=await rpc('prepare',body.attempt_id,envelope,null);
       const out=await executeAttempt({rpc,
         read:async p=>{const {data,error}=await admin.storage.from(BUCKET).download(p);return error||!data||data.size>MAX_BYTES?null:new Uint8Array(await data.arrayBuffer())},
-        upload:async(p,b,m)=>{const {error}=await admin.storage.from(BUCKET).upload(p,b,{contentType:m,upsert:false});if(error && !['409','Duplicate'].includes(String(error.statusCode??error.error)))throw Error('Upload recusado')},
+        upload:async(p,b,m)=>{const {error}=await admin.storage.from(BUCKET).upload(p,b,{contentType:m,upsert:false});if(error && !['409','Duplicate'].includes(String(error.statusCode??(error as any).error)))throw Error('Upload recusado')},
         verifyReceipt:async(p,b,m)=>{const {data,error}=await admin.storage.from(BUCKET).download(p);if(error||!data||data.size!==b.length||await documentHash(new Uint8Array(await data.arrayBuffer()))!==await documentHash(b))throw Error('Readback pendente');const r=await admin.rpc('data_entry_record_receipt',{p_bucket:BUCKET,p_path:p,p_sha:await documentHash(b),p_size:b.length,p_mime:m});if(r.error)throw Error('Recibo recusado')},
       },reserved,bytes);
       return json({attempt_id:reserved.id,status:out.status,result:out.attempt.result,reused:out.status==='conferido' && reserved.state==='completed',verified:out.status==='conferido'},out.status==='conferido'?200:409);

@@ -1,0 +1,47 @@
+-- Classe R2 — ROLLBACK PREPARADO, NÃO APLICADO. Issue #647, Autorização 6642205078.
+-- Integralmente comentado; execução apenas pelo operador numa janela autorizada.
+-- Antes de restaurar, suspender os crons novos e repor a chamada compatível com a 0331.
+-- Restaura definição, ACL e COMMENT da 0331 byte a byte; não recupera identificadores apagados.
+-- DROP FUNCTION public.anonymize_song_link_events(integer, integer, integer);
+-- CREATE OR REPLACE FUNCTION public.anonymize_song_link_events(p_days integer DEFAULT 30, p_batch integer DEFAULT 20000)
+-- RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public SET timezone='UTC'
+-- AS $anon$
+-- DECLARE v_cutoff timestamptz; v_count bigint; v_mark text := current_setting('song_link.retencao',true);
+-- BEGIN
+--  IF session_user <> 'postgres' AND coalesce(auth.role(),'') <> 'service_role' THEN RAISE EXCEPTION 'service only' USING ERRCODE='42501'; END IF;
+--  IF p_days IS NULL OR p_days<30 THEN RAISE EXCEPTION 'p_days must be >= 30'; END IF;
+--  IF p_batch IS NULL OR p_batch<1 THEN RAISE EXCEPTION 'p_batch must be positive'; END IF;
+--  v_cutoff:=now()-make_interval(days => p_days);
+--  LOCK TABLE public.song_link_events IN SHARE ROW EXCLUSIVE MODE;
+--  IF EXISTS (
+--   SELECT 1 FROM public.song_link_events e JOIN public.song_links sl ON sl.id=e.link_id
+--   WHERE e.created_at<v_cutoff AND (e.ip_hash IS NOT NULL OR e.fbclid IS NOT NULL OR e.ttclid IS NOT NULL OR e.capi_fbp IS NOT NULL OR e.capi_fbc IS NOT NULL OR e.capi_external_id IS NOT NULL OR e.event_id IS NOT NULL OR e.arrival_event_id IS NOT NULL)
+--     AND e.company_id IS NOT NULL AND e.artist_id IS NOT NULL
+--     AND NOT EXISTS (SELECT 1 FROM public.song_link_ident_daily_stats a
+--       WHERE a.company_id=e.company_id AND a.artist_id=e.artist_id
+--         AND a.dia=(e.created_at AT TIME ZONE 'Europe/Lisbon')::date AND a.link_id=e.link_id
+--         AND a.utm_campaign=coalesce(e.utm_campaign,'') AND a.utm_content=coalesce(e.utm_content,'')
+--         AND a.canal=public.song_link_event_canal(sl.canal,e.utm_source,e.utm_medium,e.utm_campaign))
+--  ) OR EXISTS (
+--   SELECT 1 FROM public.song_link_events e
+--   WHERE e.created_at<v_cutoff AND (e.ip_hash IS NOT NULL OR e.fbclid IS NOT NULL OR e.ttclid IS NOT NULL OR e.capi_fbp IS NOT NULL OR e.capi_fbc IS NOT NULL OR e.capi_external_id IS NOT NULL OR e.event_id IS NOT NULL OR e.arrival_event_id IS NOT NULL)
+--     AND e.company_id IS NOT NULL AND e.artist_id IS NOT NULL AND e.song_id IS NOT NULL
+--     AND (e.utm_medium='paid' OR e.fbclid IS NOT NULL OR e.ttclid IS NOT NULL)
+--     AND (e.utm_content IS NULL OR e.utm_content NOT LIKE 'teste_%') AND e.event IN ('app_open','choice')
+--     AND NOT EXISTS (SELECT 1 FROM public.song_link_ident_daily_origins a
+--       WHERE a.company_id=e.company_id AND a.artist_id=e.artist_id AND a.song_id=e.song_id
+--         AND a.metric_day=(e.created_at AT TIME ZONE 'America/Sao_Paulo')::date)
+--  ) THEN RAISE EXCEPTION 'retencao: missing daily aggregate coverage, including latest eligible day; run backfill/refresh before anonymizing'; END IF;
+--  PERFORM set_config('song_link.retencao','on',true);
+--  UPDATE public.song_link_events SET ip_hash=NULL,fbclid=NULL,ttclid=NULL,capi_fbp=NULL,capi_fbc=NULL,
+--    capi_external_id=NULL,event_id=NULL,arrival_event_id=NULL,created_at=date_trunc('hour',created_at)
+--  WHERE ctid IN (SELECT e.ctid FROM public.song_link_events e WHERE e.created_at<v_cutoff AND (e.ip_hash IS NOT NULL OR e.fbclid IS NOT NULL OR e.ttclid IS NOT NULL OR e.capi_fbp IS NOT NULL OR e.capi_fbc IS NOT NULL OR e.capi_external_id IS NOT NULL OR e.event_id IS NOT NULL OR e.arrival_event_id IS NOT NULL)
+--    ORDER BY e.created_at,e.id LIMIT p_batch);
+--  GET DIAGNOSTICS v_count=ROW_COUNT;
+--  PERFORM set_config('song_link.retencao',coalesce(v_mark,''),true);
+--  RETURN v_count;
+-- END $anon$;
+-- REVOKE ALL ON FUNCTION public.anonymize_song_link_events(integer,integer) FROM PUBLIC, anon, authenticated;
+-- GRANT EXECUTE ON FUNCTION public.anonymize_song_link_events(integer,integer) TO service_role;
+-- COMMENT ON FUNCTION public.anonymize_song_link_events(integer,integer) IS 'Só serviço; mínimo 30 dias; lote limitado; exige cobertura diária; NULL dos oito IDs e arredonda hora UTC; preserva agregados.';
+-- DROP FUNCTION public.song_link_is_protected_zone(text);

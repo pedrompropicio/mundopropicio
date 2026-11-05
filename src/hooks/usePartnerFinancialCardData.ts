@@ -4,6 +4,7 @@ import {
   type FormalidadeBreakdown,
   emptyBreakdown, addToBreakdown, detectPhase, defaultModeForPhase, classifyIncomeL1,
 } from "@/lib/event-financial-card";
+import type { BudgetMode } from "@/lib/budget-mode";
 
 /**
  * Hook DERIVADO próprio do portal sócio (NÃO mexe no hook do staff).
@@ -51,6 +52,7 @@ export interface PartnerForecastRow {
 export interface UsePartnerFinancialCardDataArgs {
   kind: "income" | "expense";
   mode: CardMode;
+  budgetMode?: BudgetMode;
 
   /** Estado + data primária para resolver fase (Auto). */
   eventStatus?: string | null;
@@ -102,7 +104,7 @@ export function usePartnerFinancialCardData(
   args: UsePartnerFinancialCardDataArgs,
 ): UsePartnerFinancialCardDataResult {
   const {
-    kind, mode, eventStatus, primaryEventDate,
+    kind, mode, eventStatus, primaryEventDate, budgetMode = "with_bp",
     transactions, forecasts,
     ticketRevenueNet = 0, ticketCargasNet = 0,
     masterExpenseShareGross = 0, masterForecastShareGross = 0, cacheImpactGross = 0,
@@ -122,7 +124,9 @@ export function usePartnerFinancialCardData(
       hasTransactions: hasTx,
       hasSales,
     });
-    const modeUsed: ModeUsed = mode === "auto" ? defaultModeForPhase(phase) : mode;
+    const modeUsed: ModeUsed = budgetMode === "without_bp"
+      ? "realized"
+      : mode === "auto" ? defaultModeForPhase(phase, budgetMode) : mode;
 
     // ════════════════════════════════════════════════════
     //  REALIZADO
@@ -310,7 +314,7 @@ export function usePartnerFinancialCardData(
       };
     }
   }, [
-    kind, mode, eventStatus, primaryEventDate,
+    kind, mode, budgetMode, eventStatus, primaryEventDate,
     transactions, forecasts,
     ticketRevenueNet, ticketCargasNet,
     masterExpenseShareGross, masterForecastShareGross, cacheImpactGross,

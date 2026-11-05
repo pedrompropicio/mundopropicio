@@ -1,25 +1,11 @@
 import { Navigate, Outlet } from "react-router-dom";
-import { Sun, Moon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTheme } from "@/contexts/ThemeContext";
+import { ThemeToggle } from "./ThemeToggle";
 import { BrandedLogo } from "@/components/BrandedLogo";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
 import { AudienceSidebar } from "@/components/AudienceSidebar";
 import { ModuleSwitcherButton } from "@/components/ModuleSwitcherButton";
 import { AdAccountSwitcher } from "@/components/AdAccountSwitcher";
-
-function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
-  return (
-    <button
-      onClick={toggleTheme}
-      className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      title={theme === "dark" ? "Modo claro" : "Modo escuro"}
-    >
-      {theme === "dark" ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />}
-    </button>
-  );
-}
 
 export function AudienceLayout() {
   const { user, loading, role, hasPermission } = useAuth();

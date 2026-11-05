@@ -27,6 +27,7 @@ import { normalizePartnerCalcBasis, usesGrossExpenseAmounts } from "@/lib/partne
 import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 import { EVENT_NATURES, type EventNature, eventNatureLabel, filterEventsByNature } from "@/lib/event-nature";
 import { EventNatureFilter } from "@/components/EventNatureFilter";
+import { useBusinessLines } from "@/hooks/useBusinessLines";
 
 type EventType = "simple" | "festival" | "multi_day" | "tour" | "master" | "split";
 
@@ -72,6 +73,7 @@ interface EventForm {
   tickets_total: string;
   status: string;
   event_nature: EventNature | "";
+  business_line_id: string;
   event_type: EventType;
   /** Rótulo cosmético (só festival): festival | residencia */
   format: EventFormat;
@@ -92,6 +94,7 @@ const emptyForm: EventForm = {
   tickets_total: "",
   status: "planning",
   event_nature: "",
+  business_line_id: "",
   event_type: "simple",
   format: "festival",
   pl_mode: "passive",
@@ -132,6 +135,7 @@ export default function Events() {
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user } = useAuth();
   const { data: defaultBudgetMode } = useCompanyDefaultBudgetMode();
+  const { data: businessLines = [], isLoading: businessLinesLoading, isError: businessLinesError } = useBusinessLines(true);
   const userId = user?.id ?? "anon";
 
   // Fetch cities and venues for display on cards
@@ -295,6 +299,7 @@ export default function Events() {
         tickets_total: parseInt(data.tickets_total) || 0,
         status: data.status,
         event_nature: data.event_nature as EventNature,
+        business_line_id: data.business_line_id || null,
         event_type: data.event_type,
         // `format` é SÓ apresentação (Festival/Residência); a mecânica lê event_type
         format: data.event_type === "festival" ? data.format : null,
@@ -508,7 +513,7 @@ export default function Events() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Eventos <HelpTooltip text={helpTexts.events} /></h1>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Eventos <HelpTooltip anchor="eventos.criar" text={helpTexts.events} /></h1>
           <p className="text-sm text-muted-foreground">Gestão e acompanhamento financeiro por evento</p>
         </div>
         <div className="flex items-center gap-2">
@@ -663,6 +668,21 @@ export default function Events() {
                     <option key={nature.value} value={nature.value}>{nature.label}</option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label htmlFor="new-event-business-line" className="mb-1 block text-xs font-medium text-muted-foreground">Linha de negócio</label>
+                <select
+                  id="new-event-business-line"
+                  value={form.business_line_id}
+                  onChange={(e) => setForm({ ...form, business_line_id: e.target.value })}
+                  disabled={businessLinesLoading || businessLinesError}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-70"
+                >
+                  <option value="">Sem linha</option>
+                  {businessLines.map((line) => <option key={line.id} value={line.id}>{line.name}</option>)}
+                </select>
+                {businessLinesError && <p role="alert" className="mt-1 text-xs text-destructive">Não foi possível carregar as linhas de negócio.</p>}
               </div>
 
               {/* BP Mode */}

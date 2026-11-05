@@ -1,0 +1,6 @@
+-- Issue #664 E2b — rollback PREPARADO, NÃO APLICADO.
+-- Requer autorização própria e reversão dos consumidores da coluna antes de executar.
+-- ALTER TABLE public.coala_sync_config
+--   DROP CONSTRAINT coala_sync_config_new_supplier_country_check;
+-- ALTER TABLE public.coala_sync_config
+--   DROP COLUMN new_supplier_country;

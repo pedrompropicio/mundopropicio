@@ -69,12 +69,12 @@ Deno.serve(async (req) => {
 
     // 3. Seed one supplier in each company (using admin client → bypasses RLS, real seed)
     const { data: supA, error: sa } = await admin.from("suppliers").insert({
-      name: `__iso_sup_A_${stamp}`, company_id: co1.id
+      name: `__iso_sup_A_${stamp}`, company_id: co1.id, country: "PT"
     }).select("id").single();
     if (sa) throw new Error(`seed supplierA: ${sa.message}`);
 
     const { data: supB, error: sb } = await admin.from("suppliers").insert({
-      name: `__iso_sup_B_${stamp}`, company_id: co2.id
+      name: `__iso_sup_B_${stamp}`, company_id: co2.id, country: "PT"
     }).select("id").single();
     if (sb) throw new Error(`seed supplierB: ${sb.message}`);
 
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
 
     // Try to insert into B's company explicitly
     const { error: insertLeakErr } = await clientA.from("suppliers").insert({
-      name: `__iso_attack_${stamp}`, company_id: co2.id
+      name: `__iso_attack_${stamp}`, company_id: co2.id, country: "PT"
     });
     results.push({
       name: "userA cannot insert into B's company",

@@ -1,0 +1,7 @@
+-- 0315 — rollback PREPARADO, NÃO APLICADO; só pelo PROC-promocao com Sim.
+-- Executar só se a §1 mostrou o estado anterior (default PT e country sem SELECT).
+-- Não desfaz o backfill manual nem altera dados existentes.
+-- DROP TRIGGER IF EXISTS suppliers_default_country_trigger ON public.suppliers;
+-- DROP FUNCTION IF EXISTS public.suppliers_default_country();
+-- ALTER TABLE public.suppliers ALTER COLUMN country SET DEFAULT 'PT';
+-- REVOKE SELECT (country) ON public.suppliers FROM authenticated;
