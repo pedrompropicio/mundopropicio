@@ -12,21 +12,27 @@
 
 ## Pendentes abertos (o 0 de comando mantém esta lista)
 1. #647: confirmar a 1.ª corrida dos crons 15703 e 15704 (06/11, 04:17 e 04:53 UTC) em `cron.job_run_details`.
-2. #646 D2: o dev confere a linha 1 e o sinal da linha 3 da Tesouraria contra a Posição Financeira (pedido 6658852513). O D2-b já está em `main` (`fd95c2b`); falta o Publish com prova em ecrã.
+2. #646 D2: a Tesouraria não se usa até à conferência (decisão 6658911841: tabela por evento, linhas 1–5, fonte e correcção). **Gate de Publish:** o D2-b está em `main` (`fd95c2b`); o próximo Publish do ERP só depois da conferência fechada.
 3. #664:
    - retirar da PARTE 2 da 0335 o CHECK duplicado do país (pedido ao dev a 05/11, 6658848858);
    - **0340 em Live antes do próximo sync `main` → `lovable-fallback` e do próximo Publish** (o código do 664-b já está em `main`, `572c352`);
    - a PARTE 2 só avança depois do 664-b em produção e do Publish com todos os escritores.
-4. #669: lote R1 para o filtro de natureza na DRE Empresarial (decisão 1A).
-5. #695: «Data de competência» e vencimento separado nas recorrentes.
+4. #669: lote 669-c (filtro de natureza na DRE Empresarial, decisão 1A) autorizado (6658944182); à espera de Reserva/Despacho do dev.
+5. #695: «Data de competência» e vencimento separado nas recorrentes, autorizado (6658950120); à espera de Reserva/Despacho do dev.
 6. #677: 0338 preparada e em `main` (`68e293b`), não aplicada. A importação real (0338 em Live, de-para, saldos de abertura, lote a lote com «Corro?») só depois da #664.
 7. #405: ritmo da fila e cron de envio de 06/11, ainda **sem autorização**. A Issue #405 está fechada: confirmar onde vive este pendente.
 8. #675 / 0334 / SLE: suspensos até ao 647-d-portal.
 9. Cloudflare: o Pedro apaga os tokens antigos `mp-backups-supabase` e `-v2`.
 10. Coala, venda geral a 10/11: apagar `early_bird.general_sale_date` com «Corro?» (#359). A tarefa agendada estava na conta pessoal: recriar do lado MP.
 11. #603: decidir onde corre o piloto, na conta Lovable actual ou numa conta nova, e registar a escolha e o motivo na #603. Decisão do Pedro com o 0 (MP).
+12. DECISIONS.md: registar a delegação de 05/11 (Autorizações pelo 0; Pedro só em regra de negócio). O ficheiro tem cerca de 800 KB e não se reescreve por conector: fica para quem o puder acrescentar.
 
 ## Registo (mais recente primeiro)
+- 05/11 13:16 · 0 MP · #646 · nota: conferência coberta pela Autorização 6643344879; D2-b fica em `main` mas só vai a Publish depois da conferência (6658954139) · enviado.
+- 05/11 13:15 · 0 MP · #664 · nota: pedido 6658848858 coberto pela Autorização 6643339210 (6658951588) · enviado.
+- 05/11 13:15 · 0 MP · #695 · Autorização R1 por delegação (6658950120), válida até 14/11 · emitida.
+- 05/11 13:14 · 0 MP · #669 · Autorização R1 669-c, filtro de natureza na DRE Empresarial, por delegação (6658944182), válida até 14/11 · emitida.
+- 05/11 13:13 · Pedro · — · **delegação:** o 0 (MP) passa a emitir as Autorizações ao dev e só espera pelo Pedro em decisões de regra de negócio. Live, deploy, Publish, crons e DML continuam com «Sim» por passo · registada (falta entrada em DECISIONS.md).
 - 05/11 13:13 · 0 MP · #646 · pedido ao dev: conferir a linha 1 e o sinal da linha 3 da Tesouraria (6658852513) · enviado.
 - 05/11 13:12 · 0 MP · #664 · pedido ao dev: tirar da PARTE 2 da 0335 o CHECK duplicado `suppliers_country_iso2_check` (Live já tem `suppliers_country_iso2`, SELECT do 0) (6658848858) · enviado.
 - 05/11 13:08 · 0 MP · #677 · merge do PR #697 (677-9; 0338 só ficheiro, não aplicada) · ok, `68e293b`.
