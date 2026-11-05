@@ -16,6 +16,7 @@ import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
 import { crewPendingAction, memberByEmail, mePendingCrew, PENDING_OPS } from "./pending.ts";
 import { readPendingInvites } from "./pending-invites.ts";
 import { requestAccessAction } from "./request-access.ts";
+import { presaleCodeAction } from "./presale-code.ts";
 import { createCitiesReader } from "./cities.ts";
 import * as GW from "./wallet-google.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
@@ -88,7 +89,7 @@ function clientIp(req: Request): string {
 
 const Body = z.object({
   action: z.enum(["bundle", "regulation", "site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending",
-    "missions", "mission_upload_url", "submit_mission", "profile", "profile_confirm", "profile_birth", "profile_preferences", "profile_countries", "cities", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google", "erase_account"]),
+    "missions", "mission_upload_url", "submit_mission", "profile", "profile_confirm", "profile_birth", "profile_preferences", "profile_countries", "cities", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google", "erase_account", "presale_code"]),
   confirm: z.literal("APAGAR").optional(),
   dry_run: z.boolean().optional(),
   profile_payload: z.unknown().optional(),
@@ -659,6 +660,24 @@ Deno.serve(async (req) => {
   try {
     const pa = performance.now();
     const raw = await req.json();
+    // Recebe o corpo original: Zod não pode remover campos extra nem mudar os erros de sessão.
+    if (raw?.action === "presale_code") {
+      const result = await presaleCodeAction(raw, clientIp(req), {
+        now: Date.now, sha256, getSite, memberFromToken,
+        rateHit: async (args) => await sb.rpc("portal_rate_hit", args),
+        readCode: async (email) => {
+          const { data, error } = await sb.from("club_presale_codes").select("code").eq("email", email).maybeSingle();
+          if (error) throw error;
+          return data?.code ?? null;
+        },
+        readExclusion: async (email) => {
+          const { data, error } = await sb.from("club_presale_exclusions").select("email").eq("email", email).maybeSingle();
+          if (error) throw error;
+          return data !== null;
+        },
+      });
+      return json(result.body, result.status);
+    }
     if (raw?.action === "request_access" && typeof raw.email === "string") raw.email = raw.email.trim().toLowerCase();
     if (["profile_confirm", "profile_birth", "profile_preferences"].includes(raw?.action) && Object.keys(raw).some(k => !["action", "token", "profile_payload", "preferences_payload"].includes(k))) return json({ error: "profile_payload" }, 400);
     const p = Body.safeParse(raw);
