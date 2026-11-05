@@ -57,6 +57,17 @@ beforeAll(async () => {
     }
     if (columns.length) definitions.set(m[1], columns.join(','));
   }
+  // Rebuild the pre-0327 schema even when the generated types include its columns.
+  const addedColumns = [...sql.matchAll(/ALTER\s+TABLE\s+public\.(\w+)\s+ADD\s+COLUMN\s+(\w+)/gi)];
+  for (const [, table, column] of addedColumns) {
+    const columns = definitions.get(table);
+    if (columns !== undefined) {
+      definitions.set(table, columns.split(',').filter(c => !c.startsWith(`"${column}" `)).join(','));
+    }
+  }
+  expect(addedColumns.filter(([, table, column]) =>
+    definitions.get(table)?.split(',').some(c => c.startsWith(`"${column}" `)),
+  )).toEqual([]);
   // Only tables referenced by the prepared families and guards are needed.
   const tables = new Set([...sql.matchAll(/(?:FROM|JOIN|ON|TABLE) public\.(\w+)/g)].filter(m => sql[m.index! + m[0].length] !== '(').map(m => m[1]));
   tables.add('system_invariants');
