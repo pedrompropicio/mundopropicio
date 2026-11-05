@@ -47,7 +47,8 @@ function fixture(count = 1253) {
     files.set(path, blob); mutations.push({ upload: path }); return { data: { path }, error: null };
   });
   const download = vi.fn(async (path: string) => ({ data: files.get(path) ?? null, error: null }));
-  const storage = { upload, download, list: vi.fn(async (_path: string): Promise<{ data: any[]; error: any }> => ({ data: [], error: null })), remove: vi.fn() };
+  const createSignedUrl = vi.fn(async () => ({ data: { signedUrl: "https://storage.invalid/unused" }, error: null }));
+  const storage = { upload, download, createSignedUrl, list: vi.fn(async (_path: string): Promise<{ data: any[]; error: any }> => ({ data: [], error: null })), remove: vi.fn() };
   const rpc = vi.fn((name: string, args?: any) => {
     const execute = async () => {
       if (name === "backup_enqueue_slice") { queues.push(args.p_body); return { data: queues.length, error: null }; }

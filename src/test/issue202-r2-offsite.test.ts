@@ -64,14 +64,15 @@ function fakeDb(initial?: Row[]) {
   });
   const list = vi.fn(async (folder: string, { offset, limit }: { offset: number; limit: number }) => ({
     data: [...originals.keys()].filter((p) => p.startsWith(`${folder}/`))
-      .map((p) => ({ name: p.slice(folder.length + 1), id: p })).sort((a, b) => a.name.localeCompare(b.name)).slice(offset, offset + limit),
+      .map((p) => ({ name: p.slice(folder.length + 1), id: p, metadata: { size: originals.get(p)!.length } })).sort((a, b) => a.name.localeCompare(b.name)).slice(offset, offset + limit),
     error: null,
   }));
   const download = vi.fn(async (path: string) => ({
     data: originals.has(path) ? new Blob([new Uint8Array(originals.get(path)!)]) : null,
     error: originals.has(path) ? null : { message: "ficheiro desaparecido" },
   }));
-  const storageFrom = vi.fn((bucket: string) => { expect(bucket).toBe("database-backups"); return { list, download }; });
+  const createSignedUrl = vi.fn(async () => ({ data: { signedUrl: "https://storage.invalid/unused" }, error: null }));
+  const storageFrom = vi.fn((bucket: string) => { expect(bucket).toBe("database-backups"); return { list, download, createSignedUrl }; });
   return { db: { from, storage: { from: storageFrom } }, rows, originals, writes, reads, list, download };
 }
 
