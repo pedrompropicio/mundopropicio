@@ -1,0 +1,2613 @@
+-- Classe R2 — PREPARADA, NÃO APLICADA. Aplicar só pelo PROC-promocao com Sim.
+-- #562 E2b; Autorização Pedro 6609881059, válida até 14/11/2026.
+-- D1–D4 de 03/11 + decisão de 04/11: flag própria, quatro barreiras, sem seed.
+-- Ordem: depois da 0310 e da 0322. Base main dc211150eb11bfd7b1ec1ff1b95967b3d92b8235.
+-- Rollback: supabase/manual/rollback_0327_issue562_training_companies_comentado.sql
+-- PREPARAÇÃO PARCIAL: não promover antes de fechar as LACUNAS de inventario-b.md,
+-- incluindo _run_invariant_checks_extrato (corpo ausente do repositório) e saídas sem configuração.
+-- Sem DML de aplicação, seed ou BEGIN/COMMIT de transação.
+
+ALTER TABLE public.companies ADD COLUMN is_training boolean NOT NULL DEFAULT false;
+ALTER TABLE public.invariant_runs ADD COLUMN scope_training boolean NOT NULL DEFAULT false;
+
+CREATE OR REPLACE FUNCTION public.is_training_company(_company_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public','pg_catalog'
+AS $function$
+  SELECT EXISTS (SELECT 1 FROM public.companies c WHERE c.id = _company_id AND c.is_training)
+$function$;
+REVOKE ALL ON FUNCTION public.is_training_company(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.is_training_company(uuid) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.training_company_flag_guard()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_catalog'
+AS $function$
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.is_training IS NOT DISTINCT FROM OLD.is_training THEN RETURN NEW; END IF;
+  ELSIF NOT NEW.is_training THEN RETURN NEW;
+  END IF;
+  IF auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'platform_admin') THEN
+    RAISE EXCEPTION 'training_company_platform_admin_only' USING ERRCODE = '42501';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.transactions d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.events d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.suppliers d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.ticketline_sync_config d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.bol_sync_config d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.fever_sync_config d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.coala_sync_config d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.camarim_integrations d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.card_integrations d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.data_entry_gmail_connections d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.artist_channel_connections d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM crm.ad_platform_connections d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.email_campaigns d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.portal_sites d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.song_links d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.ugc_watchdog_config d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.meta_custom_audiences d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.event_trackers d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM crm.ad_platform_account_links d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM crm.oauth_states d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.artist_oauth_states d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.data_entry_gmail_pending d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.notification_queue d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.system_reminders d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.email_send_log d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.payment_lists d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.accounting_exports d WHERE d.company_id = NEW.id) THEN
+    RAISE EXCEPTION 'training_company_has_data';
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.training_company_flag_guard() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.training_company_flag_guard() TO service_role;
+CREATE TRIGGER training_company_flag_guard BEFORE INSERT OR UPDATE OF is_training ON public.companies
+FOR EACH ROW EXECUTE FUNCTION public.training_company_flag_guard();
+
+-- Serializes data/configuration arrival with a flag flip, without changing real values.
+-- Lock OLD and NEW companies in UUID order, before inspecting the current flag.
+CREATE OR REPLACE FUNCTION public.training_company_entry_guard()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_catalog'
+AS $function$
+DECLARE previous_company uuid; training boolean;
+BEGIN
+  IF TG_OP = 'UPDATE' THEN previous_company := OLD.company_id; END IF;
+  PERFORM c.id FROM public.companies c
+   WHERE c.id IN (NEW.company_id, previous_company) ORDER BY c.id FOR UPDATE;
+  IF TG_ARGV[0] = 'integration' AND public.is_training_company(NEW.company_id) THEN
+    RAISE EXCEPTION 'training_company_no_integrations';
+  END IF;
+  IF TG_ARGV[0] = 'output' AND public.is_training_company(NEW.company_id) THEN
+    CASE TG_TABLE_NAME
+      WHEN 'notification_queue' THEN NEW.status := 'skipped'; NEW.last_error := 'suppressed_training';
+      WHEN 'system_reminders' THEN NEW.is_active := false; NEW.completed_at := now();
+      -- Existing 20260321021852_email_infra.sql:82–83 CHECK, unchanged.
+      WHEN 'email_send_log' THEN NEW.status := 'suppressed'; NEW.error_message := 'suppressed_training';
+      ELSE RAISE EXCEPTION 'training_company_unknown_output';
+    END CASE;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.training_company_entry_guard() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.training_company_entry_guard() TO service_role;
+CREATE TRIGGER training_company_entry_transactions BEFORE INSERT OR UPDATE ON public.transactions
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('data');
+CREATE TRIGGER training_company_entry_events BEFORE INSERT OR UPDATE ON public.events
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('data');
+CREATE TRIGGER training_company_entry_suppliers BEFORE INSERT OR UPDATE ON public.suppliers
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('data');
+CREATE TRIGGER training_company_entry_ticketline_sync_config BEFORE INSERT OR UPDATE ON public.ticketline_sync_config
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_bol_sync_config BEFORE INSERT OR UPDATE ON public.bol_sync_config
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_fever_sync_config BEFORE INSERT OR UPDATE ON public.fever_sync_config
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_coala_sync_config BEFORE INSERT OR UPDATE ON public.coala_sync_config
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_camarim_integrations BEFORE INSERT OR UPDATE ON public.camarim_integrations
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_card_integrations BEFORE INSERT OR UPDATE ON public.card_integrations
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_data_entry_gmail_connections BEFORE INSERT OR UPDATE ON public.data_entry_gmail_connections
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_artist_channel_connections BEFORE INSERT OR UPDATE ON public.artist_channel_connections
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_ad_platform_connections BEFORE INSERT OR UPDATE ON crm.ad_platform_connections
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_email_campaigns BEFORE INSERT OR UPDATE ON public.email_campaigns
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_portal_sites BEFORE INSERT OR UPDATE ON public.portal_sites
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_song_links BEFORE INSERT OR UPDATE ON public.song_links
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_ugc_watchdog_config BEFORE INSERT OR UPDATE ON public.ugc_watchdog_config
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_meta_custom_audiences BEFORE INSERT OR UPDATE ON public.meta_custom_audiences
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_event_trackers BEFORE INSERT OR UPDATE ON public.event_trackers
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_ad_platform_account_links BEFORE INSERT OR UPDATE ON crm.ad_platform_account_links
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_oauth_states BEFORE INSERT OR UPDATE ON crm.oauth_states
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_artist_oauth_states BEFORE INSERT OR UPDATE ON public.artist_oauth_states
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_data_entry_gmail_pending BEFORE INSERT OR UPDATE ON public.data_entry_gmail_pending
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('integration');
+CREATE TRIGGER training_company_entry_notification_queue BEFORE INSERT ON public.notification_queue
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('output');
+CREATE TRIGGER training_company_entry_system_reminders BEFORE INSERT ON public.system_reminders
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('output');
+CREATE TRIGGER training_company_entry_email_send_log BEFORE INSERT ON public.email_send_log
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('output');
+CREATE TRIGGER training_company_entry_payment_lists BEFORE INSERT OR UPDATE ON public.payment_lists
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('data');
+CREATE TRIGGER training_company_entry_accounting_exports BEFORE INSERT OR UPDATE ON public.accounting_exports
+FOR EACH ROW EXECUTE FUNCTION public.training_company_entry_guard('data');
+
+CREATE OR REPLACE FUNCTION public.training_company_export_guard()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_catalog'
+AS $function$
+DECLARE company uuid;
+BEGIN
+  IF TG_TABLE_NAME = 'payment_list_sepa_exports' THEN
+    SELECT p.company_id INTO company FROM public.payment_lists p WHERE p.id = NEW.payment_list_id;
+  ELSE company := NEW.company_id;
+  END IF;
+  PERFORM c.id FROM public.companies c WHERE c.id = company FOR UPDATE;
+  IF public.is_training_company(company) THEN
+    RAISE EXCEPTION 'training_company_no_export' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.training_company_export_guard() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.training_company_export_guard() TO service_role;
+CREATE TRIGGER training_company_export_payment_list_sepa_exports BEFORE INSERT ON public.payment_list_sepa_exports
+FOR EACH ROW EXECUTE FUNCTION public.training_company_export_guard();
+CREATE TRIGGER training_company_export_accounting_exports BEFORE INSERT ON public.accounting_exports
+FOR EACH ROW EXECUTE FUNCTION public.training_company_export_guard();
+
+-- Base mais recente: drizzle/migrations/0052_derp_remove_tx_paga_sem_linha_ref_paid_157.sql:1; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_raw()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE
+  c1 bigint; c2 bigint; c3 bigint; c4 bigint; c5 bigint; c6 bigint;
+  c7 bigint; c8 bigint; c9 bigint; c10 bigint; c12 bigint;
+  c13 bigint; c14 bigint; c15 bigint; c16 bigint; c17 bigint; c18 bigint;
+  c19 bigint; c20 bigint; c21 bigint; c22 bigint;
+  s1 jsonb; s2 jsonb; s3 jsonb; s4 jsonb; s5 jsonb; s6 jsonb;
+  s7 jsonb; s8 jsonb; s9 jsonb; s10 jsonb; s12 jsonb;
+  s13 jsonb; s14 jsonb; s15 jsonb; s16 jsonb; s17 jsonb; s18 jsonb;
+  s19 jsonb; s20 jsonb; s21 jsonb; s22 jsonb;
+BEGIN
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.description, t.company_id AS tx_company, s.company_id AS supplier_company, s.name AS supplier_name
+      FROM public.transactions t
+      JOIN public.suppliers s ON s.id = t.supplier_id
+     WHERE t.company_id IS DISTINCT FROM s.company_id
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c1, s1 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.description, t.company_id AS tx_company, a.company_id AS account_company, a.name AS account_name
+      FROM public.transactions t
+      JOIN public.financial_accounts a ON a.id = t.account_id
+     WHERE t.company_id IS DISTINCT FROM a.company_id
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c2, s2 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.description, t.company_id AS tx_company, e.company_id AS event_company, e.name AS event_name
+      FROM public.transactions t
+      JOIN public.events e ON e.id = t.event_id
+     WHERE t.company_id IS DISTINCT FROM e.company_id
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c3, s3 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.description, t.company_id AS tx_company, c.company_id AS category_company, c.code AS category_code
+      FROM public.transactions t
+      JOIN public.account_categories c ON c.id = t.category_id
+     WHERE c.company_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND t.company_id IS DISTINCT FROM c.company_id
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c4, s4 FROM bad;
+
+  WITH bad AS (
+    SELECT x.id AS map_id, x.company_id AS map_company, s.company_id AS supplier_company, s.name AS supplier_name
+      FROM public.coala_supplier_category_map x
+      JOIN public.suppliers s ON s.id = x.supplier_id
+     WHERE x.company_id IS DISTINCT FROM s.company_id
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = x.company_id AND training_c.is_training)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(y)) FROM (SELECT * FROM bad LIMIT 5) y), '[]'::jsonb)
+    INTO c5, s5 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.description, t.parent_transaction_id, t.account_id, t.company_id
+      FROM public.transactions t
+     WHERE t.parent_transaction_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND t.installment_group_id IS NULL
+       AND t.account_id IS NOT NULL
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c6, s6 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.description, t.type, t.company_id
+      FROM public.transactions t
+     WHERE t.type NOT IN ('income','expense')
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c7, s7 FROM bad;
+
+  WITH bad AS (
+    SELECT s.company_id, s.iban, count(*) AS fornecedores, string_agg(s.name, ' | ') AS nomes
+      FROM public.suppliers s
+     WHERE s.is_active AND s.iban IS NOT NULL AND s.iban <> ''
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = s.company_id AND training_c.is_training)
+     GROUP BY s.company_id, s.iban
+    HAVING count(*) > 1
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c8, s8 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS settlement_id, t.event_id, t.net_calculated, t.net_adjusted, t.net_transferred
+      FROM public.ticket_office_settlements t
+     WHERE t.status = 'confirmed'
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND COALESCE(t.net_transferred, 0) = 0
+       AND COALESCE(t.net_adjusted, t.net_calculated) > 0.01
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c9, s9 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.description, t.amount, t.iva_rate, t.paid_amount, t.company_id
+      FROM public.transactions t
+     WHERE t.paid_amount IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND t.paid_amount > ROUND(t.amount * (1 + COALESCE(t.iva_rate,0)/100.0), 2) + 0.02
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c10, s10 FROM bad;
+
+  WITH bad AS (
+    SELECT con.conrelid::regclass::text AS tabela, con.confrelid::regclass::text AS referenciada, count(*) AS fks
+      FROM pg_constraint con
+      JOIN pg_class rel ON rel.oid = con.conrelid
+      JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+     WHERE con.contype = 'f' AND nsp.nspname = 'public'
+     GROUP BY 1, 2
+    HAVING count(*) > 1
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad ORDER BY fks DESC, tabela LIMIT 5) x), '[]'::jsonb)
+    INTO c12, s12 FROM bad;
+
+  WITH bad AS (
+    SELECT f.id AS forecast_id, f.company_id, f.event_id, f.description, c.code AS category_code
+      FROM public.event_forecasts f
+      JOIN public.account_categories c ON c.id = f.category_id
+     WHERE f.type = 'expense'
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = f.company_id AND training_c.is_training)
+       AND f.version_id IS NULL
+       AND EXISTS (SELECT 1 FROM public.account_categories k WHERE k.parent_id = c.id)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c13, s13 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.company_id, t.event_id, t.description
+      FROM public.transactions t
+     WHERE t.event_id IS NOT NULL AND t.category_id IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c14, s14 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.company_id, t.event_id AS tx_event, f.event_id AS forecast_event, t.description
+      FROM public.transactions t
+      JOIN public.event_forecasts f ON f.id = t.forecast_id
+     WHERE t.event_id IS NOT NULL AND t.event_id IS DISTINCT FROM f.event_id
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c15, s15 FROM bad;
+
+  WITH bad AS (
+    SELECT f.id AS forecast_id, f.company_id, f.event_id, f.description,
+           t.id AS anchor_transaction_id, t.forecast_id AS tx_forecast_id
+      FROM public.event_forecasts f
+      JOIN public.transactions t ON t.id = f.transaction_id
+     WHERE f.version_id IS NULL AND t.forecast_id IS DISTINCT FROM f.id
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = f.company_id AND training_c.is_training)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c16, s16 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.company_id, t.forecast_id, t.event_id, t.description
+      FROM public.transactions t
+     WHERE t.forecast_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND NOT EXISTS (SELECT 1 FROM public.event_forecasts f WHERE f.id = t.forecast_id)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c17, s17 FROM bad;
+
+  WITH bad AS (
+    SELECT p.proname AS function_name
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.prorettype = 'trigger'::regtype
+       AND NOT EXISTS (SELECT 1 FROM pg_trigger tg WHERE tg.tgfoid = p.oid AND NOT tg.tgisinternal)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad ORDER BY function_name LIMIT 5) x), '[]'::jsonb)
+    INTO c18, s18 FROM bad;
+
+  WITH bad AS (
+    SELECT a.invoice_group_id,
+           max(a.run_at) AS ultimo_run_at,
+           count(*) AS linhas_auditadas,
+           (SELECT count(*) FROM public.transactions t WHERE t.invoice_group_id = a.invoice_group_id) AS transacoes_agrupadas
+      FROM public.invoice_group_audit a
+     WHERE a.veredicto = 'desagrupar'
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = a.company_id AND training_c.is_training)
+       AND a.aplicado = false
+       AND a.invoice_group_id IS NOT NULL
+       AND EXISTS (SELECT 1 FROM public.transactions t WHERE t.invoice_group_id = a.invoice_group_id)
+     GROUP BY a.invoice_group_id
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad ORDER BY ultimo_run_at DESC LIMIT 5) x), '[]'::jsonb)
+    INTO c19, s19 FROM bad;
+
+  -- D-ERP70: a mae do rateio e a fatura inteira; as filhas sao a decomposicao por evento.
+  -- Soma das filhas <> valor da mae => valor sem evento atribuido, invisivel no DRE de evento.
+  -- Exclui parcelas de pagamento (installment_group_id preenchido).
+  WITH bad AS (
+    SELECT m.id AS mae_transaction_id, m.company_id, m.date, m.description, m.invoice_ref,
+           m.amount AS valor_mae,
+           ROUND(f.soma, 2) AS soma_filhas,
+           f.n_filhas,
+           ROUND(m.amount - f.soma, 2) AS diferenca,
+           ROUND((m.amount * (1 + COALESCE(m.iva_rate,0) / 100.0))::numeric, 2) AS bruto_mae,
+           f.soma_bruto AS soma_bruto_filhas
+      FROM public.transactions m
+      JOIN LATERAL (
+        SELECT SUM(c.amount) AS soma, count(*) AS n_filhas,
+               SUM(ROUND((c.amount * (1 + COALESCE(c.iva_rate,0) / 100.0))::numeric, 2)) AS soma_bruto
+          FROM public.transactions c
+         WHERE c.parent_transaction_id = m.id
+           AND c.installment_group_id IS NULL
+      ) f ON f.n_filhas > 0
+     WHERE m.parent_transaction_id IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = m.company_id AND training_c.is_training)
+       AND (abs(m.amount - f.soma) > 0.05
+            -- #285 (09/10/2026): também acende quando o BRUTO não bate (IVA divergente mãe/filhas).
+            OR abs(ROUND((m.amount * (1 + COALESCE(m.iva_rate,0) / 100.0))::numeric, 2) - f.soma_bruto) > 0.05)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad ORDER BY abs(diferenca) DESC LIMIT 5) x), '[]'::jsonb)
+    INTO c20, s20 FROM bad;
+
+  -- D-ERP80: a transitoria diz porque. Extra do Socio declarado tem de ter linha em partner_advance_expenses.
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.company_id, t.event_id, t.date, t.description, t.amount
+      FROM public.transactions t
+     WHERE t.is_transitory
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND t.transitory_reason = 'partner_advance'
+       AND NOT EXISTS (SELECT 1 FROM public.partner_advance_expenses p WHERE p.transaction_id = t.id)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad ORDER BY amount DESC LIMIT 5) x), '[]'::jsonb)
+    INTO c21, s21 FROM bad;
+
+  -- #201: carga de cartao marcada como paga (marca visual) e ainda sem perna de
+  -- entrada. O trigger card_load_on_out_paid so dispara com status='paid', logo a
+  -- marca visual deixa dinheiro real no cartao e zero credito no sistema.
+  WITH bad AS (
+    SELECT l.id AS load_id, l.session_id, l.load_date, l.amount,
+           l.out_transaction_id, t.company_id, t.status AS out_status
+      FROM public.card_session_loads l
+      JOIN public.transactions t ON t.id = l.out_transaction_id
+     WHERE l.in_transaction_id IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND t.status <> 'paid'
+       AND EXISTS (
+         SELECT 1 FROM public.payment_list_items pli
+          WHERE pli.transaction_id = t.id
+            AND pli.manually_marked_paid
+            AND pli.removed_at IS NULL
+       )
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad ORDER BY load_date DESC LIMIT 5) x), '[]'::jsonb)
+    INTO c22, s22 FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         v.cnt, i.reference_count, (v.cnt = i.reference_count) AS conforme,
+         i.notes, v.smp
+    FROM public.system_invariants i
+    JOIN (VALUES
+      ('tx_fornecedor_outra_empresa', c1, s1),
+      ('tx_conta_outra_empresa', c2, s2),
+      ('tx_evento_outra_empresa', c3, s3),
+      ('tx_rubrica_outra_empresa', c4, s4),
+      ('coala_map_outra_empresa', c5, s5),
+      ('filha_rateio_com_conta', c6, s6),
+      ('tipo_invalido', c7, s7),
+      ('fornecedor_iban_duplicado_ativo', c8, s8),
+      ('fecho_confirmado_liquido_retido', c9, s9),
+      ('paid_amount_acima_do_bruto', c10, s10),
+      ('pares_fk_duplicada', c12, s12),
+      ('BP_DESPESA_EM_L2', c13, s13),
+      ('TX_EVENTO_SEM_RUBRICA', c14, s14),
+      ('VINCULO_CROSS_EVENTO', c15, s15),
+      ('VINCULO_DESSINCRONIZADO', c16, s16),
+      ('FORECAST_ID_ORFAO', c17, s17),
+      ('TRIGGER_DOCUMENTADO_SEM_LIGACAO', c18, s18),
+      ('grupo_fatura_veredicto_desagrupar_por_aplicar', c19, s19),
+      ('rateio_filhas_nao_somam_a_mae', c20, s20),
+      ('transitoria_partner_advance_sem_linha', c21, s21),
+      ('carga_sem_credito', c22, s22)
+    ) AS v(name, cnt, smp) ON v.name = i.name
+   ORDER BY i.scope, (v.cnt = i.reference_count), i.severity, i.name;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_raw() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_raw() TO service_role;
+
+-- Base mais recente: drizzle/migrations/0288_reembolso_invariante_corpo_exato_0286_b.sql:3; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_extra()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE
+  cB bigint; sB jsonb;
+  cX bigint; sX jsonb;
+  cF bigint; sF jsonb;
+  cP bigint; sP jsonb;
+  cT bigint; sT jsonb;
+  cL bigint; sL jsonb;
+  cC bigint; sC jsonb;
+  cM bigint; sM jsonb;
+  cO bigint; sO jsonb;
+  cS bigint; sS jsonb;
+  cR bigint; sR jsonb;
+BEGIN
+  WITH em_falta AS (
+    SELECT c.id AS company_id, c.slug,
+           (SELECT max(b.finished_at) FROM public.backup_runs b
+             WHERE b.company_id = c.id AND b.status = 'ok') AS ultimo_ok
+      FROM public.companies c
+     WHERE c.status = 'active' AND NOT c.is_training
+       AND NOT EXISTS (
+         SELECT 1 FROM public.backup_runs b
+          WHERE b.company_id = c.id
+            AND b.status = 'ok'
+            AND b.finished_at > now() - interval '30 hours'
+       )
+  ),
+  global_falta AS (
+    SELECT NULL::uuid AS company_id, 'global'::text AS slug,
+           (SELECT max(b.finished_at) FROM public.backup_runs b
+             WHERE b.scope = 'global' AND b.status = 'ok') AS ultimo_ok
+     WHERE NOT EXISTS (
+       SELECT 1 FROM public.backup_runs b
+        WHERE b.scope = 'global'
+          AND b.status = 'ok'
+          AND b.finished_at > now() - interval '30 hours'
+     )
+  ),
+  bad AS (
+    SELECT * FROM em_falta
+    UNION ALL
+    SELECT * FROM global_falta
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 6) x), '[]'::jsonb)
+    INTO cB, sB FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cB, i.reference_count, (cB = i.reference_count) AS conforme,
+         i.notes, sB
+    FROM public.system_invariants i
+   WHERE i.name = 'backup_empresa_em_falta';
+
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(jsonb_build_object('tabela', e.schema_name || '.' || e.table_name, 'motivo', e.reason))
+                     FROM public.backup_excluded_tables e), '[]'::jsonb)
+    INTO cX, sX FROM public.backup_excluded_tables;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cX, i.reference_count, (cX = i.reference_count) AS conforme,
+         i.notes, sX
+    FROM public.system_invariants i
+   WHERE i.name = 'backup_tabelas_excluidas';
+
+  WITH falhados AS (
+    SELECT l.template_name, l.recipient_email, l.status, l.error_message, l.created_at
+      FROM public.email_send_log l
+     WHERE l.status IN ('failed','dlq')
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = l.company_id AND training_c.is_training)
+       AND l.created_at > now() - interval '24 hours'
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (
+                     SELECT template_name, recipient_email, status, error_message, created_at
+                       FROM falhados ORDER BY created_at DESC LIMIT 6) x), '[]'::jsonb)
+    INTO cF, sF FROM falhados;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cF, i.reference_count, (cF = i.reference_count) AS conforme,
+         i.notes, sF
+    FROM public.system_invariants i
+   WHERE i.name = 'emails_falhados_24h';
+
+  WITH presos AS (
+    SELECT l.template_name, l.recipient_email, l.created_at
+      FROM public.email_send_log l
+     WHERE l.status = 'pending'
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = l.company_id AND training_c.is_training) AND NOT EXISTS (SELECT 1 FROM public.email_send_log s WHERE s.message_id = l.message_id AND s.status = 'sent')
+       AND l.created_at < now() - interval '24 hours'
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (
+                     SELECT template_name, count(*) AS total,
+                            min(created_at) AS mais_antigo, max(created_at) AS mais_recente
+                       FROM presos GROUP BY template_name ORDER BY count(*) DESC LIMIT 6) x), '[]'::jsonb)
+    INTO cP, sP FROM presos;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cP, i.reference_count, (cP = i.reference_count) AS conforme,
+         i.notes, sP
+    FROM public.system_invariants i
+   WHERE i.name = 'emails_presos_pending';
+
+  WITH grandes AS (
+    SELECT n.nspname AS esquema, c.relname AS tabela, c.reltuples::bigint AS linhas
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE c.relkind = 'r'
+       AND n.nspname IN ('public','crm')
+       AND c.reltuples > 1000
+       AND c.relname <> ALL (ARRAY['transactions','ticket_sales','event_forecasts','transaction_documents','event_zone_capacities','bilheteira_zone_snapshots','leads','contacts','undo_actions','meta_audience_upload_members','meta_custom_audiences','user_activity_log','system_audit_log','transaction_audit_log','ticketline_sync_runs','bol_sync_runs','coala_sync_runs','fever_sync_runs','transaction_payments','bank_statement_lines','artist_content_metrics_daily','song_link_events','redirect_log','consent_log','google_click','meta_ad_insights_daily','artist_metrics_daily','song_link_diag','meta_ad_snapshot','tickets_v2_sync_log','ads_insights_breakdown_daily','meta_adset_insights_daily','meta_creatives','artist_audience_demographics','meta_creatives_retention_log','lead_capture','email_send_log','artist_content','artist_song_metrics_daily','meta_adset_snapshot','email_unsubscribe_tokens','portal_error_log','meta_campaign_insights_daily','artist_song_playlist_streams','event_forecast_formalidade_log','artist_release_metrics_daily','ip_geo_cache']::text[])
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (
+                     SELECT esquema, tabela, linhas FROM grandes
+                      ORDER BY linhas DESC LIMIT 50) x), '[]'::jsonb)
+    INTO cT, sT FROM grandes;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cT, i.reference_count, (cT = i.reference_count) AS conforme,
+         i.notes, sT
+    FROM public.system_invariants i
+   WHERE i.name = 'tabelas_acima_de_1000';
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.company_id, t.date, t.description,
+           t.status, t.paid_amount,
+           ROUND(s.soma, 2) AS soma_linhas,
+           ROUND(COALESCE(t.paid_amount, 0) - s.soma, 2) AS diferenca
+      FROM public.transactions t
+      JOIN LATERAL (
+        SELECT SUM(p.amount) AS soma
+          FROM public.transaction_payments p
+         WHERE p.transaction_id = t.id
+           AND p.status = 'paid'
+      ) s ON s.soma IS NOT NULL
+     WHERE NOT (t.parent_transaction_id IS NOT NULL AND t.split_percentage IS NOT NULL)
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND COALESCE(t.is_reimbursement, false) = false
+       AND NOT EXISTS (
+         SELECT 1 FROM public.partner_paid_expenses pp WHERE pp.transaction_id = t.id
+       )
+       AND abs(COALESCE(t.paid_amount, 0) - s.soma) > 0.05
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (
+                     SELECT * FROM bad ORDER BY abs(diferenca) DESC LIMIT 5) x), '[]'::jsonb)
+    INTO cL, sL FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cL, i.reference_count, (cL = i.reference_count) AS conforme,
+         i.notes, sL
+    FROM public.system_invariants i
+   WHERE i.name = 'paid_amount_sem_linhas';
+
+  WITH bad AS (
+    SELECT l.id AS line_id, l.financial_account_id, l.statement_id,
+           l.booking_date, l.description, l.amount, l.matched_by, l.matched_at
+      FROM public.bank_statement_lines l
+     WHERE l.status = 'matched'
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = l.company_id AND training_c.is_training)
+       AND l.matched_transaction_id IS NULL
+       AND l.created_transaction_id IS NULL
+       AND l.matched_sepa_export_id IS NULL
+       AND l.matched_payment_list_id IS NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM public.bank_line_transactions b WHERE b.line_id = l.id
+       )
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (
+                     SELECT * FROM bad ORDER BY booking_date DESC LIMIT 6) x), '[]'::jsonb)
+    INTO cC, sC FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cC, i.reference_count, (cC = i.reference_count) AS conforme,
+         i.notes, sC
+    FROM public.system_invariants i
+   WHERE i.name = 'linha_conciliada_sem_transacao';
+
+  WITH bad AS (
+    SELECT p.id AS payment_id, p.transaction_id, p.currency, p.amount,
+           p.original_amount, p.fx_rate, p.payment_date
+      FROM public.transaction_payments p
+     WHERE COALESCE(p.currency, 'EUR') <> 'EUR'
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = p.company_id AND training_c.is_training)
+       AND (p.original_amount IS NULL OR p.fx_rate IS NULL)
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (
+                     SELECT * FROM bad ORDER BY payment_date DESC LIMIT 6) x), '[]'::jsonb)
+    INTO cM, sM FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cM, i.reference_count, (cM = i.reference_count) AS conforme,
+         i.notes, sM
+    FROM public.system_invariants i
+   WHERE i.name = 'pagamento_moeda_sem_cambio';
+
+  WITH bad AS (
+    SELECT o.id AS offset_id, o.company_id, o.receivable_transaction_id, o.payable_transaction_id, o.amount
+      FROM public.transaction_offsets o
+     WHERE o.offset_group_id IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = o.company_id AND training_c.is_training) AND ((
+             EXISTS (SELECT 1 FROM public.transaction_payments x
+                      WHERE x.transaction_id = o.receivable_transaction_id
+                        AND x.payment_method <> 'compensation' AND x.status = 'paid' AND x.reversed_at IS NULL)
+             AND NOT EXISTS (SELECT 1 FROM public.transaction_payments x
+                      WHERE x.transaction_id = o.payable_transaction_id AND x.offset_id = o.id
+                        AND x.status = 'paid' AND x.reversed_at IS NULL)
+           ) OR (
+             EXISTS (SELECT 1 FROM public.transaction_payments x
+                      WHERE x.transaction_id = o.payable_transaction_id
+                        AND x.payment_method <> 'compensation' AND x.status = 'paid' AND x.reversed_at IS NULL)
+             AND NOT EXISTS (SELECT 1 FROM public.transaction_payments x
+                      WHERE x.transaction_id = o.receivable_transaction_id AND x.offset_id = o.id
+                        AND x.status = 'paid' AND x.reversed_at IS NULL)
+           ))
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 6) x), '[]'::jsonb)
+    INTO cO, sO FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cO, i.reference_count, (cO = i.reference_count) AS conforme,
+         i.notes, sO
+    FROM public.system_invariants i
+   WHERE i.name = 'compensacao_pendente';
+  -- D-ERP156: conta-corrente de sessão de camarim integrada tem de ficar a 0.
+  WITH bad AS (
+    SELECT s.id AS session_id, s.company_id, s.title, s.advance_account_id,
+           round(public._account_true_balance_raw(s.advance_account_id), 2) AS saldo
+      FROM public.camarim_sessions s
+     WHERE s.status = 'integrated'
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = s.company_id AND training_c.is_training)
+       AND s.advance_account_id IS NOT NULL
+       AND abs(COALESCE(public._account_true_balance_raw(s.advance_account_id), 0)) >= 0.01
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 6) x), '[]'::jsonb)
+    INTO cS, sS FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cS, i.reference_count, (cS = i.reference_count) AS conforme,
+         i.notes, sS
+    FROM public.system_invariants i
+   WHERE i.name = 'camarim_sessao_integrada_com_saldo';
+  -- 0286: pagamento de nota de reembolso nunca entra no resultado.
+  WITH bad AS (
+    SELECT rn.id AS note_id, rn.code, rn.status, t.id AS transaction_id, t.amount, t.exclude_from_result
+      FROM public.reimbursement_notes rn
+      JOIN public.transactions t ON t.id = rn.payment_transaction_id
+     WHERE t.exclude_from_result IS DISTINCT FROM true
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 6) x), '[]'::jsonb)
+    INTO cR, sR FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cR, i.reference_count, (cR = i.reference_count) AS conforme,
+         i.notes, sR
+    FROM public.system_invariants i
+   WHERE i.name = 'reembolso_pagamento_no_resultado';
+  RETURN QUERY SELECT i.name,i.description,i.severity,i.scope,c.current_count,i.reference_count,(c.current_count=i.reference_count),i.notes,'[]'::jsonb FROM public.issue335_invariant_counts() c JOIN public.system_invariants i ON i.name=c.name;
+  -- Balance is a separately approved candidate and may not be installed.
+  IF to_regprocedure('public.issue335_balance_invariant_count()') IS NOT NULL THEN
+    RETURN QUERY EXECUTE 'SELECT i.name,i.description,i.severity,i.scope,c.n,i.reference_count,(c.n=i.reference_count),i.notes,''[]''::jsonb FROM public.system_invariants i CROSS JOIN LATERAL (SELECT public.issue335_balance_invariant_count() n) c WHERE i.name=''encontro_saldo_dinheiro_divergente''';
+  END IF;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_extra() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_extra() TO service_role;
+
+-- Base mais recente: supabase/migrations/20260924211456_48f0d3a1-6824-4866-8c88-ef8c9b382ef6.sql:23; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_infra()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE
+  cR bigint; sR jsonb;
+  cP bigint; sP jsonb;
+BEGIN
+  -- Purga do histórico de execuções do cron
+  SELECT count(*) INTO cR
+    FROM cron.job_run_details d
+   WHERE d.end_time < now() - interval '8 days';
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(x)), '[]'::jsonb) INTO sR
+    FROM (
+      SELECT d.jobid, d.runid, d.status, d.end_time
+        FROM cron.job_run_details d
+       WHERE d.end_time < now() - interval '8 days'
+       ORDER BY d.end_time
+       LIMIT 5
+    ) x;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cR, i.reference_count, (cR = i.reference_count) AS conforme,
+         i.notes, sR
+    FROM public.system_invariants i
+   WHERE i.name = 'cron_run_details_sem_purga';
+
+  -- Erros de front dos portais públicos nas últimas 24 horas.
+  -- Semântica de limiar: conforme = contagem <= referência (máximo tolerado).
+  SELECT count(*) INTO cP
+    FROM public.portal_error_log l
+   WHERE l.created_at > now() - interval '24 hours'
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = l.company_id AND training_c.is_training);
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(x)), '[]'::jsonb) INTO sP
+    FROM (
+      SELECT left(regexp_replace(l.message, '\s+', ' ', 'g'), 160) AS mensagem,
+             l.route,
+             count(*) AS n,
+             max(l.created_at) AS ultimo
+        FROM public.portal_error_log l
+       WHERE l.created_at > now() - interval '24 hours'
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = l.company_id AND training_c.is_training)
+       GROUP BY 1, 2
+       ORDER BY count(*) DESC
+       LIMIT 3
+    ) x;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cP, i.reference_count, (cP <= i.reference_count) AS conforme,
+         i.notes, sP
+    FROM public.system_invariants i
+   WHERE i.name = 'erros_portal_24h';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_infra() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_infra() TO service_role;
+
+-- Base mais recente: supabase/migrations/20260930190108_5b0ea3f9-dd18-429a-a9ac-b486725c7ad1.sql:3; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_docs()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE
+  cR bigint; sR jsonb; allR jsonb;
+BEGIN
+  -- #268: todas as tabelas de documentos; ficheiro distinto = (bucket, caminho).
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('tabela', m.tabela, 'bucket', m.bucket, 'file_url', m.caminho, 'linhas', m.linhas) ORDER BY m.tabela, m.caminho), '[]'::jsonb)
+    INTO allR
+    FROM (
+      SELECT s.tabela, s.bucket, s.caminho, count(*)::bigint AS linhas
+        FROM (
+          SELECT 'transaction_documents'::text AS tabela, 'transaction-documents'::text AS bucket, file_url::text AS caminho FROM public.transaction_documents WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.transaction_documents.company_id AND training_c.is_training)
+          UNION ALL SELECT 'payment_list_documents', 'transaction-documents', file_url FROM public.payment_list_documents WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.payment_list_documents.company_id AND training_c.is_training)
+          UNION ALL SELECT 'camarim_item_documents', 'camarim-documents', file_path FROM public.camarim_item_documents WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.camarim_item_documents.company_id AND training_c.is_training)
+          UNION ALL SELECT 'card_item_documents', 'card-documents', file_path FROM public.card_item_documents WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.card_item_documents.company_id AND training_c.is_training)
+          UNION ALL SELECT 'event_forecast_attachments', 'event-forecast-attachments', storage_path FROM public.event_forecast_attachments WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.event_forecast_attachments.company_id AND training_c.is_training)
+          UNION ALL SELECT 'bank_line_documents', 'bank-statements', file_url FROM public.bank_line_documents WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.bank_line_documents.company_id AND training_c.is_training)
+          UNION ALL SELECT 'event_ab_attachments', 'event-ab-attachments', storage_path FROM public.event_ab_attachments WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.event_ab_attachments.company_id AND training_c.is_training)
+          UNION ALL SELECT 'entity_documents', 'entity-documents', storage_path FROM public.entity_documents WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.entity_documents.company_id AND training_c.is_training)
+          UNION ALL SELECT 'supplier_documents', 'supplier-documents', file_url FROM public.supplier_documents WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.supplier_documents.company_id AND training_c.is_training)
+        ) s
+       WHERE s.caminho IS NOT NULL
+         AND s.caminho !~ '^(bank:|ref:|camarim:|card:|https?:)'
+         AND NOT EXISTS (SELECT 1 FROM storage.objects o WHERE o.bucket_id = s.bucket AND o.name = s.caminho)
+       GROUP BY s.tabela, s.bucket, s.caminho
+    ) m;
+
+  SELECT count(*) INTO cR
+    FROM (SELECT DISTINCT e->>'bucket', e->>'file_url' FROM jsonb_array_elements(allR) e) z;
+
+  SELECT COALESCE(jsonb_agg(e), '[]'::jsonb) INTO sR
+    FROM (SELECT e FROM jsonb_array_elements(allR) e LIMIT 5) x;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cR, i.reference_count, (cR <= i.reference_count) AS conforme,
+         i.notes, sR
+    FROM public.system_invariants i
+   WHERE i.name = 'documento_sem_ficheiro_no_storage';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_docs() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_docs() TO service_role;
+
+-- Base mais recente: supabase/migrations/20261002120740_6be30c36-594d-4678-9477-1a3b995136ac.sql:271; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_paid()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE cZ bigint; sZ jsonb;
+BEGIN
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.company_id, t.date, t.description,
+           t.status, t.paid_amount, t.account_id
+      FROM public.transactions t
+     WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND COALESCE(t.paid_amount, 0) > 0.01
+       AND COALESCE(t.is_reimbursement, false) = false
+       AND NOT (t.parent_transaction_id IS NOT NULL AND t.split_percentage IS NOT NULL)
+       AND NOT EXISTS (SELECT 1 FROM public.partner_paid_expenses pp WHERE pp.transaction_id = t.id)
+       AND NOT EXISTS (SELECT 1 FROM public.transaction_payments p
+                        WHERE p.transaction_id = t.id AND p.status = 'paid')
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (
+                     SELECT * FROM bad ORDER BY paid_amount DESC LIMIT 6) x), '[]'::jsonb)
+    INTO cZ, sZ FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cZ, i.reference_count, (cZ = i.reference_count) AS conforme,
+         i.notes, sZ
+    FROM public.system_invariants i
+   WHERE i.name = 'paid_sem_pagamento';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_paid() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_paid() TO service_role;
+
+-- Base mais recente: drizzle/migrations/0089_derp238_invariant_cash_negativo.sql:13; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_cash()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE c bigint; s jsonb;
+BEGIN
+  WITH b AS (
+    SELECT a.id, a.name AS conta, a.company_id,
+           public._account_true_balance_asof_raw(a.id, NULL) AS saldo
+      FROM public.financial_accounts a
+     WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = a.company_id AND training_c.is_training)
+       AND a.type = 'cash'
+  ), bad AS (
+    SELECT * FROM b WHERE saldo < -0.005
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(jsonb_build_object('id', x.id, 'conta', x.conta, 'company_id', x.company_id, 'saldo', round(x.saldo, 2)) ORDER BY x.saldo) FROM (SELECT * FROM bad LIMIT 10) x), '[]'::jsonb)
+    INTO c, s FROM bad;
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, c, i.reference_count, c <= i.reference_count, i.notes, s
+    FROM public.system_invariants i WHERE i.name = 'conta_cash_saldo_negativo';
+END $function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_cash() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_cash() TO service_role;
+
+-- Base mais recente: drizzle/migrations/0026_derp274_invariant_item_duplica_transacao.sql:3; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_cards()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE cZ bigint; sZ jsonb;
+BEGIN
+  WITH bad AS (
+    SELECT i.id AS item_id, i.session_id, s.company_id, s.card_account_id,
+           i.item_date, round(i.amount * (1 + COALESCE(i.iva_rate, 0) / 100.0), 2) AS item_gross,
+           i.description AS item_description,
+           t.id AS transaction_id, t.paid_amount AS transaction_gross,
+           t.description AS transaction_description
+      FROM public.card_session_items i
+      JOIN public.card_sessions s ON s.id = i.session_id
+      JOIN public.transactions t
+        ON t.account_id = s.card_account_id
+       AND COALESCE(t.payment_date, t.date) = i.item_date
+       AND abs(COALESCE(t.paid_amount, 0) - i.amount * (1 + COALESCE(i.iva_rate, 0) / 100.0)) < 0.01
+       AND t.reversed_at IS NULL
+       AND COALESCE(t.is_hidden, false) = false
+     WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = i.company_id AND training_c.is_training)
+       AND i.status = 'approved'
+       AND NOT EXISTS (SELECT 1 FROM public.card_session_items x WHERE x.transaction_id = t.id)
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (
+                     SELECT * FROM bad ORDER BY item_date DESC LIMIT 5) x), '[]'::jsonb)
+    INTO cZ, sZ FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cZ, i.reference_count, (cZ = i.reference_count) AS conforme,
+         i.notes, sZ
+    FROM public.system_invariants i
+   WHERE i.name = 'item_de_cartao_duplica_transacao';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_cards() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_cards() TO service_role;
+
+-- Base mais recente: drizzle/migrations/0044_derp197_284_invariante_transacao_duplica_fatura.sql:9; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_duplicate_invoices()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE cZ bigint; sZ jsonb;
+BEGIN
+  -- #284: conta TRANSAÇÕES DISTINTAS (não pares) com par de mesma fatura, valor e tipo.
+  -- Pares de type diferente ficam fora: transferência entre contas nasce sempre assim.
+  WITH base AS (
+    SELECT t.id, t.company_id, t.supplier_id, t.type, t.amount, t.date, t.description,
+           upper(regexp_replace(btrim(t.invoice_ref), '\s+', ' ', 'g')) AS ref_norm
+      FROM public.transactions t
+     WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND t.parent_transaction_id IS NULL AND t.reversed_at IS NULL
+       AND t.supplier_id IS NOT NULL
+       AND nullif(btrim(t.invoice_ref), '') IS NOT NULL
+  ), bad AS (
+    SELECT DISTINCT a.id, a.company_id, a.supplier_id, a.ref_norm, a.type, a.amount, a.date, a.description
+      FROM base a JOIN base b
+        ON b.id <> a.id AND b.company_id = a.company_id AND b.supplier_id = a.supplier_id
+       AND b.ref_norm = a.ref_norm AND b.type IS NOT DISTINCT FROM a.type
+       AND abs(b.amount - a.amount) <= 0.01
+  )
+  SELECT count(DISTINCT id),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad ORDER BY date DESC LIMIT 5) x), '[]'::jsonb)
+    INTO cZ, sZ FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, cZ, i.reference_count,
+         (cZ = i.reference_count) AS conforme, i.notes, sZ
+    FROM public.system_invariants i WHERE i.name = 'transacao_duplica_fatura';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_duplicate_invoices() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_duplicate_invoices() TO service_role;
+
+-- Base mais recente: drizzle/migrations/0047_derp200_287_camarim_adiantamento_entrada.sql:128; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_camarim()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE c bigint; s jsonb;
+BEGIN
+  WITH bad AS (
+    SELECT m.id AS move_id, m.session_id, l.session_tx, l.bank_tx, st.paid_amount, st.amount
+      FROM public.camarim_fund_moves m
+      CROSS JOIN LATERAL public._camarim_fund_move_legs(m.id) l
+      JOIN public.transactions bt ON bt.id = l.bank_tx
+      JOIN public.transactions st ON st.id = l.session_tx
+     WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = m.company_id AND training_c.is_training)
+       AND m.move_type IN ('advance','reinforcement')
+       AND bt.status = 'paid'
+       AND COALESCE(st.paid_amount, 0) < st.amount * (1 + COALESCE(st.iva_rate,0) / 100.0) - 0.01
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 6) x), '[]'::jsonb)
+    INTO c, s FROM bad;
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, c, i.reference_count, (c = i.reference_count), i.notes, s
+    FROM public.system_invariants i WHERE i.name = 'camarim_adiantamento_sem_entrada';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_camarim() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_camarim() TO service_role;
+
+-- Base mais recente: drizzle/migrations/0048_derp201_supplier_similarity_flags.sql:136; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_suppliers()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE c bigint; s jsonb;
+BEGIN
+  SELECT count(*), COALESCE(jsonb_agg(to_jsonb(x)) FILTER (WHERE x.rn <= 6), '[]'::jsonb)
+    INTO c, s
+    FROM (SELECT f.id, f.company_id, f.supplier_id, f.similar_supplier_id, f.motivo, f.source,
+                 row_number() OVER (ORDER BY f.created_at DESC) rn
+            FROM public.supplier_similarity_flags f WHERE f.resolved_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = f.company_id AND training_c.is_training)) x;
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, c, i.reference_count, (c <= i.reference_count), i.notes, s
+    FROM public.system_invariants i WHERE i.name = 'supplier_similar_por_rever';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_suppliers() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_suppliers() TO service_role;
+
+-- Base mais recente: drizzle/migrations/0049_derp202_285_invariante_pago_abaixo_do_bruto.sql:8; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_paid_below_gross()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE cZ bigint; sZ jsonb;
+BEGIN
+  -- #285: /100.0 obrigatório (iva_rate é integer). Tolerância 0,02 obrigatória (arredondamento do bruto).
+  WITH bad AS (
+    SELECT t.id, t.company_id, t.description, t.date, t.amount, t.iva_rate, t.paid_amount,
+           round((t.amount * (1 + COALESCE(t.iva_rate,0) / 100.0))::numeric, 2) - COALESCE(t.paid_amount,0) AS falta
+      FROM public.transactions t
+     WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND t.status = 'paid' AND t.reversed_at IS NULL
+       AND round((t.amount * (1 + COALESCE(t.iva_rate,0) / 100.0))::numeric, 2) - COALESCE(t.paid_amount,0) > 0.02
+       AND COALESCE(t.declared_withholding_amount,0) = 0
+       AND NOT EXISTS (SELECT 1 FROM public.supplier_credit_usages u WHERE u.transaction_id = t.id)
+       AND NOT EXISTS (SELECT 1 FROM public.transaction_offsets o
+                        WHERE t.id IN (o.receivable_transaction_id, o.payable_transaction_id))
+       AND NOT EXISTS (SELECT 1 FROM public.ticket_office_settlements s
+                        WHERE s.venue_retained_invoice_id = t.id AND s.reversed_at IS NULL)
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad ORDER BY falta DESC LIMIT 5) x), '[]'::jsonb)
+    INTO cZ, sZ FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, cZ, i.reference_count,
+         (cZ = i.reference_count) AS conforme, i.notes, sZ
+    FROM public.system_invariants i WHERE i.name = 'pago_abaixo_do_bruto';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_paid_below_gross() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_paid_below_gross() TO service_role;
+
+-- Base mais recente: drizzle/migrations/0061_derp214_ticketline_parallel_series_invariant.sql:3; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_ticketline_series()
+RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE c bigint; s jsonb;
+BEGIN
+  WITH lastrun AS (
+    SELECT DISTINCT ON (cf.event_id) cf.event_id, r.import_audit->'zoneLotMap' AS m
+      FROM public.ticketline_sync_runs r
+      JOIN public.ticketline_sync_config cf ON cf.id = r.config_id
+     WHERE r.status IN ('success','warning')
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = cf.company_id AND training_c.is_training)
+       AND CASE WHEN jsonb_typeof(r.import_audit->'zoneLotMap') = 'array'
+                THEN jsonb_array_length(r.import_audit->'zoneLotMap') > 0 ELSE false END
+     ORDER BY cf.event_id, r.started_at DESC
+  ), hits AS (
+    SELECT e.name AS evento, z.name AS zona, sum(ts.quantity) AS bilhetes,
+           round(sum(ts.total_value), 2) AS valor, min(ts.sale_date) AS de, max(ts.sale_date) AS ate
+      FROM lastrun l
+      JOIN public.event_ticket_zones z ON z.event_id = l.event_id AND z.sync_generated
+      JOIN public.ticket_sales ts ON ts.zone_id = z.id AND ts.source = 'ticketline_import'
+      JOIN public.events e ON e.id = l.event_id
+     WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(l.m) x WHERE x->>'zoneId' = z.id::text)
+     GROUP BY l.event_id, z.id, e.name, z.name
+  )
+  SELECT (SELECT count(*) FROM hits),
+         COALESCE((SELECT jsonb_agg(to_jsonb(h)) FROM (SELECT * FROM hits ORDER BY bilhetes DESC LIMIT 10) h), '[]'::jsonb)
+    INTO c, s;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, c, i.reference_count,
+         (c <= i.reference_count), i.notes, s
+    FROM public.system_invariants i
+   WHERE i.name = 'ticketline_series_paralelas';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_ticketline_series() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_ticketline_series() TO service_role;
+
+-- Base mais recente: drizzle/migrations/0062_derp215_invariant_documentos_inalcancaveis.sql:2; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_unreachable_docs()
+RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'storage', 'pg_catalog'
+AS $function$
+DECLARE c bigint; s jsonb;
+BEGIN
+  WITH d AS (
+    SELECT td.id, td.transaction_id, td.file_url, td.uploaded_at
+      FROM public.transaction_documents td
+     WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = td.company_id AND training_c.is_training)
+       AND td.file_url IS NOT NULL
+       AND td.file_url !~ '^(bank|ref|camarim|card)://'
+       AND td.file_url !~* '^https?://'
+       AND NOT EXISTS (SELECT 1 FROM storage.objects o
+                        WHERE o.bucket_id = 'transaction-documents' AND o.name = td.file_url)
+  )
+  SELECT (SELECT count(*) FROM d),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM d ORDER BY uploaded_at LIMIT 10) x), '[]'::jsonb)
+    INTO c, s;
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, c, i.reference_count, (c <= i.reference_count), i.notes, s
+    FROM public.system_invariants i WHERE i.name = 'documentos_inalcancaveis';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_unreachable_docs() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_unreachable_docs() TO service_role;
+
+-- Base mais recente: drizzle/migrations/0310_issue202_backup_offsite_r2.sql:16; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_storage()
+RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'storage', 'pg_catalog'
+AS $function$
+DECLARE
+  refs constant jsonb := '{"camarim_item_documents":9,"payment_list_documents":2,"card_item_documents":0,"event_forecast_attachments":0,"bank_line_documents":0,"event_ab_attachments":0}';
+  cD bigint; sD jsonb; okD boolean; cM bigint; sM jsonb; cO bigint; sO jsonb;
+BEGIN
+  WITH d(tbl, bucket, did, dpath) AS (
+    SELECT 'camarim_item_documents', 'camarim-documents', x.id, x.file_path FROM public.camarim_item_documents x WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = x.company_id AND training_c.is_training)
+    UNION ALL SELECT 'payment_list_documents', 'transaction-documents', x.id, x.file_url FROM public.payment_list_documents x WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = x.company_id AND training_c.is_training)
+    UNION ALL SELECT 'card_item_documents', 'card-documents', x.id, x.file_path FROM public.card_item_documents x WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = x.company_id AND training_c.is_training)
+    UNION ALL SELECT 'event_forecast_attachments', 'event-forecast-attachments', x.id, x.storage_path FROM public.event_forecast_attachments x WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = x.company_id AND training_c.is_training)
+    UNION ALL SELECT 'bank_line_documents', 'bank-statements', x.id, x.file_url FROM public.bank_line_documents x WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = x.company_id AND training_c.is_training)
+    UNION ALL SELECT 'event_ab_attachments', 'event-ab-attachments', x.id, x.storage_path FROM public.event_ab_attachments x WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = x.company_id AND training_c.is_training)
+  ), m AS (
+    SELECT * FROM d
+     WHERE d.dpath IS NOT NULL AND d.dpath !~ '^(ref|bank|camarim|card)://' AND d.dpath !~* '^https?://'
+       AND NOT EXISTS (SELECT 1 FROM storage.objects o WHERE o.bucket_id = d.bucket AND o.name = d.dpath)
+  ), t AS (
+    SELECT k AS tbl, (SELECT count(*) FROM m WHERE m.tbl = k) n, (refs->>k)::bigint r,
+           (SELECT coalesce(jsonb_agg(jsonb_build_object('id', s.did, 'path', s.dpath)), '[]'::jsonb)
+              FROM (SELECT m.did, m.dpath FROM m WHERE m.tbl = k ORDER BY m.dpath LIMIT 5) s) amostra
+      FROM jsonb_object_keys(refs) k
+  )
+  SELECT sum(t.n), bool_and(t.n <= t.r),
+         jsonb_object_agg(t.tbl, jsonb_build_object('atual', t.n, 'referencia', t.r, 'amostra', t.amostra))
+    INTO cD, okD, sD FROM t;
+
+  WITH last AS (
+    SELECT br.storage_report FROM public.backup_runs br
+     WHERE br.scope = 'global' AND br.status = 'ok' ORDER BY br.finished_at DESC NULLS LAST LIMIT 1
+  ), miss AS (
+    SELECT b.id AS bid FROM storage.buckets b
+     WHERE b.id <> 'database-backups'
+       AND NOT coalesce((SELECT l.storage_report ? b.id FROM last l), false)
+  )
+  SELECT count(*), coalesce(jsonb_agg(miss.bid ORDER BY miss.bid), '[]'::jsonb) INTO cM, sM FROM miss;
+
+  SELECT CASE WHEN EXISTS (
+    SELECT 1 FROM public.backup_runs br
+     WHERE br.scope = 'offsite' AND br.status = 'ok'
+       AND br.finished_at > now() - interval '30 hours'
+  ) THEN 0 ELSE 1 END INTO cO;
+
+  SELECT jsonb_build_object('id', br.id, 'run_date', br.run_date, 'status', br.status, 'error_text', br.error_text)
+    INTO sO FROM public.backup_runs br
+   WHERE br.scope = 'offsite'
+   ORDER BY br.started_at DESC NULLS LAST, br.id DESC LIMIT 1;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         CASE i.name WHEN 'documento_sem_ficheiro_por_tabela' THEN cD WHEN 'backup_offsite_em_falta' THEN cO ELSE cM END,
+         i.reference_count,
+         CASE i.name WHEN 'documento_sem_ficheiro_por_tabela' THEN okD WHEN 'backup_offsite_em_falta' THEN cO <= i.reference_count ELSE cM <= i.reference_count END,
+         i.notes,
+         CASE i.name WHEN 'documento_sem_ficheiro_por_tabela' THEN sD WHEN 'backup_offsite_em_falta' THEN sO ELSE sM END
+    FROM public.system_invariants i
+   WHERE i.name IN ('documento_sem_ficheiro_por_tabela', 'backup_manifesto_cobre_todos_os_buckets', 'backup_offsite_em_falta');
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_storage() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_storage() TO service_role;
+
+-- Base mais recente: drizzle/migrations/0068_derp219_fix_rateio_invariant_ambiguous.sql:1; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_rateio()
+RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE c bigint; s jsonb;
+BEGIN
+  WITH m AS (
+    SELECT p.id AS m_id, p.description AS m_desc, p.amount AS m_amount, sum(ch.amount) AS m_soma, count(*) AS m_n
+      FROM public.transactions p
+      JOIN public.transactions ch ON ch.parent_transaction_id = p.id AND ch.split_percentage IS NOT NULL
+     WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = p.company_id AND training_c.is_training)
+     GROUP BY p.id, p.description, p.amount
+    HAVING abs(p.amount - sum(ch.amount)) > 0.01
+  )
+  SELECT count(*), coalesce(jsonb_agg(jsonb_build_object('id', m.m_id, 'descricao', m.m_desc, 'mae', m.m_amount, 'filhas', m.m_soma, 'n', m.m_n, 'diff', m.m_amount - m.m_soma) ORDER BY abs(m.m_amount - m.m_soma) DESC), '[]'::jsonb)
+    INTO c, s FROM m;
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, c, i.reference_count, c <= i.reference_count, i.notes, s
+    FROM public.system_invariants i WHERE i.name = 'maes_rateio_divergentes';
+END $function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_rateio() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_rateio() TO service_role;
+
+-- Base mais recente: drizzle/migrations/0096_derp_304_invariant_natureza_divergente.sql:12; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_dre_nature()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE c bigint; s jsonb;
+BEGIN
+  WITH bad AS (
+    SELECT t.id, t.company_id, t.type AS tx_type, cat.type AS cat_type, cat.code,
+           t.amount, extract(year FROM COALESCE(t.payment_date, t.date))::int AS ano
+      FROM public.transactions t
+      JOIN public.account_categories cat ON cat.id = t.category_id
+     WHERE NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND t.status IN ('approved', 'paid')
+       AND t.reversed_at IS NULL
+       AND NOT COALESCE(t.is_hidden, false)
+       AND NOT COALESCE(t.is_transitory, false)
+       AND NOT COALESCE(t.exclude_from_result, false)
+       AND cat.code LIKE '10%'
+       AND t.type <> cat.type
+       AND NOT (t.type = 'income' AND cat.code = '10.6.03')
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(jsonb_build_object('ano', y.ano, 'company_id', y.company_id, 'tx_type', y.tx_type,
+                                                       'rubrica_tipo', y.cat_type, 'n', y.n, 'valor', round(y.v, 2))
+                                    ORDER BY y.ano, y.company_id, y.tx_type)
+                     FROM (SELECT ano, company_id, tx_type, cat_type, count(*) n, sum(amount) v
+                             FROM bad GROUP BY 1, 2, 3, 4) y), '[]'::jsonb)
+    INTO c, s FROM bad;
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, c, i.reference_count, c <= i.reference_count, i.notes, s
+    FROM public.system_invariants i WHERE i.name = 'transacoes_natureza_divergente_da_rubrica';
+END $function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_dre_nature() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_dre_nature() TO service_role;
+
+-- Base mais recente: drizzle/migrations/0237_cache_attach_advance_to_contract.sql:198; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_cache_contracts()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE c1 bigint; s1 jsonb; c2 bigint; s2 jsonb; c3 bigint; s3 jsonb; c4 bigint := 0; s4 jsonb := '[]'::jsonb; p record; q record;
+BEGIN
+  WITH got AS (
+    SELECT cc.contract_id, cc.event_id, cc.quota,
+           coalesce((SELECT sum(t.amount) FROM public.transactions t
+                      WHERE t.cache_contract_id = cc.contract_id AND t.event_id = cc.event_id AND t.reversed_at IS NULL
+                        AND (t.parent_transaction_id IS NOT NULL OR t.cache_role = 'advance')),0) AS soma
+      FROM public.cache_payment_contract_cities cc JOIN public.cache_payment_contracts k ON k.id = cc.contract_id
+     WHERE k.cancelled_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = k.company_id AND training_c.is_training)
+  ), bad AS (SELECT * FROM got WHERE abs(quota - soma) > 0.01)
+  SELECT count(*), coalesce((SELECT jsonb_agg(to_jsonb(b)) FROM (SELECT * FROM bad LIMIT 6) b), '[]'::jsonb) INTO c1, s1 FROM bad;
+  RETURN QUERY SELECT i.name, i.description, i.severity, i.scope, c1, i.reference_count, c1 <= i.reference_count, i.notes, s1
+    FROM public.system_invariants i WHERE i.name = 'cache_contrato_cidade_divergente';
+
+  WITH bad AS (SELECT root_event_id, artist_supplier_id, count(*) n FROM public.cache_payment_contracts
+                WHERE cancelled_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.cache_payment_contracts.company_id AND training_c.is_training) GROUP BY 1,2 HAVING count(*) > public.cache_max_contracts())
+  SELECT count(*), coalesce(jsonb_agg(to_jsonb(bad)), '[]'::jsonb) INTO c2, s2 FROM bad;
+  RETURN QUERY SELECT i.name, i.description, i.severity, i.scope, c2, i.reference_count, c2 <= i.reference_count, i.notes, s2
+    FROM public.system_invariants i WHERE i.name = 'cache_contratos_acima_limite';
+
+  WITH bad AS (
+    SELECT t.id, t.event_id, t.forecast_id FROM public.transactions t
+     WHERE t.cache_role IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training) AND t.cache_contract_id IS NOT NULL AND (
+       (t.parent_transaction_id IS NULL AND t.cache_role <> 'advance' AND (t.event_id IS NOT NULL OR t.forecast_id IS NOT NULL))
+       OR (t.parent_transaction_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.events ch WHERE ch.parent_event_id = t.event_id))
+       OR t.declared_withholding_amount IS NOT NULL OR t.iva_rate <> 0)
+  )
+  SELECT count(*), coalesce((SELECT jsonb_agg(to_jsonb(b)) FROM (SELECT * FROM bad LIMIT 6) b), '[]'::jsonb) INTO c3, s3 FROM bad;
+  RETURN QUERY SELECT i.name, i.description, i.severity, i.scope, c3, i.reference_count, c3 <= i.reference_count, i.notes, s3
+    FROM public.system_invariants i WHERE i.name = 'cache_contrato_estrutura_invalida';
+  -- cache_cidade_teto_excedido: quotas dos contratos ativos + adiantamentos livres por cidade ≤ teto da cidade.
+  FOR p IN SELECT DISTINCT root_event_id, artist_supplier_id FROM public.cache_payment_contracts WHERE cancelled_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.cache_payment_contracts.company_id AND training_c.is_training) LOOP
+    BEGIN
+      FOR q IN
+        WITH caps AS (
+          SELECT cc.event_id, max(cc.cap) AS cap, sum(cc.quota) AS quota
+            FROM public.cache_payment_contract_cities cc JOIN public.cache_payment_contracts k ON k.id = cc.contract_id
+           WHERE k.cancelled_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = k.company_id AND training_c.is_training) AND k.root_event_id = p.root_event_id AND k.artist_supplier_id = p.artist_supplier_id
+           GROUP BY cc.event_id
+        ), fa AS (
+          SELECT x.event_id, sum(x.amount) AS amt FROM public._cache_free_advances_x(p.root_event_id, p.artist_supplier_id, NULL) x GROUP BY x.event_id
+        )
+        SELECT caps.event_id, caps.cap, caps.quota, coalesce(fa.amt, 0) AS free_advances
+          FROM caps LEFT JOIN fa ON fa.event_id = caps.event_id
+         WHERE caps.quota + coalesce(fa.amt, 0) > caps.cap + 0.005
+      LOOP
+        c4 := c4 + 1;
+        IF jsonb_array_length(s4) < 6 THEN
+          s4 := s4 || jsonb_build_object('root_event_id', p.root_event_id, 'artist_supplier_id', p.artist_supplier_id,
+                                         'event_id', q.event_id, 'cap', q.cap, 'quota', q.quota, 'free_advances', q.free_advances);
+        END IF;
+      END LOOP;
+    EXCEPTION WHEN others THEN
+      c4 := c4 + 1;
+      IF jsonb_array_length(s4) < 6 THEN
+        s4 := s4 || jsonb_build_object('root_event_id', p.root_event_id, 'artist_supplier_id', p.artist_supplier_id, 'erro', SQLERRM);
+      END IF;
+    END;
+  END LOOP;
+  RETURN QUERY SELECT i.name, i.description, i.severity, i.scope, c4, i.reference_count, c4 <= i.reference_count, i.notes, s4
+    FROM public.system_invariants i WHERE i.name = 'cache_cidade_teto_excedido';
+END $function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_cache_contracts() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_cache_contracts() TO service_role;
+
+-- Base mais recente: drizzle/migrations/0322_issue202_backup_global_invariants.sql:58; apenas predicados de treino.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_backup()
+RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_catalog'
+AS $function$
+  WITH stuck AS (
+    SELECT br.id, br.run_date, br.started_at, br.folder_path
+      FROM public.backup_runs br
+     WHERE br.scope = 'global' AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = br.company_id AND training_c.is_training) AND br.status = 'running'
+       AND br.started_at < now() - interval '2 hours'
+  ), counts AS (
+    SELECT 'backup_global_running_2h'::text AS invariant_name,
+           (SELECT count(*) FROM stuck) AS n,
+           (SELECT coalesce(jsonb_agg(to_jsonb(s)), '[]'::jsonb)
+              FROM (SELECT * FROM stuck ORDER BY started_at, id LIMIT 6) s) AS samples
+    UNION ALL
+    SELECT 'backup_global_sem_ok_30h',
+           CASE WHEN EXISTS (SELECT 1 FROM public.backup_runs br WHERE br.scope = 'global' AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = br.company_id AND training_c.is_training)
+             AND br.status = 'ok' AND br.finished_at > now() - interval '30 hours') THEN 0 ELSE 1 END,
+           jsonb_build_object('ultimo_ok', (SELECT to_jsonb(s) FROM (
+             SELECT br.id, br.run_date, br.started_at, br.folder_path, br.finished_at
+               FROM public.backup_runs br WHERE br.scope = 'global' AND NOT EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = br.company_id AND training_c.is_training) AND br.status = 'ok'
+              ORDER BY br.finished_at DESC NULLS LAST, br.id DESC LIMIT 1) s))
+  )
+  SELECT i.name, i.description, i.severity, i.scope, c.n, i.reference_count,
+         c.n <= i.reference_count, i.notes, c.samples
+    FROM counts c JOIN public.system_invariants i ON i.name = c.invariant_name
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_backup() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_backup() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_raw_training()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE
+  c1 bigint; c2 bigint; c3 bigint; c4 bigint; c5 bigint; c6 bigint;
+  c7 bigint; c8 bigint; c9 bigint; c10 bigint; c12 bigint;
+  c13 bigint; c14 bigint; c15 bigint; c16 bigint; c17 bigint; c18 bigint;
+  c19 bigint; c20 bigint; c21 bigint; c22 bigint;
+  s1 jsonb; s2 jsonb; s3 jsonb; s4 jsonb; s5 jsonb; s6 jsonb;
+  s7 jsonb; s8 jsonb; s9 jsonb; s10 jsonb; s12 jsonb;
+  s13 jsonb; s14 jsonb; s15 jsonb; s16 jsonb; s17 jsonb; s18 jsonb;
+  s19 jsonb; s20 jsonb; s21 jsonb; s22 jsonb;
+BEGIN
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.description, t.company_id AS tx_company, s.company_id AS supplier_company, s.name AS supplier_name
+      FROM public.transactions t
+      JOIN public.suppliers s ON s.id = t.supplier_id
+     WHERE t.company_id IS DISTINCT FROM s.company_id
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c1, s1 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.description, t.company_id AS tx_company, a.company_id AS account_company, a.name AS account_name
+      FROM public.transactions t
+      JOIN public.financial_accounts a ON a.id = t.account_id
+     WHERE t.company_id IS DISTINCT FROM a.company_id
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c2, s2 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.description, t.company_id AS tx_company, e.company_id AS event_company, e.name AS event_name
+      FROM public.transactions t
+      JOIN public.events e ON e.id = t.event_id
+     WHERE t.company_id IS DISTINCT FROM e.company_id
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c3, s3 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.description, t.company_id AS tx_company, c.company_id AS category_company, c.code AS category_code
+      FROM public.transactions t
+      JOIN public.account_categories c ON c.id = t.category_id
+     WHERE c.company_id IS NOT NULL
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND t.company_id IS DISTINCT FROM c.company_id
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c4, s4 FROM bad;
+
+  WITH bad AS (
+    SELECT x.id AS map_id, x.company_id AS map_company, s.company_id AS supplier_company, s.name AS supplier_name
+      FROM public.coala_supplier_category_map x
+      JOIN public.suppliers s ON s.id = x.supplier_id
+     WHERE x.company_id IS DISTINCT FROM s.company_id
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = x.company_id AND training_c.is_training)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(y)) FROM (SELECT * FROM bad LIMIT 5) y), '[]'::jsonb)
+    INTO c5, s5 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.description, t.parent_transaction_id, t.account_id, t.company_id
+      FROM public.transactions t
+     WHERE t.parent_transaction_id IS NOT NULL
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND t.installment_group_id IS NULL
+       AND t.account_id IS NOT NULL
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c6, s6 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.description, t.type, t.company_id
+      FROM public.transactions t
+     WHERE t.type NOT IN ('income','expense')
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c7, s7 FROM bad;
+
+  WITH bad AS (
+    SELECT s.company_id, s.iban, count(*) AS fornecedores, string_agg(s.name, ' | ') AS nomes
+      FROM public.suppliers s
+     WHERE s.is_active AND s.iban IS NOT NULL AND s.iban <> ''
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = s.company_id AND training_c.is_training)
+     GROUP BY s.company_id, s.iban
+    HAVING count(*) > 1
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c8, s8 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS settlement_id, t.event_id, t.net_calculated, t.net_adjusted, t.net_transferred
+      FROM public.ticket_office_settlements t
+     WHERE t.status = 'confirmed'
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND COALESCE(t.net_transferred, 0) = 0
+       AND COALESCE(t.net_adjusted, t.net_calculated) > 0.01
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c9, s9 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.description, t.amount, t.iva_rate, t.paid_amount, t.company_id
+      FROM public.transactions t
+     WHERE t.paid_amount IS NOT NULL
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND t.paid_amount > ROUND(t.amount * (1 + COALESCE(t.iva_rate,0)/100.0), 2) + 0.02
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c10, s10 FROM bad;
+
+
+
+  WITH bad AS (
+    SELECT f.id AS forecast_id, f.company_id, f.event_id, f.description, c.code AS category_code
+      FROM public.event_forecasts f
+      JOIN public.account_categories c ON c.id = f.category_id
+     WHERE f.type = 'expense'
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = f.company_id AND training_c.is_training)
+       AND f.version_id IS NULL
+       AND EXISTS (SELECT 1 FROM public.account_categories k WHERE k.parent_id = c.id)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c13, s13 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.company_id, t.event_id, t.description
+      FROM public.transactions t
+     WHERE t.event_id IS NOT NULL AND t.category_id IS NULL
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c14, s14 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.company_id, t.event_id AS tx_event, f.event_id AS forecast_event, t.description
+      FROM public.transactions t
+      JOIN public.event_forecasts f ON f.id = t.forecast_id
+     WHERE t.event_id IS NOT NULL AND t.event_id IS DISTINCT FROM f.event_id
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c15, s15 FROM bad;
+
+  WITH bad AS (
+    SELECT f.id AS forecast_id, f.company_id, f.event_id, f.description,
+           t.id AS anchor_transaction_id, t.forecast_id AS tx_forecast_id
+      FROM public.event_forecasts f
+      JOIN public.transactions t ON t.id = f.transaction_id
+     WHERE f.version_id IS NULL AND t.forecast_id IS DISTINCT FROM f.id
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = f.company_id AND training_c.is_training)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c16, s16 FROM bad;
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.company_id, t.forecast_id, t.event_id, t.description
+      FROM public.transactions t
+     WHERE t.forecast_id IS NOT NULL
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND NOT EXISTS (SELECT 1 FROM public.event_forecasts f WHERE f.id = t.forecast_id)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 5) x), '[]'::jsonb)
+    INTO c17, s17 FROM bad;
+
+
+
+  WITH bad AS (
+    SELECT a.invoice_group_id,
+           max(a.run_at) AS ultimo_run_at,
+           count(*) AS linhas_auditadas,
+           (SELECT count(*) FROM public.transactions t WHERE t.invoice_group_id = a.invoice_group_id) AS transacoes_agrupadas
+      FROM public.invoice_group_audit a
+     WHERE a.veredicto = 'desagrupar'
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = a.company_id AND training_c.is_training)
+       AND a.aplicado = false
+       AND a.invoice_group_id IS NOT NULL
+       AND EXISTS (SELECT 1 FROM public.transactions t WHERE t.invoice_group_id = a.invoice_group_id)
+     GROUP BY a.invoice_group_id
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad ORDER BY ultimo_run_at DESC LIMIT 5) x), '[]'::jsonb)
+    INTO c19, s19 FROM bad;
+
+  -- D-ERP70: a mae do rateio e a fatura inteira; as filhas sao a decomposicao por evento.
+  -- Soma das filhas <> valor da mae => valor sem evento atribuido, invisivel no DRE de evento.
+  -- Exclui parcelas de pagamento (installment_group_id preenchido).
+  WITH bad AS (
+    SELECT m.id AS mae_transaction_id, m.company_id, m.date, m.description, m.invoice_ref,
+           m.amount AS valor_mae,
+           ROUND(f.soma, 2) AS soma_filhas,
+           f.n_filhas,
+           ROUND(m.amount - f.soma, 2) AS diferenca,
+           ROUND((m.amount * (1 + COALESCE(m.iva_rate,0) / 100.0))::numeric, 2) AS bruto_mae,
+           f.soma_bruto AS soma_bruto_filhas
+      FROM public.transactions m
+      JOIN LATERAL (
+        SELECT SUM(c.amount) AS soma, count(*) AS n_filhas,
+               SUM(ROUND((c.amount * (1 + COALESCE(c.iva_rate,0) / 100.0))::numeric, 2)) AS soma_bruto
+          FROM public.transactions c
+         WHERE c.parent_transaction_id = m.id
+           AND c.installment_group_id IS NULL
+      ) f ON f.n_filhas > 0
+     WHERE m.parent_transaction_id IS NULL
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = m.company_id AND training_c.is_training)
+       AND (abs(m.amount - f.soma) > 0.05
+            -- #285 (09/10/2026): também acende quando o BRUTO não bate (IVA divergente mãe/filhas).
+            OR abs(ROUND((m.amount * (1 + COALESCE(m.iva_rate,0) / 100.0))::numeric, 2) - f.soma_bruto) > 0.05)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad ORDER BY abs(diferenca) DESC LIMIT 5) x), '[]'::jsonb)
+    INTO c20, s20 FROM bad;
+
+  -- D-ERP80: a transitoria diz porque. Extra do Socio declarado tem de ter linha em partner_advance_expenses.
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.company_id, t.event_id, t.date, t.description, t.amount
+      FROM public.transactions t
+     WHERE t.is_transitory
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND t.transitory_reason = 'partner_advance'
+       AND NOT EXISTS (SELECT 1 FROM public.partner_advance_expenses p WHERE p.transaction_id = t.id)
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad ORDER BY amount DESC LIMIT 5) x), '[]'::jsonb)
+    INTO c21, s21 FROM bad;
+
+  -- #201: carga de cartao marcada como paga (marca visual) e ainda sem perna de
+  -- entrada. O trigger card_load_on_out_paid so dispara com status='paid', logo a
+  -- marca visual deixa dinheiro real no cartao e zero credito no sistema.
+  WITH bad AS (
+    SELECT l.id AS load_id, l.session_id, l.load_date, l.amount,
+           l.out_transaction_id, t.company_id, t.status AS out_status
+      FROM public.card_session_loads l
+      JOIN public.transactions t ON t.id = l.out_transaction_id
+     WHERE l.in_transaction_id IS NULL
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND t.status <> 'paid'
+       AND EXISTS (
+         SELECT 1 FROM public.payment_list_items pli
+          WHERE pli.transaction_id = t.id
+            AND pli.manually_marked_paid
+            AND pli.removed_at IS NULL
+       )
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad ORDER BY load_date DESC LIMIT 5) x), '[]'::jsonb)
+    INTO c22, s22 FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         v.cnt, i.reference_count, (v.cnt = i.reference_count) AS conforme,
+         i.notes, v.smp
+    FROM public.system_invariants i
+    JOIN (VALUES
+      ('tx_fornecedor_outra_empresa', c1, s1),
+      ('tx_conta_outra_empresa', c2, s2),
+      ('tx_evento_outra_empresa', c3, s3),
+      ('tx_rubrica_outra_empresa', c4, s4),
+      ('coala_map_outra_empresa', c5, s5),
+      ('filha_rateio_com_conta', c6, s6),
+      ('tipo_invalido', c7, s7),
+      ('fornecedor_iban_duplicado_ativo', c8, s8),
+      ('fecho_confirmado_liquido_retido', c9, s9),
+      ('paid_amount_acima_do_bruto', c10, s10),
+      ('BP_DESPESA_EM_L2', c13, s13),
+      ('TX_EVENTO_SEM_RUBRICA', c14, s14),
+      ('VINCULO_CROSS_EVENTO', c15, s15),
+      ('VINCULO_DESSINCRONIZADO', c16, s16),
+      ('FORECAST_ID_ORFAO', c17, s17),
+      ('grupo_fatura_veredicto_desagrupar_por_aplicar', c19, s19),
+      ('rateio_filhas_nao_somam_a_mae', c20, s20),
+      ('transitoria_partner_advance_sem_linha', c21, s21),
+      ('carga_sem_credito', c22, s22)
+    ) AS v(name, cnt, smp) ON v.name = i.name
+   ORDER BY i.scope, (v.cnt = i.reference_count), i.severity, i.name;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_raw_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_raw_training() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_extra_training()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE
+  cB bigint; sB jsonb;
+  cX bigint; sX jsonb;
+  cF bigint; sF jsonb;
+  cP bigint; sP jsonb;
+  cT bigint; sT jsonb;
+  cL bigint; sL jsonb;
+  cC bigint; sC jsonb;
+  cM bigint; sM jsonb;
+  cO bigint; sO jsonb;
+  cS bigint; sS jsonb;
+  cR bigint; sR jsonb;
+BEGIN
+  WITH em_falta AS (
+    SELECT c.id AS company_id, c.slug,
+           (SELECT max(b.finished_at) FROM public.backup_runs b
+             WHERE b.company_id = c.id AND b.status = 'ok') AS ultimo_ok
+      FROM public.companies c
+     WHERE c.status = 'active' AND c.is_training
+       AND NOT EXISTS (
+         SELECT 1 FROM public.backup_runs b
+          WHERE b.company_id = c.id
+            AND b.status = 'ok'
+            AND b.finished_at > now() - interval '30 hours'
+       )
+  ),
+  global_falta AS (
+    SELECT NULL::uuid AS company_id, 'global'::text AS slug,
+           (SELECT max(b.finished_at) FROM public.backup_runs b
+             WHERE b.scope = 'global' AND b.status = 'ok') AS ultimo_ok
+     WHERE NOT EXISTS (
+       SELECT 1 FROM public.backup_runs b
+        WHERE b.scope = 'global'
+          AND b.status = 'ok'
+          AND b.finished_at > now() - interval '30 hours'
+     )
+  ),
+  bad AS (
+    SELECT * FROM em_falta
+    UNION ALL
+    SELECT * FROM global_falta WHERE false
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 6) x), '[]'::jsonb)
+    INTO cB, sB FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cB, i.reference_count, (cB = i.reference_count) AS conforme,
+         i.notes, sB
+    FROM public.system_invariants i
+   WHERE i.name = 'backup_empresa_em_falta';
+
+  WITH falhados AS (
+    SELECT l.template_name, l.recipient_email, l.status, l.error_message, l.created_at
+      FROM public.email_send_log l
+     WHERE l.status IN ('failed','dlq')
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = l.company_id AND training_c.is_training)
+       AND l.created_at > now() - interval '24 hours'
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (
+                     SELECT template_name, recipient_email, status, error_message, created_at
+                       FROM falhados ORDER BY created_at DESC LIMIT 6) x), '[]'::jsonb)
+    INTO cF, sF FROM falhados;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cF, i.reference_count, (cF = i.reference_count) AS conforme,
+         i.notes, sF
+    FROM public.system_invariants i
+   WHERE i.name = 'emails_falhados_24h';
+
+  WITH presos AS (
+    SELECT l.template_name, l.recipient_email, l.created_at
+      FROM public.email_send_log l
+     WHERE l.status = 'pending'
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = l.company_id AND training_c.is_training) AND NOT EXISTS (SELECT 1 FROM public.email_send_log s WHERE s.message_id = l.message_id AND s.status = 'sent')
+       AND l.created_at < now() - interval '24 hours'
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (
+                     SELECT template_name, count(*) AS total,
+                            min(created_at) AS mais_antigo, max(created_at) AS mais_recente
+                       FROM presos GROUP BY template_name ORDER BY count(*) DESC LIMIT 6) x), '[]'::jsonb)
+    INTO cP, sP FROM presos;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cP, i.reference_count, (cP = i.reference_count) AS conforme,
+         i.notes, sP
+    FROM public.system_invariants i
+   WHERE i.name = 'emails_presos_pending';
+
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.company_id, t.date, t.description,
+           t.status, t.paid_amount,
+           ROUND(s.soma, 2) AS soma_linhas,
+           ROUND(COALESCE(t.paid_amount, 0) - s.soma, 2) AS diferenca
+      FROM public.transactions t
+      JOIN LATERAL (
+        SELECT SUM(p.amount) AS soma
+          FROM public.transaction_payments p
+         WHERE p.transaction_id = t.id
+           AND p.status = 'paid'
+      ) s ON s.soma IS NOT NULL
+     WHERE NOT (t.parent_transaction_id IS NOT NULL AND t.split_percentage IS NOT NULL)
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND COALESCE(t.is_reimbursement, false) = false
+       AND NOT EXISTS (
+         SELECT 1 FROM public.partner_paid_expenses pp WHERE pp.transaction_id = t.id
+       )
+       AND abs(COALESCE(t.paid_amount, 0) - s.soma) > 0.05
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (
+                     SELECT * FROM bad ORDER BY abs(diferenca) DESC LIMIT 5) x), '[]'::jsonb)
+    INTO cL, sL FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cL, i.reference_count, (cL = i.reference_count) AS conforme,
+         i.notes, sL
+    FROM public.system_invariants i
+   WHERE i.name = 'paid_amount_sem_linhas';
+
+  WITH bad AS (
+    SELECT l.id AS line_id, l.financial_account_id, l.statement_id,
+           l.booking_date, l.description, l.amount, l.matched_by, l.matched_at
+      FROM public.bank_statement_lines l
+     WHERE l.status = 'matched'
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = l.company_id AND training_c.is_training)
+       AND l.matched_transaction_id IS NULL
+       AND l.created_transaction_id IS NULL
+       AND l.matched_sepa_export_id IS NULL
+       AND l.matched_payment_list_id IS NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM public.bank_line_transactions b WHERE b.line_id = l.id
+       )
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (
+                     SELECT * FROM bad ORDER BY booking_date DESC LIMIT 6) x), '[]'::jsonb)
+    INTO cC, sC FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cC, i.reference_count, (cC = i.reference_count) AS conforme,
+         i.notes, sC
+    FROM public.system_invariants i
+   WHERE i.name = 'linha_conciliada_sem_transacao';
+
+  WITH bad AS (
+    SELECT p.id AS payment_id, p.transaction_id, p.currency, p.amount,
+           p.original_amount, p.fx_rate, p.payment_date
+      FROM public.transaction_payments p
+     WHERE COALESCE(p.currency, 'EUR') <> 'EUR'
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = p.company_id AND training_c.is_training)
+       AND (p.original_amount IS NULL OR p.fx_rate IS NULL)
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (
+                     SELECT * FROM bad ORDER BY payment_date DESC LIMIT 6) x), '[]'::jsonb)
+    INTO cM, sM FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cM, i.reference_count, (cM = i.reference_count) AS conforme,
+         i.notes, sM
+    FROM public.system_invariants i
+   WHERE i.name = 'pagamento_moeda_sem_cambio';
+
+  WITH bad AS (
+    SELECT o.id AS offset_id, o.company_id, o.receivable_transaction_id, o.payable_transaction_id, o.amount
+      FROM public.transaction_offsets o
+     WHERE o.offset_group_id IS NULL
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = o.company_id AND training_c.is_training) AND ((
+             EXISTS (SELECT 1 FROM public.transaction_payments x
+                      WHERE x.transaction_id = o.receivable_transaction_id
+                        AND x.payment_method <> 'compensation' AND x.status = 'paid' AND x.reversed_at IS NULL)
+             AND NOT EXISTS (SELECT 1 FROM public.transaction_payments x
+                      WHERE x.transaction_id = o.payable_transaction_id AND x.offset_id = o.id
+                        AND x.status = 'paid' AND x.reversed_at IS NULL)
+           ) OR (
+             EXISTS (SELECT 1 FROM public.transaction_payments x
+                      WHERE x.transaction_id = o.payable_transaction_id
+                        AND x.payment_method <> 'compensation' AND x.status = 'paid' AND x.reversed_at IS NULL)
+             AND NOT EXISTS (SELECT 1 FROM public.transaction_payments x
+                      WHERE x.transaction_id = o.receivable_transaction_id AND x.offset_id = o.id
+                        AND x.status = 'paid' AND x.reversed_at IS NULL)
+           ))
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 6) x), '[]'::jsonb)
+    INTO cO, sO FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cO, i.reference_count, (cO = i.reference_count) AS conforme,
+         i.notes, sO
+    FROM public.system_invariants i
+   WHERE i.name = 'compensacao_pendente';
+  -- D-ERP156: conta-corrente de sessão de camarim integrada tem de ficar a 0.
+  WITH bad AS (
+    SELECT s.id AS session_id, s.company_id, s.title, s.advance_account_id,
+           round(public._account_true_balance_raw(s.advance_account_id), 2) AS saldo
+      FROM public.camarim_sessions s
+     WHERE s.status = 'integrated'
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = s.company_id AND training_c.is_training)
+       AND s.advance_account_id IS NOT NULL
+       AND abs(COALESCE(public._account_true_balance_raw(s.advance_account_id), 0)) >= 0.01
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 6) x), '[]'::jsonb)
+    INTO cS, sS FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cS, i.reference_count, (cS = i.reference_count) AS conforme,
+         i.notes, sS
+    FROM public.system_invariants i
+   WHERE i.name = 'camarim_sessao_integrada_com_saldo';
+  -- 0286: pagamento de nota de reembolso nunca entra no resultado.
+  WITH bad AS (
+    SELECT rn.id AS note_id, rn.code, rn.status, t.id AS transaction_id, t.amount, t.exclude_from_result
+      FROM public.reimbursement_notes rn
+      JOIN public.transactions t ON t.id = rn.payment_transaction_id
+     WHERE t.exclude_from_result IS DISTINCT FROM true
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 6) x), '[]'::jsonb)
+    INTO cR, sR FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cR, i.reference_count, (cR = i.reference_count) AS conforme,
+         i.notes, sR
+    FROM public.system_invariants i
+   WHERE i.name = 'reembolso_pagamento_no_resultado';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_extra_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_extra_training() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_infra_training()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE
+  cR bigint; sR jsonb;
+  cP bigint; sP jsonb;
+BEGIN
+  -- Erros de front dos portais públicos nas últimas 24 horas.
+  -- Semântica de limiar: conforme = contagem <= referência (máximo tolerado).
+  SELECT count(*) INTO cP
+    FROM public.portal_error_log l
+   WHERE l.created_at > now() - interval '24 hours'
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = l.company_id AND training_c.is_training);
+
+  SELECT COALESCE(jsonb_agg(to_jsonb(x)), '[]'::jsonb) INTO sP
+    FROM (
+      SELECT left(regexp_replace(l.message, '\s+', ' ', 'g'), 160) AS mensagem,
+             l.route,
+             count(*) AS n,
+             max(l.created_at) AS ultimo
+        FROM public.portal_error_log l
+       WHERE l.created_at > now() - interval '24 hours'
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = l.company_id AND training_c.is_training)
+       GROUP BY 1, 2
+       ORDER BY count(*) DESC
+       LIMIT 3
+    ) x;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cP, i.reference_count, (cP <= i.reference_count) AS conforme,
+         i.notes, sP
+    FROM public.system_invariants i
+   WHERE i.name = 'erros_portal_24h';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_infra_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_infra_training() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_docs_training()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE
+  cR bigint; sR jsonb; allR jsonb;
+BEGIN
+  -- #268: todas as tabelas de documentos; ficheiro distinto = (bucket, caminho).
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('tabela', m.tabela, 'bucket', m.bucket, 'file_url', m.caminho, 'linhas', m.linhas) ORDER BY m.tabela, m.caminho), '[]'::jsonb)
+    INTO allR
+    FROM (
+      SELECT s.tabela, s.bucket, s.caminho, count(*)::bigint AS linhas
+        FROM (
+          SELECT 'transaction_documents'::text AS tabela, 'transaction-documents'::text AS bucket, file_url::text AS caminho FROM public.transaction_documents WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.transaction_documents.company_id AND training_c.is_training)
+          UNION ALL SELECT 'payment_list_documents', 'transaction-documents', file_url FROM public.payment_list_documents WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.payment_list_documents.company_id AND training_c.is_training)
+          UNION ALL SELECT 'camarim_item_documents', 'camarim-documents', file_path FROM public.camarim_item_documents WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.camarim_item_documents.company_id AND training_c.is_training)
+          UNION ALL SELECT 'card_item_documents', 'card-documents', file_path FROM public.card_item_documents WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.card_item_documents.company_id AND training_c.is_training)
+          UNION ALL SELECT 'event_forecast_attachments', 'event-forecast-attachments', storage_path FROM public.event_forecast_attachments WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.event_forecast_attachments.company_id AND training_c.is_training)
+          UNION ALL SELECT 'bank_line_documents', 'bank-statements', file_url FROM public.bank_line_documents WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.bank_line_documents.company_id AND training_c.is_training)
+          UNION ALL SELECT 'event_ab_attachments', 'event-ab-attachments', storage_path FROM public.event_ab_attachments WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.event_ab_attachments.company_id AND training_c.is_training)
+          UNION ALL SELECT 'entity_documents', 'entity-documents', storage_path FROM public.entity_documents WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.entity_documents.company_id AND training_c.is_training)
+          UNION ALL SELECT 'supplier_documents', 'supplier-documents', file_url FROM public.supplier_documents WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.supplier_documents.company_id AND training_c.is_training)
+        ) s
+       WHERE s.caminho IS NOT NULL
+         AND s.caminho !~ '^(bank:|ref:|camarim:|card:|https?:)'
+         AND NOT EXISTS (SELECT 1 FROM storage.objects o WHERE o.bucket_id = s.bucket AND o.name = s.caminho)
+       GROUP BY s.tabela, s.bucket, s.caminho
+    ) m;
+
+  SELECT count(*) INTO cR
+    FROM (SELECT DISTINCT e->>'bucket', e->>'file_url' FROM jsonb_array_elements(allR) e) z;
+
+  SELECT COALESCE(jsonb_agg(e), '[]'::jsonb) INTO sR
+    FROM (SELECT e FROM jsonb_array_elements(allR) e LIMIT 5) x;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cR, i.reference_count, (cR <= i.reference_count) AS conforme,
+         i.notes, sR
+    FROM public.system_invariants i
+   WHERE i.name = 'documento_sem_ficheiro_no_storage';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_docs_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_docs_training() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_paid_training()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE cZ bigint; sZ jsonb;
+BEGIN
+  WITH bad AS (
+    SELECT t.id AS transaction_id, t.company_id, t.date, t.description,
+           t.status, t.paid_amount, t.account_id
+      FROM public.transactions t
+     WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND COALESCE(t.paid_amount, 0) > 0.01
+       AND COALESCE(t.is_reimbursement, false) = false
+       AND NOT (t.parent_transaction_id IS NOT NULL AND t.split_percentage IS NOT NULL)
+       AND NOT EXISTS (SELECT 1 FROM public.partner_paid_expenses pp WHERE pp.transaction_id = t.id)
+       AND NOT EXISTS (SELECT 1 FROM public.transaction_payments p
+                        WHERE p.transaction_id = t.id AND p.status = 'paid')
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (
+                     SELECT * FROM bad ORDER BY paid_amount DESC LIMIT 6) x), '[]'::jsonb)
+    INTO cZ, sZ FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cZ, i.reference_count, (cZ = i.reference_count) AS conforme,
+         i.notes, sZ
+    FROM public.system_invariants i
+   WHERE i.name = 'paid_sem_pagamento';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_paid_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_paid_training() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_cash_training()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE c bigint; s jsonb;
+BEGIN
+  WITH b AS (
+    SELECT a.id, a.name AS conta, a.company_id,
+           public._account_true_balance_asof_raw(a.id, NULL) AS saldo
+      FROM public.financial_accounts a
+     WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = a.company_id AND training_c.is_training)
+       AND a.type = 'cash'
+  ), bad AS (
+    SELECT * FROM b WHERE saldo < -0.005
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(jsonb_build_object('id', x.id, 'conta', x.conta, 'company_id', x.company_id, 'saldo', round(x.saldo, 2)) ORDER BY x.saldo) FROM (SELECT * FROM bad LIMIT 10) x), '[]'::jsonb)
+    INTO c, s FROM bad;
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, c, i.reference_count, c <= i.reference_count, i.notes, s
+    FROM public.system_invariants i WHERE i.name = 'conta_cash_saldo_negativo';
+END $function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_cash_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_cash_training() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_cards_training()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE cZ bigint; sZ jsonb;
+BEGIN
+  WITH bad AS (
+    SELECT i.id AS item_id, i.session_id, s.company_id, s.card_account_id,
+           i.item_date, round(i.amount * (1 + COALESCE(i.iva_rate, 0) / 100.0), 2) AS item_gross,
+           i.description AS item_description,
+           t.id AS transaction_id, t.paid_amount AS transaction_gross,
+           t.description AS transaction_description
+      FROM public.card_session_items i
+      JOIN public.card_sessions s ON s.id = i.session_id
+      JOIN public.transactions t
+        ON t.account_id = s.card_account_id
+       AND COALESCE(t.payment_date, t.date) = i.item_date
+       AND abs(COALESCE(t.paid_amount, 0) - i.amount * (1 + COALESCE(i.iva_rate, 0) / 100.0)) < 0.01
+       AND t.reversed_at IS NULL
+       AND COALESCE(t.is_hidden, false) = false
+     WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = i.company_id AND training_c.is_training)
+       AND i.status = 'approved'
+       AND NOT EXISTS (SELECT 1 FROM public.card_session_items x WHERE x.transaction_id = t.id)
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (
+                     SELECT * FROM bad ORDER BY item_date DESC LIMIT 5) x), '[]'::jsonb)
+    INTO cZ, sZ FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         cZ, i.reference_count, (cZ = i.reference_count) AS conforme,
+         i.notes, sZ
+    FROM public.system_invariants i
+   WHERE i.name = 'item_de_cartao_duplica_transacao';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_cards_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_cards_training() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_duplicate_invoices_training()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE cZ bigint; sZ jsonb;
+BEGIN
+  -- #284: conta TRANSAÇÕES DISTINTAS (não pares) com par de mesma fatura, valor e tipo.
+  -- Pares de type diferente ficam fora: transferência entre contas nasce sempre assim.
+  WITH base AS (
+    SELECT t.id, t.company_id, t.supplier_id, t.type, t.amount, t.date, t.description,
+           upper(regexp_replace(btrim(t.invoice_ref), '\s+', ' ', 'g')) AS ref_norm
+      FROM public.transactions t
+     WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND t.parent_transaction_id IS NULL AND t.reversed_at IS NULL
+       AND t.supplier_id IS NOT NULL
+       AND nullif(btrim(t.invoice_ref), '') IS NOT NULL
+  ), bad AS (
+    SELECT DISTINCT a.id, a.company_id, a.supplier_id, a.ref_norm, a.type, a.amount, a.date, a.description
+      FROM base a JOIN base b
+        ON b.id <> a.id AND b.company_id = a.company_id AND b.supplier_id = a.supplier_id
+       AND b.ref_norm = a.ref_norm AND b.type IS NOT DISTINCT FROM a.type
+       AND abs(b.amount - a.amount) <= 0.01
+  )
+  SELECT count(DISTINCT id),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad ORDER BY date DESC LIMIT 5) x), '[]'::jsonb)
+    INTO cZ, sZ FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, cZ, i.reference_count,
+         (cZ = i.reference_count) AS conforme, i.notes, sZ
+    FROM public.system_invariants i WHERE i.name = 'transacao_duplica_fatura';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_duplicate_invoices_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_duplicate_invoices_training() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_camarim_training()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE c bigint; s jsonb;
+BEGIN
+  WITH bad AS (
+    SELECT m.id AS move_id, m.session_id, l.session_tx, l.bank_tx, st.paid_amount, st.amount
+      FROM public.camarim_fund_moves m
+      CROSS JOIN LATERAL public._camarim_fund_move_legs(m.id) l
+      JOIN public.transactions bt ON bt.id = l.bank_tx
+      JOIN public.transactions st ON st.id = l.session_tx
+     WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = m.company_id AND training_c.is_training)
+       AND m.move_type IN ('advance','reinforcement')
+       AND bt.status = 'paid'
+       AND COALESCE(st.paid_amount, 0) < st.amount * (1 + COALESCE(st.iva_rate,0) / 100.0) - 0.01
+  )
+  SELECT count(*), COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad LIMIT 6) x), '[]'::jsonb)
+    INTO c, s FROM bad;
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, c, i.reference_count, (c = i.reference_count), i.notes, s
+    FROM public.system_invariants i WHERE i.name = 'camarim_adiantamento_sem_entrada';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_camarim_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_camarim_training() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_suppliers_training()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE c bigint; s jsonb;
+BEGIN
+  SELECT count(*), COALESCE(jsonb_agg(to_jsonb(x)) FILTER (WHERE x.rn <= 6), '[]'::jsonb)
+    INTO c, s
+    FROM (SELECT f.id, f.company_id, f.supplier_id, f.similar_supplier_id, f.motivo, f.source,
+                 row_number() OVER (ORDER BY f.created_at DESC) rn
+            FROM public.supplier_similarity_flags f WHERE f.resolved_at IS NULL
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = f.company_id AND training_c.is_training)) x;
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, c, i.reference_count, (c <= i.reference_count), i.notes, s
+    FROM public.system_invariants i WHERE i.name = 'supplier_similar_por_rever';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_suppliers_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_suppliers_training() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_paid_below_gross_training()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE cZ bigint; sZ jsonb;
+BEGIN
+  -- #285: /100.0 obrigatório (iva_rate é integer). Tolerância 0,02 obrigatória (arredondamento do bruto).
+  WITH bad AS (
+    SELECT t.id, t.company_id, t.description, t.date, t.amount, t.iva_rate, t.paid_amount,
+           round((t.amount * (1 + COALESCE(t.iva_rate,0) / 100.0))::numeric, 2) - COALESCE(t.paid_amount,0) AS falta
+      FROM public.transactions t
+     WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND t.status = 'paid' AND t.reversed_at IS NULL
+       AND round((t.amount * (1 + COALESCE(t.iva_rate,0) / 100.0))::numeric, 2) - COALESCE(t.paid_amount,0) > 0.02
+       AND COALESCE(t.declared_withholding_amount,0) = 0
+       AND NOT EXISTS (SELECT 1 FROM public.supplier_credit_usages u WHERE u.transaction_id = t.id)
+       AND NOT EXISTS (SELECT 1 FROM public.transaction_offsets o
+                        WHERE t.id IN (o.receivable_transaction_id, o.payable_transaction_id))
+       AND NOT EXISTS (SELECT 1 FROM public.ticket_office_settlements s
+                        WHERE s.venue_retained_invoice_id = t.id AND s.reversed_at IS NULL)
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM bad ORDER BY falta DESC LIMIT 5) x), '[]'::jsonb)
+    INTO cZ, sZ FROM bad;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, cZ, i.reference_count,
+         (cZ = i.reference_count) AS conforme, i.notes, sZ
+    FROM public.system_invariants i WHERE i.name = 'pago_abaixo_do_bruto';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_paid_below_gross_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_paid_below_gross_training() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_ticketline_series_training()
+RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE c bigint; s jsonb;
+BEGIN
+  WITH lastrun AS (
+    SELECT DISTINCT ON (cf.event_id) cf.event_id, r.import_audit->'zoneLotMap' AS m
+      FROM public.ticketline_sync_runs r
+      JOIN public.ticketline_sync_config cf ON cf.id = r.config_id
+     WHERE r.status IN ('success','warning')
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = cf.company_id AND training_c.is_training)
+       AND CASE WHEN jsonb_typeof(r.import_audit->'zoneLotMap') = 'array'
+                THEN jsonb_array_length(r.import_audit->'zoneLotMap') > 0 ELSE false END
+     ORDER BY cf.event_id, r.started_at DESC
+  ), hits AS (
+    SELECT e.name AS evento, z.name AS zona, sum(ts.quantity) AS bilhetes,
+           round(sum(ts.total_value), 2) AS valor, min(ts.sale_date) AS de, max(ts.sale_date) AS ate
+      FROM lastrun l
+      JOIN public.event_ticket_zones z ON z.event_id = l.event_id AND z.sync_generated
+      JOIN public.ticket_sales ts ON ts.zone_id = z.id AND ts.source = 'ticketline_import'
+      JOIN public.events e ON e.id = l.event_id
+     WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(l.m) x WHERE x->>'zoneId' = z.id::text)
+     GROUP BY l.event_id, z.id, e.name, z.name
+  )
+  SELECT (SELECT count(*) FROM hits),
+         COALESCE((SELECT jsonb_agg(to_jsonb(h)) FROM (SELECT * FROM hits ORDER BY bilhetes DESC LIMIT 10) h), '[]'::jsonb)
+    INTO c, s;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, c, i.reference_count,
+         (c <= i.reference_count), i.notes, s
+    FROM public.system_invariants i
+   WHERE i.name = 'ticketline_series_paralelas';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_ticketline_series_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_ticketline_series_training() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_unreachable_docs_training()
+RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'storage', 'pg_catalog'
+AS $function$
+DECLARE c bigint; s jsonb;
+BEGIN
+  WITH d AS (
+    SELECT td.id, td.transaction_id, td.file_url, td.uploaded_at
+      FROM public.transaction_documents td
+     WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = td.company_id AND training_c.is_training)
+       AND td.file_url IS NOT NULL
+       AND td.file_url !~ '^(bank|ref|camarim|card)://'
+       AND td.file_url !~* '^https?://'
+       AND NOT EXISTS (SELECT 1 FROM storage.objects o
+                        WHERE o.bucket_id = 'transaction-documents' AND o.name = td.file_url)
+  )
+  SELECT (SELECT count(*) FROM d),
+         COALESCE((SELECT jsonb_agg(to_jsonb(x)) FROM (SELECT * FROM d ORDER BY uploaded_at LIMIT 10) x), '[]'::jsonb)
+    INTO c, s;
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, c, i.reference_count, (c <= i.reference_count), i.notes, s
+    FROM public.system_invariants i WHERE i.name = 'documentos_inalcancaveis';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_unreachable_docs_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_unreachable_docs_training() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_storage_training()
+RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'storage', 'pg_catalog'
+AS $function$
+DECLARE
+  refs constant jsonb := '{"camarim_item_documents":9,"payment_list_documents":2,"card_item_documents":0,"event_forecast_attachments":0,"bank_line_documents":0,"event_ab_attachments":0}';
+  cD bigint; sD jsonb; okD boolean; cM bigint; sM jsonb; cO bigint; sO jsonb;
+BEGIN
+  WITH d(tbl, bucket, did, dpath) AS (
+    SELECT 'camarim_item_documents', 'camarim-documents', x.id, x.file_path FROM public.camarim_item_documents x WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = x.company_id AND training_c.is_training)
+    UNION ALL SELECT 'payment_list_documents', 'transaction-documents', x.id, x.file_url FROM public.payment_list_documents x WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = x.company_id AND training_c.is_training)
+    UNION ALL SELECT 'card_item_documents', 'card-documents', x.id, x.file_path FROM public.card_item_documents x WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = x.company_id AND training_c.is_training)
+    UNION ALL SELECT 'event_forecast_attachments', 'event-forecast-attachments', x.id, x.storage_path FROM public.event_forecast_attachments x WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = x.company_id AND training_c.is_training)
+    UNION ALL SELECT 'bank_line_documents', 'bank-statements', x.id, x.file_url FROM public.bank_line_documents x WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = x.company_id AND training_c.is_training)
+    UNION ALL SELECT 'event_ab_attachments', 'event-ab-attachments', x.id, x.storage_path FROM public.event_ab_attachments x WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = x.company_id AND training_c.is_training)
+  ), m AS (
+    SELECT * FROM d
+     WHERE d.dpath IS NOT NULL AND d.dpath !~ '^(ref|bank|camarim|card)://' AND d.dpath !~* '^https?://'
+       AND NOT EXISTS (SELECT 1 FROM storage.objects o WHERE o.bucket_id = d.bucket AND o.name = d.dpath)
+  ), t AS (
+    SELECT k AS tbl, (SELECT count(*) FROM m WHERE m.tbl = k) n, (refs->>k)::bigint r,
+           (SELECT coalesce(jsonb_agg(jsonb_build_object('id', s.did, 'path', s.dpath)), '[]'::jsonb)
+              FROM (SELECT m.did, m.dpath FROM m WHERE m.tbl = k ORDER BY m.dpath LIMIT 5) s) amostra
+      FROM jsonb_object_keys(refs) k
+  )
+  SELECT sum(t.n), bool_and(t.n <= t.r),
+         jsonb_object_agg(t.tbl, jsonb_build_object('atual', t.n, 'referencia', t.r, 'amostra', t.amostra))
+    INTO cD, okD, sD FROM t;
+
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope,
+         CASE i.name WHEN 'documento_sem_ficheiro_por_tabela' THEN cD WHEN 'backup_offsite_em_falta' THEN cO ELSE cM END,
+         i.reference_count,
+         CASE i.name WHEN 'documento_sem_ficheiro_por_tabela' THEN okD WHEN 'backup_offsite_em_falta' THEN cO <= i.reference_count ELSE cM <= i.reference_count END,
+         i.notes,
+         CASE i.name WHEN 'documento_sem_ficheiro_por_tabela' THEN sD WHEN 'backup_offsite_em_falta' THEN sO ELSE sM END
+    FROM public.system_invariants i
+   WHERE i.name = 'documento_sem_ficheiro_por_tabela';
+END;
+$function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_storage_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_storage_training() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_rateio_training()
+RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE c bigint; s jsonb;
+BEGIN
+  WITH m AS (
+    SELECT p.id AS m_id, p.description AS m_desc, p.amount AS m_amount, sum(ch.amount) AS m_soma, count(*) AS m_n
+      FROM public.transactions p
+      JOIN public.transactions ch ON ch.parent_transaction_id = p.id AND ch.split_percentage IS NOT NULL
+     WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = p.company_id AND training_c.is_training)
+     GROUP BY p.id, p.description, p.amount
+    HAVING abs(p.amount - sum(ch.amount)) > 0.01
+  )
+  SELECT count(*), coalesce(jsonb_agg(jsonb_build_object('id', m.m_id, 'descricao', m.m_desc, 'mae', m.m_amount, 'filhas', m.m_soma, 'n', m.m_n, 'diff', m.m_amount - m.m_soma) ORDER BY abs(m.m_amount - m.m_soma) DESC), '[]'::jsonb)
+    INTO c, s FROM m;
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, c, i.reference_count, c <= i.reference_count, i.notes, s
+    FROM public.system_invariants i WHERE i.name = 'maes_rateio_divergentes';
+END $function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_rateio_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_rateio_training() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_dre_nature_training()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE c bigint; s jsonb;
+BEGIN
+  WITH bad AS (
+    SELECT t.id, t.company_id, t.type AS tx_type, cat.type AS cat_type, cat.code,
+           t.amount, extract(year FROM COALESCE(t.payment_date, t.date))::int AS ano
+      FROM public.transactions t
+      JOIN public.account_categories cat ON cat.id = t.category_id
+     WHERE EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training)
+       AND t.status IN ('approved', 'paid')
+       AND t.reversed_at IS NULL
+       AND NOT COALESCE(t.is_hidden, false)
+       AND NOT COALESCE(t.is_transitory, false)
+       AND NOT COALESCE(t.exclude_from_result, false)
+       AND cat.code LIKE '10%'
+       AND t.type <> cat.type
+       AND NOT (t.type = 'income' AND cat.code = '10.6.03')
+  )
+  SELECT count(*),
+         COALESCE((SELECT jsonb_agg(jsonb_build_object('ano', y.ano, 'company_id', y.company_id, 'tx_type', y.tx_type,
+                                                       'rubrica_tipo', y.cat_type, 'n', y.n, 'valor', round(y.v, 2))
+                                    ORDER BY y.ano, y.company_id, y.tx_type)
+                     FROM (SELECT ano, company_id, tx_type, cat_type, count(*) n, sum(amount) v
+                             FROM bad GROUP BY 1, 2, 3, 4) y), '[]'::jsonb)
+    INTO c, s FROM bad;
+  RETURN QUERY
+  SELECT i.name, i.description, i.severity, i.scope, c, i.reference_count, c <= i.reference_count, i.notes, s
+    FROM public.system_invariants i WHERE i.name = 'transacoes_natureza_divergente_da_rubrica';
+END $function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_dre_nature_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_dre_nature_training() TO service_role;
+
+-- Corrida própria: mesmo cálculo, apenas empresas de treino; sem infraestrutura global.
+CREATE OR REPLACE FUNCTION public._run_invariant_checks_cache_contracts_training()
+ RETURNS TABLE(name text, description text, severity text, scope text, current_count bigint, reference_count bigint, conforme boolean, notes text, sample jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog'
+AS $function$
+DECLARE c1 bigint; s1 jsonb; c2 bigint; s2 jsonb; c3 bigint; s3 jsonb; c4 bigint := 0; s4 jsonb := '[]'::jsonb; p record; q record;
+BEGIN
+  WITH got AS (
+    SELECT cc.contract_id, cc.event_id, cc.quota,
+           coalesce((SELECT sum(t.amount) FROM public.transactions t
+                      WHERE t.cache_contract_id = cc.contract_id AND t.event_id = cc.event_id AND t.reversed_at IS NULL
+                        AND (t.parent_transaction_id IS NOT NULL OR t.cache_role = 'advance')),0) AS soma
+      FROM public.cache_payment_contract_cities cc JOIN public.cache_payment_contracts k ON k.id = cc.contract_id
+     WHERE k.cancelled_at IS NULL
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = k.company_id AND training_c.is_training)
+  ), bad AS (SELECT * FROM got WHERE abs(quota - soma) > 0.01)
+  SELECT count(*), coalesce((SELECT jsonb_agg(to_jsonb(b)) FROM (SELECT * FROM bad LIMIT 6) b), '[]'::jsonb) INTO c1, s1 FROM bad;
+  RETURN QUERY SELECT i.name, i.description, i.severity, i.scope, c1, i.reference_count, c1 <= i.reference_count, i.notes, s1
+    FROM public.system_invariants i WHERE i.name = 'cache_contrato_cidade_divergente';
+
+  WITH bad AS (SELECT root_event_id, artist_supplier_id, count(*) n FROM public.cache_payment_contracts
+                WHERE cancelled_at IS NULL
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.cache_payment_contracts.company_id AND training_c.is_training) GROUP BY 1,2 HAVING count(*) > public.cache_max_contracts())
+  SELECT count(*), coalesce(jsonb_agg(to_jsonb(bad)), '[]'::jsonb) INTO c2, s2 FROM bad;
+  RETURN QUERY SELECT i.name, i.description, i.severity, i.scope, c2, i.reference_count, c2 <= i.reference_count, i.notes, s2
+    FROM public.system_invariants i WHERE i.name = 'cache_contratos_acima_limite';
+
+  WITH bad AS (
+    SELECT t.id, t.event_id, t.forecast_id FROM public.transactions t
+     WHERE t.cache_role IS NOT NULL
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = t.company_id AND training_c.is_training) AND t.cache_contract_id IS NOT NULL AND (
+       (t.parent_transaction_id IS NULL AND t.cache_role <> 'advance' AND (t.event_id IS NOT NULL OR t.forecast_id IS NOT NULL))
+       OR (t.parent_transaction_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.events ch WHERE ch.parent_event_id = t.event_id))
+       OR t.declared_withholding_amount IS NOT NULL OR t.iva_rate <> 0)
+  )
+  SELECT count(*), coalesce((SELECT jsonb_agg(to_jsonb(b)) FROM (SELECT * FROM bad LIMIT 6) b), '[]'::jsonb) INTO c3, s3 FROM bad;
+  RETURN QUERY SELECT i.name, i.description, i.severity, i.scope, c3, i.reference_count, c3 <= i.reference_count, i.notes, s3
+    FROM public.system_invariants i WHERE i.name = 'cache_contrato_estrutura_invalida';
+  -- cache_cidade_teto_excedido: quotas dos contratos ativos + adiantamentos livres por cidade ≤ teto da cidade.
+  FOR p IN SELECT DISTINCT root_event_id, artist_supplier_id FROM public.cache_payment_contracts WHERE cancelled_at IS NULL
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = public.cache_payment_contracts.company_id AND training_c.is_training) LOOP
+    BEGIN
+      FOR q IN
+        WITH caps AS (
+          SELECT cc.event_id, max(cc.cap) AS cap, sum(cc.quota) AS quota
+            FROM public.cache_payment_contract_cities cc JOIN public.cache_payment_contracts k ON k.id = cc.contract_id
+           WHERE k.cancelled_at IS NULL
+       AND EXISTS (SELECT 1 FROM public.companies training_c WHERE training_c.id = k.company_id AND training_c.is_training) AND k.root_event_id = p.root_event_id AND k.artist_supplier_id = p.artist_supplier_id
+           GROUP BY cc.event_id
+        ), fa AS (
+          SELECT x.event_id, sum(x.amount) AS amt FROM public._cache_free_advances_x(p.root_event_id, p.artist_supplier_id, NULL) x GROUP BY x.event_id
+        )
+        SELECT caps.event_id, caps.cap, caps.quota, coalesce(fa.amt, 0) AS free_advances
+          FROM caps LEFT JOIN fa ON fa.event_id = caps.event_id
+         WHERE caps.quota + coalesce(fa.amt, 0) > caps.cap + 0.005
+      LOOP
+        c4 := c4 + 1;
+        IF jsonb_array_length(s4) < 6 THEN
+          s4 := s4 || jsonb_build_object('root_event_id', p.root_event_id, 'artist_supplier_id', p.artist_supplier_id,
+                                         'event_id', q.event_id, 'cap', q.cap, 'quota', q.quota, 'free_advances', q.free_advances);
+        END IF;
+      END LOOP;
+    EXCEPTION WHEN others THEN
+      c4 := c4 + 1;
+      IF jsonb_array_length(s4) < 6 THEN
+        s4 := s4 || jsonb_build_object('root_event_id', p.root_event_id, 'artist_supplier_id', p.artist_supplier_id, 'erro', SQLERRM);
+      END IF;
+    END;
+  END LOOP;
+  RETURN QUERY SELECT i.name, i.description, i.severity, i.scope, c4, i.reference_count, c4 <= i.reference_count, i.notes, s4
+    FROM public.system_invariants i WHERE i.name = 'cache_cidade_teto_excedido';
+END $function$;
+REVOKE ALL ON FUNCTION public._run_invariant_checks_cache_contracts_training() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._run_invariant_checks_cache_contracts_training() TO service_role;
+
+-- _run_invariant_checks_all permanece na definição 0322: 23 famílias, incluindo backup.
+-- run_invariant_checks_and_log permanece na definição 20260917222206: só as famílias reais acima.
+CREATE OR REPLACE FUNCTION public.run_training_invariant_checks_and_log()
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public','pg_catalog'
+AS $function$
+DECLARE results_training jsonb; drift integer; run_id uuid;
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'platform_admin') THEN
+    RAISE EXCEPTION 'training_company_platform_admin_only' USING ERRCODE = '42501';
+  END IF;
+  -- A referência real não é reutilizada/alterada: para treino, zero violações.
+  SELECT coalesce(jsonb_agg(jsonb_build_object(
+    'name', r.name, 'description', r.description, 'severity', r.severity,
+    'scope', r.scope, 'current_count', r.current_count, 'reference_count', 0,
+    'conforme', r.current_count = 0) ORDER BY r.name), '[]'::jsonb)
+  INTO results_training FROM (
+SELECT * FROM public._run_invariant_checks_raw_training()
+    UNION ALL SELECT * FROM public._run_invariant_checks_extra_training()
+    UNION ALL SELECT * FROM public._run_invariant_checks_infra_training()
+    UNION ALL SELECT * FROM public._run_invariant_checks_docs_training()
+    UNION ALL SELECT * FROM public._run_invariant_checks_paid_training()
+    UNION ALL SELECT * FROM public._run_invariant_checks_cash_training()
+    UNION ALL SELECT * FROM public._run_invariant_checks_cards_training()
+    UNION ALL SELECT * FROM public._run_invariant_checks_duplicate_invoices_training()
+    UNION ALL SELECT * FROM public._run_invariant_checks_camarim_training()
+    UNION ALL SELECT * FROM public._run_invariant_checks_suppliers_training()
+    UNION ALL SELECT * FROM public._run_invariant_checks_paid_below_gross_training()
+    UNION ALL SELECT * FROM public._run_invariant_checks_ticketline_series_training()
+    UNION ALL SELECT * FROM public._run_invariant_checks_unreachable_docs_training()
+    UNION ALL SELECT * FROM public._run_invariant_checks_storage_training()
+    UNION ALL SELECT * FROM public._run_invariant_checks_rateio_training()
+    UNION ALL SELECT * FROM public._run_invariant_checks_dre_nature_training()
+    UNION ALL SELECT * FROM public._run_invariant_checks_cache_contracts_training()
+  ) r;
+  SELECT count(*) INTO drift FROM jsonb_array_elements(results_training) e
+   WHERE (e->>'conforme')::boolean IS FALSE;
+  INSERT INTO public.invariant_runs(ran_by, drift_count, results, scope_training)
+  VALUES (auth.uid(), drift, results_training, true) RETURNING id INTO run_id;
+  RETURN run_id;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.run_training_invariant_checks_and_log() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.run_training_invariant_checks_and_log() TO authenticated, service_role;

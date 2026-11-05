@@ -124,7 +124,7 @@ export default function Reimbursements() {
             </button>
           )}
           <h1 className="text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2">
-            Notas de Reembolso <HelpTooltip text={helpTexts.reimbursements} />
+            Notas de Reembolso <HelpTooltip anchor="reembolsos.o-que-sao" text={helpTexts.reimbursements} />
           </h1>
           <p className="text-sm text-muted-foreground">Gerencie reembolsos a funcionários por despesas pagas do próprio bolso</p>
         </div>

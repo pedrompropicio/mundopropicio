@@ -21,6 +21,15 @@ interface RecoveryEmailProps extends BrandingProps {
   confirmationUrl?: string
 }
 
+const link = { color: 'inherit', textDecoration: 'underline' }
+const button = {
+  color: '#ffffff',
+  fontSize: '14px',
+  borderRadius: '8px',
+  padding: '12px 20px',
+  textDecoration: 'none',
+}
+
 export const RecoveryEmail = ({
   siteName,
   token,

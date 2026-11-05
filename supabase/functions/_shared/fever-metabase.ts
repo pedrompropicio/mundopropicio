@@ -71,7 +71,7 @@ export async function runFeverPipeline(opts: {
 
   let parseResult: any, grouped: any;
   try {
-    parseResult = parseFeverXlsxBuffers(salesXlsx.bytes.buffer, pricesXlsx.bytes.buffer);
+    parseResult = parseFeverXlsxBuffers(salesXlsx.bytes.buffer as ArrayBuffer, pricesXlsx.bytes.buffer as ArrayBuffer);
     console.log(`[fever-metabase] parsed: lots=${parseResult.lots.length} sales=${parseResult.sales.length} qty=${parseResult.totals.totalQty} gross=${parseResult.totals.totalGross} warns=${parseResult.warnings.length}`);
     grouped = groupFeverLots(parseResult.lots);
   } catch (e: any) {

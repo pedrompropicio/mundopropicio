@@ -56,7 +56,8 @@ Fora desta classe, continua a ser preciso "Sim" próprio.
 - **G5** — segredos e URLs, com "Sim" próprio.
 - **Aplicação no destino atual** — seguir o estado R9 acima, a decisão do antecedente, o novo CI e os Sims próprios; pareceres antigos não habilitam execução.
 - **#388** — encaminhamento aberto.
-- **Achados #370, #373 e #374** — por tratar nas Issues respectivas.
+- **Achado #370 — decidido a 04/11/2026 (Pedro, opção 2A; #473 comentário 6619510288):** mantém-se a ACL de Live de `current_company_id()`, já reproduzida no replay pela regra `acl_final_from_live` (parecer #352 6429178426 §2); a migração órfã `20260429034716` (versionada no repo, ausente do ledger de Live) é tratada como deriva do G3. Nada aplicado em Live; aplicar o REVOKE seria R2 com «Sim» próprio.
+- **Achados #373 e #374** — por tratar nas Issues respectivas.
 - **Região de Live** — parece ser AWS us-east-2 (EUA), pelo endereço IP do servidor, mas não está confirmado na fonte oficial. Fica para o Assessor Jurídico avaliar o impacto RGPD (transferências internacionais). Não altera o G6.
 
 Issues #375–#383, #387 e #388 abertas. Executor Codex, frente 2; reserva do G3 libertada no QUADRO; #352 aberta. Sem DDL/DML em Live, G4/G5, criação de projecto, deploy ou Publish.

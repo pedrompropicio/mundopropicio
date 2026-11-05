@@ -1,0 +1,10 @@
+-- 0339 — rollback preparado, NÃO EXECUTAR sem autorização própria.
+-- Remove os vínculos e o catálogo: guardar os dados antes de autorizar a reversão.
+-- DROP TRIGGER IF EXISTS trg_propagate_business_line ON public.events;
+-- DROP TRIGGER IF EXISTS trg_zz_business_line ON public.events;
+-- DROP FUNCTION IF EXISTS public.propagate_event_business_line();
+-- DROP FUNCTION IF EXISTS public.inherit_event_business_line();
+-- DROP INDEX IF EXISTS public.idx_events_business_line_id;
+-- ALTER TABLE public.events DROP COLUMN IF EXISTS business_line_id;
+-- DROP TRIGGER IF EXISTS trg_set_company_id ON public.business_lines;
+-- DROP TABLE IF EXISTS public.business_lines;

@@ -1,8 +1,13 @@
+import { withVatNonRecoverableCost } from "@/lib/vat-non-recoverable";
+import { BusinessLineFilter } from "@/components/BusinessLineFilter";
+import { filterEventsByBusinessLine, businessLineLabel } from "@/lib/business-line-filter";
+import { useBusinessLines } from "@/hooks/useBusinessLines";
 import { EventNatureFilter } from "@/components/EventNatureFilter";
 import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { formatMoney } from "@/lib/company-locale";
@@ -17,6 +22,9 @@ import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 import { eventCostMode, eventCostTotal, groupByEvent, type ReportCostSource } from "@/lib/report-event-cost";
 import { ReportCostSourceToggle } from "@/components/ReportCostSourceToggle";
 
+type ProfitabilityEvent = Pick<Tables<"events">,
+  "id" | "name" | "status" | "venue_id" | "parent_event_id" | "event_nature" | "cost_expense_source">;
+
 export default function ReportProfitability() {
   const companyLocale = useCompanyLocale();
   const formatCurrency = (value: number) => companyLocale.status !== "available"
@@ -24,24 +32,30 @@ export default function ReportProfitability() {
     : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
       ? formatLegacyCurrency(value)
       : formatMoney(value, companyLocale);
-  const [view, setView] = useState<"artist" | "venue">("artist");
+  const [view, setView] = useState<"artist" | "venue" | "line">("artist");
   // #218: custo pelo BP (padrão); "Transações" só para comparação — nunca gravado.
   const [costSource, setCostSource] = useState<ReportCostSource>("bp");
 
+  const [lineFilter, setLineFilter] = useState<string[]>([]);
+  const { data: businessLines = [] } = useBusinessLines(false);
   const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
   const { data: allEvents = [] } = useQuery({
     queryKey: ["profitability-events"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("id, name, status, venue_id, parent_event_id, event_nature, cost_expense_source")
-        .in("status", ["completed"]);
+        .select("id, name, status, venue_id, parent_event_id, event_nature, cost_expense_source, business_line_id")
+        .in("status", ["completed"])
+        // A 0339 ainda não está no types.ts; business_line_id lê-se por cast local.
+        .returns<ProfitabilityEvent[]>();
       if (error) throw error;
       return data;
     },
   });
   // #256: o filtro só restringe o conjunto de eventos; vazio = todos (resultado idêntico).
-  const events = useMemo(() => filterEventsByNature(allEvents as any[], natureFilter) as typeof allEvents, [allEvents, natureFilter]);
+  const events = useMemo(() => filterEventsByBusinessLine(
+    filterEventsByNature(allEvents as any[], natureFilter), lineFilter,
+  ) as typeof allEvents, [allEvents, natureFilter, lineFilter]);
 
   const { data: venues = [] } = useQuery({
     queryKey: ["profitability-venues"],
@@ -63,17 +77,18 @@ export default function ReportProfitability() {
     },
   });
 
-  const { data: transactionsAll = [] } = useQuery({
+  const { data: transactionsRaw = [] } = useQuery({
     queryKey: ["profitability-transactions"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("event_id, type, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, reversed_at, is_hidden, event_settlement_id, account_categories(ebitda_class)")
+        .select("event_id, type, amount, iva_rate, vat_non_recoverable, category_id, status, is_transitory, exclude_from_result, reversed_at, is_hidden, event_settlement_id, account_categories(ebitda_class)")
         .in("status", ["approved", "paid"]));
       if (error) throw error;
       return data;
     },
   });
+  const transactionsAll = useMemo(() => withVatNonRecoverableCost(transactionsRaw as any[]), [transactionsRaw]);
 
   const { data: rootSettlementIds } = useQuery({
     queryKey: ["dre-root-settlements"],
@@ -173,8 +188,26 @@ export default function ReportProfitability() {
     return Array.from(map.values()).sort((a, b) => b.margin - a.margin);
   }, [events, venues, transactions, expenseByEvent]);
 
-  const data = view === "artist" ? artistData : venueData;
-  const nameKey = view === "artist" ? "artist" : "venue";
+  const lineData = useMemo(() => {
+    const map = new Map<string, { line: string; events: number; totalRevenue: number; totalExpense: number; margin: number }>();
+    for (const ev of events) {
+      const parent = ev.parent_event_id ? allEvents.find((e) => e.id === ev.parent_event_id) : null;
+      const id = ((parent ?? ev) as any).business_line_id ?? "__sem_linha__";
+      const revenue = transactions.filter((t) => t.event_id === ev.id && t.type === "income"
+        && !t.is_transitory && !t.exclude_from_result).reduce((sum, t) => sum + Number(t.amount), 0);
+      const expense = expenseByEvent.get(ev.id) ?? 0;
+      const row = map.get(id) ?? { line: businessLineLabel(id, businessLines), events: 0, totalRevenue: 0, totalExpense: 0, margin: 0 };
+      row.events += 1;
+      row.totalRevenue += revenue;
+      row.totalExpense += expense;
+      row.margin += revenue - expense;
+      map.set(id, row);
+    }
+    return Array.from(map.values()).sort((a, b) => b.margin - a.margin);
+  }, [events, allEvents, businessLines, transactions, expenseByEvent]);
+
+  const data = view === "artist" ? artistData : view === "venue" ? venueData : lineData;
+  const nameKey = view === "artist" ? "artist" : view === "venue" ? "venue" : "line";
   const chartData = data.slice(0, 15).map((d) => ({
     name: (d as any)[nameKey].length > 20 ? (d as any)[nameKey].slice(0, 18) + "…" : (d as any)[nameKey],
     margin: d.margin,
@@ -185,11 +218,13 @@ export default function ReportProfitability() {
   return (
     <div className="space-y-6">
 <EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
+        <BusinessLineFilter value={lineFilter} onChange={setLineFilter} />
       <ReportCostSourceToggle value={costSource} onChange={setCostSource} />
       <Tabs value={view} onValueChange={(v) => setView(v as any)}>
         <TabsList>
           <TabsTrigger value="artist">Por Artista</TabsTrigger>
           <TabsTrigger value="venue">Por Venue</TabsTrigger>
+          <TabsTrigger value="line">Por linha</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -213,7 +248,7 @@ export default function ReportProfitability() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{view === "artist" ? "Artista" : "Venue"}</TableHead>
+              <TableHead>{view === "artist" ? "Artista" : view === "venue" ? "Venue" : "Linha de negócio"}</TableHead>
               <TableHead className="text-center">Eventos</TableHead>
               <TableHead className="text-right">Receita Total</TableHead>
               <TableHead className="text-right">Despesa Total</TableHead>

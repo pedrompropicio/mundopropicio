@@ -1,0 +1,104 @@
+[
+  {
+    "id": "events",
+    "title": "Eventos",
+    "icon": "Calendar",
+    "image": "event-lifecycle",
+    "topics": [
+      {
+        "title": "Criar um evento",
+        "content": "Clique em 'Novo Evento' na listagem. Preencha o nome, data, local e tipo (Simples, Festival ou Múltiplos Dias/Turnê). Eventos iniciam no estado 'Planeamento'. Após preencher e aprovar o Business Plan (BP), o evento pode avançar para 'Confirmado' e depois 'Ativo'."
+      },
+      {
+        "title": "Estados do evento",
+        "content": "Planeamento → estado inicial, permite editar tudo livremente.\nConfirmado → o BP foi aprovado e o evento está agendado.\nAtivo → o evento está em curso ou próximo de acontecer.\nConcluído → evento finalizado. Impõe um bloqueio total (lockdown): não é possível alterar ou incluir bilhetes, transações, despesas, cachê, sociedade ou custos extras. A reabertura de um evento concluído é uma operação exclusiva de Administradores.\n\nPropagação em Turnês: a reabertura ou conclusão de um evento Master (Tour) propaga o estado automaticamente para todos os eventos Split, enquanto alterações num evento Split permanecem isoladas."
+      },
+      {
+        "title": "Tipos de evento",
+        "content": "Simples: evento com uma única data.\nFestival: evento com múltiplas atrações na mesma data/local.\nMúltiplos Dias (Turnê): mesmo evento repetido em diferentes datas/cidades. Permite gerir cada data individualmente mantendo a estrutura do evento Master. O período exibido na listagem é calculado considerando o intervalo total de todas as datas (principal e extras) de todos os eventos Split."
+      },
+      {
+        "title": "Wizard de criação (Turnês)",
+        "content": "Para eventos do tipo 'Múltiplos Dias', o sistema oferece um assistente avançado que permite configurar a hierarquia completa de cidades (eventos Split), datas extra e múltiplas sessões num único fluxo atómico. Ao finalizar o wizard, toda a estrutura é criada de uma só vez."
+      },
+      {
+        "title": "Despesas Pagas por Sócio ('Pago por Sócio')",
+        "content": "Quando um sócio/parceiro paga uma despesa diretamente do seu bolso (sem usar contas da empresa), utilize o toggle '🤝 Pago por Sócio' no formulário de transação. O toggle aparece automaticamente quando o evento selecionado tem sócios.\n\nAo ativar:\n  • O campo 'Conta Destino' desaparece (não há movimentação em contas da empresa)\n  • Aparece o seletor 'Sócio que pagou' para indicar qual parceiro pagou\n  • A despesa é criada normalmente e segue o ciclo de aprovação padrão (Aguardando → Aprovada → Paga)\n  • A despesa pode ser editada e eliminada segundo as mesmas regras de qualquer transação\n  • Na listagem de transações, a despesa mostra um badge '🤝 Sócio' com tooltip indicando o nome do parceiro\n  • A despesa aparece no separador 'Desp. Sócios' do evento, agrupada por sócio\n  • No 'Fecho Parceiros', o total de despesas pagas pelo sócio é integrado no encontro de contas final\n\nO módulo 'Desp. Sócios' também permite vincular manualmente despesas existentes a um sócio, ou desvincular associações."
+      },
+      {
+        "title": "Bilheteira do evento",
+        "content": "Configure zonas (ex: Pista, Camarote) e lotes de bilhetes com preços e capacidades. O sistema calcula automaticamente a receita bruta, IVA e receita líquida. Associe bilheteiras (pontos de venda) para acompanhar vendas por canal."
+      }
+    ]
+  },
+  {
+    "id": "transactions",
+    "title": "Transações",
+    "icon": "ArrowUpDown",
+    "image": "transaction-lifecycle",
+    "topics": [
+      {
+        "title": "Criar uma transação",
+        "content": "Clique em 'Nova Transação'. Escolha o tipo (Receita ou Despesa), associe a um evento (se aplicável), selecione fornecedor e categoria do Plano de Contas. Defina o valor, data e vencimento. Pode anexar documentos (faturas, contratos).\n\nAntes de confirmar uma despesa, o sistema apresenta um painel de verificação com os dados bancários do fornecedor (NIF, IBAN, SWIFT/BIC) para garantir que a conta de destino está correta."
+      },
+      {
+        "title": "Ciclo de vida da transação",
+        "content": "Aguardando → transação registada, pendente de aprovação. Pode ser editada e eliminada livremente.\n\nAprovada (A Pagar) → validada por um gestor/admin. Eliminação e alteração de valores financeiros restritas a administradores. Exceção: transações vinculadas ao BP permitem edição de montante e IVA por qualquer utilizador autenticado até à liquidação.\n\nPaga (Liquidada) → pagamento registado. Bloqueio de eliminação e de alteração de valores financeiros, categorias e eventos. Apenas 'Especificação' e 'Fornecedor' podem ser editados por Admins ou Editores.\n\nAuto-aprovação: transações para eventos 'Ativos' são automaticamente aprovadas se a categoria e tipo constarem nas previsões do BP do evento."
+      },
+      {
+        "title": "Aprovação em lote (Bulk Approval)",
+        "content": "Administradores e Gestores podem aprovar múltiplas transações simultaneamente na página de transações. Selecione as transações desejadas e clique em 'Aprovar Selecionadas'. O sistema filtra automaticamente apenas as que estão em estado 'Aguardando' ou 'Atrasada', ignorando as já aprovadas ou pagas. A aprovação em lote propaga-se para transações split (rateios) vinculadas."
+      },
+      {
+        "title": "Reembolsos a funcionários",
+        "content": "Quando um funcionário paga uma despesa do próprio bolso, active o toggle '💰 Marcar como Reembolso' no formulário. O campo de conta bancária desaparece (a empresa não desembolsou) e surge o campo 'Reembolsar a' para indicar o funcionário.\n\nAs transações de reembolso podem ser agrupadas em Notas de Reembolso (módulo dedicado) para processamento em lote. Veja a secção 'Notas de Reembolso' para mais detalhes."
+      },
+      {
+        "title": "Despesas pagas por sócio",
+        "content": "Para despesas pagas diretamente por um sócio/parceiro, active o toggle '🤝 Pago por Sócio' no formulário. A despesa segue o ciclo normal de aprovação e fica vinculada ao sócio para efeitos de encontro de contas. Veja a secção de Eventos → 'Despesas Pagas por Sócio' para mais detalhes."
+      },
+      {
+        "title": "Pagamentos parciais",
+        "content": "O sistema permite liquidações parciais. Ao registar pagamento, informe o valor efetivamente pago. O campo 'Valor Pago' é atualizado progressivamente até atingir o valor total da transação. O campo de data de pagamento suporta seleção via calendário e digitação manual (dd/mm/aaaa)."
+      },
+      {
+        "title": "Transferências entre contas",
+        "content": "Use 'Transferência entre Contas' para mover saldo. O sistema cria automaticamente duas transações: uma saída na conta de origem e uma entrada na conta de destino, mantendo o histórico completo."
+      },
+      {
+        "title": "Documentos anexados e classificação contábil",
+        "content": "Cada transação pode ter múltiplos documentos (faturas, recibos, contratos). Clique no ícone de documentos na linha da transação para ver, adicionar ou remover ficheiros. A eliminação de documentos usa atualizações otimistas para feedback imediato.\n\nDocumentos contábeis — Ao fazer upload, marque a checkbox 'Documento contábil' para documentos fiscais (faturas, notas fiscais, recibos, notas de crédito/débito, comprovativos de pagamento bancário). Use o ícone de informação (ℹ️) junto da checkbox para ver exemplos.\n\nNÃO marcar como contábil: propostas, contratos, riders técnicos, e-mails ou screenshots internos.\n\nEsta classificação é essencial para a exportação contábil e para o relatório de pendências documentais."
+      },
+      {
+        "title": "Auditoria de transações",
+        "content": "Todas as alterações em transações são registadas no log de auditoria (transaction_audit_log), incluindo o valor antigo, o novo valor, o campo alterado e o autor da modificação. O histórico é visível na interface clicando no ícone de auditoria na linha da transação."
+      },
+      {
+        "title": "Listas de Pagamento (nas transações)",
+        "content": "Dentro do módulo de transações, pode criar Listas de Pagamento diretamente. Selecione transações aprovadas e agrupe-as numa lista para processamento em lote. As listas passam por um fluxo de aprovação (Rascunho → Submetida → Aprovada) antes de serem executadas."
+      }
+    ]
+  },
+  {
+    "id": "recurring",
+    "title": "Transações Recorrentes",
+    "icon": "RefreshCw",
+    "topics": [
+      {
+        "title": "Configurar recorrência",
+        "content": "Crie modelos de transações que se repetem periodicamente (rendas, seguros, serviços mensais). Defina a frequência, dia do mês, data de início e fim. O sistema gera automaticamente as transações na data definida."
+      }
+    ]
+  },
+  {
+    "id": "quotations",
+    "title": "Cotações",
+    "icon": "FileCheck",
+    "topics": [
+      {
+        "title": "Fluxo de cotações",
+        "content": "Solicite cotações a fornecedores para serviços de eventos. Compare propostas lado a lado. Ao aprovar uma cotação, pode convertê-la diretamente numa transação no BP do evento."
+      }
+    ]
+  }
+]

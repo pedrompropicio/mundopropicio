@@ -1,0 +1,3 @@
+-- Classe R2 — PREPARADA, NÃO APLICADA. Aplicar só pelo PROC-promocao com Sim.
+-- Rollback destrutivo: remove também os valores da coluna; requer autorização própria.
+-- ALTER TABLE public.transactions DROP COLUMN IF EXISTS vat_non_recoverable;

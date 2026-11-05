@@ -28,12 +28,14 @@ import { fetchAllPaged, fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { computeEventSettlementTotals } from "@/lib/event-settlement-inputs";
 import { useMasterRevenueSlicesFor } from "@/hooks/useMasterRevenueSplit";
 import {
-  computeContractBasisResult,
+  computeCoverContractBasisResult,
   computeEventContractResult,
   type ContractResult,
   type ContractVatViews,
 } from "@/lib/event-contract-result";
 import { useFechoBasis } from "@/hooks/useFechoBasis";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { companyHasIva } from "@/lib/company-locale";
 
 // #269 — defaults estáveis: `= []` cria um array novo a cada desenho e reabre useMemo/efeitos.
 const EMPTY_ARR_STABLE: any[] = [];
@@ -59,6 +61,7 @@ export function useEventContractResult(
   cacheImpact: number,
   vatViews?: ContractVatViews | null,
 ): EventContractResultState {
+  const hasIva = companyHasIva(useCompanyLocale());
   const { data: event } = useQuery({
     queryKey: ["event-settlement-engine-event", eventId],
     enabled: !!eventId,
@@ -190,12 +193,9 @@ export function useEventContractResult(
     });
     // #259: cachê só por cima quando o módulo não está já nas linhas de BP.
     const cacheOnTop = cacheImpactOnTopOfCost(cacheImpact, forecasts as any[], basis.expenseSource);
-    return computeContractBasisResult(
-      {
-        revenueNet: totals.revenueNet,
-        expensesNet: totals.expensesNet + cacheOnTop,
-        expensesGross: totals.expensesGross + cacheOnTop,
-      },
+    return computeCoverContractBasisResult(
+      totals,
+      cacheOnTop,
       (event as any)?.partner_calc_basis ?? partnerCalcBasis,
     );
   }, [
@@ -225,8 +225,9 @@ export function useEventContractResult(
       { revenue: income.mode, expense: expense.mode },
       settlementResult,
       (event as any)?.partner_calc_basis ?? partnerCalcBasis,
+      { hasIva },
     );
-  }, [income, expense, vatViews, settlementResult, event, partnerCalcBasis]);
+  }, [income, expense, vatViews, settlementResult, event, partnerCalcBasis, hasIva]);
 
   return { contract, isLoading };
 }

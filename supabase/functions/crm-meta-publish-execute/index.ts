@@ -1225,7 +1225,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         if (c.url_tags) alt.url_tags = c.url_tags;
         const p2 = { ...payload, creative: alt };
         const v = await graphPOST(`/${adAccountId}/ads`, { ...p2, execution_options: ["validate_only"] }, accessToken, SONG_POST_GRAPH_VERSION);
-        if (!v.ok) return { payload: null, motivo: `vídeo do Instagram ${pr}: o post equivalente da Página (${fb}) também não é aceite — ${String(v.error?.error_user_msg ?? v.error?.message ?? "erro")}` };
+        if (!v.ok) return { payload: null, motivo: `vídeo do Instagram ${pr}: o post equivalente da Página (${fb}) também não é aceite — ${String((v.error as any)?.error_user_msg ?? v.error?.message ?? "erro")}` };
         return { payload: p2, motivo: `via post da Página ${fb}` };
       };
       const igRefs = new Set<string>();

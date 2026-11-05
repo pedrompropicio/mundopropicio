@@ -349,7 +349,7 @@ Deno.serve(async (req) => {
     // ESPELHO do `fieldLabels` de `src/components/TransactionEditModal.tsx`: o que
     // o formulário envia e não estiver aqui é descartado em silêncio.
     const allowedFields = [
-      "description", "amount", "iva_rate", "event_id", "category_id", "forecast_id",
+      "description", "amount", "iva_rate", "vat_non_recoverable", "event_id", "category_id", "forecast_id",
       "supplier_id", "account_id", "specification", "date", "due_date",
       "payment_date", "is_transitory", "transitory_reason", "exclude_from_result", "split_mode",
       "shared_cost_account_id", "shared_cost_counterparty_id",
@@ -412,6 +412,7 @@ Deno.serve(async (req) => {
     // filtrar as entradas do cliente pelos campos que sobreviveram.
     const FIELD_BY_LABEL: Record<string, string> = {
       "Descrição": "description", "Valor": "amount", "Taxa IVA": "iva_rate",
+      "IVA não recuperável": "vat_non_recoverable",
       "Evento": "event_id", "Categoria": "category_id", "Fornecedor": "supplier_id",
       "Conta": "account_id", "Especificação": "specification", "Data": "date",
       "Data Vencimento": "due_date", "Data Pagamento": "payment_date",
@@ -500,6 +501,7 @@ Deno.serve(async (req) => {
     if (children && children.length > 0) {
       const amountChanged = "amount" in sanitizedUpdates && Number(sanitizedUpdates.amount) !== Number(transaction.amount);
       const ivaChanged = "iva_rate" in sanitizedUpdates && Number(sanitizedUpdates.iva_rate) !== Number(transaction.iva_rate);
+      const vnrChanged = "vat_non_recoverable" in sanitizedUpdates && sanitizedUpdates.vat_non_recoverable !== transaction.vat_non_recoverable;
       const sharedFields = ["description", "category_id", "supplier_id", "account_id", "due_date", "specification", "date"];
 
       // Installment children = parent_transaction_id set but no split_percentage.
@@ -531,6 +533,7 @@ Deno.serve(async (req) => {
           }
           // IVA propagates to pending installments (same fiscal doc)
           if (ivaChanged) childUpdates.iva_rate = sanitizedUpdates.iva_rate;
+          if (vnrChanged) childUpdates.vat_non_recoverable = sanitizedUpdates.vat_non_recoverable;
         } else {
           // Split child — keep existing proportional propagation
           if (amountChanged) {
@@ -553,6 +556,7 @@ Deno.serve(async (req) => {
             }
           }
           if (ivaChanged) childUpdates.iva_rate = sanitizedUpdates.iva_rate;
+          if (vnrChanged) childUpdates.vat_non_recoverable = sanitizedUpdates.vat_non_recoverable;
           for (const field of sharedFields) {
             if (field in sanitizedUpdates && sanitizedUpdates[field] !== transaction[field]) {
               childUpdates[field] = sanitizedUpdates[field];
@@ -650,7 +654,7 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

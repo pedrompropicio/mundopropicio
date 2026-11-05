@@ -40,7 +40,7 @@ const ROLE_ICONS: Record<AppRole, React.ElementType> = {
 const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "producer", "field_producer", "editor", "viewer", "partner", "content_manager", "marketing_manager", "accountant"];
 
 export default function UserManagement() {
-  const { isAdmin, user } = useAuth();
+  const { hasPermission, user } = useAuth();
   const { companyId, company } = useCompany();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -258,7 +258,7 @@ export default function UserManagement() {
     },
   });
 
-  if (!isAdmin) {
+  if (!hasPermission("settings.users")) {
     return (
       <div className="flex items-center justify-center py-20">
         <p className="text-muted-foreground">Acesso restrito a administradores.</p>
@@ -272,7 +272,7 @@ export default function UserManagement() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">
             <button onClick={() => navigate("/admin")} className="inline-flex items-center justify-center rounded-md h-8 w-8 hover:bg-accent transition-colors"><ArrowLeft className="h-4 w-4" /></button>
-            Gestão de Utilizadores <HelpTooltip text={helpTexts.userManagement} />
+            Gestão de Utilizadores <HelpTooltip anchor="administracao.utilizadores" text={helpTexts.userManagement} />
           </h1>
           <p className="text-sm text-muted-foreground">
             Gerir acessos e permissões {company?.display_name ? `— ${company.display_name}` : ""}
@@ -431,13 +431,15 @@ export default function UserManagement() {
                       <td className="py-3 text-center">
                         {u.id !== user?.id && !isPaFallback && (
                           <div className="flex items-center justify-center gap-1">
-                            <button
-                              onClick={() => setPermModalUser({ id: u.id, name: u.full_name || u.email, role: u.role })}
-                              className="rounded-lg p-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
-                              title="Configurar permissões individuais"
-                            >
-                              <Settings2 className="h-4 w-4" />
-                            </button>
+                            {hasPermission("settings.permissions") && (
+                              <button
+                                onClick={() => setPermModalUser({ id: u.id, name: u.full_name || u.email, role: u.role })}
+                                className="rounded-lg p-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
+                                title="Configurar permissões individuais"
+                              >
+                                <Settings2 className="h-4 w-4" />
+                              </button>
+                            )}
                             <button
                               onClick={() => resendResetMutation.mutate({ email: u.email })}
                               disabled={resendResetMutation.isPending}

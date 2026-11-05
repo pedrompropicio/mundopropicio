@@ -1,5 +1,7 @@
+import { isTrainingCompany } from "../_shared/training-guard.ts";
 import { sendLovableEmail } from 'npm:@lovable.dev/email-js'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
@@ -115,7 +117,7 @@ function parseJwtClaims(token: string): Record<string, unknown> | null {
 
 // Move a message to the dead letter queue and log the reason.
 async function moveToDlq(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   queue: string,
   msg: { msg_id: number; message: Record<string, unknown> },
   reason: string
@@ -222,12 +224,12 @@ Deno.serve(async (req) => {
     const messageIds = Array.from(
       new Set(
         messages
-          .map((msg) =>
+          .map((msg: any) =>
             msg?.message?.message_id && typeof msg.message.message_id === 'string'
               ? msg.message.message_id
               : null
           )
-          .filter((id): id is string => Boolean(id))
+          .filter((id: any): id is string => Boolean(id))
       )
     )
     const failedAttemptsByMessageId = new Map<string, number>()
@@ -272,6 +274,17 @@ Deno.serve(async (req) => {
           .maybeSingle()
         if (origin?.company_id) payload.company_id = origin.company_id
         else console.warn('[process-email-queue] mensagem sem company_id', { message_id: payload.message_id, label: payload.label })
+      }
+      if (await isTrainingCompany(supabase, payload?.company_id)) {
+        const { error: logError } = await supabase.from('email_send_log').insert({
+          message_id: payload.message_id, template_name: payload.label || queue,
+          recipient_email: payload.to, company_id: payload.company_id,
+          status: 'suppressed', error_message: 'suppressed_training',
+        })
+        if (logError) throw logError
+        const { error: deleteError } = await supabase.rpc('delete_email', { queue_name: queue, message_id: msg.msg_id })
+        if (deleteError) throw deleteError
+        continue
       }
       const failedAttempts =
         payload?.message_id && typeof payload.message_id === 'string'

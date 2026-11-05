@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { normalizePartnerCalcBasis, usesGrossExpenseAmounts } from "@/lib/partner-calc-basis";
+import { useEventBudgetMode } from "@/hooks/useEventBudgetMode";
+import type { BudgetMode } from "@/lib/budget-mode";
 
 /**
  * CRITÉRIO DE CUSTO ÚNICO POR EVENTO — GRAVADO NA BASE DE DADOS.
@@ -31,6 +33,9 @@ export interface EventCostBasisState {
 }
 
 export interface EventCostBasis extends EventCostBasisState {
+  /** Ausência em bases construídas por consumidores antigos equivale a with_bp. */
+  budgetMode?: BudgetMode;
+  isWithoutBp?: boolean;
   /** Derivado de `partner_calc_basis` — sem efeito, mantido para compatibilidade dos consumidores. */
   setWithVat: (v: boolean) => void;
   setIncludeOverhead: (v: boolean) => void;
@@ -56,6 +61,8 @@ export const eventCostBasisQueryKey = (eventId: string) => ["event-cost-basis", 
  *                         em mão (evita esperar pela query).
  */
 export function useEventCostBasis(eventId: string, partnerCalcBasis?: string | null): EventCostBasis {
+  const { budgetMode, isLoading: loadingBudgetMode } = useEventBudgetMode(eventId);
+  const isWithoutBp = budgetMode === "without_bp";
   const { isAdmin, isManager, hasPermission } = useAuth();
   const canEditBasis = !!(isAdmin || isManager || hasPermission("manage_bp"));
   const queryClient = useQueryClient();
@@ -109,19 +116,24 @@ export function useEventCostBasis(eventId: string, partnerCalcBasis?: string | n
   const withVat = usesGrossExpenseAmounts(normalizePartnerCalcBasis(basisSource));
 
   return {
+    budgetMode,
+    isWithoutBp,
     withVat,
     includeOverhead: data?.cost_include_overhead ?? true,
-    expenseSource: (data?.cost_expense_source ?? "committed") as CostExpenseSource,
+    expenseSource: isWithoutBp ? "realized" : (data?.cost_expense_source ?? "committed") as CostExpenseSource,
     setWithVat: () => {
       /* derivado de partner_calc_basis — não é editável aqui */
     },
     setIncludeOverhead: useCallback((v: boolean) => guardedSave({ cost_include_overhead: v }), [guardedSave]),
     setExpenseSource: useCallback(
-      (v: CostExpenseSource) => guardedSave({ cost_expense_source: v }),
-      [guardedSave],
+      (v: CostExpenseSource) => {
+        if (isWithoutBp || loadingBudgetMode) return;
+        guardedSave({ cost_expense_source: v });
+      },
+      [guardedSave, isWithoutBp, loadingBudgetMode],
     ),
     canEditBasis,
     isSaving: save.isPending,
-    isLoading: !!eventId && isPending,
+    isLoading: (!!eventId && isPending) || loadingBudgetMode,
   };
 }

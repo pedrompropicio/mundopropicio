@@ -40,7 +40,8 @@ import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, formatInCurrency } from "@/lib/currency";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { formatMoney } from "@/lib/company-locale";
+import { companyHasIva, formatMoney } from "@/lib/company-locale";
+import { showVatNonRecoverable, withVatNonRecoverable } from "@/lib/vat-non-recoverable";
 import { SplitByIvaModal, type IvaSplitLine } from "@/components/SplitByIvaModal";
 import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
 import { calcIvaAmount, calcTotalWithIva, roundCents } from "@/lib/iva";
@@ -169,6 +170,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const effectiveAutoMarkPaid = !!autoMarkPaid && canCreatePaid;
 
   const [form, setForm] = useState<TransactionForm>({ ...emptyForm, ...(defaults || {}) });
+  const [vatNonRecoverable, setVatNonRecoverable] = useState(false);
   // Sócio do movimento de capital (AEP) — obrigatório quando a categoria é do ramo 10.1.*
   const [capitalPartnerId, setCapitalPartnerId] = useState<string>("");
 
@@ -565,7 +567,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // #264 — janela administrativa: conta marcada + data do documento na janela →
   // evento vem da janela; outro evento/sem evento só com excepção (RPC).
   const overrideReasonRef = useRef<string | null>(null);
-  const txInsert = useMemo(() => makeTxInsert(() => overrideReasonRef.current), []);
+  // Todos os INSERTs individuais (incluindo parcelas e pernas) passam pelo
+  // mesmo adaptador; sem marcação, o helper entrega o objecto original.
+  const txInsert = useMemo(() => {
+    const insert = makeTxInsert(() => overrideReasonRef.current);
+    return (row: Record<string, unknown> & { type: string; iva_rate?: number | string | null }) =>
+      insert(withVatNonRecoverable(row, vatNonRecoverable));
+  }, [vatNonRecoverable]);
   const [overridePrompt, setOverridePrompt] = useState(false);
   const selectedCatFlagged = !!(categories as any[]).find((c: any) => c.id === form.category_id)?.allocate_to_active_event;
   const adminWindow = useAdminWindowEvent({ categoryFlagged: selectedCatFlagged, date: form.date });
@@ -1388,7 +1396,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
           const childStatus = (hasForecastMatch && !needsOverride) ? "approved" : "pending";
 
-          return {
+          return withVatNonRecoverable({
             description: data.description,
             type: data.type,
             amount: childAmount,
@@ -1422,7 +1430,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
             declared_withholding_rate: data.type === "expense" && parseFloat(data.declared_withholding_rate) > 0 ? Number(data.declared_withholding_rate) : null,
             declared_withholding_amount: data.type === "expense" && parseFloat(data.declared_withholding_amount) > 0 ? +(parseFloat(data.declared_withholding_amount) * (entry.percentage / 100)).toFixed(2) : null,
-          };
+          }, vatNonRecoverable);
         });
 
         // Parent is approved only if ALL children are approved.
@@ -3532,6 +3540,22 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 disabled={!!pendingIvaSplit}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
               />
+              {showVatNonRecoverable({ type: form.type, ivaRate: form.iva_rate, hasIva: companyHasIva(companyLocale), noIva }) && (
+                <label className="mt-2 flex items-start gap-2 cursor-pointer rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <input
+                    type="checkbox"
+                    checked={vatNonRecoverable}
+                    onChange={(e) => setVatNonRecoverable(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
+                  />
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold">IVA não recuperável (vai ao custo)</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      O IVA desta fatura não é dedutível (ex.: IVA estrangeiro). Conta como custo, pela taxa da transação.
+                    </p>
+                  </div>
+                </label>
+              )}
 
               {pendingIvaSplit && (
                 <div className="mt-1 flex items-center justify-between rounded-md bg-primary/10 px-2 py-1 text-[10px] text-primary">

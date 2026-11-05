@@ -1,3 +1,4 @@
+import { isTrainingCompany } from "../_shared/training-guard.ts";
 // whatsapp-dispatcher — cron 1/min
 // Lê notification_queue (status='queued') e envia via Meta WhatsApp Cloud API.
 // Atualiza status para sent/failed e regista em notification_log.
@@ -14,6 +15,7 @@ const BATCH_SIZE = 50;
 const MAX_ATTEMPTS = 3;
 
 interface QueueRow {
+  company_id: string | null;
   id: string;
   template_id: string;
   recipient_phone: string;
@@ -83,7 +85,7 @@ Deno.serve(async (req) => {
 
   const { data: items, error: selErr } = await supabase
     .from("notification_queue")
-    .select("id, template_id, recipient_phone, params, attempts, template:notification_templates(meta_template_name, language_code)")
+    .select("id, company_id, template_id, recipient_phone, params, attempts, template:notification_templates(meta_template_name, language_code)")
     .eq("status", "queued")
     .lte("scheduled_at", new Date().toISOString())
     .lt("attempts", MAX_ATTEMPTS)
@@ -98,7 +100,14 @@ Deno.serve(async (req) => {
   }
 
   const results: Array<{ id: string; ok: boolean; error?: string }> = [];
-  for (const item of (items ?? []) as QueueRow[]) {
+  for (const item of (items ?? []) as unknown as QueueRow[]) {
+    if (await isTrainingCompany(supabase, item.company_id)) {
+      const { error } = await supabase.from("notification_queue")
+        .update({ status: "skipped", last_error: "suppressed_training" }).eq("id", item.id).eq("status", "queued");
+      if (error) throw error;
+      results.push({ id: item.id, ok: false, error: "suppressed_training" });
+      continue;
+    }
     // Lock: marca sending + incrementa attempts
     const newAttempts = (item.attempts ?? 0) + 1;
     const { error: lockErr } = await supabase

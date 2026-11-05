@@ -110,7 +110,7 @@ describe("travões estruturais contra regressão (#392)", () => {
   });
 
   it("com texto na pesquisa ignora o período; sem texto mantém o período", () => {
-    expect(src).toContain("if (!searchActive) q = q.gte(\"payment_date\", period.from).lte(\"payment_date\", period.to);");
+    expect(src).toContain("if (!searchActive && !reimbursementActive) q = q.gte(\"payment_date\", period.from).lte(\"payment_date\", period.to);");
   });
 
   it("campo único de pesquisa geral com o placeholder decidido", () => {

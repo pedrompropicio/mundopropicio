@@ -59,7 +59,7 @@ function b64urlJson(obj: unknown): string {
   return b64url(new TextEncoder().encode(JSON.stringify(obj)));
 }
 
-function pemToDer(pem: string): Uint8Array {
+function pemToDer(pem: string): Uint8Array<ArrayBuffer> {
   const body = pem
     .replace(/-----BEGIN [^-]+-----/g, "")
     .replace(/-----END [^-]+-----/g, "")

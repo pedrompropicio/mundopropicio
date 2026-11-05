@@ -8,6 +8,7 @@
 // para que crm-meta-strategy-deploy continue a funcionar sem alterações.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2.39.0";
 import { normalizePlanInPlace } from "../_shared/plan-normalize.ts";
 import { resolveInterestsInPlace } from "../_shared/resolve-interests.ts";
 import { resolveCustomLocationsInPlace } from "../_shared/resolve-geo.ts";
@@ -391,7 +392,7 @@ function computeAnchoredConfidence(args: {
 
   // Cap em medium para downtrends.
   if (viability.trajectory === "downtrend" || viability.trajectory === "strong_downtrend") {
-    if (confidence === "high") confidence = "medium";
+    if ((confidence as string) === "high") confidence = "medium";
     reasons.push(`Trajectória ${viability.trajectory} — confidence cap em medium`);
   }
 
@@ -714,7 +715,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const isAsyncGem = asyncSourceModel.toLowerCase().includes("gemini");
   const isAsyncGpt = asyncSourceModel.toLowerCase().includes("gpt");
   const updateModelCol = async (
-    sbAdmin: ReturnType<typeof createClient>,
+    sbAdmin: SupabaseClient,
     fields: { candidate_id?: string | null; error?: string | null },
   ) => {
     const fin = new Date().toISOString();
@@ -1914,13 +1915,13 @@ async function runGenerationPipeline(
     const discardAdsetLine = discardAdsetIds.join(", ") || "(nenhum)";
 
     const newCreativeLines = newCreatives.length > 0
-      ? newCreatives.map((nc, i) =>
+      ? newCreatives.map((nc: any, i: number) =>
           `  ${i + 1}. phase=${nc.phase_id} | angle=${nc.angle} | gap=${nc.gap_tag} | razão: ${nc.justification}`
         ).join("\n")
       : "  (nenhum)";
 
     const newAudienceLines = newAudiences.length > 0
-      ? newAudiences.map((na, i) =>
+      ? newAudiences.map((na: any, i: number) =>
           `  ${i + 1}. phase=${na.phase_id} | type=${na.type} | gap=${na.gap_tag} | descrição: ${na.description}`
         ).join("\n")
       : "  (nenhuma)";
@@ -3132,14 +3133,14 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
         removedCount += (before - a.ads.length);
       }
     }
-    const approvedHeritageList = (inh.inherit_creative_ids ?? []).filter((cid) =>
+    const approvedHeritageList = (inh.inherit_creative_ids ?? []).filter((cid: any) =>
       inheritedCreatives.find((ic) => ic.meta_creative_id === cid)
     );
     if (approvedHeritageList.length > 0) {
       for (const c of plan?.recommended_campaigns ?? []) {
         for (const a of c?.adsets ?? []) {
           if (!Array.isArray(a.ads) || a.ads.length === 0) {
-            a.ads = approvedHeritageList.map((cid) => ({ existing_creative_id: cid }));
+            a.ads = approvedHeritageList.map((cid: any) => ({ existing_creative_id: cid }));
           }
         }
       }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -41,6 +42,7 @@ export default function AccountantHome() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <CompanySwitcher />
+          <ThemeToggle />
           <PeriodSelector value={period} onChange={setPeriod} />
         </div>
       </header>

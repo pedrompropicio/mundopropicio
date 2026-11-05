@@ -1,0 +1,22 @@
+-- -- Rollback 0328 — INERTE; aplicar só pelo PROC-promocao com Sim, pelo 0.
+-- -- Desagendar primeiro os crons instalados conforme cron_song_link_retention_live.sql.
+-- -- Repõe exclusões/referência/funções; não recupera linhas já apagadas pelas purgas.
+-- BEGIN;
+-- DO $guard$
+-- DECLARE n integer;
+-- BEGIN
+--   UPDATE public.system_invariants SET reference_count = 7
+--    WHERE name = 'backup_tabelas_excluidas' AND reference_count = 11;
+--   GET DIAGNOSTICS n = ROW_COUNT;
+--   IF n = 0 THEN
+--     RAISE EXCEPTION 'Rollback 0328: conferir reference_count em Live; esperado 11.';
+--   END IF;
+-- END;
+-- $guard$;
+-- DELETE FROM public.backup_excluded_tables
+--  WHERE schema_name = 'public'
+--    AND table_name IN ('song_link_diag', 'ip_city_ranges', 'song_link_delivery_slots', 'ip_geo_cache');
+-- DROP FUNCTION public.purge_song_link_diag(integer, integer);
+-- DROP FUNCTION public.purge_song_link_delivery_slots(integer, integer);
+-- DROP FUNCTION public.purge_ip_geo_cache(integer, integer);
+-- COMMIT;

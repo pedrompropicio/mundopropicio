@@ -1,0 +1,3 @@
+-- #313 — rollback preparado, não aplicado; executar só pelo PROC-promocao com Sim.
+-- Remove apenas o índice activo da 0317; mantém o índice dos confirmados.
+-- DROP INDEX IF EXISTS public.ux_settlements_office_event_active;

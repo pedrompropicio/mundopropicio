@@ -20,6 +20,7 @@ import { FEATURES } from "@/lib/features";
 import { FeatureNotEnabledCard } from "@/components/FeatureNotEnabledCard";
 import CoalaApplyButton from "@/components/coala/CoalaApplyButton";
 import CostCenterMapPanel from "@/components/coala/CostCenterMapPanel";
+import { COUNTRIES } from "@/lib/crm/countries";
 
 
 type Cfg = {
@@ -32,6 +33,7 @@ type Cfg = {
   last_run_at: string | null;
   last_run_status: string | null;
   auto_apply_enabled?: boolean;
+  new_supplier_country?: string | null;
 };
 
 type Run = {
@@ -62,10 +64,24 @@ const statusColor = (s: string) => {
   return "secondary";
 };
 
+function SupplierCountryField({ id, value, onChange, disabled }: {
+  id: string; value: string; onChange: (value: string) => void; disabled?: boolean;
+}) {
+  return <div className="space-y-1">
+    <Label htmlFor={id}>País dos fornecedores novos</Label>
+    <select id={id} value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled}
+      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+      <option value="">— escolher —</option>
+      {Object.entries(COUNTRIES).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+    </select>
+    {!value && <p className="text-xs text-destructive">fornecedores novos vão bloquear a sincronização</p>}
+  </div>;
+}
+
 export default function CoalaSync() {
   const qc = useQueryClient();
   const [selectedRun, setSelectedRun] = useState<Run | null>(null);
-  const [newCfg, setNewCfg] = useState({ event_id: "", drive_file_id: "", file_label: "" });
+  const [newCfg, setNewCfg] = useState({ event_id: "", drive_file_id: "", file_label: "", new_supplier_country: "" });
   const [createOpen, setCreateOpen] = useState(false);
   const hasFeature = useHasFeature(FEATURES.SYNC_COALA);
 
@@ -141,6 +157,7 @@ export default function CoalaSync() {
           event_id: cfg.event_id,
           drive_file_id: cfg.drive_file_id,
           file_label: cfg.file_label,
+          new_supplier_country: cfg.new_supplier_country || null,
           company_id: (evRow as any).company_id,
         });
         if (error) throw error;
@@ -149,7 +166,7 @@ export default function CoalaSync() {
     onSuccess: () => {
       toast.success("Configuração guardada");
       setCreateOpen(false);
-      setNewCfg({ event_id: "", drive_file_id: "", file_label: "" });
+      setNewCfg({ event_id: "", drive_file_id: "", file_label: "", new_supplier_country: "" });
       qc.invalidateQueries({ queryKey: ["coala-sync-config"] });
     },
     onError: (e: any) => toast.error(e.message),
@@ -176,6 +193,8 @@ export default function CoalaSync() {
               <DialogTitle>Nova configuração de sync</DialogTitle>
             </DialogHeader>
             <div className="space-y-3">
+              <SupplierCountryField id="new-sync-country" value={newCfg.new_supplier_country}
+                onChange={(value) => setNewCfg({ ...newCfg, new_supplier_country: value })} />
               <div>
                 <Label>Evento</Label>
                 <Select value={newCfg.event_id} onValueChange={(v) => setNewCfg({ ...newCfg, event_id: v })}>
@@ -238,6 +257,7 @@ export default function CoalaSync() {
                   <TableHead>Evento</TableHead>
                   <TableHead>Drive File ID</TableHead>
                   <TableHead>Etiqueta</TableHead>
+                  <TableHead>País dos fornecedores novos</TableHead>
                   <TableHead>Ativo</TableHead>
                   <TableHead>Auto-aplicar</TableHead>
                   <TableHead>Última run</TableHead>
@@ -252,6 +272,11 @@ export default function CoalaSync() {
                       <TableCell className="font-medium">{(ev as any)?.name ?? c.event_id.slice(0, 8)}</TableCell>
                       <TableCell className="font-mono text-xs">{c.drive_file_id.slice(0, 18)}…</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{c.file_label ?? "—"}</TableCell>
+                      <TableCell>
+                        <SupplierCountryField id={`sync-country-${c.id}`} value={c.new_supplier_country ?? ""}
+                          disabled={upsertMut.isPending}
+                          onChange={(value) => upsertMut.mutate({ id: c.id, new_supplier_country: value || null })} />
+                      </TableCell>
                       <TableCell>
                         <Switch
                           checked={c.enabled}

@@ -1,3 +1,8 @@
+import { withVatNonRecoverableCost } from "@/lib/vat-non-recoverable";
+import { useFinalCloseBpVersions } from "@/hooks/useFinalCloseBpVersions";
+import { withFinalCloseForecasts } from "@/lib/bp-final-close";
+import { BusinessLineFilter } from "@/components/BusinessLineFilter";
+import { filterEventsByBusinessLine } from "@/lib/business-line-filter";
 import { EventNatureFilter } from "@/components/EventNatureFilter";
 import { findTicketCategoryId } from "@/lib/ticket-category";
 import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
@@ -28,6 +33,11 @@ import {
   type ReportCostSource,
 } from "@/lib/report-event-cost";
 import { ReportCostSourceToggle } from "@/components/ReportCostSourceToggle";
+import { ReportRegimeToggle } from "@/components/ReportRegimeToggle";
+import { regimeDate, useReportRegime } from "@/lib/report-regime";
+import { ReportAccountingTypeToggle } from "@/components/ReportAccountingTypeToggle";
+import { accountingTypeOf, useReportAccountingType } from "@/lib/report-accounting-type";
+import { fetchNonAccountingAccountIds } from "@/lib/accountant-account-filter";
 import { computeNatureDivergence } from "@/lib/dre-nature-divergence";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
@@ -65,8 +75,19 @@ export default function ReportDREEmpresarial() {
   const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("ticket_sales");
   // #218: custo de evento pelo BP (padrão). "Transações" é só comparação — nunca gravado.
   const [costSource, setCostSource] = useState<ReportCostSource>("bp");
+  const { regime, setRegime } = useReportRegime();
+  const { accountingType, setAccountingType } = useReportAccountingType();
+  const { data: nonAccountingIds, isError: accountingAccountsError } = useQuery({
+    queryKey: ["dre-emp-non-accounting-accounts", companyLocale.companyId],
+    enabled: !!companyLocale.companyId && !companyLocale.isLoading && !companyLocale.isError,
+    queryFn: () => fetchNonAccountingAccountIds(supabase, companyLocale.companyId!),
+  });
+  const accountingTypeAvailable = !!companyLocale.companyId && !companyLocale.isLoading
+    && !companyLocale.isError && !accountingAccountsError && nonAccountingIds !== undefined;
+  const effectiveAccountingType = accountingTypeAvailable ? accountingType : "all";
   const year = Number(selectedYear);
 
+  const [lineFilter, setLineFilter] = useState<string[]>([]);
   const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
   const { data: allEvents = [] } = useQuery({
     queryKey: ["events"],
@@ -77,9 +98,15 @@ export default function ReportDREEmpresarial() {
     },
   });
   // #256: o filtro só restringe o conjunto de eventos; vazio = todos (resultado idêntico).
-  const events = useMemo(() => filterEventsByNature(allEvents as any[], natureFilter) as typeof allEvents, [allEvents, natureFilter]);
+  const events = useMemo(() => filterEventsByBusinessLine(
+    filterEventsByNature(allEvents as any[], natureFilter), lineFilter,
+  ) as typeof allEvents, [allEvents, natureFilter, lineFilter]);
+  // A linha cobre toda a secção de eventos. O alcance legado da natureza fica intacto.
+  const lineEventIds = useMemo(() => new Set(
+    filterEventsByBusinessLine(allEvents, lineFilter).map((e) => e.id),
+  ), [allEvents, lineFilter]);
 
-  const { data: transactionsAll = [] } = useQuery({
+  const { data: transactionsRaw = [] } = useQuery({
     queryKey: ["transactions-approved"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase.from("transactions").select("*").in("status", ["approved", "paid"]));
@@ -87,6 +114,7 @@ export default function ReportDREEmpresarial() {
       return data;
     },
   });
+  const transactionsAll = useMemo(() => withVatNonRecoverableCost(transactionsRaw as any[]), [transactionsRaw]);
 
   const { data: rootSettlementIds } = useQuery({
     queryKey: ["dre-root-settlements"],
@@ -103,8 +131,8 @@ export default function ReportDREEmpresarial() {
     [transactionsAll, rootSettlementIds],
   );
 
-  // #218: BP vivo (version_id IS NULL) — viva vs congelada é decisão pendente do Pedro.
-  const { data: forecastsAll = [] } = useQuery({
+  // #218: o BP vivo é substituído pela versão final nos eventos concluídos.
+  const { data: forecastsAllLive = [] } = useQuery({
     queryKey: ["dre-emp-forecasts-expense"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
@@ -117,6 +145,11 @@ export default function ReportDREEmpresarial() {
       return data ?? [];
     },
   });
+  const { data: finalVersions } = useFinalCloseBpVersions();
+  const forecastsAll = useMemo(
+    () => withFinalCloseForecasts(forecastsAllLive, finalVersions, events),
+    [forecastsAllLive, finalVersions, events],
+  );
   const forecastsByEvent = useMemo(
     () => groupByEvent(keepRootPerimeter(forecastsAll as any[], rootSettlementIds)),
     [forecastsAll, rootSettlementIds],
@@ -222,19 +255,37 @@ export default function ReportDREEmpresarial() {
     );
   }, [categories]);
 
+  // #669b: o tipo corta só transações, antes das datas do regime; BP e sócios
+  // continuam a usar a base completa de transações válidas.
+  const transactionsOfType = useMemo(
+    () => effectiveAccountingType === "all" ? transactions
+      : transactions.filter((t) => accountingTypeOf(t, nonAccountingIds!) === effectiveAccountingType),
+    [transactions, effectiveAccountingType, nonAccountingIds],
+  );
+
   // Filter transactions by year
   const yearTx = useMemo(
-    () => transactions.filter((t) => {
-      const d = t.payment_date || t.date;
+    () => transactionsOfType.filter((t) => {
+      const d = regimeDate(t, regime);
       return d && d.startsWith(String(year));
     }),
-    [transactions, year]
+    [transactionsOfType, year, regime]
   );
 
   // Event transactions (with event_id AND not corporate categories)
   const eventTx = useMemo(
-    () => yearTx.filter((t) => t.event_id && !corporateCatIds.has(t.category_id || "")),
-    [yearTx, corporateCatIds]
+    () => yearTx.filter((t) => t.event_id && !corporateCatIds.has(t.category_id || "")
+      && (lineFilter.length === 0 || lineEventIds.has(t.event_id))),
+    [yearTx, corporateCatIds, lineFilter, lineEventIds]
+  );
+
+  // A distribuição conserva o mesmo perímetro e regime, sem o corte informativo de tipo.
+  const partnerEventTx = useMemo(
+    () => transactions.filter((t) => {
+      const d = regimeDate(t, regime);
+      return d && d.startsWith(String(year)) && t.event_id && !corporateCatIds.has(t.category_id || "");
+    }),
+    [transactions, year, regime, corporateCatIds],
   );
 
   // Corporate transactions (no event_id OR corporate categories)
@@ -285,7 +336,7 @@ export default function ReportDREEmpresarial() {
     const eventExpenseMonthly = new Array(12).fill(0);
 
     eventTx.forEach((t) => {
-      const d = t.payment_date || t.date;
+      const d = regimeDate(t, regime);
       if (!d) return;
       const mi = getMonthIndex(d);
       // Quando a fonte é ticket_sales, ignoramos transações income da categoria de bilheteira
@@ -312,6 +363,7 @@ export default function ReportDREEmpresarial() {
         // Só contar vendas de eventos cujas zonas existem (defensivo)
         const zone = ticketZones.find((z: any) => z.id === (lot as any).zone_id);
         if (!zone) return;
+        if (lineFilter.length > 0 && !lineEventIds.has(zone.event_id)) return;
         const rate = Number((lot as any).iva_rate ?? 6);
         const gross = (s.total_value !== null && s.total_value !== undefined && s.total_value !== "")
           ? Number(s.total_value)
@@ -335,7 +387,7 @@ export default function ReportDREEmpresarial() {
     yearEvents.forEach((evt) => {
       const partners = eventPartners.filter((p: any) => p.event_id === evt.id);
       if (partners.length === 0) return;
-      const evtTx = eventTx.filter((t) => t.event_id === evt.id);
+      const evtTx = partnerEventTx.filter((t) => t.event_id === evt.id);
       let inc = evtTx
         .filter((t) => t.type === "income" && !t.is_transitory && !t.exclude_from_result)
         .filter((t) => !(useTicketSales && ticketCategoryId && t.category_id === ticketCategoryId))
@@ -405,7 +457,7 @@ export default function ReportDREEmpresarial() {
       if (!corpGroupMonthly[groupCode]) {
         corpGroupMonthly[groupCode] = { name: groupName, code: groupCode, monthly: new Array(12).fill(0) };
       }
-      const d = t.payment_date || t.date;
+      const d = regimeDate(t, regime);
       if (!d) return;
       const mi = getMonthIndex(d);
       corpGroupMonthly[groupCode].monthly[mi] += Number(t.amount);
@@ -415,7 +467,7 @@ export default function ReportDREEmpresarial() {
     const totalCorpMonthly = new Array(12).fill(0);
     corpGroups.forEach((g) => g.monthly.forEach((v, i) => (totalCorpMonthly[i] += v)));
 
-    result.push(makeSectionTitle("CUSTOS CORPORATIVOS"));
+    result.push(makeSectionTitle(lineFilter.length > 0 ? "Comuns (sem evento)" : "CUSTOS CORPORATIVOS"));
     corpGroups.forEach((g) => {
       result.push(makeLine(g.name, g.monthly.map((v) => -v), false, false, true));
     });
@@ -441,7 +493,7 @@ export default function ReportDREEmpresarial() {
       if (!finGroupMonthly[groupCode]) {
         finGroupMonthly[groupCode] = { name: groupName, code: groupCode, monthly: new Array(12).fill(0) };
       }
-      const d = t.payment_date || t.date;
+      const d = regimeDate(t, regime);
       if (!d) return;
       const mi = getMonthIndex(d);
       finGroupMonthly[groupCode].monthly[mi] += Number(t.amount);
@@ -463,7 +515,7 @@ export default function ReportDREEmpresarial() {
     }
 
     return result;
-  }, [costSource, bpCostByEvent, eventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year, ticketRevenueSource, ticketSales, ticketLots, ticketZones, ticketCategoryId]);
+  }, [regime, costSource, bpCostByEvent, eventTx, partnerEventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year, ticketRevenueSource, ticketSales, ticketLots, ticketZones, ticketCategoryId, lineFilter, lineEventIds]);
 
   // #304 ponto 4: o que cai fora de todas as secções por natureza ≠ rubrica — só aviso.
   const natureDivergence = useMemo(
@@ -474,18 +526,21 @@ export default function ReportDREEmpresarial() {
   const years = useMemo(() => {
     const ySet = new Set<number>();
     transactions.forEach((t) => {
-      const d = t.payment_date || t.date;
+      const d = regimeDate(t, regime);
       if (d) ySet.add(new Date(d).getFullYear());
     });
     if (ySet.size === 0) ySet.add(currentYear);
     return Array.from(ySet).sort((a, b) => b - a);
-  }, [transactions]);
+  }, [transactions, regime]);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-4">
 <EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
+        <BusinessLineFilter value={lineFilter} onChange={setLineFilter} />
         <ReportCostSourceToggle value={costSource} onChange={setCostSource} />
+        <ReportRegimeToggle value={regime} onChange={setRegime} />
+        <ReportAccountingTypeToggle value={effectiveAccountingType} onChange={setAccountingType} disabled={!accountingTypeAvailable} />
         <Select value={selectedYear} onValueChange={setSelectedYear}>
           <SelectTrigger className="w-32">
             <SelectValue />
@@ -515,6 +570,12 @@ export default function ReportDREEmpresarial() {
           </RadioGroup>
         </div>
       </div>
+
+      {accountingAccountsError && (
+        <p role="alert" className="text-sm text-destructive">
+          Filtro de tipo indisponível: não foi possível ler as contas gerenciais. A mostrar Todas as transações.
+        </p>
+      )}
 
       <p className="text-xs text-muted-foreground">
         Regra: tudo s/IVA (líquido). Sem overheads (rateios do BP). Sem transitórias nem exclusões de resultado.

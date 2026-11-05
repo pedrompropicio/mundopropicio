@@ -7,6 +7,7 @@
 // gerador anterior baseado em prompt directo ao gateway. Será desligado na sub-tarefa 6.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2.39.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SRK = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -174,7 +175,7 @@ async function callModelWithRetry(model: string, prompt: string, maxAttempts = 3
 const PRIORITY_PATTERNS = ["ivete","anitta","simone","maiara","zeca","coala","mundo propicio","mundopropicio","eventosportugal","ticketline"];
 const EXCLUDE_PATTERNS = ["sotrap","só trap","so trap","veigh","matheus e kauan","luccas neto"];
 
-async function fetchAudienceInventory(sbPublic: ReturnType<typeof createClient>, companyId: string): Promise<unknown[]> {
+async function fetchAudienceInventory(sbPublic: SupabaseClient, companyId: string): Promise<unknown[]> {
   const { data, error } = await sbPublic
     .from("meta_custom_audiences")
     .select("name, audience_id_meta, filters, total_records_meta")
@@ -210,7 +211,7 @@ async function fetchAudienceInventory(sbPublic: ReturnType<typeof createClient>,
 // ────────────────────────────────────────────────────────────────────────────
 
 async function insertCandidate(
-  sbCrm: ReturnType<typeof createClient>,
+  sbCrm: SupabaseClient,
   duel_id: string,
   source_model: string,
   proposal: unknown,
