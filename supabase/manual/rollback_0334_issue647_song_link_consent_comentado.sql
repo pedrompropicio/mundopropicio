@@ -1,0 +1,13 @@
+-- ROLLBACK COMENTADO — Issue #647-d; não executar sem janela autorizada.
+-- Repor primeiro a SLE anterior e provar que não existem entregas consent em curso.
+-- Este rollback elimina o registo do consentimento: preservar a prova antes.
+-- BEGIN;
+-- DROP FUNCTION public.song_link_consent_daily(uuid,date,date);
+-- ALTER TABLE public.song_link_events DROP CONSTRAINT song_link_events_consent_status_check;
+-- ALTER TABLE public.song_link_events DROP COLUMN consent_status, DROP COLUMN consent_version, DROP COLUMN consent_at;
+-- -- Preservar os slots ViewContent: apagá-los permitiria reentregas.
+-- ALTER TABLE public.song_link_delivery_slots DROP CONSTRAINT song_link_delivery_slots_event_name_check;
+-- -- NOT VALID preserva slots ViewContent históricos e impede novos após repor a SLE.
+-- ALTER TABLE public.song_link_delivery_slots ADD CONSTRAINT song_link_delivery_slots_event_name_check
+--   CHECK (event_name IN ('ListenClick','CompleteRegistration')) NOT VALID;
+-- COMMIT;

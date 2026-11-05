@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { transformSync } from "esbuild";
 import { describe, expect, it } from "vitest";
 import * as appOpen from "../../supabase/functions/song-link-event/app-open";
+import * as consent from "../../supabase/functions/song-link-event/consent";
 import * as ssr from "../../supabase/functions/song-link-event/ssr";
 import * as abMod from "../../supabase/functions/song-link-event/ab-variant";
 import * as protectedZone from "../../supabase/functions/_shared/protected-zone";
@@ -77,14 +78,14 @@ async function run(ua: string, extra: Record<string, unknown>, event: "arrival" 
   let handler: ((r: Request) => Promise<Response>) | undefined;
   const env: Record<string, string> = { SUPABASE_URL: "https://backend.invalid", SUPABASE_SERVICE_ROLE_KEY: "s", SONG_LINK_IP_SALT: "s", META_CAPI_TOKEN: "s", TIKTOK_EVENTS_ACCESS_TOKEN: "s" };
   const ab = { ...abMod, AB_IOS_BTN_WINDOW: { start: "2000-01-01T00:00:00Z", end: "2100-01-01T00:00:00Z" } };
-  const names = ["createClient", "lookupIpGeo", ...Object.keys(ssr), ...Object.keys(appOpen), ...Object.keys(ab), ...Object.keys(protectedZone), "Deno", "fetch"];
-  const values = [() => admin, async () => ({ country: null, region: null, city: null }), ...Object.values(ssr), ...Object.values(appOpen), ...Object.values(ab), ...Object.values(protectedZone),
+  const names = ["createClient", "lookupIpGeo", ...Object.keys(ssr), ...Object.keys(appOpen), ...Object.keys(ab), ...Object.keys(consent), ...Object.keys(protectedZone), "Deno", "fetch"];
+  const values = [() => admin, async () => ({ country: null, region: null, city: null }), ...Object.values(ssr), ...Object.values(appOpen), ...Object.values(ab), ...Object.values(consent), ...Object.values(protectedZone),
     { env: { get: (k: string) => env[k] }, serve: (fn: typeof handler) => { handler = fn; } },
     async (url: string, o: RequestInit) => { sent.push({ url, body: JSON.parse(String(o.body)) }); return new Response(JSON.stringify(url.includes("facebook") ? { events_received: 1 } : { code: 0 })); }];
   new Function(...names, compiled)(...values);
   const res = await handler!(new Request("https://backend.invalid", { method: "POST",
     headers: { Origin: "https://www.mundopropicio.com", "user-agent": ua, "x-forwarded-for": "203.0.113.7", "cf-ipcountry": "BR" },
-    body: JSON.stringify({ slug: "synthetic-link", event, destination: "spotify", opened: "app",
+    body: JSON.stringify({ slug: "synthetic-link", event, consent: "granted", destination: "spotify", opened: "app",
       arrival_event_id: arrivalId, event_id: `${arrivalId}:c`, fbp: "fbp", page_url: "https://www.mundopropicio.com/m/synthetic-link", ...extra }) }));
   return { res, body: await res.json(), sent, rpcs };
 }

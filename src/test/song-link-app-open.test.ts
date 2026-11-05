@@ -148,16 +148,16 @@ describe("index.ts — asserções de fonte (integração AJ19/AJ14)", () => {
     expect(SRC).toContain('onConflict: "arrival_event_id,provider,event_name"');
   });
   it("ListenClick Meta partilhado: choice com chegada e app_open usam o ID canónico ':open'", () => {
-    expect(SRC).toContain('const metaSlot = (appOpen || (event === "choice" && choiceArrivalLinked)) ? "ListenClick" : null');
-    expect(SRC).toContain("const metaEventId = metaSlot ? openId! : (eventId ?? undefined)");
+    expect(SRC).toContain('const metaSlot = isConsent ? "ViewContent" : (appOpen || (event === "choice" && choiceArrivalLinked)) ? "ListenClick" : null');
+    expect(SRC).toContain("const metaEventId = isConsent ? eventId! : metaSlot ? openId! : (eventId ?? undefined)");
   });
   it("TikTok: CompleteRegistration só no app_open; choice fica ClickButton", () => {
-    expect(SRC).toContain('const ttSlot = appOpen ? "CompleteRegistration" : null');
+    expect(SRC).toContain('const ttSlot = isConsent ? "ViewContent" : appOpen ? "CompleteRegistration" : null');
     expect(SRC).toContain('appOpen ? "CompleteRegistration" : "ClickButton"');
   });
   it("slot perdido não entrega e marca 'slot_perdido'; resultado fecha o slot sem ID novo", () => {
-    expect(SRC).toContain('capi_status = "slot_perdido"');
-    expect(SRC).toContain('tiktok_status = "slot_perdido"');
+    expect(SRC).toContain('capi_status = isConsent ? consentArrival.capi_status : "slot_perdido"');
+    expect(SRC).toContain('tiktok_status = isConsent ? consentArrival.tiktok_status : "slot_perdido"');
     expect(SRC).toContain('finishSlot(admin, arrivalEventId!, "meta", metaSlot, r.ok ? "delivered" : "failed")');
     expect(SRC).toContain('finishSlot(admin, arrivalEventId!, "meta", metaSlot, "unknown")');
     expect(SRC).toContain('finishSlot(admin, arrivalEventId!, "tiktok", ttSlot, tiktok_status === "enviado" ? "delivered" : "failed")');
