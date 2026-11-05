@@ -26,6 +26,7 @@ import {
   usesGrossExpenseAmounts,
   type PartnerCalcBasis,
 } from "@/lib/partner-calc-basis";
+import type { SettlementTotals } from "@/lib/event-settlement-inputs";
 
 export interface ContractResultTotals {
   revenueNet: number;
@@ -97,6 +98,19 @@ export function computeContractBasisResult(
   return revenueBase - expenseBase;
 }
 
+/** Base do fecho na capa: receita do acerto, sem receitas exclusivas da casa. */
+export function computeCoverContractBasisResult(
+  totals: Pick<SettlementTotals, "settlementRevenueNet" | "expensesNet" | "expensesGross">,
+  cacheOnTop: number,
+  basis?: string | null,
+): number {
+  return computeContractBasisResult({
+    revenueNet: totals.settlementRevenueNet,
+    expensesNet: totals.expensesNet + cacheOnTop,
+    expensesGross: totals.expensesGross + cacheOnTop,
+  }, basis);
+}
+
 /**
  * LUCRO DA CAPA: subtração cega dos valores exibidos nos cards de Receitas e
  * Custos, nas vistas de IVA ativas em cada um. O contrato não participa.
@@ -107,6 +121,7 @@ export function computeEventContractResult(
   perimeters?: ContractPerimeterModes,
   settlementResult?: number | null,
   basis?: string | null,
+  opts?: { hasIva?: boolean },
 ): ContractResult {
   const calcBasis = normalizePartnerCalcBasis(basis);
   const revenueBase = vatViews.revenue ? totals.revenueGross : totals.revenueNet;
@@ -116,13 +131,14 @@ export function computeEventContractResult(
   const expMode = perimeters?.expense ? (PERIMETER_LABEL[perimeters.expense] ?? perimeters.expense) : null;
   const perimeterMismatch = !!revMode && !!expMode && revMode !== expMode;
 
-  const revVatLabel = vatViews.revenue ? "c/IVA" : "s/IVA";
-  const expVatLabel = vatViews.expense ? "c/IVA" : "s/IVA";
+  const hasIva = opts?.hasIva ?? true;
+  const revVatLabel = hasIva ? ` ${vatViews.revenue ? "c/IVA" : "s/IVA"}` : "";
+  const expVatLabel = hasIva ? ` ${vatViews.expense ? "c/IVA" : "s/IVA"}` : "";
   let label: string;
   if (perimeterMismatch) {
-    label = `Receita (${revMode}) ${revVatLabel} − Despesa (${expMode}) ${expVatLabel}`;
+    label = `Receita (${revMode})${revVatLabel} − Despesa (${expMode})${expVatLabel}`;
   } else {
-    label = `${revMode ? `${revMode} · ` : ""}Receita ${revVatLabel} − Despesa ${expVatLabel}`;
+    label = `${revMode ? `${revMode} · ` : ""}Receita${revVatLabel} − Despesa${expVatLabel}`;
   }
 
   // (Adenda D-ERP213, 10/10/2026 — substitui a parte de 09/10): o "Resultado do

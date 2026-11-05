@@ -5,7 +5,7 @@
  * Limitação: o servidor aceita o share_amount enviado pelo cliente (sem recálculo).
  */
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { formatMoney } from "@/lib/company-locale";
+import { companyHasIva, formatMoney } from "@/lib/company-locale";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,13 +36,13 @@ interface Props {
   partnerName: string;
 }
 
-function ShareOrigin({ origin, formatCurrency }: { origin: PartnerShareOrigin | null; formatCurrency: (value: number) => string }) {
+function ShareOrigin({ origin, formatCurrency, hasIva }: { origin: PartnerShareOrigin | null; formatCurrency: (value: number) => string; hasIva: boolean }) {
   if (!origin) return null;
   return (
     <div className="space-y-2 border-t border-border pt-3">
       <h5 className="text-sm font-semibold">Origem da parte</h5>
       <dl className="space-y-2 text-sm">
-        {shareOriginRows(origin).map((row) => (
+        {shareOriginRows(origin, { hasIva }).map((row) => (
           <div key={row.key} className={`grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 ${row.detail ? "pl-3 text-xs text-muted-foreground" : ""} ${row.key === "result" ? "border-t border-border pt-2 font-semibold" : ""}`}>
             <dt className="break-words">{row.label}{row.note && <span className="block text-xs text-muted-foreground">{row.note}</span>}</dt>
             <dd className="font-mono text-right whitespace-nowrap">{formatCurrency(row.value)}</dd>
@@ -182,7 +182,7 @@ export function PartnerPaymentDialog({ open, onOpenChange, eventId, participantI
               <>
                 <p className="text-sm">Parte congelada: <span className="font-mono">{formatCurrency(Number(row?.frozen_values?.share_amount ?? 0))}</span>
                   {row?.freeze_note ? <span className="text-muted-foreground"> · {row.freeze_note}</span> : null}</p>
-                <ShareOrigin formatCurrency={formatCurrency} origin={readFrozenOrigin(row?.frozen_values)} />
+                <ShareOrigin formatCurrency={formatCurrency} hasIva={companyHasIva(companyLocale)} origin={readFrozenOrigin(row?.frozen_values)} />
                 <div className="flex gap-2 items-end">
                   <div className="flex-1"><Label className="text-xs">Motivo para descongelar</Label>
                     <Input value={unfreezeReason} onChange={(e) => setUnfreezeReason(e.target.value)} /></div>
@@ -195,10 +195,10 @@ export function PartnerPaymentDialog({ open, onOpenChange, eventId, participantI
             ) : (
               <>
                 <dl className="grid grid-cols-2 gap-x-4 text-sm">
-                  <dt className="text-muted-foreground">Parte (motor, {freezePreview.uses_gross_expenses ? "c/IVA" : "s/IVA"})</dt><dd className="font-mono text-right">{formatCurrency(freezePreview.share_amount)}</dd>
+                  <dt className="text-muted-foreground">Parte (motor, {companyHasIva(companyLocale) ? (freezePreview.uses_gross_expenses ? "c/IVA" : "s/IVA") : (freezePreview.uses_gross_expenses ? "base bruta" : "base líquida")})</dt><dd className="font-mono text-right">{formatCurrency(freezePreview.share_amount)}</dd>
                   <dt className="text-muted-foreground">% aplicada</dt><dd className="font-mono text-right">{freezePreview.effective_pct}%</dd>
                 </dl>
-                <ShareOrigin formatCurrency={formatCurrency} origin={freezePreview.origin} />
+                <ShareOrigin formatCurrency={formatCurrency} hasIva={companyHasIva(companyLocale)} origin={freezePreview.origin} />
                 <p className="text-xs text-muted-foreground">A parte é a % do resultado do fechamento. Pagas pelo sócio, extras e acerto tratam-se no Encontro de Contas e não entram no congelar.</p>
                 <p className="text-[11px] text-muted-foreground">Valores calculados pelo motor do fecho, não editáveis. O servidor aceita a parte enviada por este ecrã (não a recalcula).</p>
                 <Label className="text-xs">Nota</Label>

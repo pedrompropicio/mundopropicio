@@ -562,6 +562,7 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["account-true-balance"] });
       toast({
         title: `${data.count} transação(ões) liquidada(s)!`,
         description: effectiveInvoiceRef

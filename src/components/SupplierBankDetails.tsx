@@ -1,16 +1,35 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Building2, Copy, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { supabase } from "@/integrations/supabase/client";
-import { readBrBankSlots, readOptionalSupplierBrData, type BrBankDetails, type SupplierBrReader } from "@/lib/supplier-bank";
+import { readBrBankSlots, readForeignBankSlots, readOptionalSupplierBrData, type BrBankDetails, type ForeignBankSlot, type SupplierBrReader } from "@/lib/supplier-bank";
 export { readBrBankSlots, type BrBankDetails, type BrBankSlot, type SupplierBrData } from "@/lib/supplier-bank";
 
 export const BR_BANK_FIELDS = [
   ["bank_name", "Banco"], ["routing_number", "Agência"],
   ["account_number", "Conta"], ["account_digit", "Dígito"], ["pix_key", "Chave Pix"],
 ] as const;
+
+export const FOREIGN_BANK_FIELDS = [
+  ["routing_number", "ABA / Routing"], ["bank_name", "Banco"],
+  ["bank_address", "Morada do banco"], ["intermediary_bank", "Banco intermediário"],
+  ["beneficiary_name", "Beneficiário (se diferente)"],
+] as const;
+
+export function ForeignBankFields({ value, onChange, prefix, disabled = false }: {
+  value: ForeignBankSlot; onChange: (value: ForeignBankSlot) => void; prefix: string; disabled?: boolean;
+}) {
+  return <fieldset disabled={disabled} className="grid grid-cols-2 gap-4">
+    {FOREIGN_BANK_FIELDS.map(([key, label]) => <div className="grid gap-2" key={key}>
+      <label htmlFor={`${prefix}-${key}`} className="text-xs font-medium">{label}</label>
+      <input id={`${prefix}-${key}`} value={value[key] ?? ""}
+        onChange={e => onChange({ ...value, [key]: e.target.value })}
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+    </div>)}
+  </fieldset>;
+}
 
 /** Supplier capability probes use only the RPC; financial accounts retain their existing probe. */
 export async function optionalBankColumns(table: "suppliers" | "financial_accounts", columns: string): Promise<boolean> {
@@ -68,10 +87,13 @@ interface Props {
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(feedbackTimer.current), []);
   const handleCopy = () => {
     navigator.clipboard.writeText(text);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    clearTimeout(feedbackTimer.current);
+    feedbackTimer.current = setTimeout(() => setCopied(false), 1500);
   };
   return (
     <button type="button" onClick={handleCopy} className="ml-1 p-0.5 rounded hover:bg-muted transition-colors" title="Copiar">
@@ -126,7 +148,7 @@ export function SupplierBankDetails({ supplier, defaultExpanded = false }: Props
         {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
       </button>
       {expanded && <div className="px-3 pb-2.5 space-y-2">
-        {taxId && <p className="text-xs">{source.tax_id_type?.toUpperCase() || "CNPJ"}: {taxId}<CopyButton text={taxId} /></p>}
+        {taxId && <p className="text-xs">{source.tax_id_type?.toUpperCase() || "CNPJ"}: {((digits, type) => type === "cnpj" && digits.length === 14 ? digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : type === "cpf" && digits.length === 11 ? digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4") : taxId)(taxId.replace(/\D/g, ""), (source.tax_id_type ?? "cnpj").toLowerCase())}<CopyButton text={taxId} /></p>}
         {banks.map(bank => <div key={bank.slot} className="text-xs space-y-1">
           <p className="font-medium">Conta bancária {bank.slot}</p>
           {BR_BANK_FIELDS.map(([key, label]) => bank[key] ? <p key={key}>{label}: {bank[key]}<CopyButton text={bank[key]!} /></p> : null)}
@@ -142,7 +164,8 @@ export function SupplierBankDetails({ supplier, defaultExpanded = false }: Props
     { iban: supplier.iban_3, swift: supplier.swift_bic_3 },
   ].filter((b) => b.iban);
 
-  if (ibans.length === 0 && !supplier.nif) return null;
+  const foreignBanks = readForeignBankSlots(supplier.foreign_bank_accounts);
+  if (ibans.length === 0 && !supplier.nif && foreignBanks.length === 0) return null;
 
   return (
     <div className="rounded-lg border border-border/50 bg-secondary/20 overflow-hidden">
@@ -178,6 +201,12 @@ export function SupplierBankDetails({ supplier, defaultExpanded = false }: Props
               swift={b.swift}
             />
           ))}
+          {foreignBanks.map(bank => <div key={bank.slot} className="text-xs space-y-1">
+            <p className="font-medium">Conta bancária {bank.slot}</p>
+            <p>Tipo de conta: {bank.account_type === "aba_us" ? "Conta EUA (ABA/Routing)" : "Outra conta fora da zona IBAN"}</p>
+            {bank.account_number && <p>Conta: {bank.account_number}<CopyButton text={bank.account_number} /></p>}
+            {FOREIGN_BANK_FIELDS.map(([key, label]) => bank[key] ? <p key={key}>{label}: {bank[key]}<CopyButton text={bank[key]} /></p> : null)}
+          </div>)}
         </div>
       )}
     </div>

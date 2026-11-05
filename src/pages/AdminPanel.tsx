@@ -4,11 +4,13 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useCompany } from "@/hooks/useCompany";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { useAuth } from "@/contexts/AuthContext";
 import SystemRemindersBanner from "@/components/SystemRemindersBanner";
 import { CompanyBudgetModeCard } from "@/components/CompanyBudgetModeCard";
+import { BusinessLinesCard } from "@/components/BusinessLinesCard";
 
-const adminCards = [
+const adminCards = (bankAccount: string, taxIdAny: string, isPlatformAdmin: boolean) => [
   {
     need: "settings.users",
     to: "/admin/utilizadores",
@@ -101,16 +103,18 @@ const adminCards = [
   {
     to: "/admin/iban-duplicados",
     icon: Banknote,
-    title: "IBANs Duplicados",
-    description: "Auditoria retroativa: IBANs partilhados por mais de um fornecedor na empresa ativa",
+    title: bankAccount === "IBAN" ? "IBANs Duplicados" : `Duplicados de ${bankAccount.toLowerCase()}`,
+    description: bankAccount === "IBAN"
+      ? "Auditoria retroativa: IBANs partilhados por mais de um fornecedor na empresa ativa"
+      : `Auditoria retroativa: ${bankAccount.toLowerCase()} partilhada por mais de um fornecedor na empresa ativa`,
   },
   {
     to: "/admin/fornecedores-parecidos",
     icon: Banknote,
     title: "Fornecedores parecidos",
-    description: "Fornecedores criados em lote com nome ou NIF parecido a outro, por rever",
+    description: `Fornecedores criados em lote com nome ou ${taxIdAny} parecido a outro, por rever`,
   },
-  {
+  ...(isPlatformAdmin ? [{
     to: "/admin/invariantes",
     icon: ShieldCheck,
     title: "Verificador de Invariantes",
@@ -127,7 +131,7 @@ const adminCards = [
     icon: MessageCircleQuestion,
     title: "Lacunas do manual",
     description: "Rever perguntas sem resposta ou com baixa confiança e acompanhar a cobertura do manual",
-  },
+  }] : []),
   {
     need: "settings.audit_log",
     to: "/admin/audit-downloads",
@@ -141,10 +145,13 @@ const adminCards = [
 export default function AdminPanel() {
   const navigate = useNavigate();
   const { isPlatformAdmin } = useCompany();
+  const companyLocale = useCompanyLocale();
+  const bankAccount = companyLocale.status === "available" ? companyLocale.labels.bankAccount : "IBAN";
+  const taxIdAny = companyLocale.status === "available" ? companyLocale.labels.taxIdAny : "NIF";
   const { hasPermission } = useAuth();
 
   const cards = [
-    ...adminCards.filter((c: { need?: string }) => !c.need || hasPermission(c.need)),
+    ...adminCards(bankAccount, taxIdAny, isPlatformAdmin).filter((c: { need?: string }) => !c.need || hasPermission(c.need)),
     ...(isPlatformAdmin
       ? [{
           to: "/admin/empresas",
@@ -187,6 +194,7 @@ export default function AdminPanel() {
 
       <div className="max-w-xl">
         <CompanyBudgetModeCard />
+        <BusinessLinesCard />
       </div>
     </div>
   );

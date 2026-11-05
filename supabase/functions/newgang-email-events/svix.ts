@@ -1,7 +1,7 @@
 // Verificação de assinatura Svix (webhooks Resend). Pura, sem efeitos.
 const TOLERANCE_S = 300;
 
-function b64ToBytes(b64: string): Uint8Array {
+function b64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   const bin = atob(b64);
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
 }

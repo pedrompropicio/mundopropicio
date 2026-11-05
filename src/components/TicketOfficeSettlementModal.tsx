@@ -29,6 +29,7 @@ import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import HelpTooltip from "@/components/HelpTooltip";
 import { SETTLEMENT_FORM_LABELS, type SettlementForm } from "@/lib/ticket-office-settlement-form";
 import { isSettlementEligibleTxn } from "@/lib/ticket-office-settlement-eligible";
+import { settlementSaveErrorMessage } from "@/lib/ticket-office-settlement-save-error";
 import { invalidateEventFinancials } from "@/lib/invalidate-event-financials";
 import { fetchDocumentUrlsByTransaction } from "@/lib/invoice-group";
 import {
@@ -665,7 +666,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         p_remainder_payment_notes: `Saldo restante liquidado pela bilheteira ${officeName} (fecho do evento)`,
         p_audit_user: getAuditUser(user),
       });
-      if (saveErr) throw new Error(`Fecho não gravado (nada foi alterado): ${saveErr.message}`);
+      if (saveErr) throw new Error(settlementSaveErrorMessage(saveErr));
       const settlementId: string = saved?.settlement_id;
       if (!settlementId) throw new Error("Fecho não gravado: resposta sem identificador.");
 

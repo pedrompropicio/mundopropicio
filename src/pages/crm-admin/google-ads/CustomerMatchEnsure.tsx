@@ -21,8 +21,8 @@ type Outcome = {
 };
 
 export default function CustomerMatchEnsure() {
-  const { role } = useAuth();
-  const authorized = role === "admin" || role === ("platform_admin" as any) || role === "marketing_manager";
+  const { hasPermission } = useAuth();
+  const authorized = hasPermission("module.audience");
   const [loading, setLoading] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
 
@@ -30,7 +30,7 @@ export default function CustomerMatchEnsure() {
     return (
       <Card>
         <CardContent className="pt-6 text-sm text-muted-foreground">
-          Sem permissão para gerir Customer Match. Requer <code>admin</code>, <code>platform_admin</code> ou <code>marketing_manager</code>.
+          Sem permissão para gerir Customer Match. Requer acesso ao módulo MP Audience.
         </CardContent>
       </Card>
     );

@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { COUNTRIES } from "@/lib/crm/countries";
 import { formatCurrency } from "@/lib/mock-data";
 import { formatDatePT } from "@/lib/utils";
 import { toast } from "sonner";
@@ -193,10 +194,17 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
   // D-ERP199: antes de criar só com o nome, procurar fornecedores parecidos.
   const [similarPending, setSimilarPending] = useState<{ name: string; list: SimilarSupplier[] } | null>(null);
   const [similarBusy, setSimilarBusy] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState("");
+  const [newSupplierCountry, setNewSupplierCountry] = useState("");
+  useEffect(() => { setNewSupplierName(""); setNewSupplierCountry(""); }, [lines]);
   const authRole = (useAuth() as any).role as string | undefined;
   const canManageSuppliers = authRole === "admin" || authRole === "platform_admin" || authRole === "manager";
 
   const insertSupplier = async (name: string) => {
+    if (!/^[A-Z]{2}$/.test(newSupplierCountry)) {
+      toast.error("Selecione um país para o fornecedor novo.");
+      return false;
+    }
     const { data: companyId, error: cErr } = await supabase.rpc("current_company_id" as any);
     if (cErr || !companyId) {
       toast.error("Não foi possível identificar a empresa activa.");
@@ -204,7 +212,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
     }
     const { data, error } = await supabase
       .from("suppliers")
-      .insert({ name, company_id: companyId as string } as any)
+      .insert({ name, company_id: companyId as string, country: newSupplierCountry } as any)
       .select("id, name")
       .single();
     if (error || !data) {
@@ -212,6 +220,8 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
       return false;
     }
     setSupplierId((data as any).id);
+    setNewSupplierName("");
+    setNewSupplierCountry("");
     await queryClient.invalidateQueries({ queryKey: ["bank-launch-suppliers"] });
     toast.success(`Fornecedor "${name}" criado.`);
     return true;
@@ -221,6 +231,12 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
   const handleCreateSupplier = async (text: string) => {
     const name = text.trim();
     if (!name) return false;
+    setNewSupplierName(name);
+    if (name !== newSupplierName || !/^[A-Z]{2}$/.test(newSupplierCountry)) {
+      if (name !== newSupplierName) setNewSupplierCountry("");
+      toast.error("Selecione um país para o fornecedor novo.");
+      return false;
+    }
     const { data: sim, error: simErr } = await supabase.rpc("check_supplier_similar" as any, {
       p_name: name, p_nif: null, p_supplier_id: null,
     });
@@ -242,6 +258,8 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
       if (!c.is_active) await reactivateSupplier(c.id);
       await queryClient.invalidateQueries({ queryKey: ["bank-launch-suppliers"] });
       setSupplierId(c.id);
+      setNewSupplierName("");
+      setNewSupplierCountry("");
       setSimilarPending(null);
       toast.success(c.is_active ? `A usar «${c.name}»` : `«${c.name}» reativado`);
     } catch (e: any) {
@@ -765,11 +783,23 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
                 <SearchableSelect
                   options={(suppliers as any[]).map((s) => ({ value: s.id, label: s.name }))}
                   value={supplierId}
-                  onValueChange={setSupplierId}
+                  onValueChange={id => { setSupplierId(id); setNewSupplierName(""); setNewSupplierCountry(""); }}
                   placeholder="Sem fornecedor"
                   onCreateOption={handleCreateSupplier}
                   createLabel={(t) => `Criar fornecedor "${t}"…`}
                 />
+                {newSupplierName && <div className="mt-2 space-y-2">
+                  <Label htmlFor="bank-new-supplier-country">País do fornecedor novo</Label>
+                  <select id="bank-new-supplier-country" required value={newSupplierCountry}
+                    onChange={e => setNewSupplierCountry(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                    <option value="">Selecionar</option>
+                    {Object.entries(COUNTRIES).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+                  </select>
+                  <Button type="button" variant="outline" onClick={() => handleCreateSupplier(newSupplierName)}>
+                    Criar fornecedor «{newSupplierName}»
+                  </Button>
+                </div>}
               </div>
               <div>
                 <Label>Evento</Label>

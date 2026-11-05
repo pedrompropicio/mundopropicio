@@ -27,8 +27,8 @@ interface SyncResult {
 }
 
 export default function ManualSync() {
-  const { role } = useAuth();
-  const isAuthorized = role === "admin" || role === ("platform_admin" as any);
+  const { hasPermission } = useAuth();
+  const isAuthorized = hasPermission("settings.admin");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<SyncResult | null>(null);
 

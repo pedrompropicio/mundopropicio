@@ -30,13 +30,23 @@ function hexToHslString(hex: string): string | null {
 
 interface BrandingContextValue {
   logoUrl: string | null;
+  logoDarkUrl: string | null;
+  logoHorizontalUrl: string | null;
+  logoHorizontalDarkUrl: string | null;
   displayName: string;
 }
 
 const BrandingContext = createContext<BrandingContextValue>({
   logoUrl: null,
+  logoDarkUrl: null,
+  logoHorizontalUrl: null,
+  logoHorizontalDarkUrl: null,
   displayName: "MP Gestão Eventos",
 });
+
+function logoConfigUrl(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
 
 export function CompanyBrandingProvider({ children }: { children: ReactNode }) {
   const { company } = useCompany();
@@ -99,6 +109,9 @@ export function CompanyBrandingProvider({ children }: { children: ReactNode }) {
     <BrandingContext.Provider
       value={{
         logoUrl,
+        logoDarkUrl: logoConfigUrl(theme.logo_dark_url),
+        logoHorizontalUrl: logoConfigUrl(theme.logo_horizontal_url),
+        logoHorizontalDarkUrl: logoConfigUrl(theme.logo_horizontal_dark_url),
         displayName: company?.display_name ?? "MP Gestão Eventos",
       }}
     >

@@ -45,10 +45,7 @@ const BilheteiraSyncDigestEmail = ({
     <Head>
       <meta charSet="utf-8" />
     </Head>
-    <Preview>
-      Atualizações automáticas de bilheteira no portal ({events.length} evento
-      {events.length === 1 ? '' : 's'})
-    </Preview>
+    <Preview>{`Atualizações automáticas de bilheteira no portal (${events.length} evento${events.length === 1 ? '' : 's'})`}</Preview>
     <Body style={main}>
       <Container style={container}>
         <Heading style={h1}>Portal MP — atualizações de bilheteira</Heading>

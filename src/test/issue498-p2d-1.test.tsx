@@ -120,14 +120,14 @@ afterEach(() => {
 describe("#498 P2d-1 — hashes PT capturados antes de alterar os componentes", () => {
   it("preserva o DOM EUR/PT e o payload", async () => {
     const { container } = render(modal());
-    expect(dom(document.body)).toMatchInlineSnapshot(`"f6d6148f16a7288ddc1d90a5c60ea3993f0f55db1f01d1c40bde60461fbaa6e5"`);
+    expect(dom(document.body)).toMatchInlineSnapshot(`"0eb537e28ef08fdf2cc655fbcb5960ff47f890cf39d0e77023d1f5662125b0c3"`);
     expect(await save(container)).toMatchObject({
       amount: 1000, currency: "EUR", iva_rate: 23, original_amount: null, fx_rate: null, fx_rate_source: null,
     });
   });
   it("preserva o DOM USD/PT com câmbio e os metadados originais", async () => {
     const { container } = render(modal({ currency: "USD", amount: 92, original_amount: 100, fx_rate: 0.92 }));
-    expect(dom(document.body)).toMatchInlineSnapshot(`"314bfced1389c59e85cd0e42480b32baf3493e1cd8d2ab11065c497629eb3dbc"`);
+    expect(dom(document.body)).toMatchInlineSnapshot(`"a4099f3e01f64501ae9455a6ee2a95b9694502eba77865547bf991340e0dfba1"`);
     expect(screen.getByText("Câmbio (1 USD = X €)")).toBeInTheDocument();
     expect(await save(container)).toMatchObject({ amount: 92, currency: "USD", original_amount: 100, fx_rate: 0.92, fx_rate_source: "manual" });
   });

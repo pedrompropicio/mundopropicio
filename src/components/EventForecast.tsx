@@ -39,7 +39,7 @@ import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { format } from "date-fns";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { formatMoney } from "@/lib/company-locale";
+import { companyHasIva, formatMoney } from "@/lib/company-locale";
 import { MoneyInput, parseMoneyInput } from "@/components/ui/money-input";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -3315,7 +3315,7 @@ const descRef = useRef<HTMLInputElement>(null);
               <AlertDialogDescription asChild>
                 <div className="space-y-3">
                   <p>
-                    Distribuir <strong>"{distributeTarget.description}"</strong> ({formatCurrency(Number(distributeTarget.amount))} s/ IVA) igualmente por {childEventIds.length} sub-evento(s):
+                    Distribuir <strong>"{distributeTarget.description}"</strong> ({formatCurrency(Number(distributeTarget.amount))}{companyHasIva(locale) ? " s/ IVA" : ""}) igualmente por {childEventIds.length} sub-evento(s):
                   </p>
                   <div className="max-h-40 overflow-y-auto space-y-1">
                     {subEventNames.map((se: any) => {
@@ -4559,7 +4559,7 @@ function buildComparison(forecasts: any[], transactions: any[], categories: any[
 }
 
 function ComparisonTable({ data, onOpenTransactionDocuments }: { data: ComparisonRow[]; onOpenTransactionDocuments?: (tx: any) => void }) {
-  const { formatCurrency } = useBPMoney();
+  const { formatCurrency, locale } = useBPMoney();
   const incomeRows = data.filter((r) => r.type === "income");
   const expenseRows = data.filter((r) => r.type === "expense");
   const totalFI = incomeRows.reduce((s, r) => s + r.forecast, 0);
@@ -4669,7 +4669,7 @@ function ComparisonTable({ data, onOpenTransactionDocuments }: { data: Compariso
                       <td />
                       <td className="py-1.5 text-right font-mono text-muted-foreground">{formatCurrency(base)}</td>
                       <td className="py-1.5 text-right font-mono text-[10px] text-muted-foreground" colSpan={2}>
-                        {ivaRate > 0 ? `c/IVA ${formatCurrency(gross)}` : ""}
+                        {ivaRate > 0 ? `${companyHasIva(locale) ? "c/IVA " : ""}${formatCurrency(gross)}` : ""}
                       </td>
                     </tr>
                   );

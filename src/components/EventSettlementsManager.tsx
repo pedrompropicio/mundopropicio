@@ -24,6 +24,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Layers, Plus, Trash2, Pencil, Check, X, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { EVENT_SETTLEMENTS_SELECT } from "@/lib/settlement-participants";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
+import { companyHasIva } from "@/lib/company-locale";
 
 type ParentShareBasis = "net_result" | "net_result_gross_expenses";
 
@@ -45,11 +47,6 @@ interface Props {
   canEdit: boolean;
 }
 
-const BASIS_LABEL: Record<ParentShareBasis, string> = {
-  net_result: "resultado com despesas s/IVA",
-  net_result_gross_expenses: "resultado com despesas c/IVA",
-};
-
 /** Tooltip único para tudo o que o selo bloqueia. */
 const SEALED_HINT = "Fechamento selado: reabra-o para poder alterar.";
 
@@ -59,6 +56,11 @@ const VAT_RETURN_HELP =
   "Para fechos em que estes sócios recuperam o IVA que o fechamento acima suportou como custo. Só um fechamento por nível acima.";
 
 export function EventSettlementsManager({ eventId, canEdit }: Props) {
+  const hasIva = companyHasIva(useCompanyLocale());
+  const BASIS_LABEL: Record<ParentShareBasis, string> = {
+    net_result: hasIva ? "resultado com despesas s/IVA" : "resultado com despesas em base líquida",
+    net_result_gross_expenses: hasIva ? "resultado com despesas c/IVA" : "resultado com despesas em base bruta",
+  };
   const queryClient = useQueryClient();
 
   const [showForm, setShowForm] = useState(false);

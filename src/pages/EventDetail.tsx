@@ -1,5 +1,5 @@
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { formatMoney } from "@/lib/company-locale";
+import { companyHasIva, formatMoney } from "@/lib/company-locale";
 import { Badge } from "@/components/ui/badge";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -24,6 +24,7 @@ import { EventCacheConfig } from "@/components/EventCacheConfig";
 import { FormulaSyncRunner } from "@/components/BpFormulaPanel";
 import { useEventCacheImpact } from "@/hooks/useEventCacheImpact";
 import { useEventCostBasis } from "@/hooks/useEventCostBasis";
+import { useEventBudgetMode } from "@/hooks/useEventBudgetMode";
 import { EventPartnersTab } from "@/components/EventPartnersTab";
 import { EventSettlementsPanel } from "@/components/EventSettlementsPanel";
 import { EventClosingCosts } from "@/components/EventClosingCosts";
@@ -159,6 +160,7 @@ function CopyFromSelector({ label, currentId, subEvents, onCopy }: {
 
 export default function EventDetail() {
   const companyLocale = useCompanyLocale();
+  const hasIva = companyHasIva(companyLocale);
   const formatCurrency = (v: number) => companyLocale.status !== "available" ? "—"
     : companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR"
       ? formatLegacyCurrency(v) : formatMoney(v, companyLocale);
@@ -284,6 +286,10 @@ export default function EventDetail() {
 
   // Fetch sessions for the active event (or sub-event)
   const activeEventId = selectedSubEvent || id!;
+  const { budgetMode } = useEventBudgetMode(activeEventId);
+  useEffect(() => {
+    if (budgetMode === "without_bp" && activeTab === "forecast") setActiveTab("overview");
+  }, [budgetMode, activeTab, activeEventId]);
   const { data: eventSessions = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_sessions", activeEventId],
     queryFn: async () => {
@@ -1234,7 +1240,7 @@ export default function EventDetail() {
                   Exclusivos de fechamentos
                 </span>
                 <span className="block truncate text-[11px] text-muted-foreground">
-                  {settlementExclusives.count} transações · pertencem a {settlementExclusives.names.join(", ")} · não entram no resultado do evento (s/IVA)
+                  {settlementExclusives.count} transações · pertencem a {settlementExclusives.names.join(", ")} · não entram no resultado do evento{hasIva ? " (s/IVA)" : ""}
                 </span>
               </span>
             </span>
@@ -1293,7 +1299,7 @@ export default function EventDetail() {
           {canViewAB && <TabsTrigger value="ab">A&B</TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="cache" className="flex items-center gap-1">Cachê <HelpTooltip text={helpTexts.eventCache} size={13} /></TabsTrigger>}
           {(isAdmin || isManager || role === "editor") && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners" className="flex items-center gap-1">Sócios <HelpTooltip text={helpTexts.eventPartners} size={13} /></TabsTrigger>}
-          {canViewBP && <TabsTrigger value="forecast" className="flex items-center gap-1">Business Plan <HelpTooltip text={helpTexts.eventForecast} size={13} /></TabsTrigger>}
+          {canViewBP && budgetMode === "with_bp" && <TabsTrigger value="forecast" className="flex items-center gap-1">Business Plan <HelpTooltip text={helpTexts.eventForecast} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="closing-costs" className="flex items-center gap-1">Overhead <HelpTooltip text={helpTexts.eventClosingTab} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="fecho" className="flex items-center gap-1">Fecho</TabsTrigger>}
           {canViewSimulator && <TabsTrigger value="simulador" className="flex items-center gap-1">Simulador</TabsTrigger>}
@@ -1384,7 +1390,7 @@ export default function EventDetail() {
                         <th className="hidden pb-3 text-left font-medium sm:table-cell">Categoria</th>
                         {isGlobalView && <th className="hidden pb-3 text-left font-medium md:table-cell">Origem</th>}
                         <th className="pb-3 text-left font-medium">Estado</th>
-                        <th className="pb-3 text-right font-medium">Valor c/IVA</th>
+                        <th className="pb-3 text-right font-medium">{hasIva ? "Valor c/IVA" : "Valor"}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/30">
@@ -1524,7 +1530,7 @@ export default function EventDetail() {
           />
         </TabsContent>}
 
-        <TabsContent value="forecast">
+        {budgetMode === "with_bp" && <TabsContent value="forecast">
           {canManageTx && (
             <div className="flex justify-end mb-2">
               <Button variant="outline" size="sm" className="gap-2" onClick={() => setAllocOpen(true)}>
@@ -1579,7 +1585,7 @@ export default function EventDetail() {
               <EventForecast eventId={selectedSubEvent || event.id} eventDate={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.date || event.date) : event.date} eventName={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name) : event.name} childEventIds={!selectedSubEvent && isMultiEvent ? subEvents.map((s: any) => s.id) : undefined} parentEventId={(selectedSubEvent && isMultiEvent ? id : undefined) || (event?.parent_event_id ? event.parent_event_id : undefined)} eventStatus={event.status} />
             </div>
           )}
-        </TabsContent>
+        </TabsContent>}
 
         <TabsContent value="sponsors">
           <SponsorshipPipelineBoard

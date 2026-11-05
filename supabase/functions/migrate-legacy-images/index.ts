@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
       discoveryErrors.push({ table, column, error: error.message });
       continue;
     }
-    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+    for (const row of (data ?? []) as unknown as Array<Record<string, unknown>>) {
       const v = row[column];
       if (typeof v === "string" && v.includes(OLD_HOST)) urls.add(v);
     }

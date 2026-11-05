@@ -211,7 +211,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // 4) Upload por tipo
     if (type === "image") {
       // Descarrega bytes (do storage se possível, caso contrário do file_url)
-      let bytes: Uint8Array | null = null;
+      let bytes: Uint8Array<ArrayBuffer> | null = null;
       let mime = cre.file_mime_type || "image/jpeg";
       if (cre.storage_bucket && cre.storage_path) {
         const { data: dl, error: dlErr } = await admin.storage

@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import * as React from "npm:react@18.3.1";
 import { renderAsync } from "npm:@react-email/components@0.0.22";
+import { findAuthUserByEmail } from "../_shared/find-auth-user-by-email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -113,12 +114,9 @@ const InviteSetPasswordEmail = ({
   );
 
 async function findExistingAuthUser(adminClient: any, email: string) {
-  const { data, error } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  if (error) throw error;
-  return data.users.find(
-    (u: { email?: string | null; id: string; user_metadata?: any }) =>
-      u.email?.toLowerCase() === email,
-  );
+  const { user, truncated } = await findAuthUserByEmail((p) => adminClient.auth.admin.listUsers(p), email);
+  if (truncated) console.warn("listUsers truncated (non-fatal): maximum pages reached");
+  return (user ?? undefined) as { id: string; email?: string | null; user_metadata?: any } | undefined;
 }
 
 async function attachUserToCompany(

@@ -31,11 +31,12 @@ A operação corre em paralelo no Claude e no ChatGPT, com a mesma numeração e
 | — | `coala-portal` | portal de evento | leve | `estado/estado-coala-portal.md` |
 | — | `newgang-portal` | portal de evento | leve | `estado/estado-newgang-portal.md` |
 | — | `juridico` | assessoria | pesado | `estado/estado-juridico.md` |
+| — | `saas` | projeto/assessoria | pesado | `estado/estado-saas.md` |
 | — | `gestao-de-chats` | secretaria | leve | este ficheiro |
 | — | `bp-<evento>-<ano>` | evento (BP) | intermédio | `estado/estado-bp-<evento>-<ano>.md` |
 | — | `fecho-<evento>-<ano>` | evento (fecho) | intermédio | `fechos/estado-<evento>-<ano>.md` |
 
-"Pesado / intermédio / leve" mapeia para o selector de cada ferramenta (Claude: Opus ou Fable / Sonnet / Haiku). Decisão de 14/10/2026: o trabalho pesado é do agente Lovable; o chat lê docs, prepara prompts e verifica. Subir ao pesado só para desenho de arquitectura ou decisão com números grandes. **Excepção: o `juridico` corre em pesado** (decisão do Pedro, 26/10/2026) — o trabalho dele é raciocínio sobre texto longo (contratos, legislação de três países), não despacho ao agente, e a cláusula que custa dinheiro está quase sempre enterrada. Quando a ferramenta expõe o modelo em execução, o chat compara-o com esta tabela no arranque e avisa se estiver acima — ou, no caso do `juridico`, abaixo; quando não expõe, não se exige.
+"Pesado / intermédio / leve" mapeia para o selector de cada ferramenta (Claude: Opus ou Fable / Sonnet / Haiku). Decisão de 14/10/2026: o trabalho pesado é do agente Lovable; o chat lê docs, prepara prompts e verifica. Subir ao pesado só para desenho de arquitectura ou decisão com números grandes. **Excepção: o `juridico` corre em pesado** (decisão do Pedro, 26/10/2026) — o trabalho dele é raciocínio sobre texto longo (contratos, legislação de três países), não despacho ao agente, e a cláusula que custa dinheiro está quase sempre enterrada. Quando a ferramenta expõe o modelo em execução, o chat compara-o com esta tabela no arranque e avisa se estiver acima — ou, no caso do `juridico`, abaixo; quando não expõe, não se exige. **Excepção: o `saas` corre em pesado** (decisão do Pedro, 04/11/2026) — desenho de modelo de negócio e de arquitectura de produto, com números grandes.
 
 A frente 2 pode executar demandas de infra quando designada na Issue (D-ERP287).
 
@@ -56,6 +57,8 @@ Mensagens de arranque: `procedimentos/PROC-arranque-chat.md` e `docs/prompts/`. 
 **(f) `11 - Testes`.** Corre baterias, marca resultados em `TESTES.md`, abre Issue quando falha. Não corrige, não dispara o agente, não escreve na base.
 
 **(g) `juridico`.** Assessoria jurídica em Portugal, Espanha e Brasil (aberto a 26/10/2026). Contratos — ler, criticar, redigir, negociar; RGPD e proteção de dados — decide a regra (fundamento de licitude, consentimento, políticas, retenção, subcontratantes, transferências internacionais, pedidos de titulares e de autoridades), que o 9 e os portais implementam; laboral; licenciamento de espetáculos e direitos de autor; fiscal só na parte de direito (o IVA operacional fica no 4, a contabilidade na Expert Numbers). **Só R0**: não escreve código, não dispara o agente, não escreve na base, **não envia nada para fora** — prepara, e diz quando deve passar por advogado. **O repo é público**: termos contratuais, valores negociados, dados pessoais e estratégia de negociação nunca entram no repo; vivem no Projeto do Claude, no Drive com partilha restrita, ou no chat. No repo entram só regras e decisões sem dados identificáveis.
+
+**(h) `saas`.** Projeto de transformar a plataforma em produto SaaS vendável a terceiros (aberto a 04/11/2026): diagnóstico de prontidão, pesquisa de mercado e concorrência, modelo de negócio, empacotamento e preços, requisitos de produto e técnicos, marketing e comunicação, roteiro de implementação. Convoca as skills de pesquisa, mercado, jurídico, tráfego e criativo; a regra jurídica final é do `juridico`, campanhas pelo 8, implementação pelas frentes donas por Issue. **Só R0**: não escreve código, não dispara o agente, não escreve na base, não envia nada para fora. **O repo é público**: preços, margens, custos, estratégia comercial, potenciais clientes e análise de concorrência nunca entram no repo; vivem no Projeto do Claude (`claude/saas-*`), no Drive com partilha restrita ou num Claude Doc. No repo entram só requisitos técnicos e decisões sem dados comerciais.
 
 Toda a Issue nova leva `**Frente dona:**` e `**Executor atual:**` no corpo; o painel (#360) lê estas linhas; sem elas infere pelo label de módulo e marca '(inferida)'.
 
@@ -106,6 +109,7 @@ A operação tem dois lados de ferramenta (Claude e ChatGPT) e, a partir de 11/2
 | Fecho de um evento concreto | `fecho-<evento>-<ano>` |
 | Portal Coala | `coala-portal` |
 | Portal newgangfestival.pt, Clube Newgang, revelações, `/crm/sites/newgang`, `/crm/clube-newgang` | `newgang-portal` |
+| Produto SaaS: prontidão, mercado e concorrência, modelo de negócio, planos e preços, requisitos para vender, marketing do produto, roteiro | `saas` |
 | Onde trato X / chat novo / arquivar | `gestao-de-chats` |
 
 ## Estado dos chats (actualizar por demanda autorizada)
@@ -115,6 +119,46 @@ Abertos a 15/10/2026: 0 (Claude), 0 (ChatGPT), 1–11, `coala-portal`, `newgang-
 Aberto a 26/10/2026: `juridico` (decisão do Pedro; prompt em `docs/prompts/juridico.md`).
 
 Aberto a 28/10/2026: `bp-hk-madrid-2026` (decisão do Pedro; BP da temporada Henry & Klauss em Madrid, evento `bf9ce2d8-754e-4485-8427-e2d486c39919`; estado em `estado/estado-bp-hk-madrid-2026.md`).
+
+Aberto a 04/11/2026: `saas` (decisão do Pedro; prompt em `docs/prompts/saas.md`; estado em `estado/estado-saas.md`).
+
+Aberto a 04–05/11/2026: espelho completo na organização Mundo Propício do Claude (projeto «Sistema de Gestão de Eventos — espelho MP»): 0–11, `coala-portal`, `newgang-portal`, `juridico`, `saas` e `gestao-de-chats`, todos com o sufixo «(MP)». A 05/11, o «0 - Cowork (MP)» passou a ser o 0 · Cowork do lado Claude (ver «Claude em duas organizações»).
+
+## Claude em duas organizações (05/11/2026)
+
+Do lado Claude, o mapa de chats existe em **duas organizações**, com os mesmos chats e a mesma numeração:
+
+1. **Conta pessoal** — projeto «Sistema de Gestão de Eventos - Lovable».
+2. **Organização Mundo Propício** — projeto «Sistema de Gestão de Eventos — espelho MP», com «0 - Cowork (MP)», «1 - Controller (MP)» … «gestao-de-chats (MP)».
+
+**Comando (decisão do Pedro, 05/11/2026).** O **«0 - Cowork (MP)»** é o 0 · Cowork do lado Claude e comanda o dev (mplabs-dev / executor E2b). Tem todas as funções do 0:
+
+- Autorizações;
+- revisão e merge;
+- delegação;
+- Live;
+- deploy;
+- Publish;
+- crons.
+
+O 0 da conta pessoal passa a só consulta, e volta a executar apenas se o Pedro o designar explicitamente. Handoff: `handoffs/2026-11-05-0-cowork-pessoal-para-mp.md`.
+
+**Sincronização entre os dois lados.** Os dois projetos Claude não partilham documentos nem memória. O repo é a única ponte. Por isso:
+
+- **Ao arrancar,** qualquer 0 lê `estado/estado-0-cowork.md`, o diário do 0, antes de agir.
+- **No fim de cada passo com efeito**, quem o executou acrescenta uma linha ao diário. Contam como passo com efeito:
+  - merge;
+  - migração aplicada;
+  - DML;
+  - deploy;
+  - Publish;
+  - cron;
+  - resposta por delegação;
+  - decisão do Pedro.
+
+  A linha leva data/hora UTC, o chat, a Issue e o resultado. O detalhe fica na Issue.
+- Nada vive só num chat: as decisões vão para a Issue e para `DECISIONS.md`, como sempre.
+- Os documentos que só existem no Projeto Claude pessoal, ou seja, os `claude/*`, que são privados e comerciais, **não são visíveis** do lado MP. Quando um tema precisar deles, o Pedro anexa-os ao projeto MP ou o conteúdo passa por um Claude Doc partilhado. Nunca entram no repo, que é público.
 
 ## Partilha Claude ↔ ChatGPT — quadros
 

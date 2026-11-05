@@ -12,6 +12,7 @@
 // pós-LLM. Idem feasibility.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2.39.0";
 import { normalizePlanInPlace } from "../_shared/plan-normalize.ts";
 import { buildCampaignBrief, type CampaignBrief } from "../_shared/campaign-brief.ts";
 
@@ -775,7 +776,7 @@ Schema de saída (JSON puro):
     const isAsyncGem = asyncSourceModel.toLowerCase().includes("gemini");
     const isAsyncGpt = asyncSourceModel.toLowerCase().includes("gpt");
     const updateModelCol = async (
-      sb: ReturnType<typeof createClient>,
+      sb: SupabaseClient,
       fields: { candidate_id?: string | null; error?: string | null },
     ) => {
       const fin = new Date().toISOString();
