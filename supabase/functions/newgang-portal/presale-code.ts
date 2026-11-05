@@ -3,7 +3,7 @@ export const PRESALE_CODE_UNTIL = "2026-11-10T23:59:59Z";
 
 type Site = { id: string; company_id: string };
 type Member = { site_id: string; company_id: string; erased_at: string | null; email: string | null };
-export type PresaleRateArgs = { p_bucket: string; p_max: 20; p_window_seconds: 600 };
+export type PresaleRateArgs = { p_bucket: string; p_max: 20 | 120; p_window_seconds: 600 };
 export type PresaleCodeDeps = {
   now: () => number;
   sha256: (value: string) => Promise<string>;
@@ -34,13 +34,13 @@ export async function presaleCodeAction(raw: unknown, ip: string, deps: PresaleC
       return { status: 401, body: { error: "no_session" } };
     }
 
-    const buckets = [
-      `ng:presale_code:${await deps.sha256(ip + ":ng")}`,
-      `ng:presale_code:session:${await deps.sha256(token)}`,
+    const buckets: PresaleRateArgs[] = [
+      { p_bucket: `ng:presale_code:${await deps.sha256(ip + ":ng")}`, p_max: 120, p_window_seconds: 600 },
+      { p_bucket: `ng:presale_code:session:${await deps.sha256(token)}`, p_max: 20, p_window_seconds: 600 },
     ];
-    for (const p_bucket of buckets) {
+    for (const args of buckets) {
       try {
-        const { data, error } = await deps.rateHit({ p_bucket, p_max: 20, p_window_seconds: 600 });
+        const { data, error } = await deps.rateHit(args);
         if (error || typeof data !== "boolean") return { status: 503, body: { error: "rate_unavailable" } };
         if (!data) return { status: 429, body: { error: "rate_limited" } };
       } catch {
