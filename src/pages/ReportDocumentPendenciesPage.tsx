@@ -7,7 +7,7 @@ export default function ReportDocumentPendenciesPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2">
-          Pendências Documentais <HelpTooltip text={helpTexts.reportDocumentPendencies} />
+          Pendências Documentais <HelpTooltip anchor="contabilidade.pendencias" text={helpTexts.reportDocumentPendencies} />
         </h1>
         <p className="text-sm text-muted-foreground">Auditoria de transações sem documentos contábeis anexados</p>
       </div>

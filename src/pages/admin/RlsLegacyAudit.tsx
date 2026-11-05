@@ -39,9 +39,9 @@ interface AuditReport {
 }
 
 export default function RlsLegacyAudit() {
-  const { role } = useAuth();
+  const { hasPermission } = useAuth();
   const qc = useQueryClient();
-  const isAuthorized = role === "admin" || role === ("platform_admin" as any);
+  const isAuthorized = hasPermission("settings.diagnostics");
   const [running, setRunning] = useState(false);
 
   const { data: reports, isLoading } = useQuery({

@@ -1,6 +1,8 @@
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { SUPPLIER_BANK_READ_ROLES } from "@/lib/supplier-bank";
-import { BR_BANK_FIELDS, BrBankFields, readBrBankSlots, loadOptionalSupplierBrData, type BrBankDetails } from "@/components/SupplierBankDetails";
+import { useCompany } from "@/hooks/useCompany";
+import { COUNTRIES } from "@/lib/crm/countries";
+import { formatBrTaxId, isForeignSupplier, readSupplierCountry, readForeignBankSlots, SUPPLIER_BANK_READ_ROLES, type ForeignBankSlot } from "@/lib/supplier-bank";
+import { BR_BANK_FIELDS, BrBankFields, FOREIGN_BANK_FIELDS, ForeignBankFields, readBrBankSlots, loadOptionalSupplierBrData, type BrBankDetails } from "@/components/SupplierBankDetails";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -62,12 +64,32 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const { user, role } = useAuth() as any;
   const isEditing = !!editingSupplier;
   const companyLocale = useCompanyLocale();
-  const isBR = companyLocale.status === "available" && companyLocale.locale === "pt-BR";
+  const { company } = useCompany();
+  const companyCountry = company?.country ?? null;
+  const [country, setCountry] = useState("");
+  const { data: savedCountry, isPending: countryPending } = useQuery({
+    queryKey: ["supplier-country", companyLocale.companyId, editingSupplier?.id, user?.id, role],
+    enabled: open && isEditing && !!companyLocale.companyId,
+    queryFn: () => readSupplierCountry(supabase as any, editingSupplier.id),
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+  useEffect(() => {
+    if (open) setCountry(isEditing && savedCountry?.status === "available" ? savedCountry.country ?? "" : "");
+  }, [open, editingSupplier?.id, companyLocale.companyId, user?.id, role, savedCountry, isEditing]);
+  const countryUnreadable = isEditing && (countryPending || savedCountry?.status !== "available");
+  const countryChanged = !isEditing || (savedCountry?.status === "available" && country !== savedCountry.country);
+  const isForeign = isForeignSupplier(country || null, companyCountry);
+  const isBR = companyLocale.status === "available" && companyLocale.locale === "pt-BR" && !isForeign;
   const canReadBank = SUPPLIER_BANK_READ_ROLES.includes(role ?? "");
   const [brBanks, setBrBanks] = useState<BrBankDetails[]>([{}, {}, {}]);
+  const [iban1, setIban1] = useState<string>(editingSupplier?.iban ?? "");
+  const [iban2, setIban2] = useState<string>(editingSupplier?.iban_2 ?? "");
+  const [iban3, setIban3] = useState<string>(editingSupplier?.iban_3 ?? "");
+  const hasForeignBank = isForeign;
   const { data: brData } = useQuery({
     queryKey: ["supplier-br-details", companyLocale.companyId, editingSupplier?.id, role, user?.id],
-    enabled: open && isBR && !!companyLocale.companyId,
+    enabled: open && (isBR || hasForeignBank) && !!companyLocale.companyId,
     queryFn: () => loadOptionalSupplierBrData(editingSupplier?.id),
     refetchOnWindowFocus: false,
     retry: false,
@@ -79,9 +101,24 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const [brTaxIdEdited, setBrTaxIdEdited] = useState(false);
   const occupiedForeignSlots = new Set<number>((Array.isArray(brSource?.foreign_bank_accounts) ? brSource.foreign_bank_accounts : [])
     .filter((bank: any) => bank && bank.account_type !== "br_banco_agencia_conta").map((bank: any) => bank.slot));
-  const [iban1, setIban1] = useState<string>(editingSupplier?.iban ?? "");
-  const [iban2, setIban2] = useState<string>(editingSupplier?.iban_2 ?? "");
-  const [iban3, setIban3] = useState<string>(editingSupplier?.iban_3 ?? "");
+  const foreignColumnsReady = hasForeignBank && canReadBank && !!companyLocale.companyId && brData?.available === true;
+  const foreignSource = foreignColumnsReady ? brData.details : null;
+  const [foreignBanks, setForeignBanks] = useState<ForeignBankSlot[]>(
+    () => [1, 2, 3].map(slot => ({ slot, account_type: "outro" })));
+  const [foreignTaxId, setForeignTaxId] = useState("");
+  const [foreignTaxIdType, setForeignTaxIdType] = useState("outro");
+  const [foreignTaxIdEdited, setForeignTaxIdEdited] = useState(false);
+  const [withoutTaxId, setWithoutTaxId] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const slots = readForeignBankSlots(foreignSource?.foreign_bank_accounts);
+    setForeignBanks([1, 2, 3].map(slot => slots.find(bank => bank.slot === slot) ?? { slot, account_type: "outro" }));
+    setForeignTaxId(foreignSource?.tax_id_foreign ?? "");
+    setForeignTaxIdType(foreignSource?.tax_id_type === "sem_nif" ? "outro" : foreignSource?.tax_id_type ?? "outro");
+    setForeignTaxIdEdited(false);
+    setWithoutTaxId(foreignSource?.tax_id_type === "sem_nif");
+  }, [open, editingSupplier?.id, companyLocale.companyId, role, user?.id, foreignSource]);
 
   // O IbanWarning precisa do valor vivo a cada tecla.
   // O Radix desmonta o conteúdo ao fechar, mas este
@@ -95,11 +132,11 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     setIban1(editingSupplier?.iban ?? "");
     setIban2(editingSupplier?.iban_2 ?? "");
     setIban3(editingSupplier?.iban_3 ?? "");
-  }, [open, editingSupplier, brData, companyLocale.companyId, isBR, role, user?.id]);
+  }, [open, editingSupplier, isBR ? brData : undefined, companyLocale.companyId, isBR, role, user?.id]);
 
   useEffect(() => {
     if (!open) return;
-    setBrTaxId(brSource?.tax_id_foreign ?? "");
+    setBrTaxId(formatBrTaxId(brSource?.tax_id_foreign ?? "", brSource?.tax_id_type));
     setBrTaxIdType(brSource?.tax_id_type ?? "cnpj");
     setBrTaxIdEdited(false);
   }, [open, editingSupplier?.id, companyLocale.companyId, isBR, role, user?.id,
@@ -178,7 +215,8 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-      if (isBR) queryClient.invalidateQueries({ queryKey: ["supplier-br-details", companyLocale.companyId, editingSupplier?.id] });
+      queryClient.invalidateQueries({ queryKey: ["supplier-country", companyLocale.companyId, editingSupplier?.id] });
+      if (isBR || hasForeignBank) queryClient.invalidateQueries({ queryKey: ["supplier-br-details", companyLocale.companyId, editingSupplier?.id] });
       onOpenChange(false);
       toast.success("Fornecedor atualizado com sucesso");
     },
@@ -245,9 +283,14 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   // Normalização única em toda a app: normalizeIban de @/lib/iban (remove espaços, pontos, hífens, _ e /)
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (countryUnreadable) {
+      setValidationErrors({ country: "Não foi possível ler o país do fornecedor. Volte a abrir o formulário antes de guardar." });
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     const raw: Record<string, any> = {
       name: fd.get("name") as string,
+      country,
       trade_name: (fd.get("trade_name") as string) || null,
       nif: (fd.get("nif") as string) || null,
       contact_name: (fd.get("contact_name") as string) || null,
@@ -294,6 +337,44 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
         // Preserve other account types and metadata; only the three BR slots are edited.
         raw.foreign_bank_accounts = [...existing.filter((bank: any) => !readBrBankSlots([bank]).length), ...brSlots];
       }
+    } else if (hasForeignBank && foreignColumnsReady) {
+      const existing = foreignSource?.foreign_bank_accounts ?? [];
+      const slots = foreignBanks.flatMap((bank, i) => {
+        const accountNumber = raw[(["iban", "iban_2", "iban_3"] as const)[i]];
+        if (classifyBankAccountValue(accountNumber) !== "nao_iban") return [];
+        const details: ForeignBankSlot = { slot: i + 1, account_type: bank.account_type, account_number: accountNumber };
+        for (const [key] of FOREIGN_BANK_FIELDS) {
+          const value = bank[key]?.trim();
+          if (value) details[key] = value;
+        }
+        return [details];
+      });
+      raw.foreign_bank_accounts = [
+        ...existing.filter((bank: any) => !["aba_us", "outro"].includes(bank?.account_type)), ...slots,
+      ];
+      const taxId = (["cpf", "cnpj"].includes(foreignTaxIdType)
+        ? foreignTaxId.trim().replace(/[.\-/\s]/g, "") : foreignTaxId.trim()) || null;
+      if ((countryChanged || foreignTaxIdEdited) && (isEditing
+        ? taxId !== foreignSource?.tax_id_foreign || foreignTaxIdType !== (foreignSource?.tax_id_type ?? "outro")
+        : !!taxId)) {
+        raw.tax_id_foreign = taxId;
+        raw.tax_id_type = foreignTaxIdType;
+      }
+      if (withoutTaxId) {
+        raw.tax_id_foreign = null;
+        raw.tax_id_type = "sem_nif";
+      }
+    }
+    const validCountry = /^[A-Z]{2}$/.test(country);
+    if (!validCountry) {
+      setValidationErrors({ country: "Selecione um país" });
+      return;
+    }
+    if (isForeign && countryChanged && (!foreignColumnsReady || (!withoutTaxId && !foreignTaxId.trim()))) {
+      setValidationErrors({ tax_id_foreign: foreignColumnsReady
+        ? "Indique o NIF estrangeiro ou assinale Sem NIF (particular ou sem registo)."
+        : "Não foi possível ler os dados fiscais do fornecedor. Tente novamente antes de guardar." });
+      return;
     }
     const result = validateForm(supplierSchema, raw);
     if (result.success === false) {
@@ -441,6 +522,18 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
 
   const isPending = createMutation.isPending || updateMutation.isPending;
   const s = editingSupplier;
+  const renderForeignBankFields = (index: number) => isForeign && <>
+    <Label htmlFor={`sup-foreign-${index}-type`}>Tipo de conta</Label>
+    <select id={`sup-foreign-${index}-type`} disabled={!foreignColumnsReady} value={foreignBanks[index].account_type}
+      onChange={e => setForeignBanks(previous => previous.map((bank, i) => i === index
+        ? { ...bank, account_type: e.target.value as ForeignBankSlot["account_type"] } : bank))}
+      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+      <option value="aba_us">Conta EUA (ABA/Routing)</option>
+      <option value="outro">Outra conta fora da zona IBAN</option>
+    </select>
+    <ForeignBankFields prefix={`sup-foreign-${index}`} value={foreignBanks[index]} disabled={!foreignColumnsReady}
+      onChange={value => setForeignBanks(previous => previous.map((bank, i) => i === index ? value : bank))} />
+  </>;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -459,12 +552,27 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
               <Input id="sup-trade-name" name="trade_name" defaultValue={s?.trade_name ?? ""} />
             </div>
           </div>
+          <div className="grid gap-2">
+            <Label htmlFor="sup-country">País</Label>
+            <select id="sup-country" name="country" required value={country}
+              onChange={e => setCountry(e.target.value)}
+              aria-invalid={!!validationErrors.country}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+              <option value="">Selecionar</option>
+              {Object.entries(COUNTRIES).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+            </select>
+            {validationErrors.country && <p className="text-xs text-destructive">{validationErrors.country}</p>}
+            {isEditing && !countryPending && savedCountry?.status === "unavailable" && <p className="text-xs text-muted-foreground">
+              Não foi possível ler o país do fornecedor. Confirme o país antes de guardar.
+            </p>}
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="sup-nif">{isBR ? companyLocale.labels.taxId : "NIF"}</Label>
               {isBR ? <>
                 <Input id="sup-nif" disabled={!brColumnsReady} value={brColumnsReady ? brTaxId : ""}
                   onChange={e => { setBrTaxId(e.target.value); setBrTaxIdEdited(true); }}
+                  onBlur={() => setBrTaxId(formatBrTaxId(brTaxId, brTaxIdType))}
                   aria-invalid={!!validationErrors.tax_id_foreign}
                   aria-describedby={validationErrors.tax_id_foreign ? "sup-tax-id-error" : undefined} />
                 {validationErrors.tax_id_foreign && <p id="sup-tax-id-error" className="text-xs text-destructive">{validationErrors.tax_id_foreign}</p>}
@@ -476,6 +584,29 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
                   {brColumnsReady && !["cpf", "cnpj"].includes(brTaxIdType) && <option value={brTaxIdType}>{brTaxIdType.toUpperCase()}</option>}
                 </select>
               </> : <Input id="sup-nif" name="nif" defaultValue={s?.nif ?? ""} />}
+              {hasForeignBank && <>
+                <Label htmlFor="sup-foreign-tax-id">Identificador fiscal estrangeiro</Label>
+                <Input id="sup-foreign-tax-id" disabled={!foreignColumnsReady || withoutTaxId} value={foreignTaxId}
+                  onChange={e => { setForeignTaxId(e.target.value); setForeignTaxIdEdited(true); }}
+                  aria-invalid={!!validationErrors.tax_id_foreign}
+                  aria-describedby={validationErrors.tax_id_foreign ? "sup-foreign-tax-id-error" : undefined} />
+                {validationErrors.tax_id_foreign && <p id="sup-foreign-tax-id-error" className="text-xs text-destructive">{validationErrors.tax_id_foreign}</p>}
+                <Label htmlFor="sup-foreign-tax-id-type">Tipo de identificador fiscal</Label>
+                <select id="sup-foreign-tax-id-type" disabled={!foreignColumnsReady || withoutTaxId} value={foreignTaxIdType}
+                  onChange={e => { setForeignTaxIdType(e.target.value); setForeignTaxIdEdited(true); }}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                  {["ein", "tin", "vat", "cpf", "cnpj", "outro"].map(type => <option key={type} value={type}>{type.toUpperCase()}</option>)}
+                </select>
+                <label className="flex items-center gap-2 text-sm" htmlFor="sup-without-tax-id">
+                  <input id="sup-without-tax-id" type="checkbox" disabled={!foreignColumnsReady} checked={withoutTaxId}
+                    onChange={e => { setWithoutTaxId(e.target.checked); setForeignTaxIdEdited(true); }} />
+                  Sem NIF (particular ou sem registo)
+                </label>
+                {isEditing && !countryChanged && foreignColumnsReady && !foreignSource?.tax_id_foreign
+                  && foreignSource?.tax_id_type !== "sem_nif" && <p className="text-xs text-muted-foreground" role="status">
+                    Este fornecedor estrangeiro antigo não tem NIF registado. Pode guardar sem alterar o país.
+                  </p>}
+              </>}
             </div>
             {!defaultIsPartner && (
               <div className="grid gap-2">
@@ -526,11 +657,13 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
             </div>)}
           </div> : <div className="space-y-3">
             <p className="text-xs font-medium text-muted-foreground">Dados Bancários (até 3 IBANs)</p>
+            {hasForeignBank && !foreignColumnsReady && <p className="text-xs text-muted-foreground">Dados bancários estrangeiros indisponíveis para edição.</p>}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="sup-iban">IBAN 1</Label>
                 <Input id="sup-iban" name="iban" autoComplete="off" value={iban1} onChange={(e) => setIban1(e.target.value)} />
                 <IbanWarning value={iban1} allowNonIban />
+                {renderForeignBankFields(0)}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="sup-swift">SWIFT/BIC 1</Label>
@@ -542,6 +675,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
                 <Label htmlFor="sup-iban-2">IBAN 2</Label>
                 <Input id="sup-iban-2" name="iban_2" autoComplete="off" value={iban2} onChange={(e) => setIban2(e.target.value)} />
                 <IbanWarning value={iban2} allowNonIban />
+                {renderForeignBankFields(1)}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="sup-swift-2">SWIFT/BIC 2</Label>
@@ -553,6 +687,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
                 <Label htmlFor="sup-iban-3">IBAN 3</Label>
                 <Input id="sup-iban-3" name="iban_3" autoComplete="off" value={iban3} onChange={(e) => setIban3(e.target.value)} />
                 <IbanWarning value={iban3} allowNonIban />
+                {renderForeignBankFields(2)}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="sup-swift-3">SWIFT/BIC 3</Label>

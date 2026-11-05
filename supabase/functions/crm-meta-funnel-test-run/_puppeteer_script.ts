@@ -1,3 +1,5 @@
+// @ts-nocheck — este ficheiro é JS runtime serializado via .toString() para o
+// Browserless (ver cabeçalho); o typecheck de TS aqui é ruído e não corre em Deno.
 // IMPORTANTE: este ficheiro é serializado via .toString() e enviado a Browserless.
 // Tem de ser válido JavaScript runtime (sem type annotations no corpo) e correr
 // como `export default async function({page, context})` no /function endpoint.

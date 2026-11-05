@@ -1,3 +1,4 @@
+import { assertNotTraining, TrainingCompanyError } from "../_shared/training-guard.ts";
 // Edge function: generate-accountant-zip
 // Builds a ZIP with all transaction documents (attachments) for the requested
 // company + period + filters. Caller must be accountant/admin/manager.
@@ -109,6 +110,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    try {
+      await assertNotTraining(admin, company_id);
+    } catch (error) {
+      if (!(error instanceof TrainingCompanyError)) throw error;
+      return new Response(JSON.stringify(error.body), { status: error.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     // Contas gerenciais (is_accounting=false): movimentos e documentos NÃO entram na
     // exportação para a contabilidade. Herdado da conta, não há campo na transação.
     // #235 — mesma lista e mesmo predicado da aba Documentos (helper partilhado).

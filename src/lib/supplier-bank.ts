@@ -47,6 +47,21 @@ export function readBrBankSlots(value: unknown): BrBankSlot[] {
     v && typeof v === "object" && v.account_type === "br_banco_agencia_conta" && [1, 2, 3].includes(v.slot)) : [];
 }
 
+export interface ForeignBankSlot {
+  slot: number;
+  account_type: "aba_us" | "outro";
+  account_number?: string;
+  routing_number?: string;
+  bank_name?: string;
+  bank_address?: string;
+  intermediary_bank?: string;
+  beneficiary_name?: string;
+}
+export function readForeignBankSlots(value: unknown): ForeignBankSlot[] {
+  return Array.isArray(value) ? value.filter((v): v is ForeignBankSlot =>
+    v && typeof v === "object" && ["aba_us", "outro"].includes(v.account_type) && [1, 2, 3].includes(v.slot)) : [];
+}
+
 export interface SupplierBrData {
   foreign_bank_accounts: unknown[];
   tax_id_foreign: string | null;
@@ -59,6 +74,34 @@ export interface SupplierBrReader {
   rpc(name: "get_supplier_bank_details", args: { p_supplier_ids: string[] }): {
     select(columns: string): PromiseLike<BankRpcResult>;
   };
+}
+
+export interface SupplierCountryReader {
+  from(table: "suppliers"): {
+    select(columns: "id,country"): {
+      eq(column: "id", id: string): { maybeSingle(): PromiseLike<{ data: unknown; error: unknown }> };
+    };
+  };
+}
+
+/** Country is cadastral data: never read bank columns to decide supplier origin. */
+export async function readSupplierCountry(client: SupplierCountryReader, id: string): Promise<
+  { status: "available"; country: string | null } | { status: "unavailable" }
+> {
+  try {
+    const { data, error } = await client.from("suppliers").select("id,country").eq("id", id).maybeSingle();
+    if (error || !data || typeof data !== "object" || !("id" in data) || data.id !== id
+      || !("country" in data)) return { status: "unavailable" };
+    if (data.country === null || data.country === "") return { status: "available", country: null };
+    if (typeof data.country !== "string" || !/^[A-Z]{2}$/.test(data.country)) return { status: "unavailable" };
+    return { status: "available", country: data.country };
+  } catch {
+    return { status: "unavailable" };
+  }
+}
+
+export function isForeignSupplier(supplierCountry: string | null | undefined, companyCountry: string | null | undefined): boolean {
+  return supplierCountry != null && companyCountry != null && supplierCountry !== companyCountry;
 }
 
 /** Validate the selected supplier and all three fields, preserving the complete slot JSON. */

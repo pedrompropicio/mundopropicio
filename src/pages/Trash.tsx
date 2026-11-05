@@ -13,14 +13,17 @@ import { RotateCcw, Trash2, Eye, ChevronDown, ChevronRight, ArrowLeft } from "lu
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
+import { COUNTRIES } from "@/lib/crm/countries";
+import { Label } from "@/components/ui/label";
 
 export default function TrashPage() {
-  const { isAdmin } = useAuth();
+  const { hasPermission } = useAuth();
   const { companyId } = useCompany();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [restoreCountry, setRestoreCountry] = useState("");
 
   const { data: trashItems = [], isLoading } = useQuery({
     queryKey: ["trash", companyId],
@@ -58,6 +61,12 @@ export default function TrashPage() {
       // Remove any fields that might cause issues
       const cleanData = { ...entityData };
       delete cleanData.updated_at; // will be set by trigger
+      if (tableName === "suppliers" && (typeof cleanData.country !== "string" || !/^[A-Z]{2}$/.test(cleanData.country))) {
+        cleanData.country = item.restoreCountry;
+      }
+      if (tableName === "suppliers" && (typeof cleanData.country !== "string" || !/^[A-Z]{2}$/.test(cleanData.country))) {
+        throw new Error("Restauro bloqueado: o registo do fornecedor no Lixo não contém um país válido. É necessária uma escolha explícita do país.");
+      }
 
       const { error: insertError } = await supabase.from(tableName as any).insert(cleanData as any);
       if (insertError) throw insertError;
@@ -187,6 +196,8 @@ export default function TrashPage() {
               {filtered.map((item: any) => {
                 const isExpanded = expandedId === item.id;
                 const daysLeft = getDaysLeft(item.expires_at);
+                const needsSupplierCountry = item.entity_type === "supplier"
+                  && (typeof item.entity_data?.country !== "string" || !/^[A-Z]{2}$/.test(item.entity_data.country));
                 return (
                   <>
                     <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setExpandedId(isExpanded ? null : item.id)}>
@@ -212,7 +223,7 @@ export default function TrashPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                          <AlertDialog>
+                          <AlertDialog onOpenChange={(open) => { if (open) setRestoreCountry(""); }}>
                             <AlertDialogTrigger asChild>
                               <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" disabled={restoreMutation.isPending}>
                                 <RotateCcw className="h-3 w-3 mr-1" /> Restaurar
@@ -225,13 +236,28 @@ export default function TrashPage() {
                                   Restaurar "{getEntitySummary(item)}"? Ele será reinserido na base de dados.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
+                              {needsSupplierCountry && (
+                                <div className="space-y-2">
+                                  <Label htmlFor={`restore-country-${item.id}`}>País do fornecedor</Label>
+                                  <p className="text-sm text-muted-foreground">Este snapshot não contém um país válido. Escolha o país para restaurar.</p>
+                                  <select id={`restore-country-${item.id}`} value={restoreCountry}
+                                    onChange={(e) => setRestoreCountry(e.target.value)}
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                                    <option value="">— escolher —</option>
+                                    {Object.entries(COUNTRIES).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+                                  </select>
+                                </div>
+                              )}
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => restoreMutation.mutate(item)}>Restaurar</AlertDialogAction>
+                                <AlertDialogAction onClick={(e) => {
+                                  if (needsSupplierCountry && !restoreCountry) e.preventDefault();
+                                  restoreMutation.mutate(needsSupplierCountry ? { ...item, restoreCountry } : item);
+                                }}>Restaurar</AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
-                          {isAdmin && (
+                          {hasPermission("settings.trash") && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-destructive hover:text-destructive" disabled={permanentDeleteMutation.isPending}>

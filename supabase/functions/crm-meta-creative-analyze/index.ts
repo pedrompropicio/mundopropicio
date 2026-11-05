@@ -39,7 +39,7 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-async function fetchVideoBytes(url: string): Promise<{ bytes: Uint8Array; mime: string }> {
+async function fetchVideoBytes(url: string): Promise<{ bytes: Uint8Array<ArrayBuffer>; mime: string }> {
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`Video fetch failed: ${resp.status}`);
   const buf = await resp.arrayBuffer();
@@ -47,7 +47,7 @@ async function fetchVideoBytes(url: string): Promise<{ bytes: Uint8Array; mime: 
   return { bytes: new Uint8Array(buf), mime };
 }
 
-async function uploadToGeminiFileAPI(bytes: Uint8Array, mime: string): Promise<{ uri: string; name: string }> {
+async function uploadToGeminiFileAPI(bytes: Uint8Array<ArrayBuffer>, mime: string): Promise<{ uri: string; name: string }> {
   const initResp = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${GEMINI_API_KEY}`, {
     method: "POST",
     headers: {

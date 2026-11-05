@@ -1,0 +1,14 @@
+-- ROLLBACK da 0320 (#312) — COMENTADO de propósito. Não aplicar sem «Sim» do Pedro.
+-- Só na janela do 0, pelo PROC-promocao; preservar a rubrica MP e todos os IDs anteriores.
+-- Substituir __IDS_2615_ANTES__ pela lista ids_2615_antes da prova-janela.sql §1 ANTES da aplicação.
+-- A lista contém todos os IDs 2.6.15 anteriores, incluindo nomes fora do padrão.
+-- Se não havia nenhum, usar SELECT NULL::uuid WHERE false, conforme a prova §1.
+-- Não remover rubricas usadas nas três tabelas abaixo; outras FKs falham o DELETE (desejado).
+-- DELETE FROM public.account_categories c
+-- WHERE c.code = '2.6.15'
+--   AND c.company_id <> '7c858982-6ccd-47ca-bd65-e0dd3eebf01c'::uuid
+--   AND c.name = 'Encargos Bancários e Taxas de Transferência'
+--   AND c.id NOT IN (__IDS_2615_ANTES__)
+--   AND NOT EXISTS (SELECT 1 FROM public.transactions t WHERE t.category_id = c.id)
+--   AND NOT EXISTS (SELECT 1 FROM public.event_forecasts f WHERE f.category_id = c.id)
+--   AND NOT EXISTS (SELECT 1 FROM public.recurring_transactions r WHERE r.category_id = c.id);

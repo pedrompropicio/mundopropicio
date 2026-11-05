@@ -45,7 +45,7 @@ vi.mock("@/components/ui/overlay-layer", () => ({
   OverlayLayer: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
 }));
 
-const ptSupplier = {
+const ptSupplier = { country: "PT",
   id: "supplier-a", name: "Fornecedor PT", nif: "509123456", contact_name: "Contacto",
   email: "pt@example.invalid", iban: "PT50000201231234567890154", swift_bic: "BPLIPTPL",
   iban_2: "GB82WEST12345698765432", swift_bic_2: "WESTGB2L", notes: "Notas PT",
@@ -56,8 +56,20 @@ const brRow = { id: "supplier-a", foreign_bank_accounts: [bank],
   tax_id_foreign: "12345678000199", tax_id_type: "cnpj" };
 const legacyFields = { nif: "NIF-PT", iban: "IBAN-LEGADO", iban_2: "IBAN-2", iban_3: "IBAN-3",
   swift_bic: "BIC-LEGADO", swift_bic_2: "BIC-2", swift_bic_3: "BIC-3" };
-const brSupplier = { id: "supplier-a", name: "Fornecedor BR", ...legacyFields,
+const brSupplier = { country: "BR", id: "supplier-a", name: "Fornecedor BR", ...legacyFields,
   tax_id_foreign: "PROPS-FISCAL", tax_id_type: "cpf", foreign_bank_accounts: [] };
+function countrySelect(columns: string) {
+  expect(columns).toBe("id,country");
+  return { eq: (column: string, id: string) => {
+    expect(column).toBe("id");
+    return { maybeSingle: async () => ({ data: { id, country: f.country }, error: null }) };
+  } };
+}
+function expectCountryReads() {
+  expect(f.from).toHaveBeenCalledWith("suppliers");
+  expect(f.from.mock.calls.every(([table]) => table === "suppliers")).toBe(true);
+  expect(f.writes).toEqual([]);
+}
 let client: QueryClient;
 function mount(element: React.ReactElement) {
   return render(element, { wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider> });
@@ -75,6 +87,7 @@ function result(data: unknown, error: unknown = null) {
 }
 function allowWrites() {
   f.from.mockImplementation((table: string) => ({
+    select: countrySelect,
     update: (payload: any) => ({ eq: async (_column: string, id: string) => {
       f.writes.push({ table, payload, id }); return { error: null };
     } }),
@@ -83,11 +96,16 @@ function allowWrites() {
     } }) }),
   }));
 }
-async function ready(value = brRow.tax_id_foreign) {
+async function ready(value = "12.345.678/0001-99") {
   await waitFor(() => {
     expect(screen.getByLabelText("CNPJ")).toBeEnabled();
     expect(screen.getByLabelText("CNPJ")).toHaveValue(value);
   });
+}
+function domBeforeCountry() {
+  const body = document.body.cloneNode(true) as HTMLElement;
+  body.querySelector("#sup-country")!.parentElement!.remove();
+  return createHash("sha256").update(body.innerHTML.replace(/radix-:[^"\s]+:/g, "radix-:fixture:")).digest("hex");
 }
 function dom() {
   return createHash("sha256").update(document.body.innerHTML.replace(/radix-:[^"\s]+:/g, "radix-:fixture:")).digest("hex");
@@ -96,7 +114,10 @@ beforeEach(() => {
   vi.clearAllMocks(); f.country = "PT"; f.companyId = "company-a"; f.role = "admin"; f.writes = [];
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   result([brRow]);
-  f.from.mockImplementation(() => { throw new Error("#498: unexpected direct table access"); });
+  f.from.mockImplementation((table: string) => {
+    expect(table).toBe("suppliers");
+    return { select: countrySelect };
+  });
   vi.stubGlobal("fetch", vi.fn(() => { throw new Error("#498: network blocked"); }));
   vi.stubGlobal("XMLHttpRequest", class { constructor() { throw new Error("#498: network blocked"); } });
   vi.stubGlobal("WebSocket", class { constructor() { throw new Error("#498: network blocked"); } });
@@ -107,16 +128,18 @@ afterEach(() => {
   cleanup(); client.clear(); vi.unstubAllGlobals();
 });
 
-describe("#498 P3b — DOM PT fixado ANTES de alterar o modal; não regenerar", () => {
-  it("criação PT conserva todos os bytes", () => {
+describe("#498 P3b — DOM PT com País (#403); restante DOM preservado", () => {
+  it("criação PT acrescenta só País", () => {
     mount(<SupplierFormModal open onOpenChange={() => {}} />);
-    expect(dom()).toBe("22258efe1e47b6cf22186236816e1c5be1c9f8f0ca9f562b65e8fedd02655de2");
+    expect(dom()).toBe("491b39bce2616e350bd3d6a20cd7c2d1be27d750092e2e0d8224ec2cf92a80b7");
+    expect(domBeforeCountry()).toBe("22258efe1e47b6cf22186236816e1c5be1c9f8f0ca9f562b65e8fedd02655de2");
     expect(f.rpc).not.toHaveBeenCalled(); expect(f.from).not.toHaveBeenCalled();
   });
-  it("edição PT conserva todos os bytes", () => {
+  it("edição PT acrescenta só País", () => {
     mount(<SupplierFormModal open onOpenChange={() => {}} editingSupplier={ptSupplier} />);
-    expect(dom()).toBe("ca01f85fed0b24d812e8f3828bfee48a0497f951ced232006cb9adf6e6089f4a");
-    expect(f.rpc).not.toHaveBeenCalled(); expect(f.from).not.toHaveBeenCalled();
+    expect(dom()).toBe("7c0f0f0a442c23c902023b307ff3adb85dcef77a19d03f68a48ddc7df3bdcac7");
+    expect(domBeforeCountry()).toBe("ca01f85fed0b24d812e8f3828bfee48a0497f951ced232006cb9adf6e6089f4a");
+    expect(f.rpc).not.toHaveBeenCalled(); expectCountryReads();
   });
 });
 
@@ -125,13 +148,13 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
 
   it("inicializa CNPJ e tipo apenas da RPC, sem avisos nem validação IBAN", async () => {
     mount(form()); await ready();
-    expect(screen.getByLabelText("CNPJ")).toHaveValue(brRow.tax_id_foreign);
+    expect(screen.getByLabelText("CNPJ")).toHaveValue("12.345.678/0001-99");
     expect(screen.getByLabelText("Tipo de identificador fiscal")).toHaveValue("cnpj");
     expect(screen.queryByDisplayValue("PROPS-FISCAL")).toBeNull();
     expect(screen.getAllByLabelText("Conta")[0]).toHaveValue(bank.account_number);
     expect(document.body.textContent).not.toMatch(/IBAN|MOD-97/);
     expect(f.rpc).toHaveBeenCalledWith("get_supplier_bank_details", { p_supplier_ids: [brSupplier.id] });
-    expect(f.from).not.toHaveBeenCalled();
+    expectCountryReads();
   });
 
   it("UPDATE normaliza CNPJ e conserva nif, iban*, swift_bic* e os slots existentes", async () => {
@@ -146,6 +169,7 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
 
   it.each(["cnpj", "cpf"])("INSERT %s grava só os dígitos e o tipo escolhido", async type => {
     result([]); allowWrites(); mount(<SupplierFormModal open onOpenChange={() => {}} />); await ready("");
+    fireEvent.change(screen.getByLabelText("País"), { target: { value: "BR" } });
     expect(screen.getByLabelText("Tipo de identificador fiscal")).toHaveValue("cnpj");
     fireEvent.change(screen.getByLabelText("Nome da Entidade *"), { target: { value: "Fornecedor sintético" } });
     fireEvent.change(screen.getByLabelText("Tipo de identificador fiscal"), { target: { value: type } });
@@ -160,7 +184,7 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
 
   it("inicializa CPF e permite mudar para CNPJ", async () => {
     result([{ ...brRow, tax_id_foreign: "12345678900", tax_id_type: "cpf" }]);
-    allowWrites(); mount(form()); await ready("12345678900");
+    allowWrites(); mount(form()); await ready("123.456.789-00");
     expect(screen.getByLabelText("Tipo de identificador fiscal")).toHaveValue("cpf");
     fireEvent.change(screen.getByLabelText("CNPJ"), { target: { value: "12345678000199" } });
     fireEvent.change(screen.getByLabelText("Tipo de identificador fiscal"), { target: { value: "cnpj" } });
@@ -202,6 +226,7 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
 
   it("criação vazia permite gravar e omite o par fiscal mesmo após editar e limpar", async () => {
     result([]); allowWrites(); mount(<SupplierFormModal open onOpenChange={() => {}} />); await ready("");
+    fireEvent.change(screen.getByLabelText("País"), { target: { value: "BR" } });
     fireEvent.change(screen.getByLabelText("Nome da Entidade *"), { target: { value: "Fornecedor sintético" } });
     fireEvent.change(screen.getByLabelText("CNPJ"), { target: { value: "123" } });
     fireEvent.change(screen.getByLabelText("CNPJ"), { target: { value: "" } });
@@ -222,7 +247,7 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
     submit();
     expect(await screen.findByText(`${type.toUpperCase()} deve conter ${length} dígitos`)).toBeInTheDocument();
     expect(screen.getByLabelText("CNPJ")).toHaveAttribute("aria-invalid", "true");
-    expect(f.from).not.toHaveBeenCalled(); expect(f.writes).toEqual([]);
+    expectCountryReads(); expect(f.writes).toEqual([]);
   });
 
   it("permite corrigir um valor inválido sem exigir checksum oficial", async () => {
@@ -254,7 +279,7 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
     allowWrites(); const view = mount(form()); await ready();
     fireEvent.change(screen.getByLabelText("CNPJ"), { target: { value: "98765432000100" } });
     view.rerender(form(brSupplier, false)); view.rerender(form());
-    await waitFor(() => expect(screen.getByLabelText("CNPJ")).toHaveValue(brRow.tax_id_foreign));
+    await waitFor(() => expect(screen.getByLabelText("CNPJ")).toHaveValue("12.345.678/0001-99"));
     submit(); await waitFor(() => expect(f.writes).toHaveLength(1));
     expect(f.writes[0].payload).not.toHaveProperty("tax_id_foreign");
     expect(f.writes[0].payload).not.toHaveProperty("tax_id_type");
@@ -286,7 +311,7 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
     const next = { ...brSupplier, id: "supplier-b" };
     result([{ ...brRow, id: next.id, tax_id_foreign: "12345678900", tax_id_type: "cpf" }]);
     view.rerender(form(next));
-    await waitFor(() => expect(screen.getByLabelText("CNPJ")).toHaveValue("12345678900"));
+    await waitFor(() => expect(screen.getByLabelText("CNPJ")).toHaveValue("123.456.789-00"));
     expect(screen.getByLabelText("Tipo de identificador fiscal")).toHaveValue("cpf");
     submit(); await waitFor(() => expect(f.writes).toHaveLength(1));
     expect(f.writes[0].payload).not.toHaveProperty("tax_id_foreign");
@@ -335,20 +360,22 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
 describe("#498 P3b — guardas PT mantidas", () => {
   it("MOD-97 continua a bloquear IBAN inválido", async () => {
     mount(<SupplierFormModal open onOpenChange={() => {}} editingSupplier={ptSupplier} />);
+    await waitFor(() => expect(screen.getByLabelText("País")).toHaveValue("PT"));
     fireEvent.change(screen.getByLabelText("IBAN 1"), { target: { value: "PT50000201231234567890155" } });
     submit();
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("IBAN 1 inválido", expect.any(Object)));
-    expect(f.from).not.toHaveBeenCalled(); expect(f.rpc).not.toHaveBeenCalled();
+    expectCountryReads(); expect(f.rpc).not.toHaveBeenCalled();
   });
   it("IBAN duplicado continua a bloquear antes do UPDATE", async () => {
     f.rpc.mockResolvedValue({ data: { exists: true, is_active: true, supplier_name: "Outro", nif: "123" }, error: null });
     mount(<SupplierFormModal open onOpenChange={() => {}} editingSupplier={ptSupplier} />);
+    await waitFor(() => expect(screen.getByLabelText("País")).toHaveValue("PT"));
     submit();
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("IBAN 1 duplicado", expect.any(Object)));
     expect(f.rpc).toHaveBeenCalledExactlyOnceWith("check_supplier_iban_duplicate", {
       p_iban: ptSupplier.iban, p_supplier_id: ptSupplier.id,
     });
-    expect(f.from).not.toHaveBeenCalled();
+    expectCountryReads();
   });
 });
 
@@ -361,6 +388,6 @@ describe("#498 P3b — schema fiscal opcional sem alterar IBAN", () => {
     expect(supplierSchema.safeParse({ name: "Fornecedor", tax_id_foreign: null, tax_id_type: null }).success).toBe(true);
     expect(supplierSchema.safeParse({ name: "Fornecedor", tax_id_type: "NIF" }).success).toBe(false);
     expect(supplierSchema.safeParse({ name: "Fornecedor", tax_id_foreign: "1".repeat(21) }).success).toBe(false);
-    expect(supplierSchema.safeParse({ name: "Fornecedor", iban: "1".repeat(35) }).success).toBe(false);
+    expect(supplierSchema.safeParse({ name: "Fornecedor", iban: "1".repeat(65) }).success).toBe(false);
   });
 });

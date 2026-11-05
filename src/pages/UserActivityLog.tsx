@@ -29,7 +29,7 @@ function formatDuration(minutes: number): string {
 }
 
 export default function UserActivityLog() {
-  const { isAdmin } = useAuth();
+  const { hasPermission } = useAuth();
   const { companyId } = useCompany();
   const navigate = useNavigate();
 
@@ -77,7 +77,7 @@ export default function UserActivityLog() {
     refetchInterval: 60_000,
   });
 
-  if (!isAdmin) return <Navigate to="/" replace />;
+  if (!hasPermission("settings.audit_log")) return <Navigate to="/" replace />;
 
   // Build profile map
   const profileMap = new Map(profiles.map((p) => [p.id, p]));

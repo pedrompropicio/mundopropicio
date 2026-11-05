@@ -34,6 +34,7 @@ import BankLineDocumentsDialog from "@/components/bank/BankLineDocumentsDialog";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { BankLineLaunchModal, type LaunchableLine } from "@/components/bank/BankLineLaunchModal";
 import { BankLineOffsetModal, OffsetLineButton, type OffsetBankLine } from "@/components/bank/BankLineOffsetModal";
+import { BankLineRefundSection } from "@/components/bank/BankLineRefundSection";
 
 import type { FeeLaunchPlan } from "@/components/bank/BankLineLaunchModal";
 import {
@@ -2378,6 +2379,26 @@ export default function BankReconciliation() {
                 Escolher uma transação já paga só liga: não liquida nem muda valores. Escolher uma
                 transação em aberto liquida-a nesta conta, com a data-valor da linha.
               </p>
+              {manualSign === "income" && (
+                <BankLineRefundSection
+                  key={`${manualLine.id}:${accountId}`}
+                  line={manualLine}
+                  accountId={accountId}
+                  onDone={() => {
+                    setDateConflicts(null);
+                    setDateActions({});
+                    setManualLine(null);
+                    setManualTxIds([]);
+                    setManualModes({});
+                    setCrossAccountAck(false);
+                    queryClient.invalidateQueries({ queryKey: ["bank-recon-lines", currentStatement?.id] });
+                    queryClient.invalidateQueries({ queryKey: ["bank-recon-bridge"] });
+                    queryClient.invalidateQueries({ queryKey: ["bank-recon-txns"] });
+                    queryClient.invalidateQueries({ queryKey: ["bank-recon-open-txns"] });
+                    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+                  }}
+                />
+              )}
             </div>
 
           )}

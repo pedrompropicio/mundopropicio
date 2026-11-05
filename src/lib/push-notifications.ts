@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentCompanyId } from "@/hooks/useCompany";
 
 const VAPID_PUBLIC_KEY = "BJNHMmc7m19Xt65seHISkaN3oMzKX5OUdTCngITRJYSjzTV1rfz-mpHLiNRgsP_xUMuIRh6O_iUMSPAoK7WxEpM";
 
@@ -108,17 +109,21 @@ export async function sendPushToAdminsAndManagers(
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    // Get admin and manager user IDs
+    const companyId = await getCurrentCompanyId();
+    if (!companyId) return;
+
+    // Get admin and manager user IDs for the active company.
     const { data: adminRoles } = await supabase
       .from("user_roles")
       .select("user_id")
+      .eq("company_id", companyId)
       .in("role", ["admin", "manager"]);
 
     const userIds = adminRoles?.map((r) => r.user_id) ?? [];
     if (userIds.length === 0) return;
 
     await supabase.functions.invoke("send-push-notification", {
-      body: { user_ids: userIds, title, body, url, badge_count: badgeCount },
+      body: { company_id: companyId, user_ids: userIds, title, body, url, badge_count: badgeCount },
     });
   } catch (err) {
     console.error("Error sending push notification:", err);

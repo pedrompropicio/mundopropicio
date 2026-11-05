@@ -24,10 +24,10 @@ import { fetchAllPagedQuery } from "../_shared/paging.ts";
 // D-ERP201: criação de fornecedor pela regra única da base. NIF igual a um ativo
 // reutiliza; nome parecido cria e regista em supplier_similarity_flags.
 async function resolveSupplierFlagged(
-  admin: any, companyId: string, name: string, counter: { n: number },
+  admin: any, companyId: string, name: string, country: string, counter: { n: number },
 ): Promise<{ id: string; created: boolean } | null> {
   const { data, error } = await admin.rpc("_supplier_resolve_or_create", {
-    p_company_id: companyId, p_name: name, p_nif: null, p_source: "apply_coala_bp",
+    p_company_id: companyId, p_name: name, p_nif: null, p_source: "apply_coala_bp", p_country: country,
   });
   if (error || !data) { console.warn("supplier resolve failed", name, error?.message); return null; }
   if (Number(data.flagged ?? 0) > 0) counter.n++;
@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const {
       fileBase64, fileName, fileVersion, eventId,
-      syncMode = "replace", ackTotals = false,
+      syncMode = "replace", ackTotals = false, newSupplierCountry = null,
       phase = "apply", // "preview" | "apply"
       decisions = {} as Record<string, "skip" | "create">, // rowNumber -> decisão da IA/utilizador
       configId: bodyConfigIdTop = null, // opcional: ativa diff ancorado em coala_sync_row_state
@@ -157,6 +157,9 @@ Deno.serve(async (req) => {
       return m?.id ?? noteFallback(cc, net);
     };
 
+    // País explicitamente escolhido; nunca inferir do IBAN nem da empresa.
+    const supplierCountry = typeof newSupplierCountry === "string" && /^[A-Z]{2}$/.test(newSupplierCountry.trim().toUpperCase())
+      ? newSupplierCountry.trim().toUpperCase() : null;
     // Pre-load suppliers
     const { data: existingSups } = await admin
       .from("suppliers")
@@ -176,6 +179,14 @@ Deno.serve(async (req) => {
     const supByName = new Map<string, string>();
     for (const s of (existingSups || [])) {
       supByName.set(String(s.name).toUpperCase().trim(), s.id);
+    }
+    const newSupplierNames = [...new Set(parsed.rows.filter(r => !r.excluded && r.supplier)
+      .map(r => String(r.supplier).trim().toUpperCase()))].filter(name => name && !supByName.has(name));
+    const supplierCountryRequired = (names: string[]) => names.length && !supplierCountry
+      ? json({ error: "supplier_country_required", missingSuppliers: names }, 400) : null;
+    if (phase !== "compare" && phase !== "preview" && phase !== "auto_apply") {
+      const blocked = supplierCountryRequired(newSupplierNames);
+      if (blocked) return blocked;
     }
 
     const normTxt = (s: string | null) =>
@@ -865,6 +876,7 @@ Deno.serve(async (req) => {
       return json({
         ok: true,
         phase: "compare",
+        newSupplierNames,
         summary: {
           file: { lines: fileRows.length, net: +fileNetTotal.toFixed(2) },
           bp: { lines: bpRows.length, net: +bpNetTotal.toFixed(2), scope: "expense_only" },
@@ -937,6 +949,23 @@ Deno.serve(async (req) => {
       const configId = bodyConfigId ?? baseRun.config_id;
       const diff: any = baseRun.diff ?? {};
 
+      // Pre-create suppliers needed (for missingInBp + txMissing severity=auto)
+      const neededSuppliers = new Set<string>();
+      for (const it of (diff.missingInBp ?? [])) {
+        if (it.severity === "auto" && it.supplier && !supByName.has(it.supplier)) {
+          neededSuppliers.add(it.supplier);
+        }
+      }
+      for (const it of (diff.txMissing ?? [])) {
+        if (it.severity === "auto" && it.supplier && !supByName.has(it.supplier) && it.paidVia !== "BR") {
+          neededSuppliers.add(it.supplier);
+        }
+      }
+      const requiredNewSuppliers = [...neededSuppliers].map(name => String(name).trim().toUpperCase())
+        .filter(name => name && !supByName.has(name));
+      const blocked = supplierCountryRequired(requiredNewSuppliers);
+      if (blocked) return blocked;
+
       // ── safeMode (default 0): bloqueia auto_apply se houver QUALQUER DELETE auto.
       // Cobre extraInBp, txExtra, splitPending (cada split apaga 1 forecast original).
       const autoExtraInBp = (diff.extraInBp ?? []).filter((x: any) => x.severity === "auto").length;
@@ -1003,24 +1032,12 @@ Deno.serve(async (req) => {
         if (!r.excluded) rowByNum.set(r.rowNumber, r);
       }
 
-      // Pre-create suppliers needed (for missingInBp + txMissing severity=auto)
-      const neededSuppliers = new Set<string>();
-      for (const it of (diff.missingInBp ?? [])) {
-        if (it.severity === "auto" && it.supplier && !supByName.has(it.supplier)) {
-          neededSuppliers.add(it.supplier);
-        }
-      }
-      for (const it of (diff.txMissing ?? [])) {
-        if (it.severity === "auto" && it.supplier && !supByName.has(it.supplier) && it.paidVia !== "BR") {
-          neededSuppliers.add(it.supplier);
-        }
-      }
       const newSupplierIds: string[] = [];
       const flaggedCounter = { n: 0 };
       for (const rawName of neededSuppliers) {
         const name = String(rawName || "").trim().toUpperCase();
         if (!name || supByName.has(name)) continue;
-        const ins = await resolveSupplierFlagged(admin, ev.company_id, name, flaggedCounter);
+        const ins = await resolveSupplierFlagged(admin, ev.company_id, name, supplierCountry!, flaggedCounter);
         if (ins) { supByName.set(name, ins.id); if (ins.created) newSupplierIds.push(ins.id); }
       }
 
@@ -1583,6 +1600,7 @@ Deno.serve(async (req) => {
       return json({
         ok: true,
         phase: "preview",
+        newSupplierNames,
         summary: {
           totalImportable: parsed.rows.filter((r) => !r.excluded).length,
           exactDuplicates: exactDuplicates.length,
@@ -1798,7 +1816,7 @@ Deno.serve(async (req) => {
       for (const rawName of distinctSuppliers) {
         const name = String(rawName || "").trim().toUpperCase();
         if (!name || supByName.has(name)) continue;
-        const ins = await resolveSupplierFlagged(admin, ev.company_id, name, flaggedCounter);
+        const ins = await resolveSupplierFlagged(admin, ev.company_id, name, supplierCountry!, flaggedCounter);
         if (ins) { supByName.set(name, ins.id); if (ins.created) newSupplierIds.push(ins.id); }
       }
 
@@ -1997,7 +2015,7 @@ Deno.serve(async (req) => {
         const { data: fc, error: fcErr } = await admin.from("event_forecasts").insert({
           company_id: ev.company_id, event_id: eventId, category_id: categoryId, type: "expense",
           description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
-          status: "approved", approved_at: new Date().toISOString(), approved_by: user?.email ?? user?.id ?? "system:sync-coala",
+          status: "approved", approved_at: new Date().toISOString(), approved_by: (user as { email?: string | null } | null)?.email ?? user?.id ?? "system:sync-coala",
           formalidade: formalidadeMap[r.formalidade] ?? "estimado",
           notes: [`Coala ${fileVersion} (RESET)`, r.invoiceRef ? `Fatura ${r.invoiceRef}` : null].filter(Boolean).join(" • "),
         }).select("id").single();
@@ -2204,7 +2222,7 @@ Deno.serve(async (req) => {
     for (const rawName of distinctSuppliers) {
       const name = String(rawName || "").trim().toUpperCase();
       if (!name || supByName.has(name)) continue;
-      const ins = await resolveSupplierFlagged(admin, ev.company_id, name, flaggedCounter);
+      const ins = await resolveSupplierFlagged(admin, ev.company_id, name, supplierCountry!, flaggedCounter);
       if (ins) { supByName.set(name, ins.id); if (ins.created) newSupplierIds.push(ins.id); }
     }
 
@@ -2314,7 +2332,7 @@ Deno.serve(async (req) => {
             iva_rate: r.ivaRate,
             status: "approved",
             approved_at: new Date().toISOString(),
-            approved_by: user?.email ?? user?.id ?? "system:sync-coala",
+            approved_by: (user as { email?: string | null } | null)?.email ?? user?.id ?? "system:sync-coala",
             formalidade: formalidadeMap[r.formalidade] ?? "estimado",
             notes: [
               `Coala ${fileVersion}`,

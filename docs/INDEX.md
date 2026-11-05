@@ -149,7 +149,7 @@ O fecho documental é R0 (D-ERP291): o executor escreve-o sem nova autorização
 - Lovable ERP `ab7cf7e3-a5fc-4737-9cc1-2ba7cf43887f` · Portal/CRM `26b95793-17b6-478c-a6e8-745c0cfb7ed9`
 - Supabase Live `sfohvvlqccmmebvjgibx` · Repo `pedrompropicio/mundopropicio`
 - Company MP `7c858982-6ccd-47ca-bd65-e0dd3eebf01c`
-- Issues: no Claude pela edge function `github-issues` (parâmetro **`number`**, não `issue_number`); no ChatGPT pelo conector GitHub. Validade do PAT: **por confirmar** (este ficheiro dizia "sem expiração desde 18/09/2026"; as instruções do Projeto dizem "expira 09/10/2027") — prazos de segredos vivem em `secret_expirations` e no invariante `segredos_a_expirar_14d`.
+- Issues: no Claude pela edge function `github-issues` (parâmetro **`number`**, não `issue_number`); no ChatGPT pelo conector GitHub. Validade do PAT `claude-mp-issues`: expira a **09/10/2027** (confirmado pelo Pedro a 03/11/2026, #317); lembrete de renovação a 09/09/2027. Renovação = novo PAT + actualizar o segredo no vault + chamada de teste; nenhum valor em chats/Issues. — prazos de segredos vivem em `secret_expirations` e no invariante `segredos_a_expirar_14d`.
 - Desde 16/09/2026 o contentor das sessões interativas do Claude alcança `sfohvvlqccmmebvjgibx.supabase.co` diretamente por HTTPS (allowlist de rede da organização); o caminho por `net.http_post` continua válido e é o de referência para tarefas agendadas até se confirmar que também o alcançam.
 
 ## Regra de base de dados que nunca se salta

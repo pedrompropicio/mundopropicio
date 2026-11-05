@@ -11,7 +11,7 @@
 
 import { adminClient, corsHeaders, json } from "../_shared/artist-meta.ts";
 import { authorizeArtistAdmin, getS4aAccessToken, S4aError } from "../_shared/s4a.ts";
-import { deduceTriggerSource, finishSyncRun, resolveStatus, startSyncRun } from "../_shared/sync-run.ts";
+import { deduceTriggerSource, finishSyncRun, resolveStatus, startSyncRun, type TriggerSource } from "../_shared/sync-run.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { playlistRows, responseShape as shape, SOURCE_ORIGIN_CAPTURE_ENABLED } from "../_shared/s4a-play-origins.ts";
 
@@ -95,7 +95,7 @@ const METRICS = [
 ] as const;
 
 // deno-lint-ignore no-explicit-any
-async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSource: "cron" | "manual" | "api", force = false) {
+async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSource: TriggerSource, force = false) {
   const started = Date.now();
   const runId = await startSyncRun(admin, {
     function_name: FN, trigger_source: triggerSource, dry_run: dryRun,

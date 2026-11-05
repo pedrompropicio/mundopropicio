@@ -85,8 +85,8 @@ async function fetchAllPages(initialUrl: URL): Promise<GraphAd[]> {
   let safety = 0;
   while (nextUrl && safety < 50) {
     safety++;
-    const r = await fetch(nextUrl);
-    const j = await r.json();
+    const r: Response = await fetch(nextUrl);
+    const j: any = await r.json();
     if (!r.ok || j.error) throw new Error(j.error?.message ?? `HTTP ${r.status}`);
     if (Array.isArray(j.data)) out.push(...j.data);
     nextUrl = j.paging?.next ?? null;

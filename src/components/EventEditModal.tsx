@@ -7,6 +7,8 @@ import { X, Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { CityVenueSelector } from "@/components/CityVenueSelector";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Checkbox } from "@/components/ui/checkbox";
+import { freezeFinalBpVersion } from "@/lib/bp-final-close";
 import { formatDate } from "@/lib/mock-data";
 import { formatCityLabel } from "@/lib/country";
 import { useBackdropClose } from "@/lib/backdropClose";
@@ -16,6 +18,7 @@ import { EVENT_NATURES, type EventNature } from "@/lib/event-nature";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { useAuth } from "@/contexts/AuthContext";
 import { BUDGET_MODES, type BudgetMode, useCompanyDefaultBudgetMode } from "@/lib/budget-mode";
+import { useBusinessLines } from "@/hooks/useBusinessLines";
 
 interface EventEditModalProps {
   event: any;
@@ -33,11 +36,15 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
   const [budget, setBudget] = useState(String(event.budget || ""));
   const [ticketsTotal, setTicketsTotal] = useState(String(event.tickets_total || ""));
   const [status, setStatus] = useState(event.status);
+  const [freezeFinal, setFreezeFinal] = useState(true);
   const [eventNature, setEventNature] = useState<EventNature | "">(event.event_nature || "");
+  const [businessLineId, setBusinessLineId] = useState<string>(event.business_line_id ?? "");
+  const { data: businessLines = [], isLoading: businessLinesLoading, isError: businessLinesError } = useBusinessLines();
+  const savedBusinessLine = businessLines.find((line) => line.id === event.business_line_id);
   const [plMode, setPlMode] = useState(event.pl_mode || "passive");
   // D6 — "" = herda o default da empresa (events.budget_mode NULL). NÃO é operacao_mode.
   const [budgetMode, setBudgetMode] = useState<BudgetMode | "">(event.budget_mode ?? "");
-  const { isAdmin, isManager } = useAuth();
+  const { user, isAdmin, isManager } = useAuth();
   const canEditBudgetMode = isAdmin || isManager;
   const { data: companyBudgetMode } = useCompanyDefaultBudgetMode();
   const [format, setFormat] = useState<EventFormat>(event.format === "residencia" ? "residencia" : "festival");
@@ -71,6 +78,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
 
   const eventType = event.event_type || "simple";
   const isSplit = !!event.parent_event_id;
+  const isCompleting = status === "completed" && event.status !== "completed" && !isSplit;
   const canAbsorb = !isSplit; // Só Single ou Master podem absorver (trigger DB também valida)
 
   // Festival dates
@@ -126,6 +134,12 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
       const cityName = cityId ? citiesMap[cityId] : null;
       const locationStr = [venueName, cityName].filter(Boolean).join(", ");
 
+      if (isCompleting && freezeFinal) {
+        await freezeFinalBpVersion(event.id, user);
+        queryClient.invalidateQueries({ queryKey: ["bp-final-close-versions"] });
+        queryClient.invalidateQueries({ queryKey: ["bp-versions"] });
+      }
+
       const { data, error } = await supabase
         .from("events")
         .update({
@@ -138,6 +152,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
           tickets_total: parseInt(ticketsTotal) || 0,
           status,
           ...(eventNature ? { event_nature: eventNature } : {}),
+          ...(!isSplit ? { business_line_id: businessLineId || null } : {}),
           pl_mode: plMode,
           ...(canEditBudgetMode ? { budget_mode: budgetMode || null } : {}),
           // `format` é SÓ apresentação (Festival/Residência); a mecânica lê event_type
@@ -300,6 +315,14 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
             </div>
           </div>
 
+          {isCompleting && (
+            <label className="flex items-start gap-2 text-sm">
+              <Checkbox checked={freezeFinal} disabled={updateMutation.isPending}
+                onCheckedChange={(v) => setFreezeFinal(v === true)} />
+              <span>Congelar a versão actual do BP como versão final do fecho</span>
+            </label>
+          )}
+
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Modo orçamental</label>
             <select
@@ -338,6 +361,37 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
               <p className="mt-1 text-[10px] text-muted-foreground">
                 Apenas nomenclatura — a mecânica é sempre a de festival (1 evento, N sessões).
               </p>
+            </div>
+          )}
+
+          {isSplit ? (
+            <p className="text-sm text-muted-foreground">
+              Linha herdada do Master: {event.business_line_id
+                ? savedBusinessLine ? `${savedBusinessLine.name}${!savedBusinessLine.is_active ? " (inactiva)" : ""}` : (businessLinesLoading ? "A carregar…" : "Linha indisponível")
+                : "Sem linha"}
+            </p>
+          ) : (
+            <div>
+              <label htmlFor="edit-event-business-line" className="mb-1 block text-xs font-medium text-muted-foreground">Linha de negócio</label>
+              <select
+                id="edit-event-business-line"
+                value={businessLineId}
+                onChange={(e) => setBusinessLineId(e.target.value)}
+                disabled={businessLinesLoading || businessLinesError}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-70"
+              >
+                <option value="">Sem linha</option>
+                {businessLineId && !businessLines.some((line) => line.id === businessLineId) && (
+                  <option value={businessLineId}>{businessLinesLoading ? "A carregar…" : "Linha indisponível"}</option>
+                )}
+                {businessLines.filter((line) => line.is_active || line.id === event.business_line_id).map((line) => (
+                  <option key={line.id} value={line.id}>{line.name}{!line.is_active && " (inactiva)"}</option>
+                ))}
+              </select>
+              {businessLinesError && <p role="alert" className="mt-1 text-xs text-destructive">Não foi possível carregar as linhas de negócio.</p>}
+              {["multi_day", "master", "tour"].includes(eventType) && businessLineId !== (event.business_line_id ?? "") && (
+                <p role="status" className="mt-1 text-xs text-muted-foreground">Ao guardar, esta linha será herdada por todos os sub-eventos do Master.</p>
+              )}
             </div>
           )}
 

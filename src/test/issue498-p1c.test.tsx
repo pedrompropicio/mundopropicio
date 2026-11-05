@@ -121,10 +121,12 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(() => { throw new Error("#498: rede proibida"); }));
   setCompany();
   fixtures.queries = {
+    "business-lines": [],
     events: [event], "events-list": [event],
     "transactions:dre": [tx], "transactions:dre-brasil": [tx], "transactions:pl": [tx],
     transactions: [{ ...tx, type: "expense", exclude_from_result: true }],
     "transactions-approved": [tx],
+    "dre-emp-non-accounting-accounts": [],
     "account-categories": [
       { id: "income", code: "1.1.01", name: "Receita sintética", type: "income" },
       { id: "expense", code: "2.1.01", name: "Despesa sintética", type: "expense" },
@@ -164,15 +166,15 @@ describe("#498 P1c — hashes PT capturados antes de alterar os seis componentes
     }
     expect(baseline).toMatchInlineSnapshot(`
       {
-        "Brasil:detail": "43fbcb9f6fee3618c07294c0b4dcaf97b9737c541b5288ab5b4b083d5ab0a8d5",
-        "Brasil:initial": "4d4471997df65a6540ec9150fb446a21d8faa8036d9e265e4a7169f6de04733d",
+        "Brasil:detail": "39b2236e1eaf6b3a381bd3e5190ec9d0fd4d35dcb70d8ac9ff4871857c9b7d08",
+        "Brasil:initial": "e03ea4f795f6c25d7a7b965aae2b7a0375cb61630479c7bdf1a6a68473ce01a1",
         "CashFlow:detail": "b1fc7ff5862ecd203724b928f9aa6199085a1e2cf4bbf93ef446f387f5ba6bd3",
         "CashFlow:events": "3c489f871971a82ada179afc1e6dbbe085eee908833b30dbfca978d52cd22f88",
         "CashFlow:initial": "36dfdc324d34e73a195658ba753e42d43f2765947088c9433373b6f6d9f449b8",
-        "DRE:detail": "d905a0dbb9491929bb591bdad73b81bb5d8069d9267d11bac32185ec59099dfb",
-        "DRE:initial": "93db0e4e27d2fab958db48c936af2afbb2ab9345577afebb6e0ce9214a7364c8",
-        "Empresarial:detail": "5aabb31e2ac823e0733fb7b6d20d8cc9a8292afc603677db7a575c87fc2630a4",
-        "Empresarial:initial": "5aabb31e2ac823e0733fb7b6d20d8cc9a8292afc603677db7a575c87fc2630a4",
+        "DRE:detail": "1d43b2c8b8f48ad4439f88ea3376629c095ea8389cdc3755042af90dd6de8420",
+        "DRE:initial": "3b69906223b58147bb9ec498a36c1e7e0a372df8161ee03885fdb9f0719bdd67",
+        "Empresarial:detail": "3030db3fbdc34e5040f6128f16882b9b0e10d47ec3eda0bed8002b1073949d8f",
+        "Empresarial:initial": "3030db3fbdc34e5040f6128f16882b9b0e10d47ec3eda0bed8002b1073949d8f",
         "PL:detail": "e8f7af7d9d9a38d70a566b4f8077e3ac99ebd799de5e09c4bb0efb8299e57a35",
         "PL:initial": "755cb513082c129d218abe1c2231821bd6ade464c9d4d19365fd7f57f65a8aba",
       }

@@ -153,6 +153,7 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["financial-accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["account-true-balance"] });
       toast({ title: "Transferência registada com sucesso!" });
       onClose();
     },
