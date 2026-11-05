@@ -19,7 +19,7 @@
 4. #669: 669-c em `main` (`18db40a`); entra no Publish, com prova no ecrã.
 5. #695: 695-a em `main` (`d8881d2`); entra no Publish, com prova no ecrã. Lacuna: o aviso (a) não existe na edição (o modal não recebe a data lida).
 6. #677: preparação da importação da Social Music de 2026 (1B/2A). Só depois da #664.
-7. #405: envio do reforço NG27 a 06/11 — executor 0 pessoal (decisão do Pedro, 13:57). O 0 MP não actua.
+7. #405: envio do reforço NG27 a 06/11 — executor 0 pessoal (decisão do Pedro, 13:57); o 0 MP não toca no envio nem no cron. **Acção `presale_code` (405-pc em `main` `c604b9e`; 405-pc2 despachado):** deploy só da `newgang-portal` **antes de 06/11 10:25 UTC**, com «Sim» do Pedro e só se a prova B1 passar (`reforco_*` byte a byte iguais); antes, sync main → Lovable a manter o `4a7da40`. Depois: verificação em Live, SHA-256 na #405 para o 0 pessoal, e o Pedro autoriza o Publish do Portal.
 8. #675 / 0334 / SLE: suspensos até ao 647-d-portal.
 9. Cloudflare: o Pedro apaga os tokens antigos `mp-backups-supabase` e `-v2`.
 10. Coala, venda geral a 10/11: apagar `early_bird.general_sale_date` com «Corro?» (#359). A tarefa agendada estava na conta pessoal: recriar do lado MP.
@@ -27,9 +27,16 @@
 12. Sync lovable/dev → main com o `4a7da40` (link Fever), que ainda não passou pelo CI.
 13. #314: 314-b em `main` (`549c8a7`). **Na janela, a 0323 aplica-se antes do Publish.** Nota para a #591: a lista de bancos do diálogo «Confirmar crédito» não filtra por empresa (depende de RLS).
 14. QUADRO «Em execução agora»: higiene das linhas com mais de 24 h autorizada ao operador (R0), depois do merge do #702.
-15. Janela de Publish de 05/11: o plano do PR #702 ainda lista como pendentes passos já feitos de manhã (revisão 6662181445); o 0 prepara a lista final. Publish geral ao fim do dia (decisão do Pedro, 14:45).
+15. Janela de Publish de 05/11: plano no PR #702 (corrigido pelo operador; falta o «Sim» de merge). Publish geral ao fim do dia (decisão do Pedro, 14:45).
 
 ## Registo (mais recente primeiro)
+- 05/11 18:54 · 0 MP · #405 · Despacho 405-pc2 (6666481819): link de acesso na `auth_emails`, limites `presale_code` 120 IP / 20 sessão e `request_access` 40, prova B1 com os mesmos 5 hashes · despachado.
+- 05/11 ~18:53 · 0 MP · #405 · Reserva do 405-pc libertada (6666472351); Autorização R2 (6666473859) e Reserva (6666475473) do 405-pc2 · emitidas.
+- 05/11 ~18:50 · Pedro · #405 · aprova P1 (só o link de acesso, `kind = "access"`, passa à fila `auth_emails`), `presale_code` 120/10 min por IP + 20/10 min por sessão, `request_access` 40/10 min; P2 não se aplica; tudo no mesmo deploy antes de 06/11 10:25 UTC; se a B1 falhar, não há deploy · decisão.
+- 05/11 18:53 · 0 MP · #405 · merge do PR #712 (405-pc, acção `presale_code`; squash `c604b9e`; quality verde; B1 com os 5 hashes iguais; 21 testes Deno corridos pelo 0 localmente), com «Sim» do Pedro · ok.
+- 05/11 18:36 · 0 MP · — · merge do PR #710 (diário; squash `b7280d1`) · ok.
+- 05/11 18:20 · 0 MP · #405 · Issue reaberta; Autorização R2 405-pc (6665744353), Reserva (6665746785) e Despacho · despachado.
+- 05/11 ~18:15 · Pedro · #405 · respostas do chat do portal «A1 · B1 · C sim a tudo · D ok» e prioridade de urgência ao `presale_code`; deploy e Publish pedidos depois ao 0 · decisão.
 - 05/11 18:16 · 0 MP · #646 · Reserva (6665654961) e Despacho D2-d tempo 1 «plano» (6665661392) · despachado.
 - 05/11 18:05 · 0 MP · #314 · merge do PR #709 (314-b; squash `549c8a7`; quality verde), com «Sim» do Pedro · ok.
 - 05/11 18:05 · 0 MP · #695 · merge do PR #707 (695-a; squash `d8881d2`; quality verde), com «Sim» do Pedro · ok.
