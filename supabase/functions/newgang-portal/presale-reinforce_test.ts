@@ -65,3 +65,12 @@ Deno.test("lote: reserva antes de enviar, já reservado não envia, para a 3 unk
   assertEquals(b.stopped, true); assertEquals(b.unknown, 3); assert(!sent.includes("9"));
   assert(marks.includes("u3:unknown"));
 });
+
+Deno.test("link Fever: Newgang 821990, nunca o 826449 do Coala", () => {
+  const r = presaleEmail({ code: "NEWGANG27A", name: "Ana", imagesBase: "https://x/y", test: false });
+  const hrefs = [...r.html.matchAll(/href="([^"]*feverup[^"]*)"/g)].map((m) => m[1]);
+  assert(hrefs.length > 0);
+  for (const h of [...hrefs, PRESALE_LINK, r.text]) assert(!h.includes("826449"));
+  for (const h of [...hrefs, PRESALE_LINK]) assert(h.startsWith("https://feverup.com/m/821990"));
+  assertEquals(FEVER_CLUB_URL, "https://feverup.com/m/821990");
+});
