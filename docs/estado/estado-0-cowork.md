@@ -19,13 +19,19 @@
 4. #669: lote R1 para o filtro de natureza na DRE Empresarial (decisão 1A).
 5. #695: «Data de competência» e vencimento separado nas recorrentes.
 6. #677: preparação da importação da Social Music de 2026 (1B/2A). Só depois da #664.
-7. #405: ritmo da fila e cron de envio de 06/11, ainda **sem autorização**.
+7. #405: envio do reforço NG27 a 06/11 — executor 0 pessoal (decisão do Pedro, 13:57). O 0 MP não actua.
 8. #675 / 0334 / SLE: suspensos até ao 647-d-portal.
 9. Cloudflare: o Pedro apaga os tokens antigos `mp-backups-supabase` e `-v2`.
 10. Coala, venda geral a 10/11: apagar `early_bird.general_sale_date` com «Corro?» (#359). A tarefa agendada estava na conta pessoal: recriar do lado MP.
 11. #603: decidir onde corre o piloto, na conta Lovable actual ou numa conta nova, e registar a escolha e o motivo na #603. Decisão do Pedro com o 0 (MP).
+12. Sync lovable/dev → main com o `4a7da40` (link Fever), que ainda não passou pelo CI.
 
 ## Registo (mais recente primeiro)
+- 05/11 13:57 · Pedro · #405 · executor do envio NG27 de 06/11 = 0 pessoal (tarefa 10:25 UTC); o 0 MP não toca no envio nem no cron `ng27-reforco-envio` · registado (6659824675).
+- 05/11 13:44 · Pedro · #405 · plano de envio do reforço NG27 aprovado («SIM») · registado (6659536438).
+- 05/11 ~13:45 · 0 MP · #405 · Publish do Portal Newgang (`fbf57f8`); link Fever 821990 verificado pelo Pedro no portal e no email de teste · ok.
+- 05/11 13:38 · 0 MP · #405 · deploy só da `newgang-portal` (ERP `4a7da40`, SHA-256 `b71cb587…`), link Fever 826449 → 821990 · ok (6659428677).
+- 05/11 13:25 · 0 MP · #473 · Autorização R0 ao dev: D-ERP355/356 no DECISIONS.md · emitida (6659145455).
 - 05/11 12:31 · 0 MP · #473 · comentário «0 · Cowork (MP) assume o comando» (6658031538) · ok.
 - 05/11 12:30 · 0 MP · — · merge do PR #696 (squash `b0dbb4e`; quality verde no HEAD `1fbd784`) · ok.
 - 05/11 12:29 · 0 MP · — · conectores GitHub (pedrompropicio, MCP oficial) e Lovable confirmados na organização MP; comando efectivo no «0 - Cowork (MP)» · ok.
