@@ -23,8 +23,12 @@
 10. Coala, venda geral a 10/11: apagar `early_bird.general_sale_date` com «Corro?» (#359). A tarefa agendada estava na conta pessoal: recriar do lado MP.
 11. #603: decidir onde corre o piloto, na conta Lovable actual ou numa conta nova, e registar a escolha e o motivo na #603. Decisão do Pedro com o 0 (MP).
 12. Sync lovable/dev → main com o `4a7da40` (link Fever), que ainda não passou pelo CI.
+13. #314: 314-b autorizado (4.º na fila do operador). Na janela, a 0323 tem de estar aplicada antes do Publish do 314-b.
+14. QUADRO «Em execução agora»: cerca de 55 linhas de outras frentes com mais de 24 h sem actualização (operador, 6660312768). Pela regra do quadro, volta ao Pedro.
 
 ## Registo (mais recente primeiro)
+- 05/11 14:37 · 0 MP · #314 · Autorização R1 do 314-b por delegação (resposta 1A às Perguntas 6660312365) · emitida (6660666301).
+- 05/11 14:35 · 0 MP · — · merge do PR #701 (diário; squash `986f0fa`; quality verde no HEAD `21ee258`), com «Sim» do Pedro · ok.
 - 05/11 14:15 · 0 MP · — · PR #700 fechado sem merge (conteúdo incorporado no #701), com «Sim» do Pedro · ok.
 - 05/11 14:15 · 0 MP · #664 · merge do PR #699 (664-b2; squash `56a223d`; quality verde no HEAD `1dd870a`), com «Sim» do Pedro · ok.
 - 05/11 14:11 · 0 MP · #473 · fila do operador: 3 lotes autorizados por despachar (#646 conferência D2, #669 669-c, #695), por esta ordem · comentário 6660138908.
