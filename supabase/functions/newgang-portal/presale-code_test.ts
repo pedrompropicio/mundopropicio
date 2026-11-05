@@ -110,10 +110,10 @@ Deno.test("presale_code: corpo inválido é rejeitado sem leituras", async () =>
   }
 });
 
-Deno.test("presale_code: baldes separados, SHA-256 real, 20 pedidos/600 segundos", async () => {
+Deno.test("presale_code: SHA-256 real; IP 20 → 120, sessão mantém 20, janela mantém 600 segundos", async () => {
   const f = fixture(); await f.run();
   equal(f.rates, [
-    { p_bucket: `ng:presale_code:${await sha256(IP + ":ng")}`, p_max: 20, p_window_seconds: 600 },
+    { p_bucket: `ng:presale_code:${await sha256(IP + ":ng")}`, p_max: 120, p_window_seconds: 600 },
     { p_bucket: `ng:presale_code:session:${await sha256(TOKEN)}`, p_max: 20, p_window_seconds: 600 },
   ]);
   assert(f.rates.every((r) => !r.p_bucket.includes(TOKEN) && !r.p_bucket.includes(IP)));
@@ -133,7 +133,7 @@ for (const blocked of ["ip", "session"]) {
   });
 }
 
-Deno.test("presale_code: mudar IP não contorna balde de sessão; sessões partilham o balde de IP", async () => {
+Deno.test("presale_code: mudar IP não contorna 20 por sessão; sessões partilham 120 por IP (antes 20)", async () => {
   const hits = new Map<string, number>();
   const f = fixture({ rateHit: async ({ p_bucket, p_max }) => {
     const count = (hits.get(p_bucket) ?? 0) + 1; hits.set(p_bucket, count);
@@ -142,8 +142,8 @@ Deno.test("presale_code: mudar IP não contorna balde de sessão; sessões parti
   for (let i = 0; i < 20; i++) equal((await f.run(REQUEST, `192.0.2.${i}`)).status, 200);
   errorIs(await f.run(REQUEST, "192.0.2.200"), 429, "rate_limited");
   hits.clear();
-  for (let i = 0; i < 20; i++) equal((await f.run({ action: "presale_code", token: `${TOKEN}-${i}` })).status, 200);
-  errorIs(await f.run({ action: "presale_code", token: `${TOKEN}-21` }), 429, "rate_limited");
+  for (let i = 0; i < 120; i++) equal((await f.run({ action: "presale_code", token: `${TOKEN}-${i}` })).status, 200);
+  errorIs(await f.run({ action: "presale_code", token: `${TOKEN}-121` }), 429, "rate_limited");
 });
 
 for (const failAt of [1, 2]) {

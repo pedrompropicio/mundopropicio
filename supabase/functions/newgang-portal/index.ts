@@ -16,6 +16,7 @@ import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
 import { crewPendingAction, memberByEmail, mePendingCrew, PENDING_OPS } from "./pending.ts";
 import { readPendingInvites } from "./pending-invites.ts";
 import { requestAccessAction } from "./request-access.ts";
+import { clubLinkEnqueueArgs, writeActionIpMax } from "./access-queue.ts";
 import { presaleCodeAction } from "./presale-code.ts";
 import { createCitiesReader } from "./cities.ts";
 import * as GW from "./wallet-google.ts";
@@ -200,16 +201,13 @@ async function sendClubLink(site: { id: string; company_id: string }, m: { id: s
     metadata: { member_id: m.id },
   });
   if (logErr) throw new PreSendError(`email_send_log: ${logErr.message}`);
-  const { error: qErr } = await sb.rpc("enqueue_email", {
-    queue_name: "transactional_emails",
-    payload: {
+  const { error: qErr } = await sb.rpc("enqueue_email", clubLinkEnqueueArgs(kind, {
       message_id: messageId, company_id: site.company_id, to: email,
       from: `Newgang Festival <clube@${SENDER_DOMAIN}>`, sender_domain: SENDER_DOMAIN,
       subject: reminder ? REMINDER_SUBJECT : welcome ? "Confirma a tua entrada no Clube Newgang" : "O teu acesso ao Clube Newgang",
       html, text, purpose: "transactional", label, idempotency_key: messageId,
       ...(kind === "access" ? {} : { unsubscribe_http_url: unsub.oneClick }), queued_at: new Date().toISOString(),
-    },
-  });
+  }));
   if (qErr) throw new Error(`enqueue_email: ${qErr.message}`);
 }
 
@@ -689,7 +687,7 @@ Deno.serve(async (req) => {
 
   if (WRITE_ACTIONS.has(body.action)) {
     const ipHash = await sha256(clientIp(req) + ":ng");
-    const { data: ok, error: rateError } = await sb.rpc("portal_rate_hit", { p_bucket: `ng:${body.action}:${ipHash}`, p_max: 20, p_window_seconds: 600 });
+    const { data: ok, error: rateError } = await sb.rpc("portal_rate_hit", { p_bucket: `ng:${body.action}:${ipHash}`, p_max: writeActionIpMax(body.action), p_window_seconds: 600 });
     if (["profile_confirm", "profile_birth", "profile_preferences"].includes(body.action) && (rateError || typeof ok !== "boolean")) return json({ error: "rate_unavailable" }, 503);
     if (ok === false) {
       if (body.action === "request_access") console.log(JSON.stringify({ action: "request_access", reason: "limitado", ip_hash: ipHash.slice(0, 12) }));
