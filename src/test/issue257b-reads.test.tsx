@@ -23,6 +23,7 @@ const expense = { id: "expense", event_id: "event", type: "expense", amount: 100
   category_id: "category", status: "approved", vat_non_recoverable: true };
 beforeEach(() => {
   f.queries = {
+    "business-lines": [],
     "profitability-events": [{ id: "event", name: "Evento sintético", status: "completed", venue_id: "venue" }],
     "profitability-cache": [{ event_id: "event", artist_name: "Artista sintético" }],
     "profitability-venues": [{ id: "venue", name: "Sala sintética" }],

@@ -307,6 +307,7 @@ describe("#218 — os três DRE usam o snapshot (critérios 3/4)", () => {
   it.each([["DRE", ReportDRE], ["Brasil", ReportDREBrasil], ["Empresarial", ReportDREEmpresarial]] as const)(
     "%s: concluído = 300; reaberto = 500", (_name, Report) => {
       fixtures.queries = {
+        "business-lines": [],
         events: [event], "bp-final-close-versions": [version()],
         "dre-forecasts-expense": [liveLine], "dre-emp-forecasts-expense": [liveLine],
         "account-categories": [{ id: "expense", code: "2.1.01", name: "Despesa sintética", type: "expense" }],

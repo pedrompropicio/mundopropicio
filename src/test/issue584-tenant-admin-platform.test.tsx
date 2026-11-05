@@ -30,6 +30,7 @@ vi.mock("@/hooks/useCompany", () => ({ useCompany: () => ({
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { rpc: f.rpc, from: f.from } }));
 vi.mock("@/components/HelpTooltip", () => ({ default: () => null }));
 vi.mock("@/components/CompanyBudgetModeCard", () => ({ CompanyBudgetModeCard: () => null }));
+vi.mock("@/components/BusinessLinesCard", () => ({ BusinessLinesCard: () => null }));
 
 const reminders = [
   { id: "drift", key: "invariant_drift", title: "Desvio global", company_id: null },

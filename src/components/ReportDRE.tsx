@@ -5,6 +5,9 @@ import { masterFormulaAmountForCity } from "@/lib/master-formula";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import { fetchPartnerExtras, partnerExtraValue } from "@/lib/partner-extras";
 import { findTicketCategoryId } from "@/lib/ticket-category";
+import { BusinessLineFilter } from "@/components/BusinessLineFilter";
+import { filterEventsByBusinessLine, businessLineLabel } from "@/lib/business-line-filter";
+import { useBusinessLines } from "@/hooks/useBusinessLines";
 import { EventNatureFilter } from "@/components/EventNatureFilter";
 import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
 import { useState, useMemo } from "react";
@@ -311,6 +314,8 @@ export default function ReportDRE() {
   const [showPartnerView, setShowPartnerView] = useState(false);
   const [showEbitda, setShowEbitda] = useState(false);
 
+  const [lineFilter, setLineFilter] = useState<string[]>([]);
+  const { data: businessLines = [] } = useBusinessLines(false);
   const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
   // #218: custo de evento pelo BP (padrão); "Transações" só para comparação — nunca gravado.
   const [costSource, setCostSource] = useState<ReportCostSource>("bp");
@@ -323,7 +328,9 @@ export default function ReportDRE() {
     },
   });
   // #256: o filtro só restringe o conjunto de eventos; vazio = todos (resultado idêntico).
-  const events = useMemo(() => filterEventsByNature(allEvents as any[], natureFilter) as typeof allEvents, [allEvents, natureFilter]);
+  const events = useMemo(() => filterEventsByBusinessLine(
+    filterEventsByNature(allEvents as any[], natureFilter), lineFilter,
+  ) as typeof allEvents, [allEvents, natureFilter, lineFilter]);
 
   const { data: transactionsRaw = [] } = useQuery({
     queryKey: ["transactions", "dre"],
@@ -656,7 +663,7 @@ export default function ReportDRE() {
     const evtTx = getEffectiveTransactions(e.id);
     const parentEvt = (e as any).parent_event_id ? events.find((pe) => pe.id === (e as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (e as any).partner_calc_basis || "net_result";
-    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, formatCurrency, (e as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[e.id] ?? null, ebitdaArg);
+    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, formatCurrency, (e as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[e.id] ?? null, ebitdaClassMap);
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
     const resLine = dre.find((l) => l.isGrandTotal);
@@ -685,6 +692,21 @@ export default function ReportDRE() {
   const globalResultEx = globalIncEx - globalExpEx;
   const globalResultInc = globalIncInc - globalExpInc;
   const globalEbitdaEx = eventSummaries.reduce((s, e) => s + e.ebitdaEx, 0);
+
+  // Somar os resumos já calculados conserva o mesmo perímetro e o rateio Master ÷N.
+  const businessLineTotals = new Map(
+    [...businessLines.map((line) => line.id), "__sem_linha__"].map((id) => [id, { revenue: 0, cost: 0, ebitda: 0, result: 0 }]),
+  );
+  eventSummaries.forEach((e) => {
+    const master = e.parent_event_id ? allEvents.find((parent) => parent.id === e.parent_event_id) : null;
+    const id = ((master ?? e) as any).business_line_id ?? "__sem_linha__";
+    const row = businessLineTotals.get(id) ?? { revenue: 0, cost: 0, ebitda: 0, result: 0 };
+    row.revenue += e.totalIncEx;
+    row.cost += e.totalExpEx;
+    row.ebitda += e.ebitdaEx;
+    row.result += e.resultEx;
+    businessLineTotals.set(id, row);
+  });
 
   // Distribuição global aos sócios (excluindo a Mundo Propício, que tem o seu
   // próprio agregado abaixo). A Mundo Propício é a sócia principal/proprietária
@@ -730,6 +752,7 @@ export default function ReportDRE() {
           </button>
         </div>
 <EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
+        <BusinessLineFilter value={lineFilter} onChange={setLineFilter} />
         <ReportCostSourceToggle value={costSource} onChange={setCostSource} />
         <div className="flex flex-col gap-2">
           {eventsWithTransactions.filter((e) => !e.parent_event_id).map((e) => {
@@ -888,6 +911,39 @@ export default function ReportDRE() {
           </div>
         )}
       </div>
+
+      <section aria-label="Total por linha de negócio" className="glass rounded-xl p-4 space-y-3 overflow-x-auto">
+        <p className="font-semibold text-sm">Total por linha de negócio</p>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Linha de negócio</TableHead>
+              <TableHead className="text-right">Receita</TableHead>
+              <TableHead className="text-right">Custo</TableHead>
+              <TableHead className="text-right">EBITDA</TableHead>
+              <TableHead className="text-right">Resultado</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from(businessLineTotals, ([id, row]) => (
+              <TableRow key={id}>
+                <TableCell>{businessLineLabel(id, businessLines)}</TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(row.revenue)}</TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(row.cost)}</TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(row.ebitda)}</TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(row.result)}</TableCell>
+              </TableRow>
+            ))}
+            <TableRow className="font-semibold">
+              <TableCell>Total</TableCell>
+              <TableCell className="text-right font-mono">{formatCurrency(globalIncEx)}</TableCell>
+              <TableCell className="text-right font-mono">{formatCurrency(globalExpEx)}</TableCell>
+              <TableCell className="text-right font-mono">{formatCurrency(globalEbitdaEx)}</TableCell>
+              <TableCell className="text-right font-mono">{formatCurrency(globalResultEx)}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </section>
 
       <div className="space-y-3">
         {eventSummaries.map((evt) => {

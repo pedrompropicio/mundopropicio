@@ -2,7 +2,15 @@ import { importBackupKey, openBackup, sealBackup, sha256Hex } from "../_shared/b
 import { createR2Client, type R2Head } from "../_shared/r2.ts";
 
 type GfsClass = "daily" | "weekly" | "monthly";
-type FileProgress = { sha256: string; bytes: number; enc_bytes: number; classes: GfsClass[] };
+type Part = { n: number; sha256: string; plain_bytes: number; enc_bytes: number };
+type ChunkedProgress = {
+  chunked: true; part_bytes: number; bytes: number; enc_bytes: number; parts_done: number;
+  parts: Part[]; sha256_tree?: string; classes: GfsClass[];
+  copies_done: Partial<Record<GfsClass, number>>;
+  index?: { sha256: string; plain_bytes: number; enc_bytes: number };
+  readback_done?: number;
+};
+type FileProgress = { chunked?: false; sha256: string; bytes: number; enc_bytes: number; classes: GfsClass[] } | ChunkedProgress;
 type Source = { id: string; scope: string; folder_path: string; manifest_verified_at?: string };
 type Report = {
   gfs: GfsClass[]; sources: Source[]; files: Record<string, FileProgress>;
@@ -13,13 +21,53 @@ export type OffsiteDb = {
   from(table: "backup_runs"): any;
   storage: { from(bucket: string): {
     list(folder: string, options: { limit: number; offset: number; sortBy: { column: string; order: string } }): PromiseLike<{
-      data: { name: string; id?: string | null }[] | null; error: { message: string } | null;
+      data: { name: string; id?: string | null; metadata?: { size?: number | string } | null }[] | null; error: { message: string } | null;
     }>;
     download(path: string): PromiseLike<{ data: Blob | null; error: { message: string } | null }>;
+    createSignedUrl(path: string, expiresIn: number): PromiseLike<{
+      data: { signedUrl: string } | null; error: { message: string } | null;
+    }>;
   } };
 };
-type Deps = { db: OffsiteDb; r2: ReturnType<typeof createR2Client>; key: CryptoKey; now: () => Date };
+type Deps = { db: OffsiteDb; r2: ReturnType<typeof createR2Client>; key: CryptoKey; now: () => Date; fetchImpl?: typeof fetch };
 const PAGE = 1000;
+const CHUNK_THRESHOLD = 32 * 1024 * 1024;
+const PART_BYTES = 8 * 1024 * 1024;
+const partSuffix = (n: number) => `.part-${String(n).padStart(4, "0")}`;
+const partMeta = (part: Part, of: number, source: string) => ({
+  part: String(part.n), of: String(of), sha256: part.sha256, "plain-bytes": String(part.plain_bytes), source,
+});
+
+// Bound the body itself: a broken Range endpoint must never allocate the whole file.
+async function readRange(response: Response, expected: number) {
+  if (response.status !== 206) {
+    await response.body?.cancel();
+    throw new Error(`Storage Range: esperado 206, recebido ${response.status}`);
+  }
+  const length = response.headers.get("content-length");
+  if (length !== null && Number(length) !== expected) {
+    await response.body?.cancel();
+    throw new Error("Storage Range: tamanho diferente do esperado");
+  }
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("Storage Range: conteúdo ausente");
+  const plain = new Uint8Array(expected);
+  let offset = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (offset + value.length > expected) throw new Error("Storage Range: tamanho diferente do esperado");
+      plain.set(value, offset);
+      offset += value.length;
+    }
+    if (offset !== expected) throw new Error("Storage Range: tamanho diferente do esperado");
+    return plain;
+  } finally {
+    await reader.cancel();
+    reader.releaseLock();
+  }
+}
 
 function utcDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error("date tem de ser YYYY-MM-DD");
@@ -53,7 +101,7 @@ function verifyHead(head: R2Head | null, size: number, meta: Record<string, stri
   }
 }
 
-export async function runOffsite({ db, r2, key, now }: Deps, { date, budgetMs = 60_000 }: { date?: string; budgetMs?: number } = {}) {
+export async function runOffsite({ db, r2, key, now, fetchImpl = fetch }: Deps, { date, budgetMs = 60_000 }: { date?: string; budgetMs?: number } = {}) {
   const started = now();
   const day = date ?? started.toISOString().slice(0, 10);
   const gfs = gfsClasses(day);
@@ -102,7 +150,7 @@ export async function runOffsite({ db, r2, key, now }: Deps, { date, budgetMs = 
     const identity = (ss: Source[]) => JSON.stringify(ss.map(({ id, scope, folder_path }) => ({ id, scope, folder_path })));
     if (identity(report.sources) !== identity(sources)) throw new Error("As fontes mudaram durante a cópia offsite");
     const storage = db.storage.from("database-backups");
-    const items: { source: Source; file: string; path: string }[] = [];
+    const items: { source: Source; file: string; path: string; size?: number | string }[] = [];
     for (const source of report.sources) {
       if (!source.folder_path) throw new Error(`Fonte ${source.id} sem folder_path`);
       const sourceFiles: string[] = [];
@@ -114,19 +162,113 @@ export async function runOffsite({ db, r2, key, now }: Deps, { date, budgetMs = 
         for (const entry of page) {
           if (entry.id === null) throw new Error(`Pasta inesperada em ${source.folder_path}/${entry.name}`);
           sourceFiles.push(entry.name);
-          items.push({ source, file: entry.name, path: `${source.folder_path}/${entry.name}` });
+          items.push({ source, file: entry.name, path: `${source.folder_path}/${entry.name}`, size: entry.metadata?.size });
         }
         if (page.length < PAGE) break;
       }
       if (!sourceFiles.includes("manifest.json")) throw new Error(`Fonte ${source.id} sem manifest.json`);
     }
 
-    for (const { source, file, path } of items) {
+    for (const { source, file, path, size } of items) {
       if (report.failures.some((failure) => failure.startsWith(`${path}: `))) continue;
       if (report.files[path]?.classes.length === gfs.length) continue;
       try {
         let progress = report.files[path];
         const daily = offsiteKey("daily", day, source.folder_path, file);
+        let signedUrl: string | undefined;
+        const sourceUrl = async () => {
+          if (!signedUrl) {
+            const signed = checked(await storage.createSignedUrl(path, 600), "storage signed URL");
+            if (!signed?.signedUrl) throw new Error("storage signed URL: resposta ausente");
+            signedUrl = signed.signedUrl;
+          }
+          return signedUrl;
+        };
+        let totalBytes = size === undefined ? undefined : Number(size);
+        if (!progress && totalBytes === undefined) {
+          const head = await fetchImpl(await sourceUrl(), { method: "HEAD" });
+          await head.body?.cancel();
+          if (!head.ok || !head.headers.has("content-length")) throw new Error("Storage HEAD: tamanho ausente");
+          totalBytes = Number(head.headers.get("content-length"));
+        }
+        if (totalBytes !== undefined && (!Number.isSafeInteger(totalBytes) || totalBytes < 0)) throw new Error("Storage: tamanho inválido");
+        if (!progress && totalBytes !== undefined && totalBytes > CHUNK_THRESHOLD) {
+          progress = { chunked: true, part_bytes: PART_BYTES, bytes: totalBytes, enc_bytes: 0,
+            parts_done: 0, parts: [], classes: [], copies_done: {} };
+          report.files[path] = progress;
+        }
+        if (progress?.chunked === true) {
+          if (totalBytes !== undefined && totalBytes !== progress.bytes) throw new Error("O tamanho da fonte mudou durante a cópia offsite");
+          const of = Math.ceil(progress.bytes / PART_BYTES);
+          while (progress.parts_done < of) {
+            const n = progress.parts_done + 1;
+            const start = (n - 1) * PART_BYTES;
+            const end = Math.min(start + PART_BYTES, progress.bytes) - 1;
+            const response = await fetchImpl(await sourceUrl(), { headers: { Range: `bytes=${start}-${end}` } });
+            const plain = await readRange(response, end - start + 1);
+            const hash = await sha256Hex(plain);
+            const sealed = await sealBackup(plain, key);
+            const part: Part = { n, sha256: hash, plain_bytes: plain.length, enc_bytes: sealed.length };
+            const objectKey = daily + partSuffix(n);
+            const meta = partMeta(part, of, path);
+            let head = await r2.headObject(objectKey);
+            if (head) sameHash(head, part.sha256);
+            else {
+              await r2.putObject(objectKey, sealed, meta);
+              head = await r2.headObject(objectKey);
+            }
+            verifyHead(head, part.enc_bytes, meta);
+            progress.parts.push(part);
+            progress.parts_done = n;
+            progress.enc_bytes += part.enc_bytes;
+            await save();
+            if (expired()) return await continueRun();
+          }
+          if (!progress.index) {
+            progress.sha256_tree = await sha256Hex(new TextEncoder().encode(progress.parts.map((part) => part.sha256).join("")));
+            const plain = new TextEncoder().encode(JSON.stringify({ version: 2, part_bytes: PART_BYTES,
+              total_bytes: progress.bytes, parts: progress.parts, sha256_tree: progress.sha256_tree }));
+            const sealed = await sealBackup(plain, key);
+            const hash = await sha256Hex(plain);
+            const meta = { sha256: hash, "plain-bytes": String(plain.length), source: path };
+            let head = await r2.headObject(daily + ".index.json");
+            if (head) sameHash(head, hash);
+            else {
+              await r2.putObject(daily + ".index.json", sealed, meta);
+              head = await r2.headObject(daily + ".index.json");
+            }
+            verifyHead(head, sealed.length, meta);
+            progress.index = { sha256: hash, plain_bytes: plain.length, enc_bytes: sealed.length };
+            progress.enc_bytes += sealed.length;
+            progress.classes.push("daily");
+            await save();
+            if (expired()) return await continueRun();
+          }
+          for (const cls of gfs.slice(1)) {
+            if (progress.classes.includes(cls)) continue;
+            const destination = offsiteKey(cls, day, source.folder_path, file);
+            for (let i = progress.copies_done[cls] ?? 0; i <= of; i++) {
+              const part = progress.parts[i];
+              const suffix = part ? partSuffix(part.n) : ".index.json";
+              const meta = part ? partMeta(part, of, path) : {
+                sha256: progress.index.sha256, "plain-bytes": String(progress.index.plain_bytes), source: path,
+              };
+              const bytes = part?.enc_bytes ?? progress.index.enc_bytes;
+              let head = await r2.headObject(destination + suffix);
+              if (head) sameHash(head, meta.sha256);
+              else {
+                await r2.copyObject(daily + suffix, destination + suffix);
+                head = await r2.headObject(destination + suffix);
+              }
+              verifyHead(head, bytes, meta);
+              progress.copies_done[cls] = i + 1;
+              if (i === of) progress.classes.push(cls);
+              await save();
+              if (expired()) return await continueRun();
+            }
+          }
+          continue;
+        }
         if (!progress) {
           const blob = checked(await storage.download(path), "storage download");
           if (!blob) throw new Error("storage download: conteúdo ausente");
@@ -175,8 +317,22 @@ export async function runOffsite({ db, r2, key, now }: Deps, { date, budgetMs = 
       try {
         const expected = report.files[path];
         if (!expected) throw new Error("Manifesto não copiado");
-        const plain = await openBackup(await r2.getObject(offsiteKey("daily", day, source.folder_path, "manifest.json")), key);
-        if (await sha256Hex(plain) !== expected.sha256) throw new Error("Hash de readback divergente");
+        const daily = offsiteKey("daily", day, source.folder_path, "manifest.json");
+        if (expected.chunked === true) {
+          for (let i = expected.readback_done ?? 0; i < expected.parts.length; i++) {
+            const part = expected.parts[i];
+            const plain = await openBackup(await r2.getObject(daily + partSuffix(part.n)), key);
+            if (plain.length !== part.plain_bytes || await sha256Hex(plain) !== part.sha256) throw new Error("Hash de readback divergente");
+            expected.readback_done = i + 1;
+            await save();
+            if (expired()) return await continueRun();
+          }
+          const plain = await openBackup(await r2.getObject(daily + ".index.json"), key);
+          if (await sha256Hex(plain) !== expected.index?.sha256) throw new Error("Hash de readback divergente");
+        } else {
+          const plain = await openBackup(await r2.getObject(daily), key);
+          if (await sha256Hex(plain) !== expected.sha256) throw new Error("Hash de readback divergente");
+        }
         source.manifest_verified_at = now().toISOString();
       } catch (error) {
         report.failures.push(`${path}: ${error instanceof Error ? error.message : "falha de readback"}`);

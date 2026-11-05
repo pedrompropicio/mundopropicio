@@ -19,6 +19,9 @@ import {
   type SponsorsParseResult,
 } from "@/lib/parse-sponsors-xlsx";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import * as XLSX from "xlsx";
+import { COUNTRIES } from "@/lib/crm/countries";
+import { useCompany } from "@/hooks/useCompany";
 
 interface Props {
   open: boolean;
@@ -50,10 +53,13 @@ function todayLocalISO(): string {
 export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, eventDate }: Props) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { companyId } = useCompany();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [parsed, setParsed] = useState<SponsorsParseResult | null>(null);
   const [fileName, setFileName] = useState<string>("");
+  const [newSupplierCountry, setNewSupplierCountry] = useState("");
+  const [countryByRow, setCountryByRow] = useState<Record<number, string>>({});
   const [includeKinds, setIncludeKinds] = useState<Record<SponsorImportKind, boolean>>({
     paid: true,
     pending_invoiced: true,
@@ -87,6 +93,8 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
   function reset() {
     setParsed(null);
     setFileName("");
+    setNewSupplierCountry("");
+    setCountryByRow({});
     setIncludeKinds({ paid: true, pending_invoiced: true, pending_post_event: true, barter: true, forecast_only: false });
     setAccountId("");
     setCreateTransactions(true);
@@ -101,6 +109,16 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
     try {
       const buf = await file.arrayBuffer();
       const result = parseSponsorsXlsx(buf);
+      // País apenas da coluna explícita do ficheiro (mesmas aba e linhas do parser).
+      const workbook = XLSX.read(buf, { type: "array" });
+      const normalizeHeader = (value: unknown) => String(value ?? "").normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+      const sheet = workbook.SheetNames.find(name => ["pipe", "patrocinios", "sponsors"].includes(normalizeHeader(name)))!;
+      const matrix = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheet], { header: 1, raw: true, defval: null });
+      const column = (matrix[1] ?? []).findIndex(header => ["pais", "country"].includes(normalizeHeader(header)));
+      setCountryByRow(Object.fromEntries(result.rows.map(row => [row.rowIndex,
+        column < 0 ? "" : String(matrix[row.rowIndex - 1]?.[column] ?? "").trim().toUpperCase()])));
+      setNewSupplierCountry("");
       setParsed(result);
       if (result.totals.countTotal === 0) {
         toast({ title: "Nada para importar", description: "A aba foi lida mas não foram encontradas linhas válidas.", variant: "destructive" });
@@ -115,6 +133,23 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
 
   const filteredRows: ParsedSponsorRow[] = (parsed?.rows || []).filter((r) => includeKinds[r.kind]);
   const needsAccount = filteredRows.some((r) => r.kind === "paid") && createTransactions;
+  const supplierNames = Array.from(new Set(filteredRows.map(row => row.supplierName.trim())));
+  const { data: knownSupplierNames } = useQuery({
+    queryKey: ["sponsors-import-supplier-names", companyId, user?.id, supplierNames],
+    enabled: open && !!companyId && supplierNames.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("suppliers").select("id, name").in("name", supplierNames);
+      if (error) throw error;
+      return (data ?? []).map(row => row.name.toLowerCase());
+    },
+  });
+  const newSupplierNames = knownSupplierNames ? supplierNames.filter(name => !knownSupplierNames.includes(name.toLowerCase())) : [];
+  function countryForNewSupplier(name: string): string | null {
+    const countries = new Set(filteredRows.filter(row => row.supplierName.trim().toLowerCase() === name.toLowerCase())
+      .map(row => countryByRow[row.rowIndex] || newSupplierCountry));
+    const [country] = countries;
+    return countries.size === 1 && /^[A-Z]{2}$/.test(country ?? "") ? country : null;
+  }
 
   const importMutation = useMutation({
     mutationFn: async () => {
@@ -152,12 +187,14 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
         nameToId[(s as any).name.toLowerCase()] = (s as any).id;
       }
       const toCreate = uniqueNames.filter((n) => !nameToId[n.toLowerCase()]);
+      const missingCountries = toCreate.filter(name => !countryForNewSupplier(name));
+      if (missingCountries.length) throw new Error(`Selecione um país; fornecedores não criados (país ausente, inválido ou contraditório): ${missingCountries.join(", ")}`);
       // D-ERP201: regra única da base — NIF igual a um ativo reutiliza; nome parecido
       // cria e fica marcado em supplier_similarity_flags para revisão.
       let suppliersFlagged = 0;
       for (const name of toCreate) {
         const { data: res, error: createErr } = await supabase.rpc("supplier_resolve_or_create" as any, {
-          p_name: name, p_nif: null, p_source: "sponsors_import",
+          p_name: name, p_nif: null, p_source: "sponsors_import", p_country: countryForNewSupplier(name),
         });
         if (createErr) throw createErr;
         const r = res as { id: string; flagged: number };
@@ -456,6 +493,19 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
           </div>
         ) : (
           <div className="space-y-4">
+            {newSupplierNames.length > 0 && <div className="space-y-2">
+              <Label htmlFor="sponsors-new-supplier-country">País dos fornecedores novos</Label>
+              <select id="sponsors-new-supplier-country" value={newSupplierCountry} required
+                onChange={e => setNewSupplierCountry(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                <option value="">Selecionar</option>
+                {Object.entries(COUNTRIES).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+              </select>
+              <p className="text-xs text-muted-foreground">A coluna de país do ficheiro tem prioridade em cada linha.</p>
+              {newSupplierNames.some(name => !countryForNewSupplier(name)) && <p className="text-xs text-destructive" role="status">
+                Fornecedores por criar sem país válido: {newSupplierNames.filter(name => !countryForNewSupplier(name)).join(", ")}
+              </p>}
+            </div>}
             {/* Resumo de Confirmados vs Pipeline */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">

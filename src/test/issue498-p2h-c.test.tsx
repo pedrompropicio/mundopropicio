@@ -205,6 +205,7 @@ describe("#498 P2h-c — UI BR pela RPC", () => {
     expect(screen.getAllByLabelText("Conta")[1]).toHaveValue("");
     expect(screen.getByLabelText("CNPJ")).toHaveValue("");
     expect(screen.getByRole("button", { name: "Guardar Alterações" })).toBeEnabled();
+    await waitFor(() => expect(screen.getByLabelText("País")).toHaveValue("BR"));
     fireEvent.change(screen.getByLabelText("Nome da Entidade *"), { target: { value: "Cadastro alterado" } });
     fireEvent.submit(document.body.querySelector("form")!);
     await waitFor(() => expect(f.writes).toHaveLength(1));

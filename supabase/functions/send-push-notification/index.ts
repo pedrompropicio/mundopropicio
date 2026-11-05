@@ -15,6 +15,9 @@ type Target =
   | { type: "frente_team"; frente_id: string }
   | { type: "company_admins"; company_id: string };
 
+// No system sender is currently authorized to omit its origin company.
+const SYSTEM_SENDERS = new Set<string>();
+
 async function resolveTargetUserIds(
   admin: SupabaseClient,
   target: Target | null,
@@ -73,7 +76,6 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    const token = authHeader.replace(/^Bearer\s+/i, "");
     // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
     const isServiceRole = await isServiceRoleRequest(req);
 
@@ -108,19 +110,47 @@ Deno.serve(async (req) => {
       });
     }
 
-    // The explicit origin also covers service_role + user_ids, before both channels.
-    for (const origin of new Set([body.company_id, callerCompanyId,
-      target?.type === "company_admins" ? target.company_id : null])) {
-      await assertNotTraining(adminClient, origin);
-    }
+    let frenteCompanyId: string | null = null;
     if (target?.type === "frente_team") {
       const { data: frente, error } = await adminClient.from("operacao_frentes")
         .select("company_id").eq("id", target.frente_id).maybeSingle();
       if (error) throw error;
-      await assertNotTraining(adminClient, frente?.company_id);
+      frenteCompanyId = frente?.company_id ?? null;
     }
-    // Resolve target into user_ids
-    const resolvedUserIds = await resolveTargetUserIds(adminClient, target ?? null, user_ids);
+    // Ordered sources must agree, including the active company of a user caller.
+    const origins = new Set<string>([
+      target?.type === "company_admins" ? target.company_id : null,
+      frenteCompanyId,
+      body.company_id,
+      callerCompanyId,
+    ].filter((id): id is string => typeof id === "string" && id.length > 0));
+    if (origins.size > 1) {
+      return new Response(JSON.stringify({ error: "origin_company_mismatch" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const originCompanyId = origins.values().next().value ?? null;
+    if (!originCompanyId && !(isServiceRole && SYSTEM_SENDERS.has(body.system_sender))) {
+      const userWithoutCompany = !isServiceRole && !isPlatformAdmin;
+      return new Response(JSON.stringify({
+        error: userWithoutCompany ? "Caller has no company" : "origin_company_required",
+      }), {
+        status: userWithoutCompany ? 403 : 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    for (const origin of origins) {
+      await assertNotTraining(adminClient, origin);
+    }
+    // Membership applies to every target and both delivery channels.
+    const targetUserIds = await resolveTargetUserIds(adminClient, target ?? null, user_ids);
+    let resolvedUserIds: string[] = [];
+    if (targetUserIds.length > 0) {
+      const { data: members, error } = await adminClient.from("user_roles")
+        .select("user_id").eq("company_id", originCompanyId).in("user_id", targetUserIds);
+      if (error) throw error;
+      resolvedUserIds = Array.from(new Set((members ?? []).map((r: any) => r.user_id)));
+    }
 
     if (resolvedUserIds.length === 0) {
       return new Response(JSON.stringify({ success: true, sent: 0, message: "Sem destinatários" }), {
@@ -128,17 +158,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch push subscriptions filtered by company when caller is a user
-    let query = adminClient.from("push_subscriptions").select("*").in("user_id", resolvedUserIds);
-    if (!isServiceRole) {
-      if (callerCompanyId) {
-        query = query.eq("company_id", callerCompanyId);
-      } else if (!isPlatformAdmin) {
-        return new Response(JSON.stringify({ error: "Caller has no company" }), {
-          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
+    // Service-role and user callers use the same subscription boundary.
+    const query = adminClient.from("push_subscriptions").select("*")
+      .in("user_id", resolvedUserIds).eq("company_id", originCompanyId);
     const { data: subscriptions, error: subError } = await query;
     if (subError) {
       return new Response(JSON.stringify({ error: subError.message }), {
@@ -173,7 +195,8 @@ Deno.serve(async (req) => {
       }
     }
     if (expiredEndpoints.length > 0) {
-      await adminClient.from("push_subscriptions").delete().in("endpoint", expiredEndpoints);
+      await adminClient.from("push_subscriptions").delete()
+        .eq("company_id", originCompanyId).in("endpoint", expiredEndpoints);
     }
 
     // WhatsApp leg (optional)

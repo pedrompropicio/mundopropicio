@@ -219,7 +219,7 @@ describe("#498 — conta BR e colunas opcionais", () => {
     f.country = "BR";
     const other = { slot: 1, account_type: "aba_us", account_number: "123", notes: "original" };
     const bank = { slot: 2, account_type: "br_banco_agencia_conta", bank_name: "Banco", routing_number: "0001", account_number: "00123", notes: "  memo  " };
-    f.queries["supplier-country"] = "BR";
+    f.queries["supplier-country"] = { status: "available", country: "BR" };
     f.queries["supplier-br-details"] = { available: true, details: { foreign_bank_accounts: [other, bank], tax_id_foreign: "12345678000199", tax_id_type: "cnpj" } };
     const { SupplierFormModal: ActualSupplierForm } = await vi.importActual<typeof import("@/components/SupplierFormModal")>("@/components/SupplierFormModal");
     render(h(ActualSupplierForm, { open: true, onOpenChange() {}, editingSupplier: { country: "BR", id: "supplier", name: "Fixture", nif: "PT-OLD" } }));
@@ -235,7 +235,7 @@ describe("#498 — conta BR e colunas opcionais", () => {
   });
   it("editor com 0302 ausente omite os novos campos do payload", async () => {
     f.country = "BR";
-    f.queries["supplier-country"] = "BR";
+    f.queries["supplier-country"] = { status: "available", country: "BR" };
     f.queries["supplier-br-details"] = { available: false, details: null };
     const { SupplierFormModal: ActualSupplierForm } = await vi.importActual<typeof import("@/components/SupplierFormModal")>("@/components/SupplierFormModal");
     render(h(ActualSupplierForm, { open: true, onOpenChange() {}, editingSupplier: { country: "BR", id: "supplier", name: "Fixture" } }));

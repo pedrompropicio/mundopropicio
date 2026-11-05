@@ -85,14 +85,18 @@ export interface SupplierCountryReader {
 }
 
 /** Country is cadastral data: never read bank columns to decide supplier origin. */
-export async function readSupplierCountry(client: SupplierCountryReader, id: string): Promise<string | null> {
+export async function readSupplierCountry(client: SupplierCountryReader, id: string): Promise<
+  { status: "available"; country: string | null } | { status: "unavailable" }
+> {
   try {
     const { data, error } = await client.from("suppliers").select("id,country").eq("id", id).maybeSingle();
     if (error || !data || typeof data !== "object" || !("id" in data) || data.id !== id
-      || !("country" in data) || typeof data.country !== "string" || !/^[A-Z]{2}$/.test(data.country)) return null;
-    return data.country;
+      || !("country" in data)) return { status: "unavailable" };
+    if (data.country === null || data.country === "") return { status: "available", country: null };
+    if (typeof data.country !== "string" || !/^[A-Z]{2}$/.test(data.country)) return { status: "unavailable" };
+    return { status: "available", country: data.country };
   } catch {
-    return null;
+    return { status: "unavailable" };
   }
 }
 

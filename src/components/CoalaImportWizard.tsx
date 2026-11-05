@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatCurrency } from "@/lib/mock-data";
+import { COUNTRIES } from "@/lib/crm/countries";
 
 type Step = "upload" | "review" | "review-duplicates" | "applying" | "resetting" | "done";
 type SyncMode = "replace" | "append";
@@ -25,6 +26,7 @@ interface FuzzyItem {
 
 interface PreviewResp {
   ok: boolean;
+  newSupplierNames?: string[];
   summary: { totalImportable: number; exactDuplicates: number; fuzzyCandidates: number; clean: number };
   exactDuplicates: { rowNumber: number; description: string; netAmount: number }[];
   clean: { rowNumber: number; description: string; netAmount: number }[];
@@ -55,11 +57,14 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
   const [compareResp, setCompareResp] = useState<any | null>(null);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
+  const [newSupplierNames, setNewSupplierNames] = useState<string[]>([]);
+  const [newSupplierCountry, setNewSupplierCountry] = useState("");
 
   const reset = () => {
     setStep("upload"); setFile(null); setFileVersion(""); setParseResp(null);
     setApplyResp(null); setAckTotals(false); setSyncMode("replace");
     setPreviewResp(null); setDecisions({}); setCompareResp(null);
+    setNewSupplierNames([]); setNewSupplierCountry("");
   };
   const close = () => { onOpenChange(false); setTimeout(reset, 250); };
 
@@ -76,6 +81,8 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
       toast({ title: "Faltam dados", description: "Seleciona o ficheiro e indica a versão.", variant: "destructive" });
       return;
     }
+    setNewSupplierNames([]);
+    setNewSupplierCountry("");
     setParsing(true);
     try {
       const fileBase64 = await toBase64(file);
@@ -102,6 +109,7 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       setCompareResp(data);
+      setNewSupplierNames((data as any).newSupplierNames ?? []);
     } catch (e: any) {
       toast({ title: "Erro a comparar", description: e.message, variant: "destructive" });
     } finally { setComparing(false); }
@@ -119,6 +127,7 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
       if ((data as any)?.error) throw new Error((data as any).error);
       const pv = data as PreviewResp;
       setPreviewResp(pv);
+      setNewSupplierNames(pv.newSupplierNames ?? []);
       // pré-preencher decisões com sugestões da IA: same → skip, different → create, unsure → vazio
       const initial: Record<string, Decision> = {};
       for (const r of pv.review) {
@@ -126,7 +135,7 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
         else if (r.ai.verdict === "different" && r.ai.confidence >= 0.75) initial[String(r.rowNumber)] = "create";
       }
       setDecisions(initial);
-      if (pv.review.length === 0) {
+      if (pv.review.length === 0 && !pv.newSupplierNames?.length) {
         // Sem ambíguos → aplicar logo
         await handleApply(initial);
       } else {
@@ -139,6 +148,10 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
 
   async function handleApply(decisionsToUse?: Record<string, Decision>) {
     if (!file || !fileVersion.trim()) return;
+    if (newSupplierNames.length && !/^[A-Z]{2}$/.test(newSupplierCountry)) {
+      toast({ title: "Selecione um país para os fornecedores novos", description: newSupplierNames.join(", "), variant: "destructive" });
+      return;
+    }
     // exigir decisão para todos os ambíguos
     const useD = decisionsToUse ?? decisions;
     if (previewResp) {
@@ -152,9 +165,13 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
     try {
       const fileBase64 = await toBase64(file);
       const { data, error } = await supabase.functions.invoke("apply-coala-bp", {
-        body: { fileBase64, fileName: file.name, fileVersion: fileVersion.trim(), eventId, syncMode, ackTotals: true, phase: "apply", decisions: useD },
+        body: { fileBase64, fileName: file.name, fileVersion: fileVersion.trim(), eventId, syncMode, ackTotals: true, phase: "apply", decisions: useD, newSupplierCountry: newSupplierCountry || null },
       });
-      if (error) throw error;
+      if (error) {
+        const detail = await error.context?.json?.().catch(() => null);
+        if (detail?.error === "supplier_country_required") setNewSupplierNames(detail.missingSuppliers ?? []);
+        throw error;
+      }
       if ((data as any)?.error) throw new Error((data as any).error);
       setApplyResp(data);
       qc.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
@@ -168,14 +185,22 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
 
   async function handleResetReimport() {
     if (!file || !fileVersion.trim()) return;
+    if (newSupplierNames.length && !/^[A-Z]{2}$/.test(newSupplierCountry)) {
+      toast({ title: "Selecione um país para os fornecedores novos", description: newSupplierNames.join(", "), variant: "destructive" });
+      return;
+    }
     setResetConfirmOpen(false);
     setStep("resetting");
     try {
       const fileBase64 = await toBase64(file);
       const { data, error } = await supabase.functions.invoke("apply-coala-bp", {
-        body: { fileBase64, fileName: file.name, fileVersion: fileVersion.trim(), eventId, ackTotals: true, phase: "reset_reimport" },
+        body: { fileBase64, fileName: file.name, fileVersion: fileVersion.trim(), eventId, ackTotals: true, phase: "reset_reimport", newSupplierCountry: newSupplierCountry || null },
       });
-      if (error) throw error;
+      if (error) {
+        const detail = await error.context?.json?.().catch(() => null);
+        if (detail?.error === "supplier_country_required") setNewSupplierNames(detail.missingSuppliers ?? []);
+        throw error;
+      }
       if ((data as any)?.error) throw new Error((data as any).error);
       setApplyResp(data);
       qc.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
@@ -204,6 +229,17 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
             Importador genérico (V13, V14, …). A versão indicada é registada no histórico e na BP Version criada.
           </DialogDescription>
         </DialogHeader>
+
+        {(step === "review" || step === "review-duplicates") && newSupplierNames.length > 0 && <div className="space-y-2">
+          <Label htmlFor="coala-new-supplier-country">País dos fornecedores novos</Label>
+          <select id="coala-new-supplier-country" required value={newSupplierCountry}
+            onChange={e => setNewSupplierCountry(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+            <option value="">Selecionar</option>
+            {Object.entries(COUNTRIES).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+          </select>
+          <p className="text-xs text-muted-foreground">Fornecedores por criar: {newSupplierNames.join(", ")}</p>
+        </div>}
 
         {step === "upload" && (
           <div className="space-y-4">

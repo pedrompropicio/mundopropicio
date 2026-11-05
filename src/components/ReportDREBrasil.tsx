@@ -6,6 +6,9 @@ import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import { fetchPartnerExtras, partnerExtraValue } from "@/lib/partner-extras";
 import { findTicketCategoryId, ticketDreDisplayLabel } from "@/lib/ticket-category";
 import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
+import { BusinessLineFilter } from "@/components/BusinessLineFilter";
+import { filterEventsByBusinessLine, businessLineLabel } from "@/lib/business-line-filter";
+import { useBusinessLines } from "@/hooks/useBusinessLines";
 import { EventNatureFilter } from "@/components/EventNatureFilter";
 import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
 import { useState, useMemo } from "react";
@@ -31,10 +34,12 @@ import { Switch } from "@/components/ui/switch";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { eventCostLines, eventCostMode, groupByEvent, type ReportCostSource } from "@/lib/report-event-cost";
 import { ReportCostSourceToggle } from "@/components/ReportCostSourceToggle";
+import { addParcels, computeEbitda, isEbitdaClass, signedParcelsFromLines, type EbitdaClassMap } from "@/lib/ebitda";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
 interface DRELine {
+  ebitda?: number;
   label: string;
   code?: string;
   amountExIva: number;
@@ -75,7 +80,8 @@ function buildDREBrasil(
   parentEventId?: string | null,
   closingCosts?: any[],
   partnerExtras?: any[],
-  childEventIds?: string[]
+  childEventIds?: string[],
+  ebitdaClassMap?: EbitdaClassMap,
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -171,7 +177,13 @@ function buildDREBrasil(
 
   // Result = Receitas s/IVA − Despesas c/IVA (já inclui overheads quando vista do sócio ON)
   const resultGrossExp = totalIncEx - totalExpInc;
-  lines.push({ label: "RESULTADO", amountExIva: resultGrossExp, ivaAmount: 0, amountIncIva: resultGrossExp, isGrandTotal: true });
+  lines.push({ label: "RESULTADO", amountExIva: resultGrossExp, ivaAmount: 0, amountIncIva: resultGrossExp, isGrandTotal: true,
+    // Mesmas linhas/base Brasil: receitas líquidas e despesas com IVA.
+    ebitda: ebitdaClassMap ? computeEbitda(resultGrossExp, addParcels(
+      signedParcelsFromLines(incomes, ebitdaClassMap, false),
+      signedParcelsFromLines(expensesWithOverhead, ebitdaClassMap, true),
+    )).ebitda : undefined,
+  });
 
   // Partner distribution
   const resolvedPartnerId = parentEventId || eventId;
@@ -264,6 +276,8 @@ export default function ReportDREBrasil() {
   const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("ticket_sales");
   const [showPartnerView, setShowPartnerView] = useState(false);
 
+  const [lineFilter, setLineFilter] = useState<string[]>([]);
+  const { data: businessLines = [] } = useBusinessLines(false);
   const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
   // #218 (D-ERP244): custo de evento pelo BP (padrão), mesma função do DRE; "Transações" só comparação, nunca gravado.
   const [costSource, setCostSource] = useState<ReportCostSource>("bp");
@@ -276,7 +290,9 @@ export default function ReportDREBrasil() {
     },
   });
   // #256: o filtro só restringe o conjunto de eventos; vazio = todos (resultado idêntico).
-  const events = useMemo(() => filterEventsByNature(allEvents as any[], natureFilter) as typeof allEvents, [allEvents, natureFilter]);
+  const events = useMemo(() => filterEventsByBusinessLine(
+    filterEventsByNature(allEvents as any[], natureFilter), lineFilter,
+  ) as typeof allEvents, [allEvents, natureFilter, lineFilter]);
 
   const { data: transactionsRaw = [] } = useQuery({
     queryKey: ["transactions", "dre-brasil"],
@@ -543,11 +559,17 @@ export default function ReportDREBrasil() {
     return evtTx;
   }
 
+  const ebitdaClassMap = useMemo(() => {
+    const map: EbitdaClassMap = {};
+    for (const category of categories as any[]) if (isEbitdaClass(category.ebitda_class)) map[category.id] = category.ebitda_class;
+    return map;
+  }, [categories]);
+
   const eventSummaries = activeEvents.map((e) => {
     const evtTx = getEffectiveTransactions(e.id);
     const parentEvt = (e as any).parent_event_id ? events.find((pe) => pe.id === (e as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (e as any).partner_calc_basis || "net_result";
-    const dre = buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], childrenByParent[e.id]);
+    const dre = buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], childrenByParent[e.id], ebitdaClassMap);
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
     const resLine = dre.find((l) => l.isGrandTotal);
@@ -558,6 +580,7 @@ export default function ReportDREBrasil() {
       totalIncEx: revLine?.amountExIva ?? 0,
       totalExpInc: expLine?.amountIncIva ?? 0,
       resultBrasil: resLine?.amountExIva ?? 0,
+      ebitdaEx: resLine?.ebitda ?? 0,
       retainedEx: retainedLine?.amountExIva ?? null,
       txCount: evtTx.length,
       hasPartners: !!retainedLine,
@@ -567,6 +590,20 @@ export default function ReportDREBrasil() {
   const globalIncEx = eventSummaries.reduce((s, e) => s + e.totalIncEx, 0);
   const globalExpInc = eventSummaries.reduce((s, e) => s + e.totalExpInc, 0);
   const globalResult = globalIncEx - globalExpInc;
+  const globalEbitda = eventSummaries.reduce((sum, e) => sum + e.ebitdaEx, 0);
+  const businessLineTotals = new Map(
+    [...businessLines.map((line) => line.id), "__sem_linha__"].map((id) => [id, { revenue: 0, cost: 0, ebitda: 0, result: 0 }]),
+  );
+  eventSummaries.forEach((e) => {
+    const master = e.parent_event_id ? allEvents.find((parent) => parent.id === e.parent_event_id) : null;
+    const id = ((master ?? e) as any).business_line_id ?? "__sem_linha__";
+    const row = businessLineTotals.get(id) ?? { revenue: 0, cost: 0, ebitda: 0, result: 0 };
+    row.revenue += e.totalIncEx;
+    row.cost += e.totalExpInc;
+    row.ebitda += e.ebitdaEx;
+    row.result += e.resultBrasil;
+    businessLineTotals.set(id, row);
+  });
 
   // Distribuição global aos sócios (excluindo a Mundo Propício, que é a sócia
   // principal/proprietária do sistema e tem o seu próprio agregado).
@@ -602,7 +639,9 @@ export default function ReportDREBrasil() {
 
   if (eventsWithTransactions.length === 0) {
     return (
-      <div className="flex items-center justify-center py-20">
+      <div className="space-y-4">
+        <EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
+        <BusinessLineFilter value={lineFilter} onChange={setLineFilter} />
         <p className="text-muted-foreground">Nenhum evento com base de cálculo "Despesas c/IVA" encontrado.</p>
       </div>
     );
@@ -617,6 +656,7 @@ export default function ReportDREBrasil() {
           <button onClick={toggleAll} className="text-xs text-primary hover:underline">
             {selectedEventIds.length === eventsWithTransactions.length ? "Desmarcar todos" : "Selecionar todos"}
           </button><EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
+        <BusinessLineFilter value={lineFilter} onChange={setLineFilter} />
           <ReportCostSourceToggle value={costSource} onChange={setCostSource} />
 
         </div>
@@ -749,6 +789,39 @@ export default function ReportDREBrasil() {
           </div>
         )}
       </div>
+
+      <section aria-label="Total por linha de negócio" className="glass rounded-xl p-4 space-y-3 overflow-x-auto">
+        <p className="font-semibold text-sm">Total por linha de negócio</p>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Linha de negócio</TableHead>
+              <TableHead className="text-right">Receita</TableHead>
+              <TableHead className="text-right">Custo</TableHead>
+              <TableHead className="text-right">EBITDA</TableHead>
+              <TableHead className="text-right">Resultado</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from(businessLineTotals, ([id, row]) => (
+              <TableRow key={id}>
+                <TableCell>{businessLineLabel(id, businessLines)}</TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(row.revenue)}</TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(row.cost)}</TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(row.ebitda)}</TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(row.result)}</TableCell>
+              </TableRow>
+            ))}
+            <TableRow className="font-semibold">
+              <TableCell>Total</TableCell>
+              <TableCell className="text-right font-mono">{formatCurrency(globalIncEx)}</TableCell>
+              <TableCell className="text-right font-mono">{formatCurrency(globalExpInc)}</TableCell>
+              <TableCell className="text-right font-mono">{formatCurrency(globalEbitda)}</TableCell>
+              <TableCell className="text-right font-mono">{formatCurrency(globalResult)}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </section>
 
       <div className="space-y-3">
         {eventSummaries.map((evt) => {

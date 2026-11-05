@@ -135,7 +135,7 @@ function hash(html: string) {
 function form() { return <SupplierFormModal open onOpenChange={() => {}} editingSupplier={supplier} />; }
 function submit() { fireEvent.submit(document.body.querySelector("form")!); }
 function brDetails(value: string | null = "11222333000181", type: string | null = "cnpj") {
-  f.queries["supplier-country"] = f.country;
+  f.queries["supplier-country"] = { status: "available", country: f.country };
   f.queries["supplier-br-details"] = { available: true, details: {
     foreign_bank_accounts: [], tax_id_foreign: value, tax_id_type: type,
   } };
@@ -262,7 +262,7 @@ describe("#585 P1o — pesquisa de Entidades", () => {
 });
 
 describe("#585 P1o — apresentação fiscal BR e payload cru", () => {
-  beforeEach(() => { f.country = "BR"; f.currency = "BRL"; f.queries["supplier-country"] = "BR"; });
+  beforeEach(() => { f.country = "BR"; f.currency = "BRL"; f.queries["supplier-country"] = { status: "available", country: "BR" }; });
   it.each([
     ["11222333000181", "cnpj", "11.222.333/0001-81"],
     ["12345678900", "cpf", "123.456.789-00"],

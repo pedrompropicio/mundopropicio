@@ -53,6 +53,7 @@ vi.mock("@/components/HelpTooltip", () => ({ default: () => null }));
 vi.mock("@/components/SupplierPortalUserLink", () => ({ SupplierPortalUserLink: () => null }));
 vi.mock("@/components/SystemRemindersBanner", () => ({ default: () => null }));
 vi.mock("@/components/CompanyBudgetModeCard", () => ({ CompanyBudgetModeCard: () => null }));
+vi.mock("@/components/BusinessLinesCard", () => ({ BusinessLinesCard: () => null }));
 vi.mock("@/lib/audit", () => ({ logAudit: vi.fn(), getAuditUser: () => "fixture" }));
 vi.mock("@/components/ui/overlay-layer", () => ({
   OverlayLayer: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
