@@ -20,6 +20,9 @@ import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 import { eventCostLines, eventCostMode, groupByEvent, type ReportCostSource } from "@/lib/report-event-cost";
 import { ReportCostSourceToggle } from "@/components/ReportCostSourceToggle";
+import { useEventTreasuryBridge } from "@/hooks/useEventTreasuryBridge";
+import { TreasuryBridgeTable } from "@/components/treasury/TreasuryBridgeView";
+import { TREASURY_NOTES } from "@/lib/treasury-bridge";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { formatMoney } from "@/lib/company-locale";
 import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
@@ -313,6 +316,7 @@ export default function ReportDRE() {
   const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("transactions");
   const [showPartnerView, setShowPartnerView] = useState(false);
   const [showEbitda, setShowEbitda] = useState(false);
+  const [showTreasury, setShowTreasury] = useState(false);
 
   const [lineFilter, setLineFilter] = useState<string[]>([]);
   const { data: businessLines = [] } = useBusinessLines(false);
@@ -603,6 +607,20 @@ export default function ReportDRE() {
   })();
 
   const activeEvents = expandedActiveEvents;
+  const treasury = useEventTreasuryBridge([...selectedParentIds, ...activeEvents.map((e) => e.id)], showTreasury);
+  const renderTreasury = (eventId: string) => {
+    if (!showTreasury) return null;
+    const node = treasury.nodes?.[eventId];
+    return <section aria-label="Onde está o dinheiro" className="border-t border-border/30 p-4">
+      {treasury.error ? <p role="alert" className="text-sm text-destructive">Não foi possível carregar a ponte da Tesouraria.</p>
+        : treasury.loading ? <p role="status" className="text-sm text-muted-foreground">A carregar a ponte da Tesouraria…</p>
+        : node && companyLocale.status === "available" ? <>
+          {node.cashDetail && <p className="text-sm text-muted-foreground">Detalhe de timing, retido, caixa e pendentes. O resultado e os sócios são apurados no Master.</p>}
+          {node.source && <p className="text-xs text-muted-foreground">{node.source}</p>}
+          <TreasuryBridgeTable node={node} locale={companyLocale} />
+        </> : <p className="text-sm text-muted-foreground">Ponte indisponível para este evento ou configuração da empresa.</p>}
+    </section>;
+  };
 
   // #339 B — receita do Master com regra de repartição: a cidade vê a fatia da
   // regra; sem regra mantém-se ÷N (comportamento anterior, sem regressão).
@@ -753,7 +771,13 @@ export default function ReportDRE() {
         </div>
 <EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
         <BusinessLineFilter value={lineFilter} onChange={setLineFilter} />
-        <ReportCostSourceToggle value={costSource} onChange={setCostSource} />
+        <div className="flex flex-wrap items-center gap-4">
+          <ReportCostSourceToggle value={costSource} onChange={setCostSource} />
+          <div className="flex items-center gap-2">
+            <Switch id="dre-treasury" checked={showTreasury} onCheckedChange={setShowTreasury} />
+            <Label htmlFor="dre-treasury" className="cursor-pointer text-sm">Onde está o dinheiro</Label>
+          </div>
+        </div>
         <div className="flex flex-col gap-2">
           {eventsWithTransactions.filter((e) => !e.parent_event_id).map((e) => {
             const children = eventsWithTransactions.filter((c) => c.parent_event_id === e.id);
@@ -1040,6 +1064,7 @@ export default function ReportDRE() {
                   )}
                 </div>
               )}
+              {renderTreasury(evt.id)}
             </div>
           );
         })}
@@ -1166,9 +1191,14 @@ export default function ReportDRE() {
                 })()}
               </div>
             )}
+            {renderTreasury(parentId)}
           </div>
         );
       })}
+      {showTreasury && <aside className="space-y-2 text-sm text-muted-foreground">
+        {TREASURY_NOTES.map((note) => <p key={note}>{note}</p>)}
+        <a href="/erp/tesouraria" className="text-primary underline">Ver Tesouraria</a>
+      </aside>}
     </div>
   );
 }
