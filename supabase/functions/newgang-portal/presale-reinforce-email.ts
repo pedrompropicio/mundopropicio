@@ -5,7 +5,7 @@ import { REMINDER_HEADER_BASE } from "./reminder-email.ts";
 export const PRESALE_SUBJECT = "O teu código da pré-venda Newgang 27 (válido até 10/11)";
 export const PRESALE_TEST_PREFIX = "[TESTE] ";
 /** Link de compra do Clube na Fever (fonte única no código). */
-export const FEVER_CLUB_URL = "https://feverup.com/m/826449";
+export const FEVER_CLUB_URL = "https://feverup.com/m/821990";
 export const PRESALE_LINK = `${FEVER_CLUB_URL}?utm_source=clube&utm_medium=email&utm_campaign=ng27_prevenda_reforco`;
 export const PRESALE_CODES = ["NEWGANG27A", "NEWGANG27B"] as const;
 
