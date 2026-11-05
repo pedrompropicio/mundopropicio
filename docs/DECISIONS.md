@@ -6606,3 +6606,14 @@ Origem: 0 · Cowork (Claude), 31/10/2026.
 - Venda geral a 10/11/2026, pública (early_bird.general_sale_date = 2026-11-10). Substitui «vendas gerais 01/12/2026, interna, não divulgar».
 - Sem preço no portal: early_bird.price_label = "".
 - O envio do aviso de abertura continua da Fever (D-ERP337); o dry run de 03/11 do coala_send_eb_open_alert não se aplica.
+
+## D-ERP354 — O ERP é gerencial; a análise de IVA é do contabilista (04/11/2026, Pedro, via 0 · Cowork; Issue #669)
+
+- Nas empresas do grupo, o ERP é **gerencial, não contabilístico**. A análise e a conferência de IVA são do contabilista. Os chats e o executor não fazem lotes de conferência de IVA.
+- O sistema continua preparado para tratar a informação do IVA europeu (taxa, base, marca de não recuperável, export para a contabilidade), apenas como tratamento de informação.
+- Uma empresa que use o ERP de forma contabilística é uma questão de gestão de dados dessa empresa, não de funcionalidade do sistema.
+- Efeitos:
+  - acabam os lotes de IVA iniciados na #257; as 3 marcações já feitas ficam como estão e a confirmação segue com a contabilidade, no fluxo normal;
+  - o lote 669-b (contábil × gerencial) é um **filtro de informação** para os relatórios da operadora, não um motor contabilístico; antes de criar coluna nova reaproveita-se a marca de conta gerencial (#235, `supabase/functions/_shared/accountant-account-filter.ts`) e `transaction_documents.is_accounting`, e só se cria coluna com prova de que não chega;
+  - na #664, a correcção do país do fornecedor justifica-se pela qualidade do cadastro e pelo SaaS/BR, não pela conferência de IVA.
+- Fonte: [#669, comentário 6643068303](https://github.com/pedrompropicio/mundopropicio/issues/669#issuecomment-6643068303).
