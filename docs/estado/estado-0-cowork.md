@@ -10,12 +10,14 @@
 
 **Comando actual:** «0 - Cowork (MP)», desde 05/11/2026 (decisão do Pedro). Handoff: `../handoffs/2026-11-05-0-cowork-pessoal-para-mp.md`.
 
+**Despacho ao executor:** desde 05/11 16:51 o 0 (MP) escreve directamente Reserva e Despacho (PROC-despacho-executor), além do operador `mplabs-dev`. A fila do executor é **por Issue**: Issues diferentes correm em paralelo. Rondas do 0 de 20 em 20 min (tarefa agendada nesta conversa).
+
 ## Pendentes abertos (o 0 de comando mantém esta lista)
 1. #647: confirmar a 1.ª corrida dos crons 15703 e 15704 (06/11, 04:17 e 04:53 UTC) em `cron.job_run_details`.
-2. #646 D2: D2-c em `main` (`a54f3fe`). **Gate:** o Publish do ERP só sai depois de o 0 correr `docs/testes/issue646/conferencia-d2.sql` em Live (só SELECT) e fechar a conferência. Autorizados D2-d (6663210910), D2-f (6663212161) e D2-e (6663213468, depois do #564 em `main`).
+2. #646 D2: D2-c em `main`. **Gate:** o Publish do ERP só sai depois de o 0 correr `docs/testes/issue646/conferencia-d2.sql` em Live (só SELECT) e fechar a conferência. D2-d despachado em dois tempos (plano 6665661392); depois D2-f (6663212161) e D2-e (6663213468, depois do #564 em `main`).
 3. #664: código completo em `main`. Falta a janela: 0340 → deploys (`sync-coala-from-drive`, `test-multi-tenant-isolation`) → Publish → país nas configurações Coala → PARTE 2 da 0335 com provas → DML dos dados pela lista do chat 10.
 4. #669: 669-c em `main` (`18db40a`); entra no Publish, com prova no ecrã.
-5. #695: 695-a parado por conflito no critério 3; respondido por delegação (6662955867), a voltar a despachar.
+5. #695: 695-a em `main` (`d8881d2`); entra no Publish, com prova no ecrã. Lacuna: o aviso (a) não existe na edição (o modal não recebe a data lida).
 6. #677: preparação da importação da Social Music de 2026 (1B/2A). Só depois da #664.
 7. #405: envio do reforço NG27 a 06/11 — executor 0 pessoal (decisão do Pedro, 13:57). O 0 MP não actua.
 8. #675 / 0334 / SLE: suspensos até ao 647-d-portal.
@@ -23,11 +25,19 @@
 10. Coala, venda geral a 10/11: apagar `early_bird.general_sale_date` com «Corro?» (#359). A tarefa agendada estava na conta pessoal: recriar do lado MP.
 11. #603: decidir onde corre o piloto, na conta Lovable actual ou numa conta nova, e registar a escolha e o motivo na #603. Decisão do Pedro com o 0 (MP).
 12. Sync lovable/dev → main com o `4a7da40` (link Fever), que ainda não passou pelo CI.
-13. #314: 314-b autorizado (na fila do operador). Na janela, a 0323 tem de estar aplicada antes do Publish do 314-b.
+13. #314: 314-b em `main` (`549c8a7`). **Na janela, a 0323 aplica-se antes do Publish.** Nota para a #591: a lista de bancos do diálogo «Confirmar crédito» não filtra por empresa (depende de RLS).
 14. QUADRO «Em execução agora»: higiene das linhas com mais de 24 h autorizada ao operador (R0), depois do merge do #702.
-15. Janela de Publish de 05/11: plano em `docs/janela/2026-11-05-publish.md` (PR #702), por corrigir — tem 9 passos já feitos de manhã (revisão 6662181445). Publish geral ao fim do dia (decisão do Pedro, 14:45).
+15. Janela de Publish de 05/11: o plano do PR #702 ainda lista como pendentes passos já feitos de manhã (revisão 6662181445); o 0 prepara a lista final. Publish geral ao fim do dia (decisão do Pedro, 14:45).
 
 ## Registo (mais recente primeiro)
+- 05/11 18:16 · 0 MP · #646 · Reserva (6665654961) e Despacho D2-d tempo 1 «plano» (6665661392) · despachado.
+- 05/11 18:05 · 0 MP · #314 · merge do PR #709 (314-b; squash `549c8a7`; quality verde), com «Sim» do Pedro · ok.
+- 05/11 18:05 · 0 MP · #695 · merge do PR #707 (695-a; squash `d8881d2`; quality verde), com «Sim» do Pedro · ok.
+- 05/11 17:58 · 0 MP · #314 · PR #708 (duplicado do 314-b, do despacho do 0) fechado sem merge; fica o #709 do despacho do operador · ok.
+- 05/11 17:12 · 0 MP · #314 · Reserva (6664297143) e Despacho 314-b (6664309176) · despachado; o operador despachou também às 17:27 (6664655200), que prevaleceu.
+- 05/11 16:51 · 0 MP · #695 · Despacho 695-a com o critério 3 corrigido (6663829765) · despachado.
+- 05/11 16:56 · Pedro · — · rondas do 0 passam a 20 em 20 min; o 0 despacha directamente ao executor · decisão.
+- 05/11 16:47 · 0 MP · — · merge do PR #706 (diário; squash `4c2d915`) · ok.
 - 05/11 16:25 · 0 MP · #646 · Autorizações D2-d (R2, 6663210910), D2-f (R2, 6663212161) e D2-e (R1, 6663213468), com as decisões do Pedro confirmadas no chat do 0 · emitidas.
 - 05/11 16:24 · 0 MP · #669 · merge do PR #705 (669-c; squash `18db40a`; quality verde), com «Sim» do Pedro · ok.
 - 05/11 16:24 · 0 MP · #646 · merge do PR #704 (D2-c; squash `a54f3fe`; quality verde), com «Sim» do Pedro · ok.
