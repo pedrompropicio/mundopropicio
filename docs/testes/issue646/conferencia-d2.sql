@@ -181,6 +181,10 @@ SELECT p.reference_date, p.ano, u.*,
   coalesce(st.partially_paid_n, 0) AS partially_paid_n, coalesce(st.partially_paid_unpaid, 0) AS partially_paid_unpaid,
   coalesce(st.pending_n, 0) AS pending_n, coalesce(st.pending_unpaid, 0) AS pending_unpaid,
   coalesce(re.committed, 0) AS committed_expected_rpc,
+  (SELECT coalesce(sum(t.sign * t.unpaid), 0) FROM tx t
+    WHERE t.event_id IS NOT DISTINCT FROM u.id AND t.liquid
+      AND t.status IN ('approved', 'partially_paid')
+      AND t.amount IS NOT NULL AND t.paid_amount IS NOT NULL) AS committed_expected_rpc_0342,
   coalesce(st.partial_missing_from_rpc, 0) AS partial_missing_from_rpc,
   coalesce(re.pending, 0) AS pending_expected_rpc,
   (SELECT jsonb_agg(to_jsonb(sa) - 'event_id') FROM status_by_account sa WHERE sa.event_id IS NOT DISTINCT FROM u.id) AS unpaid_by_account,

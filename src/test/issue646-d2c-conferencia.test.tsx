@@ -214,7 +214,7 @@ describe("#646 D2-c — conferência no ecrã", () => {
     expect(within(excluded).getByRole("row", { name: /Cancelado com caixa/ })).toHaveTextContent("cancelado");
     const partial = within(region).getByRole("row", { name: /Pagamento parcial/ });
     expect(partial).toHaveTextContent("partially_paid"); expect(partial).toHaveTextContent("Saldo: 60,00");
-    expect(partial).toHaveTextContent("Saldo excluído de committed pelo RPC · R2 pendente");
+    expect(partial).toHaveTextContent("Saldo por pagar em committed do RPC caixa (0342)");
     expect(partial).toHaveTextContent("Banco de prova (bank)");
     const committed = within(region).getByRole("row", { name: /Compromisso aprovado/ });
     expect(committed).toHaveTextContent("committed: -60,00"); expect(committed).toHaveTextContent("pending: -30,00");
