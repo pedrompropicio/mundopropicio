@@ -3834,6 +3834,41 @@ export type Database = {
         }
         Relationships: []
       }
+      business_lines: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_lines_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cache_payment_contract_cities: {
         Row: {
           advances: number
@@ -13102,6 +13137,7 @@ export type Database = {
           ads_match_aliases: string[]
           budget: number
           budget_mode: string | null
+          business_line_id: string | null
           city_id: string | null
           closed_at: string | null
           closed_by: string | null
@@ -13172,6 +13208,7 @@ export type Database = {
           ads_match_aliases?: string[]
           budget?: number
           budget_mode?: string | null
+          business_line_id?: string | null
           city_id?: string | null
           closed_at?: string | null
           closed_by?: string | null
@@ -13242,6 +13279,7 @@ export type Database = {
           ads_match_aliases?: string[]
           budget?: number
           budget_mode?: string | null
+          business_line_id?: string | null
           city_id?: string | null
           closed_at?: string | null
           closed_by?: string | null
@@ -13302,6 +13340,13 @@ export type Database = {
           vip_coupon_valid_until?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "events_business_line_id_fkey"
+            columns: ["business_line_id"]
+            isOneToOne: false
+            referencedRelation: "business_lines"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "events_city_id_fkey"
             columns: ["city_id"]
@@ -23969,6 +24014,7 @@ export type Database = {
           ads_match_aliases: string[]
           budget: number
           budget_mode: string | null
+          business_line_id: string | null
           city_id: string | null
           closed_at: string | null
           closed_by: string | null
@@ -24688,6 +24734,7 @@ export type Database = {
       _supplier_resolve_or_create: {
         Args: {
           p_company_id: string
+          p_country?: string
           p_name: string
           p_nif: string
           p_source: string
@@ -24861,7 +24908,11 @@ export type Database = {
         }[]
       }
       anonymize_song_link_events: {
-        Args: { p_batch?: number; p_days?: number }
+        Args: {
+          p_batch?: number
+          p_days_other?: number
+          p_days_protected?: number
+        }
         Returns: number
       }
       anonymize_traffic_events: {
@@ -28178,6 +28229,10 @@ export type Database = {
         Args: { p_from: string; p_to: string }
         Returns: number
       }
+      song_link_is_protected_zone: {
+        Args: { p_country: string }
+        Returns: boolean
+      }
       song_link_public_get: {
         Args: { p_slug: string }
         Returns: {
@@ -28297,7 +28352,12 @@ export type Database = {
         Returns: Database["public"]["Enums"]["bp_formalidade"]
       }
       supplier_resolve_or_create: {
-        Args: { p_name: string; p_nif: string; p_source: string }
+        Args: {
+          p_country?: string
+          p_name: string
+          p_nif: string
+          p_source: string
+        }
         Returns: Json
       }
       test_latest_backup: { Args: never; Returns: Json }
