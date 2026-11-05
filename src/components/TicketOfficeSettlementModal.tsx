@@ -525,13 +525,14 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     if (venueRetainedExceedsInvoice) {
       return toast.error("Valor retido excede o saldo da fatura escolhida");
     }
-    const transferAmt = !byStatement && transferAmount ? Number(transferAmount) : 0;
-    if (transferAmt > 0 && !transferAccountId) {
-      return toast.error("Selecione a conta destino da transferência");
-    }
+    // Sem destino, o direito conhecido já nasce a receber; um valor explícito
+    // mantém o repasse parcial. O caminho com conta conserva o valor informado.
+    const transferAmt = byStatement ? 0
+      : transferAmount ? Number(transferAmount)
+      : !transferAccountId ? Math.max(0, netFinal) : 0;
     if (!byStatement && transferAccountId && !(transferAmt > 0)) {
       return toast.error("Falta o valor da transferência", {
-        description: 'Preencha o valor a transferir ou escolha "— Não transferir agora —".',
+        description: 'Preencha o valor a transferir ou escolha "— Banco na liquidação —".',
       });
     }
 
@@ -649,8 +650,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       // #296: tudo numa só transação na base (save_ticket_office_settlement).
       // Mesma ordem e regras de antes: fecho → transferência → deduções →
       // compensação do retido → saldo restante → conciliação. Falha = nada gravado.
-      const isCredited = creditStatus === "credited" && !targetWithholds;
-      const wantsTransfer = confirm && transferAmt > 0 && !!transferAccountId && !byStatement && !existingSettlement?.transfer_transaction_id;
+      const isCredited = !!transferAccountId && creditStatus === "credited" && !targetWithholds;
+      const wantsTransfer = confirm && transferAmt > 0 && !byStatement && !existingSettlement?.transfer_transaction_id;
       const selected = eligibleTxns
         .filter((t: any) => selectedTxnIds.has(t.id))
         .map((t: any) => ({ id: t.id, paid_amount: txnGross(t) }));
@@ -1180,7 +1181,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                   <StepHeader
                     n={stepNo.transfer}
                     icon={<ArrowRightLeft className="h-4 w-4" />}
-                    title={byStatement ? "Forma de liquidação" : "Transferência para banco (opcional)"}
+                    title={byStatement ? "Forma de liquidação" : "Repasse da bilheteira"}
                   />
                   {byStatement && (
                     <div className="rounded-lg border border-sky-500/40 bg-sky-500/5 p-4 space-y-1 text-xs">
@@ -1248,18 +1249,19 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                   {!transferAlreadyDone && !byStatement && (
                   <div className="rounded-lg border border-border p-4 space-y-3">
                     <p className="text-xs text-muted-foreground">
-                      Pode adiar — o direito fica retido na bilheteira até transferência manual.
+                      Repasse a receber — banco na liquidação
                     </p>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1">
-                        <Label className="text-xs">Conta destino</Label>
+                        <Label htmlFor="settlement-transfer-account" className="text-xs">Conta destino (opcional)</Label>
                         <select
+                          id="settlement-transfer-account"
                           value={transferAccountId}
                           onChange={(e) => setTransferAccountId(e.target.value)}
                           disabled={!canEdit}
                           className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                         >
-                          <option value="">— Não transferir agora —</option>
+                          <option value="">— Banco na liquidação —</option>
                           {bankAccounts.map((a: any) => (
                             <option key={a.id} value={a.id}>
                               {a.name}{a.withholds_revenue ? " (sala c/ retenção)" : ""}
@@ -1268,8 +1270,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         </select>
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Valor a transferir</Label>
+                        <Label htmlFor="settlement-transfer-amount" className="text-xs">Valor a transferir</Label>
                         <Input
+                          id="settlement-transfer-amount"
                           type="number"
                           step="0.01"
                           value={transferAmount}
@@ -1294,35 +1297,38 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                       </div>
                     )}
 
-                    {transferAccountId && Number(transferAmount || 0) > 0 && !targetWithholds && (
+                    {Number(transferAmount || (!transferAccountId ? netFinal : 0)) > 0 && !targetWithholds && (
                       <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
                         <Label className="text-xs text-muted-foreground">Estado do crédito na conta destino</Label>
                         <div className="grid gap-2 sm:grid-cols-2">
                           <label className={`flex items-start gap-2 rounded-md border p-2 cursor-pointer transition-colors ${
-                            creditStatus === "credited" ? "border-emerald-500/40 bg-emerald-500/5" : "border-border hover:bg-muted/40"
+                            transferAccountId && creditStatus === "credited" ? "border-emerald-500/40 bg-emerald-500/5" : "border-border hover:bg-muted/40"
                           }`}>
                             <input
                               type="radio"
                               name="creditStatus"
                               value="credited"
-                              checked={creditStatus === "credited"}
+                              checked={!!transferAccountId && creditStatus === "credited"}
                               onChange={() => setCreditStatus("credited")}
-                              disabled={!canEdit}
+                              disabled={!canEdit || !transferAccountId}
+                              aria-describedby={!transferAccountId ? "settlement-credit-bank-required" : undefined}
                               className="mt-0.5"
                             />
                             <div className="text-xs">
                               <p className="font-semibold">Já creditado</p>
-                              <p className="text-muted-foreground">Movimento criado liquidado na data do fecho.</p>
+                              <p id="settlement-credit-bank-required" className="text-muted-foreground">
+                                {transferAccountId ? "Movimento criado liquidado na data do fecho." : "Crédito confirmado exige banco; sem banco o repasse fica a receber."}
+                              </p>
                             </div>
                           </label>
                           <label className={`flex items-start gap-2 rounded-md border p-2 cursor-pointer transition-colors ${
-                            creditStatus === "pending" ? "border-amber-500/40 bg-amber-500/5" : "border-border hover:bg-muted/40"
+                            !transferAccountId || creditStatus === "pending" ? "border-amber-500/40 bg-amber-500/5" : "border-border hover:bg-muted/40"
                           }`}>
                             <input
                               type="radio"
                               name="creditStatus"
                               value="pending"
-                              checked={creditStatus === "pending"}
+                              checked={!transferAccountId || creditStatus === "pending"}
                               onChange={() => setCreditStatus("pending")}
                               disabled={!canEdit}
                               className="mt-0.5"
@@ -1333,12 +1339,13 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                             </div>
                           </label>
                         </div>
-                        {creditStatus === "pending" && (
+                        {(!transferAccountId || creditStatus === "pending") && (
                           <div className="space-y-1 pt-1">
                             <Label className="text-xs text-muted-foreground">Data prevista do crédito (opcional)</Label>
                             <DatePicker
                               value={expectedCreditDate}
                               onChange={setExpectedCreditDate}
+                              clearable
                               disabled={!canEdit}
                             />
                           </div>

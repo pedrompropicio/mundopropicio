@@ -36,7 +36,25 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
   const [reversingId, setReversingId] = useState<string | null>(null);
   const [reverseReason, setReverseReason] = useState("");
   const [confirmingCredit, setConfirmingCredit] = useState<any | null>(null);
-  const [creditDate, setCreditDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [creditDate, setCreditDate] = useState("");
+  const [creditAccountId, setCreditAccountId] = useState("");
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { data: creditBankAccounts = [], isError: creditBanksError } = useQuery({
+    queryKey: ["settlement_credit_bank_accounts", confirmingCredit?.company_id, user?.id],
+    enabled: canManage && !!confirmingCredit?.company_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("financial_accounts")
+        .select("id, name")
+        .eq("company_id", confirmingCredit.company_id)
+        .eq("type", "bank")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   const { data: settlements = [], isLoading } = useQuery({
     queryKey: ["ticket_office_settlements", officeId],
@@ -60,13 +78,28 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
   });
 
   const confirmCreditMutation = useMutation({
-    mutationFn: async ({ transferId, date }: { transferId: string; date: string }) => {
+    mutationFn: async ({ transferId, date, accountId, companyId }: { transferId: string; date: string; accountId: string; companyId: string }) => {
+      if (!date || date > today) throw new Error("Indique uma data do crédito não futura");
+      if (!companyId || !creditBankAccounts.some((a) => a.id === accountId)) {
+        throw new Error("Crédito confirmado exige banco; selecione uma conta bancária da empresa");
+      }
       const { data: tt, error: readErr } = await (supabase as any)
         .from("transactions")
         .select("amount, operation_key, reversed_at")
         .eq("id", transferId)
+        .eq("company_id", companyId)
         .single();
       if (readErr) throw readErr;
+      // O destino pertence apenas à entrada; a saída mantém a conta da bilheteira.
+      const destination = (supabase as any).from("transactions")
+        .update({ account_id: accountId })
+        .eq("company_id", companyId)
+        .eq("type", "income");
+      const { data: incoming, error: bankErr } = tt?.operation_key
+        ? await destination.eq("operation_key", tt.operation_key).select("id")
+        : await destination.eq("id", transferId).select("id");
+      if (bankErr) throw bankErr;
+      if (incoming?.length !== 1) throw new Error("Não foi possível identificar a entrada do repasse");
       const patch: any = {
         status: "paid",
         payment_date: date,
@@ -79,7 +112,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
         patch.reversal_kind = null;
       }
       // As duas pernas do par liquidam em conjunto.
-      const q = (supabase as any).from("transactions").update(patch);
+      const q = (supabase as any).from("transactions").update(patch).eq("company_id", companyId);
       const { error } = tt?.operation_key
         ? await q.eq("operation_key", tt.operation_key)
         : await q.eq("id", transferId);
@@ -99,7 +132,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
         entity_id: transferId,
         action: "settle_ticket_office_credit",
         changed_by: getAuditUser(user),
-        metadata: { payment_date: date },
+        metadata: { payment_date: date, account_id: accountId },
       });
     },
     onSuccess: () => {
@@ -262,7 +295,8 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                       className="h-7 text-xs"
                       onClick={() => {
                         setConfirmingCredit(s);
-                        setCreditDate(new Date().toISOString().slice(0, 10));
+                        setCreditDate("");
+                        setCreditAccountId("");
                       }}
                     >
                       <Banknote className="h-3 w-3 mr-1" /> Confirmar crédito
@@ -385,7 +419,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar crédito na conta</AlertDialogTitle>
             <AlertDialogDescription>
-              Indique a data em que o valor de{" "}
+              Indique o banco e a data em que o valor de{" "}
               <strong className="font-mono">
                 {confirmingCredit?.transfer ? formatCurrency(Number(confirmingCredit.transfer.amount)) : ""}
               </strong>{" "}
@@ -393,22 +427,45 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Data do crédito</label>
-            <DatePicker value={creditDate} onChange={setCreditDate} />
+            <label htmlFor="settlement-credit-date" className="text-xs text-muted-foreground">Data do crédito (obrigatória)</label>
+            <DatePicker id="settlement-credit-date" value={creditDate} onChange={setCreditDate} maxDate={today} clearable disabled={confirmCreditMutation.isPending} />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="settlement-credit-bank" className="text-xs text-muted-foreground">Banco (obrigatório)</label>
+            <select
+              id="settlement-credit-bank"
+              value={creditAccountId}
+              onChange={(e) => setCreditAccountId(e.target.value)}
+              disabled={confirmCreditMutation.isPending}
+              className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">— Selecione o banco —</option>
+              {creditBankAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            {creditBanksError && <p role="alert" className="text-xs text-destructive">Não foi possível carregar as contas bancárias.</p>}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
+              onClick={(event) => {
+                event.preventDefault();
                 if (!creditDate) {
                   toast.error("Indique a data do crédito");
                   return;
                 }
+                if (creditDate > today) {
+                  toast.error("A data do crédito não pode ser futura");
+                  return;
+                }
+                if (!creditAccountId || !creditBankAccounts.some((a) => a.id === creditAccountId)) {
+                  toast.error("Selecione o banco do crédito");
+                  return;
+                }
                 if (confirmingCredit?.transfer?.id) {
-                  confirmCreditMutation.mutate({ transferId: confirmingCredit.transfer.id, date: creditDate });
+                  confirmCreditMutation.mutate({ transferId: confirmingCredit.transfer.id, date: creditDate, accountId: creditAccountId, companyId: confirmingCredit.company_id });
                 }
               }}
-              disabled={confirmCreditMutation.isPending}
+              disabled={confirmCreditMutation.isPending || !creditDate || creditDate > today || !creditBankAccounts.some((a) => a.id === creditAccountId)}
             >
               {confirmCreditMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Confirmar
