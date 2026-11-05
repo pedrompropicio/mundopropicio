@@ -12,7 +12,7 @@
 
 ## Pendentes abertos (o 0 de comando mantém esta lista)
 1. #647: confirmar a 1.ª corrida dos crons 15703 e 15704 (06/11, 04:17 e 04:53 UTC) em `cron.job_run_details`.
-2. #646 D2: o dev tem de conferir a linha 1 e o sinal da linha 3 da Tesouraria contra a Posição Financeira. Depois vem o D2-b.
+2. #646 D2: conferência da Tesouraria (linhas 1 a 6) pelo dev, decisão 6658911841. **Gate:** a Tesouraria não se usa e o próximo Publish do ERP só sai depois de a conferência fechar, ou com o D2-b desligado no ecrã.
 3. #664:
    - retirar da PARTE 2 da 0335 o CHECK duplicado do país;
    - a PARTE 2 só avança depois do 664-b e do Publish com todos os escritores.
@@ -27,7 +27,9 @@
 12. Sync lovable/dev → main com o `4a7da40` (link Fever), que ainda não passou pelo CI.
 
 ## Registo (mais recente primeiro)
+- 05/11 14:20 · 0 MP · #473 · fila do operador: 3 lotes autorizados por despachar (#646 conferência D2, #669 669-c, #695), por esta ordem · comentário 6660138908.
 - 05/11 13:57 · Pedro · #405 · executor do envio NG27 de 06/11 = 0 pessoal (tarefa 10:25 UTC); o 0 MP não toca no envio nem no cron `ng27-reforco-envio` · registado (6659824675).
+- 05/11 ~13:50 · 0 pessoal · — · o «0 - Cowork (MP)» passa a tarefa Cowork no projeto «espelho MP», com tarefas agendadas, GitHub e Lovable confirmados · ok (do PR #700, fechado a favor deste).
 - 05/11 13:44 · Pedro · #405 · plano de envio do reforço NG27 aprovado («SIM») · registado (6659536438).
 - 05/11 ~13:45 · 0 MP · #405 · Publish do Portal Newgang (`fbf57f8`); link Fever 821990 verificado pelo Pedro no portal e no email de teste · ok.
 - 05/11 13:38 · 0 MP · #405 · deploy só da `newgang-portal` (ERP `4a7da40`, SHA-256 `b71cb587…`), link Fever 826449 → 821990 · ok (6659428677).
