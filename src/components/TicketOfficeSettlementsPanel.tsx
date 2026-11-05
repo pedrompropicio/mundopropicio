@@ -37,6 +37,37 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
   const [reverseReason, setReverseReason] = useState("");
   const [confirmingCredit, setConfirmingCredit] = useState<any | null>(null);
   const [creditDate, setCreditDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [creditAccountId, setCreditAccountId] = useState<string | null>(null);
+
+  const { data: creditBanks = [], isError: creditBanksError } = useQuery({
+    queryKey: ["settlement_credit_banks", officeId],
+    enabled: !!confirmingCredit,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("financial_accounts")
+        .select("id, name")
+        .eq("type", "bank")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+  const { data: creditIncome, isLoading: creditIncomeLoading, isError: creditIncomeError } = useQuery({
+    queryKey: ["settlement_credit_income", confirmingCredit?.transfer?.id],
+    enabled: !!confirmingCredit?.transfer?.id,
+    queryFn: async () => {
+      const q = (supabase as any).from("transactions")
+        .select("id, account_id")
+        .eq("type", "income");
+      const { data, error } = await (confirmingCredit.transfer.operation_key
+        ? q.eq("operation_key", confirmingCredit.transfer.operation_key)
+        : q.eq("id", confirmingCredit.transfer.id)).single();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const selectedCreditAccountId = creditAccountId ?? creditIncome?.account_id ?? "";
 
   const { data: settlements = [], isLoading } = useQuery({
     queryKey: ["ticket_office_settlements", officeId],
@@ -60,13 +91,46 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
   });
 
   const confirmCreditMutation = useMutation({
-    mutationFn: async ({ transferId, date }: { transferId: string; date: string }) => {
+    mutationFn: async ({ transferId, settlementId, date, accountId }: { transferId: string; settlementId: string; date: string; accountId: string }) => {
+      if (!date) throw new Error("Indique a data do crédito");
+      if (date > new Date().toISOString().slice(0, 10)) throw new Error("A data do crédito não pode ser futura");
+      if (!accountId) throw new Error("Selecione o banco do crédito");
       const { data: tt, error: readErr } = await (supabase as any)
         .from("transactions")
         .select("amount, operation_key, reversed_at")
         .eq("id", transferId)
         .single();
       if (readErr) throw readErr;
+      const incomeQuery = (supabase as any).from("transactions")
+        .select("id, account_id")
+        .eq("type", "income");
+      const { data: income, error: incomeErr } = await (tt?.operation_key
+        ? incomeQuery.eq("operation_key", tt.operation_key)
+        : incomeQuery.eq("id", transferId)).single();
+      if (incomeErr) throw incomeErr;
+      if (!income) throw new Error("Perna de entrada não encontrada");
+      // Primeiro atribuir o banco, ainda sem efeito financeiro. Uma falha posterior
+      // conserva o par por pagar e permite repetir a confirmação.
+      if (income.account_id !== accountId) {
+        const { data: assigned, error: accountErr } = await (supabase as any).from("transactions")
+          .update({ account_id: accountId })
+          .eq("id", income.id)
+          .eq("status", "pending")
+          .select("id")
+          .single();
+        if (accountErr) throw accountErr;
+        if (!assigned) throw new Error("A perna de entrada já não está por pagar");
+      }
+      // Repetir a ligação num retry também repara uma falha após atribuir a conta.
+      if (confirmingCredit?.transfer_account_id !== accountId) {
+        const { data: linked, error: settlementErr } = await (supabase as any).from("ticket_office_settlements")
+          .update({ transfer_account_id: accountId })
+          .eq("id", settlementId)
+          .select("id")
+          .single();
+        if (settlementErr) throw settlementErr;
+        if (!linked) throw new Error("Fecho não encontrado ao atribuir o banco");
+      }
       const patch: any = {
         status: "paid",
         payment_date: date,
@@ -108,6 +172,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       toast.success("Crédito confirmado");
       setConfirmingCredit(null);
+      setCreditAccountId(null);
     },
     onError: (err: any) => toast.error("Erro ao confirmar crédito", { description: err.message }),
   });
@@ -380,12 +445,12 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!confirmingCredit} onOpenChange={() => setConfirmingCredit(null)}>
+      <AlertDialog open={!!confirmingCredit} onOpenChange={() => { setConfirmingCredit(null); setCreditAccountId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar crédito na conta</AlertDialogTitle>
             <AlertDialogDescription>
-              Indique a data em que o valor de{" "}
+              Indique a data e o banco em que o valor de{" "}
               <strong className="font-mono">
                 {confirmingCredit?.transfer ? formatCurrency(Number(confirmingCredit.transfer.amount)) : ""}
               </strong>{" "}
@@ -393,22 +458,42 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Data do crédito</label>
-            <DatePicker value={creditDate} onChange={setCreditDate} />
+            <label htmlFor="settlement-credit-date" className="text-xs text-muted-foreground">Data do crédito</label>
+            <DatePicker id="settlement-credit-date" value={creditDate} onChange={setCreditDate} clearable maxDate={new Date().toISOString().slice(0, 10)} />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="settlement-credit-bank" className="text-xs text-muted-foreground">Banco do crédito</label>
+            <select
+              id="settlement-credit-bank"
+              value={selectedCreditAccountId}
+              onChange={(e) => setCreditAccountId(e.target.value)}
+              disabled={creditIncomeLoading || confirmCreditMutation.isPending}
+              required
+              className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">— Selecione o banco —</option>
+              {creditBanks.map((bank) => <option key={bank.id} value={bank.id}>{bank.name}</option>)}
+            </select>
+            {(creditIncomeError || creditBanksError) && <p className="text-xs text-destructive">Erro ao carregar o banco do crédito.</p>}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
                 if (!creditDate) {
                   toast.error("Indique a data do crédito");
                   return;
                 }
+                if (!selectedCreditAccountId) {
+                  toast.error("Selecione o banco do crédito");
+                  return;
+                }
                 if (confirmingCredit?.transfer?.id) {
-                  confirmCreditMutation.mutate({ transferId: confirmingCredit.transfer.id, date: creditDate });
+                  confirmCreditMutation.mutate({ transferId: confirmingCredit.transfer.id, settlementId: confirmingCredit.id, date: creditDate, accountId: selectedCreditAccountId });
                 }
               }}
-              disabled={confirmCreditMutation.isPending}
+              disabled={confirmCreditMutation.isPending || creditIncomeLoading || !creditIncome || creditIncomeError || creditBanksError}
             >
               {confirmCreditMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Confirmar
