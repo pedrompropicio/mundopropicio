@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertTransactionLimit, assertZipSize, canExportCompany, MAX_BYTES,
   parseTransactionIds, queryableTransactionIds, selectRequestedTransactions, TX_LIMIT_ERROR,
-} from "./selection";
+} from "./selection.ts";
 
 const id = (n: number) => `00000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
 const tx = (n: number, company_id = "own", account_id: string | null = "bank") =>
@@ -28,13 +28,13 @@ describe("#395 — seleção exata do ZIP", () => {
   });
   it("só inclui IDs pedidos pertencentes à empresa autorizada", () => {
     const result = selectRequestedTransactions([id(1), id(2)], [tx(1), tx(2, "other"), tx(3)], "own", []);
-    expect(result.transactions.map((t) => t.id)).toEqual([id(1)]);
+    expect(result.transactions.map((t: any) => t.id)).toEqual([id(1)]);
     expect(result.ignored_count).toBe(1);
   });
   it("#235 exclui contas não contabilísticas e mantém transações sem conta", () => {
     const result = selectRequestedTransactions([id(1), id(2), id(3)],
       [tx(1), tx(2, "own", "managerial"), tx(3, "own", null)], "own", ["managerial"]);
-    expect(result.transactions.map((t) => t.id)).toEqual([id(1), id(3)]);
+    expect(result.transactions.map((t: any) => t.id)).toEqual([id(1), id(3)]);
     expect(result.ignored_count).toBe(1);
   });
   it("não duplica transações e normaliza UUIDs", () => {

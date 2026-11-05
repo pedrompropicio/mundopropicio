@@ -1,0 +1,31 @@
+-- #677 · R2 PREPARADA, NÃO APLICADA. Inverso integral, todo comentado.
+-- O 0 só executa depois de autorização específica. Não é rollback de dados por lote.
+-- Primeiro reverter TODOS os lotes applied com import_sm_2026_rollback_batch, um por vez.
+-- Guardar as saídas e tratar entidades retidas antes de remover as tabelas de auditoria.
+-- Exportar staging/mapas/histórico para fora do repo antes deste DROP destrutivo.
+-- Executar o bloco numa transacção da janela; se ainda houver origem import_sm_2026
+-- em supplier_similarity_flags, o CHECK antigo recusa e conserva os objectos.
+-- DO $guard$
+-- BEGIN
+--   IF EXISTS (SELECT 1 FROM public.import_sm_2026_batches WHERE status = 'applied') THEN
+--     RAISE EXCEPTION 'Ainda existem lotes applied: reverter por lote antes do rollback de estrutura';
+--   END IF;
+-- END;
+-- $guard$;
+-- ALTER TABLE public.supplier_similarity_flags DROP CONSTRAINT supplier_similarity_flags_source_check;
+-- ALTER TABLE public.supplier_similarity_flags ADD CONSTRAINT supplier_similarity_flags_source_check
+--   CHECK (source = ANY (ARRAY['sponsors_import'::text, 'apply_coala_bp'::text, 'backfill_09_10'::text]));
+-- DROP FUNCTION public.import_sm_2026_rollback_batch(uuid);
+-- DROP FUNCTION public.import_sm_2026_has_references(regclass,uuid);
+-- DROP FUNCTION public.import_sm_2026_batch_close(uuid,date);
+-- DROP FUNCTION public.import_sm_2026_apply_batch(uuid,date);
+-- DROP FUNCTION public.import_sm_2026_parse_date(text,text);
+-- DROP TABLE public.import_sm_2026_tx;
+-- DROP TABLE public.import_sm_2026_batches;
+-- DROP TABLE public.import_sm_2026_event_map;
+-- DROP TABLE public.import_sm_2026_supplier_map;
+-- DROP TABLE public.import_sm_2026_account_map;
+-- DROP TABLE public.import_sm_2026_category_map;
+-- DROP TABLE public.import_sm_2026_column_map;
+-- DROP TABLE public.import_sm_2026_staging;
+-- A sequência owned-by staging e os índices/políticas saem com as tabelas, sem CASCADE global.

@@ -84,12 +84,13 @@ Deno.serve(async (req) => {
             `/api/v2/artist/search/${encodeURIComponent(inputName)}?offset=0&limit=${searchLimit}`,
           );
           const items = Array.isArray(body?.items) ? body.items : [];
-          candidates = items.slice(0, searchLimit).map((r: any) => ({
+          const found: any[] = items.slice(0, searchLimit).map((r: any) => ({
             uuid: r?.uuid ?? null,
             name: r?.name ?? null,
             countryCode: r?.countryCode ?? r?.country?.code ?? null,
           }));
-          uuid = candidates[0]?.uuid ?? null;
+          candidates = found;
+          uuid = found[0]?.uuid ?? null;
         } catch (e) {
           out.search = { error: errPayload(e) };
         }

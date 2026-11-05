@@ -56,9 +56,7 @@ Deno.serve(async (req) => {
     .schema("crm")
     .from("audience_duel_runs")
     .select(
-      "id, duel_id, campaign_id, status, gemini_model, gpt_model, " +
-        "gemini_finished_at, gpt_finished_at, gemini_candidate_id, gpt_candidate_id, " +
-        "gemini_error, gpt_error, created_at"
+      "id, duel_id, campaign_id, status, gemini_model, gpt_model, gemini_finished_at, gpt_finished_at, gemini_candidate_id, gpt_candidate_id, gemini_error, gpt_error, created_at"
     )
     .eq("duel_id", duel_id)
     .order("created_at", { ascending: false })

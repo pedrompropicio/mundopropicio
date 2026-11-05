@@ -22,7 +22,8 @@ import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
-import { SUPPLIER_BASE_COLUMNS, fetchSupplierBankMap, mergeSupplierBank } from "@/lib/supplier-bank";
+import { SUPPLIER_BASE_COLUMNS, fetchSupplierBankMap, mergeSupplierBank, readSupplierCountry, type SupplierCountryReader } from "@/lib/supplier-bank";
+import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 
 
 type ViewMode = "grid" | "list";
@@ -31,6 +32,7 @@ type SortDir = "asc" | "desc";
 type StatusFilter = "active" | "inactive" | "all";
 
 export default function Suppliers() {
+  const companyLocale = useCompanyLocale();
   const [tab, setTab] = useState<"suppliers" | "credits">("suppliers");
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -98,11 +100,13 @@ export default function Suppliers() {
       // estrangeira sairia ilegível. Reconfirma-se aqui, não só na UI.
       const u = await fetchSupplierUsage(s.id);
       if (!u.canDelete) throw new Error(`O fornecedor tem ${describeUsage(u.blocking)}. Desative-o em vez de eliminar.`);
+      const supplierOrigin = await readSupplierCountry(supabase as unknown as SupplierCountryReader, s.id);
+      if (supplierOrigin.status !== "available") throw new Error("Não foi possível ler o país do fornecedor — nada foi eliminado. Tente novamente.");
       const related = await fetchSupplierCascadeRows(s.id);
       const ok = await moveToTrash({
         entity_type: "supplier",
         entity_id: s.id,
-        entity_data: s,
+        entity_data: { ...s, country: supplierOrigin.country },
         related_data: Object.keys(related).length > 0 ? related : null,
         deleted_by: user?.email || "sistema",
       });
@@ -263,7 +267,7 @@ export default function Suppliers() {
 
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Pesquisar por nome, NIF ou categoria..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+          <Input placeholder={`Pesquisar por nome, ${companyLocale.status === "available" ? companyLocale.labels.taxIdAny : "NIF"} ou categoria...`} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
         </div>
         <div className="flex items-center gap-2">
           <Select value={sortField} onValueChange={(v) => setSortField(v as SortField)}>

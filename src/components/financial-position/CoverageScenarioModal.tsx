@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/hooks/useCompany";
+import { useBpHorizons } from "@/hooks/useBpHorizons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +27,10 @@ function ScenarioForm({ event, root, companyId, onClose }: { event: PlanningEven
   const [percentage, setPercentage] = useState(String(initial.percentagem));
   const [manual, setManual] = useState(initial.receita_manual_bruta == null ? "" : String(initial.receita_manual_bruta));
   const [days, setDays] = useState(initial.viragem_real_dias == null ? "" : String(initial.viragem_real_dias));
+  const isRoot = event.event_id === root.event_id;
+  const horizons = useBpHorizons(isRoot ? [root.event_id] : []);
+  const [editedBpHorizon, setEditedBpHorizon] = useState<string | null>(null);
+  const bpHorizon = editedBpHorizon ?? (horizons.data?.[root.event_id] == null ? "" : String(horizons.data[root.event_id]));
   const canEdit = isAdmin || isManager;
   const history = useQuery({ queryKey: ["coverage-scenario-history", companyId, event.event_id], queryFn: async () => {
     const { data, error } = await supabase.from("event_coverage_scenario_log").select("id,op,changed_at,new")
@@ -37,21 +42,29 @@ function ScenarioForm({ event, root, companyId, onClose }: { event: PlanningEven
   const preview = forecastEvent(event.zonas, numericManual);
   const valid = percentage.trim() !== "" && Number.isFinite(Number(percentage)) && Number(percentage) >= 0 && Number(percentage) <= 100
     && (numericManual == null || (Number.isFinite(numericManual) && numericManual >= 0))
-    && (days === "" || (Number.isInteger(Number(days)) && Number(days) >= 0));
+    && (days === "" || (Number.isInteger(Number(days)) && Number(days) >= 0))
+    && (!isRoot || horizons.data === undefined || bpHorizon === "" || (Number.isInteger(Number(bpHorizon)) && Number(bpHorizon) >= 0));
   const mutation = useMutation({
     mutationFn: async (inherit: boolean) => {
       if (!canEdit) throw new Error("Sem autorização para editar o cenário");
       if (!valid && !inherit) throw new Error("Verifique os valores do cenário");
+      const payload = { event_id: event.event_id, company_id: companyId,
+        modo: mode, percentagem: Number(percentage), receita_manual_bruta: numericManual,
+        viragem_real_dias: days === "" ? null : Number(days) };
       const result = inherit
         ? await supabase.from("event_coverage_scenarios").delete().eq("event_id", event.event_id).eq("company_id", companyId)
-        : await supabase.from("event_coverage_scenarios").upsert({ event_id: event.event_id, company_id: companyId,
-          modo: mode, percentagem: Number(percentage), receita_manual_bruta: numericManual,
-          viragem_real_dias: days === "" ? null : Number(days) }, { onConflict: "event_id" });
+        : isRoot
+          ? await (supabase as any).from("event_coverage_scenarios").upsert({ ...payload,
+            // Sem leitura, undefined é omitido no JSON e conserva o horizonte existente.
+            bp_horizon_days: horizons.data === undefined ? undefined : bpHorizon === "" ? null : Number(bpHorizon),
+          }, { onConflict: "event_id" })
+          : await supabase.from("event_coverage_scenarios").upsert(payload, { onConflict: "event_id" });
       if (result.error) throw result.error;
     },
     onSuccess: () => {
       invalidateEventFinancials(qc);
       qc.invalidateQueries({ queryKey: ["coverage-scenario-planning"] });
+      qc.invalidateQueries({ queryKey: ["coverage-bp-horizon"] });
       toast.success("Cenário de receita guardado"); onClose();
     },
     onError: (error: Error) => toast.error("Não foi possível guardar", { description: error.message }),
@@ -64,6 +77,9 @@ function ScenarioForm({ event, root, companyId, onClose }: { event: PlanningEven
         <SelectTrigger id="coverage-mode"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="real">Real</SelectItem><SelectItem value="previsao">Previsão</SelectItem></SelectContent>
       </Select></div>
       <div className="space-y-1"><Label htmlFor="coverage-percentage">Percentagem considerada (%)</Label><Input id="coverage-percentage" type="number" min="0" max="100" step="0.01" value={percentage} onChange={e => setPercentage(e.target.value)} disabled={!canEdit || mutation.isPending} /></div>
+      {isRoot && horizons.data !== undefined && <div className="space-y-1"><Label htmlFor="coverage-bp-horizon">Horizonte do BP (dias)</Label><Input id="coverage-bp-horizon" type="number" min="0" step="1" placeholder="30" value={bpHorizon} onChange={e => setEditedBpHorizon(e.target.value)} disabled={!canEdit || mutation.isPending} />
+        <p className="text-xs text-muted-foreground">Vazio = 30 dias; valor explícito prevalece; 0 desliga a regra nesse evento. Contagem a partir do primeiro dia do evento.</p>
+      </div>}
       <div className="space-y-1"><Label htmlFor="coverage-manual">Receita manual bruta ({symbol})</Label><Input id="coverage-manual" type="number" min="0" step="0.01" value={manual} onChange={e => setManual(e.target.value)} disabled={!canEdit || preview.source === "lotes" || mutation.isPending} /></div>
       <div className="space-y-1"><Label htmlFor="coverage-days">Viragem para Real (dias antes)</Label><Input id="coverage-days" type="number" min="0" step="1" value={days} onChange={e => setDays(e.target.value)} disabled={!canEdit || mutation.isPending} /></div>
     </div>

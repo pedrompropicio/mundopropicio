@@ -1,7 +1,13 @@
+import { withVatNonRecoverableCost } from "@/lib/vat-non-recoverable";
+import { useFinalCloseBpVersions } from "@/hooks/useFinalCloseBpVersions";
+import { withFinalCloseForecasts } from "@/lib/bp-final-close";
 import { masterFormulaAmountForCity } from "@/lib/master-formula";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import { fetchPartnerExtras, partnerExtraValue } from "@/lib/partner-extras";
 import { findTicketCategoryId } from "@/lib/ticket-category";
+import { BusinessLineFilter } from "@/components/BusinessLineFilter";
+import { filterEventsByBusinessLine, businessLineLabel } from "@/lib/business-line-filter";
+import { useBusinessLines } from "@/hooks/useBusinessLines";
 import { EventNatureFilter } from "@/components/EventNatureFilter";
 import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
 import { useState, useMemo } from "react";
@@ -14,6 +20,9 @@ import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 import { eventCostLines, eventCostMode, groupByEvent, type ReportCostSource } from "@/lib/report-event-cost";
 import { ReportCostSourceToggle } from "@/components/ReportCostSourceToggle";
+import { useEventTreasuryBridge } from "@/hooks/useEventTreasuryBridge";
+import { TreasuryBridgeTable } from "@/components/treasury/TreasuryBridgeView";
+import { TREASURY_NOTES } from "@/lib/treasury-bridge";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { formatMoney } from "@/lib/company-locale";
 import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
@@ -307,7 +316,10 @@ export default function ReportDRE() {
   const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("transactions");
   const [showPartnerView, setShowPartnerView] = useState(false);
   const [showEbitda, setShowEbitda] = useState(false);
+  const [showTreasury, setShowTreasury] = useState(false);
 
+  const [lineFilter, setLineFilter] = useState<string[]>([]);
+  const { data: businessLines = [] } = useBusinessLines(false);
   const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
   // #218: custo de evento pelo BP (padrão); "Transações" só para comparação — nunca gravado.
   const [costSource, setCostSource] = useState<ReportCostSource>("bp");
@@ -320,9 +332,11 @@ export default function ReportDRE() {
     },
   });
   // #256: o filtro só restringe o conjunto de eventos; vazio = todos (resultado idêntico).
-  const events = useMemo(() => filterEventsByNature(allEvents as any[], natureFilter) as typeof allEvents, [allEvents, natureFilter]);
+  const events = useMemo(() => filterEventsByBusinessLine(
+    filterEventsByNature(allEvents as any[], natureFilter), lineFilter,
+  ) as typeof allEvents, [allEvents, natureFilter, lineFilter]);
 
-  const { data: transactionsAll = [] } = useQuery({
+  const { data: transactionsRaw = [] } = useQuery({
     queryKey: ["transactions", "dre"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase.from("transactions").select("*").in("status", ["approved", "paid"]).order("date", { ascending: false }));
@@ -330,6 +344,7 @@ export default function ReportDRE() {
       return data;
     },
   });
+  const transactionsAll = useMemo(() => withVatNonRecoverableCost(transactionsRaw as any[]), [transactionsRaw]);
 
   // Perímetro da raiz (D25 g3): linhas marcadas com um fechamento filho são
   // exclusivas desse fechamento e não entram no resultado do evento.
@@ -346,8 +361,8 @@ export default function ReportDRE() {
   // da raiz — paridade com o filtro de Fecho (fecho-filter-parity.md).
   const transactions = keepRootPerimeter((transactionsAll as any[]).filter((t) => !hasResultBlockingFlags(t)), rootSettlementIds);
 
-  // #218: BP vivo (version_id IS NULL) — viva vs congelada é decisão pendente do Pedro.
-  const { data: costForecastsAll = [] } = useQuery({
+  // #218: o BP vivo é substituído pela versão final nos eventos concluídos.
+  const { data: costForecastsAllLive = [] } = useQuery({
     queryKey: ["dre-forecasts-expense"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
@@ -360,6 +375,11 @@ export default function ReportDRE() {
       return data ?? [];
     },
   });
+  const { data: finalVersions } = useFinalCloseBpVersions();
+  const costForecastsAll = useMemo(
+    () => withFinalCloseForecasts(costForecastsAllLive, finalVersions, events),
+    [costForecastsAllLive, finalVersions, events],
+  );
   const costForecastsByEvent = useMemo(
     () => groupByEvent(keepRootPerimeter(costForecastsAll as any[], rootSettlementIds)),
     [costForecastsAll, rootSettlementIds],
@@ -587,6 +607,20 @@ export default function ReportDRE() {
   })();
 
   const activeEvents = expandedActiveEvents;
+  const treasury = useEventTreasuryBridge([...selectedParentIds, ...activeEvents.map((e) => e.id)], showTreasury);
+  const renderTreasury = (eventId: string) => {
+    if (!showTreasury) return null;
+    const node = treasury.nodes?.[eventId];
+    return <section aria-label="Onde está o dinheiro" className="border-t border-border/30 p-4">
+      {treasury.error ? <p role="alert" className="text-sm text-destructive">Não foi possível carregar a ponte da Tesouraria.</p>
+        : treasury.loading ? <p role="status" className="text-sm text-muted-foreground">A carregar a ponte da Tesouraria…</p>
+        : node && companyLocale.status === "available" ? <>
+          {node.cashDetail && <p className="text-sm text-muted-foreground">Detalhe de timing, retido, caixa e pendentes. O resultado e os sócios são apurados no Master.</p>}
+          {node.source && <p className="text-xs text-muted-foreground">{node.source}</p>}
+          <TreasuryBridgeTable node={node} locale={companyLocale} />
+        </> : <p className="text-sm text-muted-foreground">Ponte indisponível para este evento ou configuração da empresa.</p>}
+    </section>;
+  };
 
   // #339 B — receita do Master com regra de repartição: a cidade vê a fatia da
   // regra; sem regra mantém-se ÷N (comportamento anterior, sem regressão).
@@ -647,7 +681,7 @@ export default function ReportDRE() {
     const evtTx = getEffectiveTransactions(e.id);
     const parentEvt = (e as any).parent_event_id ? events.find((pe) => pe.id === (e as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (e as any).partner_calc_basis || "net_result";
-    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, formatCurrency, (e as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[e.id] ?? null, ebitdaArg);
+    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, formatCurrency, (e as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[e.id] ?? null, ebitdaClassMap);
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
     const resLine = dre.find((l) => l.isGrandTotal);
@@ -676,6 +710,21 @@ export default function ReportDRE() {
   const globalResultEx = globalIncEx - globalExpEx;
   const globalResultInc = globalIncInc - globalExpInc;
   const globalEbitdaEx = eventSummaries.reduce((s, e) => s + e.ebitdaEx, 0);
+
+  // Somar os resumos já calculados conserva o mesmo perímetro e o rateio Master ÷N.
+  const businessLineTotals = new Map(
+    [...businessLines.map((line) => line.id), "__sem_linha__"].map((id) => [id, { revenue: 0, cost: 0, ebitda: 0, result: 0 }]),
+  );
+  eventSummaries.forEach((e) => {
+    const master = e.parent_event_id ? allEvents.find((parent) => parent.id === e.parent_event_id) : null;
+    const id = ((master ?? e) as any).business_line_id ?? "__sem_linha__";
+    const row = businessLineTotals.get(id) ?? { revenue: 0, cost: 0, ebitda: 0, result: 0 };
+    row.revenue += e.totalIncEx;
+    row.cost += e.totalExpEx;
+    row.ebitda += e.ebitdaEx;
+    row.result += e.resultEx;
+    businessLineTotals.set(id, row);
+  });
 
   // Distribuição global aos sócios (excluindo a Mundo Propício, que tem o seu
   // próprio agregado abaixo). A Mundo Propício é a sócia principal/proprietária
@@ -721,7 +770,14 @@ export default function ReportDRE() {
           </button>
         </div>
 <EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
-        <ReportCostSourceToggle value={costSource} onChange={setCostSource} />
+        <BusinessLineFilter value={lineFilter} onChange={setLineFilter} />
+        <div className="flex flex-wrap items-center gap-4">
+          <ReportCostSourceToggle value={costSource} onChange={setCostSource} />
+          <div className="flex items-center gap-2">
+            <Switch id="dre-treasury" checked={showTreasury} onCheckedChange={setShowTreasury} />
+            <Label htmlFor="dre-treasury" className="cursor-pointer text-sm">Onde está o dinheiro</Label>
+          </div>
+        </div>
         <div className="flex flex-col gap-2">
           {eventsWithTransactions.filter((e) => !e.parent_event_id).map((e) => {
             const children = eventsWithTransactions.filter((c) => c.parent_event_id === e.id);
@@ -880,6 +936,39 @@ export default function ReportDRE() {
         )}
       </div>
 
+      <section aria-label="Total por linha de negócio" className="glass rounded-xl p-4 space-y-3 overflow-x-auto">
+        <p className="font-semibold text-sm">Total por linha de negócio</p>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Linha de negócio</TableHead>
+              <TableHead className="text-right">Receita</TableHead>
+              <TableHead className="text-right">Custo</TableHead>
+              <TableHead className="text-right">EBITDA</TableHead>
+              <TableHead className="text-right">Resultado</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from(businessLineTotals, ([id, row]) => (
+              <TableRow key={id}>
+                <TableCell>{businessLineLabel(id, businessLines)}</TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(row.revenue)}</TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(row.cost)}</TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(row.ebitda)}</TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(row.result)}</TableCell>
+              </TableRow>
+            ))}
+            <TableRow className="font-semibold">
+              <TableCell>Total</TableCell>
+              <TableCell className="text-right font-mono">{formatCurrency(globalIncEx)}</TableCell>
+              <TableCell className="text-right font-mono">{formatCurrency(globalExpEx)}</TableCell>
+              <TableCell className="text-right font-mono">{formatCurrency(globalEbitdaEx)}</TableCell>
+              <TableCell className="text-right font-mono">{formatCurrency(globalResultEx)}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </section>
+
       <div className="space-y-3">
         {eventSummaries.map((evt) => {
           const isOpen = expandedEvent === evt.id;
@@ -975,6 +1064,7 @@ export default function ReportDRE() {
                   )}
                 </div>
               )}
+              {renderTreasury(evt.id)}
             </div>
           );
         })}
@@ -1101,9 +1191,14 @@ export default function ReportDRE() {
                 })()}
               </div>
             )}
+            {renderTreasury(parentId)}
           </div>
         );
       })}
+      {showTreasury && <aside className="space-y-2 text-sm text-muted-foreground">
+        {TREASURY_NOTES.map((note) => <p key={note}>{note}</p>)}
+        <a href="/erp/tesouraria" className="text-primary underline">Ver Tesouraria</a>
+      </aside>}
     </div>
   );
 }

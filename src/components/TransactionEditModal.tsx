@@ -1,5 +1,6 @@
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
-import { formatMoney } from "@/lib/company-locale";
+import { companyHasIva, formatMoney } from "@/lib/company-locale";
+import { showVatNonRecoverable, vatNonRecoverableEdit } from "@/lib/vat-non-recoverable";
 import { PartnerSettlementExclusionSwitch } from "@/components/PartnerSettlementExclusionSwitch";
 import { partnerSettlementExclusionReason } from "@/lib/fecho-filters";
 import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
@@ -90,6 +91,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   const isPaid = transaction.status === "paid";
   // Admins can fully edit paid transactions (audit adjustment)
   const paidLocked = isPaid && !canApprove;
+  const [vatNonRecoverable, setVatNonRecoverable] = useState(!!(transaction as any).vat_non_recoverable);
 
   const [form, setForm] = useState({
     description: transaction.description,
@@ -599,6 +601,17 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           changes.push({ field_name: fieldLabels[key], old_value: oldVal, new_value: newVal });
         }
       }
+      const vatEdit = vatNonRecoverableEdit({
+        original: transaction.vat_non_recoverable, checked: vatNonRecoverable,
+        type: transaction.type, ivaRate: form.iva_rate, hasIva: companyHasIva(companyLocale), noIva,
+      });
+      if (!valueLocked && vatEdit.dirty) {
+        changes.push({
+          field_name: "IVA não recuperável",
+          old_value: transaction.vat_non_recoverable ? "sim" : "não",
+          new_value: vatEdit.next ? "sim" : "não",
+        });
+      }
       const wantsNewReimbursementLink =
         form.is_reimbursement && !!form.reimbursement_note_id && !isLinkedToReimbursementNote;
       // Native rows may still carry legacy FX/IVA even without a form-field edit.
@@ -685,6 +698,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         description: form.description,
         amount: parseFloat(form.amount),
         iva_rate: noIva ? 0 : form.iva_rate,
+        ...(!valueLocked && vatEdit.dirty ? { vat_non_recoverable: vatEdit.next } : {}),
         event_id: form.event_id,
         event_settlement_id: form.event_settlement_id || null,
         category_id: form.category_id || null,
@@ -1293,7 +1307,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   // primeira interação de edição, incluindo campos fora do objeto form.
   const editingStarted = useRef(false);
   const editSnapshot = JSON.stringify({
-    form, currency, originalAmount, fxRate, fxRateSource, childAdjustments,
+    form, vatNonRecoverable, currency, originalAmount, fxRate, fxRateSource, childAdjustments,
     partnerPaidDate, partnerPaidPartnerId, partnerPaidRemove, capitalPartnerId,
     bpLineChoice, unlinkBpRequested,
   });
@@ -1572,6 +1586,23 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                 disabled={valueLocked}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
               />
+              {showVatNonRecoverable({ type: transaction.type, ivaRate: form.iva_rate, hasIva: companyHasIva(companyLocale), noIva }) && (
+                <label className="mt-2 flex items-start gap-2 cursor-pointer rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <input
+                    type="checkbox"
+                    checked={vatNonRecoverable}
+                    onChange={(e) => setVatNonRecoverable(e.target.checked)}
+                    disabled={valueLocked}
+                    className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
+                  />
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold">IVA não recuperável (vai ao custo)</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      O IVA desta fatura não é dedutível (ex.: IVA estrangeiro). Conta como custo, pela taxa da transação.
+                    </p>
+                  </div>
+                </label>
+              )}
 
             </div>}
             {(() => {

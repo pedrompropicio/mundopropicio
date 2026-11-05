@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     // Resolve category mapping for distinct CCs in one query
     const { data: cats } = await supabase
       .from("account_categories")
-      .select("id, code, name")
+      .select("id, code, name, parent_id")
       .eq("company_id", ev.company_id)
       .eq("is_active", true);
     const allCats = cats || [];

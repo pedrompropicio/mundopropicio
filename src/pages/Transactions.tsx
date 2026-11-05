@@ -1417,7 +1417,7 @@ export default function Transactions() {
       {/* Header: title + action buttons */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Transações <HelpTooltip text={helpTexts.transactions} /></h1>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Transações <HelpTooltip anchor="transacoes.criar" text={helpTexts.transactions} /></h1>
           <p className="text-sm text-muted-foreground">Todas as movimentações financeiras</p>
         </div>
         <div className="flex items-center gap-2">

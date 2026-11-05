@@ -142,7 +142,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function CrmConnections() {
-  const { user, role, hasPermission, loading: authLoading } = useAuth();
+  const { user, hasPermission, loading: authLoading } = useAuth();
   const { companyId, isLoading: companyLoading } = useCompany();
   const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -347,11 +347,7 @@ export default function CrmConnections() {
     }
   };
 
-  const isAuthorized =
-    role === "admin" ||
-    role === ("platform_admin" as any) ||
-    role === ("marketing_manager" as any) ||
-    hasPermission("crm.campaign.create");
+  const isAuthorized = hasPermission("settings.integrations.meta");
 
   const { data: connections, isLoading } = useQuery({
     queryKey: ["crm-connections", companyId],

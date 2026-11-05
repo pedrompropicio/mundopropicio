@@ -35,7 +35,7 @@ const helpTexts: Record<string, string> = {
 
   // Calendário
   calendar:
-    "Visualize todos os eventos e reservas de espaços num calendário. Alterne entre vistas semanal, anual e agenda.",
+    "Consulte eventos e reservas de espaços nas vistas mensal, semanal, anual e agenda.",
 
   // Bilheteiras
   ticketOffices:
@@ -51,15 +51,15 @@ const helpTexts: Record<string, string> = {
 
   // Cotações
   quotations:
-    "Registe e compare cotações de fornecedores para eventos. Aprove ou recuse propostas antes de criar transações.",
+    "Registe cotações de fornecedores para serviços de eventos. Ao aprovar uma cotação, o sistema cria uma transação de despesa pendente, sem criar uma linha no BP.",
 
   // Transações Recorrentes
   recurringTransactions:
-    "Automatize lançamentos que se repetem periodicamente (rendas, seguros, serviços mensais). O sistema gera transações automaticamente conforme a frequência definida.",
+    "Crie modelos de transações periódicas (rendas, seguros, serviços mensais). Ao criar um modelo com data de fim, o sistema tenta gerar de imediato as transações de todo o período; sem data de fim não as gera por este fluxo. Editar o modelo não volta a gerar as transações.",
 
   // IVA
   ivaManagement:
-    "Consulte e gerencie as taxas de IVA aplicáveis (0%, 6%, 13%, 23%). Veja como o IVA impacta receitas e despesas nas transações.",
+    "Consulte as taxas de IVA apresentadas para Portugal Continental (0%, 6%, 13%, 23%) e acompanhe a previsão e o controlo do IVA.",
 
   // Relatórios
   reports:
@@ -95,7 +95,7 @@ const helpTexts: Record<string, string> = {
   securityDashboard:
     "Monitoramento de segurança: tentativas de login, alterações de dados, MFA e atividade do sistema.",
   databaseBackups:
-    "Gerencie backups da base de dados. Crie backups manuais ou configure rotinas automáticas.",
+    "Gira os backups da base de dados. Crie backups manuais e consulte a informação sobre o backup diário automático.",
 
   // Event sub-tabs / components
   eventTicketing:
@@ -149,7 +149,7 @@ const helpTexts: Record<string, string> = {
   accountingExport:
     "Exportação para contabilidade: selecione o período e descarregue todos os documentos fiscais (faturas, recibos, notas fiscais) anexados às transações. Apenas ficheiros marcados como 'Documento contábil' são incluídos. O sistema regista cada exportação para controlo e rastreabilidade.",
   reimbursements:
-    "Notas de Reembolso permitem agrupar despesas pagas do bolso de um funcionário e processá-las num único pagamento. Crie a nota, adicione despesas marcadas como 'Reembolso', aprove (todas devem ter fatura contábil) e pague. O sistema gera automaticamente a transação de pagamento.",
+    "Agrupe despesas pagas do bolso de um funcionário numa Nota de Reembolso. Após a aprovação, use 'Gerar Transação para Pagamento': a transação fica aprovada e a nota em 'Aguarda Pagamento'. Liquide depois a transação no fluxo normal de pagamentos para concluir o reembolso.",
   reportPartnerExpenses:
     "Consulte todas as despesas pagas diretamente por sócios/parceiros em qualquer evento. Filtre por evento ou sócio e exporte o relatório em PDF. Estas despesas compõem a apuração do resultado do evento independentemente de terem previsão no Business Plan.",
   reportBPTransactions:
@@ -169,7 +169,7 @@ const helpTexts: Record<string, string> = {
   splitCustom:
     "Permite definir manualmente a percentagem de cada evento. O total deve somar exatamente 100%. Ideal para pacotes com valores desiguais por evento.",
   partnerPortal:
-    "Portal de acesso dedicado para parceiros/sócios. Mostra apenas os eventos autorizados pelo administrador, com dados somente leitura (bilhetes, BP e transações).",
+    "Portal de acesso dedicado para parceiros/sócios aos eventos autorizados. A consulta do BP e das transações depende de permissões; a edição do BP exige autorização para o evento e permissão para editar BP aprovado, fora da vista Master e da inspeção de administrador.",
   eventCompleted:
     "Evento concluído — todas as operações estão bloqueadas (lockdown). Apenas administradores podem reabrir o evento para edições.",
   auditLog:

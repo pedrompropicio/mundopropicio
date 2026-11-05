@@ -22,7 +22,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/hooks/useCompany";
 import { toast } from "sonner";
 
 interface CheckRow {
@@ -42,6 +42,7 @@ interface RunRow {
   ran_at: string;
   drift_count: number;
   results: CheckRow[] | null;
+  scope_training?: boolean;
 }
 
 interface SmokeRow {
@@ -55,9 +56,9 @@ const fmtDate = (iso: string) =>
   new Date(iso).toLocaleString("pt-PT", { dateStyle: "short", timeStyle: "short" });
 
 export default function InvariantMonitor() {
-  const { role } = useAuth();
-  const allowed = role === "admin" || role === "platform_admin";
+  const { isPlatformAdmin: allowed } = useCompany();
   const qc = useQueryClient();
+  const [historyTraining, setHistoryTraining] = useState(false);
   const [accepting, setAccepting] = useState<CheckRow | null>(null);
   const [note, setNote] = useState("");
   const [open, setOpen] = useState<Record<string, boolean>>({});
@@ -73,16 +74,29 @@ export default function InvariantMonitor() {
   });
 
   const runs = useQuery({
-    queryKey: ["invariant-runs"],
+    queryKey: allowed ? ["invariant-runs", historyTraining] : ["invariant-runs"],
     enabled: allowed,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const historyQuery = (scoped = true) => (supabase as any)
         .from("invariant_runs")
-        .select("id, ran_at, drift_count, results")
+        .select(`id, ran_at, drift_count, results${scoped ? ", scope_training" : ""}`);
+      const { data, error } = await historyQuery()
+        .eq("scope_training", historyTraining)
         .order("ran_at", { ascending: false })
         .limit(30);
-      if (error) throw error;
-      return (data ?? []) as RunRow[];
+      if (error) {
+        // Before 0327 all persisted runs are real. Never relabel them as training.
+        const missingScope = ["42703", "PGRST204"].includes(error.code)
+          && /scope_training/.test(error.message ?? "");
+        if (!missingScope) throw error;
+        if (historyTraining) return { rows: [] as RunRow[], trainingAvailable: false };
+        const legacy = await historyQuery(false).order("ran_at", { ascending: false }).limit(30);
+        if (legacy.error) throw legacy.error;
+        return { rows: (legacy.data ?? []) as RunRow[], trainingAvailable: false };
+      }
+      const rows = (data ?? []) as RunRow[];
+      // A legacy cached/served payload without the flag cannot expose training history.
+      return { rows, trainingAvailable: rows.every(row => typeof row.scope_training === "boolean") };
     },
   });
 
@@ -133,7 +147,7 @@ export default function InvariantMonitor() {
 
   const rows = checks.data ?? [];
   const drift = rows.filter((r) => !r.conforme);
-  const lastRun = runs.data?.[0];
+  const lastRun = runs.data?.rows[0];
   const failingSmoke = (smoke.data ?? []).filter((r) => !r.ok);
 
   const renderRow = (row: CheckRow) => {
@@ -224,7 +238,7 @@ export default function InvariantMonitor() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Última execução registada</CardTitle>
+          <CardTitle className="text-base">{historyTraining ? "Última execução de treino registada" : "Última execução registada"}</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           {lastRun ? (
@@ -274,10 +288,22 @@ export default function InvariantMonitor() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Histórico de execuções</CardTitle>
+          {(historyTraining || runs.data?.trainingAvailable) && <label className="flex items-center gap-2 text-sm">
+            Âmbito do histórico
+            <select
+              className="rounded-md border bg-background px-3 py-2 text-sm"
+              value={historyTraining ? "training" : "real"}
+              onChange={e => setHistoryTraining(e.target.value === "training")}
+            >
+              <option value="real">Empresas reais</option>
+              <option value="training">Treino</option>
+            </select>
+          </label>}
         </CardHeader>
         <CardContent className="space-y-1">
+          {runs.error && <p className="text-sm text-destructive">{(runs.error as Error).message}</p>}
           {runs.isLoading && <p className="text-sm text-muted-foreground">A carregar…</p>}
-          {(runs.data ?? []).map((r) => (
+          {(runs.data?.rows ?? []).map((r) => (
             <div key={r.id} className="flex items-center justify-between rounded border p-2 text-sm">
               <span className="text-muted-foreground">{fmtDate(r.ran_at)}</span>
               {r.drift_count === 0 ? (
@@ -287,7 +313,7 @@ export default function InvariantMonitor() {
               )}
             </div>
           ))}
-          {!runs.isLoading && (runs.data ?? []).length === 0 && (
+          {!runs.isLoading && (runs.data?.rows ?? []).length === 0 && (
             <p className="text-sm text-muted-foreground">Sem execuções registadas.</p>
           )}
         </CardContent>

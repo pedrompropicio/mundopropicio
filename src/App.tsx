@@ -1,3 +1,4 @@
+import { TrainingBanner } from "@/components/TrainingBanner";
 import { ReductionObservationHost } from "@/components/bp/ReductionObservationHost";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { MutationCache, QueryClient, QueryClientProvider, useIsMutating, useQueryClient } from "@tanstack/react-query";
@@ -18,7 +19,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { CompanyBrandingProvider } from "@/contexts/CompanyBrandingContext";
 import { HelpPanelProvider } from "@/contexts/HelpPanelContext";
 import HelpSidePanel from "@/components/help/HelpSidePanel";
@@ -30,11 +31,12 @@ import { useCompany } from "@/hooks/useCompany";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 import { BrandedLogo } from "@/components/BrandedLogo";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { ModuleSwitcherButton } from "@/components/ModuleSwitcherButton";
 import { MfaRequiredGate } from "@/components/MfaRequiredGate";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Sun, Moon, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -76,6 +78,7 @@ const Quotations = lazy(() => import("./pages/Quotations"));
 const AccountCategories = lazy(() => import("./pages/AccountCategories"));
 const FinancialAccounts = lazy(() => import("./pages/FinancialAccounts"));
 const FinancialPosition = lazy(() => import("./pages/FinancialPosition"));
+const Treasury = lazy(() => import("./pages/Treasury"));
 const BankReconciliation = lazy(() => import("./pages/BankReconciliation"));
 const UserManagement = lazy(() => import("./pages/UserManagement"));
 const LegalPrivacy = lazy(() => import("./pages/legal/Privacy"));
@@ -307,7 +310,7 @@ function MobileNavSheet() {
 function ProtectedLayout() {
   const { user, loading, isAdmin, isManager, hasPermission, role, signOut, permissions } = useAuth();
   const erpAllowed = accessByPermission(String(role ?? ""), permissions ?? []).has("erp");
-  const { companyId, isLoading: companyLoading, isError: companyError, error: companyErrorObj, isPlatformAdmin, refetch: refetchCompany } = useCompany();
+  const { company, companyId, isLoading: companyLoading, isError: companyError, error: companyErrorObj, isPlatformAdmin, refetch: refetchCompany } = useCompany();
   const queryClient = useQueryClient();
   const previousCompanyIdRef = useRef<string | null>(null);
   const isMobileViewport = useIsMobile();
@@ -537,12 +540,14 @@ function ProtectedLayout() {
         {!isMobileViewport && <AppSidebar />}
         <main className="min-w-0 flex-1 pl-0 md:pl-16 lg:pl-56">
           <div className={cn("mx-auto p-4 lg:p-6", FULL_WIDTH_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/")) ? "max-w-none" : "max-w-7xl")}>
+            <TrainingBanner company={company} />
             {/* MFA gate temporariamente desativado — reativar envolvendo <Routes> com <MfaRequiredGate> */}
             <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/erp" element={<Index />} />
               <Route path="/erp/posicao-financeira" element={<FinancialPositionAccess><FinancialPosition /></FinancialPositionAccess>} />
+              <Route path="/erp/tesouraria" element={<FinancialPositionAccess><Treasury /></FinancialPositionAccess>} />
               <Route path="/calendario" element={<EventCalendar />} />
               <Route path="/eventos" element={<Events />} />
               <Route path="/eventos/:id" element={<EventDetail />} />
@@ -674,19 +679,6 @@ function ProtectedLayout() {
       <HelpSidePanel />
     </div>
     </HelpPanelProvider>
-  );
-}
-
-function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
-  return (
-    <button
-      onClick={toggleTheme}
-      className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      title={theme === "dark" ? "Modo claro" : "Modo escuro"}
-    >
-      {theme === "dark" ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />}
-    </button>
   );
 }
 

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface Company {
+  is_training?: boolean;
   id: string;
   legal_name: string;
   display_name: string;

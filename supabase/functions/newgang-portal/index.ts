@@ -23,6 +23,8 @@ import { PreSendError, sendWelcomeOnce } from "./welcome.ts";
 import { REMINDER_SUBJECT, reminderEmail } from "./reminder-email.ts";
 import { clampLimit, reminderLimitError, runReminderBatch, sendReminderOnce, type ReminderDeps } from "./reminder.ts";
 import { grantedOnly, NO_GRANTED_CONSENT, type EmailConsentRow } from "./reminder-consent.ts";
+import { presaleEmail } from "./presale-reinforce-email.ts";
+import { normEmail, PRESALE_TEMPLATE_NAME, presaleEligible, presaleLimit, runPresaleBatch, type PresaleMember } from "./presale-reinforce.ts";
 // #327: leituras canónicas (nível com piso, conquistas, montra de regras) — mesma fonte para site, me, ranking e Wallet.
 import { levelFromPoints, memberLevel, referralProgress, rulesPublic, type MemberLevel, type RulesView } from "./club-canon.ts";
 const rpc = (fn: string, a: Record<string, unknown>) => sb.rpc(fn, a) as any;
@@ -299,6 +301,84 @@ async function notifyReminders(site: { id: string; company_id: string }, b: any)
   return { dry_run: false, limit, candidates: ids.length, excluded_no_granted_consent: excluded, ...out, summary: await summary() };
 }
 
+// #405 — Reforço da pré-venda NG27 (manual, service_role, dry_run por defeito). Elegibilidade recalculada em cada chamada.
+async function pageAll<T>(build: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>, what: string): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await build(from, from + 999);
+    if (error) throw new Error(`${what}: ${error.message}`);
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length < 1000) return out;
+  }
+}
+async function sha256Tag(email: string): Promise<string> {
+  const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(email)));
+  return "sha256:" + [...d].map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+async function notifyPresale(site: { id: string; company_id: string }, b: any) {
+  const dryRun = b?.dry_run !== false;
+  const [members, consents, supp, codes, excl, resv] = await Promise.all([
+    pageAll<PresaleMember>((f, t) => sb.from("club_members").select("id, email, first_name, created_at, erased_at").eq("site_id", site.id).eq("company_id", site.company_id).order("created_at").order("id").range(f, t), "members"),
+    pageAll<EmailConsentRow>((f, t) => sb.from("club_member_email_consents").select("member_id, decision, decided_at, id").eq("site_id", site.id).eq("company_id", site.company_id).order("id").range(f, t), "consents"),
+    pageAll<{ email: string }>((f, t) => sb.from("suppressed_emails").select("email").order("id").range(f, t), "suppressed"),
+    pageAll<{ email: string; code: string }>((f, t) => sb.from("club_presale_codes").select("email, code").order("email").range(f, t), "codes"),
+    pageAll<{ email: string }>((f, t) => sb.from("club_presale_exclusions").select("email").order("email").range(f, t), "exclusions"),
+    pageAll<{ member_id: string }>((f, t) => sb.from("club_presale_reservations").select("member_id").order("member_id").range(f, t), "reservations"),
+  ]);
+  const hashes = new Map<string, string>();
+  for (const m of members) { const e = normEmail(m.email); if (e && !hashes.has(e)) hashes.set(e, await sha256Tag(e)); }
+  const { eligible, breakdown } = presaleEligible({
+    members, consents, suppressed: new Set(supp.map((r) => r.email.startsWith("sha256:") ? r.email : normEmail(r.email))),
+    hashOf: (e) => hashes.get(e) ?? "", codes: new Map(codes.map((r) => [normEmail(r.email), r.code])),
+    exclusions: new Set(excl.map((r) => normEmail(r.email))), reserved: new Set(resv.map((r) => r.member_id)),
+  });
+  const enqueue = async (to: string, messageId: string, m: { id: string; first_name: string | null }, code: string, test: boolean) => {
+    let mail: { subject: string; html: string; text: string }, unsub: { page: string; oneClick: string };
+    try { unsub = await unsubscribeUrls(site.company_id, to); mail = presaleEmail({ firstName: m.first_name, code, unsubscribeUrl: unsub.page, test }); }
+    catch (e) { throw new PreSendError((e as Error).message); }
+    const { error: logErr } = await sb.from("email_send_log").insert({ message_id: messageId, template_name: PRESALE_TEMPLATE_NAME,
+      recipient_email: to, company_id: site.company_id, status: "pending", metadata: { member_id: m.id, test } });
+    if (logErr) throw new PreSendError(`email_send_log: ${logErr.message}`);
+    const { error: qErr } = await sb.rpc("enqueue_email", { queue_name: "transactional_emails", payload: {
+      message_id: messageId, company_id: site.company_id, to, from: `Newgang Festival <clube@${SENDER_DOMAIN}>`, sender_domain: SENDER_DOMAIN,
+      subject: mail.subject, html: mail.html, text: mail.text, purpose: "transactional", label: PRESALE_TEMPLATE_NAME,
+      idempotency_key: messageId, unsubscribe_http_url: unsub.oneClick, queued_at: new Date().toISOString() } });
+    if (qErr) throw new Error(`enqueue_email: ${qErr.message}`);
+  };
+  if (b.action === "reforco_count") return { dry_run: true, breakdown };
+  if (b.action === "reforco_test") {
+    const to = normEmail(b.to), who = normEmail(b.member_email);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to) || !who) throw new Error("invalid to/member_email");
+    const m = members.find((x) => normEmail(x.email) === who && !x.erased_at);
+    if (!m) return { test: true, error: "member_not_found" };
+    const code = codes.find((r) => normEmail(r.email) === who)?.code;
+    if (!code) return { test: true, error: "no_code" };
+    if (dryRun) return { dry_run: true, test: true, would_send_to: to, code };
+    await enqueue(to, `ng-reforco-test-${m.id}-${Date.now()}`, m, code, true);
+    return { dry_run: false, test: true, sent: 1, code };
+  }
+  const lim = presaleLimit(b?.limit);
+  if ("error" in lim) return lim;
+  const batch = eligible.slice(0, lim.limit);
+  if (dryRun) return { dry_run: true, limit: lim.limit, would_send: batch.length, breakdown };
+  const byId = new Map(batch.map((m) => [m.id, m]));
+  const out = await runPresaleBatch({
+    reserve: async (id, mid) => {
+      const { error } = await sb.from("club_presale_reservations").insert({ member_id: id, message_id: mid, status: "reserved" });
+      if (error) { if (error.code === "23505") return false; throw new Error(error.message); }
+      return true;
+    },
+    mark: async (id, st, err) => {
+      const { error } = await sb.from("club_presale_reservations").update({ status: st, error: err ?? null }).eq("member_id", id);
+      if (error) throw new Error(error.message);
+    },
+    send: (id, mid) => { const m = byId.get(id)!; return enqueue(normEmail(m.email), mid, m, m.code, false); },
+    log: (msg, id, detail) => console.error(msg, id, detail ?? ""),
+  }, batch.map((m) => m.id));
+  return { dry_run: false, limit: lim.limit, candidates: batch.length, ...out, remaining_after: breakdown.eligible - out.sent - out.skipped - out.error_pre_send - out.unknown, breakdown };
+}
+
 // ---------- Google Wallet ----------
 // issuerId vem do secret GOOGLE_WALLET_ISSUER_ID (GET /issuer devolve lista vazia para a conta de serviço).
 async function walletIssuer(_sa: GW.SaKey): Promise<string> {
@@ -533,7 +613,7 @@ Deno.serve(async (req) => {
     const site = await getSite();
     if (!site) return json({ error: "site_not_configured" }, 503);
     try {
-      if (b?.action === "wallet_sync") return json({ ok: true, ...(await walletSync()) });
+      if (b?.action === "wallet_sync") return json({ ok: true, ...(await walletSync() as Record<string, unknown>) });
       // Aplicação pontual, exclusivamente service_role; não devolve chave, JWT ou save_url.
       if (b?.action === "wallet_artwork_apply" && typeof b.member_id === "string" && /^[0-9a-f-]{36}$/i.test(b.member_id)) {
         const sa = GW.readSaKey(Deno.env.get("GOOGLE_WALLET_SA_KEY"));
@@ -563,6 +643,11 @@ Deno.serve(async (req) => {
       if (b.action === "club_reminder_batch") { const tooLarge = reminderLimitError(b.limit); if (tooLarge) return json(tooLarge, 400); }
       try { return json(await notifyReminders(site, b)); }
       catch (e) { console.error("club_reminder", (e as Error).message); return json({ error: "club_reminder", detail: (e as Error).message }, 502); }
+    }
+    // #405: reforço da pré-venda NG27 — só service_role, dry_run por defeito, máx. 300 por chamada.
+    if (b?.action === "reforco_count" || b?.action === "reforco_test" || b?.action === "reforco_run") {
+      try { const r: any = await notifyPresale(site, b); return json(r, r?.error === "limit_too_large" ? 400 : 200); }
+      catch (e) { console.error("reforco", (e as Error).message); return json({ error: "reforco", detail: (e as Error).message }, 502); }
     }
     if (b?.action !== "notify_pending") return json({ error: "invalid" }, 400);
     return json({ ok: true, sent: await notifyPending(site) });

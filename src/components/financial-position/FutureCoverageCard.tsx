@@ -1,4 +1,6 @@
 import { useFinancialPositionP5 } from "@/hooks/useFinancialPositionP5";
+import { useBpHorizons } from "@/hooks/useBpHorizons";
+import { bpCommitmentUntilEvent } from "@/lib/bp-horizon";
 import { usePositionAmount } from "@/lib/financial-position";
 import type { FinancialPositionP5 } from "@/lib/financial-position-p5";
 import { useState } from "react";
@@ -12,11 +14,15 @@ import { revenueCoverage } from "../../../supabase/functions/_shared/ticketing/p
 type Coverage = FinancialPositionP5["cobertura_futuros"];
 
 /** P5b (D-ERP326): cartão só informativo. A UI completa é o P6b. Sempre todos os anos (eventos futuros podem ser do ano seguinte). */
-export function FutureCoverageView({ data }: { data: Coverage }) {
+export function FutureCoverageView({ data, referenceDate, horizons }: { data: Coverage; referenceDate?: string; horizons?: Record<string, number | null> }) {
   const formatPositionAmount = usePositionAmount();
   const [editingId, setEditingId] = useState<string | null>(null);
   const { isAdmin, isManager } = useAuth();
   const t = data.total;
+  const commitment = referenceDate !== undefined && horizons !== undefined
+    ? bpCommitmentUntilEvent((data.eventos ?? []).map(event => ({
+      event_id: event.event_id, nome: event.nome, first_day: event.first_day, bp_por_lancar: event.bp_por_lancar,
+    })), horizons, referenceDate) : null;
   const projected = data.receita_prevista;
   const revenue = projected ?? (t && typeof t.necessidade.com_sem_linha === "number" && typeof t.necessidade.sem_linha_cobre_bp === "number"
     ? revenueCoverage({ com_sem_linha: t.necessidade.com_sem_linha, sem_linha_cobre_bp: t.necessidade.sem_linha_cobre_bp }, t.vendas_futuras, t.saido_minimo_total) : null);
@@ -32,6 +38,7 @@ export function FutureCoverageView({ data }: { data: Coverage }) {
         {row("Despesas pagas", t.despesas_pagas_futuras)}
         {row("A pagar lançado", t.a_pagar_lancado_futuros)}
         {row("BP por lançar", t.bp_por_lancar_futuros)}
+        {commitment && commitment.eventos.length > 0 && row("Compromisso previsto até ao evento", commitment.total)}
         {row("Aporte de sócios", t.aporte_socios_total)}
         {row("Aporte MP (estimativa)", t.aporte_mp_estimativa_total)}
         {row("Dinheiro de eventos em conta", t.dinheiro_de_eventos_em_conta)}
@@ -55,11 +62,13 @@ export function FutureCoverageView({ data }: { data: Coverage }) {
       <div className="divide-y divide-border border-t border-border">
         {data.eventos?.map(event => {
           const forecast = projected?.eventos.find(e => e.event_id === event.event_id);
+          const eventCommitment = commitment?.eventos.find(e => e.event_id === event.event_id);
           return <div key={event.event_id} className="py-3 space-y-2"><div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0"><p className="text-sm font-medium">{event.nome}</p><p className="text-xs text-muted-foreground">{forecast ? `Previsão bruta: ${formatPositionAmount(forecast.previsao_bruta)}` : "Real"}</p>
               {forecast && <p className="text-xs text-muted-foreground">Considerada: {formatPositionAmount(forecast.receita_considerada)} · Potencial: {forecast.potencial == null ? forecast.fonte_potencial : formatPositionAmount(forecast.potencial)}</p>}</div>
             {(isAdmin || isManager) && <Button variant="outline" size="sm" onClick={() => setEditingId(event.event_id)}>Cenário de receita</Button>}
           </div>
+          {eventCommitment && <p className="text-xs text-muted-foreground">Compromisso previsto até ao evento: {formatPositionAmount(eventCommitment.valor)} · horizonte {eventCommitment.dias} dias</p>}
           {forecast && <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">Eventos e sessões · {forecast.eventos.length}</summary>
             <div className="divide-y divide-border pl-3">{forecast.eventos.map(detail => <div key={detail.event_id} className="py-2 space-y-1">
               <div className="flex flex-wrap justify-between gap-2"><p>{detail.nome}</p>{(isAdmin || isManager) && <Button variant="ghost" size="sm" onClick={() => setEditingId(detail.event_id)}>Cenário</Button>}</div>
@@ -79,7 +88,8 @@ export function FutureCoverageView({ data }: { data: Coverage }) {
 
 export function FutureCoverageCard() {
   const q = useFinancialPositionP5(null);
+  const h = useBpHorizons(q.data?.cobertura_futuros.eventos?.map(event => event.event_id) ?? []);
   if (q.isLoading) return <p role="status" className="text-muted-foreground">A carregar cobertura de eventos futuros…</p>;
   if (q.isError || !q.data) return null;
-  return <FutureCoverageView data={q.data.cobertura_futuros} />;
+  return <FutureCoverageView data={q.data.cobertura_futuros} referenceDate={q.data.meta.data_referencia} horizons={h.data} />;
 }

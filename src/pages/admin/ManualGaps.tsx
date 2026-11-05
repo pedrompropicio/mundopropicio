@@ -20,8 +20,8 @@ type Question = { id: string; question: string; route: string | null; created_at
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
 
 export default function ManualGaps() {
-  const { role, user } = useAuth();
-  const authorized = role === "admin" || role === "platform_admin";
+  const { hasPermission, user } = useAuth();
+  const authorized = hasPermission("settings.admin");
   const client = useQueryClient();
   const [status, setStatus] = useState<Status | "todas">("aberta");
   const [from, setFrom] = useState("");

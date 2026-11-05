@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     sc.calls = client.calls;
 
     const raw = Array.isArray(body?.items) ? body.items : [];
-    const mapped = raw.map(mapScArtist).filter((a) => a.soundcharts_uuid);
+    const mapped = raw.map(mapScArtist).filter((a: any) => a.soundcharts_uuid);
     const companyIds = caller.isServiceRole
       ? "all"
       : await callerCompanyIds(admin, caller.userId!);

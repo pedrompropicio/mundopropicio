@@ -95,7 +95,7 @@ describe("#498 P2c — baseline PT capturada antes da alteração", () => {
     expect(outputs).toMatchInlineSnapshot(`
       {
         "expense": {
-          "hash": "f6c2766de3f61603bef3eb968968abcea86070b6b1ade0e5926fbb80771f407b",
+          "hash": "416b7b86513b41f28a00c4f857d8c0b838579102b0aabe84b38233c7d3a54a17",
           "payload": {
             "account_id": null,
             "amount": 1000,
@@ -186,7 +186,7 @@ describe("#498 P2c — baseline PT capturada antes da alteração", () => {
   it("preserva DOM USD/PT e exige câmbio antes de criar", () => {
     const { container } = render(form());
     fireEvent.change(currencySelect(), { target: { value: "USD" } });
-    expect(dom(container)).toMatchInlineSnapshot(`"7be7921531b9fd817160a8ec4755120c3e6f9c5f241755430fe3e25eb57a78d9"`);
+    expect(dom(container)).toMatchInlineSnapshot(`"7c9d668c8adbead9a755d3a6ae882a745ea607eec06f636e55ad5be2890f1e35"`);
     expect(screen.getByText("Câmbio (1 USD = X €)")).toBeInTheDocument();
     submit(container);
     expect(f.writes).toEqual([]);

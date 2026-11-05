@@ -1,0 +1,88 @@
+-- Classe R2 — ROLLBACK COMENTADO, NÃO APLICADO. Issue #647 / 0336.
+-- Só pelo 0, com autorização própria; repõe exclusivamente as duas funções da 0331.
+-- Não altera anonymize_song_link_events nem desfaz dados/agregados.
+-- 
+-- CREATE OR REPLACE FUNCTION public.song_link_ident_daily_refresh(p_from date, p_to date)
+-- RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public SET timezone='UTC'
+-- AS $refresh$
+-- DECLARE v_count bigint := 0; v_rows bigint;
+-- BEGIN
+--  IF session_user <> 'postgres' AND coalesce(auth.role(),'') <> 'service_role' THEN RAISE EXCEPTION 'service only' USING ERRCODE='42501'; END IF;
+--  IF p_from IS NULL OR p_to IS NULL OR p_to < p_from THEN RAISE EXCEPTION 'invalid day range'; END IF;
+--  -- O mesmo lock do backfill impede cruzar refresh com anonimização/captura.
+--  LOCK TABLE public.song_link_events IN SHARE ROW EXCLUSIVE MODE;
+--  DELETE FROM public.song_link_ident_daily_stats
+--  WHERE dia BETWEEN p_from AND p_to AND dia > (now() AT TIME ZONE 'Europe/Lisbon')::date-30;
+--  INSERT INTO public.song_link_ident_daily_stats
+-- WITH ev AS (
+--     SELECT e.company_id, e.artist_id, e.link_id, e.event, e.opened, e.arrival_event_id, coalesce(e.destination,'(sem)') AS destination,
+--       coalesce(e.utm_campaign,'') AS utm_campaign, coalesce(e.utm_content,'') AS utm_content,
+--       (e.created_at AT TIME ZONE 'Europe/Lisbon')::date AS dia,
+--       public.song_link_event_canal(sl.canal, e.utm_source, e.utm_medium, e.utm_campaign) AS canal
+--     FROM public.song_link_events e JOIN public.song_links sl ON sl.id = e.link_id
+--     WHERE e.company_id IS NOT NULL AND e.artist_id IS NOT NULL
+--       AND (e.created_at AT TIME ZONE 'Europe/Lisbon')::date BETWEEN p_from AND p_to
+--       AND (e.created_at AT TIME ZONE 'Europe/Lisbon')::date > (now() AT TIME ZONE 'Europe/Lisbon')::date-30
+--   ), base AS (
+--     SELECT company_id, artist_id, dia, link_id, utm_campaign, utm_content, canal,
+--       count(*) FILTER (WHERE event = 'arrival') AS chegadas,
+--       count(*) FILTER (WHERE event = 'choice')  AS escolhas,
+--       -- Compatibilidade: aberturas_app soma tentativas e sinais da mesma visita.
+--       count(*) FILTER (WHERE opened = 'app')    AS aberturas_app,
+--       count(*) FILTER (WHERE opened = 'web')    AS aberturas_web,
+--       count(*) FILTER (WHERE event IN ('arrival', 'choice') AND opened = 'app') AS tentativas_app,
+--       count(DISTINCT arrival_event_id) FILTER (WHERE event = 'app_open' AND destination = 'spotify') AS aberturas_spotify,
+--       count(*) FILTER (WHERE event = 'arrival' AND destination = 'spotify') AS chegadas_spotify
+--     FROM ev GROUP BY 1,2,3,4,5,6,7
+--   ), dest AS (
+--     SELECT company_id, artist_id, dia, link_id, utm_campaign, utm_content, canal, jsonb_object_agg(destination, n) AS d
+--     FROM (SELECT company_id, artist_id, dia, link_id, utm_campaign, utm_content, canal, destination, count(*) AS n
+--           FROM ev WHERE event = 'choice' GROUP BY 1,2,3,4,5,6,7,8) x
+--     GROUP BY 1,2,3,4,5,6,7
+--   )
+-- SELECT b.*, coalesce(d.d, '{}'::jsonb) AS escolhas_por_destino
+-- FROM base b LEFT JOIN dest d USING(company_id,artist_id,dia,link_id,utm_campaign,utm_content,canal);
+--  GET DIAGNOSTICS v_rows=ROW_COUNT; v_count:=v_count+v_rows;
+--  DELETE FROM public.song_link_ident_daily_origins
+--  WHERE metric_day BETWEEN p_from AND p_to AND metric_day > (now() AT TIME ZONE 'America/Sao_Paulo')::date-30;
+--  INSERT INTO public.song_link_ident_daily_origins
+-- SELECT e.company_id,e.artist_id,e.song_id,(e.created_at AT TIME ZONE 'America/Sao_Paulo')::date AS metric_day,
+--    count(*) FILTER(WHERE e.event='app_open') aberturas_android,
+--    count(*) FILTER(WHERE e.event='choice' AND e.os='ios') toques_ios,
+--    count(*) FILTER(WHERE e.fbclid IS NOT NULL OR lower(e.utm_source) IN ('meta','facebook','fb','instagram','ig')) aberturas_meta,
+--    count(*) FILTER(WHERE e.ttclid IS NOT NULL OR lower(e.utm_source) IN ('tiktok','tt')) aberturas_tiktok,
+--    count(DISTINCT e.ip_hash) pessoas_trafego
+--   FROM public.song_link_events e
+--   WHERE e.company_id IS NOT NULL AND e.artist_id IS NOT NULL AND e.song_id IS NOT NULL
+--     AND (e.utm_medium='paid' OR e.fbclid IS NOT NULL OR e.ttclid IS NOT NULL)
+--     AND (e.utm_content IS NULL OR e.utm_content NOT LIKE 'teste_%')
+--     AND e.event IN ('app_open','choice')
+--     AND (e.created_at AT TIME ZONE 'America/Sao_Paulo')::date BETWEEN p_from AND p_to
+--     AND (e.created_at AT TIME ZONE 'America/Sao_Paulo')::date > (now() AT TIME ZONE 'America/Sao_Paulo')::date-30
+--   GROUP BY 1,2,3,4;
+--  GET DIAGNOSTICS v_rows=ROW_COUNT; RETURN v_count+v_rows;
+-- END $refresh$;
+-- REVOKE ALL ON FUNCTION public.song_link_ident_daily_refresh(date,date) FROM PUBLIC, anon, authenticated;
+-- GRANT EXECUTE ON FUNCTION public.song_link_ident_daily_refresh(date,date) TO service_role;
+-- COMMENT ON FUNCTION public.song_link_ident_daily_refresh(date,date) IS 'Recalcula os dois fusos; nunca reescreve dias <= hoje-30 de cada fuso; chamar antes da anonimização.';
+-- 
+-- CREATE OR REPLACE FUNCTION public.purge_song_link_events(p_months integer DEFAULT 13, p_batch integer DEFAULT 20000)
+-- RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public SET timezone='UTC'
+-- AS $purge$
+-- DECLARE v_count bigint; v_mark text := current_setting('song_link.retencao',true);
+-- BEGIN
+--  IF session_user <> 'postgres' AND coalesce(auth.role(),'') <> 'service_role' THEN RAISE EXCEPTION 'service only' USING ERRCODE='42501'; END IF;
+--  IF p_months IS NULL OR p_months<13 THEN RAISE EXCEPTION 'p_months must be >= 13'; END IF;
+--  IF p_batch IS NULL OR p_batch<1 THEN RAISE EXCEPTION 'p_batch must be positive'; END IF;
+--  LOCK TABLE public.song_link_events IN SHARE ROW EXCLUSIVE MODE;
+--  PERFORM set_config('song_link.retencao','on',true);
+--  DELETE FROM public.song_link_events WHERE ctid IN (
+--    SELECT ctid FROM public.song_link_events WHERE created_at<now()-make_interval(months => p_months)
+--    ORDER BY created_at,id LIMIT p_batch);
+--  GET DIAGNOSTICS v_count=ROW_COUNT;
+--  PERFORM set_config('song_link.retencao',coalesce(v_mark,''),true);
+--  RETURN v_count;
+-- END $purge$;
+-- REVOKE ALL ON FUNCTION public.purge_song_link_events(integer,integer) FROM PUBLIC, anon, authenticated;
+-- GRANT EXECUTE ON FUNCTION public.purge_song_link_events(integer,integer) TO service_role;
+-- COMMENT ON FUNCTION public.purge_song_link_events(integer,integer) IS 'Só serviço; mínimo 13 meses; lote limitado; preserva todos os agregados.';
