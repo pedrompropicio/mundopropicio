@@ -162,6 +162,7 @@ describe("#403 E2b — contas estrangeiras em empresa PT", () => {
     mount(form({ ...supplier, country: "PT", iban: validIban, iban_2: "GB82WEST12345698765432" }));
     expect(screen.queryByLabelText("Tipo de conta")).toBeNull();
     expect(f.rpc).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByLabelText("País")).toHaveValue("PT"));
     expect(await saved()).toEqual({ country: "PT", name: supplier.name, trade_name: null, nif: supplier.nif, contact_name: null,
       email: null, phone: null, address: null, iban: validIban, swift_bic: "BOFAUS3N", iban_2: "GB82WEST12345698765432",
       swift_bic_2: null, iban_3: null, swift_bic_3: null, payment_terms: null, category: null, notes: null, is_partner: false });
@@ -207,12 +208,13 @@ describe("#403 E2b — contas estrangeiras em empresa PT", () => {
     else expect(payload).toMatchObject({ tax_id_foreign: action === "limpo" ? null : row.tax_id_foreign, tax_id_type: action === "tipo" ? "tin" : "ein" });
   });
 
-  it("criação usa o probe vazio, grava estrangeiro e omite fiscal vazio", async () => {
+  it("criação usa o probe vazio, grava estrangeiro e exige Sem NIF explícito", async () => {
     result([]); mount(<SupplierFormModal open onOpenChange={() => {}} />);
     change("Nome da Entidade *", "Novo fornecedor"); change("País", "US"); change("IBAN 1", account); await ready();
+    fireEvent.click(screen.getByLabelText("Sem NIF (particular ou sem registo)"));
     const payload = await saved();
     expect(payload.foreign_bank_accounts).toEqual([{ slot: 1, account_type: "outro", account_number: account }]);
-    expect(payload).not.toHaveProperty("tax_id_foreign");
+    expect(payload.tax_id_foreign).toBeNull();
     expect(f.rpc).toHaveBeenCalledWith("get_supplier_bank_details", { p_supplier_ids: [] });
   });
 

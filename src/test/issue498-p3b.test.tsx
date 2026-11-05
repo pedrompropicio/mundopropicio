@@ -169,6 +169,7 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
 
   it.each(["cnpj", "cpf"])("INSERT %s grava só os dígitos e o tipo escolhido", async type => {
     result([]); allowWrites(); mount(<SupplierFormModal open onOpenChange={() => {}} />); await ready("");
+    fireEvent.change(screen.getByLabelText("País"), { target: { value: "BR" } });
     expect(screen.getByLabelText("Tipo de identificador fiscal")).toHaveValue("cnpj");
     fireEvent.change(screen.getByLabelText("Nome da Entidade *"), { target: { value: "Fornecedor sintético" } });
     fireEvent.change(screen.getByLabelText("Tipo de identificador fiscal"), { target: { value: type } });
@@ -225,6 +226,7 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
 
   it("criação vazia permite gravar e omite o par fiscal mesmo após editar e limpar", async () => {
     result([]); allowWrites(); mount(<SupplierFormModal open onOpenChange={() => {}} />); await ready("");
+    fireEvent.change(screen.getByLabelText("País"), { target: { value: "BR" } });
     fireEvent.change(screen.getByLabelText("Nome da Entidade *"), { target: { value: "Fornecedor sintético" } });
     fireEvent.change(screen.getByLabelText("CNPJ"), { target: { value: "123" } });
     fireEvent.change(screen.getByLabelText("CNPJ"), { target: { value: "" } });
@@ -358,6 +360,7 @@ describe("#498 P3b — identificador fiscal BR editável pela RPC", () => {
 describe("#498 P3b — guardas PT mantidas", () => {
   it("MOD-97 continua a bloquear IBAN inválido", async () => {
     mount(<SupplierFormModal open onOpenChange={() => {}} editingSupplier={ptSupplier} />);
+    await waitFor(() => expect(screen.getByLabelText("País")).toHaveValue("PT"));
     fireEvent.change(screen.getByLabelText("IBAN 1"), { target: { value: "PT50000201231234567890155" } });
     submit();
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("IBAN 1 inválido", expect.any(Object)));
@@ -366,6 +369,7 @@ describe("#498 P3b — guardas PT mantidas", () => {
   it("IBAN duplicado continua a bloquear antes do UPDATE", async () => {
     f.rpc.mockResolvedValue({ data: { exists: true, is_active: true, supplier_name: "Outro", nif: "123" }, error: null });
     mount(<SupplierFormModal open onOpenChange={() => {}} editingSupplier={ptSupplier} />);
+    await waitFor(() => expect(screen.getByLabelText("País")).toHaveValue("PT"));
     submit();
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("IBAN 1 duplicado", expect.any(Object)));
     expect(f.rpc).toHaveBeenCalledExactlyOnceWith("check_supplier_iban_duplicate", {

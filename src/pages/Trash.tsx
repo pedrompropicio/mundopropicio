@@ -58,6 +58,9 @@ export default function TrashPage() {
       // Remove any fields that might cause issues
       const cleanData = { ...entityData };
       delete cleanData.updated_at; // will be set by trigger
+      if (tableName === "suppliers" && (typeof cleanData.country !== "string" || !/^[A-Z]{2}$/.test(cleanData.country))) {
+        throw new Error("Restauro bloqueado: o registo do fornecedor no Lixo não contém um país válido. É necessária uma escolha explícita do país.");
+      }
 
       const { error: insertError } = await supabase.from(tableName as any).insert(cleanData as any);
       if (insertError) throw insertError;

@@ -24,7 +24,7 @@ export const supplierSchema = z.object({
   trade_name: z.string().max(200).nullable().optional(),
   nif: z.string().max(20).nullable().optional(),
   tax_id_foreign: z.string().max(20).nullable().optional(),
-  tax_id_type: z.enum(["cpf", "cnpj", "ein", "tin", "vat", "outro"]).nullable().optional(),
+  tax_id_type: z.enum(["cpf", "cnpj", "ein", "tin", "vat", "outro", "sem_nif"]).nullable().optional(),
   contact_name: z.string().max(200).nullable().optional(),
   email: z.string().email("Email inválido").max(255).nullable().optional().or(z.literal("")),
   phone: z.string().max(30).nullable().optional(),
