@@ -67,7 +67,7 @@ Deno.test("lote: reserva antes de enviar, já reservado não envia, para a 3 unk
 });
 
 Deno.test("link Fever: Newgang 821990, nunca o 826449 do Coala", () => {
-  const r = presaleEmail({ code: "NEWGANG27A", name: "Ana", imagesBase: "https://x/y", test: false });
+  const r = presaleEmail({ firstName: "Ana", code: "NEWGANG27A", unsubscribeUrl: "https://x/u?t=1" });
   const hrefs = [...r.html.matchAll(/href="([^"]*feverup[^"]*)"/g)].map((m) => m[1]);
   assert(hrefs.length > 0);
   for (const h of [...hrefs, PRESALE_LINK, r.text]) assert(!h.includes("826449"));
