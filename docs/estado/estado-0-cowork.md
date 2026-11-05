@@ -12,10 +12,10 @@
 
 ## Pendentes abertos (o 0 de comando mantém esta lista)
 1. #647: confirmar a 1.ª corrida dos crons 15703 e 15704 (06/11, 04:17 e 04:53 UTC) em `cron.job_run_details`.
-2. #646 D2: conferência da Tesouraria (linhas 1 a 6) pelo dev, decisão 6658911841. **Gate:** a Tesouraria não se usa e o próximo Publish do ERP só sai depois de a conferência fechar, ou com o D2-b desligado no ecrã.
-3. #664: código completo em `main` (664-b2 fundido). Falta a janela (6659427746): 0335 PARTE 1 já aplicada → 0340 → Publish + deploys (`apply-coala-bp`, `sync-coala-from-drive`, `test-multi-tenant-isolation`) → país nas configurações Coala → PARTE 2 da 0335 com provas → DML dos dados pela lista do chat 10. Respeita o gate do ponto 2.
-4. #669: lote R1 para o filtro de natureza na DRE Empresarial (decisão 1A).
-5. #695: «Data de competência» e vencimento separado nas recorrentes.
+2. #646 D2: conferência entregue (D2-c, PR #704, por fundir). **Gate:** o Publish do ERP só sai depois de o 0 correr `docs/testes/issue646/conferencia-d2.sql` em Live (só SELECT) e fechar a conferência. Seguem D2-d, D2-f e D2-e (Autorizações à espera de confirmação do Pedro no chat do 0).
+3. #664: código completo em `main`. Falta a janela: 0340 → deploys (`sync-coala-from-drive`, `test-multi-tenant-isolation`) → Publish → país nas configurações Coala → PARTE 2 da 0335 com provas → DML dos dados pela lista do chat 10.
+4. #669: 669-c entregue (PR #705, CI verde, revisto pelo 0) — por fundir.
+5. #695: 695-a parado por conflito no critério 3; respondido por delegação (6662955867), a voltar a despachar.
 6. #677: preparação da importação da Social Music de 2026 (1B/2A). Só depois da #664.
 7. #405: envio do reforço NG27 a 06/11 — executor 0 pessoal (decisão do Pedro, 13:57). O 0 MP não actua.
 8. #675 / 0334 / SLE: suspensos até ao 647-d-portal.
@@ -23,10 +23,18 @@
 10. Coala, venda geral a 10/11: apagar `early_bird.general_sale_date` com «Corro?» (#359). A tarefa agendada estava na conta pessoal: recriar do lado MP.
 11. #603: decidir onde corre o piloto, na conta Lovable actual ou numa conta nova, e registar a escolha e o motivo na #603. Decisão do Pedro com o 0 (MP).
 12. Sync lovable/dev → main com o `4a7da40` (link Fever), que ainda não passou pelo CI.
-13. #314: 314-b autorizado (4.º na fila do operador). Na janela, a 0323 tem de estar aplicada antes do Publish do 314-b.
-14. QUADRO «Em execução agora»: cerca de 55 linhas de outras frentes com mais de 24 h sem actualização (operador, 6660312768). Pela regra do quadro, volta ao Pedro.
+13. #314: 314-b autorizado (na fila do operador). Na janela, a 0323 tem de estar aplicada antes do Publish do 314-b.
+14. QUADRO «Em execução agora»: higiene das linhas com mais de 24 h autorizada ao operador (R0), depois do merge do #702.
+15. Janela de Publish de 05/11: plano em `docs/janela/2026-11-05-publish.md` (PR #702), por corrigir — tem 9 passos já feitos de manhã (revisão 6662181445). Publish geral ao fim do dia (decisão do Pedro, 14:45).
 
 ## Registo (mais recente primeiro)
+- 05/11 16:15 · 0 MP · #695 · resposta por delegação: o OCR mantém a regra de hoje; ajusta-se o critério 3 do despacho · registada (6662955867).
+- 05/11 15:44 · 0 MP · — · revisão do plano da janela (PR #702): 9 passos já feitos de manhã; pedida a correcção · comentário 6662181445.
+- 05/11 15:27 · Pedro (via operador) · #646 · perguntas do Fecho D2-c: «1A 1A 2A» (D2-e selos com composição; famílias mistas mantêm o desconto; D2-f `partially_paid` no `committed`) · registadas (6661900951).
+- 05/11 15:15 · Pedro (via operador) · #646 · D2-d detalhes: «1A 2A 3A» (% por data e sessão; tabela própria; sai Modo/Percentagem do modal) · registadas (6661615537).
+- 05/11 14:55 · Pedro (via operador) · #646 · D2-d: «1B 2A» (% na configuração das bilheteiras; sem % = máximo; por data) · registadas (6661145692).
+- 05/11 14:46 · 0 MP · — · merge do PR #703 (diário; squash `1345693`) · ok.
+- 05/11 14:45 · Pedro · — · avançar o máximo hoje e fazer o Publish geral ao fim do dia; merges dos PRs do diário sem perguntar, com CI verde; higiene do QUADRO pelo operador · decisão.
 - 05/11 14:37 · 0 MP · #314 · Autorização R1 do 314-b por delegação (resposta 1A às Perguntas 6660312365) · emitida (6660666301).
 - 05/11 14:35 · 0 MP · — · merge do PR #701 (diário; squash `986f0fa`; quality verde no HEAD `21ee258`), com «Sim» do Pedro · ok.
 - 05/11 14:15 · 0 MP · — · PR #700 fechado sem merge (conteúdo incorporado no #701), com «Sim» do Pedro · ok.
