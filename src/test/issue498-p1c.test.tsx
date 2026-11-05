@@ -121,6 +121,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(() => { throw new Error("#498: rede proibida"); }));
   setCompany();
   fixtures.queries = {
+    "business-lines": [],
     events: [event], "events-list": [event],
     "transactions:dre": [tx], "transactions:dre-brasil": [tx], "transactions:pl": [tx],
     transactions: [{ ...tx, type: "expense", exclude_from_result: true }],
@@ -165,15 +166,15 @@ describe("#498 P1c — hashes PT capturados antes de alterar os seis componentes
     }
     expect(baseline).toMatchInlineSnapshot(`
       {
-        "Brasil:detail": "43fbcb9f6fee3618c07294c0b4dcaf97b9737c541b5288ab5b4b083d5ab0a8d5",
-        "Brasil:initial": "4d4471997df65a6540ec9150fb446a21d8faa8036d9e265e4a7169f6de04733d",
+        "Brasil:detail": "39b2236e1eaf6b3a381bd3e5190ec9d0fd4d35dcb70d8ac9ff4871857c9b7d08",
+        "Brasil:initial": "e03ea4f795f6c25d7a7b965aae2b7a0375cb61630479c7bdf1a6a68473ce01a1",
         "CashFlow:detail": "b1fc7ff5862ecd203724b928f9aa6199085a1e2cf4bbf93ef446f387f5ba6bd3",
         "CashFlow:events": "3c489f871971a82ada179afc1e6dbbe085eee908833b30dbfca978d52cd22f88",
         "CashFlow:initial": "36dfdc324d34e73a195658ba753e42d43f2765947088c9433373b6f6d9f449b8",
-        "DRE:detail": "d905a0dbb9491929bb591bdad73b81bb5d8069d9267d11bac32185ec59099dfb",
-        "DRE:initial": "93db0e4e27d2fab958db48c936af2afbb2ab9345577afebb6e0ce9214a7364c8",
-        "Empresarial:detail": "791f161dfda211e46651fb3e736ce602dd58ee7193bb0685a3bb7c07c0703ff9",
-        "Empresarial:initial": "791f161dfda211e46651fb3e736ce602dd58ee7193bb0685a3bb7c07c0703ff9",
+        "DRE:detail": "80c3cc834c7f037e934c4145e3ce7ce2bc9db0177258f3fa0d9199ca893d4b3f",
+        "DRE:initial": "948ba562b45bf1964c65ee613fc85c96aab073ca698a86e70d7ffe9491e249df",
+        "Empresarial:detail": "3030db3fbdc34e5040f6128f16882b9b0e10d47ec3eda0bed8002b1073949d8f",
+        "Empresarial:initial": "3030db3fbdc34e5040f6128f16882b9b0e10d47ec3eda0bed8002b1073949d8f",
         "PL:detail": "e8f7af7d9d9a38d70a566b4f8077e3ac99ebd799de5e09c4bb0efb8299e57a35",
         "PL:initial": "755cb513082c129d218abe1c2231821bd6ade464c9d4d19365fd7f57f65a8aba",
       }

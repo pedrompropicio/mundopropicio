@@ -40,6 +40,7 @@ beforeEach(() => {
   setItem = vi.spyOn(Storage.prototype, "setItem");
   vi.stubGlobal("fetch", vi.fn(() => { throw new Error("#669: rede proibida"); }));
   f.queries = {
+    "business-lines": [],
     events: [event], "transactions-approved": transactions,
     "account-categories": [
       { id: "event-income", code: "1.2.01", name: "Receita sintética", type: "income" },

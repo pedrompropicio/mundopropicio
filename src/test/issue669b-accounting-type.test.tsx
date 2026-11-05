@@ -71,6 +71,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(() => { throw new Error("#669b: rede proibida"); }));
   f.companyId = "company";
   f.queries = {
+    "business-lines": [],
     events: [event], "transactions-approved": transactions,
     "account-categories": [
       { id: "event-income", code: "1.2.01", name: "Receita sintética", type: "income" },

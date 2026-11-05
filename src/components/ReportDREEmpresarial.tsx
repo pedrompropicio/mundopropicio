@@ -1,6 +1,8 @@
 import { withVatNonRecoverableCost } from "@/lib/vat-non-recoverable";
 import { useFinalCloseBpVersions } from "@/hooks/useFinalCloseBpVersions";
 import { withFinalCloseForecasts } from "@/lib/bp-final-close";
+import { BusinessLineFilter } from "@/components/BusinessLineFilter";
+import { filterEventsByBusinessLine } from "@/lib/business-line-filter";
 import { EventNatureFilter } from "@/components/EventNatureFilter";
 import { findTicketCategoryId } from "@/lib/ticket-category";
 import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
@@ -85,6 +87,7 @@ export default function ReportDREEmpresarial() {
   const effectiveAccountingType = accountingTypeAvailable ? accountingType : "all";
   const year = Number(selectedYear);
 
+  const [lineFilter, setLineFilter] = useState<string[]>([]);
   const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
   const { data: allEvents = [] } = useQuery({
     queryKey: ["events"],
@@ -95,7 +98,13 @@ export default function ReportDREEmpresarial() {
     },
   });
   // #256: o filtro só restringe o conjunto de eventos; vazio = todos (resultado idêntico).
-  const events = useMemo(() => filterEventsByNature(allEvents as any[], natureFilter) as typeof allEvents, [allEvents, natureFilter]);
+  const events = useMemo(() => filterEventsByBusinessLine(
+    filterEventsByNature(allEvents as any[], natureFilter), lineFilter,
+  ) as typeof allEvents, [allEvents, natureFilter, lineFilter]);
+  // A linha cobre toda a secção de eventos. O alcance legado da natureza fica intacto.
+  const lineEventIds = useMemo(() => new Set(
+    filterEventsByBusinessLine(allEvents, lineFilter).map((e) => e.id),
+  ), [allEvents, lineFilter]);
 
   const { data: transactionsRaw = [] } = useQuery({
     queryKey: ["transactions-approved"],
@@ -265,8 +274,9 @@ export default function ReportDREEmpresarial() {
 
   // Event transactions (with event_id AND not corporate categories)
   const eventTx = useMemo(
-    () => yearTx.filter((t) => t.event_id && !corporateCatIds.has(t.category_id || "")),
-    [yearTx, corporateCatIds]
+    () => yearTx.filter((t) => t.event_id && !corporateCatIds.has(t.category_id || "")
+      && (lineFilter.length === 0 || lineEventIds.has(t.event_id))),
+    [yearTx, corporateCatIds, lineFilter, lineEventIds]
   );
 
   // A distribuição conserva o mesmo perímetro e regime, sem o corte informativo de tipo.
@@ -353,6 +363,7 @@ export default function ReportDREEmpresarial() {
         // Só contar vendas de eventos cujas zonas existem (defensivo)
         const zone = ticketZones.find((z: any) => z.id === (lot as any).zone_id);
         if (!zone) return;
+        if (lineFilter.length > 0 && !lineEventIds.has(zone.event_id)) return;
         const rate = Number((lot as any).iva_rate ?? 6);
         const gross = (s.total_value !== null && s.total_value !== undefined && s.total_value !== "")
           ? Number(s.total_value)
@@ -456,7 +467,7 @@ export default function ReportDREEmpresarial() {
     const totalCorpMonthly = new Array(12).fill(0);
     corpGroups.forEach((g) => g.monthly.forEach((v, i) => (totalCorpMonthly[i] += v)));
 
-    result.push(makeSectionTitle("CUSTOS CORPORATIVOS"));
+    result.push(makeSectionTitle(lineFilter.length > 0 ? "Comuns (sem evento)" : "CUSTOS CORPORATIVOS"));
     corpGroups.forEach((g) => {
       result.push(makeLine(g.name, g.monthly.map((v) => -v), false, false, true));
     });
@@ -504,7 +515,7 @@ export default function ReportDREEmpresarial() {
     }
 
     return result;
-  }, [regime, costSource, bpCostByEvent, eventTx, partnerEventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year, ticketRevenueSource, ticketSales, ticketLots, ticketZones, ticketCategoryId]);
+  }, [regime, costSource, bpCostByEvent, eventTx, partnerEventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year, ticketRevenueSource, ticketSales, ticketLots, ticketZones, ticketCategoryId, lineFilter, lineEventIds]);
 
   // #304 ponto 4: o que cai fora de todas as secções por natureza ≠ rubrica — só aviso.
   const natureDivergence = useMemo(
@@ -526,6 +537,7 @@ export default function ReportDREEmpresarial() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-4">
 <EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
+        <BusinessLineFilter value={lineFilter} onChange={setLineFilter} />
         <ReportCostSourceToggle value={costSource} onChange={setCostSource} />
         <ReportRegimeToggle value={regime} onChange={setRegime} />
         <ReportAccountingTypeToggle value={effectiveAccountingType} onChange={setAccountingType} disabled={!accountingTypeAvailable} />
