@@ -187,14 +187,15 @@ describe("#666b C3 — Empresarial", () => {
     clearLine();
     expect(monthly("Receitas de Eventos")).toEqual(baseline);
   }, 15000);
-  it("preserva o alcance legado do filtro de natureza na receita e no custo transaccional", () => {
+  it("#669c: natureza restringe a receita e o custo transaccional aos mesmos eventos", () => {
     render(<ReportDREEmpresarial />);
     fireEvent.click(screen.getByRole("radio", { name: /Transações \(comparação\)/ }));
     const before = monthly("Receitas de Eventos");
     fireEvent.click(screen.getByRole("button", { name: /^Natureza do evento:/ }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Produção própria" }));
-    expect(monthly("Receitas de Eventos")).toEqual(before);
-    expect(monthly("\\(-\\) Custos Directos de Eventos").at(-1)).toBe(-160);
+    // #669c antigo → novo: excluída Produção própria, receita anual 600 → 0 e custo -160 → 0.
+    expect(monthly("Receitas de Eventos")).toEqual(before.map(() => 0));
+    expect(monthly("\\(-\\) Custos Directos de Eventos").at(-1)).toBe(0);
   });
 });
 
