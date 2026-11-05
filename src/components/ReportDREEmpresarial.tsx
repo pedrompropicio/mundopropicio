@@ -33,6 +33,9 @@ import {
 import { ReportCostSourceToggle } from "@/components/ReportCostSourceToggle";
 import { ReportRegimeToggle } from "@/components/ReportRegimeToggle";
 import { regimeDate, useReportRegime } from "@/lib/report-regime";
+import { ReportAccountingTypeToggle } from "@/components/ReportAccountingTypeToggle";
+import { accountingTypeOf, useReportAccountingType } from "@/lib/report-accounting-type";
+import { fetchNonAccountingAccountIds } from "@/lib/accountant-account-filter";
 import { computeNatureDivergence } from "@/lib/dre-nature-divergence";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
@@ -71,6 +74,15 @@ export default function ReportDREEmpresarial() {
   // #218: custo de evento pelo BP (padrão). "Transações" é só comparação — nunca gravado.
   const [costSource, setCostSource] = useState<ReportCostSource>("bp");
   const { regime, setRegime } = useReportRegime();
+  const { accountingType, setAccountingType } = useReportAccountingType();
+  const { data: nonAccountingIds, isError: accountingAccountsError } = useQuery({
+    queryKey: ["dre-emp-non-accounting-accounts", companyLocale.companyId],
+    enabled: !!companyLocale.companyId && !companyLocale.isLoading && !companyLocale.isError,
+    queryFn: () => fetchNonAccountingAccountIds(supabase, companyLocale.companyId!),
+  });
+  const accountingTypeAvailable = !!companyLocale.companyId && !companyLocale.isLoading
+    && !companyLocale.isError && !accountingAccountsError && nonAccountingIds !== undefined;
+  const effectiveAccountingType = accountingTypeAvailable ? accountingType : "all";
   const year = Number(selectedYear);
 
   const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
@@ -234,19 +246,36 @@ export default function ReportDREEmpresarial() {
     );
   }, [categories]);
 
+  // #669b: o tipo corta só transações, antes das datas do regime; BP e sócios
+  // continuam a usar a base completa de transações válidas.
+  const transactionsOfType = useMemo(
+    () => effectiveAccountingType === "all" ? transactions
+      : transactions.filter((t) => accountingTypeOf(t, nonAccountingIds!) === effectiveAccountingType),
+    [transactions, effectiveAccountingType, nonAccountingIds],
+  );
+
   // Filter transactions by year
   const yearTx = useMemo(
-    () => transactions.filter((t) => {
+    () => transactionsOfType.filter((t) => {
       const d = regimeDate(t, regime);
       return d && d.startsWith(String(year));
     }),
-    [transactions, year, regime]
+    [transactionsOfType, year, regime]
   );
 
   // Event transactions (with event_id AND not corporate categories)
   const eventTx = useMemo(
     () => yearTx.filter((t) => t.event_id && !corporateCatIds.has(t.category_id || "")),
     [yearTx, corporateCatIds]
+  );
+
+  // A distribuição conserva o mesmo perímetro e regime, sem o corte informativo de tipo.
+  const partnerEventTx = useMemo(
+    () => transactions.filter((t) => {
+      const d = regimeDate(t, regime);
+      return d && d.startsWith(String(year)) && t.event_id && !corporateCatIds.has(t.category_id || "");
+    }),
+    [transactions, year, regime, corporateCatIds],
   );
 
   // Corporate transactions (no event_id OR corporate categories)
@@ -347,7 +376,7 @@ export default function ReportDREEmpresarial() {
     yearEvents.forEach((evt) => {
       const partners = eventPartners.filter((p: any) => p.event_id === evt.id);
       if (partners.length === 0) return;
-      const evtTx = eventTx.filter((t) => t.event_id === evt.id);
+      const evtTx = partnerEventTx.filter((t) => t.event_id === evt.id);
       let inc = evtTx
         .filter((t) => t.type === "income" && !t.is_transitory && !t.exclude_from_result)
         .filter((t) => !(useTicketSales && ticketCategoryId && t.category_id === ticketCategoryId))
@@ -475,7 +504,7 @@ export default function ReportDREEmpresarial() {
     }
 
     return result;
-  }, [regime, costSource, bpCostByEvent, eventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year, ticketRevenueSource, ticketSales, ticketLots, ticketZones, ticketCategoryId]);
+  }, [regime, costSource, bpCostByEvent, eventTx, partnerEventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year, ticketRevenueSource, ticketSales, ticketLots, ticketZones, ticketCategoryId]);
 
   // #304 ponto 4: o que cai fora de todas as secções por natureza ≠ rubrica — só aviso.
   const natureDivergence = useMemo(
@@ -499,6 +528,7 @@ export default function ReportDREEmpresarial() {
 <EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
         <ReportCostSourceToggle value={costSource} onChange={setCostSource} />
         <ReportRegimeToggle value={regime} onChange={setRegime} />
+        <ReportAccountingTypeToggle value={effectiveAccountingType} onChange={setAccountingType} disabled={!accountingTypeAvailable} />
         <Select value={selectedYear} onValueChange={setSelectedYear}>
           <SelectTrigger className="w-32">
             <SelectValue />
@@ -528,6 +558,12 @@ export default function ReportDREEmpresarial() {
           </RadioGroup>
         </div>
       </div>
+
+      {accountingAccountsError && (
+        <p role="alert" className="text-sm text-destructive">
+          Filtro de tipo indisponível: não foi possível ler as contas gerenciais. A mostrar Todas as transações.
+        </p>
+      )}
 
       <p className="text-xs text-muted-foreground">
         Regra: tudo s/IVA (líquido). Sem overheads (rateios do BP). Sem transitórias nem exclusões de resultado.
