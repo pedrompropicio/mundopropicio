@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { FinancialPositionAccess } from "@/components/financial-position/FinancialPositionAccess";
+import { TreasuryConferenceView } from "@/components/treasury/TreasuryConferenceView";
 import { TreasuryBridgeView } from "@/components/treasury/TreasuryBridgeView";
 import { useTreasuryBridge } from "@/hooks/useTreasuryBridge";
 import { useCompany } from "@/hooks/useCompany";
@@ -12,6 +13,7 @@ import { treasuryPeriod, treasuryPeriodLabel, TREASURY_NOTES, type TreasuryPerio
 function TreasuryContent() {
   const [params, setParams] = useSearchParams();
   const hasDates = params.has("de") || params.has("ate");
+  const [showConference, setShowConference] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
   const { companyId } = useCompany();
@@ -19,7 +21,7 @@ function TreasuryContent() {
   let period: TreasuryPeriod = { from: null, to: null };
   let periodError = "";
   try { period = treasuryPeriod(params); } catch (error) { periodError = (error as Error).message; }
-  const query = useTreasuryBridge(period, !periodError);
+  const query = useTreasuryBridge(period, !periodError, showConference);
   const periodMode = hasDates;
   const setDate = (key: "de" | "ate", value: string) => {
     const next = new URLSearchParams(params);
@@ -51,13 +53,16 @@ function TreasuryContent() {
     </div>
       {periodMode && <div className="flex flex-wrap gap-4"><div><label htmlFor="treasury-from" className="text-sm">De</label><DatePicker id="treasury-from" aria-label="De" value={params.get("de") ?? ""} onChange={(date) => setDate("de", date)} clearable /></div><div><label htmlFor="treasury-to" className="text-sm">Até</label><DatePicker id="treasury-to" aria-label="Até" value={params.get("ate") ?? ""} onChange={(date) => setDate("ate", date)} clearable /></div></div>}
     </div>
+    <div role="group" aria-label="Vista da Tesouraria" className="flex gap-2"><Button variant={showConference ? "outline" : "default"} aria-pressed={!showConference} onClick={() => setShowConference(false)}>Ponte</Button><Button variant={showConference ? "default" : "outline"} aria-pressed={showConference} onClick={() => setShowConference(true)}>Conferência</Button></div>
     <aside className="space-y-1 rounded-lg bg-muted p-4 text-sm text-muted-foreground">{TREASURY_NOTES.map((note) => <p key={note}>{note}</p>)}<p>Inclui eventos em planeamento, em curso, em fecho e fechados. O retido é atribuído pelos eventos das bilheteiras, sem distribuir saldos sem evento.</p></aside>
     {periodError && <p role="alert">{periodError}</p>}
     {query.error && <p role="alert">Tesouraria incompleta: {query.error instanceof Error ? query.error.message : "uma leitura falhou"}. Atualize para tentar novamente.</p>}
     {!query.error && !periodError && query.loading && <p role="status">A carregar Tesouraria · resultados: {query.loaded}/{query.total} eventos</p>}
     {locale.status === "unavailable" && <p role="alert">{locale.message}</p>}
     {exportError && <p role="alert">{exportError}</p>}
-    {!periodError && !query.error && query.bridge && locale.status === "available" && <TreasuryBridgeView bridge={query.bridge} locale={locale} />}
+    {!periodError && !query.error && query.bridge && locale.status === "available" && (showConference
+      ? <TreasuryConferenceView bridge={query.bridge} locale={locale} data={query.conference?.data} loading={query.conference?.isPending || query.conference?.isFetching} error={query.conference?.error} periodMode={periodMode} />
+      : <TreasuryBridgeView bridge={query.bridge} locale={locale} />)}
   </main>;
 }
 

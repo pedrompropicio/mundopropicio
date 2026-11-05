@@ -526,12 +526,12 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       return toast.error("Valor retido excede o saldo da fatura escolhida");
     }
     const transferAmt = !byStatement && transferAmount ? Number(transferAmount) : 0;
-    if (transferAmt > 0 && !transferAccountId) {
+    if (confirm && transferAmt > 0 && creditStatus === "credited" && !transferAccountId) {
       return toast.error("Selecione a conta destino da transferência");
     }
     if (!byStatement && transferAccountId && !(transferAmt > 0)) {
       return toast.error("Falta o valor da transferência", {
-        description: 'Preencha o valor a transferir ou escolha "— Não transferir agora —".',
+        description: "Preencha o valor a transferir.",
       });
     }
 
@@ -650,7 +650,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       // Mesma ordem e regras de antes: fecho → transferência → deduções →
       // compensação do retido → saldo restante → conciliação. Falha = nada gravado.
       const isCredited = creditStatus === "credited" && !targetWithholds;
-      const wantsTransfer = confirm && transferAmt > 0 && !!transferAccountId && !byStatement && !existingSettlement?.transfer_transaction_id;
+      const wantsTransfer = confirm && transferAmt > 0 && !byStatement && !existingSettlement?.transfer_transaction_id;
       const selected = eligibleTxns
         .filter((t: any) => selectedTxnIds.has(t.id))
         .map((t: any) => ({ id: t.id, paid_amount: txnGross(t) }));
@@ -661,7 +661,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         p_payload: { ...payload, conciliated_by: user?.email || "system" },
         p_confirm: confirm,
         p_selected: selected,
-        p_transfer: wantsTransfer ? { amount: transferAmt, to_account_id: transferAccountId, credited: isCredited } : null,
+        p_transfer: wantsTransfer ? { amount: transferAmt, to_account_id: transferAccountId || null, credited: isCredited } : null,
         p_retained_payment_notes: `Compensação por venda à porta retida pela sala (fecho ${officeName})${venueRetainedNotes ? ` — ${venueRetainedNotes}` : ""}`,
         p_remainder_payment_notes: `Saldo restante liquidado pela bilheteira ${officeName} (fecho do evento)`,
         p_audit_user: getAuditUser(user),
@@ -1248,7 +1248,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                   {!transferAlreadyDone && !byStatement && (
                   <div className="rounded-lg border border-border p-4 space-y-3">
                     <p className="text-xs text-muted-foreground">
-                      Pode adiar — o direito fica retido na bilheteira até transferência manual.
+                      {transferAccountId
+                        ? "Pode adiar — o direito fica retido na bilheteira até transferência manual."
+                        : "Repasse a receber — banco na liquidação"}
                     </p>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1">
@@ -1259,7 +1261,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                           disabled={!canEdit}
                           className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                         >
-                          <option value="">— Não transferir agora —</option>
+                          <option value="">— Banco na liquidação —</option>
                           {bankAccounts.map((a: any) => (
                             <option key={a.id} value={a.id}>
                               {a.name}{a.withholds_revenue ? " (sala c/ retenção)" : ""}
@@ -1294,7 +1296,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                       </div>
                     )}
 
-                    {transferAccountId && Number(transferAmount || 0) > 0 && !targetWithholds && (
+                    {Number(transferAmount || 0) > 0 && !targetWithholds && (
                       <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
                         <Label className="text-xs text-muted-foreground">Estado do crédito na conta destino</Label>
                         <div className="grid gap-2 sm:grid-cols-2">

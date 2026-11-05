@@ -122,6 +122,44 @@ Aberto a 28/10/2026: `bp-hk-madrid-2026` (decisão do Pedro; BP da temporada Hen
 
 Aberto a 04/11/2026: `saas` (decisão do Pedro; prompt em `docs/prompts/saas.md`; estado em `estado/estado-saas.md`).
 
+Aberto a 04–05/11/2026: espelho completo na organização Mundo Propício do Claude (projeto «Sistema de Gestão de Eventos — espelho MP»): 0–11, `coala-portal`, `newgang-portal`, `juridico`, `saas` e `gestao-de-chats`, todos com o sufixo «(MP)». A 05/11, o «0 - Cowork (MP)» passou a ser o 0 · Cowork do lado Claude (ver «Claude em duas organizações»).
+
+## Claude em duas organizações (05/11/2026)
+
+Do lado Claude, o mapa de chats existe em **duas organizações**, com os mesmos chats e a mesma numeração:
+
+1. **Conta pessoal** — projeto «Sistema de Gestão de Eventos - Lovable».
+2. **Organização Mundo Propício** — projeto «Sistema de Gestão de Eventos — espelho MP», com «0 - Cowork (MP)», «1 - Controller (MP)» … «gestao-de-chats (MP)».
+
+**Comando (decisão do Pedro, 05/11/2026).** O **«0 - Cowork (MP)»** é o 0 · Cowork do lado Claude e comanda o dev (mplabs-dev / executor E2b). Tem todas as funções do 0:
+
+- Autorizações;
+- revisão e merge;
+- delegação;
+- Live;
+- deploy;
+- Publish;
+- crons.
+
+O 0 da conta pessoal passa a só consulta, e volta a executar apenas se o Pedro o designar explicitamente. Handoff: `handoffs/2026-11-05-0-cowork-pessoal-para-mp.md`.
+
+**Sincronização entre os dois lados.** Os dois projetos Claude não partilham documentos nem memória. O repo é a única ponte. Por isso:
+
+- **Ao arrancar,** qualquer 0 lê `estado/estado-0-cowork.md`, o diário do 0, antes de agir.
+- **No fim de cada passo com efeito**, quem o executou acrescenta uma linha ao diário. Contam como passo com efeito:
+  - merge;
+  - migração aplicada;
+  - DML;
+  - deploy;
+  - Publish;
+  - cron;
+  - resposta por delegação;
+  - decisão do Pedro.
+
+  A linha leva data/hora UTC, o chat, a Issue e o resultado. O detalhe fica na Issue.
+- Nada vive só num chat: as decisões vão para a Issue e para `DECISIONS.md`, como sempre.
+- Os documentos que só existem no Projeto Claude pessoal, ou seja, os `claude/*`, que são privados e comerciais, **não são visíveis** do lado MP. Quando um tema precisar deles, o Pedro anexa-os ao projeto MP ou o conteúdo passa por um Claude Doc partilhado. Nunca entram no repo, que é público.
+
 ## Partilha Claude ↔ ChatGPT — quadros
 
 - `docs/QUADRO.md` — pedidos entre chats e secção "Em execução agora". Fonte única. O Claude Doc antigo (`66346443…`) é arquivo do histórico até 15/10/2026.

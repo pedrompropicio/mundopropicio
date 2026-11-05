@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
-import { SUPPLIER_BASE_COLUMNS, fetchSupplierBankMap, mergeSupplierBank } from "@/lib/supplier-bank";
+import { SUPPLIER_BASE_COLUMNS, fetchSupplierBankMap, mergeSupplierBank, readSupplierCountry, type SupplierCountryReader } from "@/lib/supplier-bank";
 import { useCompanyLocale } from "@/hooks/useCompanyLocale";
 
 
@@ -100,11 +100,13 @@ export default function Suppliers() {
       // estrangeira sairia ilegível. Reconfirma-se aqui, não só na UI.
       const u = await fetchSupplierUsage(s.id);
       if (!u.canDelete) throw new Error(`O fornecedor tem ${describeUsage(u.blocking)}. Desative-o em vez de eliminar.`);
+      const supplierOrigin = await readSupplierCountry(supabase as unknown as SupplierCountryReader, s.id);
+      if (supplierOrigin.status !== "available") throw new Error("Não foi possível ler o país do fornecedor — nada foi eliminado. Tente novamente.");
       const related = await fetchSupplierCascadeRows(s.id);
       const ok = await moveToTrash({
         entity_type: "supplier",
         entity_id: s.id,
-        entity_data: s,
+        entity_data: { ...s, country: supplierOrigin.country },
         related_data: Object.keys(related).length > 0 ? related : null,
         deleted_by: user?.email || "sistema",
       });
