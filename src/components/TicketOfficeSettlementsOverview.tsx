@@ -1,6 +1,6 @@
 /**
  * #271 — fechos de bilheteira por evento (eventId) ou transversais (sem eventId, com filtros).
- * Lê só por get_ticket_office_settlements_overview (SECURITY DEFINER, filtrado por empresa activa).
+ * Fechos pela RPC canónica; navegação v2 pelas pertenças confirmadas e leitura R5.
  */
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -8,6 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
 import { formatCurrency } from "@/lib/mock-data";
 import { settlementFormLabel, SETTLEMENT_STATUS_LABELS } from "@/lib/ticket-office-settlement-form";
+import { useTicketOfficeStatements } from "@/hooks/useTicketOfficeStatements";
+import { useAuth } from "@/contexts/AuthContext";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Row {
   id: string;
@@ -32,19 +35,68 @@ interface Row {
 }
 
 const ddmmyyyy = (iso?: string | null) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "—");
+const labels = { viewStatement: "ver apuramento", statement: "Apuramento", finalEvent: "Evento apurado" };
 
-export function TicketOfficeSettlementsOverview({ eventId }: { eventId?: string }) {
+type Membership = { event_id: string; statement_id: string; financial_account_id: string; company_id: string;
+  events: { name: string } | null; financial_accounts: { name: string } | null };
+
+function MembershipLink({ membership }: { membership: Membership }) {
+  const read = useTicketOfficeStatements(membership.financial_account_id);
+  if (read.data?.status !== "v2") return null;
+  const statement = read.data.confirmedStatements.find((s) => s.id === membership.statement_id);
+  if (!statement || !read.data.provenance.eventMemberships.some((m) => m.event_id === membership.event_id && m.statement_id === statement.id)) return null;
+  return <p className="text-sm break-words">{labels.finalEvent}: {membership.events?.name ?? membership.event_id}
+    {` · ${labels.statement} ${statement.number} · `}<a className="text-primary hover:underline"
+      href={`/bilheteiras?conta=${encodeURIComponent(membership.financial_account_id)}&separador=apuramentos#apuramento-${encodeURIComponent(statement.id)}`}>{labels.viewStatement}</a></p>;
+}
+
+// An event can be confirmed without a legacy settlement. Do not make its link
+// depend on R8 having populated ticket_office_settlements.statement_id.
+function UnlistedStatementLinks({ rows, eventId, officeId, officeFilter = "", eventFilter = "" }: {
+  rows: Row[]; eventId?: string; officeId?: string; officeFilter?: string; eventFilter?: string;
+}) {
+  const { companyId } = useCompany();
+  const { user } = useAuth();
+  const memberships = useQuery({
+    queryKey: ["ticket-office-statement-navigation", companyId, user?.id, eventId, officeId],
+    enabled: !!companyId && !!user, retry: false,
+    queryFn: async () => {
+      let query = (supabase as any).from("ticket_office_statement_events")
+        .select("event_id, statement_id, financial_account_id, company_id, events(name), financial_accounts(name)")
+        .eq("company_id", companyId).order("event_id", { ascending: true });
+      if (eventId) query = query.eq("event_id", eventId);
+      if (officeId) query = query.eq("financial_account_id", officeId);
+      const { data, error } = await fetchAllPagedQuery<Membership>(query, { maxRows: 50000 });
+      if (error) throw error;
+      return data;
+    },
+  });
+  return <>{(memberships.data ?? []).filter((m) => !rows.some((r) => r.event_id === m.event_id && r.office_id === m.financial_account_id)
+    && (!officeFilter || m.financial_accounts?.name === officeFilter) && (!eventFilter || m.events?.name === eventFilter))
+    .map((m) => <MembershipLink key={m.event_id} membership={m} />)}</>;
+}
+
+function StatementLink({ row }: { row: Row }) {
+  const read = useTicketOfficeStatements(row.office_id);
+  const membership = read.data?.status === "v2" ? read.data.provenance.eventMemberships.find((m) => m.event_id === row.event_id) : null;
+  const statementId = membership?.statement_id ?? row.statement_id;
+  const officeId = membership?.financial_account_id ?? row.office_id;
+  if (!statementId || !officeId) return null;
+  return <> · <a href={`/bilheteiras?conta=${encodeURIComponent(officeId)}&separador=apuramentos#apuramento-${encodeURIComponent(statementId)}`} className="text-primary hover:underline">{labels.viewStatement}</a></>;
+}
+
+export function TicketOfficeSettlementsOverview({ eventId, officeId }: { eventId?: string; officeId?: string }) {
   const { companyId } = useCompany();
   const [office, setOffice] = useState("");
   const [eventFilter, setEventFilter] = useState("");
 
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ["ticket_office_settlements_overview", companyId, eventId ?? null],
+    queryKey: ["ticket_office_settlements_overview", companyId, eventId ?? null, officeId ?? null],
     enabled: !!companyId,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_ticket_office_settlements_overview" as any, {
         _event_id: eventId ?? null,
-        _office_id: null,
+        _office_id: officeId ?? null,
       });
       if (error) throw error;
       return (data || []) as Row[];
@@ -55,7 +107,7 @@ export function TicketOfficeSettlementsOverview({ eventId }: { eventId?: string 
   const events = useMemo(() => Array.from(new Set(rows.map((r) => r.event_name).filter(Boolean))) as string[], [rows]);
   const shown = rows.filter((r) => (!office || r.office_name === office) && (!eventFilter || r.event_name === eventFilter));
 
-  if (eventId && !isLoading && rows.length === 0) return null;
+  if (eventId && !isLoading && rows.length === 0) return <UnlistedStatementLinks rows={rows} eventId={eventId} officeId={officeId} />;
 
   return (
     <div className="glass rounded-xl p-4 space-y-3">
@@ -101,9 +153,7 @@ export function TicketOfficeSettlementsOverview({ eventId }: { eventId?: string 
             ) : (
               <span className="text-muted-foreground"> (derivada)</span>
             )}
-            {r.statement_id && (
-              <> · <a href={`/bilheteiras#apuramento-${r.statement_id}`} className="text-primary hover:underline">ver apuramento</a></>
-            )}
+            <StatementLink row={r} />
           </p>
           <p className="text-xs whitespace-pre-wrap">
             <span className="text-muted-foreground">Notas: </span>{r.notes?.trim() || "sem notas"}
@@ -113,6 +163,7 @@ export function TicketOfficeSettlementsOverview({ eventId }: { eventId?: string 
           )}
         </div>
       ))}
+      <UnlistedStatementLinks rows={rows} eventId={eventId} officeId={officeId} officeFilter={office} eventFilter={eventFilter} />
     </div>
   );
 }

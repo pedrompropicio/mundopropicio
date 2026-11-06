@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
@@ -14,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { formatCurrency } from "@/lib/mock-data";
 
 export const statementDraftLabels = {
   title: "Rascunho do apuramento", description: "Preparar o documento e guardar rascunho.",
@@ -39,6 +41,30 @@ export const statementDraftLabels = {
   failed: "Não foi possível gravar o rascunho.", missingRevision: "O servidor não devolveu uma revisão válida do rascunho.",
   incomplete: "Leitura de fontes incompleta.",
   sum: "Soma das linhas (cêntimos)", difference: "Diferença para o documento (cêntimos)",
+  review: "Conferir e confirmar", confirm: "Confirmar", confirming: "A confirmar…", confirmTitle: "Confirmar apuramento",
+  confirmHelp: "Confira as linhas e o documento. A confirmação é final e será validada pelo servidor.",
+  explicitConfirmation: "Confirmar definitivamente este apuramento?", back: "Continuar a conferir",
+  approveOpening: "Aprovo explicitamente o saldo de abertura e a sua nota.",
+  openingPending: "Abertura por aprovar por admin", openingApproved: "Abertura aprovada por admin",
+  confirmConflict: "A revisão mudou. Os dados foram recarregados; volte a conferir o documento antes de confirmar.",
+  refused: "O servidor recusou a confirmação. Os dados foram recarregados; volte a conferir o documento.",
+  refusalDetails: {
+    issue303_company_role_required: "A sessão tem de ser admin da empresa.",
+    issue303_account_not_enabled: "A conta não tem o regime v2 disponível.",
+    issue303_total_mismatch: "A soma das linhas diverge do total documental.",
+    issue303_quota_mismatch: "A quota declarada do evento diverge das suas linhas.",
+    issue303_event_already_confirmed: "O evento já tem um apuramento confirmado.",
+    issue303_pending_document: "Existem linhas por documentar.",
+    issue303_documentary_proof_required: "Falta prova documental verificada.",
+    issue303_source_already_used: "Uma fonte já foi usada noutro apuramento.",
+  } as Record<string, string>,
+  invalidReceipt: "O servidor não devolveu um recibo válido. Recarregue e confira o estado do documento antes de continuar.",
+  reloadFailed: "Não foi possível recarregar os dados. Reabra a conta antes de continuar.",
+  receipt: "Recibo de confirmação", revision: "Revisão", balance: "Saldo / transporte", serverTime: "Instante do servidor",
+  confirmedBy: "Confirmado por", calculatedTotal: "Total calculado", documentTotal: "Total do documento",
+  pendingProof: "Existem linhas ou provas documentais por completar. A confirmação está bloqueada.",
+  loadingProof: "A carregar provas documentais…", proofError: "Não foi possível carregar as provas documentais.",
+  original: "Acerto do apuramento original", originalLine: "Linha original", adjustmentReason: "Motivo do acerto",
   types: {
     event_sales: "Vendas do evento após retenção", ticketline_invoice: "Fatura da bilheteira", venue_settlement: "Acerto da sala",
     advance: "Repasse", carry_over: "Transitado", opening_balance: "Saldo de abertura",
@@ -136,8 +162,161 @@ export function statementCutoffPreview(date: string, timezone: string) {
 interface Props {
   officeId: string; read: V2Read; statement?: TicketOfficeStatementV2;
   onClose: () => void; onSaved: () => Promise<void>; onConflict: () => Promise<void>;
+  mode?: "draft" | "confirm"; onRejected?: (message: string) => Promise<void>;
 }
-export function TicketOfficeStatementModal({ officeId, read, statement: initialStatement, onClose, onSaved, onConflict }: Props) {
+export function TicketOfficeStatementModal(props: Props) {
+  return props.mode === "confirm" && props.statement
+    ? <StatementConfirmation {...props} statement={props.statement} />
+    : <StatementDraft {...props} />;
+}
+
+// Only consume server receipt fields. The document number is read from the
+// persisted header; 0346 does not return a number in the receipt.
+const receiptMoney = z.union([z.string(), z.number()]).refine((value) => {
+  try { parseTicketlineStatementAmountCents(value); return true; } catch { return false; }
+});
+const confirmationReceiptSchema = z.object({
+  contract_version: z.literal(2), statement_id: z.string().min(1), revision: z.number().int().positive(),
+  calculated_total: receiptMoney, independent_position: receiptMoney,
+  confirmed_by: z.string().min(1), confirmed_at: z.string().datetime({ offset: true }), opening_approved: z.boolean(),
+  opening: z.object({ line_id: z.string().min(1), amount: receiptMoney, note: z.string().min(1),
+    approved_by: z.string().min(1), approved_at: z.string().datetime({ offset: true }) }).passthrough().nullable(),
+  position_proof: z.object({ statement_id: z.string(), revision: z.number(), independent_position: receiptMoney,
+    validator: z.literal("issue303-r4-v1"), contract_version: z.literal(2),
+    position_cutoff_at: z.string().datetime({ offset: true }), position_timezone: z.string().min(1),
+    position_cutoff_source: z.enum(["company_day_end", "pdf_explicit"]), primary_document_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    sources: z.array(z.record(z.unknown())).min(1) }).passthrough(),
+  lines: z.array(z.record(z.unknown())).min(1), documents: z.array(z.record(z.unknown())).min(1), sources: z.array(z.record(z.unknown())).min(1),
+}).passthrough();
+function receiptFor(statement: TicketOfficeStatementV2, value: unknown) {
+  const receipt = confirmationReceiptSchema.parse(value);
+  const cents = parseTicketlineStatementAmountCents;
+  const opening = statement.ticket_office_statement_lines.find((line) => line.document_line_type === "opening_balance");
+  if (receipt.statement_id !== statement.id || receipt.revision !== statement.revision
+    || statement.document_total == null || cents(receipt.calculated_total) !== cents(statement.document_total)
+    || cents(receipt.independent_position) !== cents(statement.document_total)
+    || receipt.position_proof.statement_id !== statement.id || receipt.position_proof.revision !== statement.revision
+    || cents(receipt.position_proof.independent_position) !== cents(statement.document_total)
+    || receipt.position_proof.primary_document_sha256 !== statement.primary_document_sha256
+    || !receipt.documents.some((document) => document.document_id === statement.primary_document_id && document.sha256 === statement.primary_document_sha256)
+    || receipt.lines.length !== statement.ticket_office_statement_lines.length
+    || statement.ticket_office_statement_lines.some((line) => !receipt.lines.some((frozen) => frozen.id === line.id && frozen.statement_id === statement.id && frozen.company_id === statement.company_id))
+    || receipt.opening_approved !== !!opening || (receipt.opening?.line_id ?? null) !== (opening?.id ?? null)
+    || (opening && (receipt.opening?.approved_by !== receipt.confirmed_by || receipt.opening?.approved_at !== receipt.confirmed_at
+      || receipt.opening.note !== opening.opening_note || cents(receipt.opening.amount) !== cents(opening.amount)))) {
+    throw new Error(labels.invalidReceipt);
+  }
+  return receipt;
+}
+export function TicketOfficeStatementReceipt({ statement, value }: { statement: TicketOfficeStatementV2; value: unknown }) {
+  let receipt: ReturnType<typeof receiptFor>;
+  try { receipt = receiptFor(statement, value); } catch { return <p role="alert">{labels.invalidReceipt}</p>; }
+  return <section aria-label={labels.receipt} className="space-y-2 rounded border p-3 break-words">
+    <h3 className="font-semibold">{labels.receipt}</h3>
+    <dl className="text-sm space-y-1">
+      <div><dt>{labels.number}</dt><dd>{statement.number}</dd></div>
+      <div><dt>{labels.revision}</dt><dd>{receipt.revision}</dd></div>
+      <div><dt>{labels.calculatedTotal}</dt><dd>{formatCurrency(Number(receipt.calculated_total))}</dd></div>
+      <div><dt>{labels.balance}</dt><dd>{formatCurrency(Number(receipt.independent_position))}</dd></div>
+      <div><dt>{labels.serverTime}</dt><dd><time dateTime={receipt.confirmed_at}>{receipt.confirmed_at}</time></dd></div>
+      <div><dt>{labels.confirmedBy}</dt><dd>{receipt.confirmed_by}</dd></div>
+    </dl>
+    {receipt.opening_approved && <p>{labels.openingApproved}</p>}
+  </section>;
+}
+
+function StatementConfirmation({ statement: initialStatement, read, onClose, onSaved, onRejected }: Props & { statement: TicketOfficeStatementV2 }) {
+  const { role, user } = useAuth();
+  const { companyId } = useCompany();
+  const [statement] = useState(initialStatement);
+  const [prompt, setPrompt] = useState(false);
+  const [approved, setApproved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+  const [receipt, setReceipt] = useState<unknown>(null);
+  const [error, setError] = useState<string | null>(null);
+  const inFlight = useRef(false);
+  const documents = useQuery({
+    queryKey: ["ticket-office-statement-documents", companyId, user?.id, statement.id, statement.revision],
+    enabled: !!companyId && !!user, retry: false,
+    queryFn: () => loadStatementDocuments(statement.id, companyId!),
+  });
+  const lines = statement.ticket_office_statement_lines;
+  const reconciliation = (() => {
+    try {
+      if (statement.document_total == null || !lines.length || lines.some((line) => line.amount == null)) return null;
+      const sum = lines.reduce((acc, line) => acc + BigInt(parseTicketlineStatementAmountCents(line.amount)), 0n);
+      return { sum, difference: BigInt(parseTicketlineStatementAmountCents(statement.document_total)) - sum };
+    } catch { return null; }
+  })();
+  const opening = lines.find((line) => line.document_line_type === "opening_balance");
+  const pending = !statement.primary_document_id || !statement.primary_document_sha256
+    || !documents.data?.some((doc) => doc.id === statement.primary_document_id && doc.verified_sha256 === statement.primary_document_sha256 && doc.verified_file_id)
+    || lines.some((line) =>
+    line.pending_document || !line.source_sha256 || !line.document_page || !line.document_line_ref
+    || (line.document_line_type === "event_sales" && read.provenance.eventMemberships.some((m) => m.event_id === line.event_id)));
+  const canConfirm = role === "admin" && statement.status === "draft" && reconciliation?.difference === 0n && !pending && !busy && !blocked && !receipt;
+  const confirm = async () => {
+    if (!canConfirm || !prompt || (opening && !approved) || inFlight.current) return;
+    inFlight.current = true; setBusy(true); setError(null);
+    try {
+      const { data, error: failure } = await (supabase as any).rpc("confirm_ticket_office_statement", {
+        p_statement_id: statement.id, p_expected_revision: statement.revision, p_approve_opening: !!opening && approved,
+      });
+      if (failure) throw failure;
+      try { receiptFor(statement, data); } catch { throw new Error(labels.invalidReceipt); }
+      setReceipt(data); setPrompt(false); setBlocked(true);
+    } catch (failure) {
+      const e = failure as { code?: string; message?: string };
+      const message = e.code === "40001" || e.message?.includes("issue303_revision_conflict") ? labels.confirmConflict
+        : e.message === labels.invalidReceipt ? labels.invalidReceipt
+        : `${labels.refused}${labels.refusalDetails[e.message ?? ""] ? ` ${labels.refusalDetails[e.message!]}` : ""}`;
+      setBlocked(true); setPrompt(false); setError(message);
+      try { await onRejected?.(message); } catch { setError(`${message} ${labels.reloadFailed}`); }
+      return;
+    } finally { setBusy(false); inFlight.current = false; }
+    try { await onSaved(); } catch { setError(labels.reloadFailed); }
+  };
+  return <Dialog open onOpenChange={(open) => { if (!open && !busy) onClose(); }}>
+    <DialogContent className="max-w-4xl" onEscapeKeyDown={(e) => { if (busy) e.preventDefault(); }}>
+      <DialogHeader><DialogTitle>{labels.confirmTitle}</DialogTitle><DialogDescription>{labels.confirmHelp}</DialogDescription></DialogHeader>
+      <div className="space-y-4">
+        <p>{labels.number}: {statement.number} · {labels.revision}: {statement.revision}</p>
+        {receipt ? <TicketOfficeStatementReceipt statement={statement} value={receipt} /> : <>
+          <div className="overflow-x-auto"><table className="w-full text-sm"><tbody>{lines.map((line) => <tr key={line.id}>
+            <td className="pr-2">{labels.types[line.document_line_type]}</td><td className="pr-2">{line.description}
+              <p>{labels.page}: {line.document_page ?? "—"} · {labels.reference}: {line.document_line_ref ?? "—"}</p></td>
+            <td className="text-right">{line.amount == null ? labels.pending : formatCurrency(Number(line.amount))}</td>
+          </tr>)}</tbody></table></div>
+          <dl className="text-sm"><dt>{labels.sum}</dt><dd>{reconciliation ? String(reconciliation.sum) : "—"}</dd>
+            <dt>{labels.total}</dt><dd>{asCents(statement.document_total) || "—"}</dd>
+            <dt>{labels.difference}</dt><dd role="status">{reconciliation ? String(reconciliation.difference) : "—"}</dd></dl>
+          {pending && <p>{labels.pendingProof}</p>}
+          {documents.isPending && <p>{labels.loadingProof}</p>}
+          {documents.isError && <p role="alert">{labels.proofError}</p>}
+          {documents.data && <TicketOfficeStatementDocuments statementId={statement.id} documents={documents.data} canManage={false}
+            v2={{ status: statement.status, revision: statement.revision }} />}
+          {opening && <div><p>{labels.openingPending}</p><p>{opening.opening_note}</p><p>{formatCurrency(Number(opening.amount))}</p></div>}
+          {prompt && role === "admin" ? <Dialog open onOpenChange={(open) => { if (!open && !busy) { setPrompt(false); setApproved(false); } }}>
+            <DialogContent role="alertdialog" aria-label={labels.explicitConfirmation} onEscapeKeyDown={(e) => { if (busy) e.preventDefault(); }}>
+              <DialogHeader><DialogTitle>{labels.explicitConfirmation}</DialogTitle><DialogDescription>{labels.confirmHelp}</DialogDescription></DialogHeader>
+              <div className="space-y-3">
+                {opening && <Label className="flex gap-2"><input type="checkbox" checked={approved} disabled={busy}
+                  onChange={(e) => setApproved(e.target.checked)} />{labels.approveOpening}</Label>}
+                <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" disabled={busy} onClick={() => { setPrompt(false); setApproved(false); }}>{labels.back}</Button>
+                  <Button type="button" disabled={!canConfirm || (!!opening && !approved)} onClick={() => void confirm()}>{busy ? labels.confirming : labels.confirm}</Button></div>
+              </div>
+            </DialogContent>
+          </Dialog> : role === "admin" && <Button type="button" disabled={!canConfirm} onClick={() => setPrompt(true)}>{labels.confirm}</Button>}
+        </>}
+        {error && <p role="alert">{error}</p>}
+        <Button type="button" variant="outline" disabled={busy} onClick={onClose}>{labels.cancel}</Button>
+      </div>
+    </DialogContent>
+  </Dialog>;
+}
+
+function StatementDraft({ officeId, read, statement: initialStatement, onClose, onSaved, onConflict }: Props) {
   const { company, companyId } = useCompany();
   const { user, isAdmin, isManager } = useAuth();
   // Bind the submitted revision to the form's original values. Background R5
