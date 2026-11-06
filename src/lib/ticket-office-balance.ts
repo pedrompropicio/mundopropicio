@@ -30,6 +30,7 @@
  * Qualquer soma de vendas começa em `get_ticket_office_sales` (nunca no cliente).
  */
 import { ticketSaleRevenue, type TicketSaleLike } from "@/lib/ticket-sales-revenue";
+import type { TicketOfficeV2Provenance } from "@/lib/ticket-office-position";
 
 /**
  * Rubrica 10.3 Transferências Internas. Uma transferência entre contas é um par
@@ -151,7 +152,8 @@ export function computeTicketOfficeBalance(input: TicketOfficeBalanceInput): Tic
 }
 
 // #303 / P6b — decomposição do retido de uma bilheteira, partilhada pelo painel da bilheteira
-// e pelo ecrã Posição Financeira: posição do apuramento mais recente (qualquer estado)
+// e pelo ecrã Posição Financeira: posição do apuramento mais recente (v1: qualquer estado;
+// com proveniência v2: só o confirmado seleccionado pelo adaptador)
 // + saldo dos eventos sem fecho e fora de apuramentos + resíduo (por conciliar).
 // A posição apurada já está DENTRO do retido; nunca se abate dele. Nunca rateia o pool por evento.
 export interface RetainedStatementLine { id?: string; line_type?: string | null; position: number; description?: string | null; amount: number | string | null; event_id?: string | null }
@@ -159,16 +161,22 @@ export interface RetainedStatement { id?: string; number?: string | number | nul
 export interface RetainedEvent { id: string; balance: number }
 export interface RetainedDecomposition<E extends RetainedEvent = RetainedEvent> {
   statement: RetainedStatement; position: number; openEvents: E[]; openTotal: number; residual: number; statementLines: RetainedStatementLine[];
+  provenance?: TicketOfficeV2Provenance;
 }
 const r2 = (v: number) => Math.round(v * 100) / 100;
 /** `statements` ordenados do mais recente para o mais antigo. Sem apuramento com total → null. */
 export function decomposeTicketOfficeRetained<E extends RetainedEvent>(input: {
   globalBalance: number; events: E[]; statements: RetainedStatement[]; settledEventIds: string[];
+  provenance?: TicketOfficeV2Provenance;
 }): RetainedDecomposition<E> | null {
-  const statement = input.statements[0];
+  // v1 intentionally retains its latest-document (including draft) selection.
+  const statement = input.provenance
+    ? input.statements.find((s) => s.id === input.provenance!.latestConfirmedStatementId && s.status === "confirmed")
+    : input.statements[0];
   if (!statement || statement.document_total == null) return null;
   const inStatement = new Set<string>();
-  input.statements.forEach((st) => (st.ticket_office_statement_lines || []).forEach((l) => l.event_id && inStatement.add(l.event_id)));
+  if (input.provenance) input.provenance.eventMemberships.forEach((m) => inStatement.add(m.event_id));
+  else input.statements.forEach((st) => (st.ticket_office_statement_lines || []).forEach((l) => l.event_id && inStatement.add(l.event_id)));
   const settled = new Set(input.settledEventIds);
   const openEvents = input.events
     .filter((e) => !settled.has(e.id) && !inStatement.has(e.id) && Math.abs(e.balance) >= 0.01)
@@ -177,5 +185,6 @@ export function decomposeTicketOfficeRetained<E extends RetainedEvent>(input: {
   const openTotal = r2(openEvents.reduce((acc, e) => acc + e.balance, 0));
   const residual = r2(input.globalBalance - position - openTotal);
   const statementLines = [...(statement.ticket_office_statement_lines || [])].sort((a, b) => a.position - b.position);
-  return { statement, position, openEvents, openTotal, residual, statementLines };
+  const result = { statement, position, openEvents, openTotal, residual, statementLines };
+  return input.provenance ? { ...result, provenance: input.provenance } : result;
 }
