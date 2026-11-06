@@ -6617,3 +6617,53 @@ Origem: 0 · Cowork (Claude), 31/10/2026.
   - o lote 669-b (contábil × gerencial) é um **filtro de informação** para os relatórios da operadora, não um motor contabilístico; antes de criar coluna nova reaproveita-se a marca de conta gerencial (#235, `supabase/functions/_shared/accountant-account-filter.ts`) e `transaction_documents.is_accounting`, e só se cria coluna com prova de que não chega;
   - na #664, a correcção do país do fornecedor justifica-se pela qualidade do cadastro e pelo SaaS/BR, não pela conferência de IVA.
 - Fonte: [#669, comentário 6643068303](https://github.com/pedrompropicio/mundopropicio/issues/669#issuecomment-6643068303).
+
+## D-ERP355 — Comando do dev passa para o «0 - Cowork (MP)» (05/11/2026, Pedro)
+
+- O «0 - Cowork (MP)», chat 0 do projeto «Sistema de Gestão de Eventos — espelho MP» na organização Mundo Propício do Claude, passa a ser o 0 · Cowork do lado Claude e comanda o dev (mplabs-dev / executor E2b), com todas as funções do 0: Autorizações, revisão e merge, delegação, Live, deploy, Publish e crons.
+- O 0 da conta pessoal passa a só consulta e só volta a executar se o Pedro o designar.
+- Sincronização pelo diário do 0, `docs/estado/estado-0-cowork.md`: lê-se no arranque e leva uma linha por passo com efeito.
+- Motivo: fim dos créditos na conta pessoal.
+- Fonte: `docs/handoffs/2026-11-05-0-cowork-pessoal-para-mp.md` (PR #696) e #473, comentário 6658031538. Registo pedido em #473, comentário 6659145455.
+
+## D-ERP356 — O 0 (MP) emite as Autorizações ao dev; o Pedro só decide regra de negócio (05/11/2026, Pedro)
+
+- O 0 (MP) emite as Autorizações de que o dev precisa (R1 e preparação R2, só ficheiros) e avança sem esperar pelo Pedro.
+- Espera pelo Pedro só quando há uma **decisão de regra de negócio** por tomar.
+- Não muda a regra inviolável: Live, DDL/DML, deploy de edges, Publish e crons continuam a precisar do «Sim» do Pedro por passo.
+- Exemplos do mesmo dia: Autorizações #669 (6658944182) e #695 (6658950120).
+- Fonte: o diário do 0, linha de 05/11 13:13. Registo pedido em #473, comentário 6659145455.
+
+## D-ERP357 — Retoma do mp-homolog-3 e do PROC-promocao; congelamento de estrutura em Live (06/11/2026, Pedro; Issue #748)
+
+- **Retoma:** o mp-homolog-3 e o PROC-promocao (D-ERP343, aceitação da #352, 6548912283) voltam a valer para toda a estrutura. As opções A, B e C do documento de alinhamento do 0 MP ficam substituídas. A homologação **não** se suspende.
+- **Congelamento:** nenhuma migração de estrutura vai a Live, de nenhum chat, até o passo 5 da #748 (recaptura) ficar verde.
+  - Abrange a 0341–0348 (#646, #339, #644, #303) e a 0335 PARTE 2 (#664).
+  - O DML com «Corro?» continua permitido.
+  - O código (R1) e os lotes que só **preparam** migrações (ficheiros, sem aplicar) continuam, com merge só com «Sim» (#473, 6685501279).
+- **Registo de migrações:** o acerto de 7 linhas proposto pelo 0 MP não está autorizado. O registo acerta-se de uma só vez no passo 6, com «Corro?», igual em Live e no mp-homolog-3.
+- **Facto apurado (#748, 6685626445):**
+  - a primeira estrutura a saltar o homolog foi a janela de 03/11/2026 às 02:13 UTC na #498 (0302–0305), apoiada numa «decisão do Pedro» dada no chat e não registada antes da aplicação;
+  - o 0 da conta pessoal assumiu o erro (6685812811);
+  - regra que daqui resulta: um «Sim» dado no chat não substitui uma decisão fechada.
+- **Travas aprovadas (passo 7, 6685853560):**
+  - a) nenhum comentário de aplicação em Live vale sem o link do comentário de aplicação no mp-homolog-3, com os mesmos md5;
+  - b) nenhum pedido de «Sim» de DDL como excepção ao PROC, salvo decisão do Pedro registada antes, com o risco escrito;
+  - c) todo o pedido de «Sim» de DDL diz numa linha: «passou no mp-homolog-3: sim/não».
+- **Ambientes:** quem cria, pausa ou muda um ambiente actualiza o `docs/AMBIENTES.md` no mesmo dia (Adenda 3, 6685745249; aprovada em 6685853560).
+- **Passos 4.2, 4.3 e 7d, com «Sim» (6685853560):**
+  - 4.2: script delta `homolog-delta-20261106.sql` no replay privado (R1, frente 2 com o Codex), depois de fechado o 4.1, com sha256 na #748 e revisão por leitura do 0 MP antes do 4.3;
+  - 4.3, via A: workflow `homolog-delta-748.yml` (modelo `homolog-application-352`): `run_attempt == 1`, SHA revisto em vars, password temporária posta pelo Pedro e rodada ou removida no fim, mesmo em caso de falha;
+  - verificação 4.4 obrigatória: baldes iguais nos 5 tipos e G2 N1–N9 com 0 bloqueantes;
+  - 7d: Action `verificar-homolog` com role permanente só de leitura.
+- **Risco aceite (7d):**
+  - credencial permanente de leitura (`mp_homolog_leitura`: read only, `statement_timeout` de 60 s, sem GRANT em tabelas de dados) numa base sem dados de clientes;
+  - token fine-grained só com `issues: write` no repositório `mundopropicio`;
+  - rotação a cada 30 dias, registada no `docs/AMBIENTES.md`;
+  - nenhum valor passa pelos chats.
+- **Crons no homolog (6686038381):**
+  - o delta cria os 87 jobs de Live com a mesma definição (`jobname`, `schedule`, `command`) e `active = false`; os jobs nunca correm;
+  - a aceitação 4.4 inclui os crons (`md5(schedule||command)`) e exige `SELECT count(*) FROM cron.job WHERE active` = 0 no homolog;
+  - fica fora do âmbito o `cron.job_run_details`.
+- **Não autoriza:** SQL de escrita em Live (incluindo o acerto do registo), recaptura, Publish, deploy, rodar segredos.
+- Fonte: #748 (corpo e comentários 6685626445, 6685745249, 6685812811, 6685853560 e 6686038381) e #473, comentário 6685501279.
