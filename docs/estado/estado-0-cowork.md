@@ -8,6 +8,8 @@
 >
 > **Repo público.** Sem valores, contratos, dados pessoais nem segredos.
 
+**Congelamento (#748):** nenhuma migração de estrutura vai a Live até o passo 5 da #748 ficar verde (G2-748). Fila 0341–0348 e 0335 PARTE 2 parada.
+
 **Comando actual:** «0 - Cowork (MP)», desde 05/11/2026 (decisão do Pedro). Handoff: `../handoffs/2026-11-05-0-cowork-pessoal-para-mp.md`.
 
 **Despacho ao executor:** desde 05/11 16:51 o 0 (MP) escreve directamente Reserva e Despacho (PROC-despacho-executor), além do operador `mplabs-dev`. A fila do executor é **por Issue**: Issues diferentes correm em paralelo. Rondas do 0 de 20 em 20 min (tarefa agendada nesta conversa). **Travas:** antes de cada nova Reserva, libertar as anteriores na mesma Issue (6671112203).
@@ -32,6 +34,16 @@
 17. #303: R1–R9 em `main` (0345–0348 preparadas); R10 em curso; R11 coordena #333; R12 com o Pedro (PDFs). Lacuna da R6 para o Pedro: falta o verificador de ficheiros no servidor (`issue303_private.verified_files`), por isso o carregamento v2 e o «Juntar complemento» estão desactivados.
 
 ## Registo (mais recente primeiro)
+- 06/11 23:20 · 0 MP · #748 · Fecho E2b do G2-748 (6697928746): entrega feita (commit `237b7d8`, 7 ficheiros, 24 testes OK), push recusado por falta de «Workflows: Read and write» no token `e2b-replay` · em correcção.
+- 06/11 22:51 · 0 MP · #748 · `mplabs-dev` suspensa pelo GitHub (~22:29); G2-748 passa à frente 2 (Codex na E2b, decisão do Pedro 6697743052): Reserva 6697775481 e Despacho 6697780412 · despachado.
+- 06/11 22:30 · 0 MP · #748 · merge do PR replay#6 (ferramentas G2 da R10 byte a byte, 53 ficheiros; árvores conferidas; main do replay `3c8416a`) · ok.
+- 06/11 ~22:20 · Pedro · #748 · rotação da password do `mp_homolog_leitura` e do `MP_ISSUES_COMMENT_TOKEN` passa a 90 dias (altera D-ERP357; lembrete 04/02/2027) (6697229787) · decisão.
+- 06/11 ~21:20 · 0 MP · #748 · passo 6 preparado (acerto do registo, 31 linhas, guarda na linha de base 301; 6695660167), por correr depois do G2 · preparado.
+- 06/11 21:06 · 0 pessoal · #748 · acerto 4.4 aplicado no mp-homolog-3 com «Sim» (2 funções = Live, `ng27-reforco-envio` removido); baldes nos 5 tipos homolog = Live; 4.4 parte 1 fechada (6695586085) · ok.
+- 06/11 ~20:05 · 0 pessoal · #748 · 4.3 aplicado no mp-homolog-3 pela via B v3 (SQL Editor, com «Sim»; v1 e v2 pararam em guardas, com rollback) · ok.
+- 06/11 ~19:50 · Pedro · #748 · DML manual de 04/11 em Live (`reference_count` de `backup_tabelas_excluidas`) registado como desvio fora do repo · decisão.
+- 06/11 ~18:15 · Pedro · #753 · E2b estendida ao replay (PR #754, `edccae4`); operador agendado de hora a hora · decisão.
+- 06/11 ~13:00 · Pedro · #748 · retoma do mp-homolog-3 e do PROC-promocao (D-ERP357); congelamento de migrações de estrutura em Live até ao passo 5 · decisão.
 - 06/11 08:55 · 0 MP · #303 · R10 sem entrega (6680832728: exportador PDF/Excel fora da lista); reserva libertada e R10 reenviada com `export-partner-statement-doc.ts` (Reserva 6681015057, Despacho 6681018042) · despachado.
 - 06/11 08:32 · 0 MP · #303 · merge do PR #744 (R9 consumidores de posição; squash `b2b5baa`) pelo merge autónomo; Reserva 6679630883 libertada; R10 despachada (6680664401) · ok.
 - 06/11 07:30 · 0 MP · #303 · merge do PR #743 (R8 direito do evento + 0348 PREPARADA, NÃO APLICADA, md5 `a3a9dfad…`; squash `0b0614b`) pelo merge autónomo; R9 despachada (6679635032). Para rever antes de aplicar: trigger da 0348 em `transactions` e locks por escrita de fecho (6679630325) · ok.
