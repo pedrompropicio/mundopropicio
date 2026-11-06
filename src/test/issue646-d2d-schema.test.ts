@@ -136,6 +136,22 @@ describe("#646 D2-d — contrato estrutural", () => {
     expect(migration).not.toMatch(/\bDROP\b/);
     expect(createHash("sha256").update(migration).digest("hex")).toHaveLength(64);
   });
+  it("seq é bigint identity ALWAYS, obrigatório e único, com índice por evento/seq", async () => {
+    expect(await rows(`SELECT data_type,is_identity,identity_generation,is_nullable
+      FROM information_schema.columns WHERE table_schema='public'
+      AND table_name='event_ticket_forecast_pct_log' AND column_name='seq'`)).toEqual([
+      { data_type: "bigint", is_identity: "YES", identity_generation: "ALWAYS", is_nullable: "NO" },
+    ]);
+    const [index] = await rows<{ definition: string }>(
+      "SELECT pg_get_indexdef('ticket_forecast_pct_log_event_idx'::regclass) definition");
+    expect(index.definition).toContain("(event_id, seq)");
+    await pct(ROOT);
+    const duplicate = `INSERT INTO event_ticket_forecast_pct_log(seq,forecast_pct_id,company_id,event_id,op)
+      SELECT seq,forecast_pct_id,company_id,event_id,op FROM event_ticket_forecast_pct_log`;
+    await expect(db.exec(duplicate)).rejects.toThrow(/cannot insert a non-DEFAULT value into column "seq"/);
+    await expect(db.exec(duplicate.replace("SELECT seq", "OVERRIDING SYSTEM VALUE SELECT seq"))).rejects.toThrow(/duplicate key/);
+    expect(await scalar("SELECT count(*)::int v FROM event_ticket_forecast_pct_log")).toBe(1);
+  });
   it("nasce sem backfill, com default 100; deriva empresa, relógio e autor", async () => {
     expect(await counts()).toEqual([0, 0, 0]);
     await asUser("admin");
@@ -205,11 +221,28 @@ describe("#646 D2-d — contrato estrutural", () => {
     await pct(CHILD, "50"); await db.exec("UPDATE event_ticket_forecast_pct SET percentagem=0");
     await db.exec(`DELETE FROM events WHERE id='${CHILD}'`);
     expect(await scalar("SELECT count(*)::int v FROM event_ticket_forecast_pct")).toBe(0);
-    const log = await rows<{ op: string; old: { percentagem: number } | null; new: { percentagem: number } | null }>("SELECT op,old,new FROM event_ticket_forecast_pct_log ORDER BY changed_at,id");
+    const log = await rows<{ op: string; old: { percentagem: number } | null; new: { percentagem: number } | null }>("SELECT op,old,new FROM event_ticket_forecast_pct_log ORDER BY seq");
     expect(log.map(l => l.op)).toEqual(["INSERT", "UPDATE", "DELETE"]);
     expect(log[1].old?.percentagem).toBe(50); expect(log[1].new?.percentagem).toBe(0);
     expect(log[2].old?.percentagem).toBe(0); expect(log[2].new).toBeNull();
   });
+  it.each(Array.from({ length: 20 }, (_, i) => i + 1))(
+    "seq conserva INSERT, UPDATE, DELETE na mesma transacção (repetição %i/20)", async () => {
+      await asUser("admin");
+      const log = await db.transaction(async tx => {
+        await tx.exec(`INSERT INTO event_ticket_forecast_pct(event_id,percentagem) VALUES('${ROOT}',50);
+          UPDATE event_ticket_forecast_pct SET percentagem=0 WHERE event_id='${ROOT}';
+          DELETE FROM event_ticket_forecast_pct WHERE event_id='${ROOT}';`);
+        return (await tx.query<{ seq_text: string; op: string; same_timestamp: boolean }>(
+          `SELECT seq::text AS seq_text,op,changed_at=transaction_timestamp() AS same_timestamp
+           FROM event_ticket_forecast_pct_log WHERE event_id='${ROOT}' ORDER BY seq`)).rows;
+      });
+      expect(log.map(l => l.op)).toEqual(["INSERT", "UPDATE", "DELETE"]);
+      expect(log.map(l => l.same_timestamp)).toEqual([true, true, true]);
+      expect(BigInt(log[0].seq_text) < BigInt(log[1].seq_text)).toBe(true);
+      expect(BigInt(log[1].seq_text) < BigInt(log[2].seq_text)).toBe(true);
+    },
+  );
   it("IVA nasce NULL e admite 0/valor, recusando fora da faixa/NaN sem alterar modo ou percentagem", async () => {
     await scenario(ROOT, "previsao", 37);
     expect((await rows("SELECT receita_manual_iva_rate FROM event_coverage_scenarios"))[0].receita_manual_iva_rate).toBeNull();
@@ -282,6 +315,10 @@ describe("#646 D2-d — leitura e segurança por comportamento", () => {
     await expect(rpc()).rejects.toThrow(/permission denied/);
     await owner();
     for (const role of ["anon", "authenticated", "service_role"]) {
+      for (const privilege of ["USAGE", "SELECT", "UPDATE"]) {
+        expect((await rows<{v:boolean}>(`SELECT has_sequence_privilege('${role}',
+          pg_get_serial_sequence('event_ticket_forecast_pct_log','seq'),'${privilege}') v`))[0].v).toBe(false);
+      }
       for (const fn of ["stamp_pct", "log_pct"]) {
         expect((await rows<{v:boolean}>(`SELECT has_function_privilege('${role}','issue646_private.${fn}()','EXECUTE') v`))[0].v).toBe(false);
       }
@@ -293,6 +330,7 @@ describe("#646 D2-d — leitura e segurança por comportamento", () => {
       await db.exec(`SET SESSION AUTHORIZATION ${role}`);
       await expect(db.exec(`INSERT INTO event_ticket_forecast_pct_log(forecast_pct_id,company_id,event_id,op) VALUES('${uuid(555)}','${C}','${ROOT}','INSERT')`)).rejects.toThrow(/permission denied/);
       await expect(db.exec("UPDATE event_ticket_forecast_pct_log SET op='DELETE'")).rejects.toThrow(/permission denied/);
+      await expect(db.exec("UPDATE event_ticket_forecast_pct_log SET seq=DEFAULT")).rejects.toThrow(/permission denied/);
       await expect(db.exec("DELETE FROM event_ticket_forecast_pct_log")).rejects.toThrow(/permission denied/);
       await owner();
     }
