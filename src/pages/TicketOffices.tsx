@@ -4,7 +4,8 @@ import { TicketOfficeSettlementsOverview } from "@/components/TicketOfficeSettle
 import { TicketOfficeStatementsPanel } from "@/components/TicketOfficeStatementsPanel";
 import { TicketOfficePositionCards } from "@/components/TicketOfficePositionCards";
 import helpTexts from "@/lib/help-texts";
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Search, Phone, Mail, Building2, Pencil, Trash2, Landmark, ToggleLeft, ToggleRight, Upload, ArrowRightLeft, Banknote, ChevronLeft } from "lucide-react";
@@ -30,8 +31,23 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { useTicketOfficeStatements } from "@/hooks/useTicketOfficeStatements";
+
+const labels = { statementClosures: "Os fechos finais desta conta são preparados no separador Apuramentos.",
+  checkingCapability: "A verificar a capacidade de apuramentos…", capabilityError: "Não foi possível verificar a capacidade de apuramentos." };
+
+function AccountSettlements({ officeId, officeName }: { officeId: string; officeName: string }) {
+  const read = useTicketOfficeStatements(officeId);
+  if (read.isError) return <p role="alert">{labels.capabilityError}</p>;
+  if (!read.data) return <p role="status">{labels.checkingCapability}</p>;
+  if (read.data.status !== "v2") return <TicketOfficeSettlementsPanel officeId={officeId} officeName={officeName} />;
+  return <div className="space-y-3"><p>{labels.statementClosures}</p><TicketOfficeSettlementsOverview officeId={officeId} /></div>;
+}
 
 export default function TicketOffices() {
+  const location = useLocation();
+  const [selectedTab, setSelectedTab] = useState("dados");
+  const targetStatement = location.hash.startsWith("#apuramento-") ? location.hash.slice("#apuramento-".length) : undefined;
   const companyLocale = useCompanyLocale();
   const formatCurrency = (value: number) => companyLocale.status !== "available"
     ? "—"
@@ -45,6 +61,13 @@ export default function TicketOffices() {
   const [showImport, setShowImport] = useState(false);
   const [showFeverImport, setShowFeverImport] = useState(false);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const account = params.get("conta");
+    if (account && params.get("separador") === "apuramentos") {
+      setSelectedOfficeId(account); setSelectedTab("apuramentos");
+    }
+  }, [location.search, location.hash]);
   const queryClient = useQueryClient();
   const { isAdmin, hasPermission } = useAuth();
   const canManage = isAdmin || hasPermission("manage_accounts");
@@ -212,7 +235,7 @@ export default function TicketOffices() {
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setSelectedOfficeId(null)}
+            onClick={() => { setSelectedOfficeId(null); setSelectedTab("dados"); }}
             className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ChevronLeft className="h-4 w-4" /> Voltar
@@ -233,7 +256,7 @@ export default function TicketOffices() {
           )}
         </div>
 
-        <Tabs defaultValue="dados" className="w-full">
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
           <div className="w-full overflow-x-auto">
             <TabsList className="justify-start w-max min-w-full">
               <TabsTrigger value="dados">Dados</TabsTrigger>
@@ -312,13 +335,13 @@ export default function TicketOffices() {
           </TabsContent>
 
           <TabsContent value="fechos">
-            <TicketOfficeSettlementsPanel officeId={selectedOffice.id} officeName={selectedOffice.name} />
+            <AccountSettlements officeId={selectedOffice.id} officeName={selectedOffice.name} />
           </TabsContent>
 
           {/* #303 — o apuramento é a prova; os adiantamentos são histórico do modelo anterior. */}
           <TabsContent value="apuramentos" className="space-y-6">
             <TicketOfficePositionCards officeId={selectedOffice.id} companyLocale={companyLocale} />
-            <TicketOfficeStatementsPanel officeId={selectedOffice.id} />
+            <TicketOfficeStatementsPanel officeId={selectedOffice.id} statementId={targetStatement} />
             <TicketOfficeAdvancesPanel officeId={selectedOffice.id} officeName={selectedOffice.name} />
           </TabsContent>
         </Tabs>

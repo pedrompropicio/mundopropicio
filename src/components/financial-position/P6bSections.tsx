@@ -7,6 +7,10 @@ import { usePositionAmount, formatPositionDate as date, type FinancialPosition }
 import { cacheArtistDisplayName, cacheArtistLabel, retainedRowsToShow, type Caches } from "@/lib/financial-position-p6b";
 import type { FinancialPositionP5 } from "@/lib/financial-position-p5";
 
+const labels = {
+  accountMovements: "Repasses e saldos transportados pertencem à conta, sem atribuição a eventos.",
+  confirmed: "Confirmado no corte",
+};
 const makeLine = (eur: ReturnType<typeof usePositionAmount>) => (label: string, value: number | null, muted = false) => (
   <div className="flex flex-wrap justify-between gap-2 py-1 text-sm"><span className={muted ? "text-muted-foreground" : ""}>{label}</span><span className="font-mono tabular-nums">{eur(value)}</span></div>
 );
@@ -59,6 +63,7 @@ export function RetainedCompositionView({ rows, compositions, visible }: { rows:
     <h3 className="font-medium">Composição do retido por bilheteira</h3>
     <div className="mt-2 grid gap-x-10 gap-y-5 lg:grid-cols-2">{rows.map(r => {
       const c = byId.get(r.account_id); const dcp = c?.decomposition;
+      const cutoff = dcp?.provenance?.statements.find(s => s.statementId === dcp.provenance.latestConfirmedStatementId)?.cutoff;
       const diff = c && r.saldo !== null ? Math.round((c.globalBalance - r.saldo) * 100) / 100 : 0;
       return <div key={r.account_id} className="min-w-0">
         <h4 className="flex flex-wrap justify-between gap-2 text-sm font-semibold"><span>{r.name}</span><span className="font-mono tabular-nums">{eur(r.saldo)}</span></h4>
@@ -69,6 +74,7 @@ export function RetainedCompositionView({ rows, compositions, visible }: { rows:
           {line(`+ Vendas de eventos sem fecho (${dcp.openEvents.length})`, dcp.openTotal, true)}
           {line("+ Por conciliar (repasses posteriores ao apuramento)", dcp.residual, true)}
           <p className="mt-1 text-xs text-muted-foreground">Composição baseada no apuramento n.º {dcp.statement.number ?? "—"} de {date(dcp.statement.statement_date ?? null)}; muda quando houver novo apuramento. A bilheteira não reparte por evento antes do fecho.</p>
+          {dcp.provenance && <p className="mt-1 text-xs text-muted-foreground">{cutoff && <>{labels.confirmed} <time dateTime={cutoff.at}>{new Date(cutoff.at).toLocaleString("pt-PT", { timeZone: cutoff.timezone, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</time> ({cutoff.timezone}). </>}{labels.accountMovements}</p>}
         </>}
         {c && Math.abs(diff) >= 0.01 && <p role="alert" className="mt-1 text-xs text-warning">Composição não fecha com o Saldo Geral (dif. {eur(diff)})</p>}
       </div>;

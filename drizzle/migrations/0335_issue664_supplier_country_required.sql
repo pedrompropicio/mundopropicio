@@ -269,6 +269,8 @@ $function$
 -- Não chamar run_rls_isolation_test nesta janela (contém escrita de fixtures).
 
 -- PARTE 2 — só depois do Publish e deploy de TODOS os escritores, com prova antes.
+-- O CHECK suppliers_country_iso2 já existe desde a 0104 e valida o formato ISO-2.
+-- Esta parte só retira o fallback de país; não cria nem valida outro CHECK.
 DO $country_precondition$
 BEGIN
   IF NOT EXISTS (
@@ -283,6 +285,3 @@ $country_precondition$;
 
 DROP TRIGGER suppliers_default_country_trigger ON public.suppliers;
 DROP FUNCTION public.suppliers_default_country();
-ALTER TABLE public.suppliers ADD CONSTRAINT suppliers_country_iso2_check
-  CHECK (country ~ '^[A-Z]{2}$') NOT VALID;
-ALTER TABLE public.suppliers VALIDATE CONSTRAINT suppliers_country_iso2_check;

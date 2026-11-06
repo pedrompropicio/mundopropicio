@@ -101,10 +101,8 @@ export default function ReportDREEmpresarial() {
   const events = useMemo(() => filterEventsByBusinessLine(
     filterEventsByNature(allEvents as any[], natureFilter), lineFilter,
   ) as typeof allEvents, [allEvents, natureFilter, lineFilter]);
-  // A linha cobre toda a secção de eventos. O alcance legado da natureza fica intacto.
-  const lineEventIds = useMemo(() => new Set(
-    filterEventsByBusinessLine(allEvents, lineFilter).map((e) => e.id),
-  ), [allEvents, lineFilter]);
+  const sectionEventIds = useMemo(() => new Set(events.map((e) => e.id)), [events]);
+  const hasSectionEventFilter = natureFilter.length > 0 || lineFilter.length > 0;
 
   const { data: transactionsRaw = [] } = useQuery({
     queryKey: ["transactions-approved"],
@@ -275,8 +273,8 @@ export default function ReportDREEmpresarial() {
   // Event transactions (with event_id AND not corporate categories)
   const eventTx = useMemo(
     () => yearTx.filter((t) => t.event_id && !corporateCatIds.has(t.category_id || "")
-      && (lineFilter.length === 0 || lineEventIds.has(t.event_id))),
-    [yearTx, corporateCatIds, lineFilter, lineEventIds]
+      && (!hasSectionEventFilter || sectionEventIds.has(t.event_id))),
+    [yearTx, corporateCatIds, hasSectionEventFilter, sectionEventIds]
   );
 
   // A distribuição conserva o mesmo perímetro e regime, sem o corte informativo de tipo.
@@ -363,7 +361,7 @@ export default function ReportDREEmpresarial() {
         // Só contar vendas de eventos cujas zonas existem (defensivo)
         const zone = ticketZones.find((z: any) => z.id === (lot as any).zone_id);
         if (!zone) return;
-        if (lineFilter.length > 0 && !lineEventIds.has(zone.event_id)) return;
+        if (hasSectionEventFilter && !sectionEventIds.has(zone.event_id)) return;
         const rate = Number((lot as any).iva_rate ?? 6);
         const gross = (s.total_value !== null && s.total_value !== undefined && s.total_value !== "")
           ? Number(s.total_value)
@@ -515,7 +513,7 @@ export default function ReportDREEmpresarial() {
     }
 
     return result;
-  }, [regime, costSource, bpCostByEvent, eventTx, partnerEventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year, ticketRevenueSource, ticketSales, ticketLots, ticketZones, ticketCategoryId, lineFilter, lineEventIds]);
+  }, [regime, costSource, bpCostByEvent, eventTx, partnerEventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year, ticketRevenueSource, ticketSales, ticketLots, ticketZones, ticketCategoryId, lineFilter, hasSectionEventFilter, sectionEventIds]);
 
   // #304 ponto 4: o que cai fora de todas as secções por natureza ≠ rubrica — só aviso.
   const natureDivergence = useMemo(

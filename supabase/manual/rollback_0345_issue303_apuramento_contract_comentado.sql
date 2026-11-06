@@ -1,0 +1,24 @@
+-- Rollback de contenção 0345 — PREPARADO, NÃO EXECUTADO; requer autorização separada.
+-- Conserva colunas, índices, dados, recibos, pertenças e guardas de documentos v2.
+-- Não se apaga estrutura aditiva nem se reabre escrita directa sobre documentos v2.
+-- A 0345 não substitui RPCs/ACL legadas de authenticated: não há corpos a repor.
+-- Execute o bloco SQL abaixo, descomentado, numa sessão admin da empresa revista.
+-- Não altera outras features nem contas de outras empresas; repita por empresa autorizada.
+-- A auditoria por conta continua activa e recebe os carimbos do servidor.
+-- BEGIN;
+-- DO $rollback_0345$
+-- BEGIN
+--   IF auth.uid() IS NULL OR public.current_company_id() IS NULL
+--      OR NOT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid()
+--        AND company_id = public.current_company_id() AND role = 'admin'::public.app_role) THEN
+--     RAISE EXCEPTION 'issue303_rollback_requires_company_admin' USING ERRCODE = '42501';
+--   END IF;
+--   UPDATE public.company_features f
+--      SET enabled = false,
+--          config = jsonb_set(f.config, '{accounts}',
+--            coalesce((SELECT jsonb_agg(jsonb_set(a, '{enabled}', 'false'::jsonb))
+--                        FROM jsonb_array_elements(f.config->'accounts') a), '[]'::jsonb))
+--    WHERE f.company_id = public.current_company_id()
+--      AND f.feature_key = 'ticket-office-statements-v2';
+-- END $rollback_0345$;
+-- COMMIT;

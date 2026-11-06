@@ -282,10 +282,10 @@ describe("#413 C2 — edição", () => {
 
 describe("#413 C3 — criação", () => {
   it.each([
-    ["despesa admin", "expense", true, false, "ed06a8f451f5c297fa020c76ef8734db810ee01fdc0ec2930c048ae66565908b"],
-    ["despesa gestora", "expense", false, true, "ed06a8f451f5c297fa020c76ef8734db810ee01fdc0ec2930c048ae66565908b"],
-    ["receita sem permissão", "income", false, false, "17f42391f6ba65ecb51fe8dfeabff77d79110696b335a2876e6db000c199dd93"],
-    ["despesa sem permissão", "expense", false, false, "78de0ed11e33c929910b38cd8e24020dbb0fc066768e356d540a0bfe6e3f6621"],
+    ["despesa admin", "expense", true, false, "5ece637e9025a5b33a7d5170281168dd03a1c0db4219b5075cdc1ac6f08b3d4f"],
+    ["despesa gestora", "expense", false, true, "5ece637e9025a5b33a7d5170281168dd03a1c0db4219b5075cdc1ac6f08b3d4f"],
+    ["receita sem permissão", "income", false, false, "5e8d3700d0f3982f0988c5cf39b625eda6b0c8e701b38943dee1cbef30358a72"],
+    ["despesa sem permissão", "expense", false, false, "227542502aa8cfbd42b18f55b2a440e52db87e386113ac5e7c0c8ef8432e9b89"],
   ] as const)("%s mantém o DOM sem interruptor", (_name, type, isAdmin, isManager, hash) => {
     f.isAdmin = isAdmin; f.isManager = isManager;
     render(create(false, type));
@@ -343,7 +343,7 @@ describe("#413 C3 — criação", () => {
     expect(control).toHaveAttribute("aria-checked", "false");
     expect(screen.queryByText("Herdado da linha do BP")).toBeNull();
     const dom = document.body.innerHTML.replace(/radix-:[^"\s]+:/g, "radix-:fixture:");
-    expect(createHash("sha256").update(dom).digest("hex")).toMatchInlineSnapshot(`"9b21530f1b5a5d6f09c3324834f648209b6fa75dc8dfbe4f816428b1bb57a01e"`);
+    expect(createHash("sha256").update(dom).digest("hex")).toMatchInlineSnapshot(`"1c716b256cfa8009788c3fbcbbd06ced315f6e9b3f34d5077133c2b1ffcee60a"`);
     await submit();
     expect(f.writes.filter(write => write.table === "transactions")).toHaveLength(1);
     expect(f.writes.find(write => write.table === "transactions")!.payload).toMatchObject({

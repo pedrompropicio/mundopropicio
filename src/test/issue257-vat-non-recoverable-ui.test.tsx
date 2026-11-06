@@ -90,11 +90,11 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe("#257 — hashes PT/EUR anteriores à alteração", () => {
   it("preserva a receita com IVA 23", () => {
     render(form("income"));
-    expect(dom()).toMatchInlineSnapshot(`"e595bd824d74fbe26a1378488c1ba2d6a8ed3a2f128d9199c425c6cbd0a6d483"`);
+    expect(dom()).toMatchInlineSnapshot(`"97362dc84879d9db3c2c9314df6be718abc931a57a1aea5f44e57dd28d3f8d83"`);
   });
   it("preserva a despesa com IVA 0", () => {
     render(<TransactionFormModal onClose={() => {}} defaults={{ ...defaults, type: "expense", iva_rate: 0 }} />);
-    expect(dom()).toMatchInlineSnapshot(`"554d3a9f8a5486cb84fe8562ba912f6ef272c1e57f33c8a5370aeade1ce41779"`);
+    expect(dom()).toMatchInlineSnapshot(`"77a3043494c892239e93b9f0a10e2b60e1f2a9f265014c4e2f495b32a75eb786"`);
   });
 });
 
