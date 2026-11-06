@@ -32,6 +32,10 @@ import { isSettlementEligibleTxn } from "@/lib/ticket-office-settlement-eligible
 import { settlementSaveErrorMessage } from "@/lib/ticket-office-settlement-save-error";
 import { invalidateEventFinancials } from "@/lib/invalidate-event-financials";
 import { fetchDocumentUrlsByTransaction } from "@/lib/invoice-group";
+import { useTicketOfficeStatements } from "@/hooks/useTicketOfficeStatements";
+import { useCompany } from "@/hooks/useCompany";
+import { fetchSettlementView, settlementEventRight } from "@/lib/ticket-office-settlement-view";
+import { SettlementReadContent, SettlementEventRightContent } from "./TicketOfficeSettlementViewDialog";
 import {
   buildDeductionDocumentRows,
   groupTransactionsByFile,
@@ -56,12 +60,24 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const queryClient = useQueryClient();
   const { user, isAdmin } = useAuth();
   const isEditingConfirmed = !!existingSettlement && existingSettlement.status === "confirmed";
-  const canEdit = !existingSettlement || existingSettlement.status === "draft" || isAdmin;
   // Transferência já lançada = passo 5 em leitura apenas. Sem campos editáveis não
   // há promessa por cumprir: para alterar, estorna-se o fecho (issue #132).
   const transferAlreadyDone = !!existingSettlement?.transfer_transaction_id;
 
   const [eventId, setEventId] = useState<string>("");
+  const { companyId } = useCompany();
+  const statementRead = useTicketOfficeStatements(officeId, open);
+  const right = settlementEventRight(statementRead.data, {
+    company_id: existingSettlement?.company_id ?? companyId ?? undefined,
+    financial_account_id: officeId, event_id: existingSettlement?.event_id ?? (eventId || defaultEventId),
+  });
+  const readBlocked = statementRead.isLoading || statementRead.isError || statementRead.data?.status === "v2_unavailable";
+  const canEdit = !right && !readBlocked && (!existingSettlement || existingSettlement.status === "draft" || isAdmin);
+  const frozenView = useQuery({
+    queryKey: ["ticket_office_settlement_view", existingSettlement?.company_id, officeId, existingSettlement?.id, right?.statementId],
+    enabled: open && !!right && !!existingSettlement,
+    queryFn: () => fetchSettlementView(existingSettlement, officeName, statementRead.data),
+  });
   const [selectedTxnIds, setSelectedTxnIds] = useState<Set<string>>(new Set());
   // Grupo "em aberto" recolhido por defeito (enche o ecrã de despesas alheias à bilheteira)
   const [openGroupExpanded, setOpenGroupExpanded] = useState(false);
@@ -506,6 +522,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   };
 
   const handleSubmit = async (confirm: boolean, skipDocWarning = false) => {
+    if (!canEdit) return toast.error("Fecho congelado ou leitura documental indisponível");
     if (!eventId) return toast.error("Selecione o evento");
     if (confirm && transferAlreadyDone) return toast.error("Fecho com transferência lançada — estornar primeiro para alterar");
     if (!hasSalesLog) {
@@ -722,7 +739,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
           <DialogTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5 text-primary" />
-            {existingSettlement ? "Editar Fecho" : "Novo Fecho de Bilheteira"}
+            {right ? "Ver Fecho" : existingSettlement ? "Editar Fecho" : "Novo Fecho de Bilheteira"}
             <HelpTooltip anchor="fecho.bilheteira" size={14} />
             <span className="text-muted-foreground font-normal">— {officeName}</span>
             {existingSettlement?.status === "confirmed" && (
@@ -738,6 +755,12 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
         <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5">
           <div className="space-y-6">
+            {right ? (
+              existingSettlement ? frozenView.isError
+                ? <p role="alert">Não foi possível ler o fecho congelado.</p>
+                : frozenView.data ? <SettlementReadContent v={frozenView.data} /> : <p>A ler fecho congelado…</p>
+                : <SettlementEventRightContent right={right} />
+            ) : readBlocked ? <p role="status">{statementRead.isLoading ? "A ler apuramentos…" : "Leitura de apuramentos indisponível. Escrita bloqueada."}</p> : <>
             {isEditingConfirmed && !isAdmin && (
               <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
                 <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
@@ -1414,6 +1437,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                 </div>
               </>
             )}
+            </>}
           </div>
         </div>
 
