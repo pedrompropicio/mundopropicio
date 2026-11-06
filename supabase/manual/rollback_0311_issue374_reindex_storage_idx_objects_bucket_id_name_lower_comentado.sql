@@ -1,0 +1,12 @@
+-- Issue #374 — rollback comentado, PREPARADO, NÃO APLICADO.
+-- Origem: supabase/manual/0311_issue374_reindex_storage_idx_objects_bucket_id_name_lower.sql
+-- O REINDEX não tem reversão funcional: a definição do índice é a mesma.
+-- Não recriar o estado inválido anterior nem apagar o índice original válido.
+-- Se a reconstrução falhar, inspeccionar primeiro o catálogo (Blocos 1 e 3).
+-- Só se o resíduo idx_objects_bucket_id_name_lower_ccnew existir e estiver inválido,
+-- a sua remoção pode ser preparada pelo 0 com autorização específica.
+-- DROP INDEX exige o owner supabase_storage_admin; postgres não é owner e o seu
+-- MAINTAIN não basta. A limpeza vai pela Supabase (owner ou suporte), com Sim.
+-- Executar a eventual limpeza isoladamente, fora de transacção e de DO/função.
+-- DROP INDEX CONCURRENTLY storage.idx_objects_bucket_id_name_lower_ccnew;
+-- Depois, repetir os SELECT de estado e resíduos do ficheiro de origem.
