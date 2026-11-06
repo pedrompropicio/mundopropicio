@@ -32,7 +32,7 @@ import { computeOutsideBpExcess, sumLines } from "./event-cost-basis.ts";
 import { expandOverheadToSplits, overheadLinesFor } from "./overhead-proration.ts";
 import { expandMasterAdoptedExpensesToSplits } from "./master-adopted-expense-proration.ts";
 import { computeEventSettlementTotals, collectSettlementExpenseDocLines } from "./event-settlement-inputs.ts";
-import { computeSettlementRevenue } from "./settlement-revenue.ts";
+import { classifyIncomeBucket, computeSettlementRevenue, type TicketProjection } from "./settlement-revenue.ts";
 import { computeSettlementEngine, type EngineParticipant, type EngineResult } from "./event-settlement-engine.ts";
 import { keepRootPerimeter } from "./settlement-perimeter.ts";
 import {
@@ -84,6 +84,8 @@ export interface StatementBundle {
   grossDisbursementSupplierIds: string[];
   ticketSales: Array<{ gross: number; net: number }>;
   ticketBreakdown: Array<{ label: string; net: number }>;
+  /** Só por opção explícita do chamador; o loader conserva as vendas reais. */
+  ticketProjection?: TicketProjection;
   operations: any[];
   participations: any[];
   localeBySupplier: Record<string, DocLocale>;
@@ -438,6 +440,7 @@ export function computeStatementEngine(bundle: StatementBundle): EngineResult {
     transactions,
     forecasts,
     ticketSales,
+    ticketProjection: bundle.ticketProjection,
     basis: { includeOverhead: basis.includeOverhead, expenseSource: basis.expenseSource },
   });
 
@@ -448,6 +451,8 @@ export function computeStatementEngine(bundle: StatementBundle): EngineResult {
   const markedLines = [
     ...transactions
       .filter((t: any) => t.event_settlement_id && isValidFechoTransaction(t) && !isExcludedFromPartnerSettlement(t))
+      // A bilheteira substituída também sai dos exclusivos dos nós filhos.
+      .filter((t: any) => bundle.ticketProjection === undefined || t.type !== "income" || classifyIncomeBucket(t.account_categories?.code) !== "bilheteira")
       .filter((t: any) => t.type === "income" || expenseKind === "tx")
       .map((t: any) => ({
         event_settlement_id: t.event_settlement_id,
@@ -608,6 +613,7 @@ export function buildPartnerStatement(
   const revenue = computeSettlementRevenue({
     ticketSales,
     ticketBreakdown: bundle.ticketBreakdown,
+    ticketProjection: bundle.ticketProjection,
     incomeTransactions,
     incomeForecasts: forecasts as any[],
   });
@@ -794,6 +800,7 @@ export function buildPartnerStatement(
 
   const exclusiveRevenues = incomeTransactions
     .filter((tx: any) => tx.event_settlement_id && tx.event_settlement_id === activeNode.id)
+    .filter((tx: any) => bundle.ticketProjection === undefined || classifyIncomeBucket(tx.account_categories?.code) !== "bilheteira")
     .map((tx: any) => ({ label: tx.description || tx.account_categories?.name || "—", value: Number(tx.amount) || 0 }));
 
   const docExtras: Array<{ label: string; value: number; items?: Array<{ label: string; value: number }> }> = [];
