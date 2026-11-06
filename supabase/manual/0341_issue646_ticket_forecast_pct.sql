@@ -32,6 +32,7 @@ CREATE UNIQUE INDEX ticket_forecast_pct_session_key ON public.event_ticket_forec
 -- Sem FK: eliminar evento/configuração não elimina o histórico.
 CREATE TABLE public.event_ticket_forecast_pct_log (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  seq bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
   forecast_pct_id uuid NOT NULL,
   company_id uuid NOT NULL,
   event_id uuid NOT NULL,
@@ -41,7 +42,7 @@ CREATE TABLE public.event_ticket_forecast_pct_log (
   changed_by uuid,
   changed_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX ticket_forecast_pct_log_event_idx ON public.event_ticket_forecast_pct_log(event_id, changed_at);
+CREATE INDEX ticket_forecast_pct_log_event_idx ON public.event_ticket_forecast_pct_log(event_id, seq);
 
 CREATE TABLE public.event_ticket_forecast_rollouts (
   company_id uuid PRIMARY KEY REFERENCES public.companies(id),
