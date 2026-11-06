@@ -3,6 +3,9 @@
 # num runner. Só R1: código e testes. D-ERP348.
 # Travas determinísticas antes de qualquer IA; o agente não tem credenciais de push
 # nem segredos de base de dados; a entrega é um PR para main, nunca lovable/dev.
+# #753: com «- **Repositório:** mundopropicio-replay» na Autorização, o executor trabalha numa
+# cópia do replay privado (token E2B_REPLAY_TOKEN, só esse repo), o PR abre-se no replay, sem
+# merge automático, e o Fecho continua a ser comentado na Issue deste repo. Sem o campo, nada muda.
 name: Executor (E2b)
 
 on:
@@ -30,6 +33,8 @@ jobs:
       merge_automatico: ${{ steps.avaliar.outputs.merge_automatico }}
       executor: ${{ steps.avaliar.outputs.executor }}
       preparacao_r2: ${{ steps.avaliar.outputs.preparacao_r2 }}
+      repo_alvo: ${{ steps.avaliar.outputs.repo_alvo }}
+      caminhos_github: ${{ steps.avaliar.outputs.caminhos_github }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -75,15 +80,38 @@ jobs:
     permissions:
       contents: read
       issues: read
+    env:
+      REPO_ALVO: ${{ needs.travas.outputs.repo_alvo }}
+      CAMINHOS_GITHUB: ${{ needs.travas.outputs.caminhos_github }}
     steps:
       - uses: actions/checkout@v4
+        if: needs.travas.outputs.repo_alvo != 'mundopropicio-replay'
         with:
           ref: main
           persist-credentials: false
+      # #753: cópia de trabalho do replay, sem credenciais gravadas (o agente nunca as vê).
+      - uses: actions/checkout@v4
+        if: needs.travas.outputs.repo_alvo == 'mundopropicio-replay'
+        with:
+          repository: ${{ github.repository_owner }}/mundopropicio-replay
+          ref: main
+          token: ${{ secrets.E2B_REPLAY_TOKEN }}
+          persist-credentials: false
+      # As travas vêm sempre do main deste repo e saem da cópia de trabalho antes do agente correr.
+      - uses: actions/checkout@v4
+        if: needs.travas.outputs.repo_alvo == 'mundopropicio-replay'
+        with:
+          ref: main
+          path: .e2b-travas
+          persist-credentials: false
+      - name: Travas fora da cópia do replay
+        if: needs.travas.outputs.repo_alvo == 'mundopropicio-replay'
+        run: mv .e2b-travas "$RUNNER_TEMP/e2b-travas"
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
       - name: Install
+        if: needs.travas.outputs.repo_alvo != 'mundopropicio-replay'
         run: |
           bun install --frozen-lockfile || bun install
           bunx -p @typescript/native-preview tsgo --version
@@ -100,8 +128,25 @@ jobs:
         env:
           PREPARACAO_R2: ${{ needs.travas.outputs.preparacao_r2 }}
         run: |
+          if [ "$REPO_ALVO" = "mundopropicio-replay" ]; then
+            echo 'ferramentas=Read,Edit,Write,Glob,Grep,Bash(python3 -m unittest:*),Bash(python3 -m py_compile:*),Bash(sha256sum:*),Bash(git diff:*),Bash(git status:*),Bash(ls:*),Bash(mkdir -p .executor)' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ferramentas=Read,Edit,Write,Glob,Grep,Bash(bunx vitest:*),Bash(bunx -p @typescript/native-preview tsgo:*),Bash(bun run test:*),Bash(git diff:*),Bash(git status:*),Bash(ls:*),Bash(mkdir -p .executor)' >> "$GITHUB_OUTPUT"
+          fi
           {
             echo 'texto<<FIM_PROMPT_E2B'
+            if [ "$REPO_ALVO" = "mundopropicio-replay" ]; then
+            echo "És o executor da E2b na Issue #${{ github.event.issue.number }} do repositório ${{ github.repository }}. A tua cópia de trabalho é o repositório PRIVADO ${{ github.repository_owner }}/mundopropicio-replay (branch main), não o repositório principal. Classe R1: só código e testes."
+            echo "Lê primeiro o README do replay e os ficheiros que o despacho indicar."
+            if [ -n "$CAMINHOS_GITHUB" ]; then
+              echo "Regras do replay: não toques em .github/, excepto exactamente nestes caminhos listados no despacho: $CAMINHOS_GITHUB (qualquer outro ficheiro em .github/ faz o PR ser recusado)."
+            else
+              echo "Regras do replay: não toques em .github/ (o despacho não lista nenhum caminho; o PR é recusado)."
+            fi
+            echo "Nunca ligues a bases de dados (nem homolog nem Live) nem a serviços da MP; não leias segredos nem variáveis; não corras nem dispares workflows; não toques em ficheiros .env; sem commits nem push: só editas a cópia local."
+            echo "O repo é privado, mas o resumo vai para uma Issue pública: no resumo não escrevas identificadores de projectos, hosts, refs, utilizadores de base de dados nem dados comerciais."
+            echo "Testes: corre só os que o despacho indicar (por exemplo python3 -m unittest ...). Não corras bun install, tsgo nem vitest do repositório principal."
+            else
             echo "És o executor da E2b na Issue #${{ github.event.issue.number }} do repositório ${{ github.repository }}. Classe R1: só código e testes."
             echo "Lê primeiro docs/INDEX.md e o que ele indicar para o tema; procura em .lovable/memory/features/ e docs/ antes de propor."
             if [ "$PREPARACAO_R2" = "true" ]; then
@@ -110,6 +155,7 @@ jobs:
               echo "Regras: não toques em .github/, supabase/, drizzle/, .lovable/ nem ficheiros .env (o PR é recusado). Sem rede para serviços da MP, sem Live, sem DDL/DML, sem commits nem push: só editas a cópia local."
             fi
             echo "Antes de terminar corre: bunx -p @typescript/native-preview tsgo -p tsconfig.app.json --noEmit e bunx vitest run, e corrige o que falhar."
+            fi
             echo "No fim escreve .executor/resumo.md com as secções '### Feito' e '### Não feito / lacunas' (itens '- ' de topo, um predicado verificável por linha)."
             echo "Se não puderes fazer exactamente a tarefa, pára, não inventes, e explica em '### Não feito / lacunas'."
             echo "Dificuldade, volume ou tempo não são motivo para parar: entrega o que ficar a compilar e com testes verdes e lista o resto em '### Não feito / lacunas'. A regra «pára e reporta» do AGENTS.md aplica-se só a caminhos fora da lista autorizada ou a instruções impossíveis."
@@ -131,7 +177,7 @@ jobs:
           prompt: ${{ steps.prompt.outputs.texto }}
           claude_args: >-
             --max-turns 60
-            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(bunx vitest:*),Bash(bunx -p @typescript/native-preview tsgo:*),Bash(bun run test:*),Bash(git diff:*),Bash(git status:*),Bash(ls:*),Bash(mkdir -p .executor)"
+            --allowedTools "${{ steps.prompt.outputs.ferramentas }}"
       - name: Codex
         if: needs.travas.outputs.executor == 'codex'
         env:
@@ -177,9 +223,13 @@ jobs:
         env:
           PREPARACAO_R2: ${{ needs.travas.outputs.preparacao_r2 }}
         run: |
-          EXTRA=""
-          [ "$PREPARACAO_R2" = "true" ] && EXTRA="--preparacao-r2"
-          bun scripts/executor/travas.ts caminhos "${{ runner.temp }}/saida/ficheiros.txt" $EXTRA
+          if [ "$REPO_ALVO" = "mundopropicio-replay" ]; then
+            bun "$RUNNER_TEMP/e2b-travas/scripts/executor/travas.ts" caminhos "${{ runner.temp }}/saida/ficheiros.txt" --replay "--github-permitidos=$CAMINHOS_GITHUB"
+          else
+            EXTRA=""
+            [ "$PREPARACAO_R2" = "true" ] && EXTRA="--preparacao-r2"
+            bun scripts/executor/travas.ts caminhos "${{ runner.temp }}/saida/ficheiros.txt" $EXTRA
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: saida
@@ -196,8 +246,13 @@ jobs:
       issues: write
       actions: write
     env:
-      GH_TOKEN: ${{ secrets.EXECUTOR_TOKEN || secrets.GITHUB_TOKEN }}
+      # #753: no replay o push e o PR usam só o E2B_REPLAY_TOKEN (sem recurso a outros tokens).
+      GH_TOKEN: ${{ needs.travas.outputs.repo_alvo == 'mundopropicio-replay' && secrets.E2B_REPLAY_TOKEN || needs.travas.outputs.repo_alvo != 'mundopropicio-replay' && (secrets.EXECUTOR_TOKEN || secrets.GITHUB_TOKEN) || '' }}
       TEM_EXECUTOR_TOKEN: ${{ secrets.EXECUTOR_TOKEN != '' }}
+      TEM_REPLAY_TOKEN: ${{ secrets.E2B_REPLAY_TOKEN != '' }}
+      REPO_ALVO: ${{ needs.travas.outputs.repo_alvo }}
+      REPO_REPLAY: ${{ github.repository_owner }}/mundopropicio-replay
+      CAMINHOS_GITHUB: ${{ needs.travas.outputs.caminhos_github }}
       ISSUE: ${{ github.event.issue.number }}
       RAMO: exec/${{ github.event.issue.number }}-${{ github.run_id }}
       # Decisão do Pedro (01/11/2026): merge automático por defeito; "Merge automático: não" na autorização desliga.
@@ -206,12 +261,34 @@ jobs:
       PREPARACAO_R2: ${{ needs.travas.outputs.preparacao_r2 }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
+      - name: Token do replay presente?
+        if: needs.travas.outputs.repo_alvo == 'mundopropicio-replay'
+        run: |
+          [ "$TEM_REPLAY_TOKEN" = "true" ] || { echo "E2B_REPLAY_TOKEN ausente: sem entrega no replay" >&2; exit 1; }
       - uses: actions/checkout@v4
+        if: needs.travas.outputs.repo_alvo != 'mundopropicio-replay'
         with:
           ref: main
           # #417: com o EXECUTOR_TOKEN (token do Pedro) o push e o PR ficam em nome dele, o CI do PR
           # corre sem aprovação e o auto-merge funciona. Sem o secret, cai no GITHUB_TOKEN (merge manual).
           token: ${{ secrets.EXECUTOR_TOKEN || secrets.GITHUB_TOKEN }}
+      # #753: replay sem credenciais gravadas; o push usa o token só no próprio comando.
+      - uses: actions/checkout@v4
+        if: needs.travas.outputs.repo_alvo == 'mundopropicio-replay'
+        with:
+          repository: ${{ github.repository_owner }}/mundopropicio-replay
+          ref: main
+          token: ${{ secrets.E2B_REPLAY_TOKEN }}
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        if: needs.travas.outputs.repo_alvo == 'mundopropicio-replay'
+        with:
+          ref: main
+          path: .e2b-travas
+          persist-credentials: false
+      - name: Travas fora da cópia do replay
+        if: needs.travas.outputs.repo_alvo == 'mundopropicio-replay'
+        run: mv .e2b-travas "$RUNNER_TEMP/e2b-travas"
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -228,15 +305,19 @@ jobs:
         run: |
           git apply --index "${{ runner.temp }}/saida/exec.patch"
           git diff --cached --name-only > ficheiros.txt
-          EXTRA=""
-          [ "$PREPARACAO_R2" = "true" ] && EXTRA="--preparacao-r2"
-          bun scripts/executor/travas.ts caminhos ficheiros.txt $EXTRA
+          if [ "$REPO_ALVO" = "mundopropicio-replay" ]; then
+            bun "$RUNNER_TEMP/e2b-travas/scripts/executor/travas.ts" caminhos ficheiros.txt --replay "--github-permitidos=$CAMINHOS_GITHUB"
+          else
+            EXTRA=""
+            [ "$PREPARACAO_R2" = "true" ] && EXTRA="--preparacao-r2"
+            bun scripts/executor/travas.ts caminhos ficheiros.txt $EXTRA
+          fi
       - name: Install
-        if: steps.vazio.outputs.sim == 'false'
+        if: steps.vazio.outputs.sim == 'false' && needs.travas.outputs.repo_alvo != 'mundopropicio-replay'
         run: bun install --frozen-lockfile || bun install
       - name: Testes (determinístico, fora da IA)
         id: testes
-        if: steps.vazio.outputs.sim == 'false'
+        if: steps.vazio.outputs.sim == 'false' && needs.travas.outputs.repo_alvo != 'mundopropicio-replay'
         continue-on-error: true
         run: |
           set -o pipefail
@@ -255,6 +336,25 @@ jobs:
           git config user.email "executor-e2b@users.noreply.github.com"
           git checkout -b "$RAMO"
           git commit -m "E2b #$ISSUE: entrega do executor ($MOTOR)" -m "Run: $RUN_URL"
+          if [ "$REPO_ALVO" = "mundopropicio-replay" ]; then
+            # #753: PR no replay, para main, com o token do replay; nunca merge automático nem workflows.
+            AUTH=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+            echo "::add-mask::$AUTH"
+            git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" push origin "$RAMO"
+            {
+              echo "Entrega do executor E2b para ${{ github.repository }}#$ISSUE. Run: $RUN_URL"
+              echo
+              echo "Testes no runner: não corridos pelo workflow (replay: só os testes indicados no despacho, corridos pelo executor; ver resumo)."
+              echo
+              cat "${{ runner.temp }}/saida/resumo.md"
+              echo
+              echo "Merge automático: desligado (replay). Revisão e merge só pelo 0 MP. Não fecha a Issue nem liberta a reserva."
+            } > "$RUNNER_TEMP/corpo-pr.md"
+            URL=$(gh pr create --repo "$REPO_REPLAY" --base main --head "$RAMO" --title "E2b #$ISSUE: entrega do executor ($MOTOR)" --body-file "$RUNNER_TEMP/corpo-pr.md")
+            echo "url=$URL" >> "$GITHUB_OUTPUT"
+            echo "auto=desligado (replay: merge só pelo 0 MP)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           git push origin "$RAMO"
           RESULTADO="${{ steps.testes.outcome }}"
           DRAFT=""; [ "$RESULTADO" = "success" ] || DRAFT="--draft"
@@ -300,8 +400,15 @@ jobs:
             else
               echo "## Fecho — #$ISSUE (executor E2b, $MOTOR)"
               echo
+              if [ "$REPO_ALVO" = "mundopropicio-replay" ]; then
+                echo "- **Repositório:** mundopropicio-replay (privado)"
+              fi
               echo "- **PR:** ${{ steps.pr.outputs.url || 'não criado (ver run)' }}"
-              echo "- **Testes no runner:** ${{ steps.testes.outcome }}"
+              if [ "$REPO_ALVO" = "mundopropicio-replay" ]; then
+                echo "- **Testes no runner:** não corridos pelo workflow (replay: testes do despacho, ver resumo)"
+              else
+                echo "- **Testes no runner:** ${{ steps.testes.outcome }}"
+              fi
               echo "- **Merge automático:** ${{ steps.pr.outputs.auto || 'não pedido' }}"
             fi
             echo "- **Run:** $RUN_URL"

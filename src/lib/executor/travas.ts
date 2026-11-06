@@ -18,8 +18,37 @@ export interface Decisao {
   executor: Executor | null;
   /** Texto da tarefa (corpo do despacho sem o cabeçalho). */
   tarefa: string;
-  /** Merge automático do PR quando o CI fica verde. Por defeito sim; só "não" explícito na autorização desliga. */
+  /** Merge automático do PR quando o CI fica verde. Por defeito sim; só "não" explícito na autorização desliga. Sempre não no replay (#753). */
   mergeAutomatico: boolean;
+  /** Repositório onde o executor trabalha e abre o PR (#753). Sem campo na Autorização: mundopropicio. */
+  repoAlvo: RepoAlvo;
+  /** Só no replay: caminhos exactos em .github/workflows/ que o Despacho autoriza (#753). */
+  caminhosGithub: string[];
+}
+
+/** #753: lista fechada de repositórios-alvo da E2b. Qualquer outro valor é recusado. */
+export const REPOS_ALVO = ["mundopropicio", "mundopropicio-replay"] as const;
+export type RepoAlvo = (typeof REPOS_ALVO)[number];
+export const REPO_REPLAY: RepoAlvo = "mundopropicio-replay";
+
+/** Campo «Repositório» da Autorização: ausente → mundopropicio; fora da lista → null (recusa). */
+export function repoAlvoDe(valor: string | undefined): RepoAlvo | null {
+  if (valor === undefined) return "mundopropicio";
+  const v = valor.replace(/`/g, "").trim();
+  return (REPOS_ALVO as readonly string[]).includes(v) ? (v as RepoAlvo) : null;
+}
+
+/** Caminho .github aceite no replay: só um ficheiro YAML directamente em .github/workflows/. */
+const CAMINHO_GITHUB_REPLAY = /^\.github\/workflows\/[A-Za-z0-9][A-Za-z0-9._-]*\.ya?ml$/;
+
+/** Campo «Caminhos .github do replay» do Despacho: caminhos entre crases (ou separados por vírgula/espaço). */
+export function caminhosGithubDe(valor: string | undefined): { caminhos: string[]; invalidos: string[] } {
+  if (valor === undefined) return { caminhos: [], invalidos: [] };
+  const entreCrases = [...valor.matchAll(/`([^`]+)`/g)].map((m) => m[1].trim());
+  const lista = (entreCrases.length ? entreCrases : valor.split(/[,\s]+/)).map((c) => c.trim()).filter(Boolean);
+  const caminhos = [...new Set(lista)];
+  const invalidos = caminhos.filter((c) => c.split("/").some((p) => p === "." || p === "..") || !CAMINHO_GITHUB_REPLAY.test(c));
+  return { caminhos: caminhos.filter((c) => !invalidos.includes(c)), invalidos };
 }
 
 /** Únicos autores aceites para Autorização (o Pedro; conectores escrevem como ele). */
@@ -97,10 +126,11 @@ export function avaliarDespacho(issue: number, comentarios: Comentario[], despac
   let mergeAutomatico = true;
   let preparacaoR2 = false;
   let executor: Executor | null = null;
+  let repoAlvo: RepoAlvo = "mundopropicio";
   const ordem = [...comentarios].sort((a, b) => a.criadoEm.localeCompare(b.criadoEm));
   const despacho = ordem.find((c) => c.id === despachoId);
   if (!despacho || !isDespacho(despacho.corpo)) {
-    return { ok: false, preparacaoR2: false, motivos: ["comentário de despacho não encontrado"], tarefa: "", mergeAutomatico: false, executor: null };
+    return { ok: false, preparacaoR2: false, motivos: ["comentário de despacho não encontrado"], tarefa: "", mergeAutomatico: false, executor: null, repoAlvo: "mundopropicio", caminhosGithub: [] };
   }
   const anteriores = ordem.filter((c) => c.criadoEm <= despacho.criadoEm);
   // Autorização: só do Pedro, a mais recente antes do despacho.
@@ -139,7 +169,19 @@ export function avaliarDespacho(issue: number, comentarios: Comentario[], despac
     const limite = limiteDaValidade(f.get("validade"));
     if (!limite) motivos.push("a autorização não tem validade com data (AAAA-MM-DD)");
     else if (agora > limite) motivos.push(`autorização expirada (${limite.toISOString()})`);
+    const campoRepo = f.get("repositorio");
+    const alvo = repoAlvoDe(campoRepo);
+    if (!alvo) motivos.push(`repositório não permitido (${campoRepo}); só ${REPOS_ALVO.join(" ou ")}`);
+    else repoAlvo = alvo;
   }
+
+  // #753: no replay o merge automático fica sempre desligado (merge só pelo 0 MP).
+  if (repoAlvo === REPO_REPLAY) mergeAutomatico = false;
+  const campoGithub = campos(despacho.corpo).get("caminhos .github do replay");
+  const github = caminhosGithubDe(campoGithub);
+  if (campoGithub !== undefined && repoAlvo !== REPO_REPLAY) motivos.push("«Caminhos .github do replay» só vale com a Autorização para o mundopropicio-replay");
+  if (github.invalidos.length) motivos.push(`caminhos .github inválidos no despacho: ${github.invalidos.join(", ")}`);
+  const caminhosGithub = repoAlvo === REPO_REPLAY ? github.caminhos : [];
 
   // Reservas activas (D-ERP345): reserva sem libertação posterior.
   // Comentários do operador só contam a partir da Autorização vigente; os do Pedro mantêm o histórico.
@@ -156,7 +198,7 @@ export function avaliarDespacho(issue: number, comentarios: Comentario[], despac
     if (executor && exec !== executor) motivos.push(`a reserva activa não é do executor designado (${executor})`);
   }
 
-  return { ok: motivos.length === 0, preparacaoR2, motivos, tarefa, mergeAutomatico, executor };
+  return { ok: motivos.length === 0, preparacaoR2, motivos, tarefa, mergeAutomatico, executor, repoAlvo, caminhosGithub };
 }
 
 /** Verifica a lista de ficheiros alterados pelo executor. */
@@ -170,6 +212,20 @@ export function caminhosProibidos(ficheiros: string[], opts?: { preparacaoR2?: b
     );
     if (permitido) return /(^|\/)\.env/.test(f);
     return CAMINHOS_PROIBIDOS.some((re) => re.test(f));
+  });
+}
+
+/**
+ * #753: caminhos proibidos no replay. .github/ só nos caminhos exactos listados no Despacho;
+ * .env nunca; segmentos relativos nunca. As regras de supabase/, drizzle/ e .lovable/ são do
+ * repo principal e não se aplicam ao replay.
+ */
+export function caminhosProibidosReplay(ficheiros: string[], githubPermitidos: string[] = []): string[] {
+  return ficheiros.filter((f) => {
+    if (f.split("/").some((parte) => parte === "." || parte === "..")) return true;
+    if (/(^|\/)\.env/.test(f)) return true;
+    if (/^\.github\//.test(f)) return !(CAMINHO_GITHUB_REPLAY.test(f) && githubPermitidos.includes(f));
+    return false;
   });
 }
 
