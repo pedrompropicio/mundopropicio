@@ -57,11 +57,11 @@ beforeEach(() => {
 });
 
 describe("ficha da transação — só leitura", () => {
-  it("mostra participação no encontro, mantém 'Compensa com…' e não tem botão de criar encontro", () => {
+  it("mostra participação no encontro sem 'Compensa com…' nem botão de criar encontro", () => {
     wrap(<TransactionOffsetsBlock transaction={{ id: "b873559f", type: "income", supplier_id: "s1", amount: 30996 }} canEdit />);
     expect(screen.getByTestId("offset-group-participation")).toHaveTextContent("Faz parte do encontro de contas de 13/10/2026 · Casino Estoril");
     expect(screen.getByRole("button", { name: "Ver encontro" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Compensa com…" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Compensa com…" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /encontro de contas/i })).toBeNull();
   });
 });
