@@ -203,10 +203,10 @@ describe.each([["PT", "EUR", 23], ["BR", "BRL", 0]] as const)("#498 P2g — defa
     await waitFor(() => expect(f.mutations).toHaveLength(1)); await Promise.all(f.mutations);
     expect(f.writes.find(w => w.table === "recurring_transactions")?.payload).toMatchObject({ amount, iva_rate: rate });
     const generated = f.writes.find(w => w.table === "transactions")?.payload;
-    // The legacy generator includes the end month (November 2026 through November 2027).
-    expect(generated).toHaveLength(13);
+    // 12 meses = 12 lançamentos (novembro de 2026 a outubro de 2027).
+    expect(generated).toHaveLength(12);
     expect(generated[0].date).toBe("2026-11-01");
-    expect(generated[12].date).toBe("2027-11-01");
+    expect(generated[11].date).toBe("2027-10-01");
     for (const tx of generated) expect(tx).toMatchObject({ amount, iva_rate: rate });
   });
   it("cotações mantêm o valor nativo e a taxa da política", async () => {
