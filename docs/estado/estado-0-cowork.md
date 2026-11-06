@@ -14,23 +14,38 @@
 
 ## Pendentes abertos (o 0 de comando mantém esta lista)
 1. #647: confirmar a 1.ª corrida dos crons 15703 e 15704 (06/11, 04:17 e 04:53 UTC) em `cron.job_run_details`.
-2. #646 D2: D2-c e D2-d run A (0341 preparada) em `main`; a seguir D2-f (0342) e run B pelo operador. **Gate:** o Publish do ERP só sai depois de o 0 correr `docs/testes/issue646/conferencia-d2.sql` em Live (só SELECT) e fechar a conferência. Depois D2-e (6663213468, depois do #564 em `main`).
+2. #646 D2: D2-c, D2-d run A (0341) e D2-f (0342) em `main`; a seguir run B do D2-d pelo operador (conta `mplabs-dev`). **Gate:** o Publish do ERP só sai depois de o 0 correr `docs/testes/issue646/conferencia-d2.sql` em Live (só SELECT) e fechar a conferência. Depois D2-e (6663213468, depois do #564 em `main`).
 3. #664: código completo em `main`. Falta a janela: 0340 → deploys (`sync-coala-from-drive`, `test-multi-tenant-isolation`) → Publish → país nas configurações Coala → PARTE 2 da 0335 com provas → DML dos dados pela lista do chat 10.
 4. #669: 669-c em `main` (`18db40a`); entra no Publish, com prova no ecrã.
 5. #695: 695-a em `main` (`d8881d2`); entra no Publish, com prova no ecrã. Lacuna aceite pelo Pedro: sem aviso na edição.
 6. #677: preparação da importação da Social Music de 2026 (1B/2A). Só depois da #664.
-7. #405: Portal NG fechado (deploy `newgang-portal` + Publish do Portal pelo 0 pessoal, 19:44). Envio do reforço NG27 a 06/11 e cron `ng27-reforco-envio` são do 0 pessoal: o 0 MP não toca. Em curso: 405-h (hashes B1 em `presale-code_test.ts`, Despacho 6671436418).
+7. #405: Portal NG fechado (deploy `newgang-portal` + Publish do Portal pelo 0 pessoal, 19:44). Envio do reforço NG27 a 06/11 e cron `ng27-reforco-envio` são do 0 pessoal: o 0 MP não toca. 405-h: o executor não responde ao despacho (reenviado 23:47); a investigar com o Pedro.
 8. #675 / 0334 / SLE: suspensos até ao 647-d-portal.
 9. Cloudflare: o Pedro apaga os tokens antigos `mp-backups-supabase` e `-v2`.
 10. Coala, venda geral a 10/11: apagar `early_bird.general_sale_date` com «Corro?» (#359). A tarefa agendada estava na conta pessoal: recriar do lado MP.
 11. #603: decidir onde corre o piloto, na conta Lovable actual ou numa conta nova, e registar a escolha e o motivo na #603. Decisão do Pedro com o 0 (MP).
-12. Migrações reservadas: 0341 D2-d (#646, em `main`), 0342 D2-f (#646), 0343 339-r (#339, em `main`), 0344 644b B1 (#644). Próxima livre: 0345.
+12. Migrações preparadas, não aplicadas: 0341 D2-d (corrigir ordem do histórico antes de aplicar, 6671791855), 0342 D2-f, 0343 339-r, 0344 644b B1, 0345 e 0346 (#303); 0347 reservada (#303 R4). Próxima livre: 0348.
 13. #314: 314-b em `main` (`549c8a7`). **Na janela, a 0323 aplica-se antes do Publish.** Nota para a #591: a lista de bancos do diálogo «Confirmar crédito» não filtra por empresa (depende de RLS).
 14. QUADRO «Em execução agora»: higiene das linhas com mais de 24 h autorizada ao operador (R0).
-15. Janela de Publish do ERP: plano do PR #702 em `main`. Gate: `conferencia-d2.sql` (#646). Publish com «Sim» do Pedro.
-16. Painel v2 (#721): E1a+E1b em `main` do mp-painel. Seguinte: E2a (D1 + Worker `painel-turno` + triagem + Custos), com o reparo dos comentários livres. Contas de API (Anthropic Console, workspace `painel`, limite 100 USD/mês) com o Pedro pelo Chrome; chaves só nos segredos, nunca em chat.
+15. Janela de Publish do ERP: plano do PR #702 em `main`. Gate: `conferencia-d2.sql` (#646). Publish com «Sim» do Pedro. Prioridade do Pedro (06/11) depois do Painel: ERP Brasil + implantação Social Music.
+16. Painel v2 (#721): E2a ligada em produção (D1 «painel», Worker `painel-turno`, webhook, binding Pages). Em curso: E2b (Conversa). Depois: E3 (Agentes) e executor por Issue no mp-painel.
 
 ## Registo (mais recente primeiro)
+- 06/11 ~02:00 · 0 MP · #721 · E2b (Conversa com o 0 de turno, só leitura) autorizada pelo Pedro; tarefa 6674830701 para a sessão «Painel v2» · despachado.
+- 06/11 01:51 · 0 MP · #721 · passo 5: binding D1 no Pages (mp-painel `a8f9145`), com «Sim» do Pedro; 1.ª passagem do Worker: 51 cartões redigidos, 31 abertos, ~1,6 USD em 54 chamadas · ok.
+- 06/11 ~01:48 · Pedro (com o 0 pessoal) · #721 · passo 4: webhook 707990541 em mundopropicio → Worker, eventos issues/issue_comment/pull_request/check_suite, ping ok · ok.
+- 06/11 ~01:45 · Pedro (com o 0 pessoal) · #721 · passo 3: segredos do Worker ANTHROPIC_API_KEY (espaço «painel»), GITHUB_TOKEN (leitura, só mundopropicio) e GITHUB_WEBHOOK_SECRET; valores nunca vistos pelo 0 MP · ok.
+- 06/11 01:48 · 0 MP · #303 · merge do PR #731 (R3, 0346 PREPARADA, NÃO APLICADA; quality verde) com «Sim»; Reserva 6673808601 libertada; Reserva 6674604617 e Despacho R4 (0347, corte/fuso, cadeia, posição) 6674608597 · despachado.
+- 06/11 ~01:20 · 0 MP · #721 · passos 1–2 com «Sim»: D1 «painel» (Western Europe, c721d5d3…) com as 8 tabelas da 0001 pela consola; Worker `painel-turno` por Workers Builds do main do mp-painel (`c7129c4`), /saude ok · ok.
+- 06/11 01:05 · 0 MP · #303 · merge do PR #730 (R2, 0345 PREPARADA, NÃO APLICADA) com «Sim»; R3 (0346) despachado (6673813084) · ok.
+- 06/11 ~00:58 · 0 MP · #644/#721 · merges PR #729 (644b B2, contrato puro) e mundopropicio/mp-painel#17 (E2a + adenda), com «Sim»; 644b B3 fica à espera da #415/#564 · ok.
+- 06/11 ~00:40 · Pedro · #646/#647/#677 · respostas do Painel de 00:03–00:12 a perguntas antigas: valem as decisões anteriores; notas 6673230899, 6673231717, 6673232461 · decisão.
+- 06/11 ~00:40 · Pedro · — · operador passa a publicar só como `mplabs-dev` (nova sessão do operador); nada como pedrompropicio · decisão.
+- 06/11 00:35 · 0 MP · #721 · merge mundopropicio/mp-painel#16 (plano com a adenda: redactor, fila limpa, arquivo) com «Sim» · ok.
+- 06/11 00:17–00:20 · 0 MP · #646/#303/#644 · merges #726 (D2-f, 0342), #727 (303 R1), #728 (644b B1, 0344), com «Sim» e CI verde; reservas libertadas; despachos 303 R2 (0345) e 644b B2 · ok.
+- 06/11 00:10 · 0 MP · — · merge do PR #725 (diário) · ok.
+- 05/11 23:47 · 0 MP · #405 · 405-h sem resposta >1 h: Reserva libertada e despacho reenviado (Reserva 6672527748, Despacho 6672530698); continua sem resposta · em aberto.
+- 05/11 ~23:50–00:05 · 0 MP · #721 · consola Anthropic: espaço «painel» com limite 100 USD/mês e aviso por email aos 80 USD, com «Sim» do Pedro · ok.
 - 05/11 23:45 · 0 MP · #721 · merge mundopropicio/mp-painel#14 (plano v2; `de89340`) e #15 (E1a tema dia/noite + E1b Decisões/Agora; `57f4ffe`), com «Sim» do Pedro · ok. Reparo para a E2a: comentários livres da conta do Pedro (que o 0 também usa) fecham cartões.
 - 05/11 23:42 · 0 MP · #644 · Reserva 6671485158 libertada; Reserva 6672282283 (migração **0344** reservada) e Despacho 644b B1 «só estrutura `event_result_closures`» (6672285532) · despachado.
 - 05/11 23:40 · 0 MP · #644 · merge do PR #724 (plano 644b com Q1–Q4; squash `f7d53de`; quality verde), com «Sim» do Pedro · ok.
