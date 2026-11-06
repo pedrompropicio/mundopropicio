@@ -1,0 +1,29 @@
+-- Rollback de contenção 0346 — PREPARADO, NÃO EXECUTADO; autorização separada.
+-- Descomentar só o bloco BEGIN/COMMIT numa sessão dona do catálogo autorizada.
+-- Exige também sessão admin literal da empresa activa para desligar a sua configuração.
+-- Mantém estrutura, recibos, provas/bytes, pertenças, índices e todas as guardas.
+-- Não repõe escritores antigos sobre contas activadas/documentos v2.
+-- RPCs legadas e contas desligadas conservam os corpos e ACL anteriores.
+-- BEGIN;
+-- DO $rollback_0346$
+-- BEGIN
+--   IF auth.uid() IS NULL OR public.current_company_id() IS NULL OR NOT EXISTS (
+--     SELECT 1 FROM public.user_roles WHERE user_id = auth.uid()
+--       AND company_id = public.current_company_id() AND role = 'admin'::public.app_role) THEN
+--     RAISE EXCEPTION 'issue303_rollback_requires_company_admin' USING ERRCODE = '42501';
+--   END IF;
+--   UPDATE public.company_features f SET enabled = false,
+--     config = jsonb_set(f.config,'{accounts}',coalesce((SELECT jsonb_agg(jsonb_set(a,'{enabled}','false'::jsonb))
+--       FROM jsonb_array_elements(f.config->'accounts') a),'[]'::jsonb))
+--     WHERE f.company_id = public.current_company_id() AND f.feature_key = 'ticket-office-statements-v2';
+-- END $rollback_0346$;
+-- REVOKE ALL ON FUNCTION public.save_ticket_office_statement_draft(uuid,bigint,jsonb) FROM PUBLIC, anon, authenticated, service_role;
+-- REVOKE ALL ON FUNCTION public.confirm_ticket_office_statement(uuid,bigint,boolean) FROM PUBLIC, anon, authenticated, service_role;
+-- REVOKE ALL ON FUNCTION public.add_ticket_office_statement_supplement(uuid,bigint,jsonb,text) FROM PUBLIC, anon, authenticated, service_role;
+-- CREATE OR REPLACE FUNCTION issue303_private.r4_validate(p_statement uuid, p_revision bigint)
+-- RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $$
+-- BEGIN
+--   RAISE EXCEPTION 'capacidade_r4_em_falta' USING ERRCODE = '55000';
+-- END $$;
+-- REVOKE ALL ON FUNCTION issue303_private.r4_validate(uuid,bigint) FROM PUBLIC, anon, authenticated, service_role;
+-- COMMIT;
