@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { HISTORICAL_PAID_LABEL } from "@/lib/historical-paid";
 import { useState, useEffect, useRef } from "react";
 import { mustWrite } from "@/lib/must-write";
 import { isPartnerContractTx, PARTNER_CONTRACT_TX_HINT } from "@/lib/partner-contracts";
@@ -75,6 +76,7 @@ interface Props {
   inGroup?: boolean;
   /** Se a transação tem registos em transaction_payments (parcelas). Determina se a retenção declarada se aplica. */
   hasInstallments?: boolean;
+  historicalImportedPaid?: boolean;
 }
 
 function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; onClick: () => void }) {
@@ -121,7 +123,7 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
   );
 }
 
-export function TransactionRow({ transaction: t, canApprove, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, approveDisabled, onPayment, onDocs, onAudit, onDelete, onToggleHidden, onViewPayments, highlightId, inGroup, hasInstallments }: Props) {
+export function TransactionRow({ transaction: t, canApprove, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, approveDisabled, onPayment, onDocs, onAudit, onDelete, onToggleHidden, onViewPayments, highlightId, inGroup, hasInstallments, historicalImportedPaid = false }: Props) {
   const companyLocale = useCompanyLocale();
   // Preserve the legacy PT grouping and rounding byte for byte (#498 P1b).
   const formatCurrency = (value: number) => companyLocale.status !== "available"
@@ -621,8 +623,9 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
           )}
         </td>
         <td className="py-2 pr-2">
-          <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium ${statusClass}`}>
-            {statusLabel}
+          <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium ${statusClass}`}
+            title={historicalImportedPaid ? "Estado e valor pago importados são declarativos: evento histórico sem linhas de pagamento." : undefined}>
+            {historicalImportedPaid ? HISTORICAL_PAID_LABEL : statusLabel}
           </span>
           {balance > 0 && computedStatus !== "paid" && (
             <p className="mt-0.5 text-[10px] text-warning">Aberto: {formatCurrency(balance)}</p>
