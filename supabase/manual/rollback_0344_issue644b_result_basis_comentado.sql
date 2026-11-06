@@ -1,0 +1,33 @@
+-- PREPARADA, NÃO APLICADA — rollback 0344 #644b B1; só comentários.
+-- Não executar automaticamente. Promoção/reversão exigem autorização própria do 0.
+-- B1 não altera corpos/assinaturas/ACL/guardas existentes: não há bytes antigos a repor.
+-- Antes de uma reversão futura: retirar leitores novos, desligar o escritor B3 e reverter
+-- B3 pela sua própria prova de corpos/hashes/ACL; só depois considerar a estrutura B1.
+-- Com revisões, selos, recibos ou ligação activa: ABORTAR a reversão destrutiva.
+-- Reverter comportamento mantendo os artefactos; exportação/retenção exige despacho próprio.
+-- O bloco abaixo é atómico, recusa histórico e só remove objectos criados pela 0344.
+-- Não usar CASCADE nem desactivar guards para ultrapassar dependências posteriores.
+-- BEGIN ROLLBACK SQL
+-- DO $rollback$
+-- BEGIN
+--   IF EXISTS (SELECT 1 FROM public.event_result_closures)
+--     OR EXISTS (SELECT 1 FROM public.event_result_closure_seals)
+--     OR EXISTS (SELECT 1 FROM public.event_result_closure_log)
+--     OR EXISTS (SELECT 1 FROM public.event_result_closure_active) THEN
+--     RAISE EXCEPTION 'result_closure_rollback_has_history' USING ERRCODE = '55000';
+--   END IF;
+--   DROP TABLE public.event_result_closure_active;
+--   DROP TABLE public.event_result_closure_seals;
+--   ALTER TABLE public.event_result_closures DROP CONSTRAINT result_closure_confirmation_fk;
+--   DROP TABLE public.event_result_closure_log;
+--   DROP TABLE public.event_result_closures;
+--   DROP FUNCTION issue644b_private.validate_deactivation();
+--   DROP FUNCTION issue644b_private.validate_active();
+--   DROP FUNCTION issue644b_private.validate_receipts();
+--   DROP FUNCTION issue644b_private.validate_seal();
+--   DROP FUNCTION issue644b_private.validate_closure();
+--   DROP FUNCTION issue644b_private.append_only();
+--   DROP FUNCTION issue644b_private.writer_not_installed();
+--   DROP SCHEMA issue644b_private;
+-- END $rollback$;
+-- END ROLLBACK SQL
