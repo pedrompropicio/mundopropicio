@@ -25,7 +25,8 @@ async function fixture() {
     CREATE TABLE public.suppliers(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL,
       company_id uuid NOT NULL REFERENCES companies, nif text, iban text,
       is_active boolean NOT NULL DEFAULT true, category text, notes text,
-      country text NOT NULL DEFAULT 'PT');
+      country text NOT NULL DEFAULT 'PT',
+      CONSTRAINT suppliers_country_iso2 CHECK (country ~ '^[A-Z]{2}$'));
     CREATE TABLE supplier_similarity_flags(company_id uuid, supplier_id uuid, similar_supplier_id uuid, motivo text, source text);
     INSERT INTO companies VALUES ('${company}', 'BR'), ('${noCountry}', NULL);
     CREATE FUNCTION public._supplier_similar_candidates(uuid, text, text, uuid)
@@ -115,7 +116,7 @@ describe("#664 / 0335 — SQL só em PGlite descartável, sem credenciais", () =
       ]);
       expect(await scalar(db, `SELECT to_regprocedure('public.suppliers_default_country()')`)).toBe(null);
       expect(await scalar(db, `SELECT count(*)::int FROM pg_trigger WHERE tgname='suppliers_default_country_trigger'`)).toBe(0);
-      expect(await scalar(db, `SELECT convalidated FROM pg_constraint WHERE conname='suppliers_country_iso2_check'`)).toBe(true);
+      expect(await scalar(db, `SELECT convalidated FROM pg_constraint WHERE conname='suppliers_country_iso2'`)).toBe(true);
       // Sem mudar a reutilização de um NIF activo.
       await db.exec(`UPDATE suppliers SET nif='synthetic-tax' WHERE name='Nova UI'`);
       const reused = await scalar<{ reused: boolean }>(db, `SELECT supplier_resolve_or_create('Reutilizar','synthetic-tax','sponsors_import','BR')`);
