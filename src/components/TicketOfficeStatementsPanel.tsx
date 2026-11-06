@@ -11,7 +11,7 @@ import { STATEMENT_DOCUMENTS_EMBED } from "@/lib/ticket-office-statement-documen
 import { loadStatementDocuments } from "@/lib/ticket-office-statement-documents";
 import { useTicketOfficeStatements, type TicketOfficeStatementsRead, type TicketOfficeStatementV2 } from "@/hooks/useTicketOfficeStatements";
 import { useCompany } from "@/hooks/useCompany";
-import { TicketOfficeStatementModal, statementDraftLabels } from "@/components/TicketOfficeStatementModal";
+import { TicketOfficeStatementModal, TicketOfficeStatementReceipt, statementDraftLabels } from "@/components/TicketOfficeStatementModal";
 import { Button } from "@/components/ui/button";
 
 const labels = {
@@ -23,15 +23,15 @@ const labels = {
   empty: "Sem apuramentos registados nesta bilheteira.",
 };
 
-export function TicketOfficeStatementsPanel({ officeId }: { officeId?: string } = {}) {
+export function TicketOfficeStatementsPanel({ officeId, statementId }: { officeId?: string; statementId?: string } = {}) {
   const read = useTicketOfficeStatements(officeId ?? null);
   const { companyId } = useCompany();
   const { user } = useAuth();
-  if (!officeId || read.data?.status === "legacy") return <LegacyTicketOfficeStatementsPanel officeId={officeId} />;
+  if (!officeId || read.data?.status === "legacy") return <LegacyTicketOfficeStatementsPanel officeId={officeId} statementId={statementId} />;
   if (read.isError) return <p role="alert" className="text-sm text-destructive">{labels.failed}</p>;
   if (read.data?.status === "v2_unavailable") return <p role="alert" className="text-sm text-destructive">{labels.unavailable}</p>;
   if (read.data?.status !== "v2") return <p className="text-sm text-muted-foreground">{labels.empty}</p>;
-  return <V2StatementsPanel key={`${companyId}:${user?.id}:${officeId}`} officeId={officeId} read={read.data}
+  return <V2StatementsPanel key={`${companyId}:${user?.id}:${officeId}`} officeId={officeId} statementId={statementId} read={read.data}
     reload={async () => { await read.refetch(); }} />;
 }
 
@@ -49,19 +49,23 @@ function V2Documents({ statement }: { statement: { id: string; status: string; r
     userId={user?.id} v2={{ status: statement.status as "draft" | "confirmed", revision: statement.revision ?? 1 }} />;
 }
 
-function V2StatementsPanel({ officeId, read, reload }: {
-  officeId: string; read: Extract<TicketOfficeStatementsRead, { status: "v2" }>; reload: () => Promise<void>;
+function V2StatementsPanel({ officeId, statementId, read, reload }: {
+  officeId: string; statementId?: string; read: Extract<TicketOfficeStatementsRead, { status: "v2" }>; reload: () => Promise<void>;
 }) {
-  const { isAdmin, isManager } = useAuth();
+  const { isAdmin, isManager, role } = useAuth();
   const qc = useQueryClient();
   const [editing, setEditing] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<TicketOfficeStatementV2 | null>(null);
   const statements = [...read.confirmedStatements, ...read.draftStatements, ...read.legacyStatements]
     .sort((a, b) => b.statement_date.localeCompare(a.statement_date) || a.id.localeCompare(b.id));
   const draft = read.draftStatements.find((s) => s.id === editing);
   const refresh = async () => {
     await qc.invalidateQueries({ queryKey: ["ticket-office-statements"] });
     await qc.invalidateQueries({ queryKey: ["ticket-office-statement-documents"] });
+    await qc.invalidateQueries({ queryKey: ["ticket-office-statement-draft-sources"] });
+    await qc.invalidateQueries({ queryKey: ["ticket_office_settlements_overview"] });
+    await qc.invalidateQueries({ queryKey: ["ticket-office-statement-navigation"] });
     await reload();
   };
   return <section className="space-y-3">
@@ -70,11 +74,13 @@ function V2StatementsPanel({ officeId, read, reload }: {
     {message && <p role="alert" className="text-sm text-destructive">{message}</p>}
     {statements.map((s) => {
       const v2 = "contract_version" in s && s.contract_version === 2 ? s as TicketOfficeStatementV2 : null;
-      return <div key={s.id} id={`apuramento-${s.id}`} className="rounded-lg border border-border bg-card p-4 space-y-2 scroll-mt-20">
+      return <div key={s.id} id={`apuramento-${s.id}`} tabIndex={-1} ref={statementId === s.id ? focusStatement : undefined} className="rounded-lg border border-border bg-card p-4 space-y-2 scroll-mt-20">
         <div className="flex flex-wrap items-center gap-2"><span className="font-semibold">{labels.document} {s.number}</span>
           <span className="text-xs text-muted-foreground">{s.statement_date}</span>
           <Badge variant={s.status === "confirmed" ? "default" : "outline"}>{s.status === "confirmed" ? labels.confirmed : labels.draft}</Badge>
-          {v2?.status === "draft" && (isAdmin || isManager) && <Button type="button" variant="outline" size="sm" onClick={() => { setMessage(null); setEditing(s.id); }}>{labels.edit}</Button>}</div>
+          {v2?.status === "draft" && (isAdmin || isManager) && <Button type="button" variant="outline" size="sm" onClick={() => { setMessage(null); setEditing(s.id); }}>{labels.edit}</Button>}
+          {v2?.status === "draft" && role === "admin" && <Button type="button" variant="outline" size="sm" onClick={() => { setMessage(null); setConfirming(v2); }}>{statementDraftLabels.review}</Button>}</div>
+        {v2?.provenance.opening && <p className="text-sm">{v2.provenance.opening.approval ? statementDraftLabels.openingApproved : statementDraftLabels.openingPending}</p>}
         <div className="overflow-x-auto"><table className="w-full text-sm"><tbody>
           {[...(s.ticket_office_statement_lines ?? [])].sort((a, b) => a.position - b.position).map((line) => <tr key={line.id}>
             <td className="pr-2">{v2 ? statementDraftLabels.types[(line as TicketOfficeStatementV2["ticket_office_statement_lines"][number]).document_line_type] : TYPE_LABEL[line.line_type] ?? line.line_type}</td>
@@ -82,14 +88,31 @@ function V2StatementsPanel({ officeId, read, reload }: {
           </tr>)}
           <tr><td colSpan={2}>{labels.total}</td><td className="text-right font-mono">{s.document_total == null ? labels.pending : formatCurrency(Number(s.document_total))}</td></tr>
         </tbody></table></div>
+        {v2?.provenance.adjustments.map((adjustment) => <p key={adjustment.lineId} className="text-sm break-words">
+          {statementDraftLabels.original}: <a className="text-primary underline" href={`/bilheteiras?conta=${encodeURIComponent(officeId)}&separador=apuramentos#apuramento-${encodeURIComponent(adjustment.originalStatementId)}`}>
+            {statements.find((original) => original.id === adjustment.originalStatementId)?.number ?? adjustment.originalStatementId}</a>
+          {` · ${statementDraftLabels.originalLine}: ${adjustment.originalLineId} · ${statementDraftLabels.adjustmentReason}: ${adjustment.reason}`}
+        </p>)}
+        {v2?.status === "confirmed" && <TicketOfficeStatementReceipt statement={v2} value={v2.confirmation_receipt} />}
         <V2Documents statement={{ id: s.id, status: s.status, revision: v2?.revision }} />
       </div>;
     })}
+    {confirming && <TicketOfficeStatementModal key={`confirm:${confirming.id}`} mode="confirm" officeId={officeId} read={read} statement={confirming}
+      onClose={() => setConfirming(null)} onSaved={refresh} onConflict={refresh} onRejected={async (failure) => {
+        setMessage(failure); setConfirming(null);
+        try { await refresh(); } catch { setMessage(`${failure} ${statementDraftLabels.reloadFailed}`); }
+      }} />}
     {editing && (editing === "new" || draft) && <TicketOfficeStatementModal key={editing} officeId={officeId} read={read} statement={draft}
       onClose={() => setEditing(null)} onSaved={refresh} onConflict={async () => {
         setMessage(statementDraftLabels.conflict); setEditing(null); await refresh();
       }} />}
   </section>;
+}
+
+function focusStatement(node: HTMLDivElement | null) {
+  if (!node) return;
+  node.scrollIntoView?.({ block: "start" });
+  node.focus({ preventScroll: true });
 }
 
 const SUMMARY_LABEL: Record<string, string> = {
@@ -112,7 +135,7 @@ const TYPE_LABEL: Record<string, string> = {
  * Apuramentos Ticketline (#303) — só leitura. Σ linhas vs total do documento;
  * linhas pendentes de documento ficam destacadas e bloqueiam a confirmação.
  */
-function LegacyTicketOfficeStatementsPanel({ officeId }: { officeId?: string } = {}) {
+function LegacyTicketOfficeStatementsPanel({ officeId, statementId }: { officeId?: string; statementId?: string } = {}) {
   const { user, isAdmin, isManager } = useAuth();
   // Igual à RLS de ticket_office_statement_documents: escrita só admin/manager.
   const canManageDocs = isAdmin || isManager;
@@ -140,7 +163,7 @@ function LegacyTicketOfficeStatementsPanel({ officeId }: { officeId?: string } =
         const diff = s.document_total != null ? Number(s.document_total) - sum : null;
         const totals = statementTypeTotals(lines);
         return (
-          <div key={s.id} id={`apuramento-${s.id}`} className="rounded-lg border border-border bg-card p-4 space-y-2 scroll-mt-20">
+          <div key={s.id} id={`apuramento-${s.id}`} tabIndex={statementId === s.id ? -1 : undefined} ref={statementId === s.id ? focusStatement : undefined} className="rounded-lg border border-border bg-card p-4 space-y-2 scroll-mt-20">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-semibold">Apuramento {s.number}</span>
               <span className="text-xs text-muted-foreground">{s.statement_date}</span>
