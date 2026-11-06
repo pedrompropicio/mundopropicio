@@ -14,23 +14,37 @@
 
 ## Pendentes abertos (o 0 de comando mantém esta lista)
 1. #647: confirmar a 1.ª corrida dos crons 15703 e 15704 (06/11, 04:17 e 04:53 UTC) em `cron.job_run_details`.
-2. #646 D2: D2-c, D2-d run A (0341) e D2-f (0342) em `main`; a seguir run B do D2-d pelo operador (conta `mplabs-dev`). **Gate:** o Publish do ERP só sai depois de o 0 correr `docs/testes/issue646/conferencia-d2.sql` em Live (só SELECT) e fechar a conferência. Depois D2-e (6663213468, depois do #564 em `main`).
+2. #646 D2: D2-c, D2-d runs A (0341, com `seq`), B e C, e D2-f (0342) em `main`. A run D (P5c + Tesouraria) só depois da 0341 aplicada em Live, na janela. **Gate:** o Publish do ERP só sai depois de o 0 correr `docs/testes/issue646/conferencia-d2.sql` em Live (só SELECT) e fechar a conferência. Depois D2-e (6663213468, depois do #564 em `main`).
 3. #664: código completo em `main`. Falta a janela: 0340 → deploys (`sync-coala-from-drive`, `test-multi-tenant-isolation`) → Publish → país nas configurações Coala → PARTE 2 da 0335 com provas → DML dos dados pela lista do chat 10.
 4. #669: 669-c em `main` (`18db40a`); entra no Publish, com prova no ecrã.
 5. #695: 695-a em `main` (`d8881d2`); entra no Publish, com prova no ecrã. Lacuna aceite pelo Pedro: sem aviso na edição.
 6. #677: preparação da importação da Social Music de 2026 (1B/2A). Só depois da #664.
-7. #405: Portal NG fechado (deploy `newgang-portal` + Publish do Portal pelo 0 pessoal, 19:44). Envio do reforço NG27 a 06/11 e cron `ng27-reforco-envio` são do 0 pessoal: o 0 MP não toca. 405-h: o executor não responde ao despacho (reenviado 23:47); a investigar com o Pedro.
+7. #405: Portal NG fechado (deploy `newgang-portal` + Publish do Portal pelo 0 pessoal, 19:44). Envio do reforço NG27 a 06/11 e cron `ng27-reforco-envio` são do 0 pessoal: o 0 MP não toca. 405-h: o executor não responde ao despacho (reenviado 23:47); a investigar com o Pedro. O mesmo com #585 ponto 4 e #498 P1p (despachados 03:45): nota 6677581426 na #473, não reenviar.
 8. #675 / 0334 / SLE: suspensos até ao 647-d-portal.
 9. Cloudflare: o Pedro apaga os tokens antigos `mp-backups-supabase` e `-v2`.
 10. Coala, venda geral a 10/11: apagar `early_bird.general_sale_date` com «Corro?» (#359). A tarefa agendada estava na conta pessoal: recriar do lado MP.
 11. #603: decidir onde corre o piloto, na conta Lovable actual ou numa conta nova, e registar a escolha e o motivo na #603. Decisão do Pedro com o 0 (MP).
-12. Migrações preparadas, não aplicadas: 0341 D2-d (corrigir ordem do histórico antes de aplicar, 6671791855), 0342 D2-f, 0343 339-r, 0344 644b B1, 0345 e 0346 (#303); 0347 reservada (#303 R4). Próxima livre: 0348.
+12. Migrações preparadas, não aplicadas: 0341 D2-d (md5 novo `62c875ff…`, com `seq`), 0342 D2-f, 0343 339-r, 0344 644b B1, 0345–0348 (#303; 0348 com triggers a rever, 6679630325); 0335 PARTE 2 com md5 novo `739c2ea0…`. Próxima livre: 0349.
 13. #314: 314-b em `main` (`549c8a7`). **Na janela, a 0323 aplica-se antes do Publish.** Nota para a #591: a lista de bancos do diálogo «Confirmar crédito» não filtra por empresa (depende de RLS).
 14. QUADRO «Em execução agora»: higiene das linhas com mais de 24 h autorizada ao operador (R0).
 15. Janela de Publish do ERP: plano do PR #702 em `main`. Gate: `conferencia-d2.sql` (#646). Publish com «Sim» do Pedro. Prioridade do Pedro (06/11) depois do Painel: ERP Brasil + implantação Social Music.
-16. Painel v2 (#721): E2a ligada em produção (D1 «painel», Worker `painel-turno`, webhook, binding Pages). Em curso: E2b (Conversa). Depois: E3 (Agentes) e executor por Issue no mp-painel.
+16. Painel v2 (#721): E2a ligada em produção (D1 «painel», Worker `painel-turno`, webhook, binding Pages). E2b (Conversa) em produção. Em curso: E2c (amplitude da Conversa, tarefa 6675915608), sem PR ainda. Depois: E3 (Agentes) e executor por Issue no mp-painel.
+17. #303: R1–R9 em `main` (0345–0348 preparadas); R10 em curso; R11 coordena #333; R12 com o Pedro (PDFs). Lacuna da R6 para o Pedro: falta o verificador de ficheiros no servidor (`issue303_private.verified_files`), por isso o carregamento v2 e o «Juntar complemento» estão desactivados.
 
 ## Registo (mais recente primeiro)
+- 06/11 08:55 · 0 MP · #303 · R10 sem entrega (6680832728: exportador PDF/Excel fora da lista); reserva libertada e R10 reenviada com `export-partner-statement-doc.ts` (Reserva 6681015057, Despacho 6681018042) · despachado.
+- 06/11 08:32 · 0 MP · #303 · merge do PR #744 (R9 consumidores de posição; squash `b2b5baa`) pelo merge autónomo; Reserva 6679630883 libertada; R10 despachada (6680664401) · ok.
+- 06/11 07:30 · 0 MP · #303 · merge do PR #743 (R8 direito do evento + 0348 PREPARADA, NÃO APLICADA, md5 `a3a9dfad…`; squash `0b0614b`) pelo merge autónomo; R9 despachada (6679635032). Para rever antes de aplicar: trigger da 0348 em `transactions` e locks por escrita de fecho (6679630325) · ok.
+- 06/11 06:50 · 0 MP · #303 · merge do PR #742 (R7 confirmar UI; squash `f9c85d7`) pelo merge autónomo; R8 despachada (Reserva 6678942328, Despacho 6678947810) · ok.
+- 06/11 05:58 · 0 MP · #646 · merge do PR #741 (D2-d run C, opção `ticketProjection` no motor, sem chamador; squash `17a9cdf`; quality verde) pelo merge autónomo; Reserva 6677573546 libertada; run D fica para depois da janela · ok.
+- 06/11 05:45 · 0 MP · #303 · merge do PR #740 (R6 rascunho/abertura/anexos; squash `a54df3c`) pelo merge autónomo; Reserva 6677254027 libertada; Reserva 6677858505 e Despacho R7 6677862124 · despachado.
+- 06/11 05:20 · 0 MP · #646 · o operador não pegou na run C: Reserva 6677573546 e Despacho 6677579200 pelo 0 (Autorização 6668858508) · despachado.
+- 06/11 05:20 · 0 MP · #473 · nota ao Pedro: #585, #498 P1p e #405 sem resposta do executor, não reenviar (6677581426) · registado.
+- 06/11 ~05:00 · 0 MP · #664/#303 · merges #738 (664-c, 0335 sem o CHECK duplicado; md5 `739c2ea0…`) e #739 (303 R5) pelo merge autónomo; reservas libertadas; R6 despachada (Reserva 6677254027, Despacho 6677257484) · ok.
+- 06/11 ~04:40 · 0 MP · #646 · merge do PR #737 (0341 com `seq` na ordem do histórico; md5 `62c875ff…`) pelo merge autónomo; slot ao operador (6677093563) · ok.
+- 06/11 ~04:10 · 0 MP · #646/#695/#664 · merges #734 (D2-d run B) e #735 (695-b) pelo merge autónomo; PR #736 (664-c) fechado sem merge por fixture fora de âmbito e reenviado (6676672880) · ok.
+- 06/11 ~03:45 · 0 MP · #303/#585/#498 · merge #733 (303 R4, 0347); despachos #585 ponto 4 (6676166419) e #498 P1p (6676172295, Autorização 6676168632) · despachado.
+- 06/11 ~03:25 · Pedro · #473 · merge autónomo de PRs do executor até 06/11 10:00 UTC, só com CI verde, diff na lista, migrações preparadas e nada em Live (6676035067); prioridade: Issues do ERP Brasil e MP, dev a noite inteira · decisão.
 - 06/11 ~02:00 · 0 MP · #721 · E2b (Conversa com o 0 de turno, só leitura) autorizada pelo Pedro; tarefa 6674830701 para a sessão «Painel v2» · despachado.
 - 06/11 01:51 · 0 MP · #721 · passo 5: binding D1 no Pages (mp-painel `a8f9145`), com «Sim» do Pedro; 1.ª passagem do Worker: 51 cartões redigidos, 31 abertos, ~1,6 USD em 54 chamadas · ok.
 - 06/11 ~01:48 · Pedro (com o 0 pessoal) · #721 · passo 4: webhook 707990541 em mundopropicio → Worker, eventos issues/issue_comment/pull_request/check_suite, ping ok · ok.
