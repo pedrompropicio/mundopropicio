@@ -7725,6 +7725,7 @@ export type Database = {
           last_modified_time: string | null
           last_run_at: string | null
           last_run_status: string | null
+          new_supplier_country: string | null
           notify_whatsapp: boolean
           schedule_cron: string
           updated_at: string
@@ -7742,6 +7743,7 @@ export type Database = {
           last_modified_time?: string | null
           last_run_at?: string | null
           last_run_status?: string | null
+          new_supplier_country?: string | null
           notify_whatsapp?: boolean
           schedule_cron?: string
           updated_at?: string
@@ -7759,6 +7761,7 @@ export type Database = {
           last_modified_time?: string | null
           last_run_at?: string | null
           last_run_status?: string | null
+          new_supplier_country?: string | null
           notify_whatsapp?: boolean
           schedule_cron?: string
           updated_at?: string
