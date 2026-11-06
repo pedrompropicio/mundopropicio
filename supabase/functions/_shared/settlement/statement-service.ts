@@ -47,6 +47,7 @@ import {
 } from "./partner-disbursement.ts";
 import {
   buildPartnerStatementDoc,
+  type StatementTicketOfficeProvenance,
   paidByPartnerDocLines,
   partnerExtrasDocLines,
   PARTNER_EXTRA_ORIGIN_LABEL,
@@ -66,6 +67,8 @@ export interface StatementDbClient {
 }
 
 export interface StatementBundle {
+  /** Optional R5/R8 read metadata. Never an input to computeStatementEngine. */
+  ticketOfficeProvenance?: readonly StatementTicketOfficeProvenance[];
   eventId: string;
   eventName: string;
   eventDate: string | null;
@@ -827,6 +830,7 @@ export function buildPartnerStatement(
   const onlyHouseLeft = nodeParticipants.filter((p) => !p.isHouse && p.supplier_id !== supplierId).length === 0;
 
   const doc: PartnerStatementDocInput = {
+    ...(bundle.ticketOfficeProvenance?.length ? { ticketOfficeProvenance: bundle.ticketOfficeProvenance } : {}),
     locale,
     eventName: bundle.eventName,
     eventDate: bundle.eventDate,

@@ -9,6 +9,70 @@ import { Badge } from "@/components/ui/badge";
 import { buildPartnerSettlementReportData } from "@/lib/partner-settlement-report";
 import { fetchAllSettlementParticipants } from "@/lib/settlement-participants";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { useCompany } from "@/hooks/useCompany";
+import { useAuth } from "@/contexts/AuthContext";
+import { loadTicketOfficeStatements } from "@/hooks/useTicketOfficeStatements";
+import { settlementEventRight } from "@/lib/ticket-office-settlement-view";
+import { buildStatementTicketOfficeProvenance, type StatementTicketOfficeProvenance } from "@/lib/partner-statement-doc";
+
+/** R5 validates configuration/tenant/receipt; R8 supplies the reconciled quota.
+ * Metadata has its own query and never enters the financial report input. */
+export async function loadPartnerTicketOfficeProvenance(companyId: string, eventIds: string[]): Promise<StatementTicketOfficeProvenance[]> {
+  if (!eventIds.length) return [];
+  const settlements: any[] = [];
+  for (let start = 0; start < eventIds.length; start += 100) {
+    const { data, error } = await fetchAllPagedQuery(supabase.from("ticket_office_settlements" as any)
+      .select("company_id, financial_account_id, event_id, financial_accounts:financial_accounts!ticket_office_settlements_financial_account_id_fkey(name), events(name)")
+      .eq("company_id", companyId).in("event_id", eventIds.slice(start, start + 100)));
+    if (error) throw error;
+    settlements.push(...(data ?? []));
+  }
+  const result: StatementTicketOfficeProvenance[] = [];
+  const seen = new Set<string>();
+  for (const officeId of [...new Set(settlements.map(s => s.financial_account_id as string))]) {
+    const read = await loadTicketOfficeStatements(officeId, { companyId });
+    if (read.status === "v2_unavailable") throw new Error(read.message);
+    for (const settlement of settlements.filter(s => s.financial_account_id === officeId)) {
+      const right = settlementEventRight(read, settlement);
+      if (!right) continue;
+      const key = `${officeId}/${settlement.event_id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push({ eventId: settlement.event_id, eventName: settlement.events?.name ?? "",
+        financialAccountId: officeId, officeName: settlement.financial_accounts?.name ?? "Bilheteira",
+        statementId: right.statementId, statementNumber: right.statementNumber, quotaLineId: right.quotaLineId,
+        eventRight: right.amount, documentPage: right.documentPage, documentLineRef: right.documentLineRef });
+    }
+  }
+  return result;
+}
+
+export function usePartnerTicketOfficeProvenance(eventIds: string[]) {
+  const { companyId } = useCompany();
+  const { user } = useAuth();
+  const ids = [...new Set(eventIds)].sort();
+  return useQuery({ queryKey: ["ticket-office-statements", "partner-provenance", companyId, user?.id, ids.join(",")],
+    enabled: !!companyId && !!user && ids.length > 0, retry: false, staleTime: 0,
+    queryFn: () => loadPartnerTicketOfficeProvenance(companyId!, ids) });
+}
+
+export function PartnerTicketOfficeProvenance({ entries, error }: { entries?: readonly StatementTicketOfficeProvenance[]; error?: unknown }) {
+  if (error) return <p role="status" className="text-sm text-muted-foreground">Proveniência da bilheteira indisponível.</p>;
+  const block = buildStatementTicketOfficeProvenance(entries);
+  if (!block) return null;
+  return <section aria-label={block.title} className="glass rounded-xl p-4 space-y-2">
+    <h4 className="font-semibold">{block.title}</h4>
+    <p className="text-xs text-muted-foreground">{block.note}</p>
+    {block.rows.map((row, index) => <div key={index} className="text-sm">
+      <span className="font-medium">{row.label}</span>{" · "}{row.reference}
+      {row.value !== null && <span className="font-mono"> · {formatCurrency(row.value)}</span>}
+    </div>)}
+    {entries?.map(entry => <a key={`${entry.financialAccountId}/${entry.eventId}`} className="block text-xs underline"
+      href={`/bilheteiras?conta=${encodeURIComponent(entry.financialAccountId)}&separador=apuramentos#apuramento-${encodeURIComponent(entry.statementId)}`}>
+      Ver apuramento {entry.statementNumber} · {entry.eventName}
+    </a>)}
+  </section>;
+}
 
 export default function ReportPartnerSettlement() {
   // Partes vindas dos apuramentos (event_settlement_participants), incluindo a casa.
@@ -121,6 +185,8 @@ export default function ReportPartnerSettlement() {
     },
   });
 
+  const provenance = usePartnerTicketOfficeProvenance((events as any[]).map(e => e.id));
+
   // (#148) Extras pela fonte única (transação + manual).
   const { data: partnerExtrasUnion = [] } = useQuery({
     queryKey: ["partner-extras-union", "report-settlement", (events as any[]).length],
@@ -161,6 +227,7 @@ export default function ReportPartnerSettlement() {
 
   return (
     <div className="space-y-6">
+      <PartnerTicketOfficeProvenance entries={provenance.data} error={provenance.error} />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
         <div className="glass rounded-xl p-3 text-center">
           <p className="text-xs text-muted-foreground">Total Quota-Parte</p>

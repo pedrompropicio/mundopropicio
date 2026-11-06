@@ -25,6 +25,51 @@ import {
 
 export type DocLocale = "pt-PT" | "pt-BR";
 
+/** Read-only projection of R5/R8's unique confirmed documentary quota.
+ * No account advance is attributed to an event or fed into the engine. */
+export interface StatementTicketOfficeProvenance {
+  eventId: string;
+  eventName: string;
+  financialAccountId: string;
+  officeName: string;
+  statementId: string;
+  statementNumber: string;
+  quotaLineId: string;
+  eventRight: number;
+  documentPage: number | null;
+  documentLineRef: string | null;
+}
+
+export interface StatementTicketOfficeProvenanceBlock {
+  title: string;
+  note: string;
+  rows: Array<{ label: string; reference: string; value: number | null }>;
+}
+
+/** One presentation for the screen and both exports; deliberately no totals. */
+export function buildStatementTicketOfficeProvenance(
+  entries?: readonly StatementTicketOfficeProvenance[],
+): StatementTicketOfficeProvenanceBlock | undefined {
+  if (!entries?.length) return;
+  const seen = new Set<string>();
+  const rows: StatementTicketOfficeProvenanceBlock["rows"] = [];
+  for (const entry of entries) {
+    const key = `${entry.financialAccountId}/${entry.eventId}`;
+    if (!entry.eventId || !entry.financialAccountId || !entry.statementId || !entry.quotaLineId
+      || !entry.statementNumber || seen.has(key) || !Number.isFinite(entry.eventRight)
+      || Math.abs(roundCents(entry.eventRight) - entry.eventRight) > 1e-9) {
+      throw new Error("Proveniência de bilheteira inválida");
+    }
+    seen.add(key);
+    const source = [entry.officeName, `Apuramento ${entry.statementNumber}`, entry.eventName,
+      entry.documentPage == null ? null : `p. ${entry.documentPage}`, entry.documentLineRef].filter(Boolean).join(" · ");
+    rows.push({ label: "Direito (apuramento)", reference: source, value: entry.eventRight });
+    rows.push({ label: "Recebimento (repasse)",
+      reference: `${entry.officeName} · Repasses da conta, sem atribuição por evento. O direito não comprova recebimento.`, value: null });
+  }
+  return { title: "Proveniência da bilheteira", note: "Informação de leitura; não altera o resultado nem o acerto do sócio.", rows };
+}
+
 export interface StatementParticipantInput {
   name: string;
   percentage: number;
@@ -135,6 +180,7 @@ export interface StatementCascade {
 }
 
 export interface PartnerStatementDocInput {
+  ticketOfficeProvenance?: readonly StatementTicketOfficeProvenance[];
   locale?: DocLocale;
   eventName: string;
   eventDate: string | null;
@@ -253,6 +299,7 @@ export interface StatementShareRow {
 }
 
 export interface PartnerStatementDoc {
+  ticketOfficeProvenance?: StatementTicketOfficeProvenanceBlock;
   locale: DocLocale;
   t: StatementTerms;
   title: string;
@@ -802,6 +849,8 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     .filter(Boolean)
     .join(" · ");
 
+  const ticketOfficeProvenance = buildStatementTicketOfficeProvenance(input.ticketOfficeProvenance);
+
   return {
     locale,
     t,
@@ -861,5 +910,7 @@ export function buildPartnerStatementDoc(input: PartnerStatementDocInput): Partn
     mpTransfersAdvanced,
     invoicedTotal,
     transferTotal,
+    // No absent/empty property: preserve the legacy document's exact bytes.
+    ...(ticketOfficeProvenance ? { ticketOfficeProvenance } : {}),
   };
 }

@@ -222,6 +222,22 @@ export async function buildStatementWorkbook(doc: PartnerStatementDoc): Promise<
     }
   }
 
+  if (doc.ticketOfficeProvenance) {
+    const block = doc.ticketOfficeProvenance;
+    section(block.title);
+    const note = arial(ws.addRow([block.note]), { italic: true, size: 9 });
+    ws.mergeCells(`A${note.number}:E${note.number}`);
+    note.alignment = { wrapText: true, vertical: "top" };
+    note.height = 28;
+    block.rows.forEach(line => {
+      const row = arial(ws.addRow([line.label, line.reference, null, null, line.value]));
+      ws.mergeCells(`B${row.number}:D${row.number}`);
+      row.getCell(2).alignment = { wrapText: true, vertical: "top" };
+      row.height = 48;
+      if (line.value !== null) moneyCells(row, [5]);
+    });
+  }
+
   // ===================== Folha 2 — Detalhamento =====================
   const wd = wb.addWorksheet(t.detailSheet);
   wd.columns = [
@@ -622,6 +638,15 @@ export function buildStatementPdf(doc: PartnerStatementDoc, logoDataUrl?: string
     styles: { ...styles, fontSize: 9.5 },
     columnStyles: { 1: { halign: "right", cellWidth: 26 }, 2: { halign: "right", cellWidth: 40 } },
   });
+
+  if (doc.ticketOfficeProvenance) {
+    const block = doc.ticketOfficeProvenance;
+    y = sectionTitle(block.title, nextY());
+    table({ startY: y, head: [[block.note, "Referência", t.value]],
+      body: block.rows.map(line => [line.label, line.reference, line.value === null ? "—" : money(line.value, loc)]),
+      columnStyles: { 0: { cellWidth: 42 }, 2: { halign: "right", cellWidth: 32 } },
+    });
+  }
 
   // ===================== Detalhamento =====================
   pdf.addPage();

@@ -91,6 +91,7 @@ import {
 } from "@/lib/partner-disbursement";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { PaidByPartnerPanel } from "@/components/PaidByPartnerPanel";
+import { PartnerTicketOfficeProvenance, usePartnerTicketOfficeProvenance } from "@/components/ReportPartnerSettlement";
 
 
 
@@ -227,6 +228,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const allEventIds = [eventId, ...(childEventIds || [])];
   const allEventIdsKey = allEventIds.join(",");
   const isTour = (childEventIds?.length ?? 0) > 0;
+  const provenance = usePartnerTicketOfficeProvenance(allEventIds);
 
   // Modo de agrupamento da secção 3 (Bilheteira) — default: subevento + data + sessão
   type TicketGroupMode = "sub_date_session" | "session" | "day" | "zone" | "lot";
@@ -1680,6 +1682,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     row: PartnerSettlement,
     logoDataUrl?: string | null,
   ): Promise<PartnerStatementDocInput> {
+    // An export must not silently omit known but unreadable provenance.
+    if (provenance.error) throw provenance.error;
+    const ticketOfficeProvenance = provenance.data ?? (await provenance.refetch()).data;
+    if (!ticketOfficeProvenance) throw new Error("Proveniência da bilheteira indisponível");
     let locale: DocLocale = "pt-PT";
     if (row.supplierId) {
       const { data } = await supabase
@@ -1798,6 +1804,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       eventLocation: ((event as any)?.cities as any)?.name ?? null,
       logoDataUrl: logoDataUrl ?? null,
       recipientName: row.partnerName,
+      ...(ticketOfficeProvenance.length ? { ticketOfficeProvenance } : {}),
       paidByPartner: row.totalDisbursement,
       disbursementAdjustments: row.totalDisbursementAdjustments,
       revenuesHeld: row.revenuesHeld.map((r) => ({
@@ -1900,6 +1907,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   return (
     <div className="space-y-6">
       <PaidByPartnerPanel eventId={eventId} eventName={eventName} />
+      <PartnerTicketOfficeProvenance entries={provenance.data} error={provenance.error} />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ArrowRightLeft className="h-4 w-4 text-primary" />
