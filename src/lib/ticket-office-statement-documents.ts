@@ -33,6 +33,48 @@ export interface StatementDocument {
   file_size: number | null;
   document_source: StatementDocumentSource;
   created_at: string;
+  verified_file_id?: string | null;
+  verified_sha256?: string | null;
+  supplement_reason?: string | null;
+}
+
+export const STATEMENT_V2_DOCUMENTS_SELECT =
+  "id, statement_id, file_path, file_name, mime_type, file_size, document_source, created_at, verified_file_id, verified_sha256, supplement_reason";
+
+export const statementDocumentLabels = {
+  verifierUnavailable: "O carregamento v2 aguarda o verificador de ficheiros no servidor. Os documentos existentes continuam acessíveis.",
+  supplement: "Juntar complemento",
+  frozen: "O PDF principal e as provas estão congelados. Só é permitido juntar um complemento auditado, sem substituir os originais.",
+  primary: "PDF principal",
+  upload: "Carregar documento",
+  noPrimary: "Sem PDF principal",
+  unverified: "Há documentos sem verificação do servidor. Não é possível regravar estes anexos.",
+  incomplete: "Não foi possível ler todos os documentos do apuramento.",
+};
+
+/** Read only public metadata. Never infer verification from local bytes/hashes. */
+export async function loadStatementDocuments(statementId: string, companyId: string): Promise<StatementDocument[]> {
+  const documents: StatementDocument[] = [];
+  for (let start = 0; start < 50000; start += 1000) {
+    const { data, error } = await (supabase as any).from("ticket_office_statement_documents")
+      .select(STATEMENT_V2_DOCUMENTS_SELECT).eq("statement_id", statementId).eq("company_id", companyId)
+      .order("id", { ascending: true }).range(start, start + 999);
+    if (error) throw error;
+    if (!Array.isArray(data)) throw new Error(statementDocumentLabels.incomplete);
+    documents.push(...data);
+    if (data.length < 1000) return documents;
+  }
+  throw new Error(statementDocumentLabels.incomplete);
+}
+
+export function statementDraftDocuments(documents: StatementDocument[]) {
+  return documents.map((d) => {
+    if (!d.verified_file_id || !/^[0-9a-f]{64}$/.test(d.verified_sha256 ?? "")) {
+      throw new Error(statementDocumentLabels.unverified);
+    }
+    return { id: d.id, verified_file_id: d.verified_file_id, file_name: d.file_name,
+      mime_type: d.mime_type, document_source: d.document_source };
+  });
 }
 
 export const STATEMENT_DOCUMENTS_EMBED =
