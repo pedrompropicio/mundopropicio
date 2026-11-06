@@ -31,6 +31,7 @@ function TreasuryBranch({ node, locale }: { node: TreasuryNode; locale: CompanyL
 export function TreasuryBridgeView({ bridge, locale }: { bridge: TreasuryBridge; locale: CompanyLocale }) {
   return <div className="space-y-5">
     <section aria-label="Ponte da empresa" className="rounded-lg border"><h2 className="px-3 pt-4 text-lg font-semibold">Empresa · Onde está o dinheiro</h2><TreasuryBridgeTable node={bridge.company} locale={locale} /></section>
+    {bridge.conference?.filter((row) => row.included && row.retainedExcluded !== 0).map((row) => <p key={row.id} className="rounded-lg bg-muted p-3 text-sm">{row.name}: {formatMoney(row.retainedExcluded, locale)} de pré-venda retida, receita ainda não reconhecida. Informação fora da linha 3; ver Conferência.</p>)}
     <section aria-label="Linhas de negócio" className="space-y-3"><h2 className="text-lg font-semibold">Por linha de negócio</h2>
       {bridge.company.children.length ? bridge.company.children.map((line) => <TreasuryBranch key={line.id} node={line} locale={locale} />) : <p className="text-muted-foreground">Sem eventos nos estágios elegíveis.</p>}
     </section>

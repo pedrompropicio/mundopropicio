@@ -10,6 +10,7 @@ import { TransactionOffsetsBlock } from "@/components/TransactionOffsetsBlock";
 import { computeBudgetExcess, type BudgetExcessLine } from "@/lib/bp-budget-excess";
 import { isBpLinkAllowedForEvent, fetchWithBpEventIds } from "@/lib/bp-line-required";
 import { useState, useEffect, useMemo, useRef } from "react";
+import { differenceInCalendarMonths, parseISO } from "date-fns";
 import { useModalDismiss } from "@/hooks/useModalDismiss";
 import { DiscardModalChangesDialog } from "@/components/DiscardModalChangesDialog";
 import { fetchAdminWindowEvent, writeWithAdminCostOverride } from "@/lib/admin-window";
@@ -2615,8 +2616,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           {!paidLocked && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Data</label>
-              <DatePicker value={form.date} onChange={(d) => setForm({ ...form, date: d })} />
+              <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="edit-transaction-competence-date">Data de competência</label>
+              <DatePicker id="edit-transaction-competence-date" value={form.date} onChange={(d) => setForm({ ...form, date: d })} />
+              <p className="mt-1 text-xs text-muted-foreground">Mês a que a despesa/receita pertence (data da fatura ou do serviço), não o dia em que lança.</p>
             </div>
             {isExpense && (
               <div>
@@ -2625,6 +2627,12 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
               </div>
             )}
           </div>
+          )}
+
+          {!paidLocked && Math.abs(differenceInCalendarMonths(parseISO(form.date || ""), parseISO(form.due_date))) > 2 && (
+            <p role="status" className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-muted-foreground">
+              A competência e o vencimento estão separados por mais de 2 meses. Confirme a data de competência; pode gravar sem alterar.
+            </p>
           )}
 
           {canApprove && isPaid && !isPaidByPartner && (

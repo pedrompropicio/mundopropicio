@@ -65,6 +65,7 @@ interface RecurringForm {
   end_mode: "date" | "duration";
   end_month: string; // YYYY-MM
   duration_months: string;
+  due_offset_days: string; // Temporário: só usado na geração inicial.
 }
 
 const now = new Date();
@@ -86,6 +87,7 @@ const makeEmptyForm = (noIva: boolean): RecurringForm => ({
   end_mode: "duration",
   end_month: "",
   duration_months: "12",
+  due_offset_days: "",
 });
 
 export default function RecurringTransactions() {
@@ -215,6 +217,8 @@ export default function RecurringTransactions() {
       if (occurrenceDate > endDate) break;
 
       const dateStr = formatDateStr(occurrenceDate);
+      const dueDate = new Date(occurrenceDate);
+      dueDate.setDate(dueDate.getDate() + Number(form.due_offset_days || 0));
       transactions.push({
         description: rec.description,
         type: rec.type,
@@ -226,7 +230,7 @@ export default function RecurringTransactions() {
         account_id: rec.account_id,
         specification: rec.specification,
         date: dateStr,
-        due_date: dateStr,
+        due_date: formatDateStr(dueDate),
         status: "pending",
       });
 
@@ -243,6 +247,10 @@ export default function RecurringTransactions() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const dueOffsetDays = Number(form.due_offset_days || 0);
+      if (!editId && (!Number.isInteger(dueOffsetDays) || dueOffsetDays < 0 || dueOffsetDays > 120)) {
+        throw new Error("O prazo de vencimento deve ser um inteiro de 0 a 120 dias.");
+      }
       const [sy, sm] = form.start_month.split("-").map(Number);
       const startDay = Math.min(form.day_of_month, 28);
       const startDate = `${sy}-${String(sm).padStart(2, "0")}-${String(startDay).padStart(2, "0")}`;
@@ -348,6 +356,7 @@ export default function RecurringTransactions() {
       end_mode: rec.end_date ? "date" : "duration",
       end_month: endMonth,
       duration_months: "",
+      due_offset_days: "",
     });
     setShowForm(true);
   };
@@ -548,6 +557,23 @@ export default function RecurringTransactions() {
                   onChange={(e) => setForm({ ...form, day_of_month: Number(e.target.value) })}
                 />
               </div>
+
+              {!editId && (
+                <div className="sm:col-span-2">
+                  <Label htmlFor="recurring-due-offset-days">Vence N dias depois da competência</Label>
+                  <Input
+                    id="recurring-due-offset-days"
+                    type="number"
+                    min={0}
+                    max={120}
+                    step={1}
+                    value={form.due_offset_days}
+                    onChange={(e) => setForm({ ...form, due_offset_days: e.target.value })}
+                    placeholder="0"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">Opcional: vazio equivale a 0. Aplica-se às transações geradas agora.</p>
+                </div>
+              )}
 
               <div>
                 <Label>Mês/Ano início</Label>

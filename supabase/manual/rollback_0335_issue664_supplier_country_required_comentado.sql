@@ -1,6 +1,7 @@
 -- Rollback 0335 — PREPARADO, NÃO APLICADO; todo o conteúdo fica comentado.
 -- Descomentar apenas após autorização e coordenar o ERP/edges que enviam p_country.
 -- Precondição: zero fornecedores sem_nif; caso contrário não repor o CHECK antigo.
+-- O CHECK suppliers_country_iso2 da 0104 mantém-se; a 0335 não o cria nem o remove.
 -- DO $rollback_precondition$
 -- BEGIN
 --   IF EXISTS (SELECT 1 FROM public.suppliers WHERE tax_id_type = 'sem_nif') THEN
@@ -8,7 +9,6 @@
 --   END IF;
 -- END;
 -- $rollback_precondition$;
--- ALTER TABLE public.suppliers DROP CONSTRAINT IF EXISTS suppliers_country_iso2_check;
 -- CREATE OR REPLACE FUNCTION public.suppliers_default_country()
 -- RETURNS trigger
 -- LANGUAGE plpgsql

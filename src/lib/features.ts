@@ -5,11 +5,16 @@ export const FEATURES = {
   CRM_CLUBE_NEWGANG: "crm-clube-newgang",
   CRM_SITE_NEWGANG: "crm-site-newgang",
   CRM_COALA_EB27: "crm-coala-eb27",
+  TICKET_OFFICE_STATEMENTS_V2: "ticket-office-statements-v2",
 } as const;
 
 export type FeatureKey = typeof FEATURES[keyof typeof FEATURES];
 
 export const FEATURE_LABELS: Record<FeatureKey, { label: string; description: string }> = {
+  "ticket-office-statements-v2": {
+    label: "Apuramentos v2 por conta",
+    description: "Contrato documental de apuramento, disponível apenas nas contas explicitamente configuradas.",
+  },
   "sync-coala": {
     label: "Sync Coala (Google Drive)",
     description:

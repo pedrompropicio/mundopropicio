@@ -7,6 +7,50 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { loadTicketOfficeStatements, type TicketOfficeStatementsRead } from "@/hooks/useTicketOfficeStatements";
+import { parseTicketlineStatementAmountCents } from "@/lib/ticketline-statement-contract";
+
+export interface SettlementEventRight {
+  statementId: string;
+  statementNumber: string;
+  href: string;
+  quotaLineId: string;
+  amount: number;
+  gross: number;
+  retained: number;
+  deductions: { id: string; description: string; amount: number }[];
+  documentPage: number | null;
+  documentLineRef: string | null;
+}
+
+/** Project only the unique confirmed quota read/validated by R5, never a draft
+ * or a subsequent Q4 adjustment. Reconcile displayed cents before rendering. */
+export function settlementEventRight(read: TicketOfficeStatementsRead | undefined, s: {
+  company_id?: string; financial_account_id?: string; event_id?: string;
+}): SettlementEventRight | undefined {
+  if (read?.status !== "v2") return;
+  const member = read.provenance.eventMemberships.find(m => m.event_id === s.event_id
+    && m.company_id === s.company_id && m.financial_account_id === s.financial_account_id);
+  if (!member) return;
+  const statement = read.confirmedStatements.find(p => p.id === member.statement_id);
+  const quota = statement?.ticket_office_statement_lines.find(l => l.id === member.quota_line_id);
+  if (!statement || statement.status !== "confirmed" || !quota || quota.event_id !== s.event_id
+    || quota.document_line_type !== "event_sales") throw new Error("Pertença sem quota documental confirmada");
+  const cents = parseTicketlineStatementAmountCents;
+  const gross = cents(quota.event_gross_amount), retained = cents(quota.event_retained_amount);
+  const amount = cents(quota.declared_event_net);
+  const deductions = statement.ticket_office_statement_lines.filter(l => l.quota_line_id === quota.id).map(l => ({
+    id: l.id, description: l.description ?? "Dedução documental", amount: cents(l.amount) / 100,
+  }));
+  const deductionCents = statement.ticket_office_statement_lines.filter(l => l.quota_line_id === quota.id)
+    .reduce((sum, l) => sum + BigInt(cents(l.amount)), 0n);
+  if (BigInt(gross) - BigInt(retained) !== BigInt(cents(quota.amount))
+    || BigInt(amount) !== BigInt(cents(quota.amount)) + deductionCents) throw new Error("Quota documental não reconciliada");
+  return { statementId: statement.id, statementNumber: String(statement.number),
+    href: `/bilheteiras?conta=${encodeURIComponent(member.financial_account_id)}&separador=apuramentos#apuramento-${encodeURIComponent(statement.id)}`,
+    quotaLineId: quota.id, amount: amount / 100, gross: gross / 100, retained: retained / 100, deductions,
+    documentPage: quota.document_page, documentLineRef: quota.document_line_ref };
+}
 
 export interface SettlementDeduction {
   id: string;
@@ -23,6 +67,7 @@ export interface SettlementStatementDocument {
 }
 
 export interface SettlementView {
+  eventRight?: SettlementEventRight;
   id: string;
   status: string;
   eventName: string;
@@ -68,7 +113,7 @@ export function settlementPdfFileName(eventName: string, settlementDate: string 
 export function buildSettlementView(
   s: any,
   officeName: string,
-  extras: { deductions: SettlementDeduction[]; statementNumber: string | null; closedByName: string | null; statementDocuments?: SettlementStatementDocument[] },
+  extras: { deductions: SettlementDeduction[]; statementNumber: string | null; closedByName: string | null; statementDocuments?: SettlementStatementDocument[]; eventRight?: SettlementEventRight },
 ): SettlementView {
   return {
     id: s.id,
@@ -78,10 +123,10 @@ export function buildSettlementView(
     settlementDate: s.settlement_date ?? (s.created_at ? String(s.created_at).slice(0, 10) : null),
     officeName,
     statementNumber: extras.statementNumber,
-    statementDocuments: s.statement_id ? extras.statementDocuments ?? [] : [],
+    statementDocuments: s.statement_id || extras.eventRight ? extras.statementDocuments ?? [] : [],
     grossRevenue: Number(s.gross_revenue || 0),
     totalDeductions: Number(s.total_deductions || 0),
-    netFinal: Number(s.net_adjusted ?? s.net_calculated ?? 0),
+    netFinal: extras.eventRight?.amount ?? Number(s.net_adjusted ?? s.net_calculated ?? 0),
     netTransferred: Number(s.net_transferred || 0),
     deductions: extras.deductions,
     venueRetainedAmount: Number(s.venue_retained_amount || 0),
@@ -95,10 +140,16 @@ export function buildSettlementView(
     grossAdjustmentNotes: s.gross_adjustment_notes ?? null,
     closedByName: extras.closedByName,
     closedAt: s.closed_at ?? null,
+    ...(extras.eventRight ? { eventRight: extras.eventRight } : {}),
   };
 }
 
-export async function fetchSettlementView(s: any, officeName: string): Promise<SettlementView> {
+export async function fetchSettlementView(s: any, officeName: string, read?: TicketOfficeStatementsRead): Promise<SettlementView> {
+  const statementRead = read ?? (s.company_id && s.financial_account_id
+    ? await loadTicketOfficeStatements(s.financial_account_id, { companyId: s.company_id }) : undefined);
+  if (statementRead?.status === "v2_unavailable") throw new Error(statementRead.message);
+  const eventRight = settlementEventRight(statementRead, s);
+  const statementId = eventRight?.statementId ?? s.statement_id;
   const [txRes, stRes, prRes] = await Promise.all([
     fetchAllPagedQuery(
       (supabase as any)
@@ -107,10 +158,10 @@ export async function fetchSettlementView(s: any, officeName: string): Promise<S
         .eq("settlement_id", s.id)
         .order("description"),
     ),
-    s.statement_id
+    statementId
       ? (supabase as any).from("ticket_office_statements")
           .select("number, ticket_office_statement_documents!ticket_office_statement_documents_statement_id_fkey(id, file_name, file_path, document_source, created_at)")
-          .eq("id", s.statement_id)
+          .eq("id", statementId)
           .maybeSingle()
       : Promise.resolve({ data: null }),
     s.closed_by
@@ -129,9 +180,10 @@ export async function fetchSettlementView(s: any, officeName: string): Promise<S
     .map((d: any) => ({ id: d.id, fileName: d.file_name, source: d.document_source, filePath: d.file_path }));
   return buildSettlementView(s, officeName, {
     deductions,
-    statementNumber: (stRes as any)?.data?.number != null ? String((stRes as any).data.number) : null,
+    statementNumber: eventRight?.statementNumber ?? ((stRes as any)?.data?.number != null ? String((stRes as any).data.number) : null),
     closedByName: pr ? pr.full_name || pr.email || null : null,
     statementDocuments,
+    eventRight,
   });
 }
 

@@ -10,10 +10,13 @@ import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { computeTicketOfficeBalance } from "@/lib/ticket-office-balance";
 import { residualHousePct } from "@/lib/settlement-participants";
 import { buildPartnerStatement, computeStatementEngine, loadStatementBundle, type StatementDbClient } from "@shared/settlement/statement-service.ts";
+import { computeSettlementRevenue } from "@shared/settlement/settlement-revenue.ts";
+import { isValidFechoTransaction } from "@shared/settlement/fecho-filters.ts";
+import { parseFinancialPosition } from "@/lib/financial-position";
 import { partnerDirection } from "@shared/financial-position/assemble.ts";
 import {
   buildTreasuryBridge, resolveTreasuryResult, treasuryNumber, TREASURY_STAGES,
-  type TreasuryCashRow, type TreasuryEvent, type TreasuryEventResult, type TreasuryPeriod,
+  type TreasuryRetainedOffice, type TreasuryCashRow, type TreasuryEvent, type TreasuryEventResult, type TreasuryPeriod,
 } from "@/lib/treasury-bridge";
 
 type TreasuryClient = StatementDbClient & { rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: any; error: any }> };
@@ -83,14 +86,27 @@ export async function loadTreasuryEvent(client: TreasuryClient, companyId: strin
     const direction = partnerDirection(account, paid[participant.supplier_id] ?? 0);
     if (direction.sentido === "por_liquidar") partnersDue += direction.valor;
   }
-  return { ...result, partnersDue, housePct: residualHousePct(bundle.participants) };
+  // O mesmo núcleo de computeStatementEngine, com o mesmo bundle já carregado.
+  // Os snapshots antigos não contêm esta composição.
+  const revenue = result.source === "base corrente" && Array.isArray(bundle.transactions) && Array.isArray(bundle.forecasts) && Array.isArray(bundle.ticketSales)
+    ? computeSettlementRevenue({ ticketSales: bundle.ticketSales, incomeTransactions: bundle.transactions.filter(isValidFechoTransaction), incomeForecasts: bundle.forecasts }) : null;
+  const ticketingNet = revenue ? revenue.buckets.bilheteira.net + revenue.houseOnlyLines.filter((line) => line.bucket === "bilheteira").reduce((sum, line) => sum + line.net, 0) : 0;
+  return { ...result, partnersDue, housePct: residualHousePct(bundle.participants), ...(revenue ? { revenue: {
+    net: revenue.eventRevenueNet, ticketingNet, ticketingSource: revenue.buckets.bilheteira.source,
+    ticketingRecognized: [...revenue.lines, ...revenue.houseOnlyLines].some((line) => line.bucket === "bilheteira" && line.net !== 0), expenseSource: bundle.basis.expenseSource,
+  } } : {}) };
+
 }
 
 /** As quatro leituras de movimentos são da empresa inteira; por conta só a RPC de vendas. */
 export async function loadTreasuryRetained(client: TreasuryClient, companyId: string): Promise<Record<string, number>> {
-  const accounts = await checked<any[]>(fetchAllPagedQuery(client.from("financial_accounts").select("id")
+  return (await loadTreasuryRetainedDetails(client, companyId)).byEvent;
+}
+
+export async function loadTreasuryRetainedDetails(client: TreasuryClient, companyId: string): Promise<{ byEvent: Record<string, number>; offices: TreasuryRetainedOffice[] }> {
+  const accounts = await checked<any[]>(fetchAllPagedQuery(client.from("financial_accounts").select("id, name")
     .eq("company_id", companyId).eq("type", "ticket_office")));
-  if (!accounts.length) return {};
+  if (!accounts.length) return { byEvent: {}, offices: [] };
   const officeIds = accounts.map((a) => a.id);
   const [balances, assignments, transactions, advances] = await Promise.all([
     checked<any[]>(client.rpc("ticket_office_balances", { _account_ids: officeIds })),
@@ -118,10 +134,43 @@ export async function loadTreasuryRetained(client: TreasuryClient, companyId: st
   })));
   const retained: Record<string, number> = {};
   for (const office of officeBalances) for (const [eventId, amount] of Object.entries(office.byEvent)) retained[eventId] = (retained[eventId] ?? 0) + amount;
-  return retained;
+  return { byEvent: retained, offices: officeBalances.map((balance, index) => ({
+    accountId: officeIds[index], name: accounts[index].name ?? officeIds[index], ...balance,
+  })) };
 }
 
-export function useTreasuryBridge(period: TreasuryPeriod, validPeriod = true) {
+export interface TreasuryConferenceTransaction {
+  id: string; event_id: string | null; account_id: string | null; type: string; status: string;
+  amount: number; paid_amount: number; date: string; payment_date: string | null; due_date: string | null;
+  reversed_at: string | null; is_hidden: boolean; is_transitory: boolean; exclude_from_result: boolean;
+  event_settlement_id: string | null;
+}
+export interface TreasuryConferencePayment {
+  id: string; transaction_id: string; account_id: string | null; amount: number;
+  withholding_amount: number; credit_amount: number; payment_date: string;
+  status: string; reversed_at: string | null;
+}
+export async function loadTreasuryConference(client: TreasuryClient, companyId: string) {
+  const [accounts, transactions, payments, position] = await Promise.all([
+    checked<{ id: string; name: string; type: string; skip_balance_check: boolean }[]>(fetchAllPagedQuery(client.from("financial_accounts")
+      .select("id, name, type, skip_balance_check").eq("company_id", companyId))),
+    checked<TreasuryConferenceTransaction[]>(fetchAllPagedQuery(client.from("transactions")
+      .select("id, event_id, account_id, type, status, amount, paid_amount, date, payment_date, due_date, reversed_at, is_hidden, is_transitory, exclude_from_result, event_settlement_id")
+      .eq("company_id", companyId), { maxRows: Number.POSITIVE_INFINITY })),
+    checked<TreasuryConferencePayment[]>(fetchAllPagedQuery(client.from("transaction_payments")
+      .select("id, transaction_id, account_id, amount, withholding_amount, credit_amount, payment_date, status, reversed_at")
+      .eq("company_id", companyId), { maxRows: Number.POSITIVE_INFINITY })),
+    checked<unknown>(client.rpc("get_financial_position_base", { p_company_id: companyId, p_year: null })),
+  ]);
+  // Detalhes individuais, sem recriar os agregados do RPC ou da DRE no cliente.
+  return { accounts, transactions: transactions.map((transaction) => ({
+    ...transaction, amount: treasuryNumber(transaction.amount), paid_amount: treasuryNumber(transaction.paid_amount ?? 0),
+  })), payments: payments.map((payment) => ({
+    ...payment, amount: treasuryNumber(payment.amount), withholding_amount: treasuryNumber(payment.withholding_amount ?? 0), credit_amount: treasuryNumber(payment.credit_amount ?? 0),
+  })), position: parseFinancialPosition(position) };
+}
+
+export function useTreasuryBridge(period: TreasuryPeriod, validPeriod = true, showConference = false) {
   const { user, hasPermission, permissions, loading: authLoading } = useAuth();
   const { companyId, isLoading: companyLoading, isError: companyError } = useCompany();
   const stages = useEventStages();
@@ -136,7 +185,7 @@ export function useTreasuryBridge(period: TreasuryPeriod, validPeriod = true) {
   });
   const retained = useQuery({
     queryKey: ["treasury-bridge-retained", ...scope], enabled, retry: false, staleTime: 30_000,
-    queryFn: () => loadTreasuryRetained(db, companyId!),
+    queryFn: () => loadTreasuryRetainedDetails(db, companyId!),
   });
   const cash = useQuery({
     queryKey: ["treasury-bridge-cash", ...scope, period.from, period.to], enabled: enabled && validPeriod, retry: false, staleTime: 30_000,
@@ -147,6 +196,10 @@ export function useTreasuryBridge(period: TreasuryPeriod, validPeriod = true) {
         return { ...r, committed: treasuryNumber(r.committed), realized: treasuryNumber(r.realized), pending: treasuryNumber(r.pending) };
       });
     },
+  });
+  const conference = useQuery({
+    queryKey: ["treasury-bridge-conference", ...scope], enabled: enabled && showConference, retry: false, staleTime: 30_000,
+    queryFn: () => loadTreasuryConference(db, companyId!),
   });
   const masters = (events.data ?? []).filter((e) => !e.parent_event_id && stages.data && TREASURY_STAGES.has(stages.data[e.id]));
   const results = useQueries({ queries: masters.map((e) => ({
@@ -160,13 +213,13 @@ export function useTreasuryBridge(period: TreasuryPeriod, validPeriod = true) {
   let bridge = null;
   if (enabled && validPeriod && !loading && !errors.length) {
     try {
-      bridge = buildTreasuryBridge({ events: events.data!, stages: stages.data!, businessLines: businessLines.data!, cash: cash.data!, retained: retained.data!,
+      bridge = buildTreasuryBridge({ events: events.data!, stages: stages.data!, businessLines: businessLines.data!, cash: cash.data!, retained: retained.data!.byEvent, retainedOffices: retained.data!.offices,
         results: Object.fromEntries(masters.map((e, i) => [e.id, results[i].data!])) });
     } catch (error) { errors.push(error); }
   }
   return {
-    bridge, loading, error: errors[0], loaded, total: masters.length,
-    refreshing: [events, stages, businessLines, cash, retained, ...results].some((q) => q.isFetching),
+    conference: showConference ? conference : undefined, bridge, loading, error: errors[0], loaded, total: masters.length,
+    refreshing: [events, stages, businessLines, cash, retained, conference, ...results].some((q) => q.isFetching),
     refresh: () => Promise.all([
       queryClient.invalidateQueries({ predicate: (query) => String(query.queryKey[0]).startsWith("treasury-bridge-") }),
       stages.refetch(), businessLines.refetch(),
