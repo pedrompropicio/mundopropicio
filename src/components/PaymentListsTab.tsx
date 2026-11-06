@@ -1126,7 +1126,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                 onChange={(e) => setDateType(e.target.value as "date" | "due_date")}
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
               >
-                <option value="date">Data de Lançamento</option>
+                <option value="date">Data de competência</option>
                 <option value="due_date">Data de Vencimento</option>
               </select>
             </div>
@@ -3415,7 +3415,7 @@ function AddTransactionsToList({
                 onChange={(e) => setDateType(e.target.value as "date" | "due_date")}
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
               >
-                <option value="date">Data de Lançamento</option>
+                <option value="date">Data de competência</option>
                 <option value="due_date">Data de Vencimento</option>
               </select>
             </div>

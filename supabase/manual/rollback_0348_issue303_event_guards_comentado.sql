@@ -1,0 +1,12 @@
+-- 0348 — rollback PREPARADO, NÃO EXECUTADO. Só comentários.
+-- Requer autorização separada; remove apenas os objectos acrescentados pela 0348.
+-- Conserva RPCs, guardas R2–R4, regras #314, índice #313 e dados originais.
+-- >>> ROLLBACK
+-- BEGIN;
+-- DROP TRIGGER IF EXISTS issue303_event_transfer_guard ON public.transactions;
+-- DROP TRIGGER IF EXISTS issue303_event_settlement_guard ON public.ticket_office_settlements;
+-- DROP FUNCTION IF EXISTS issue303_private.event_transfer_guard();
+-- DROP FUNCTION IF EXISTS issue303_private.event_settlement_guard();
+-- DROP FUNCTION IF EXISTS issue303_private.assert_event_unfrozen(uuid,uuid,uuid,text);
+-- COMMIT;
+-- <<< ROLLBACK

@@ -1,3 +1,132 @@
+// D2-d run B: opt-in unit evaluator. Legacy exports below remain byte-identical.
+import { isForecastCivilDate, type ForecastMoney, type ForecastReason, type PlanningForecastResult,
+  type PlanningForecastUnit, type PlanningForecastUnitResult } from "./planning-forecast-contract.ts";
+
+/** Civil reference from an explicit instant and timezone, independent of the runtime timezone. */
+export function dataCivil(agora: Date, fuso: string): string {
+  if (!Number.isFinite(agora.getTime())) throw new Error("planning_invalid_instant");
+  if (typeof fuso !== "string" || fuso.length === 0) throw new Error("planning_invalid_timezone");
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: fuso, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(agora);
+  const part = (name: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === name)?.value;
+  const date = `${part("year")}-${part("month")}-${part("day")}`;
+  if (!isForecastCivilDate(date)) throw new Error("planning_invalid_date");
+  return date;
+}
+
+function unitForecast(unit: PlanningForecastUnit) {
+  const seen = new Set<string>();
+  const zones = unit.zonas.filter(zone => {
+    if (seen.has(zone.zone_id)) throw new Error("planning_duplicate_zone");
+    seen.add(zone.zone_id);
+    return true;
+  }).map(zone => ({ zone, cut: forecastZone(zone) }));
+  const hasLots = zones.some(({ cut }) => cut.hasLots);
+  let previsao: ForecastMoney | null = null;
+  if (hasLots) {
+    let liquido: number | null = 0;
+    for (const { zone, cut } of zones) {
+      for (const lot of zone.lotes) {
+        // Exactly the eligibility used by forecastZone; ignored lots cannot contaminate VAT.
+        if (!Number.isFinite(lot.quantity) || !Number.isFinite(lot.price) || lot.quantity <= 0 || lot.price <= 0) continue;
+        if (lot.iva_rate == null || !Number.isFinite(lot.iva_rate) || lot.iva_rate < 0 || lot.iva_rate > 100) liquido = null;
+        else if (liquido !== null) liquido += lot.price / (1 + lot.iva_rate / 100) * lot.quantity * cut.factor;
+      }
+    }
+    previsao = { bruto: zones.reduce((sum, { cut }) => sum + cut.forecast, 0), liquido };
+  } else if (unit.manual !== null) {
+    if (!Number.isFinite(unit.manual.bruta)) throw new Error("planning_invalid_manual");
+    const vat = unit.manual.iva_rate;
+    previsao = { bruto: unit.manual.bruta, liquido: vat != null && Number.isFinite(vat) && vat >= 0 && vat <= 100
+      ? unit.manual.bruta / (1 + vat / 100) : null };
+  }
+  if (previsao !== null && (!Number.isFinite(previsao.bruto) || (previsao.liquido !== null && !Number.isFinite(previsao.liquido)))) {
+    throw new Error("planning_non_finite_forecast");
+  }
+  return { fonte: hasLots ? "lotes" as const : unit.manual !== null ? "manual" as const : "sem_previsao" as const,
+    previsao, cortes: zones.filter(({ cut }) => cut.factor < 1).map(({ cut }) => ({
+      zone_id: cut.zone_id, fator: cut.factor, bruto: cents(cut.gross), limitado: cents(cut.forecast),
+    })) };
+}
+
+function evaluateForecastUnit(unit: PlanningForecastUnit, referenceDate: string): PlanningForecastUnitResult {
+  if (!unit.unit_id || !unit.event_id || !Number.isFinite(unit.vendido.bruto) || !Number.isFinite(unit.vendido.liquido)) {
+    throw new Error("planning_invalid_unit");
+  }
+  const forecast = unitForecast(unit);
+  const pct = "erro" in unit.pct ? null : unit.pct.valor;
+  const invalidPct = "erro" in unit.pct || !Number.isFinite(pct) || pct < 0 || pct > 100
+    || (!("erro" in unit.pct) && !["padrao", "evento", "sessao"].includes(unit.pct.origem));
+  const invalidDate = !isForecastCivilDate(unit.data);
+  const invalidTurnaround = unit.viragem_dias !== null && (!Number.isFinite(unit.viragem_dias) || unit.viragem_dias < 0);
+  const alertas: string[] = [];
+  if (invalidPct) alertas.push("percentagem_erro");
+  if (invalidDate) alertas.push("data_invalida");
+  if (invalidTurnaround) alertas.push("viragem_invalida");
+  if (unit.indivisivel) alertas.push("indivisivel");
+  let considerada: ForecastMoney = { ...unit.vendido };
+  let motivo: ForecastReason;
+  if (unit.indivisivel) motivo = "indivisivel";
+  else if (invalidPct) motivo = "percentagem_erro";
+  else if (invalidDate) motivo = "data_invalida";
+  else if (forecast.previsao === null) motivo = "sem_previsao";
+  else if (pct === 0) motivo = "percentagem_zero";
+  else if (unit.data! < referenceDate) motivo = "data_passada";
+  else if (unit.data === referenceDate) motivo = "hoje";
+  else if (invalidTurnaround) motivo = "vendido";
+  else if (unit.viragem_dias !== null && Date.parse(`${referenceDate}T00:00:00Z`)
+    >= Date.parse(`${unit.data}T00:00:00Z`) - unit.viragem_dias * 86_400_000) motivo = "viragem";
+  else if (forecast.previsao.bruto * (pct! / 100) <= unit.vendido.bruto) motivo = "vendido";
+  else {
+    motivo = "previsao";
+    considerada = { bruto: forecast.previsao.bruto * (pct! / 100),
+      liquido: forecast.previsao.liquido === null ? null : forecast.previsao.liquido * (pct! / 100) };
+    if (considerada.liquido === null) alertas.push("iva_previsao_em_falta");
+  }
+  return { unit_id: unit.unit_id, data: unit.data, ...forecast, pct: invalidPct ? null : pct,
+    origem: invalidPct || "erro" in unit.pct ? null : unit.pct.origem, motivo,
+    vendido: { ...unit.vendido }, considerada, completo: alertas.length === 0, alertas };
+}
+
+/** Reconcile each money column from unrounded units, with deterministic cent residue. */
+function reconcileForecastMoney(raw: PlanningForecastUnitResult[], details: PlanningForecastUnitResult[], field: "vendido" | "previsao" | "considerada"): ForecastMoney | null {
+  const indices = raw.map((_, index) => index).filter(index => raw[index][field] !== null);
+  if (indices.length === 0) return field === "previsao" ? null : { bruto: 0, liquido: 0 };
+  for (const index of indices) details[index][field] = { ...raw[index][field]! };
+  const total: ForecastMoney = { bruto: 0, liquido: 0 };
+  for (const part of ["bruto", "liquido"] as const) {
+    const known = indices.filter(index => raw[index][field]![part] !== null);
+    const sum = known.reduce((value, index) => value + raw[index][field]![part]!, 0);
+    if (!Number.isFinite(sum)) throw new Error("planning_non_finite_total");
+    const roundedTotal = cents(sum);
+    for (const index of known) details[index][field]![part] = cents(raw[index][field]![part]!);
+    total[part] = known.length === indices.length ? roundedTotal : null;
+    if (known.length === 0) continue;
+    const target = [...known].sort((a, b) => Math.abs(raw[b][field]![part]!) - Math.abs(raw[a][field]![part]!)
+      || (raw[a].unit_id < raw[b].unit_id ? -1 : raw[a].unit_id > raw[b].unit_id ? 1 : 0))[0];
+    const residue = cents(roundedTotal - known.reduce((value, index) => value + details[index][field]![part]!, 0));
+    details[target][field]![part] = cents(details[target][field]![part]! + residue);
+  }
+  return total;
+}
+
+/** Explicit disjoint units only: no tree, sales, VAT, manual or date inference. */
+export function avaliarUnidades(unidades: readonly PlanningForecastUnit[], referencia: string): PlanningForecastResult {
+  if (!isForecastCivilDate(referencia)) throw new Error("planning_invalid_reference_date");
+  const seen = new Set<string>();
+  for (const unit of unidades) {
+    if (seen.has(unit.unit_id)) throw new Error("planning_duplicate_unit");
+    seen.add(unit.unit_id);
+  }
+  const raw = unidades.map(unit => evaluateForecastUnit(unit, referencia));
+  const details = raw.map(unit => ({ ...unit }));
+  const vendido = reconcileForecastMoney(raw, details, "vendido")!;
+  const previsao = reconcileForecastMoney(raw, details, "previsao");
+  const considerada = reconcileForecastMoney(raw, details, "considerada")!;
+  return { unidades: details, vendido, previsao, considerada, completo: details.every(unit => unit.completo) };
+}
+
 /** P5c: one pure gross planning forecast shared by edge and ticket-office dialog. */
 export interface PlanningLot { quantity: number; price: number }
 export interface PlanningZone { zone_id: string; total_capacity: number | null; lotes: PlanningLot[] }

@@ -43,6 +43,24 @@ export async function exportTicketOfficeSettlementPdf(v: SettlementView) {
   });
   y = (doc as any).lastAutoTable.finalY + 6;
 
+  if (v.eventRight) {
+    const r = v.eventRight;
+    autoTable(doc, {
+      startY: y,
+      head: pdfRows([["Direito do evento - quota documental do PDF", formatCurrency(r.amount)]]),
+      body: pdfRows([
+        ["Origem (congelada)", `Apuramento confirmado nº ${r.statementNumber}`],
+        ["Referência no PDF", [r.documentPage ? `Página ${r.documentPage}` : "", r.documentLineRef ?? ""].filter(Boolean).join(" · ")],
+        ["Bruto documental", formatCurrency(r.gross)],
+        ["Retido pela sala", `-${formatCurrency(r.retained)}`],
+        ...r.deductions.map(d => [d.description, formatCurrency(d.amount)]),
+        ["Transferência efectiva", "Apresentada separadamente; a quota não é um repasse."],
+      ]),
+      styles: { fontSize: 9 }, headStyles: { fillColor: [40, 40, 40] },
+    });
+    y = (doc as any).lastAutoTable.finalY + 6;
+  }
+
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text(sanitizeSettlementPdfText("Deduções"), 14, y);

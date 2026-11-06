@@ -60,6 +60,40 @@ export interface TreasuryEventResult {
   source: "selado" | "base corrente";
   partnersDue: number;
   housePct: number;
+  /** Composição do mesmo núcleo de receita do motor; o selo não a guarda. */
+  revenue?: TreasuryRevenueEvidence;
+}
+export interface TreasuryRevenueEvidence {
+  net: number;
+  ticketingNet: number;
+  ticketingSource: "real" | "bp";
+  ticketingRecognized: boolean;
+  expenseSource: "realized" | "committed";
+}
+export interface TreasuryRetainedOffice {
+  accountId: string;
+  name: string;
+  byEvent: Record<string, number>;
+  total: number;
+}
+export interface TreasuryConferenceRow {
+  id: string;
+  name: string;
+  masterId: string;
+  stage: string;
+  businessLine: string;
+  included: boolean;
+  reason: string;
+  source?: TreasuryEventResult["source"];
+  revenue?: TreasuryRevenueEvidence;
+  amounts: TreasuryAmounts;
+  /** Master consolidado vs. detalhe próprio do evento (não somar ambos). */
+  rawCash: TreasuryAmounts;
+  retainedRaw: number;
+  retainedExcluded: number;
+  retainedReason: string;
+  offices: { accountId: string; name: string; retained: number }[];
+  children: TreasuryConferenceRow[];
 }
 export interface TreasuryNode {
   id: string;
@@ -74,6 +108,7 @@ export interface TreasuryNode {
 export interface TreasuryBridge {
   company: TreasuryNode;
   common: TreasuryNode;
+  conference?: TreasuryConferenceRow[];
 }
 export const TREASURY_ROW_LABELS = [
   "1. Resultado do evento", "2. ± Timing", "3. − Retido na bilheteira",
@@ -100,6 +135,7 @@ export function buildTreasuryBridge(input: {
   businessLines: { id: string; name: string }[];
   cash: TreasuryCashRow[];
   retained: Record<string, number>;
+  retainedOffices?: TreasuryRetainedOffice[];
   results: Record<string, TreasuryEventResult>;
 }): TreasuryBridge {
   const eventById = new Map(input.events.map((event) => [event.id, event]));
@@ -120,6 +156,14 @@ export function buildTreasuryBridge(input: {
     if (eventId !== null) out.retained = treasuryNumber(input.retained[eventId] ?? 0);
     return out;
   };
+  // Não inferir reconhecimento pelo estágio nem pela base de despesas.
+  // Só uma ausência provada no resultado corrente permite retirar a dedução.
+  const bridgeCashFor = (event: TreasuryEvent): TreasuryAmounts => {
+    const amounts = cashFor(event.id);
+    const result = input.results[event.parent_event_id ?? event.id];
+    if (result?.source === "base corrente" && result.revenue?.ticketingRecognized === false) amounts.retained = 0;
+    return amounts;
+  };
   const masters = input.events.filter((e) => !e.parent_event_id && TREASURY_STAGES.has(input.stages[e.id]));
   const groups = new Map<string, TreasuryNode>();
   for (const master of masters) {
@@ -128,9 +172,9 @@ export function buildTreasuryBridge(input: {
     treasuryNumber(result.result); treasuryNumber(result.partnersDue); treasuryNumber(result.housePct);
     const memberIds = new Set(input.cash.filter((row) => row.level === "event" && row.master_event_id === master.id).map((row) => row.event_id));
     const children: TreasuryNode[] = input.events.filter((e) => e.id !== master.id && (e.parent_event_id === master.id || memberIds.has(e.id))).map((e) => ({
-      id: e.id, name: e.name, amounts: cashFor(e.id), children: [], cashDetail: true,
+      id: e.id, name: e.name, amounts: bridgeCashFor(e), children: [], cashDetail: true,
     }));
-    const amounts = sumAmounts([{ id: master.id, name: master.name, amounts: cashFor(master.id), children: [] }, ...children]);
+    const amounts = sumAmounts([{ id: master.id, name: master.name, amounts: bridgeCashFor(master), children: [] }, ...children]);
     amounts.result = result.result;
     amounts.partnersDue = result.partnersDue;
     const node: TreasuryNode = { id: master.id, name: master.name, amounts, children, source: result.source, housePct: result.housePct };
@@ -146,7 +190,38 @@ export function buildTreasuryBridge(input: {
     return input.businessLines.findIndex((l) => l.id === a.id) - input.businessLines.findIndex((l) => l.id === b.id);
   });
   for (const line of lines) line.amounts = sumAmounts(line.children);
+  const nodes = new Map(lines.flatMap((line) => line.children).map((node) => [node.id, node]));
+  const conferenceRow = (event: TreasuryEvent, master: TreasuryEvent): TreasuryConferenceRow => {
+    const stage = input.stages[master.id] ?? "indisponível";
+    const included = nodes.has(master.id);
+    const node = nodes.get(master.id);
+    const result = input.results[master.id];
+    const rawCash = cashFor(event.id);
+    const amounts = included ? event.id === master.id ? node!.amounts : bridgeCashFor(event) : emptyTreasuryAmounts();
+    const members = event.id === master.id ? input.events.filter((e) => e.id === master.id || e.parent_event_id === master.id) : [event];
+    const retainedRaw = cents(members.reduce((sum, e) => sum + (input.retained[e.id] ?? 0), 0));
+    const absent = result?.source === "base corrente" && result.revenue?.ticketingRecognized === false;
+    return {
+      id: event.id, name: event.name, masterId: master.id, stage,
+      businessLine: input.businessLines.find((line) => line.id === master.business_line_id)?.name ?? (master.business_line_id ? "Linha indisponível" : "Sem linha"),
+      included, reason: included ? "Sim · estágio elegível do Master" : `Não · estágio do Master: ${stage}`,
+      source: included ? result?.source : undefined, revenue: included ? result?.revenue : undefined,
+      amounts, rawCash, retainedRaw, retainedExcluded: cents(retainedRaw - amounts.retained),
+      retainedReason: !included ? "Fora do perímetro" : absent ? "pré-venda retida, receita ainda não reconhecida"
+        : result?.source === "selado" ? "Reconhecimento indeterminado: selo sem composição de receitas; dedução preservada"
+        : !result?.revenue ? "Composição de receitas indisponível; dedução preservada"
+        : "Receita de bilheteira incluída no resultado do Master",
+      offices: (input.retainedOffices ?? []).filter((office) => members.some((e) => e.id in office.byEvent)).map((office) => ({
+        accountId: office.accountId, name: office.name, retained: cents(members.reduce((sum, e) => sum + (office.byEvent[e.id] ?? 0), 0)),
+      })),
+      children: [],
+    };
+  };
+  const conference = input.events.filter((e) => !e.parent_event_id).map((master) => ({
+    ...conferenceRow(master, master), children: input.events.filter((e) => e.parent_event_id === master.id).map((child) => conferenceRow(child, master)),
+  }));
   return {
+    conference,
     company: { id: "company", name: "Empresa", amounts: sumAmounts(lines), children: lines },
     common: { id: "common", name: "Comuns", amounts: cashFor(null), children: [], cashDetail: true },
   };
