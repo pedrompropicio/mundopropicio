@@ -12,6 +12,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -107,6 +117,7 @@ export default function RecurringTransactions() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState<RecurringForm>(emptyForm);
   useEffect(() => {
     if (!editId && !noIva) setForm(current => ({ ...current, iva_rate: 23 }));
@@ -187,7 +198,7 @@ export default function RecurringTransactions() {
     if (form.end_mode === "duration" && form.duration_months) {
       const months = Number(form.duration_months);
       const [sy, sm] = form.start_month.split("-").map(Number);
-      const endDate = new Date(sy, sm - 1 + months, Math.min(form.day_of_month, 28));
+      const endDate = new Date(sy, sm - 1 + months - 1, Math.min(form.day_of_month, 28));
       return formatDateStr(endDate);
     }
     return null;
@@ -462,7 +473,7 @@ export default function RecurringTransactions() {
                       )}
                       {canDeleteRecurring && (
                         <button
-                          onClick={() => deleteMutation.mutate(rec.id)}
+                          onClick={() => setDeleteId(rec.id)}
                           className="rounded p-1.5 text-muted-foreground hover:bg-destructive/20 hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -690,6 +701,29 @@ export default function RecurringTransactions() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {deleteId && (
+        <AlertDialog open onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Eliminar o template?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Os lançamentos já gerados não são apagados. Para os retirar, use a lista de transações.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => deleteMutation.mutate(deleteId)}
+                disabled={deleteMutation.isPending}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
