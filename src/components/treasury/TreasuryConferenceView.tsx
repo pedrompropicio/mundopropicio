@@ -15,7 +15,7 @@ function accountLabel(id: string | null, data?: TreasuryConferenceData) {
 function rpcReason(transaction: TreasuryConferenceData["transactions"][number], data?: TreasuryConferenceData) {
   const account = data?.accounts.find((item) => item.id === transaction.account_id);
   if (!account || !["bank", "cash", "prepaid_card"].includes(account.type) || account.skip_balance_check) return "Conta fora do RPC caixa";
-  if (transaction.status === "partially_paid") return "Saldo excluído de committed pelo RPC · R2 pendente";
+  if (transaction.status === "partially_paid") return "Saldo por pagar em committed do RPC caixa (0342)";
   if (transaction.status === "approved") return "Saldo em committed do RPC caixa";
   if (transaction.status === "pending") return "Montante em pending do RPC caixa (linha 8)";
   return transaction.status === "paid" ? "Pago · sem saldo comprometido" : "Estado fora de committed e pending; conferir realized no RPC";
@@ -110,7 +110,7 @@ export function TreasuryConferenceView({ bridge, locale, data, loading, error, p
       <p>O realized do RPC usa paid_amount na conta de origem da transação e soma withholding_amount + credit_amount das pernas em contas líquidas, com os respectivos cortes. Os detalhes mostram ambas as contas; os pagamentos não são somados de novo no cliente.</p>
       <p>O retido da Posição Financeira confere com os saldos canónicos das bilheteiras (incluindo o resíduo sem evento). A linha 3 inclui apenas o retido dedutível dos eventos elegíveis. Caixa e retido apresentam-se à parte.</p>
       {data && <><p>Posição Financeira · {treasuryDateLabel(data.position.meta.reference_date)} · Caixa e cartões: {formatMoney(data.position.posicao.caixa_e_cartoes, locale)} · Retido visível: {formatMoney(data.position.retido.total_visiveis, locale)} · Retido oculto: {formatMoney(data.position.retido.total_ocultas, locale)}</p>
-        <p>Saldo inicial, diferenças e retido sem evento: conferir os agregados da SQL executada na mesma data. Esta vista não corrige o RPC que omite os saldos partially_paid.</p></>}
+        <p>Saldo inicial, diferenças e retido sem evento: conferir os agregados da SQL executada na mesma data.</p></>}
     </aside>
   </section>;
 }

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { cleanup, fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { cleanup, render, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCompany, type Company } from "@/hooks/useCompany";
 import { isTxSettledByAmount, useInvoiceGroupProgress } from "@/hooks/useInvoiceGroupProgress";
@@ -90,7 +90,6 @@ beforeEach(() => {
       payable_transaction_id: "other", pay: { description: "Despesa sintética", invoice_ref: "TEST-498" }, applied: false }],
     groups: [{ group_id: "group", operation_date: "2026-11-03", supplier_name: "Entidade sintética",
       movement_amount: 1234.56, status: "applied" }],
-    "offset-candidates": [{ id: "candidate", description: "Candidata sintética", amount: 1234.56, iva_rate: 0 }],
     payment_list_sepa_exports: [ex, { ...ex, id: "older", exported_at: "2026-11-02T12:00:00Z" }],
     payment_list_documents: [],
   };
@@ -103,25 +102,21 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
+// #337 3c: só offsets regenerado e candidates retirado — mudança intencional do ecrã, decisão 6613007871.
 describe("#498 P2e-b — baseline PT capturada antes de alterar os cinco módulos; não regenerar", () => {
-  it("fixa SHA256 dos quatro componentes e da nota, incluindo candidatos de compensação", () => {
+  it("fixa SHA256 dos quatro componentes e da nota, sem criação legada de compensação", () => {
     const hashes: Record<string, string> = {};
     for (const name of names) {
       render(components[name]());
       hashes[name] = domHash();
-      if (name === "offsets") {
-        fireEvent.click(screen.getByRole("button", { name: "Compensa com…" }));
-        hashes.candidates = domHash();
-      }
       cleanup();
     }
     expect(hashes).toMatchInlineSnapshot(`
       {
         "bank": "e0d98bf916f74a2dc86407dd14333a99dced3ae8a6f18a72bb8bfc23acc64efe",
-        "candidates": "f2d481072c977bd32d51c281af9736510236edc55cc566dcf7edc7ee0bfd8e6d",
         "mirror": "3e49c0852c761f0046bdbb60812cdd32e96a1eba2e07ab6b9553ff72f2d42855",
         "note": "5abbf9390768a334b45df90ed3c04e079b7973059f5e0c710217193f4c1a7119",
-        "offsets": "9f5bef98299dc78e053517ccb486aa6d7e9064dcd0cf1d31371a73cd71722164",
+        "offsets": "4b154831f9829cb94a5d9468e94dbf26892b135ccdc807b44d9352d885e4f7bc",
         "receipts": "a7b971ecefe04c378be54ed4a8b42565fd5caf725701c9c6d772db646935d208",
       }
     `);
@@ -163,16 +158,14 @@ describe("#498 P2e-b — moeda e locale da empresa nos componentes", () => {
   it.each(names)("BR: %s mostra R$ 1.234,56 sem euros em todas as ocorrências", name => {
     setCompany("BR", "BRL");
     render(components[name]());
-    if (name === "offsets") fireEvent.click(screen.getByRole("button", { name: "Compensa com…" }));
     expect(document.body.innerHTML).not.toContain("€");
     const occurrences = document.body.textContent!.split("R$\u00a01.234,56").length - 1;
-    // Group + linked offset + candidate; two exports in the select and two in the list.
-    expect(occurrences).toBe(name === "offsets" ? 3 : name === "receipts" ? 4 : 1);
+    // Group + linked offset; two exports in the select and two in the list.
+    expect(occurrences).toBe(name === "offsets" ? 2 : name === "receipts" ? 4 : 1);
   });
 
   it.each(names)("%s acompanha PT → BR → indisponível → PT sem reutilizar moeda anterior", name => {
     const view = render(components[name]());
-    if (name === "offsets") fireEvent.click(screen.getByRole("button", { name: "Compensa com…" }));
     const ptHash = domHash();
     setCompany("BR", "BRL");
     view.rerender(components[name]());

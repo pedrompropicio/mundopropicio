@@ -8,9 +8,21 @@ import { formatCurrency as formatLegacyCurrency } from "@/lib/mock-data";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { computeTicketOfficeBalance } from "@/lib/ticket-office-balance";
 import { ticketOfficePosition } from "@/lib/ticket-office-position";
+import { useTicketOfficeStatements } from "@/hooks/useTicketOfficeStatements";
+import { useCompany } from "@/hooks/useCompany";
+import { useAuth } from "@/contexts/AuthContext";
+
+const labels = {
+  receivable: "Posição a receber",
+  accountMovements: "Repasses e saldos transportados pertencem à conta, sem atribuição a eventos.",
+  confirmed: "Confirmado no corte",
+};
 
 /** The caller supplies the active company; omission retains the legacy PT rendering. */
 export function TicketOfficePositionCards({ officeId, companyLocale }: { officeId: string; companyLocale?: CompanyLocaleResult }) {
+  const statementsRead = useTicketOfficeStatements(officeId);
+  const { companyId } = useCompany();
+  const { user } = useAuth();
   const formatCurrency = (value: number) => companyLocale?.status === "unavailable"
     ? "—"
     : !companyLocale || (companyLocale.locale === "pt-PT" && companyLocale.currency === "EUR")
@@ -18,14 +30,18 @@ export function TicketOfficePositionCards({ officeId, companyLocale }: { officeI
       : formatMoney(value, companyLocale);
   const [detail, setDetail] = useState<"events" | "calendar" | null>(null);
   const { data, isLoading, error } = useQuery({
-    queryKey: ["ticket-office-position", officeId],
+    queryKey: ["ticket-office-position", companyId, user?.id, officeId, statementsRead.dataUpdatedAt],
+    enabled: !!statementsRead.data && !statementsRead.isError,
     queryFn: async () => {
       const [sales, transactions, assignments, settlements, statements, balances] = await Promise.all([
         supabase.rpc("get_ticket_office_sales", { p_account_id: officeId }),
         fetchAllPagedQuery(supabase.from("transactions").select("account_id,type,paid_amount,status,event_id,reversed_at,is_hidden").eq("account_id", officeId)),
         fetchAllPagedQuery(supabase.from("event_ticket_office_assignments").select("event_id,events(id,name)").eq("financial_account_id", officeId)),
         fetchAllPagedQuery(supabase.from("ticket_office_settlements").select("event_id").eq("financial_account_id", officeId)),
-        (supabase as any).from("ticket_office_statements").select("id,number,document_total,ticket_office_statement_lines!ticket_office_statement_lines_statement_id_fkey(id,event_id,line_type,description,amount,transaction_id)").eq("financial_account_id", officeId).order("statement_date", { ascending: false }).order("created_at", { ascending: false }),
+        statementsRead.data.status === "v2"
+          ? { data: statementsRead.data.statements, error: null }
+          // Preserve the existing legacy projection/order, including when v2 is unavailable.
+          : (supabase as any).from("ticket_office_statements").select("id,number,document_total,ticket_office_statement_lines!ticket_office_statement_lines_statement_id_fkey(id,event_id,line_type,description,amount,transaction_id)").eq("financial_account_id", officeId).order("statement_date", { ascending: false }).order("created_at", { ascending: false }),
         supabase.rpc("ticket_office_balances", { _account_ids: [officeId] }),
       ]);
       for (const result of [sales, transactions, assignments, settlements, statements, balances]) {
@@ -68,12 +84,13 @@ export function TicketOfficePositionCards({ officeId, companyLocale }: { officeI
         const description = [line.description, eventNames.get(line.event_id)].filter(Boolean).join(" — ");
         calendarItems.push({ id: line.id, description: `${description}${description ? " — " : ""}a regularizar quando o fecho for confirmado e a sala efectuar a devolução.`, amount: -Number(line.amount ?? 0) });
       }
-      return { ...ticketOfficePosition(events, (settlements.data ?? []).map((row) => row.event_id), allLines.map((line: any) => line.event_id).filter(Boolean), Number(latest?.document_total ?? 0), Number(retained)), latest, calendarItems };
+      return { ...ticketOfficePosition(events, (settlements.data ?? []).map((row) => row.event_id), allLines.map((line: any) => line.event_id).filter(Boolean), Number(latest?.document_total ?? 0), Number(retained), statementsRead.data.status === "v2" ? statementsRead.data.provenance : undefined), latest, calendarItems };
     },
   });
-  if (isLoading) return <p className="text-sm text-muted-foreground">A carregar posição…</p>;
-  if (error) return <p className="text-sm text-destructive">Não foi possível consultar a posição da bilheteira.</p>;
+  if (isLoading || statementsRead.isLoading) return <p className="text-sm text-muted-foreground">A carregar posição…</p>;
+  if (error || statementsRead.isError) return <p className="text-sm text-destructive">Não foi possível consultar a posição da bilheteira.</p>;
   if (!data) return null;
+  const cutoff = data.provenance?.statements.find(s => s.statementId === data.provenance.latestConfirmedStatementId)?.cutoff;
   return (
     <section className="space-y-3" aria-label="Posição da bilheteira">
       <div className="grid gap-3 md:grid-cols-3">
@@ -84,10 +101,11 @@ export function TicketOfficePositionCards({ officeId, companyLocale }: { officeI
           <Button variant="link" className="h-auto p-0 text-xs" onClick={() => setDetail(detail === "events" ? null : "events")} aria-expanded={detail === "events"}>{data.openEvents.length} eventos</Button>
         </div>
         <div className="rounded-lg border border-border bg-card p-4 space-y-2">
-          <p className="text-sm font-semibold">Já adiantado</p>
+          <p className="text-sm font-semibold">{data.provenance && data.position > 0 ? labels.receivable : "Já adiantado"}</p>
           <p className="text-2xl font-mono font-bold break-words">{formatCurrency(data.advanced)}</p>
           <p className="text-xs text-muted-foreground">{data.position < 0 ? "Dinheiro que a bilheteira já repassou a mais do que os eventos apurados renderam, como adiantamento sobre os eventos seguintes." : data.position > 0 ? "A posição do último apuramento é positiva: este valor está a entregar à MP, não é um adiantamento." : "O último apuramento não tem valor adiantado nem por entregar."}</p>
           {data.latest && <p className="text-xs text-muted-foreground">Apuramento {data.latest.number}</p>}
+          {data.provenance && <p className="text-xs text-muted-foreground">{cutoff && <>{labels.confirmed} <time dateTime={cutoff.at}>{new Date(cutoff.at).toLocaleString("pt-PT", { timeZone: cutoff.timezone, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</time> ({cutoff.timezone}). </>}{labels.accountMovements}</p>}
         </div>
         <div className="rounded-lg border border-primary/40 bg-card p-4 space-y-2">
           <p className="text-sm font-semibold">Saldo retido</p>

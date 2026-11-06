@@ -1,0 +1,15 @@
+-- Rollback de contenção 0347 — PREPARADO, NÃO EXECUTADO; autorização separada.
+-- Descomentar apenas BEGIN/COMMIT e o SQL entre eles numa sessão dona do catálogo.
+-- Repõe exactamente o ponto de recusa da 0346; não altera comandos nem ACL públicas.
+-- Conserva tabelas, provas, fontes protegidas, guardas, documentos e recibos.
+-- Confirmados continuam imutáveis e retries compatíveis devolvem o recibo original.
+-- Não apaga dados nem activa/desactiva contas ou cria movimentos financeiros.
+-- BEGIN;
+-- CREATE OR REPLACE FUNCTION issue303_private.r4_validate(p_statement uuid, p_revision bigint)
+-- RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
+-- SET search_path = pg_catalog, public, pg_temp AS $$
+-- BEGIN
+--   RAISE EXCEPTION 'capacidade_r4_em_falta' USING ERRCODE = '55000';
+-- END $$;
+-- REVOKE ALL ON FUNCTION issue303_private.r4_validate(uuid,bigint) FROM PUBLIC, anon, authenticated, service_role;
+-- COMMIT;
