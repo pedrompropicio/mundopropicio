@@ -21,7 +21,16 @@ import {
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import { ticketOfficeOtherMovements } from "@/lib/ticket-office-reconciliation";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { useTicketOfficeStatements } from "@/hooks/useTicketOfficeStatements";
+import { useCompany } from "@/hooks/useCompany";
+import { settlementEventRight } from "@/lib/ticket-office-settlement-view";
 
+const labels = {
+  eventRights: "Direito do evento / saldo por apurar",
+  accountMovements: "Repasses e saldos transportados pertencem à conta, sem atribuição a eventos.",
+  eventRight: "Direito do evento",
+  failed: "Não foi possível consultar a posição da bilheteira.",
+};
 
 interface Props {
   officeId: string; // This is now the financial_account_id directly
@@ -29,7 +38,9 @@ interface Props {
 }
 
 export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
-  const { isAdmin, hasPermission } = useAuth();
+  const { isAdmin, hasPermission, user } = useAuth();
+  const { companyId } = useCompany();
+  const statementsRead = useTicketOfficeStatements(officeId);
   const companyLocale = useCompanyLocale();
   const formatCurrency = (value: number) => companyLocale.status !== "available"
     ? "—"
@@ -122,8 +133,11 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
     [settlementRows],
   );
 
-  const { data: statements = [] } = useQuery({
-    queryKey: ["ticket_office_statements_for_balance", officeId],
+  const { data: legacyStatements = [] } = useQuery({
+    queryKey: ["ticket_office_statements_for_balance", companyId, user?.id, officeId],
+    // Preserve the legacy read/cache while capability is absent or not yet available.
+    // A resolved v2 account always uses the R5 receipt, never this projection.
+    enabled: !statementsRead.isLoading && !statementsRead.isError && statementsRead.data?.status !== "v2" && statementsRead.data?.status !== "legacy",
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("ticket_office_statements")
@@ -223,7 +237,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
   }, [assignments, ticketSales, accountTxns, pendingAdvances, officeId]);
 
 
-  if (assignments.length === 0) {
+  if (assignments.length === 0 && statementsRead.data?.status !== "v2") {
     return (
       <div className="text-center py-4 text-xs text-muted-foreground">
         Sem eventos associados
@@ -243,12 +257,13 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
 
   // #303 — retido = posição já apurada + vendas de eventos sem fecho + por conciliar (resíduo).
   // A posição apurada já está DENTRO do retido; nunca se abate dele.
-  const decomposition = decomposeTicketOfficeRetained({
+  const decomposition = statementsRead.isError ? null : decomposeTicketOfficeRetained({
     globalBalance: summary.globalBalance,
     events: summary.events,
-    statements: statements as any[],
+    statements: statementsRead.data && statementsRead.data.status !== "v2_unavailable" ? statementsRead.data.statements : legacyStatements,
     settledEventIds: settledEventIds as string[],
-  }) as any;
+    ...(statementsRead.data?.status === "v2" ? { provenance: statementsRead.data.provenance } : {}),
+  });
 
   return (
     <div className="space-y-3">
@@ -311,6 +326,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
         )}
       </div>
 
+      {statementsRead.isError && <p role="alert" className="text-xs text-destructive">{labels.failed}</p>}
       {decomposition && (
         <div className="rounded-lg border border-border/60 p-2 space-y-1">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -353,13 +369,14 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
           <p className="text-[10px] text-muted-foreground pt-1">
             Posição apurada + vendas sem fecho + por conciliar = retido ({formatCurrency(summary.globalBalance)}).
           </p>
+          {decomposition.provenance && <p className="text-[10px] text-muted-foreground">{labels.accountMovements}</p>}
         </div>
       )}
 
       {summary.events.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Saldo por Evento</h4>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{statementsRead.data?.status === "v2" ? labels.eventRights : "Saldo por Evento"}</h4>
             {canManage && (
               <Button
                 size="sm"
@@ -374,6 +391,14 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
           <div className="space-y-1">
             {summary.events.map((ev) => {
               const icon = settlementIconState(settlementRows, ev.id, officeId);
+              const read = statementsRead.data;
+              const membership = read?.status === "v2" ? read.provenance.eventMemberships.find(m => m.event_id === ev.id) : undefined;
+              // R5 also retains v1 memberships. Their lines keep their original meaning;
+              // only a frozen v2 quota can be projected as a documentary event right.
+              const hasV2Quota = read?.status === "v2" && read.confirmedStatements.some(s => s.id === membership?.statement_id);
+              const right = hasV2Quota && !statementsRead.isError
+                ? settlementEventRight(read, { company_id: companyId, financial_account_id: officeId, event_id: ev.id }) : undefined;
+              const balance = right?.amount ?? ev.balance;
               return (
               <div
                 key={ev.id}
@@ -384,9 +409,10 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
                   {ev.isConciliated && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />}
                 </Link>
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-mono font-medium ${ev.balance > 0 ? "text-emerald-500" : ev.balance < 0 ? "text-red-400" : "text-muted-foreground"}`}>
-                    {formatCurrency(ev.balance)}
+                  <span title={right ? labels.eventRight : undefined} className={`text-xs font-mono font-medium ${balance > 0 ? "text-emerald-500" : balance < 0 ? "text-red-400" : "text-muted-foreground"}`}>
+                    {formatCurrency(balance)}
                   </span>
+                  {right && <Link to={right.href} className="text-[10px] text-primary hover:underline">{right.statementNumber}</Link>}
                   {canManage && Math.abs(ev.balance) > 0.01 && (
                     <button
                       onClick={() => setSettlementModal({ open: true, eventId: ev.id, settlement: icon.settlement })}
