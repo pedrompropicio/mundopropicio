@@ -269,6 +269,7 @@ $function$
 -- Não chamar run_rls_isolation_test nesta janela (contém escrita de fixtures).
 
 -- PARTE 2 — só depois do Publish e deploy de TODOS os escritores, com prova antes.
+-- O CHECK do país já existe em Live como `suppliers_country_iso2` (validado); não se recria.
 DO $country_precondition$
 BEGIN
   IF NOT EXISTS (
@@ -283,6 +284,3 @@ $country_precondition$;
 
 DROP TRIGGER suppliers_default_country_trigger ON public.suppliers;
 DROP FUNCTION public.suppliers_default_country();
-ALTER TABLE public.suppliers ADD CONSTRAINT suppliers_country_iso2_check
-  CHECK (country ~ '^[A-Z]{2}$') NOT VALID;
-ALTER TABLE public.suppliers VALIDATE CONSTRAINT suppliers_country_iso2_check;

@@ -8,7 +8,7 @@
 --   END IF;
 -- END;
 -- $rollback_precondition$;
--- ALTER TABLE public.suppliers DROP CONSTRAINT IF EXISTS suppliers_country_iso2_check;
+-- -- O CHECK `suppliers_country_iso2` já existia; mantém-se no rollback.
 -- CREATE OR REPLACE FUNCTION public.suppliers_default_country()
 -- RETURNS trigger
 -- LANGUAGE plpgsql

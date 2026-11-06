@@ -115,7 +115,7 @@ describe("#664 / 0335 — SQL só em PGlite descartável, sem credenciais", () =
       ]);
       expect(await scalar(db, `SELECT to_regprocedure('public.suppliers_default_country()')`)).toBe(null);
       expect(await scalar(db, `SELECT count(*)::int FROM pg_trigger WHERE tgname='suppliers_default_country_trigger'`)).toBe(0);
-      expect(await scalar(db, `SELECT convalidated FROM pg_constraint WHERE conname='suppliers_country_iso2_check'`)).toBe(true);
+      expect(await scalar(db, `SELECT convalidated FROM pg_constraint WHERE conname='suppliers_country_iso2'`)).toBe(true);
       // Sem mudar a reutilização de um NIF activo.
       await db.exec(`UPDATE suppliers SET nif='synthetic-tax' WHERE name='Nova UI'`);
       const reused = await scalar<{ reused: boolean }>(db, `SELECT supplier_resolve_or_create('Reutilizar','synthetic-tax','sponsors_import','BR')`);
