@@ -1771,7 +1771,7 @@ export default function Transactions() {
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="text-[13px] font-normal h-8 px-3">
                 <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-                {periodDateField === "date" ? "Lançamento: " : ""}
+                {periodDateField === "date" ? "Data de competência: " : ""}
                 {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Semana" : duePeriod === "month" ? "Mês" : duePeriod === "all" ? "Tudo" : "Período"}
               </Button>
             </PopoverTrigger>
@@ -1795,7 +1795,7 @@ export default function Transactions() {
                       periodDateField === "date" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"
                     )}
                   >
-                    Dt. Lançamento
+                    Data de competência
                   </button>
                 </div>
                 {([["day", "Hoje"], ["week", "Semana"], ["month", "Mês"], ["all", "Tudo (sem limite)"], ["range", "Período personalizado"]] as const).map(([val, label]) => (

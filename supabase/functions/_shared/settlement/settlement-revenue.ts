@@ -21,7 +21,7 @@
  * Consumidores: `computeEventSettlementTotals`, `statement-service`,
  * `PartnerSettlementTab`, `EventFecho`.
  */
-import { calcTotalWithIva } from "./iva.ts";
+import { calcTotalWithIva, roundCents } from "./iva.ts";
 import { isBilheteiraCategoryCode, isExcludedFromPartnerSettlement } from "./fecho-filters.ts";
 import { REVENUE_SPLIT_MODE_LABEL, type RevenueSplitMode } from "./master-revenue-proration.ts";
 
@@ -72,13 +72,30 @@ export interface SettlementRevenueInput {
   ticketSales?: Array<{ gross: number; net: number }>;
   /** Detalhe por lote para o documento do sócio (opcional). */
   ticketBreakdown?: Array<{ label: string; net: number }>;
+  /** Composição já avaliada; substitui apenas a bilheteira, incluindo zero. */
+  ticketProjection?: TicketProjection;
   /** Transações `income` já filtradas por `isValidFechoTransaction`. */
   incomeTransactions?: any[];
   /** Linhas de BP (`event_forecasts`) — os filtros de elegibilidade são aqui. */
   incomeForecasts?: any[];
 }
 
+export interface TicketProjection {
+  version: "ticket-projection-v1";
+  gross: number;
+  net: number;
+  lines: Array<{
+    unit_id: string;
+    event_id: string | null;
+    description: string;
+    gross: number;
+    net: number;
+  }>;
+}
+
 export interface SettlementRevenueResult {
+  /** Ausente no caminho real/BP; não altera o significado de hasTicketSales. */
+  projected?: true;
   revenueNet: number;
   revenueGross: number;
   /** Full event revenue, before the partner-only exclusion. */
@@ -96,8 +113,44 @@ export interface SettlementRevenueResult {
   bpLinesUsed: any[];
   /** Transações de receita que contaram (sem as 1.1.01 duplicadas). */
   incomeTxUsed: any[];
-  /** Transações de receita excluídas por duplicarem `ticket_sales`. */
+  /** Transações excluídas por duplicarem vendas reais ou a projeção explícita. */
   excludedTicketingTx: any[];
+}
+
+/** Valida antes de calcular: um contrato inválido nunca recua para real/BP. */
+function validateTicketProjection(projection: TicketProjection): void {
+  const invalid = () => { throw new Error("ticket_projection_invalida"); };
+  const validAmount = (value: unknown): value is number =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0;
+  if (
+    !projection || projection.version !== "ticket-projection-v1" ||
+    !validAmount(projection.gross) || !validAmount(projection.net) || !Array.isArray(projection.lines)
+  ) invalid();
+
+  const unitIds = new Set<string>();
+  let gross = 0;
+  let net = 0;
+  for (const line of projection.lines) {
+    if (
+      !line || typeof line.unit_id !== "string" || !line.unit_id.trim() || unitIds.has(line.unit_id) ||
+      (line.event_id !== null && typeof line.event_id !== "string") || typeof line.description !== "string" ||
+      !validAmount(line.gross) || !validAmount(line.net)
+    ) invalid();
+    unitIds.add(line.unit_id);
+    gross += line.gross;
+    net += line.net;
+  }
+  const matchesTotal = (sum: number, total: number): boolean => {
+    if (sum === total) return true;
+    if (Math.abs(sum - total) >= 0.01) return false;
+    const roundedSum = roundCents(sum);
+    const roundedTotal = roundCents(total);
+    return Number.isFinite(roundedSum) && Number.isFinite(roundedTotal) && roundedSum === roundedTotal;
+  };
+  if (
+    !Number.isFinite(gross) || !Number.isFinite(net) ||
+    !matchesTotal(gross, projection.gross) || !matchesTotal(net, projection.net)
+  ) invalid();
 }
 
 function isEligibleIncomeForecast(f: any): boolean {
@@ -118,6 +171,8 @@ const emptyBuckets = (): Record<RevenueBucketKey, { net: number; gross: number; 
 });
 
 export function computeSettlementRevenue(input: SettlementRevenueInput): SettlementRevenueResult {
+  const projection = input.ticketProjection;
+  if (projection !== undefined) validateTicketProjection(projection);
   const ticketSales = input.ticketSales ?? [];
   const incomeTx = (input.incomeTransactions ?? []).filter((t: any) => t?.type === "income");
   const forecasts = (input.incomeForecasts ?? []).filter(isEligibleIncomeForecast);
@@ -139,7 +194,7 @@ export function computeSettlementRevenue(input: SettlementRevenueInput): Settlem
 
   for (const t of incomeTx) {
     const bucket = classifyIncomeBucket(t?.account_categories?.code);
-    if (hasTicketSales && bucket === "bilheteira") {
+    if ((projection !== undefined || hasTicketSales) && bucket === "bilheteira") {
       excludedTicketingTx.push(t);
       continue;
     }
@@ -147,7 +202,16 @@ export function computeSettlementRevenue(input: SettlementRevenueInput): Settlem
     if (!isExcludedFromPartnerSettlement(t)) incomeTxUsed.push(t);
   }
 
-  if (hasTicketSales) {
+  if (projection !== undefined) {
+    buckets.bilheteira = { net: projection.net, gross: projection.gross, source: "real" };
+    for (const line of projection.lines) {
+      lines.push({
+        id: line.unit_id, event_id: line.event_id,
+        kind: "ticket", bucket: "bilheteira", origin: "", description: line.description,
+        net: line.net, gross: line.gross,
+      });
+    }
+  } else if (hasTicketSales) {
     const net = ticketSales.reduce((s, t) => s + Number(t.net || 0), 0);
     const gross = ticketSales.reduce((s, t) => s + Number(t.gross || 0), 0);
     buckets.bilheteira = { net, gross, source: "real" };
@@ -184,7 +248,7 @@ export function computeSettlementRevenue(input: SettlementRevenueInput): Settlem
 
   // ── Fallback BP: só nos buckets SEM real ────────────────────────────────
   const bucketHasReal: Record<RevenueBucketKey, boolean> = {
-    bilheteira: hasTicketSales || realTxByBucket.bilheteira.length > 0,
+    bilheteira: projection !== undefined || hasTicketSales || realTxByBucket.bilheteira.length > 0,
     ab: realTxByBucket.ab.length > 0,
     patrocinio: realTxByBucket.patrocinio.length > 0,
     outros: realTxByBucket.outros.length > 0,
@@ -219,6 +283,7 @@ export function computeSettlementRevenue(input: SettlementRevenueInput): Settlem
   const houseOnlyRevenueNet = houseOnlyLines.reduce((sum, l) => sum + l.net, 0);
   const houseOnlyGross = houseOnlyLines.reduce((sum, l) => sum + l.gross, 0);
   return {
+    ...(projection !== undefined ? { projected: true as const } : {}),
     houseOnlyRevenueNet, houseOnlyLines,
     eventRevenueNet: revenueNet + houseOnlyRevenueNet,
     eventRevenueGross: revenueGross + houseOnlyGross,

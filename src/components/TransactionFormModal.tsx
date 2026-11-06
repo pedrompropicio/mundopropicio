@@ -6,6 +6,7 @@ import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
 import { computeBudgetExcess, type BudgetExcessLine, type BudgetRaise } from "@/lib/bp-budget-excess";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import React, { useState, useMemo, useEffect, useRef } from "react";
+import { differenceInCalendarMonths, parseISO } from "date-fns";
 import { makeTxInsert } from "@/lib/admin-window";
 import { AdminCostOverrideDialog, useAdminWindowEvent } from "@/components/AdminCostOverrideDialog";
 import { isInsideHelpPanel } from "@/lib/help-panel-dom";
@@ -272,6 +273,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [aiPrefilledLines, setAiPrefilledLines] = useState<IvaSplitLine[] | null>(null);
   // Ficheiro original lido pelo OCR — pode ser anexado às transações criadas.
   const [pendingInvoiceFile, setPendingInvoiceFile] = useState<File | null>(null);
+  // Só para o aviso; não altera a regra de preenchimento nem persiste dados OCR.
+  const [readInvoiceDate, setReadInvoiceDate] = useState("");
   // Emitente lido pelo OCR: mostrado em texto junto ao Fornecedor quando não houve match
   // e usado para o botão "Guardar NIF no fornecedor".
   const [ocrSupplierHint, setOcrSupplierHint] = useState<{ name: string | null; nif: string | null; matched: boolean } | null>(null);
@@ -374,6 +377,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     }
     setExtractingInvoice(true);
     setPendingInvoiceFile(original);
+    setReadInvoiceDate("");
     try {
       let file = original;
 
@@ -453,6 +457,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           typeof (data as any)?.document_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test((data as any).document_date)
             ? (data as any).document_date
             : "";
+
+        setReadInvoiceDate(readDate);
 
         let matchedId: string | null = null;
         if (readNif) {
@@ -3501,6 +3507,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                           type="button"
                           onClick={() => {
                             setPendingInvoiceFile(null);
+                            setReadInvoiceDate("");
                             setAiPrefilledLines(null);
                             setPendingIvaSplit(null);
                             setAttachIvaSplitFile(null);
@@ -4269,8 +4276,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Data Lançamento</label>
-              <DatePicker value={form.date} onChange={(d) => setForm({ ...form, date: d })} placeholder="Data…" />
+              <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="new-transaction-competence-date">Data de competência</label>
+              <DatePicker id="new-transaction-competence-date" value={form.date} onChange={(d) => setForm({ ...form, date: d })} placeholder="Data…" />
+              <p className="mt-1 text-xs text-muted-foreground">Mês a que a despesa/receita pertence (data da fatura ou do serviço), não o dia em que lança.</p>
             </div>
             {form.type === "expense" && (
               <div>
@@ -4289,6 +4297,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               </div>
             )}
           </div>
+
+          {pendingInvoiceFile && readInvoiceDate && form.date === new Date().toISOString().split("T")[0] && readInvoiceDate !== form.date && (
+            <p role="status" className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-muted-foreground">
+              Confirme a data de competência: a fatura foi lida com outra data. Pode gravar sem alterar.
+            </p>
+          )}
+          {Math.abs(differenceInCalendarMonths(parseISO(form.date), parseISO(parseDueDateForDb(form.due_date) || ""))) > 2 && (
+            <p role="status" className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-muted-foreground">
+              A competência e o vencimento estão separados por mais de 2 meses. Confirme a data de competência; pode gravar sem alterar.
+            </p>
+          )}
 
           {/* ===== Parcelamento (Fase 1.5) ===== */}
           {form.type === "expense" && !isSplit && !effectiveAutoMarkPaid && !isPaidByPartner && !isPartnerExtra && !form.is_reimbursement && parseFloat(form.amount || "0") > 0 && (() => {

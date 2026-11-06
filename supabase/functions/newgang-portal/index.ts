@@ -16,6 +16,8 @@ import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
 import { crewPendingAction, memberByEmail, mePendingCrew, PENDING_OPS } from "./pending.ts";
 import { readPendingInvites } from "./pending-invites.ts";
 import { requestAccessAction } from "./request-access.ts";
+import { clubLinkEnqueueArgs, writeActionIpMax } from "./access-queue.ts";
+import { presaleCodeAction } from "./presale-code.ts";
 import { createCitiesReader } from "./cities.ts";
 import * as GW from "./wallet-google.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
@@ -88,7 +90,7 @@ function clientIp(req: Request): string {
 
 const Body = z.object({
   action: z.enum(["bundle", "regulation", "site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending",
-    "missions", "mission_upload_url", "submit_mission", "profile", "profile_confirm", "profile_birth", "profile_preferences", "profile_countries", "cities", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google", "erase_account"]),
+    "missions", "mission_upload_url", "submit_mission", "profile", "profile_confirm", "profile_birth", "profile_preferences", "profile_countries", "cities", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google", "erase_account", "presale_code"]),
   confirm: z.literal("APAGAR").optional(),
   dry_run: z.boolean().optional(),
   profile_payload: z.unknown().optional(),
@@ -199,16 +201,13 @@ async function sendClubLink(site: { id: string; company_id: string }, m: { id: s
     metadata: { member_id: m.id },
   });
   if (logErr) throw new PreSendError(`email_send_log: ${logErr.message}`);
-  const { error: qErr } = await sb.rpc("enqueue_email", {
-    queue_name: "transactional_emails",
-    payload: {
+  const { error: qErr } = await sb.rpc("enqueue_email", clubLinkEnqueueArgs(kind, {
       message_id: messageId, company_id: site.company_id, to: email,
       from: `Newgang Festival <clube@${SENDER_DOMAIN}>`, sender_domain: SENDER_DOMAIN,
       subject: reminder ? REMINDER_SUBJECT : welcome ? "Confirma a tua entrada no Clube Newgang" : "O teu acesso ao Clube Newgang",
       html, text, purpose: "transactional", label, idempotency_key: messageId,
       ...(kind === "access" ? {} : { unsubscribe_http_url: unsub.oneClick }), queued_at: new Date().toISOString(),
-    },
-  });
+  }));
   if (qErr) throw new Error(`enqueue_email: ${qErr.message}`);
 }
 
@@ -659,6 +658,24 @@ Deno.serve(async (req) => {
   try {
     const pa = performance.now();
     const raw = await req.json();
+    // Recebe o corpo original: Zod não pode remover campos extra nem mudar os erros de sessão.
+    if (raw?.action === "presale_code") {
+      const result = await presaleCodeAction(raw, clientIp(req), {
+        now: Date.now, sha256, getSite, memberFromToken,
+        rateHit: async (args) => await sb.rpc("portal_rate_hit", args),
+        readCode: async (email) => {
+          const { data, error } = await sb.from("club_presale_codes").select("code").eq("email", email).maybeSingle();
+          if (error) throw error;
+          return data?.code ?? null;
+        },
+        readExclusion: async (email) => {
+          const { data, error } = await sb.from("club_presale_exclusions").select("email").eq("email", email).maybeSingle();
+          if (error) throw error;
+          return data !== null;
+        },
+      });
+      return json(result.body, result.status);
+    }
     if (raw?.action === "request_access" && typeof raw.email === "string") raw.email = raw.email.trim().toLowerCase();
     if (["profile_confirm", "profile_birth", "profile_preferences"].includes(raw?.action) && Object.keys(raw).some(k => !["action", "token", "profile_payload", "preferences_payload"].includes(k))) return json({ error: "profile_payload" }, 400);
     const p = Body.safeParse(raw);
@@ -670,7 +687,7 @@ Deno.serve(async (req) => {
 
   if (WRITE_ACTIONS.has(body.action)) {
     const ipHash = await sha256(clientIp(req) + ":ng");
-    const { data: ok, error: rateError } = await sb.rpc("portal_rate_hit", { p_bucket: `ng:${body.action}:${ipHash}`, p_max: 20, p_window_seconds: 600 });
+    const { data: ok, error: rateError } = await sb.rpc("portal_rate_hit", { p_bucket: `ng:${body.action}:${ipHash}`, p_max: writeActionIpMax(body.action), p_window_seconds: 600 });
     if (["profile_confirm", "profile_birth", "profile_preferences"].includes(body.action) && (rateError || typeof ok !== "boolean")) return json({ error: "rate_unavailable" }, 503);
     if (ok === false) {
       if (body.action === "request_access") console.log(JSON.stringify({ action: "request_access", reason: "limitado", ip_hash: ipHash.slice(0, 12) }));

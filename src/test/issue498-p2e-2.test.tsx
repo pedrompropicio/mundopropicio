@@ -377,9 +377,9 @@ describe("#498 P2e-2 — baseline PT capturada antes de alterar PaymentListsTab"
     }
     expect(hashes).toMatchInlineSnapshot(`
       {
-        "adição": "8d43bc2d828bfa33f37bf1f342fd5e3b26f0b50d15746503171329b87db298bf",
+        "adição": "679637069a603a354dcb7806595c6e6acb456456a62d6ad90bc33a31415882ad",
         "aprovação": "8e5d31f425439dcb5be8c72228b52064ff00b1d7d982aa1c60236d8bbe50a0d5",
-        "criação": "b0482eace061baffa5fbf8febd7871251b77a21269ed7adce33d61a70bb6d4f0",
+        "criação": "2e2f922d142d9c1a3d19fa40521ad35354e204ae80ddd88cfd0977efb40fd0c2",
         "detalhe": "c2f92928c2d13e396d73bfaa8a26896826b7a4763010989de08781aa54fb01c1",
         "lista": "2d8747cf4a0dfacf2254a0e3f8473d3bfa0763a8c19c8525e456c9904ca3315a",
       }

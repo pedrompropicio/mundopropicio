@@ -15,7 +15,7 @@ import { computeOutsideBpExcess, computeOutsideBpExcessLines, sumLines } from ".
 import { expandOverheadToSplits, overheadLinesFor } from "./overhead-proration.ts";
 import { expandMasterAdoptedExpensesToSplits } from "./master-adopted-expense-proration.ts";
 import { isValidFechoTransaction, withoutIncomeTax } from "./fecho-filters.ts";
-import { computeSettlementRevenue } from "./settlement-revenue.ts";
+import { computeSettlementRevenue, type TicketProjection } from "./settlement-revenue.ts";
 
 export interface SettlementTotalsBasis {
   includeOverhead: boolean;
@@ -30,6 +30,7 @@ export interface SettlementTotalsInput {
   forecasts: any[];
   /** Vendas de bilhetes já reduzidas a { gross, net }. */
   ticketSales: { gross: number; net: number }[];
+  ticketProjection?: TicketProjection;
   basis: SettlementTotalsBasis;
 }
 
@@ -77,6 +78,7 @@ export function computeEventSettlementTotals(input: SettlementTotalsInput): Sett
   // real, as linhas de BP de receita aprovadas alimentam o bucket.
   const revenue = computeSettlementRevenue({
     ticketSales,
+    ticketProjection: input.ticketProjection,
     incomeTransactions,
     incomeForecasts: forecasts as any[],
   });
