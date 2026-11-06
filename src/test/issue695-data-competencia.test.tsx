@@ -195,8 +195,8 @@ async function openRecurring(offset = "") {
   fireEvent.change(numbers[0], { target: { value: "100" } });
   fireEvent.change(numbers[1], { target: { value: "28" } });
   fireEvent.change(document.body.querySelector('input[type="month"]')!, { target: { value: "2027-01" } });
-  // O limite existente é inclusivo: 11 meses de distância = 12 ocorrências.
-  fireEvent.change(screen.getByPlaceholderText("Ex: 12"), { target: { value: "11" } });
+  // 12 meses = 12 ocorrências.
+  fireEvent.change(screen.getByPlaceholderText("Ex: 12"), { target: { value: "12" } });
   fireEvent.change(screen.getByLabelText("Vence N dias depois da competência"), { target: { value: offset } });
 }
 // Executa a geração anterior (corpo capturado de HEAD antes da mudança) com fixtures.
