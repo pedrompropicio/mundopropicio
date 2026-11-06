@@ -12,6 +12,7 @@ import {
   removeStatementDocument,
   sourceLabel,
   uploadStatementDocument,
+  statementDocumentLabels as labels,
   type StatementDocument,
   type StatementDocumentSource,
 } from "@/lib/ticket-office-statement-documents";
@@ -21,10 +22,12 @@ interface Props {
   documents: StatementDocument[];
   canManage: boolean;
   userId?: string | null;
+  v2?: { status: "draft" | "confirmed"; revision: number };
+  onDocumentsChange?: (documents: StatementDocument[]) => void;
 }
 
 /** Documentos do apuramento: abrir sempre; carregar/remover só admin/manager (RLS). */
-export function TicketOfficeStatementDocuments({ statementId, documents, canManage, userId }: Props) {
+export function TicketOfficeStatementDocuments({ statementId, documents, canManage, userId, v2, onDocumentsChange }: Props) {
   const qc = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
   const [source, setSource] = useState<StatementDocumentSource>("apuramento");
@@ -65,12 +68,17 @@ export function TicketOfficeStatementDocuments({ statementId, documents, canMana
               </button>
               <span className="text-xs text-muted-foreground whitespace-nowrap">{sourceLabel(d.document_source)}</span>
               <span className="text-xs text-muted-foreground whitespace-nowrap">{formatLisbonDateTime(d.created_at)}</span>
-              {canManage && (
+              {canManage && (!v2 || (v2.status === "draft" && onDocumentsChange)) && (
                 <button
                   type="button"
                   aria-label={`Remover ${d.file_name}`}
                   disabled={remove.isPending}
-                  onClick={() => { if (window.confirm(`Remover "${d.file_name}"?`)) remove.mutate(d); }}
+                  onClick={() => {
+                    if (window.confirm(`Remover "${d.file_name}"?`)) {
+                      if (v2) onDocumentsChange?.(documents.filter((item) => item.id !== d.id));
+                      else remove.mutate(d);
+                    }
+                  }}
                   className="ml-auto rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -81,7 +89,16 @@ export function TicketOfficeStatementDocuments({ statementId, documents, canMana
         </ul>
       )}
       {openError && <p role="alert" className="text-xs text-destructive">{openError}</p>}
-      {canManage && (
+      {v2?.status === "confirmed" && <p className="text-xs text-muted-foreground">{labels.frozen}</p>}
+      {canManage && v2 && (
+        <div className="space-y-2">
+          <Button type="button" size="sm" variant="outline" disabled>
+            {v2.status === "confirmed" ? labels.supplement : labels.upload}
+          </Button>
+          <p role="status" className="text-xs text-muted-foreground">{labels.verifierUnavailable}</p>
+        </div>
+      )}
+      {canManage && !v2 && (
         <div className="flex flex-wrap items-center gap-2">
           <Select value={source} onValueChange={(v) => setSource(v as StatementDocumentSource)}>
             <SelectTrigger className="h-8 w-44" aria-label="Natureza do documento"><SelectValue /></SelectTrigger>
