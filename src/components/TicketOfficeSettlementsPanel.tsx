@@ -9,7 +9,9 @@ import { formatDatePT } from "@/lib/utils";
 import { formatLisbonDateTime } from "@/lib/date-lisbon";
 import { useAuth } from "@/contexts/AuthContext";
 import { TicketOfficeSettlementModal } from "./TicketOfficeSettlementModal";
-import { TicketOfficeSettlementViewDialog } from "./TicketOfficeSettlementViewDialog";
+import { TicketOfficeSettlementViewDialog, SettlementEventRightContent } from "./TicketOfficeSettlementViewDialog";
+import { useTicketOfficeStatements } from "@/hooks/useTicketOfficeStatements";
+import { settlementEventRight } from "@/lib/ticket-office-settlement-view";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -29,6 +31,9 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
   const { user, isAdmin, hasPermission } = useAuth();
   const canManage = isAdmin || hasPermission("manage_accounts");
   const queryClient = useQueryClient();
+  const statementRead = useTicketOfficeStatements(officeId);
+  const readBlocked = statementRead.isLoading || statementRead.isError || statementRead.data?.status === "v2_unavailable";
+  const eventRight = (s: any) => settlementEventRight(statementRead.data, s);
 
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -92,6 +97,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
 
   const confirmCreditMutation = useMutation({
     mutationFn: async ({ transferId, settlementId, date, accountId }: { transferId: string; settlementId: string; date: string; accountId: string }) => {
+      if (readBlocked || eventRight(settlements.find((s: any) => s.id === settlementId) ?? {})) throw new Error("Fecho congelado ou leitura documental indisponível");
       if (!date) throw new Error("Indique a data do crédito");
       if (date > new Date().toISOString().slice(0, 10)) throw new Error("A data do crédito não pode ser futura");
       if (!accountId) throw new Error("Selecione o banco do crédito");
@@ -179,6 +185,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
 
   const reverseMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      if (readBlocked || eventRight(settlements.find((s: any) => s.id === id) ?? {})) throw new Error("Fecho congelado ou leitura documental indisponível");
       // #295 (D-ERP219): estorno atómico na base — pernas da transferência,
       // pagamentos, despesas, adiantamentos, carimbo de conciliação e auditoria.
       const { error } = await (supabase as any).rpc("reverse_ticket_office_settlement", {
@@ -217,12 +224,14 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
           </h3>
           <p className="text-sm text-muted-foreground">Consolidação por evento de receitas, despesas e líquido transferido</p>
         </div>
-        {canManage && (
+        {canManage && !readBlocked && (
           <Button onClick={() => { setEditing(null); setShowModal(true); }}>
             <Plus className="h-4 w-4 mr-2" /> Novo Fecho
           </Button>
         )}
       </div>
+
+      {readBlocked && <p role="status">{statementRead.isLoading ? "A ler apuramentos…" : "Leitura de apuramentos indisponível. Escrita bloqueada."}</p>}
 
       {isLoading ? (
         <p className="text-center text-muted-foreground py-8">A carregar…</p>
@@ -233,7 +242,8 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
       ) : (
         <div className="space-y-3">
           {settlements.map((s: any) => {
-            const netFinal = s.net_adjusted ?? s.net_calculated;
+            const right = eventRight(s);
+            const netFinal = right?.amount ?? s.net_adjusted ?? s.net_calculated;
             return (
               <div key={s.id} className="glass rounded-xl p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
@@ -266,7 +276,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                           </span>
                         )
                       )}
-                      {s.status === "confirmed" && !s.statement_id && Number(s.net_transferred || 0) === 0 && Number(netFinal || 0) > 0.01 && (
+                      {!right && s.status === "confirmed" && !s.statement_id && Number(s.net_transferred || 0) === 0 && Number(netFinal || 0) > 0.01 && (
                         <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-2 py-0.5 text-xs text-amber-500" title="Fecho confirmado sem transferência lançada — o líquido continua retido na bilheteira.">
                           <AlertCircle className="h-3 w-3" /> Direito ainda retido na bilheteira
                         </span>
@@ -294,7 +304,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                         <FileText className="h-4 w-4" />
                       </button>
                     )}
-                    {canManage && s.status !== "reversed" && (s.status === "draft" || isAdmin) && (
+                    {!right && !readBlocked && canManage && s.status !== "reversed" && (s.status === "draft" || isAdmin) && (
                       <button
                         onClick={() => { setEditing(s); setShowModal(true); }}
                         className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -303,7 +313,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                         <Pencil className="h-4 w-4" />
                       </button>
                     )}
-                    {isAdmin && s.status === "confirmed" && (
+                    {!right && !readBlocked && isAdmin && s.status === "confirmed" && (
                       <button
                         onClick={() => setReversingId(s.id)}
                         className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/20 hover:text-destructive"
@@ -315,7 +325,9 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                   </div>
                 </div>
 
-                {canManage && s.status === "confirmed" && s.transfer && s.transfer.status === "pending" && (
+                {right && <SettlementEventRightContent right={right} />}
+
+                {!right && !readBlocked && canManage && s.status === "confirmed" && s.transfer && s.transfer.status === "pending" && (
                   <div className="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
                     <span className="text-amber-500">
                       Aguarda confirmação de crédito de <strong className="font-mono">{formatCurrency(Number(s.transfer.amount))}</strong>

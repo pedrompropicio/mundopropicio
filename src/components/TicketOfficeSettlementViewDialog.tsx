@@ -8,7 +8,18 @@ import { formatCurrency } from "@/lib/mock-data";
 import { formatDatePT } from "@/lib/utils";
 import { formatLisbonDateTime } from "@/lib/date-lisbon";
 import { openStatementDocument, sourceLabel } from "@/lib/ticket-office-statement-documents";
-import { fetchSettlementView, SETTLEMENT_STATUS_LABEL, type SettlementView } from "@/lib/ticket-office-settlement-view";
+import { fetchSettlementView, SETTLEMENT_STATUS_LABEL, type SettlementView, type SettlementEventRight } from "@/lib/ticket-office-settlement-view";
+
+export function SettlementEventRightContent({ right }: { right: SettlementEventRight }) {
+  return <div className="rounded-lg border border-sky-500/40 bg-sky-500/5 p-3 space-y-1 text-sm" data-testid="settlement-event-right">
+    <p className="font-semibold">Direito do evento (quota documental do PDF): {formatCurrency(right.amount)}</p>
+    <p>Congelado · apuramento confirmado nº {right.statementNumber}</p>
+    <p>Bruto documental: {formatCurrency(right.gross)} · Retido pela sala: {formatCurrency(right.retained)}</p>
+    {right.deductions.map(d => <p key={d.id}>{d.description}: {formatCurrency(d.amount)}</p>)}
+    <p className="text-xs text-muted-foreground">{right.documentPage ? `PDF · página ${right.documentPage}` : "PDF"}{right.documentLineRef ? ` · ${right.documentLineRef}` : ""}. A transferência efectiva é apresentada separadamente.</p>
+    <a href={right.href} className="text-primary hover:underline">ver apuramento</a>
+  </div>;
+}
 
 /** Corpo de leitura do fecho — sem campos editáveis, nada grava. */
 export function SettlementReadContent({ v }: { v: SettlementView }) {
@@ -19,6 +30,8 @@ export function SettlementReadContent({ v }: { v: SettlementView }) {
         <p>Data do fecho: {formatDatePT(v.settlementDate)} · Estado: <span className="text-foreground">{SETTLEMENT_STATUS_LABEL[v.status] ?? v.status}</span></p>
         {v.statementNumber && <p>Apuramento Ticketline nº {v.statementNumber}</p>}
       </div>
+
+      {v.eventRight && <SettlementEventRightContent right={v.eventRight} />}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
@@ -103,8 +116,8 @@ interface Props {
 
 export function TicketOfficeSettlementViewDialog({ settlement, officeName, onClose }: Props) {
   const [exporting, setExporting] = useState(false);
-  const { data: view, isLoading } = useQuery({
-    queryKey: ["ticket_office_settlement_view", settlement?.id],
+  const { data: view, isLoading, isError } = useQuery({
+    queryKey: ["ticket_office_settlement_view", settlement?.company_id, settlement?.financial_account_id, settlement?.id],
     enabled: !!settlement,
     queryFn: () => fetchSettlementView(settlement, officeName),
   });
@@ -129,7 +142,7 @@ export function TicketOfficeSettlementViewDialog({ settlement, officeName, onClo
           <DialogTitle>Fecho — {settlement?.events?.name ?? "—"}</DialogTitle>
           <DialogDescription>{officeName} · só leitura</DialogDescription>
         </DialogHeader>
-        {isLoading || !view ? (
+        {isError ? <p role="alert">Não foi possível ler o direito documental do evento.</p> : isLoading || !view ? (
           <p className="text-center text-muted-foreground py-6">A carregar…</p>
         ) : (
           <SettlementReadContent v={view} />
