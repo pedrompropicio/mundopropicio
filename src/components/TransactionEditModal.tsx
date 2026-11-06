@@ -2629,7 +2629,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           </div>
           )}
 
-          {Math.abs(differenceInCalendarMonths(parseISO(form.date || ""), parseISO(form.due_date))) > 2 && (
+          {!paidLocked && Math.abs(differenceInCalendarMonths(parseISO(form.date || ""), parseISO(form.due_date))) > 2 && (
             <p role="status" className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-muted-foreground">
               A competência e o vencimento estão separados por mais de 2 meses. Confirme a data de competência; pode gravar sem alterar.
             </p>
