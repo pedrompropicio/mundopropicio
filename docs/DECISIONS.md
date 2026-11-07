@@ -6667,3 +6667,18 @@ Origem: 0 · Cowork (Claude), 31/10/2026.
   - fica fora do âmbito o `cron.job_run_details`.
 - **Não autoriza:** SQL de escrita em Live (incluindo o acerto do registo), recaptura, Publish, deploy, rodar segredos.
 - Fonte: #748 (corpo e comentários 6685626445, 6685745249, 6685812811, 6685853560 e 6686038381) e #473, comentário 6685501279.
+
+## D-ERP358 — Levantamento do congelamento da #748 (07/11/2026)
+
+- **Congelamento levantado:** decisão do Pedro de 07/11 ~09:18 UTC, após o fecho dos passos 5 e 6 da #748.
+- O G2-748 deu verde no run 42338125170 do replay privado, com 0 bloqueantes (07/11 04:24 UTC); o registo `drizzle.__drizzle_migrations` foi acertado igual nos dois ambientes a 07/11 (332 linhas, agregado `8ecc8317…`).
+- A rotação da password do `postgres` do homolog fica adiada; o segredo `MP_HOMOLOG_DB_PASSWORD` mantém-se até ao fim da fila.
+- A fila 0342–0348 e a 0335 PARTE 2 seguem o PROC-promocao: homolog primeiro, depois produção com «Corro?».
+- A 0341 foi aplicada pelo PROC nos dois ambientes a 07/11; o registo ficou com 333 linhas, agregado `61025b4a…`.
+- Fonte: #748, decisão do Pedro 07/11.
+
+## D-ERP359 — Alteração à D-ERP357 — rotação a 90 dias (06/11/2026)
+
+- Por decisão do Pedro de 06/11 ~22:20 UTC (comentário 6697229787), a rotação da password do role `mp_homolog_leitura` e do token `MP_ISSUES_COMMENT_TOKEN` passa de 30 para **90 dias**.
+- Altera a D-ERP357; lembrete a 04/02/2027.
+- Fonte: #748, comentário 6697229787.
