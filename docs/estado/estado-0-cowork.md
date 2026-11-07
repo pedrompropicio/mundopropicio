@@ -8,7 +8,7 @@
 >
 > **Repo público.** Sem valores, contratos, dados pessoais nem segredos.
 
-**Congelamento (#748):** nenhuma migração de estrutura vai a Live até o passo 5 da #748 ficar verde (G2-748). Fila 0341–0348 e 0335 PARTE 2 parada.
+**Congelamento (#748): LEVANTADO a 07/11** (decisão do Pedro, 6704966257), depois do G2-748 verde e do passo 6 igual nos dois lados. A fila 0342–0348 e a 0335 PARTE 2 seguem pelo PROC: mp-homolog-3 primeiro, depois Live com «Corro?». Registo de migrações: 333 / `61025b4a…` (com a 0341).
 
 **Comando actual:** «0 - Cowork (MP)», desde 05/11/2026 (decisão do Pedro). Handoff: `../handoffs/2026-11-05-0-cowork-pessoal-para-mp.md`.
 
@@ -34,6 +34,14 @@
 17. #303: R1–R9 em `main` (0345–0348 preparadas); R10 em curso; R11 coordena #333; R12 com o Pedro (PDFs). Lacuna da R6 para o Pedro: falta o verificador de ficheiros no servidor (`issue303_private.verified_files`), por isso o carregamento v2 e o «Juntar complemento» estão desactivados.
 
 ## Registo (mais recente primeiro)
+- 07/11 ~09:23 · 0 MP · #748 · 0341 aplicada em Live com «Corre» do Pedro (envelope `ae890c20…`; registo 333 / `61025b4a…` = homolog; 66 objectos de aplicação iguais, ACL difere só por `sandbox_exec` da plataforma) (6705014315) · ok.
+- 07/11 ~09:20 · 0 MP · #748 · 0341 aplicada no mp-homolog-3 (SQL Editor, sha256 conferido; 333 / `61025b4a…`) (6704983734) · ok.
+- 07/11 ~09:18 · Pedro · #748 · congelamento de estrutura em Live levantado; rotação da password do homolog adiada, segredo mantém-se até ao fim da fila (6704966257) · decisão.
+- 07/11 ~08:39 · 0 MP · #748 · passo 6 aplicado no mp-homolog-3 e em Live com «Sim» do Pedro (v2 `bb7adf74…`; 332 / `8ecc8317…` nos dois lados) (6704599681) · ok.
+- 07/11 ~08:31 · 0 MP · #748 · G2-748 verde confirmado no artefacto (run 42338125170, 0 bloqueantes); passo 6 v1 corrigido para v2 (`;` dentro de comentário) (6704522066) · ok.
+- 07/11 04:24 · 0 pessoal · #748 · vars do replay em `d977bcd` e G2 disparado: run 42338125170 verde (6702214277) · ok.
+- 07/11 04:15 · 0 MP · #748 · merge do PR replay#12 (provas N9 e 8 alvos de plataforma; `d977bcd`) ao abrigo de 6701465293 (6702127132) · ok.
+- 06–07/11 noite · 0 MP · #748 · merges replay#9 (`.env` fixado, «Sim» do Pedro), #10 (privilégios e registos, «Sim» do Pedro) e #11 (regra do registo supabase, ao abrigo de 6701465293) · ok.
 - 06/11 23:20 · 0 MP · #748 · Fecho E2b do G2-748 (6697928746): entrega feita (commit `237b7d8`, 7 ficheiros, 24 testes OK), push recusado por falta de «Workflows: Read and write» no token `e2b-replay` · em correcção.
 - 06/11 22:51 · 0 MP · #748 · `mplabs-dev` suspensa pelo GitHub (~22:29); G2-748 passa à frente 2 (Codex na E2b, decisão do Pedro 6697743052): Reserva 6697775481 e Despacho 6697780412 · despachado.
 - 06/11 22:30 · 0 MP · #748 · merge do PR replay#6 (ferramentas G2 da R10 byte a byte, 53 ficheiros; árvores conferidas; main do replay `3c8416a`) · ok.
